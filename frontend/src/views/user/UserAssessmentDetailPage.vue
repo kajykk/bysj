@@ -64,6 +64,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { userApi, type AssessmentRecordItem } from '@/api/userApi'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import { normalizeHttpError } from '@/utils/errorPolicy'
+// P2-A 修复：复用 formatUtils 的 formatDate（别名 formatDateTime 保持模板兼容），避免本地重复定义
+import { formatDate as formatDateTime } from '@/utils/formatUtils'
 
 const route = useRoute()
 const router = useRouter()
@@ -77,14 +79,6 @@ const recordId = computed(() => Number(route.params.id))
 const assessmentTypeLabel = (value?: string) => {
   const map: Record<string, string> = { structured: '结构化', text: '文本', physiological: '生理', record: '记录' }
   return map[value || ''] || value || '-'
-}
-
-const formatDateTime = (value: string) => {
-  try {
-    return new Date(value).toLocaleString()
-  } catch {
-    return value
-  }
 }
 
 const fetchDetail = async () => {

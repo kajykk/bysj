@@ -374,6 +374,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import CountUp from '@/components/common/CountUp.vue'
 import type { ActiveIntervention, RiskReport, RiskTrend } from '@/api/userRiskApi'
 import type { WarningItem, DataHistoryItem } from '@/api/userTypes'
+// P2-D 修复：复用 riskFormatters 的 getRiskScoreColor，消除魔法数字
+import { getRiskScoreColor } from '@/utils/riskFormatters'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -425,13 +427,7 @@ const assessmentError = ref('')
 
 const completedTasks = computed(() => activeIntervention.value.tasks.filter((t) => t.today_status === 'completed').length)
 
-const riskColor = computed(() => {
-  const s = riskReport.value.risk_score
-  if (s <= 20) return '#67c23a'
-  if (s <= 40) return '#e6a23c'
-  if (s <= 60) return '#f56c6c'
-  return '#c45656'
-})
+const riskColor = computed(() => getRiskScoreColor(riskReport.value.risk_score))
 
 const severityLabel = computed(() => {
   const map: Record<string, string> = { none: '无风险', mild: '轻度', moderate: '中度', high: '较高', critical: '严重', unknown: '未知' }

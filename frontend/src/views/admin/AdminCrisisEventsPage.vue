@@ -142,6 +142,8 @@ import FilterBar from '@/components/common/FilterBar.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
+// P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
+import { formatDate } from '@/utils/formatUtils'
 
 interface CrisisEventItem {
   id: number
@@ -229,23 +231,6 @@ const getScoreColor = (score: number | null): string => {
   if (score >= 80) return '#f56c6c'
   if (score >= 50) return '#e6a23c'
   return '#67c23a'
-}
-
-const formatDate = (dateStr: string): string => {
-  if (!dateStr) return '-'
-  try {
-    const d = new Date(dateStr)
-    return d.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  } catch {
-    return dateStr
-  }
 }
 
 const fetchData = async () => {

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.pii_crypto import mask_pii
 from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.core.security import create_access_token, create_refresh_token, decode_token
@@ -115,8 +116,8 @@ async def login(request: Request, response: Response, payload: LoginRequest, db:
     try:
         data = await service.login(payload)
         user_info = data.get("user") or {}
-        # 修复：成功日志也应对 username 脱敏，与失败日志策略一致，避免 PII 泄露到日志系统
-        _masked_user = payload.username[:2] + "***" if len(payload.username) > 2 else "***"
+        # P2-B 修复：复用 mask_pii 进行 username 脱敏，避免重复逻辑
+        _masked_user = mask_pii(payload.username, keep_first=2)
         logger.info(
             "auth.login.success username=%s role=%s user_id=%s ip=%s",
             _masked_user,
@@ -131,7 +132,8 @@ async def login(request: Request, response: Response, payload: LoginRequest, db:
         return ok(data)
     except ValueError as exc:
         # P1-SEC-018 修复：对 username 做脱敏处理，避免 PII 泄露到日志
-        _masked_user = payload.username[:2] + "***" if len(payload.username) > 2 else "***"
+        # P2-B 修复：复用 mask_pii 进行 username 脱敏，避免重复逻辑
+        _masked_user = mask_pii(payload.username, keep_first=2)
         logger.warning(
             "auth.login.failed username=%s reason=%s ip=%s",
             _masked_user,

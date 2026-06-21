@@ -160,13 +160,25 @@ class EncryptedString(TypeDecorator):
             return "[DECRYPTION_FAILED]"
 
 
-def mask_pii(value: str | None, *, keep_last: int = 0) -> str:
+def mask_pii(value: str | None, *, keep_last: int = 0, keep_first: int = 0) -> str:
     """对 PII 脱敏（用于日志/审计）.
 
     注意: Python 中 -0 == 0, 所以 value[-0:] == value, 因此 keep_last=0 必须特判.
+
+    Args:
+        value: 待脱敏的原始值。
+        keep_last: 保留末尾 N 个字符，其余用 * 替换。
+        keep_first: 保留开头 N 个字符，其余用 * 替换。keep_first 与 keep_last 不可同时大于 0。
     """
     if not value:
         return ""
+    if keep_first > 0 and keep_last > 0:
+        # 优先使用 keep_first，避免歧义
+        keep_last = 0
+    if keep_first > 0:
+        if len(value) <= keep_first:
+            return "*" * len(value)
+        return value[:keep_first] + ("*" * (len(value) - keep_first))
     if keep_last <= 0:
         return "*" * len(value)
     if len(value) <= keep_last:

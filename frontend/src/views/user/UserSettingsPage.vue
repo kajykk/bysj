@@ -273,6 +273,8 @@ import type { BindCounselorResult } from '@/api/userBindingApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { setStoredAuth } from '@/utils/authStorage'
 import { checkPasswordBytes, MAX_PASSWORD_BYTES } from '@/utils/passwordValidation'
+// P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
+import { formatDate } from '@/utils/formatUtils'
 
 const auth = useAuthStore()
 
@@ -281,14 +283,6 @@ const roleLabel = computed(() => {
   if (auth.role === 'counselor') return '咨询师'
   return '普通用户'
 })
-
-const formatDate = (iso: string) => {
-  try {
-    return new Date(iso).toLocaleString()
-  } catch {
-    return iso
-  }
-}
 
 const settingsLoading = ref(true)
 const settingsSaving = ref(false)
