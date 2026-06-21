@@ -1,0 +1,48 @@
+// 主题变量定义
+// 浅色主题（默认）
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f7fa;
+  --bg-tertiary: #f0f2f5;
+  --text-primary: #303133;
+  --text-secondary: #606266;
+  --text-tertiary: #909399;
+  --border-color: #dcdfe6;
+  --border-light: #e4e7ed;
+  --primary-color: #409eff;
+  --primary-light: #ecf5ff;
+  --success-color: #67c23a;
+  --warning-color: #e6a23c;
+  --danger-color: #f56c6c;
+  --info-color: #909399;
+}
+
+// 深色主题
+html.dark {
+  --bg-primary: #141414;
+  --bg-secondary: #1d1d1d;
+  --bg-tertiary: #262626;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #737373;
+  --border-color: #434343;
+  --border-light: #2c2c2c;
+  --primary-color: #5b8ff9;
+  --primary-light: #1a1a2e;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --danger-color: #ff4d4f;
+  --info-color: #737373;
+}
+
+// 主题过渡动画
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+// 禁用某些元素的主题过渡
+.el-loading-mask,
+.el-message,
+.el-notification {
+  transition: none !important;
+}

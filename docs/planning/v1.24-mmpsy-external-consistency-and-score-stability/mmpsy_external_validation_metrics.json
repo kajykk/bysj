@@ -1,0 +1,24 @@
+{
+  "dataset": "mmpsy",
+  "samples": 1275,
+  "feature_coverage_pct": 50.0,
+  "constrained": true,
+  "auc": 0.6248694671209591,
+  "precision": 0.2539454806312769,
+  "recall": 0.686046511627907,
+  "f1": 0.3706806282722513,
+  "specificity": 0.4886922320550639,
+  "confusion_matrix": {
+    "tn": 497,
+    "fp": 520,
+    "fn": 81,
+    "tp": 177
+  },
+  "pearson_r": 0.2151,
+  "pearson_p": 0.0,
+  "spearman_rho": 0.1239,
+  "spearman_p": 9e-06,
+  "high_risk_recall": 0.686,
+  "subset_3feature_auc": 0.9993,
+  "auc_gap_12vs3": -0.3744
+}

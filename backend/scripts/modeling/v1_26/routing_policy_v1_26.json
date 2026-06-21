@@ -1,0 +1,18 @@
+{
+  "routing_thresholds": {
+    "feature_coverage": 0.8,
+    "lite_min_text_length": 20
+  },
+  "routes": [
+    "structured",
+    "lite",
+    "anxiety_only",
+    "insufficient"
+  ],
+  "notes": [
+    "structured route requires >=80% of 14 expected structured fields",
+    "lite route requires GAD-7 + text >=20 chars",
+    "anxiety_only route is GAD-7 only fallback (heuristic GAD-7 × 1.29)",
+    "insufficient route means no usable input features"
+  ]
+}

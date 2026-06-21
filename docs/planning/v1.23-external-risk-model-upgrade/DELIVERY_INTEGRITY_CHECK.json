@@ -1,0 +1,90 @@
+{
+  "check_date": "2026-05-02",
+  "version": "v1.23-external-risk-model-upgrade",
+  "categories": [
+    {
+      "category": "scripts",
+      "directory": "E:\\code\\bysj\\backend\\scripts\\modeling\\v1_23",
+      "expected": 8,
+      "present": 8,
+      "missing": [],
+      "present_files": [
+        "01_prepare_external_dataset.py",
+        "02_train_external_lr.py",
+        "03_evaluate_external_lr.py",
+        "04_compare_with_existing_models.py",
+        "05_calibrate_thresholds.py",
+        "05_external_validation.py",
+        "06_export_model_artifacts.py",
+        "07_generate_reports.py"
+      ]
+    },
+    {
+      "category": "model_artifacts",
+      "directory": "E:\\code\\bysj\\backend\\models\\v1.23_external_lr",
+      "expected": 18,
+      "present": 18,
+      "missing": [],
+      "present_files": [
+        "model.pkl",
+        "preprocessor.pkl",
+        "feature_schema.json",
+        "threshold_config.json",
+        "calibration_config.json",
+        "metrics.json",
+        "metrics_train.json",
+        "metrics_eval.json",
+        "comparison_metrics.json",
+        "confusion_matrix.json",
+        "external_validation_metrics.json",
+        "feature_coefficients.csv",
+        "roc_curve.csv",
+        "pr_curve.csv",
+        "calibration_curve.csv",
+        "score_distribution_histogram.csv",
+        "model_delta_samples.csv",
+        "model_card.md"
+      ]
+    },
+    {
+      "category": "processed_data",
+      "directory": "E:\\code\\bysj\\data\\processed\\v1_23_external",
+      "expected": 5,
+      "present": 5,
+      "missing": [],
+      "present_files": [
+        "train.csv",
+        "validation.csv",
+        "test.csv",
+        "external_mmpsy.csv",
+        "split_metadata.json"
+      ]
+    },
+    {
+      "category": "reports",
+      "directory": "E:\\code\\bysj\\docs\\planning\\v1.23-external-risk-model-upgrade",
+      "expected": 10,
+      "present": 10,
+      "missing": [],
+      "present_files": [
+        "V1.23_IMPLEMENTATION_PLAN.md",
+        "DATA_ASSET_CHECKLIST.md",
+        "DATA_PREPARATION_REPORT.md",
+        "TRAINING_REPORT.md",
+        "MODEL_EVALUATION_REPORT.md",
+        "CALIBRATION_REPORT.md",
+        "EXTERNAL_VALIDATION_REPORT.md",
+        "MODEL_COMPARISON_REPORT.md",
+        "DEPLOYMENT_DECISION_REPORT.md",
+        "DELIVERY_REPORT.md"
+      ]
+    }
+  ],
+  "summary": {
+    "total_expected": 41,
+    "total_present": 41,
+    "total_missing": 0,
+    "integrity_pct": 100.0,
+    "all_complete": true
+  }
+}

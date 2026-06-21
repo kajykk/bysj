@@ -1,0 +1,122 @@
+name: e2e-tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  e2e-test:
+    name: E2E Full Stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run sklearn & model compatibility check
+        working-directory: backend
+        run: |
+          python scripts/check_compatibility.py --json
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+
+      - name: Start backend (production-like)
+        working-directory: backend
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info &
+          echo "BACKEND_PID=$!" >> $GITHUB_ENV
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite:///./test_e2e.db
+          MODEL_DIR: ${{ github.workspace }}/models
+
+      - name: Wait for backend healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8000/health | grep -q '"ok"'; then
+              echo "Backend healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Backend failed to become healthy within 30s"
+          exit 1
+
+      - name: Verify core API endpoints
+        run: |
+          echo "--- /health ---"
+          curl -s http://localhost:8000/health | python -m json.tool
+          echo "--- /health/ready ---"
+          curl -s http://localhost:8000/health/ready | python -m json.tool
+          echo "--- /health/seed ---"
+          curl -s http://localhost:8000/health/seed | python -m json.tool
+
+      - name: Build and start frontend (production mode)
+        working-directory: frontend
+        run: |
+          npm run build
+          npx serve dist -l 5173 &
+          echo "FRONTEND_PID=$!" >> $GITHUB_ENV
+        env:
+          VITE_API_BASE_URL: http://localhost:8000/api/v1
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 20); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:5173 | grep -q "200"; then
+              echo "Frontend ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Frontend failed to start within 20s"
+          exit 1
+
+      - name: Run E2E tests (against real backend)
+        working-directory: frontend
+        run: |
+          npx playwright test --project=chromium --reporter=list
+        env:
+          CI: true
+
+      - name: Upload E2E test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
+
+      - name: Stop services
+        if: always()
+        run: |
+          kill $BACKEND_PID 2>/dev/null || true
+          kill $FRONTEND_PID 2>/dev/null || true

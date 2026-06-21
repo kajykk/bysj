@@ -1,0 +1,14 @@
+dist
+node_modules
+coverage
+*.d.ts
+public
+*.js
+auto-imports.d.ts
+components.d.ts
+vite-env.d.ts
+csp.d.ts
+env.d.ts
+test-vue.ts
+coverage-html
+htmlcov

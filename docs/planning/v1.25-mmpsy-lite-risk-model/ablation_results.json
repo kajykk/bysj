@@ -1,0 +1,175 @@
+{
+  "A": {
+    "name": "PHQ-9 Only (upper bound)",
+    "features": [
+      "phq9_score"
+    ],
+    "metrics": {
+      "auc": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "f1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "recall": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "specificity": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    }
+  },
+  "B": {
+    "name": "GAD-7 Only (anxiety baseline)",
+    "features": [
+      "gad7_score"
+    ],
+    "metrics": {
+      "auc": {
+        "mean": 0.9195,
+        "std": 0.0164
+      },
+      "f1": {
+        "mean": 0.7241,
+        "std": 0.0419
+      },
+      "recall": {
+        "mean": 0.8101,
+        "std": 0.0448
+      },
+      "specificity": {
+        "mean": 0.8909,
+        "std": 0.0247
+      }
+    }
+  },
+  "C": {
+    "name": "Text Keywords Only",
+    "features": [
+      "kw_academic_pressure",
+      "kw_sleep_problem",
+      "kw_social_withdrawal",
+      "kw_self_harm_crisis",
+      "kw_exercise_deficit",
+      "kw_low_mood",
+      "kw_anxiety_somatic",
+      "total_keywords",
+      "unique_categories"
+    ],
+    "metrics": {
+      "auc": {
+        "mean": 0.6893,
+        "std": 0.034
+      },
+      "f1": {
+        "mean": 0.4345,
+        "std": 0.0291
+      },
+      "recall": {
+        "mean": 0.492,
+        "std": 0.0365
+      },
+      "specificity": {
+        "mean": 0.8034,
+        "std": 0.0285
+      }
+    }
+  },
+  "D": {
+    "name": "GAD-7 + Text (v1.25 core)",
+    "features": [
+      "gad7_score",
+      "kw_academic_pressure",
+      "kw_sleep_problem",
+      "kw_social_withdrawal",
+      "kw_self_harm_crisis",
+      "kw_exercise_deficit",
+      "kw_low_mood",
+      "kw_anxiety_somatic",
+      "total_keywords",
+      "unique_categories"
+    ],
+    "metrics": {
+      "auc": {
+        "mean": 0.9157,
+        "std": 0.0202
+      },
+      "f1": {
+        "mean": 0.6977,
+        "std": 0.0302
+      },
+      "recall": {
+        "mean": 0.814,
+        "std": 0.0498
+      },
+      "specificity": {
+        "mean": 0.8683,
+        "std": 0.0187
+      }
+    }
+  },
+  "E": {
+    "name": "GAD-7 + Text + Demo (v1.25 full)",
+    "features": [
+      "gad7_score",
+      "total_keywords",
+      "unique_categories",
+      "age",
+      "gender",
+      "cgpa",
+      "kw_academic_pressure",
+      "kw_sleep_problem",
+      "kw_social_withdrawal",
+      "kw_self_harm_crisis",
+      "kw_exercise_deficit",
+      "kw_low_mood",
+      "kw_anxiety_somatic",
+      "text_length",
+      "chinese_ratio",
+      "text_quality_flag",
+      "coverage_density"
+    ],
+    "metrics": {
+      "auc": {
+        "mean": 0.9132,
+        "std": 0.0206
+      },
+      "f1": {
+        "mean": 0.7019,
+        "std": 0.0353
+      },
+      "recall": {
+        "mean": 0.8141,
+        "std": 0.0509
+      },
+      "specificity": {
+        "mean": 0.8712,
+        "std": 0.028
+      }
+    }
+  },
+  "D_vs_B": {
+    "p_value": 0.501,
+    "alpha_corrected": 0.005,
+    "significant": false
+  },
+  "E_vs_B": {
+    "p_value": 0.506,
+    "alpha_corrected": 0.005,
+    "significant": false
+  },
+  "D_vs_C": {
+    "p_value": 0.578,
+    "alpha_corrected": 0.005,
+    "significant": false
+  },
+  "E_vs_C": {
+    "p_value": 0.561,
+    "alpha_corrected": 0.005,
+    "significant": false
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "name": "health_check",
+    "ok": true,
+    "status": 200,
+    "detail": "{'status': 'ok', 'checks': {'database': 'ok', 'redis': 'unknown', 'celery_worker': 'unknown'}}"
+  },
+  {
+    "name": "engine_snapshot",
+    "ok": false,
+    "status": 401,
+    "detail": "HTTP Error 401: Unauthorized"
+  },
+  {
+    "name": "route_structured",
+    "ok": false,
+    "status": 401,
+    "detail": "HTTP Error 401: Unauthorized"
+  },
+  {
+    "name": "route_lite",
+    "ok": false,
+    "status": 401,
+    "detail": "HTTP Error 401: Unauthorized"
+  },
+  {
+    "name": "route_anxiety_only",
+    "ok": false,
+    "status": 401,
+    "detail": "HTTP Error 401: Unauthorized"
+  },
+  {
+    "name": "route_insufficient",
+    "ok": false,
+    "status": 401,
+    "detail": "HTTP Error 401: Unauthorized"
+  },
+  {
+    "name": "route_crisis",
+    "ok": false,
+    "status": 401,
+    "detail": "HTTP Error 401: Unauthorized"
+  },
+  {
+    "name": "route_invalid",
+    "ok": false,
+    "status": 401,
+    "detail": "HTTP Error 401: Unauthorized"
+  }
+]
