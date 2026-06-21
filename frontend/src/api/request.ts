@@ -55,7 +55,9 @@ export async function refreshAccessToken(): Promise<string | null> {
     setStoredAuth({ token: newToken, user: newUser })
     broadcastAuthSync({ token: newToken, user: newUser })
     return newToken
-  } catch {
+  } catch (error) {
+    // P2-C 修复：记录 token 刷新失败原因，便于排查网络/服务异常（不改变返回 null 的行为）
+    console.warn('[refreshAccessToken] token refresh failed:', error)
     return null
   }
 }

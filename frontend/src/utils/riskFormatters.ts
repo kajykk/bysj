@@ -5,6 +5,38 @@
  * 便于单元测试和跨组件复用。
  */
 
+/**
+ * 风险分数阈值（与后端 RISK_LEVEL_THRESHOLDS 保持一致）。
+ * P2-D 修复：消除前端魔法数字，集中管理阈值。
+ */
+export const RISK_SCORE_THRESHOLDS = {
+  mild: 20,
+  moderate: 40,
+  high: 60,
+} as const
+
+/**
+ * 风险等级对应的基础颜色。
+ * P2-D 修复：消除前端魔法数字，集中管理颜色。
+ */
+export const RISK_SCORE_COLORS = {
+  low: '#67c23a',      // 0-20: 绿色（低风险）
+  mild: '#e6a23c',     // 21-40: 橙色（轻度）
+  moderate: '#f56c6c', // 41-60: 红色（中度）
+  high: '#c45656',     // 61+: 深红（较高）
+} as const
+
+/**
+ * 根据风险分数返回对应的基础颜色。
+ * P2-D 修复：消除 UserDashboard.vue 中的魔法数字。
+ */
+export function getRiskScoreColor(score: number): string {
+  if (score <= RISK_SCORE_THRESHOLDS.mild) return RISK_SCORE_COLORS.low
+  if (score <= RISK_SCORE_THRESHOLDS.moderate) return RISK_SCORE_COLORS.mild
+  if (score <= RISK_SCORE_THRESHOLDS.high) return RISK_SCORE_COLORS.moderate
+  return RISK_SCORE_COLORS.high
+}
+
 /** 特征字段中文标签映射 */
 export const featureLabelMap: Record<string, string> = {
   age: '年龄', gender: '性别', study_year: '年级', cgpa: 'GPA',

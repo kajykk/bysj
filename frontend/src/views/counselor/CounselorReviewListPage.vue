@@ -151,6 +151,8 @@ import { Refresh, Warning } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 // 使用项目封装的 request 实例，确保 Authorization 注入、401 刷新与统一错误处理
 import request from '@/api/request'
+// P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
+import { formatDate } from '@/utils/formatUtils'
 
 // P1-E 修复：移除 any 类型，定义明确的接口类型
 interface ReviewItem {
@@ -279,10 +281,6 @@ const getStatusLabel = (status: string) => {
     escalated: '已升级',
   }
   return labels[status] || '未知'
-}
-
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleString('zh-CN')
 }
 
 onMounted(() => {

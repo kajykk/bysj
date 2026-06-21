@@ -115,6 +115,8 @@ import { Check, Top } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // 使用项目封装的 request 实例，确保 Authorization 注入、401 刷新与统一错误处理
 import request from '@/api/request'
+// P2-A 修复：使用共享的 formatDate 替代本地重复实现
+import { formatDate } from '@/utils/formatUtils'
 
 // P1-E 修复：移除 any 类型，定义明确的接口类型
 interface ReviewDetail {
@@ -255,9 +257,7 @@ const getStatusLabel = (status: string) => {
   return labels[status] || '未知'
 }
 
-const formatDate = (date: string) => {
-  return date ? new Date(date).toLocaleString('zh-CN') : '-'
-}
+// P2-A 修复：formatDate 已从 @/utils/formatUtils 导入，移除本地重复定义
 
 onMounted(() => {
   loadReview()
