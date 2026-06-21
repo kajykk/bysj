@@ -1,0 +1,74 @@
+:root {
+  --primary-color: #409eff;
+  --primary-light: #ecf5ff;
+  --success-color: #67c23a;
+  --warning-color: #e6a23c;
+  --danger-color: #f56c6c;
+  --info-color: #909399;
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+  --text-placeholder: #a8abb2;
+  --border-color: #dcdfe6;
+  --border-light: #e4e7ed;
+  --border-lighter: #ebeef5;
+  --border-extra-light: #f2f6fc;
+  --bg-color: #ffffff;
+  --bg-page: #f5f7fa;
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --spacing-base: 8px;
+  --radius-base: 4px;
+  --radius-large: 8px;
+  --shadow-base: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  --shadow-light: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --transition-duration: 0.3s;
+  --transition-timing: ease-in-out;
+  --font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  --font-size-extra-large: 20px;
+  --font-size-large: 18px;
+  --font-size-medium: 16px;
+  --font-size-base: 14px;
+  --font-size-small: 13px;
+  --font-size-extra-small: 12px;
+}
+
+$primary-color: var(--primary-color);
+$success-color: var(--success-color);
+$warning-color: var(--warning-color);
+$danger-color: var(--danger-color);
+$info-color: var(--info-color);
+$text-primary: var(--text-primary);
+$text-regular: var(--text-regular);
+$text-secondary: var(--text-secondary);
+$border-color: var(--border-color);
+$border-light: var(--border-light);
+$bg-color: var(--bg-color);
+$bg-page: var(--bg-page);
+
+$spacing-base: 8px;
+$spacing-xs: $spacing-base * 0.5;
+$spacing-sm: $spacing-base * 1;
+$spacing-md: $spacing-base * 2;
+$spacing-lg: $spacing-base * 3;
+$spacing-xl: $spacing-base * 4;
+
+$radius-base: var(--radius-base);
+$radius-large: var(--radius-large);
+
+$shadow-base: var(--shadow-base);
+$shadow-light: var(--shadow-light);
+
+$transition-duration: var(--transition-duration);
+$transition-timing: var(--transition-timing);
+
+$font-family: var(--font-family);
+$font-size-extra-large: var(--font-size-extra-large);
+$font-size-large: var(--font-size-large);
+$font-size-medium: var(--font-size-medium);
+$font-size-base: var(--font-size-base);
+$font-size-small: var(--font-size-small);
+$font-size-extra-small: var(--font-size-extra-small);
+
+$breakpoint-mobile: 768px;
+$breakpoint-tablet: 1280px;

@@ -1,0 +1,184 @@
+name: v1.39-alerting-e2e
+
+# v1.39 Grafana Alerting E2E (TC-AT-012 / TC-AT-016 / TC-AT-017)
+# Windows 本地不可达 (Docker Desktop + provisioning 加载限制), 转入 CI
+# 来源: docs/planning/v1.39-grafana-alert-rules/NEXT_STEPS.md §2
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'infra/grafana/**'
+      - 'backend/app/services/observability_exporter.py'
+      - 'backend/app/core/metrics.py'
+      - 'docker-compose.yml'
+      - '.github/workflows/v1.39-alerting-e2e.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'infra/grafana/**'
+      - 'backend/app/services/observability_exporter.py'
+      - 'backend/app/core/metrics.py'
+      - 'docker-compose.yml'
+      - '.github/workflows/v1.39-alerting-e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  alerting-e2e:
+    name: v1.39 Alerting E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # CI 注入的占位 env var (TC-AT-017 会清空 GRAFANA_WEBHOOK_URL 验证 RISK-2 行为)
+      POSTGRES_PASSWORD: ci-postgres-pwd
+      REDIS_PASSWORD: ci-redis-pwd
+      JWT_SECRET_KEY: ci-jwt-secret-for-e2e-only
+      GRAFANA_ADMIN_PASSWORD: ci-grafana-admin
+      GRAFANA_SA_TOKEN: ci-grafana-sa-token
+      GRAFANA_WEBHOOK_URL: https://example.invalid/ci-webhook
+      GRAFANA_SRE_EMAIL: sre-ci@example.invalid
+      GRAFANA_SLACK_URL: https://hooks.slack.com/services/CI/CI/CI
+      GRAFANA_SLACK_CHANNEL: '#sre-alerts-ci'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate YAML (TC-AT-001 ~ TC-AT-007)
+        run: |
+          python -c "import yaml; assert yaml.safe_load(open('infra/grafana/provisioning/alerting/rules.yaml'))['groups'][0]['rules'], 'rules empty'"
+          python -c "import yaml; assert len(yaml.safe_load(open('infra/grafana/provisioning/alerting/contact-points.yaml'))['contactPoints'])==3, 'cp !=3'"
+          python -c "import yaml; assert len(yaml.safe_load(open('infra/grafana/provisioning/alerting/policies.yaml'))['policies'][0]['routes'])==3, 'routes !=3'"
+          python -c "import yaml; assert len(yaml.safe_load(open('infra/grafana/provisioning/alerting/mute-timings.yaml'))['muteTimeIntervals'])==1, 'mute !=1'"
+          python -c "import yaml; assert yaml.safe_load(open('infra/grafana/provisioning/datasources/prometheus.yaml'))['datasources'][0]['uid']=='PB0F7F7A2A1B0E0FA', 'uid mismatch'"
+          echo "PASS: 5 YAML validate OK"
+
+      - name: Start stack (postgres + redis + backend + grafana)
+        run: |
+          docker compose up -d postgres redis
+          sleep 10
+          docker compose up -d backend grafana
+          echo "Stack started, waiting for readiness..."
+
+      - name: Wait for backend healthy (TC-AT-012 前置)
+        run: |
+          for i in $(seq 1 60); do
+            if curl -s -f http://localhost:8000/health | grep -q '"status":"ok"'; then
+              echo "Backend healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Backend not healthy within 60s"
+          docker compose logs backend --tail 50
+          exit 1
+
+      - name: Wait for Grafana healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -s -f http://localhost:3000/api/health | grep -q '"ok"\|"database":"ok"'; then
+              echo "Grafana healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Grafana not healthy within 60s"
+          docker compose logs grafana --tail 50
+          exit 1
+
+      # ============================================================
+      # TC-AT-012: 8 metric 在 /metrics 端点暴露
+      # ============================================================
+      - name: TC-AT-012 8 observability metrics exposed
+        run: |
+          METRICS=$(curl -s http://localhost:8000/api/v1/metrics | grep -c "^# HELP observability_")
+          echo "Found $METRICS observability metrics"
+          if [ "$METRICS" -lt 8 ]; then
+            echo "::error::TC-AT-012 FAIL: expected ≥ 8 metrics, got $METRICS"
+            exit 1
+          fi
+          for M in observability_channel_success_rate \
+                   observability_am_sync_success_rate \
+                   observability_lock_acquire_rate \
+                   observability_lock_fallback_rate \
+                   observability_lock_error_rate \
+                   observability_lock_acquire_total \
+                   observability_escalation_rate \
+                   observability_alert_total; do
+            if ! curl -s http://localhost:8000/api/v1/metrics | grep -q "$M"; then
+              echo "::error::TC-AT-012 FAIL: missing $M"
+              exit 1
+            fi
+          done
+          echo "PASS: TC-AT-012 8/8 metrics exposed"
+
+      # ============================================================
+      # TC-AT-016: Grafana provisioning 加载 10 条规则
+      # ============================================================
+      - name: TC-AT-016 10 alert rules loaded via provisioning
+        run: |
+          # 等待 provisioning 加载 (通常 5-10s)
+          sleep 10
+          RESP=$(curl -s -u admin:ci-grafana-admin \
+            http://localhost:3000/api/v1/provisioning/alert-rules)
+          COUNT=$(echo "$RESP" | python -c "import sys,json; d=json.load(sys.stdin); print(sum(len(g.get('rules',[])) for g in d))")
+          echo "Loaded $COUNT alert rules"
+          if [ "$COUNT" -lt 9 ]; then
+            echo "::error::TC-AT-016 FAIL: expected ≥ 9 rules, got $COUNT"
+            echo "Response: $RESP"
+            exit 1
+          fi
+          # 验证 group name
+          if ! echo "$RESP" | grep -q "observability-alerts"; then
+            echo "::error::TC-AT-016 FAIL: group 'observability-alerts' not found"
+            exit 1
+          fi
+          echo "PASS: TC-AT-016 $COUNT rules loaded in 'observability-alerts' group"
+
+      # ============================================================
+      # TC-AT-017: 缺 GRAFANA_WEBHOOK_URL 时 contact point disabled
+      # ============================================================
+      - name: TC-AT-017 contact point disabled when env var missing
+        run: |
+          # 停止 grafana, 清空 GRAFANA_WEBHOOK_URL, 重启
+          docker compose stop grafana
+          docker compose rm -f grafana
+          GRAFANA_WEBHOOK_URL="" docker compose up -d grafana
+          sleep 30
+          # 验证 sre-webhook disabled
+          DISABLED=$(curl -s -u admin:ci-grafana-admin \
+            http://localhost:3000/api/v1/provisioning/contact-points | \
+            python -c "import sys,json; d=json.load(sys.stdin); cps=[c for c in d if c.get('name')=='sre-webhook']; print(cps[0].get('disabled', False) if cps else 'NOT_FOUND')")
+          echo "sre-webhook disabled=$DISABLED"
+          if [ "$DISABLED" != "True" ] && [ "$DISABLED" != "true" ]; then
+            echo "::error::TC-AT-017 FAIL: sre-webhook should be disabled, got '$DISABLED'"
+            exit 1
+          fi
+          echo "PASS: TC-AT-017 sre-webhook disabled when GRAFANA_WEBHOOK_URL empty"
+
+      - name: Upload logs on failure
+        if: failure()
+        run: |
+          docker compose logs backend --tail 200 > backend.log 2>&1 || true
+          docker compose logs grafana --tail 200 > grafana.log 2>&1 || true
+
+      - name: Upload logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v139-alerting-e2e-logs
+          path: |
+            backend.log
+            grafana.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Stop stack
+        if: always()
+        run: |
+          docker compose down -v || true

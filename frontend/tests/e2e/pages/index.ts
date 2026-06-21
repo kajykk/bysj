@@ -1,0 +1,6 @@
+export { BasePage } from './BasePage'
+export { LoginPage } from './LoginPage'
+export { HomePage } from './HomePage'
+export { RiskAssessmentPage } from './RiskAssessmentPage'
+export { MonitoringDashboardPage } from './MonitoringDashboardPage'
+export { ReportCenterPage } from './ReportCenterPage'

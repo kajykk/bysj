@@ -1,0 +1,55 @@
+name: contract-tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  contract-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      - name: Run database migrations
+        working-directory: backend
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
+      - name: Export OpenAPI schema
+        working-directory: backend
+        run: python scripts/export_openapi.py
+      - name: Run contract tests
+        working-directory: backend
+        run: |
+          pytest tests/contract/ -v --tb=short
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
+      - name: Upload contract test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-test-results
+          path: backend/tests/contract/

@@ -1,0 +1,6 @@
+{
+  "selected_threshold": 0.4,
+  "selection_method": "recall75_constrained_f1",
+  "rationale": "Recall≥0.75 且 Specificity≥0.65 的阈值中 F1 最高者 (t=0.4)",
+  "go_decision": "go"
+}

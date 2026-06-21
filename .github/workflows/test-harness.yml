@@ -1,0 +1,128 @@
+name: harness-tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Run backend tests with coverage
+        working-directory: backend
+        run: |
+          python -m pytest
+      - name: Run frontend tests with coverage
+        working-directory: frontend
+        run: |
+          npm run test:coverage
+      - name: Run harnesses and merge report
+        shell: pwsh
+        run: |
+          python -m pytest backend/tests/test_harness.py backend/tests/test_harness_integration.py --maxfail=1 --disable-warnings
+          npm --prefix frontend run test -- --no-file-parallelism
+          npm --prefix frontend run test:e2e
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          ALLOWED_KINDS = {"unit", "integration", "system"}
+
+          def load_report(path: Path):
+              if not path.exists():
+                  return {
+                      'source': 'missing',
+                      'generatedAt': None,
+                      'passed': False,
+                      'scenarioCount': 0,
+                      'results': [],
+                      'meta': {'runner': 'missing', 'framework': 'missing', 'version': '1.0'}
+                  }
+              return json.loads(path.read_text(encoding='utf-8'))
+
+          def validate_report(name: str, report: dict, *, expected_source: str | None = None, expected_framework: str | None = None):
+              if expected_source is not None and report.get('source') != expected_source:
+                  raise SystemExit(
+                      f"[{name}] invalid source: expected '{expected_source}', got '{report.get('source')}'"
+                  )
+
+              meta = report.get('meta', {})
+              framework = meta.get('framework')
+              if expected_framework is not None and framework != expected_framework:
+                  raise SystemExit(
+                      f"[{name}] invalid meta.framework: expected '{expected_framework}', got '{framework}'"
+                  )
+
+              results = report.get('results', [])
+              if not isinstance(results, list):
+                  raise SystemExit(f"[{name}] results must be a list")
+
+              invalid_kinds = [r.get('kind') for r in results if r.get('kind') not in ALLOWED_KINDS]
+              if invalid_kinds:
+                  raise SystemExit(
+                      f"[{name}] invalid results[].kind values: {invalid_kinds}; allowed={sorted(ALLOWED_KINDS)}"
+                  )
+
+          backend_report = load_report(Path('backend/test-artifacts/harness-report.json'))
+          frontend_vitest_report = load_report(Path('frontend/test-results/harness-report.vitest.json'))
+          frontend_playwright_report = load_report(Path('frontend/test-results/harness-report.playwright.json'))
+
+          # 强校验前端报告结构一致性（source/meta.framework/results[].kind）
+          validate_report('frontendVitest', frontend_vitest_report, expected_source='vitest', expected_framework='vitest')
+          validate_report('frontendPlaywright', frontend_playwright_report, expected_source='playwright', expected_framework='playwright')
+
+          # 后端只校验 kind 合法性，兼容既有后端报告结构
+          validate_report('backend', {
+              'results': backend_report.get('results', [])
+          })
+
+          merged = {
+              'source': 'merged',
+              'generatedAt': None,
+              'passed': False,
+              'scenarioCount': 0,
+              'results': [],
+              'meta': {'runner': 'ci', 'framework': 'merged', 'version': '1.0'},
+              'reports': {
+                  'backend': backend_report,
+                  'frontendVitest': frontend_vitest_report,
+                  'frontendPlaywright': frontend_playwright_report,
+              }
+          }
+
+          merged['passed'] = all(report.get('passed', False) for report in merged['reports'].values())
+          merged['scenarioCount'] = sum(int(report.get('scenarioCount', 0)) for report in merged['reports'].values())
+          merged['results'] = [
+              {'source': key, **result}
+              for key, report in merged['reports'].items()
+              for result in report.get('results', [])
+          ]
+
+          Path('harness-report.json').write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
+      - name: Publish merged harness report
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-report
+          path: |
+            harness-report.json
+            backend/coverage.json
+            frontend/coverage/

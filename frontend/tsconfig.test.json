@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist-tsc-test",
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noImplicitAny": false,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["node", "vitest/globals"],
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/*.experiment.test.ts", "src/**/*.physio.test.ts"]
+}

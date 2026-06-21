@@ -1,0 +1,190 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+venv/
+
+# FastAPI/Alembic
+alembic.ini
+
+# Node
+node_modules/
+dist/
+dist-tsc-*/
+.vite/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.codegraph/
+.cursor/
+.qoder/
+.hypothesis/
+.pytest_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime
+*.log
+coverage/
+.pytest_cache/
+
+# Uploads & exports
+uploads/
+/tmp/exports/
+
+# Large files / Models (not committed to GitHub)
+datasets/
+model_assessment/
+outputs/
+*.pkl
+*.pt
+*.pth
+*.bin
+*.npy
+*.npz
+*.dll
+
+# Binary documents & images (not part of source)
+*.pdf
+*.docx
+*.doc
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.ico
+*.svg
+*.webp
+# 例外：保留 frontend 必需的图标资源
+!frontend/public/icon.svg
+!frontend/public/icon-192x192.png
+!frontend/public/icon-512x512.png
+!frontend/dist/icon.svg
+!frontend/dist/icon-192x192.png
+!frontend/dist/icon-512x512.png
+
+# Test artifacts
+frontend/playwright-report/
+frontend/test-results/
+
+# SQLite databases
+*.db
+
+# Logs
+backend/logs/
+
+# Coverage
+backend/.coverage
+coverage.xml
+coverage-html/
+htmlcov/
+.coverage
+.coveragerc
+
+# Data (runtime)
+data/
+
+# Temporary scripts & tools
+git
+git1
+download_kaggle.py
+/scripts/
+
+# User notes (not part of project)
+md/
+原文/
+论文图表/
+thesis_charts/
+
+# Root-level temporary outputs (not part of source)
+api_mutation_result.txt
+api_results.txt
+api_smoke_result.txt
+test_results.txt
+phys_schema.txt
+routes.txt
+schemas.txt
+silences_schema.txt
+functional_test.py
+functional_test_results.json
+backend_run.log
+pytest_collect.log
+train_final_log.txt
+train_final_log_v2.txt
+uvicorn_demo.log
+uvicorn_v3.log
+vue-tsc.log
+frontend_build.log
+frontend_build2.log
+frontend_test.log
+backend_full.log
+backend_run.err
+
+# Training artifacts
+backend/train_structured.py
+backend/train_structured_v1.21_binary.py
+backend/train_structured_v1.21_multiclass.py
+backend/train_baseline.py
+backend/train_final.py
+backend/train_simple.py
+backend/tune_hyperparams.py
+backend/_test.db
+backend/test_app.db
+backend/test_fallback.py
+backend/test_migration_v19.db
+backend/depression_system.db
+backend/backend_run.err
+backend/backend_run.log
+backend/backend_full.log
+backend/uvicorn_demo.log
+backend/uvicorn_v3.log
+backend/coverage-html/
+backend/htmlcov/
+backend/.coverage
+backend/coverage.xml
+backend/.env
+
+# Models runtime
+models/
+
+# Reports runtime
+reports/
+
+# Monitoring runtime
+monitoring/
+
+# Infra runtime
+infra/
+
+# Common (task-types.json is auto-generated)
+common/
+
+# Docker
+docker-compose.yml
+
+# Misc root files (not part of source)
+BASELINE.md
+NEXT_STEPS.md
+RALPH_STATE.md
+PHYSIOLOGICAL_MULTIMODAL_IMPLEMENTATION_PLAN.md
+codecov.yml
+requirements-ml.txt
+train_ml_oneclick.bat
+train_ml_oneclick.ps1
+论文_*.txt
