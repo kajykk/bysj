@@ -18,15 +18,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import numpy as np
-import pytest
-
 # Add backend to path
 backend_root = Path(__file__).resolve().parents[1]
 if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
-from app.ml.fusion_engine import DEFAULT_WEIGHTS, FusionEngine
+from app.ml.fusion_engine import FusionEngine
 
 
 class TestFusionEngine:
@@ -141,11 +138,26 @@ class TestFusionEngine:
 
         assert config_path.exists()
 
+        # M25 修复：load_config 现在强制要求 .sha256 校验文件
+        import hashlib
+
+        sha = hashlib.sha256()
+        with open(config_path, "rb") as f:
+            sha.update(f.read())
+        checksum_path = config_path.with_suffix(config_path.suffix + ".sha256")
+        checksum_path.write_text(sha.hexdigest(), encoding="utf-8")
+
         loaded_engine = FusionEngine.load_config(config_path)
 
         assert loaded_engine.weights == original_engine.weights
-        assert loaded_engine.use_confidence_weighting == original_engine.use_confidence_weighting
-        assert loaded_engine.use_modality_missing_handling == original_engine.use_modality_missing_handling
+        assert (
+            loaded_engine.use_confidence_weighting
+            == original_engine.use_confidence_weighting
+        )
+        assert (
+            loaded_engine.use_modality_missing_handling
+            == original_engine.use_modality_missing_handling
+        )
 
     def test_risk_level_conversion(self) -> None:
         """TC-FUS-016: 验证风险等级转换 (v1.31: 适配 fusion 阈值 22/42/62/82)."""
@@ -167,7 +179,9 @@ class TestFusionEngine:
     def test_weight_normalization(self) -> None:
         """TC-FUS-017: 验证权重归一化."""
         # Weights that don't sum to 1.0 should be normalized
-        engine = FusionEngine(weights={"structured": 1.0, "text": 1.0, "physiological": 1.0})
+        engine = FusionEngine(
+            weights={"structured": 1.0, "text": 1.0, "physiological": 1.0}
+        )
 
         total = sum(engine.weights.values())
         assert abs(total - 1.0) < 0.01
@@ -192,12 +206,8 @@ class TestFusionEngine:
         engine = FusionEngine(use_confidence_weighting=True)
 
         # Text with short length should have lower confidence
-        conf_short_text = engine.compute_confidence(
-            "text", 70.0, {"text_length": 5}
-        )
-        conf_long_text = engine.compute_confidence(
-            "text", 70.0, {"text_length": 200}
-        )
+        conf_short_text = engine.compute_confidence("text", 70.0, {"text_length": 5})
+        conf_long_text = engine.compute_confidence("text", 70.0, {"text_length": 200})
 
         assert conf_long_text > conf_short_text
 

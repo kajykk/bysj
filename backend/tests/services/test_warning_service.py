@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import time
+from unittest.mock import AsyncMock
+
 import pytest
 
+from app.models.risk import WarningNotification
 from app.services.warning_service import WarningService
-from app.models.risk import WarningNotification, WarningSetting
 
 
 class TestWarningService:
@@ -52,8 +55,11 @@ class TestWarningService:
     async def test_update_setting(self, db_session, seeded_user_id):
         """TC-COV-WRN-006: Update warning setting."""
         service = WarningService(db_session)
-        result = await service.update_setting(1, {"notify_channels": ["email"], "threshold_level": 2})
-        assert result.notify_channels == ["email"]
+        result = await service.update_setting(
+            1, {"notify_channels": ["email"], "threshold_level": 2}
+        )
+        # M-Svc-10: notify_channels 列表形式被规范化为 dict{channel: True}
+        assert result.notify_channels == {"email": True}
         assert result.threshold_level == 2
 
     @pytest.mark.asyncio
@@ -196,11 +202,15 @@ class TestWarningService:
     async def test_update_setting_quiet_hours(self, db_session, seeded_user_id):
         """TC-COV-WRN-013: Update quiet hours setting."""
         from datetime import time
+
         service = WarningService(db_session)
-        result = await service.update_setting(1, {
-            "quiet_hours_start": "22:00",
-            "quiet_hours_end": "08:00",
-        })
+        result = await service.update_setting(
+            1,
+            {
+                "quiet_hours_start": "22:00",
+                "quiet_hours_end": "08:00",
+            },
+        )
         assert result.quiet_hours_start == time(22, 0)
         assert result.quiet_hours_end == time(8, 0)
 
@@ -249,3 +259,141 @@ class TestWarningService:
 
         result = await service.list_warnings(1, 1, 10, None)
         assert result["items"][0]["status"] == "pending"
+
+    @pytest.mark.asyncio
+    async def test_list_warnings_with_risk_level_filter(
+        self, db_session, seeded_user_id
+    ):
+        """TC-COV-WRN-017: list_warnings 按 risk_level 过滤。"""
+        service = WarningService(db_session)
+        warning1 = WarningNotification(
+            user_id=1,
+            risk_assessment_id=1,
+            previous_level=1,
+            current_level=2,
+            trigger_reason="level2",
+            is_read=False,
+            is_handled=False,
+        )
+        warning2 = WarningNotification(
+            user_id=1,
+            risk_assessment_id=1,
+            previous_level=1,
+            current_level=3,
+            trigger_reason="level3",
+            is_read=False,
+            is_handled=False,
+        )
+        db_session.add(warning1)
+        db_session.add(warning2)
+        await db_session.commit()
+
+        result = await service.list_warnings(1, 1, 10, None, risk_level=3)
+        assert result["total"] == 1
+        assert result["items"][0]["risk_level"] == "high"
+
+    @pytest.mark.asyncio
+    async def test_parse_time_value_time_object(self, db_session, seeded_user_id):
+        """TC-COV-WRN-018: _parse_time_value 传入 time 对象直接返回。"""
+        service = WarningService(db_session)
+        result = await service.update_setting(
+            1,
+            {
+                "quiet_hours_start": time(23, 30),
+                "quiet_hours_end": time(6, 0),
+            },
+        )
+        assert result.quiet_hours_start == time(23, 30)
+        assert result.quiet_hours_end == time(6, 0)
+
+    @pytest.mark.asyncio
+    async def test_parse_time_value_invalid_hour(self, db_session, seeded_user_id):
+        """TC-COV-WRN-019: _parse_time_value hour 越界抛 ValueError。"""
+        service = WarningService(db_session)
+        with pytest.raises(ValueError, match="hour"):
+            await service.update_setting(1, {"quiet_hours_start": "25:00"})
+
+    @pytest.mark.asyncio
+    async def test_parse_time_value_invalid_minute(self, db_session, seeded_user_id):
+        """TC-COV-WRN-020: _parse_time_value minute 越界抛 ValueError。"""
+        service = WarningService(db_session)
+        with pytest.raises(ValueError, match="minute"):
+            await service.update_setting(1, {"quiet_hours_start": "10:70"})
+
+    @pytest.mark.asyncio
+    async def test_parse_time_value_invalid_second(self, db_session, seeded_user_id):
+        """TC-COV-WRN-021: _parse_time_value second 越界抛 ValueError。"""
+        service = WarningService(db_session)
+        with pytest.raises(ValueError, match="second"):
+            await service.update_setting(1, {"quiet_hours_start": "10:30:70"})
+
+    @pytest.mark.asyncio
+    async def test_parse_time_value_non_str_non_time(self, db_session, seeded_user_id):
+        """TC-COV-WRN-022: _parse_time_value 传入非字符串/非 time 对象返回默认 time(0,0,0)。"""
+        service = WarningService(db_session)
+        result = await service.update_setting(1, {"quiet_hours_start": 12345})
+        assert result.quiet_hours_start == time(0, 0, 0)
+
+    @pytest.mark.asyncio
+    async def test_update_setting_invalid_channel_list(
+        self, db_session, seeded_user_id
+    ):
+        """TC-COV-WRN-023: notify_channels 列表形式包含无效通道名抛 ValueError。"""
+        service = WarningService(db_session)
+        with pytest.raises(ValueError, match="无效的 notify_channel"):
+            await service.update_setting(
+                1, {"notify_channels": ["in_app", "invalid_channel"]}
+            )
+
+    @pytest.mark.asyncio
+    async def test_update_setting_channels_dict(self, db_session, seeded_user_id):
+        """TC-COV-WRN-024: notify_channels dict 形式正确保存。"""
+        service = WarningService(db_session)
+        result = await service.update_setting(
+            1, {"notify_channels": {"email": True, "sms": False}}
+        )
+        assert result.notify_channels == {"email": True, "sms": False}
+
+    @pytest.mark.asyncio
+    async def test_update_setting_channels_dict_invalid_key(
+        self, db_session, seeded_user_id
+    ):
+        """TC-COV-WRN-025: notify_channels dict 包含无效通道名抛 ValueError。"""
+        service = WarningService(db_session)
+        with pytest.raises(ValueError, match="无效的 notify_channel"):
+            await service.update_setting(
+                1, {"notify_channels": {"email": True, "push": True}}
+            )
+
+    @pytest.mark.asyncio
+    async def test_update_setting_channels_dict_invalid_value(
+        self, db_session, seeded_user_id
+    ):
+        """TC-COV-WRN-026: notify_channels dict 值非 bool 抛 ValueError。"""
+        service = WarningService(db_session)
+        with pytest.raises(ValueError, match="必须是 bool"):
+            await service.update_setting(1, {"notify_channels": {"email": "yes"}})
+
+    @pytest.mark.asyncio
+    async def test_update_setting_channels_invalid_type(
+        self, db_session, seeded_user_id
+    ):
+        """TC-COV-WRN-027: notify_channels 非 list 非 dict 类型抛 ValueError。"""
+        service = WarningService(db_session)
+        with pytest.raises(ValueError, match="必须是 dict 或 list"):
+            await service.update_setting(1, {"notify_channels": "email"})
+
+    @pytest.mark.asyncio
+    async def test_update_setting_commit_failure(
+        self, db_session, seeded_user_id, monkeypatch
+    ):
+        """TC-COV-WRN-028: update_setting commit 失败时回滚并向上抛出异常。"""
+        service = WarningService(db_session)
+        # 让 commit 第一次调用时抛异常，触发 except 回滚逻辑
+        monkeypatch.setattr(
+            db_session,
+            "commit",
+            AsyncMock(side_effect=RuntimeError("commit failed")),
+        )
+        with pytest.raises(RuntimeError, match="commit failed"):
+            await service.update_setting(1, {"threshold_level": 2})

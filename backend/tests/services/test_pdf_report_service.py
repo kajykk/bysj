@@ -5,9 +5,11 @@ TC-FE-PDF-001 ~ TC-FE-PDF-010: PDF report generation stability.
 
 from __future__ import annotations
 
-import pytest
-
-from app.services.pdf_report_service import PDFReportService, ReportData, PDFReportResult
+from app.services.pdf_report_service import (
+    PDFReportResult,
+    PDFReportService,
+    ReportData,
+)
 
 
 class TestPDFReportService:
@@ -45,6 +47,7 @@ class TestPDFReportService:
     def test_generate_pdf_no_reportlab(self, monkeypatch):
         """TC-FE-PDF-003: Handle missing reportlab gracefully."""
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -121,12 +124,14 @@ class TestPDFReportService:
     def test_generate_user_risk_report_with_dict(self):
         """TC-FE-PDF-011: Generate user risk report with dict input."""
         service = PDFReportService()
-        result = service.generate_user_risk_report({
-            "user_name": "Test User",
-            "risk_level": "high",
-            "trend_data": [{"date": "2024-01-01", "score": 80, "level": "high"}],
-            "recommendations": ["See a doctor"],
-        })
+        result = service.generate_user_risk_report(
+            {
+                "user_name": "Test User",
+                "risk_level": "high",
+                "trend_data": [{"date": "2024-01-01", "score": 80, "level": "high"}],
+                "recommendations": ["See a doctor"],
+            }
+        )
 
         assert isinstance(result, PDFReportResult)
 

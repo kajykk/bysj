@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_role
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.response import ok
 from app.models.user import User
 from app.schemas.content import MeditationLogRequest
@@ -13,7 +14,7 @@ from app.services.content_service import ContentService
 router = APIRouter(prefix="/user/content", tags=["user-content"])
 
 
-@router.get("/")
+@router.get("/", responses=COMMON_ERROR_RESPONSES)
 async def list_contents(
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -24,11 +25,13 @@ async def list_contents(
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> dict:
     service = ContentService(db)
-    data = await service.list_contents(current_user.id, category, content_type, keyword, page, page_size)
+    data = await service.list_contents(
+        current_user.id, category, content_type, keyword, page, page_size
+    )
     return ok(data)
 
 
-@router.get("/favorites/list")
+@router.get("/favorites/list", responses=COMMON_ERROR_RESPONSES)
 async def list_favorites(
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -40,7 +43,7 @@ async def list_favorites(
     return ok(data)
 
 
-@router.get("/recommendations")
+@router.get("/recommendations", responses=COMMON_ERROR_RESPONSES)
 async def list_recommendations(
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -52,7 +55,7 @@ async def list_recommendations(
     return ok(data)
 
 
-@router.get("/recent-views")
+@router.get("/recent-views", responses=COMMON_ERROR_RESPONSES)
 async def list_recent_views(
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -64,20 +67,23 @@ async def list_recent_views(
     return ok(data)
 
 
-@router.post("/meditation/log")
+@router.post("/meditation/log", responses=COMMON_ERROR_RESPONSES)
 async def meditation_log(
     payload: MeditationLogRequest,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = ContentService(db)
-    log_id = await service.log_meditation(current_user.id, payload.content_id, payload.completed)
-    if log_id == 0:
+    log_id = await service.log_meditation(
+        current_user.id, payload.content_id, payload.completed
+    )
+    # L-16 修复：使用 None 检查替代 == 0 哨兵
+    if log_id is None:
         raise HTTPException(status_code=404, detail="内容不存在")
     return ok({"log_id": log_id})
 
 
-@router.get("/{content_id}")
+@router.get("/{content_id}", responses=COMMON_ERROR_RESPONSES)
 async def get_content_detail(
     content_id: int,
     current_user: Annotated[User, Depends(require_role("user"))],
@@ -90,7 +96,7 @@ async def get_content_detail(
     return ok(data)
 
 
-@router.post("/{content_id}/favorite")
+@router.post("/{content_id}/favorite", responses=COMMON_ERROR_RESPONSES)
 async def toggle_favorite(
     content_id: int,
     current_user: Annotated[User, Depends(require_role("user"))],

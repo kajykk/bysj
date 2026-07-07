@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi import FastAPI, HTTPException
-from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
 from app.core.exceptions import (
     AppException,
     ModelException,
-    ValidationException,
     ServiceException,
+    ValidationException,
     install_exception_handlers,
 )
 
@@ -136,9 +134,11 @@ class TestExceptionHandlers:
 
     def test_generic_exception_handler(self):
         """TC-COV-027: Unhandled exceptions return 500."""
-        from fastapi.testclient import TestClient
         from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
         from app.core.exceptions import install_exception_handlers
+
         app = FastAPI()
         install_exception_handlers(app)
 

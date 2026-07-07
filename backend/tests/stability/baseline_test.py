@@ -3,14 +3,11 @@ STB 稳定性基线测试 - TC-STB-HP-000
 测量并记录代码库基线数据
 """
 
-import os
 import re
-import subprocess
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
-
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 BACKEND_DIR = PROJECT_ROOT / "backend" / "app"
@@ -72,7 +69,7 @@ class TestBaselineMeasurement:
                 for pattern in warning_patterns:
                     warning_patterns[pattern] += len(re.findall(pattern, content))
 
-        print(f"\n[BASELINE] Warning 模式统计:")
+        print("\n[BASELINE] Warning 模式统计:")
         for pattern, count in warning_patterns.items():
             print(f"  - {pattern}: {count}")
 
@@ -84,7 +81,9 @@ class TestBaselineMeasurement:
         files_with_any = []
 
         if FRONTEND_DIR.exists():
-            for ts_file in list(FRONTEND_DIR.rglob("*.ts")) + list(FRONTEND_DIR.rglob("*.tsx")):
+            for ts_file in list(FRONTEND_DIR.rglob("*.ts")) + list(
+                FRONTEND_DIR.rglob("*.tsx")
+            ):
                 content = ts_file.read_text(encoding="utf-8")
                 # 排除注释中的 any
                 lines = content.split("\n")
@@ -122,16 +121,33 @@ class TestBaselineMeasurement:
         print("\n[PASS] datetime.utcnow() 已全部替换")
 
     def test_004_pytorch_optional_dependency(self):
-        """TC-STB-HP-004: PyTorch 可选依赖行为一致性"""
-        # 检查是否有 PyTorch 惰性导入模式
-        model_engine = BACKEND_DIR / "core" / "model_engine.py"
-        if model_engine.exists():
-            content = model_engine.read_text(encoding="utf-8")
-            has_lazy_import = "try:" in content and "import torch" in content
-            has_fallback = "fallback" in content.lower() or "heuristic" in content.lower()
+        """TC-STB-HP-004: PyTorch 可选依赖行为一致性.
 
-            assert has_lazy_import, "未找到 PyTorch 惰性导入模式"
-            assert has_fallback, "未找到 fallback 机制"
+        PHASE_2 重构后 (T-P2-001), model_engine.py 通过 Mixin 多继承装配:
+        - PredictMixin (model_engine_predict.py): 含 torch 惰性导入 (try + import torch)
+        - FallbackMixin (model_engine_fallback.py): 含 heuristic fallback
+        - RiskMixin (model_engine_risk.py)
+
+        本测试扫描 core/model_engine*.py 所有文件, 验证:
+        1. 至少一个文件含 try: + import torch (惰性导入模式)
+        2. 至少一个文件含 fallback 或 heuristic (回退机制)
+        """
+        core_dir = BACKEND_DIR / "core"
+        model_engine_files = list(core_dir.glob("model_engine*.py"))
+
+        assert len(model_engine_files) > 0, "未找到 model_engine*.py 文件"
+
+        all_content = ""
+        for py_file in model_engine_files:
+            all_content += py_file.read_text(encoding="utf-8") + "\n"
+
+        has_lazy_import = "try:" in all_content and "import torch" in all_content
+        has_fallback = (
+            "fallback" in all_content.lower() or "heuristic" in all_content.lower()
+        )
+
+        assert has_lazy_import, "未找到 PyTorch 惰性导入模式 (try: + import torch)"
+        assert has_fallback, "未找到 fallback 机制"
 
         print("\n[PASS] PyTorch 可选依赖检查通过")
 
@@ -142,7 +158,11 @@ class TestBaselineMeasurement:
         if BACKEND_DIR.exists():
             for py_file in BACKEND_DIR.rglob("*.py"):
                 content = py_file.read_text(encoding="utf-8")
-                if "L1" in content and "L2" in content and "fallback" in content.lower():
+                if (
+                    "L1" in content
+                    and "L2" in content
+                    and "fallback" in content.lower()
+                ):
                     fallback_found = True
                     break
 
@@ -156,7 +176,9 @@ class TestBaselineMeasurement:
         test_files = list(stability_dir.glob("*.py"))
 
         assert len(test_files) > 0, "稳定性测试目录为空"
-        print(f"\n[PASS] 稳定性回归测试结构检查通过 (发现 {len(test_files)} 个测试文件)")
+        print(
+            f"\n[PASS] 稳定性回归测试结构检查通过 (发现 {len(test_files)} 个测试文件)"
+        )
 
     def test_009_warning_regression(self):
         """TC-STB-HP-009: 全量回归 warning 检查"""
@@ -203,7 +225,9 @@ def generate_baseline_report():
         # any types
         any_count = 0
         if FRONTEND_DIR.exists():
-            for ts_file in list(FRONTEND_DIR.rglob("*.ts")) + list(FRONTEND_DIR.rglob("*.tsx")):
+            for ts_file in list(FRONTEND_DIR.rglob("*.ts")) + list(
+                FRONTEND_DIR.rglob("*.tsx")
+            ):
                 content = ts_file.read_text(encoding="utf-8")
                 any_count += len(re.findall(r"\bany\b", content))
         f.write(f"- **TypeScript any 使用次数**: {any_count}\n")

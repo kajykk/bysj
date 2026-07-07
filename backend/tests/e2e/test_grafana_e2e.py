@@ -16,6 +16,7 @@
 4. 后端 5 端点全部 200
 5. 至少 1 panel 数据展示 (无 "No data")
 """
+
 from __future__ import annotations
 
 import os
@@ -23,7 +24,6 @@ import time
 
 import pytest
 import requests
-
 
 GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3000")
 GRAFANA_USER = os.environ.get("GRAFANA_USER", "admin")
@@ -70,7 +70,9 @@ def test_datasource_provisioning_loaded() -> None:
     datasources = r.json()
     assert len(datasources) >= 1, f"No datasources provisioned: {datasources}"
     ds_names = [ds["name"] for ds in datasources]
-    assert "Observability API" in ds_names, f"Observability API datasource missing: {ds_names}"
+    assert (
+        "Observability API" in ds_names
+    ), f"Observability API datasource missing: {ds_names}"
     # Test connection (id=1 if first provisioned)
     ds_id = next(ds["id"] for ds in datasources if ds["name"] == "Observability API")
     r = requests.get(
@@ -114,7 +116,11 @@ def test_backend_grafana_endpoints_200() -> None:
             r = requests.post(
                 f"{BACKEND_URL}{path}",
                 headers=headers,
-                json={"type": "operation"} if "variable" in path else {"metric": "trend", "params": {}},
+                json=(
+                    {"type": "operation"}
+                    if "variable" in path
+                    else {"metric": "trend", "params": {}}
+                ),
                 timeout=10,
             )
         assert r.status_code == 200, f"{method} {path} -> {r.status_code}: {r.text}"
@@ -139,7 +145,9 @@ def test_dashboard_panels_have_data() -> None:
     assert r.status_code == 200
     dashboard = r.json()["dashboard"]
     panels = dashboard.get("panels", [])
-    assert len(panels) >= 1, f"No panels in dashboard: {dashboard.get('title', 'unknown')}"
+    assert (
+        len(panels) >= 1
+    ), f"No panels in dashboard: {dashboard.get('title', 'unknown')}"
     # 验证 panel 数量 (v1.37 应该有 24)
     print(f"Dashboard has {len(panels)} panels (target: 24)")
     # v1.38 增强: 验证 24 panels 全部存在
@@ -175,6 +183,7 @@ def test_dashboard_24_panels_screenshots() -> None:
     assert len(panels) == 24, f"v1.38 期望 24 panels, 实际 {len(panels)}"
     # 截图归档路径
     from pathlib import Path
+
     screenshot_dir = Path(__file__).resolve().parents[1] / "screenshots" / "v1.38"
     screenshot_dir.mkdir(parents=True, exist_ok=True)
     print(f"Screenshots dir: {screenshot_dir}")
@@ -185,7 +194,9 @@ def test_dashboard_24_panels_screenshots() -> None:
         assert "title" in panel
         assert "type" in panel
         assert "targets" in panel
-    print(f"✓ 24 panel structure verified: {[(p['id'], p['title']) for p in panels[:3]]}...")
+    print(
+        f"✓ 24 panel structure verified: {[(p['id'], p['title']) for p in panels[:3]]}..."
+    )
 
 
 # ============ Setup helpers (optional) ============
@@ -200,7 +211,9 @@ def pytest_configure(config):
     except RuntimeError as e:
         pytest.skip(f"Grafana not ready: {e}")
     try:
-        _wait_for_service(f"{BACKEND_URL}/api/v1/alerts/observability/grafana/health", timeout=60)
+        _wait_for_service(
+            f"{BACKEND_URL}/api/v1/alerts/observability/grafana/health", timeout=60
+        )
         print("✓ Backend ready")
     except RuntimeError as e:
         pytest.skip(f"Backend not ready: {e}")

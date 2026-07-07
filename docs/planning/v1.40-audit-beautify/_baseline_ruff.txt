@@ -1,0 +1,5230 @@
+﻿F401 [*] `pydantic.ValidationError` imported but unused
+  --> app\api\csp_report.py:9:52
+   |
+ 8 | from fastapi import APIRouter, HTTPException, Request, Response
+ 9 | from pydantic import BaseModel, ConfigDict, Field, ValidationError
+   |                                                    ^^^^^^^^^^^^^^^
+10 |
+11 | from app.core.rate_limit import limiter
+   |
+help: Remove unused import: `pydantic.ValidationError`
+
+F541 [*] f-string without any placeholders
+   --> app\api\v1\admin.py:355:20
+    |
+353 |         raise HTTPException(
+354 |             status_code=422,
+355 |             detail=f"导出日期范围不能超过 90 天",
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+356 |         )
+    |
+help: Remove extraneous `f` prefix
+
+F401 [*] `fastapi.responses.PlainTextResponse` imported but unused
+  --> app\api\v1\admin_metrics.py:13:31
+   |
+12 | from fastapi import APIRouter, Depends
+13 | from fastapi.responses import PlainTextResponse
+   |                               ^^^^^^^^^^^^^^^^^
+14 |
+15 | from app.api.v1.version import RELEASE_VERSION
+   |
+help: Remove unused import: `fastapi.responses.PlainTextResponse`
+
+F401 [*] `app.core.metrics.http_request_duration_seconds` imported but unused
+  --> app\api\v1\admin_metrics.py:20:5
+   |
+18 | from app.core.metrics import (
+19 |     db_pool_size,
+20 |     http_request_duration_seconds,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21 |     http_requests_total,
+22 |     model_inference_total,
+   |
+help: Remove unused import
+
+F401 [*] `app.core.metrics.render_exposition` imported but unused
+  --> app\api\v1\admin_metrics.py:23:5
+   |
+21 |     http_requests_total,
+22 |     model_inference_total,
+23 |     render_exposition,
+   |     ^^^^^^^^^^^^^^^^^
+24 |     websocket_connections_active,
+25 | )
+   |
+help: Remove unused import
+
+F401 [*] `app.core.database.AsyncSessionLocal` imported but unused
+  --> app\api\v1\alerts.py:23:31
+   |
+21 | from sqlalchemy.ext.asyncio import AsyncSession
+22 |
+23 | from app.core.database import AsyncSessionLocal, get_db
+   |                               ^^^^^^^^^^^^^^^^^
+24 | from app.core.deps import require_role
+25 | from app.core.rate_limit import limiter
+   |
+help: Remove unused import: `app.core.database.AsyncSessionLocal`
+
+F401 [*] `app.schemas.counselor.BindCodeRequest` imported but unused
+  --> app\api\v1\counselor.py:18:5
+   |
+16 | from app.schemas.common import ApiResponse
+17 | from app.schemas.counselor import (
+18 |     BindCodeRequest,
+   |     ^^^^^^^^^^^^^^^
+19 |     ConsultationCreateRequest,
+20 |     GroupCreateRequest,
+   |
+help: Remove unused import: `app.schemas.counselor.BindCodeRequest`
+
+F401 [*] `app.core.db_breaker.CircuitState` imported but unused
+  --> app\api\v1\metrics.py:94:53
+   |
+92 |     # STAB-P1-015: 暴露 DB 熔断器状态, 触发 AR-201 告警
+93 |     try:
+94 |         from app.core.db_breaker import db_breaker, CircuitState
+   |                                                     ^^^^^^^^^^^^
+95 |         snapshot = db_breaker.get_state_snapshot()
+96 |         db_circuit_failure_count.set(float(snapshot.get("failure_count", 0)))
+   |
+help: Remove unused import: `app.core.db_breaker.CircuitState`
+
+E402 Module level import not at top of file
+  --> app\api\v1\model_predict\__init__.py:20:1
+   |
+19 | # 导入子模块 router 并 include (路由路径在子模块内定义, prefix 在此统一加)
+20 | from .predict import router as predict_router
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21 | from .status import router as status_router
+22 | from .experiment import router as experiment_router
+   |
+
+E402 Module level import not at top of file
+  --> app\api\v1\model_predict\__init__.py:21:1
+   |
+19 | # 导入子模块 router 并 include (路由路径在子模块内定义, prefix 在此统一加)
+20 | from .predict import router as predict_router
+21 | from .status import router as status_router
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 | from .experiment import router as experiment_router
+   |
+
+E402 Module level import not at top of file
+  --> app\api\v1\model_predict\__init__.py:22:1
+   |
+20 | from .predict import router as predict_router
+21 | from .status import router as status_router
+22 | from .experiment import router as experiment_router
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 |
+24 | router.include_router(predict_router)
+   |
+
+E402 Module level import not at top of file
+  --> app\api\v1\model_predict\__init__.py:29:1
+   |
+28 |   # re-export 被 test 直接 import 的符号 (来自 _common)
+29 | / from ._common import (
+30 | |     _assessment_save_tasks,
+31 | |     _log_task_exception,
+32 | |     _save_assessment_sync,
+33 | |     logger,
+34 | |     save_assessment_result,
+35 | | )
+   | |_^
+36 |
+37 |   # re-export 被 test 直接 import 的符号 (来自 predict)
+   |
+
+E402 Module level import not at top of file
+  --> app\api\v1\model_predict\__init__.py:38:1
+   |
+37 |   # re-export 被 test 直接 import 的符号 (来自 predict)
+38 | / from .predict import (
+39 | |     _create_review_task,
+40 | |     _create_review_task_sync,
+41 | |     predict_fusion,
+42 | |     predict_physiological,
+43 | |     predict_tabular,
+44 | |     predict_text,
+45 | | )
+   | |_^
+46 |
+47 |   # re-export AsyncSessionLocal (test patch 路径 app.api.v1.model_predict.AsyncSessionLocal 依赖)
+   |
+
+E402 Module level import not at top of file
+  --> app\api\v1\model_predict\__init__.py:48:1
+   |
+47 | # re-export AsyncSessionLocal (test patch 路径 app.api.v1.model_predict.AsyncSessionLocal 依赖)
+48 | from app.core.database import AsyncSessionLocal
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+49 |
+50 | __all__ = [
+   |
+
+F401 [*] `app.models.monitoring.CanaryRecord` imported but unused
+  --> app\api\v1\monitoring.py:16:35
+   |
+14 | from app.core.rate_limit import limiter
+15 | from app.core.response import ok
+16 | from app.models.monitoring import CanaryRecord, DriftAlert, DriftSeverity, MonitoringLog, MonitoringEventType
+   |                                   ^^^^^^^^^^^^
+17 | from app.models.user import User
+18 | from app.schemas.common import ApiResponse
+   |
+help: Remove unused import
+
+F401 [*] `app.models.monitoring.DriftSeverity` imported but unused
+  --> app\api\v1\monitoring.py:16:61
+   |
+14 | from app.core.rate_limit import limiter
+15 | from app.core.response import ok
+16 | from app.models.monitoring import CanaryRecord, DriftAlert, DriftSeverity, MonitoringLog, MonitoringEventType
+   |                                                             ^^^^^^^^^^^^^
+17 | from app.models.user import User
+18 | from app.schemas.common import ApiResponse
+   |
+help: Remove unused import
+
+F401 `app.api.v1.observability.query._percentile` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+   --> app\api\v1\observability\__init__.py:254:5
+    |
+252 |     _compute_response_time,
+253 |     _compute_trend,
+254 |     _percentile,
+    |     ^^^^^^^^^^^
+255 | )
+256 | from app.api.v1.observability.aggregate import (  # noqa: E402
+    |
+help: Use an explicit re-export: `_percentile as _percentile`
+
+F811 Redefinition of unused `logger` from line 27
+  --> app\api\v1\observability\aggregate.py:27:5
+   |
+25 |     _json_loads,
+26 |     _norm_json_value,
+27 |     logger,
+   |     ------ previous definition of `logger` here
+28 | )
+29 |
+30 | logger = logging.getLogger(__name__)
+   | ^^^^^^ `logger` redefined here
+   |
+help: Remove definition: `logger`
+
+F401 [*] `app.core.config.settings` imported but unused
+  --> app\api\v1\validation.py:14:42
+   |
+12 | from sqlalchemy.ext.asyncio import AsyncSession
+13 |
+14 | from app.core.config import BACKEND_DIR, settings
+   |                                          ^^^^^^^^
+15 | from app.core.database import get_db
+16 | from app.core.deps import require_permission
+   |
+help: Remove unused import: `app.core.config.settings`
+
+F401 [*] `os` imported but unused
+ --> app\core\celery_app.py:4:8
+  |
+3 | import logging
+4 | import os
+  |        ^^
+5 |
+6 | from celery import Celery
+  |
+help: Remove unused import: `os`
+
+F401 [*] `typing.Final` imported but unused
+  --> app\core\db_breaker.py:43:30
+   |
+41 | import time
+42 | from enum import Enum
+43 | from typing import Callable, Final
+   |                              ^^^^^
+44 |
+45 | from fastapi import HTTPException, status
+   |
+help: Remove unused import: `typing.Final`
+
+E741 Ambiguous variable name: `l`
+  --> app\core\metrics.py:53:35
+   |
+51 |         if set(labels.keys()) != set(self.labelnames):
+52 |             raise ValueError(f"Label mismatch: expected {self.labelnames}, got {list(labels.keys())}")
+53 |         key = tuple(labels[l] for l in self.labelnames)
+   |                                   ^
+54 |         with _lock:
+55 |             self._values[key] = self._values.get(key, 0.0) + amount
+   |
+
+E741 Ambiguous variable name: `l`
+  --> app\core\metrics.py:76:35
+   |
+74 |         if set(labels.keys()) != set(self.labelnames):
+75 |             raise ValueError(f"Label mismatch: expected {self.labelnames}, got {list(labels.keys())}")
+76 |         key = tuple(labels[l] for l in self.labelnames)
+   |                                   ^
+77 |         with _lock:
+78 |             self._values[key] = value
+   |
+
+E741 Ambiguous variable name: `l`
+  --> app\core\metrics.py:85:35
+   |
+83 |         if set(labels.keys()) != set(self.labelnames):
+84 |             raise ValueError(f"Label mismatch: expected {self.labelnames}, got {list(labels.keys())}")
+85 |         key = tuple(labels[l] for l in self.labelnames)
+   |                                   ^
+86 |         with _lock:
+87 |             self._values[key] = self._values.get(key, 0.0) + amount
+   |
+
+E741 Ambiguous variable name: `l`
+  --> app\core\metrics.py:93:35
+   |
+91 |         if set(labels.keys()) != set(self.labelnames):
+92 |             raise ValueError(f"Label mismatch: expected {self.labelnames}, got {list(labels.keys())}")
+93 |         key = tuple(labels[l] for l in self.labelnames)
+   |                                   ^
+94 |         with _lock:
+95 |             self._values[key] = self._values.get(key, 0.0) - amount
+   |
+
+E741 Ambiguous variable name: `l`
+   --> app\core\metrics.py:130:35
+    |
+128 |         if set(labels.keys()) != set(self.labelnames):
+129 |             raise ValueError(f"Label mismatch: expected {self.labelnames}, got {list(labels.keys())}")
+130 |         key = tuple(labels[l] for l in self.labelnames)
+    |                                   ^
+131 |         with _lock:
+132 |             entry = self._values.setdefault(
+    |
+
+F401 [*] `typing.Any` imported but unused
+  --> app\core\ml_breaker.py:33:20
+   |
+31 | import asyncio
+32 | import logging
+33 | from typing import Any, Awaitable, TypeVar
+   |                    ^^^
+34 |
+35 | from app.core.db_breaker import (
+   |
+help: Remove unused import: `typing.Any`
+
+F401 [*] `app.core.db_breaker.CircuitBreakerOpenError` imported but unused
+  --> app\core\ml_breaker.py:37:5
+   |
+35 | from app.core.db_breaker import (
+36 |     CircuitBreaker,
+37 |     CircuitBreakerOpenError,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+38 |     FailureClassifier,
+39 | )
+   |
+help: Remove unused import
+
+F401 [*] `app.core.db_breaker.FailureClassifier` imported but unused
+  --> app\core\ml_breaker.py:38:5
+   |
+36 |     CircuitBreaker,
+37 |     CircuitBreakerOpenError,
+38 |     FailureClassifier,
+   |     ^^^^^^^^^^^^^^^^^
+39 | )
+   |
+help: Remove unused import
+
+F401 [*] `numpy` imported but unused
+  --> app\core\model_engine.py:18:21
+   |
+16 | # P1-E 修复：使用 TYPE_CHECKING 避免运行时导入，同时提供精确类型提示
+17 | if TYPE_CHECKING:
+18 |     import numpy as np
+   |                     ^^
+19 |     import pandas as pd
+20 |     from sklearn.base import BaseEstimator
+   |
+help: Remove unused import: `numpy`
+
+F401 [*] `pandas` imported but unused
+  --> app\core\model_engine.py:19:22
+   |
+17 | if TYPE_CHECKING:
+18 |     import numpy as np
+19 |     import pandas as pd
+   |                      ^^
+20 |     from sklearn.base import BaseEstimator
+21 |     from sklearn.pipeline import Pipeline
+   |
+help: Remove unused import: `pandas`
+
+F401 [*] `sklearn.base.BaseEstimator` imported but unused
+  --> app\core\model_engine.py:20:30
+   |
+18 |     import numpy as np
+19 |     import pandas as pd
+20 |     from sklearn.base import BaseEstimator
+   |                              ^^^^^^^^^^^^^
+21 |     from sklearn.pipeline import Pipeline
+   |
+help: Remove unused import: `sklearn.base.BaseEstimator`
+
+F401 [*] `app.core.config._check_pytorch` imported but unused
+  --> app\core\model_engine.py:23:42
+   |
+21 |     from sklearn.pipeline import Pipeline
+22 |
+23 | from app.core.config import BACKEND_DIR, _check_pytorch, settings
+   |                                          ^^^^^^^^^^^^^^
+24 | from app.core.crisis_detector import CrisisDetector
+25 | from app.core.exceptions import ModelException
+   |
+help: Remove unused import: `app.core.config._check_pytorch`
+
+F401 [*] `app.core.exceptions.ModelException` imported but unused
+  --> app\core\model_engine.py:25:33
+   |
+23 | from app.core.config import BACKEND_DIR, _check_pytorch, settings
+24 | from app.core.crisis_detector import CrisisDetector
+25 | from app.core.exceptions import ModelException
+   |                                 ^^^^^^^^^^^^^^
+26 | # MAINT-P0-002: _STR_TO_NUM / _DEFAULTS / LITE_FEATURE_ORDER 已抽离到 feature_maps.py
+27 | # 此处通过别名导入保持内部 _ 前缀命名约定, 同时 re-export 供外部
+   |
+help: Remove unused import: `app.core.exceptions.ModelException`
+
+F401 [*] `app.core.feature_maps.LITE_FEATURE_ORDER` imported but unused
+  --> app\core\model_engine.py:29:58
+   |
+27 | # 此处通过别名导入保持内部 _ 前缀命名约定, 同时 re-export 供外部
+28 | # `from app.core.model_engine import LITE_FEATURE_ORDER` 继续可用 (向后兼容)
+29 | from app.core.feature_maps import DEFAULTS as _DEFAULTS, LITE_FEATURE_ORDER, STR_TO_NUM as _STR_TO_NUM
+   |                                                          ^^^^^^^^^^^^^^^^^^
+30 | from app.core.model_registry import MODEL_PATHS, get_model_info, is_model_enabled, resolve_model_path
+31 | from app.core.risk_thresholds import RISK_LEVEL_LABELS, RISK_LEVEL_THRESHOLDS, get_threshold_by_modality
+   |
+help: Remove unused import: `app.core.feature_maps.LITE_FEATURE_ORDER`
+
+F401 [*] `app.core.model_registry.get_model_info` imported but unused
+  --> app\core\model_engine.py:30:50
+   |
+28 | # `from app.core.model_engine import LITE_FEATURE_ORDER` 继续可用 (向后兼容)
+29 | from app.core.feature_maps import DEFAULTS as _DEFAULTS, LITE_FEATURE_ORDER, STR_TO_NUM as _STR_TO_NUM
+30 | from app.core.model_registry import MODEL_PATHS, get_model_info, is_model_enabled, resolve_model_path
+   |                                                  ^^^^^^^^^^^^^^
+31 | from app.core.risk_thresholds import RISK_LEVEL_LABELS, RISK_LEVEL_THRESHOLDS, get_threshold_by_modality
+32 | from app.ml.fusion_priority_engine import FusionPriorityEngine
+   |
+help: Remove unused import: `app.core.model_registry.get_model_info`
+
+F401 [*] `app.core.risk_thresholds.RISK_LEVEL_LABELS` imported but unused
+  --> app\core\model_engine.py:31:38
+   |
+29 | from app.core.feature_maps import DEFAULTS as _DEFAULTS, LITE_FEATURE_ORDER, STR_TO_NUM as _STR_TO_NUM
+30 | from app.core.model_registry import MODEL_PATHS, get_model_info, is_model_enabled, resolve_model_path
+31 | from app.core.risk_thresholds import RISK_LEVEL_LABELS, RISK_LEVEL_THRESHOLDS, get_threshold_by_modality
+   |                                      ^^^^^^^^^^^^^^^^^
+32 | from app.ml.fusion_priority_engine import FusionPriorityEngine
+33 | from app.ml.text_analyzer import TextAnalyzer
+   |
+help: Remove unused import
+
+F401 [*] `app.core.risk_thresholds.RISK_LEVEL_THRESHOLDS` imported but unused
+  --> app\core\model_engine.py:31:57
+   |
+29 | from app.core.feature_maps import DEFAULTS as _DEFAULTS, LITE_FEATURE_ORDER, STR_TO_NUM as _STR_TO_NUM
+30 | from app.core.model_registry import MODEL_PATHS, get_model_info, is_model_enabled, resolve_model_path
+31 | from app.core.risk_thresholds import RISK_LEVEL_LABELS, RISK_LEVEL_THRESHOLDS, get_threshold_by_modality
+   |                                                         ^^^^^^^^^^^^^^^^^^^^^
+32 | from app.ml.fusion_priority_engine import FusionPriorityEngine
+33 | from app.ml.text_analyzer import TextAnalyzer
+   |
+help: Remove unused import
+
+F401 [*] `app.core.risk_thresholds.get_threshold_by_modality` imported but unused
+  --> app\core\model_engine.py:31:80
+   |
+29 | from app.core.feature_maps import DEFAULTS as _DEFAULTS, LITE_FEATURE_ORDER, STR_TO_NUM as _STR_TO_NUM
+30 | from app.core.model_registry import MODEL_PATHS, get_model_info, is_model_enabled, resolve_model_path
+31 | from app.core.risk_thresholds import RISK_LEVEL_LABELS, RISK_LEVEL_THRESHOLDS, get_threshold_by_modality
+   |                                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+32 | from app.ml.fusion_priority_engine import FusionPriorityEngine
+33 | from app.ml.text_analyzer import TextAnalyzer
+   |
+help: Remove unused import
+
+F401 [*] `importlib.util` imported but unused
+   --> app\core\model_engine.py:411:16
+    |
+410 |     def _load_adapter(self) -> Any:
+411 |         import importlib.util
+    |                ^^^^^^^^^^^^^^
+412 |
+413 |         try:
+    |
+help: Remove unused import: `importlib.util`
+
+F401 [*] `joblib` imported but unused
+   --> app\core\model_engine.py:509:16
+    |
+508 |     def _load_model(self, model_id: str) -> Any:
+509 |         import joblib
+    |                ^^^^^^
+510 |
+511 |         # RES-P0-001: 使用 LRU 缓存读取
+    |
+help: Remove unused import: `joblib`
+
+F841 Local variable `social_support` is assigned to but never used
+   --> app\core\model_engine.py:701:9
+    |
+699 |         sleep_duration_hours = _get_num("sleep_duration", 7)
+700 |         stress_level = _get_num("stress_level", 2)
+701 |         social_support = _get_num("social_support", 3)
+    |         ^^^^^^^^^^^^^^
+702 |         financial_pressure = _get_num("financial_pressure", 2)
+703 |         family_history = int(raw.get("family_history", 0)) if raw.get("family_history") is not None else 0
+    |
+help: Remove assignment to unused variable `social_support`
+
+F841 Local variable `anxiety` is assigned to but never used
+   --> app\core\model_engine.py:705:9
+    |
+703 |         family_history = int(raw.get("family_history", 0)) if raw.get("family_history") is not None else 0
+704 |         academic_pressure = _get_num("academic_pressure", 2)
+705 |         anxiety = _get_num("anxiety", 1)
+    |         ^^^^^^^
+706 |         panic_attack = int(raw.get("panic_attack", 0)) if raw.get("panic_attack") is not None else 0
+707 |         treatment_seeking = int(raw.get("treatment_seeking", 0)) if raw.get("treatment_seeking") is not None else 0
+    |
+help: Remove assignment to unused variable `anxiety`
+
+F841 Local variable `panic_attack` is assigned to but never used
+   --> app\core\model_engine.py:706:9
+    |
+704 |         academic_pressure = _get_num("academic_pressure", 2)
+705 |         anxiety = _get_num("anxiety", 1)
+706 |         panic_attack = int(raw.get("panic_attack", 0)) if raw.get("panic_attack") is not None else 0
+    |         ^^^^^^^^^^^^
+707 |         treatment_seeking = int(raw.get("treatment_seeking", 0)) if raw.get("treatment_seeking") is not None else 0
+708 |         suicidal_thoughts = int(raw.get("suicidal_thoughts", 0)) if raw.get("suicidal_thoughts") is not None else 0
+    |
+help: Remove assignment to unused variable `panic_attack`
+
+F841 Local variable `treatment_seeking` is assigned to but never used
+   --> app\core\model_engine.py:707:9
+    |
+705 |         anxiety = _get_num("anxiety", 1)
+706 |         panic_attack = int(raw.get("panic_attack", 0)) if raw.get("panic_attack") is not None else 0
+707 |         treatment_seeking = int(raw.get("treatment_seeking", 0)) if raw.get("treatment_seeking") is not None else 0
+    |         ^^^^^^^^^^^^^^^^^
+708 |         suicidal_thoughts = int(raw.get("suicidal_thoughts", 0)) if raw.get("suicidal_thoughts") is not None else 0
+709 |         cgpa_src = _get_num("cgpa", 3.0)
+    |
+help: Remove assignment to unused variable `treatment_seeking`
+
+F401 [*] `app.core.feature_maps.STR_TO_NUM` imported but unused
+  --> app\core\model_engine_predict.py:50:19
+   |
+48 |     DEFAULTS as _DEFAULTS,
+49 |     LITE_FEATURE_ORDER,
+50 |     STR_TO_NUM as _STR_TO_NUM,
+   |                   ^^^^^^^^^^^
+51 | )
+52 | from app.core.model_registry import get_model_info
+   |
+help: Remove unused import: `app.core.feature_maps.STR_TO_NUM`
+
+F401 [*] `numpy` imported but unused
+  --> app\core\model_engine_predict.py:55:21
+   |
+54 | if TYPE_CHECKING:
+55 |     import numpy as np
+   |                     ^^
+56 |     import pandas as pd
+57 |     from sklearn.base import BaseEstimator
+   |
+help: Remove unused import: `numpy`
+
+F401 [*] `pandas` imported but unused
+  --> app\core\model_engine_predict.py:56:22
+   |
+54 | if TYPE_CHECKING:
+55 |     import numpy as np
+56 |     import pandas as pd
+   |                      ^^
+57 |     from sklearn.base import BaseEstimator
+58 |     from sklearn.pipeline import Pipeline
+   |
+help: Remove unused import: `pandas`
+
+F401 [*] `sklearn.base.BaseEstimator` imported but unused
+  --> app\core\model_engine_predict.py:57:30
+   |
+55 |     import numpy as np
+56 |     import pandas as pd
+57 |     from sklearn.base import BaseEstimator
+   |                              ^^^^^^^^^^^^^
+58 |     from sklearn.pipeline import Pipeline
+   |
+help: Remove unused import: `sklearn.base.BaseEstimator`
+
+F401 [*] `sklearn.pipeline.Pipeline` imported but unused
+  --> app\core\model_engine_predict.py:58:34
+   |
+56 |     import pandas as pd
+57 |     from sklearn.base import BaseEstimator
+58 |     from sklearn.pipeline import Pipeline
+   |                                  ^^^^^^^^
+59 |
+60 | logger = logging.getLogger(__name__)
+   |
+help: Remove unused import: `sklearn.pipeline.Pipeline`
+
+F401 [*] `app.ml.feature_engineering.ALL_FEATURES` imported but unused
+   --> app\core\model_engine_predict.py:747:67
+    |
+746 |         # P1-ML-005 修复：使用训练时的 engineer_features 函数，确保派生特征计算公式一致
+747 |         from app.ml.feature_engineering import engineer_features, ALL_FEATURES
+    |                                                                   ^^^^^^^^^^^^
+748 |         df_single = pd.DataFrame([cleaned_data])
+749 |         df_engineered = engineer_features(df_single)
+    |
+help: Remove unused import: `app.ml.feature_engineering.ALL_FEATURES`
+
+F401 [*] `dataclasses.field` imported but unused
+  --> app\core\model_registry_v2.py:32:36
+   |
+30 | import json
+31 | import logging
+32 | from dataclasses import dataclass, field
+   |                                    ^^^^^
+33 | from datetime import datetime, timezone
+34 | from enum import Enum
+   |
+help: Remove unused import: `dataclasses.field`
+
+F401 [*] `app.schemas.common.ErrorResponse` imported but unused
+ --> app\core\openapi_responses.py:1:32
+  |
+1 | from app.schemas.common import ErrorResponse
+  |                                ^^^^^^^^^^^^^
+2 |
+3 | # PERF/SCHEMA: 使用 $ref 引用 FastAPI 自动注册的 components/schemas/ErrorResponse,
+  |
+help: Remove unused import: `app.schemas.common.ErrorResponse`
+
+F401 [*] `sqlalchemy.types.LargeBinary` imported but unused
+   --> app\core\pii_crypto.py:192:53
+    |
+190 | # ── SQLAlchemy TypeDecorator (供 ORM 直接使用加密列) ──────────────────
+191 |
+192 | from sqlalchemy.types import TypeDecorator, String, LargeBinary  # noqa: E402
+    |                                                     ^^^^^^^^^^^
+    |
+help: Remove unused import: `sqlalchemy.types.LargeBinary`
+
+F401 [*] `datetime.date` imported but unused
+ --> app\core\seed.py:4:22
+  |
+3 | import os
+4 | from datetime import date, datetime, timedelta, timezone
+  |                      ^^^^
+5 | from pathlib import Path
+6 | from typing import Any
+  |
+help: Remove unused import: `datetime.date`
+
+F401 [*] `pandas.DataFrame` imported but unused
+  --> app\ml\data_split.py:9:24
+   |
+ 8 | if TYPE_CHECKING:
+ 9 |     from pandas import DataFrame
+   |                        ^^^^^^^^^
+10 |
+11 | logger = logging.getLogger(__name__)
+   |
+help: Remove unused import: `pandas.DataFrame`
+
+F401 [*] `pandas` imported but unused
+ --> app\ml\feature_engineering.py:7:18
+  |
+6 | import numpy as np
+7 | import pandas as pd
+  |                  ^^
+8 |
+9 | if TYPE_CHECKING:
+  |
+help: Remove unused import: `pandas`
+
+F841 Local variable `history` is assigned to but never used
+   --> app\ml\hyperparameter_tuning.py:331:9
+    |
+329 |         y_tr_es, y_val_es = y_train_outer[es_perm[:es_split]], y_train_outer[es_perm[es_split:]]
+330 |
+331 |         history = train_model(
+    |         ^^^^^^^
+332 |             model,
+333 |             X_tr_es,
+    |
+help: Remove assignment to unused variable `history`
+
+F401 [*] `app.utils.checksum.write_sha256_sidecar` imported but unused
+  --> app\ml\model_loader.py:13:49
+   |
+11 | # 治理循环依赖：write_sha256_sidecar / _compute_sha256 提取到 app.utils.checksum，
+12 | # 避免 ml.{model,scaler,data_cleaner}.save() 反向 lazy import 本模块形成环。
+13 | from app.utils.checksum import _compute_sha256, write_sha256_sidecar
+   |                                                 ^^^^^^^^^^^^^^^^^^^^
+14 |
+15 | logger = logging.getLogger(__name__)
+   |
+help: Remove unused import: `app.utils.checksum.write_sha256_sidecar`
+
+F821 Undefined name `DataCleaner`
+   --> app\ml\model_loader.py:238:54
+    |
+238 | def load_cleaner(path: Path | str | None = None) -> "DataCleaner":
+    |                                                      ^^^^^^^^^^^
+239 |     """P1-ML-005 修复：加载训练时的 DataCleaner 统计量。
+    |
+
+F401 [*] `json` imported but unused
+  --> app\ml\pytorch_mlp.py:15:8
+   |
+13 | from __future__ import annotations
+14 |
+15 | import json
+   |        ^^^^
+16 | import logging
+17 | from pathlib import Path
+   |
+help: Remove unused import: `json`
+
+F401 [*] `pandas.DataFrame` imported but unused
+  --> app\ml\smote.py:9:24
+   |
+ 8 | if TYPE_CHECKING:
+ 9 |     from pandas import DataFrame
+   |                        ^^^^^^^^^
+10 |
+11 | logger = logging.getLogger(__name__)
+   |
+help: Remove unused import: `pandas.DataFrame`
+
+F401 [*] `dataclasses.field` imported but unused
+ --> app\services\canary_manager.py:5:36
+  |
+3 | import hashlib
+4 | import logging
+5 | from dataclasses import dataclass, field
+  |                                    ^^^^^
+6 | from datetime import datetime, timedelta, timezone
+7 | from typing import Any
+  |
+help: Remove unused import: `dataclasses.field`
+
+F401 [*] `app.models.monitoring.MonitoringEventType` imported but unused
+  --> app\services\canary_manager.py:12:63
+   |
+10 | from sqlalchemy.ext.asyncio import AsyncSession
+11 |
+12 | from app.models.monitoring import CanaryRecord, CanaryStatus, MonitoringEventType
+   |                                                               ^^^^^^^^^^^^^^^^^^^
+13 | from app.services.observability_service import observability_collector
+   |
+help: Remove unused import: `app.models.monitoring.MonitoringEventType`
+
+F401 `openpyxl` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> app\services\excel_export_service.py:53:20
+   |
+51 |         """Check if openpyxl is installed."""
+52 |         try:
+53 |             import openpyxl
+   |                    ^^^^^^^^
+54 |             return True
+55 |         except ImportError:
+   |
+help: Remove unused import: `openpyxl`
+
+F841 Local variable `train_pred` is assigned to but never used
+   --> app\services\experiment_trainer.py:199:9
+    |
+197 |         ])
+198 |         model.fit(X_train, y_train)
+199 |         train_pred = model.predict(X_train)
+    |         ^^^^^^^^^^
+200 |         train_proba = model.predict_proba(X_train)[:, 1]
+201 |         val_pred = model.predict(X_val)
+    |
+help: Remove assignment to unused variable `train_pred`
+
+F401 [*] `datetime.timedelta` imported but unused
+  --> app\services\gdpr_service.py:23:32
+   |
+21 | import secrets
+22 | import uuid
+23 | from datetime import datetime, timedelta, timezone
+   |                                ^^^^^^^^^
+24 | from typing import Any
+   |
+help: Remove unused import: `datetime.timedelta`
+
+F401 [*] `app.core.pii_crypto.encrypt_field` imported but unused
+  --> app\services\gdpr_service.py:40:5
+   |
+38 |     ENCRYPTED_PREFIX,
+39 |     decrypt_field,
+40 |     encrypt_field,
+   |     ^^^^^^^^^^^^^
+41 |     mask_pii,
+42 | )
+   |
+help: Remove unused import: `app.core.pii_crypto.encrypt_field`
+
+F401 [*] `os` imported but unused
+ --> app\services\model_predict_service.py:5:8
+  |
+3 | import json
+4 | import logging
+5 | import os
+  |        ^^
+6 | from pathlib import Path
+7 | from threading import Lock
+  |
+help: Remove unused import: `os`
+
+F401 [*] `math` imported but unused
+ --> app\services\observability_service.py:5:8
+  |
+3 | import asyncio
+4 | import logging
+5 | import math
+  |        ^^^^
+6 | import threading
+7 | import time
+  |
+help: Remove unused import: `math`
+
+F401 [*] `time` imported but unused
+ --> app\services\observability_service.py:7:8
+  |
+5 | import math
+6 | import threading
+7 | import time
+  |        ^^^^
+8 | from collections import defaultdict, deque
+9 | from dataclasses import dataclass, field
+  |
+help: Remove unused import: `time`
+
+F401 [*] `pathlib.Path` imported but unused
+ --> app\services\pdf_report_service.py:7:21
+  |
+5 | import time
+6 | from dataclasses import dataclass, field
+7 | from pathlib import Path
+  |                     ^^^^
+8 | from typing import Any
+  |
+help: Remove unused import: `pathlib.Path`
+
+F401 `reportlab` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> app\services\pdf_report_service.py:83:20
+   |
+81 |         """Check if ReportLab is installed."""
+82 |         try:
+83 |             import reportlab
+   |                    ^^^^^^^^^
+84 |             return True
+85 |         except ImportError:
+   |
+help: Remove unused import: `reportlab`
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:31:1
+   |
+29 |     return value
+30 |
+31 | from reportlab.lib import colors
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 | from reportlab.lib.pagesizes import A4
+33 | from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:32:1
+   |
+31 | from reportlab.lib import colors
+32 | from reportlab.lib.pagesizes import A4
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+33 | from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+34 | from reportlab.lib.units import mm
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:33:1
+   |
+31 | from reportlab.lib import colors
+32 | from reportlab.lib.pagesizes import A4
+33 | from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+34 | from reportlab.lib.units import mm
+35 | from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:34:1
+   |
+32 | from reportlab.lib.pagesizes import A4
+33 | from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+34 | from reportlab.lib.units import mm
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+35 | from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+36 | from sqlalchemy import Select, and_, select
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:35:1
+   |
+33 | from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+34 | from reportlab.lib.units import mm
+35 | from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+36 | from sqlalchemy import Select, and_, select
+37 | from sqlalchemy.ext.asyncio import AsyncSession
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:36:1
+   |
+34 | from reportlab.lib.units import mm
+35 | from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+36 | from sqlalchemy import Select, and_, select
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+37 | from sqlalchemy.ext.asyncio import AsyncSession
+   |
+
+F401 [*] `sqlalchemy.and_` imported but unused
+  --> app\services\risk_service.py:36:32
+   |
+34 | from reportlab.lib.units import mm
+35 | from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+36 | from sqlalchemy import Select, and_, select
+   |                                ^^^^
+37 | from sqlalchemy.ext.asyncio import AsyncSession
+   |
+help: Remove unused import: `sqlalchemy.and_`
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:37:1
+   |
+35 | from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+36 | from sqlalchemy import Select, and_, select
+37 | from sqlalchemy.ext.asyncio import AsyncSession
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+38 |
+39 | from app.core.model_engine import model_engine
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:39:1
+   |
+37 | from sqlalchemy.ext.asyncio import AsyncSession
+38 |
+39 | from app.core.model_engine import model_engine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+40 | from app.core.risk_thresholds import (
+41 |     RISK_LEVEL_LABELS,
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:40:1
+   |
+39 |   from app.core.model_engine import model_engine
+40 | / from app.core.risk_thresholds import (
+41 | |     RISK_LEVEL_LABELS,
+42 | |     RISK_LEVEL_THRESHOLDS as SHARED_RISK_LEVEL_THRESHOLDS,
+43 | |     get_fusion_threshold,
+44 | |     get_threshold_by_modality,
+45 | |     should_fallback,
+46 | | )
+   | |_^
+47 |   from app.core.event_bus import event_bus
+48 |   from app.core.states import BindingStatus
+   |
+
+F401 [*] `app.core.risk_thresholds.get_fusion_threshold` imported but unused
+  --> app\services\risk_service.py:43:5
+   |
+41 |     RISK_LEVEL_LABELS,
+42 |     RISK_LEVEL_THRESHOLDS as SHARED_RISK_LEVEL_THRESHOLDS,
+43 |     get_fusion_threshold,
+   |     ^^^^^^^^^^^^^^^^^^^^
+44 |     get_threshold_by_modality,
+45 |     should_fallback,
+   |
+help: Remove unused import
+
+F401 [*] `app.core.risk_thresholds.should_fallback` imported but unused
+  --> app\services\risk_service.py:45:5
+   |
+43 |     get_fusion_threshold,
+44 |     get_threshold_by_modality,
+45 |     should_fallback,
+   |     ^^^^^^^^^^^^^^^
+46 | )
+47 | from app.core.event_bus import event_bus
+   |
+help: Remove unused import
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:47:1
+   |
+45 |     should_fallback,
+46 | )
+47 | from app.core.event_bus import event_bus
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+48 | from app.core.states import BindingStatus
+49 | from app.models.assessment import StructuredAssessment
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:48:1
+   |
+46 | )
+47 | from app.core.event_bus import event_bus
+48 | from app.core.states import BindingStatus
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+49 | from app.models.assessment import StructuredAssessment
+50 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:49:1
+   |
+47 | from app.core.event_bus import event_bus
+48 | from app.core.states import BindingStatus
+49 | from app.models.assessment import StructuredAssessment
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+50 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate
+51 | from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:50:1
+   |
+48 | from app.core.states import BindingStatus
+49 | from app.models.assessment import StructuredAssessment
+50 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+51 | from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
+52 | from app.models.user import UserCounselorBinding
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:51:1
+   |
+49 | from app.models.assessment import StructuredAssessment
+50 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate
+51 | from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+52 | from app.models.user import UserCounselorBinding
+53 | from app.services.intervention_service import InterventionRecommendation
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:52:1
+   |
+50 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate
+51 | from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
+52 | from app.models.user import UserCounselorBinding
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+53 | from app.services.intervention_service import InterventionRecommendation
+   |
+
+E402 Module level import not at top of file
+  --> app\services\risk_service.py:53:1
+   |
+51 | from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
+52 | from app.models.user import UserCounselorBinding
+53 | from app.services.intervention_service import InterventionRecommendation
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+54 |
+55 | logger = logging.getLogger(__name__)
+   |
+
+F401 [*] `app.core.celery_async.get_celery_loop` imported but unused
+  --> app\tasks\alerts.py:16:54
+   |
+15 | from app.core.celery_app import celery_app
+16 | from app.core.celery_async import get_celery_loop as _get_loop, run_async as _run_async
+   |                                                      ^^^^^^^^^
+17 | from app.core.database import AsyncSessionLocal
+18 | from app.models.admin import OperationLog
+   |
+help: Remove unused import: `app.core.celery_async.get_celery_loop`
+
+F401 [*] `app.core.celery_async.get_celery_loop` imported but unused
+  --> app\tasks\anomaly_detection.py:21:54
+   |
+20 | from app.core.celery_app import celery_app
+21 | from app.core.celery_async import get_celery_loop as _get_loop, run_async as _run_async
+   |                                                      ^^^^^^^^^
+22 | from app.core.database import AsyncSessionLocal
+   |
+help: Remove unused import: `app.core.celery_async.get_celery_loop`
+
+F401 [*] `app.core.celery_async.get_celery_loop` imported but unused
+  --> app\tasks\observability.py:12:54
+   |
+11 | from app.core.celery_app import celery_app
+12 | from app.core.celery_async import get_celery_loop as _get_loop, run_async as _run_async
+   |                                                      ^^^^^^^^^
+13 | from app.core.database import AsyncSessionLocal
+   |
+help: Remove unused import: `app.core.celery_async.get_celery_loop`
+
+F401 [*] `base64` imported but unused
+  --> app\tasks\pdf_report.py:18:8
+   |
+16 | from __future__ import annotations
+17 |
+18 | import base64
+   |        ^^^^^^
+19 | import json
+20 | import logging
+   |
+help: Remove unused import: `base64`
+
+F401 [*] `os` imported but unused
+ --> app\tasks\scheduler.py:4:8
+  |
+3 | import logging
+4 | import os
+  |        ^^
+5 | from datetime import UTC, datetime, timedelta
+6 | from pathlib import Path
+  |
+help: Remove unused import: `os`
+
+F401 [*] `app.core.celery_async.get_celery_loop` imported but unused
+  --> app\tasks\scheduler.py:11:54
+   |
+10 | from app.core.celery_app import celery_app
+11 | from app.core.celery_async import get_celery_loop as _get_loop, run_async as _run_async
+   |                                                      ^^^^^^^^^
+12 | from app.core.database import AsyncSessionLocal
+13 | from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
+   |
+help: Remove unused import: `app.core.celery_async.get_celery_loop`
+
+E712 Avoid equality comparisons to `False`; use `not WarningNotification.is_handled:` for false checks
+   --> app\tasks\scheduler.py:149:13
+    |
+147 |         cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)
+148 |         unhandled_stmt = select(WarningNotification).where(
+149 |             WarningNotification.is_handled == False,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+150 |             WarningNotification.created_at < cutoff,
+151 |             WarningNotification.current_level >= 3,
+    |
+help: Replace with `not WarningNotification.is_handled`
+
+F401 [*] `datetime.datetime` imported but unused
+ --> tests\api\test_alert_archive_api.py:4:22
+  |
+2 | from __future__ import annotations
+3 |
+4 | from datetime import datetime, timedelta, timezone
+  |                      ^^^^^^^^
+5 |
+6 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+ --> tests\api\test_alert_archive_api.py:4:32
+  |
+2 | from __future__ import annotations
+3 |
+4 | from datetime import datetime, timedelta, timezone
+  |                                ^^^^^^^^^
+5 |
+6 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import
+
+F401 [*] `datetime.timezone` imported but unused
+ --> tests\api\test_alert_archive_api.py:4:43
+  |
+2 | from __future__ import annotations
+3 |
+4 | from datetime import datetime, timedelta, timezone
+  |                                           ^^^^^^^^
+5 |
+6 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import
+
+F401 [*] `json` imported but unused
+ --> tests\api\test_alerts_webhook.py:4:8
+  |
+2 | from __future__ import annotations
+3 |
+4 | import json
+  |        ^^^^
+5 | from unittest.mock import patch
+  |
+help: Remove unused import: `json`
+
+F401 [*] `app.models.admin.OperationLog` imported but unused
+  --> tests\api\test_alerts_webhook.py:97:34
+   |
+95 | def test_webhook_persists_to_operation_log(client: TestClient) -> None:
+96 |     """v1.33: 告警应持久化到 OperationLog."""
+97 |     from app.models.admin import OperationLog
+   |                                  ^^^^^^^^^^^^
+98 |     from app.core.database import get_db
+99 |     from app.core.deps import get_current_user
+   |
+help: Remove unused import: `app.models.admin.OperationLog`
+
+F401 [*] `app.core.database.get_db` imported but unused
+   --> tests\api\test_alerts_webhook.py:98:35
+    |
+ 96 |     """v1.33: 告警应持久化到 OperationLog."""
+ 97 |     from app.models.admin import OperationLog
+ 98 |     from app.core.database import get_db
+    |                                   ^^^^^^
+ 99 |     from app.core.deps import get_current_user
+100 |     from app.models.user import User
+    |
+help: Remove unused import: `app.core.database.get_db`
+
+F401 [*] `asyncio` imported but unused
+ --> tests\api\test_auth_flow.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import asyncio
+  |        ^^^^^^^
+4 |
+5 | import pytest
+  |
+help: Remove unused import: `asyncio`
+
+F841 Local variable `login_resp` is assigned to but never used
+   --> tests\api\test_auth_flow.py:158:9
+    |
+156 |             },
+157 |         )
+158 |         login_resp = client.post(
+    |         ^^^^^^^^^^
+159 |             "/api/v1/auth/login",
+160 |             json={"username": "rotator", "password": "StrongPass123"},
+    |
+help: Remove assignment to unused variable `login_resp`
+
+F841 Local variable `login_resp` is assigned to but never used
+   --> tests\api\test_auth_flow.py:186:9
+    |
+184 |             },
+185 |         )
+186 |         login_resp = client.post(
+    |         ^^^^^^^^^^
+187 |             "/api/v1/auth/login",
+188 |             json={"username": "replay", "password": "StrongPass123"},
+    |
+help: Remove assignment to unused variable `login_resp`
+
+F841 Local variable `login_resp` is assigned to but never used
+   --> tests\api\test_auth_flow.py:215:9
+    |
+213 |             },
+214 |         )
+215 |         login_resp = client.post(
+    |         ^^^^^^^^^^
+216 |             "/api/v1/auth/login",
+217 |             json={"username": "refresher", "password": "StrongPass123"},
+    |
+help: Remove assignment to unused variable `login_resp`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_auth_p0p1.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import pytest
+  |        ^^^^^^
+4 | from app.core.security import create_access_token
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_canary_api.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.models.risk.WarningNotification` imported but unused
+ --> tests\api\test_contract_and_closure.py:9:29
+  |
+7 | from app.models.admin import OperationLog
+8 | from app.models.counselor import ConsultationRecord
+9 | from app.models.risk import WarningNotification
+  |                             ^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove unused import: `app.models.risk.WarningNotification`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_crisis_audit.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import pytest
+  |        ^^^^^^
+4 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+  --> tests\api\test_crisis_event_state_machine.py:12:8
+   |
+10 | from __future__ import annotations
+11 |
+12 | import pytest
+   |        ^^^^^^
+13 | import pytest_asyncio
+14 | from fastapi.testclient import TestClient
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `json` imported but unused
+ --> tests\api\test_csp_report.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import json
+  |        ^^^^
+6 |
+7 | import pytest
+  |
+help: Remove unused import: `json`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_csp_report.py:7:8
+  |
+5 | import json
+6 |
+7 | import pytest
+  |        ^^^^^^
+8 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import: `pytest`
+
+E741 Ambiguous variable name: `l`
+   --> tests\api\test_metrics.py:124:29
+    |
+122 |     r2 = client.get("/api/v1/metrics", headers=_METRICS_AUTH).text
+123 |     # 相同的指标集合 (行数相同)
+124 |     r1_lines = sorted(l for l in r1.splitlines() if l and not l.startswith("#"))
+    |                             ^
+125 |     r2_lines = sorted(l for l in r2.splitlines() if l and not l.startswith("#"))
+126 |     assert r1_lines == r2_lines
+    |
+
+E741 Ambiguous variable name: `l`
+   --> tests\api\test_metrics.py:125:29
+    |
+123 |     # 相同的指标集合 (行数相同)
+124 |     r1_lines = sorted(l for l in r1.splitlines() if l and not l.startswith("#"))
+125 |     r2_lines = sorted(l for l in r2.splitlines() if l and not l.startswith("#"))
+    |                             ^
+126 |     assert r1_lines == r2_lines
+    |
+
+F841 Local variable `job` is assigned to but never used
+   --> tests\api\test_reports_api_extended.py:141:9
+    |
+139 |         as_role("admin", 1)
+140 |         # 直接在 store 中创建一个 queued 状态的任务
+141 |         job = pdf_job_store.create("test-queued-job", "test_user", created_by=1)
+    |         ^^^
+142 |         try:
+143 |             download_resp = client.get(
+    |
+help: Remove assignment to unused variable `job`
+
+F841 Local variable `job` is assigned to but never used
+   --> tests\api\test_reports_api_extended.py:292:9
+    |
+290 |         as_role("admin", 1)
+291 |         # 直接在 store 中创建一个 queued 状态的任务
+292 |         job = excel_job_store.create("test-excel-queued-job", "test_export", created_by=1)
+    |         ^^^
+293 |         try:
+294 |             download_resp = client.get(
+    |
+help: Remove assignment to unused variable `job`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_review_api.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import pytest
+  |        ^^^^^^
+4 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_upload_security.py:2:8
+  |
+1 | """文件上传安全测试"""
+2 | import pytest
+  |        ^^^^^^
+3 | from fastapi.testclient import TestClient
+4 | from io import BytesIO
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_user_content.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_user_data.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import pytest
+  |        ^^^^^^
+4 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_user_intervention.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\api\test_validation_api.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `json` imported but unused
+  --> tests\api\test_websocket.py:17:8
+   |
+15 | from __future__ import annotations
+16 |
+17 | import json
+   |        ^^^^
+18 |
+19 | import pytest
+   |
+help: Remove unused import: `json`
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:35:1
+   |
+33 | os.environ.setdefault("E2E_USER_PASSWORD", "TestUserPwd-2024-Secure!")
+34 |
+35 | from app.core.database import get_db
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+36 | from app.core.deps import get_current_user, oauth2_scheme
+37 | from app.core.security import get_password_hash
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:36:1
+   |
+35 | from app.core.database import get_db
+36 | from app.core.deps import get_current_user, oauth2_scheme
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+37 | from app.core.security import get_password_hash
+38 | from app.main import app
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:37:1
+   |
+35 | from app.core.database import get_db
+36 | from app.core.deps import get_current_user, oauth2_scheme
+37 | from app.core.security import get_password_hash
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+38 | from app.main import app
+39 | from app.models import Base
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:38:1
+   |
+36 | from app.core.deps import get_current_user, oauth2_scheme
+37 | from app.core.security import get_password_hash
+38 | from app.main import app
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+39 | from app.models import Base
+40 | from app.models.admin import EducationContent, ModelFeedback
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:39:1
+   |
+37 | from app.core.security import get_password_hash
+38 | from app.main import app
+39 | from app.models import Base
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+40 | from app.models.admin import EducationContent, ModelFeedback
+41 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate, TaskExecution
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:40:1
+   |
+38 | from app.main import app
+39 | from app.models import Base
+40 | from app.models.admin import EducationContent, ModelFeedback
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+41 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate, TaskExecution
+42 | from app.models.risk import RiskAssessment, WarningNotification
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:41:1
+   |
+39 | from app.models import Base
+40 | from app.models.admin import EducationContent, ModelFeedback
+41 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate, TaskExecution
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+42 | from app.models.risk import RiskAssessment, WarningNotification
+43 | from app.models.user import User, UserCounselorBinding
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:42:1
+   |
+40 | from app.models.admin import EducationContent, ModelFeedback
+41 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate, TaskExecution
+42 | from app.models.risk import RiskAssessment, WarningNotification
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+43 | from app.models.user import User, UserCounselorBinding
+44 | from starlette.requests import Request as StarletteRequest
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:43:1
+   |
+41 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate, TaskExecution
+42 | from app.models.risk import RiskAssessment, WarningNotification
+43 | from app.models.user import User, UserCounselorBinding
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+44 | from starlette.requests import Request as StarletteRequest
+45 | Request = StarletteRequest
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:44:1
+   |
+42 | from app.models.risk import RiskAssessment, WarningNotification
+43 | from app.models.user import User, UserCounselorBinding
+44 | from starlette.requests import Request as StarletteRequest
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+45 | Request = StarletteRequest
+   |
+
+E402 Module level import not at top of file
+  --> tests\conftest.py:48:1
+   |
+47 | # v1.39 R3 RISK-4: autouse mock ObservabilityExporter, 避免 60s 调度干扰测试时长
+48 | from unittest.mock import AsyncMock, MagicMock as _MagicMock
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 [*] `json` imported but unused
+  --> tests\contract\test_api_contract.py:9:8
+   |
+ 7 | from __future__ import annotations
+ 8 |
+ 9 | import json
+   |        ^^^^
+10 | from pathlib import Path
+   |
+help: Remove unused import: `json`
+
+E402 Module level import not at top of file
+  --> tests\contract\test_api_contract.py:26:1
+   |
+24 | # PERF: 使用 from_path 加载已导出的 openapi.json (避免 from_asgi 启动 TestClient 获取 schema,
+25 | # collection 时间从 ~88s 降至 <1s). 设置 schema.app 使 case.call() 走 ASGI 传输.
+26 | from app.main import app
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+27 |
+28 | # 配置 Schemathesis: 将 400 加入 positive_data_acceptance 的合法状态码列表.
+   |
+
+E402 Module level import not at top of file
+  --> tests\contract\test_api_contract.py:32:1
+   |
+30 | # 不包含 400, 但本项目用 400 表示业务错误 (如"用户名已存在"/"用户不存在"),
+31 | # 这些请求在 schema 层面是合法的, 只是业务逻辑拒绝, 应视为合法响应.
+32 | from schemathesis.config import SchemathesisConfig
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+33 | from schemathesis.config._checks import (
+34 |     ChecksConfig,
+   |
+
+E402 Module level import not at top of file
+  --> tests\contract\test_api_contract.py:33:1
+   |
+31 |   # 这些请求在 schema 层面是合法的, 只是业务逻辑拒绝, 应视为合法响应.
+32 |   from schemathesis.config import SchemathesisConfig
+33 | / from schemathesis.config._checks import (
+34 | |     ChecksConfig,
+35 | |     PositiveDataAcceptanceConfig,
+36 | | )
+   | |_^
+37 |   from schemathesis.config._projects import ProjectConfig, ProjectsConfig
+   |
+
+E402 Module level import not at top of file
+  --> tests\contract\test_api_contract.py:37:1
+   |
+35 |     PositiveDataAcceptanceConfig,
+36 | )
+37 | from schemathesis.config._projects import ProjectConfig, ProjectsConfig
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+38 |
+39 | _positive_config = PositiveDataAcceptanceConfig(
+   |
+
+F401 [*] `json` imported but unused
+  --> tests\degradation\test_degradation_scenarios.py:12:8
+   |
+10 | from __future__ import annotations
+11 |
+12 | import json
+   |        ^^^^
+13 | import time
+14 | from pathlib import Path
+   |
+help: Remove unused import: `json`
+
+F401 [*] `time` imported but unused
+  --> tests\degradation\test_degradation_scenarios.py:13:8
+   |
+12 | import json
+13 | import time
+   |        ^^^^
+14 | from pathlib import Path
+15 | from unittest.mock import MagicMock, patch
+   |
+help: Remove unused import: `time`
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\degradation\test_degradation_scenarios.py:15:27
+   |
+13 | import time
+14 | from pathlib import Path
+15 | from unittest.mock import MagicMock, patch
+   |                           ^^^^^^^^^
+16 |
+17 | import pytest
+   |
+help: Remove unused import: `unittest.mock.MagicMock`
+
+F401 [*] `app.core.fallback_hierarchy.FallbackExhaustedError` imported but unused
+  --> tests\degradation\test_degradation_scenarios.py:19:41
+   |
+17 | import pytest
+18 |
+19 | from app.core.fallback_hierarchy import FallbackExhaustedError, FallbackHierarchy
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^
+20 | from app.core.model_engine import ModelEngine
+21 | from app.services.input_validator import InputValidator
+   |
+help: Remove unused import
+
+F401 [*] `app.core.fallback_hierarchy.FallbackHierarchy` imported but unused
+  --> tests\degradation\test_degradation_scenarios.py:19:65
+   |
+17 | import pytest
+18 |
+19 | from app.core.fallback_hierarchy import FallbackExhaustedError, FallbackHierarchy
+   |                                                                 ^^^^^^^^^^^^^^^^^
+20 | from app.core.model_engine import ModelEngine
+21 | from app.services.input_validator import InputValidator
+   |
+help: Remove unused import
+
+F401 [*] `app.services.input_validator.InputValidator` imported but unused
+  --> tests\degradation\test_degradation_scenarios.py:21:42
+   |
+19 | from app.core.fallback_hierarchy import FallbackExhaustedError, FallbackHierarchy
+20 | from app.core.model_engine import ModelEngine
+21 | from app.services.input_validator import InputValidator
+   |                                          ^^^^^^^^^^^^^^
+22 |
+23 | pytestmark = pytest.mark.degradation
+   |
+help: Remove unused import: `app.services.input_validator.InputValidator`
+
+F401 [*] `sqlalchemy.select` imported but unused
+ --> tests\harness\presets.py:8:24
+  |
+7 | from fastapi.testclient import TestClient
+8 | from sqlalchemy import select
+  |                        ^^^^^^
+9 | from sqlalchemy.ext.asyncio import AsyncSession
+  |
+help: Remove unused import: `sqlalchemy.select`
+
+F401 [*] `tests.harness.core.HarnessAssertion` imported but unused
+  --> tests\harness\presets.py:16:32
+   |
+14 | from app.models.user import User
+15 |
+16 | from tests.harness.core import HarnessAssertion, HarnessScenario, HarnessSuite
+   |                                ^^^^^^^^^^^^^^^^
+   |
+help: Remove unused import: `tests.harness.core.HarnessAssertion`
+
+F401 `.backend.build_suite` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> tests\harness\scenarios\__init__.py:1:22
+  |
+1 | from .backend import build_suite
+  |                      ^^^^^^^^^^^
+  |
+help: Use an explicit re-export: `build_suite as build_suite`
+
+F401 [*] `app.models.user.User` imported but unused
+  --> tests\harness\scenarios\scenario_backend_smoke.py:14:29
+   |
+12 | from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
+13 | from app.models.risk import RiskAssessment
+14 | from app.models.user import User
+   |                             ^^^^
+15 |
+16 | from tests.harness.core import HarnessAssertion, HarnessScenario, HarnessStep, HarnessSuite
+   |
+help: Remove unused import: `app.models.user.User`
+
+F401 [*] `typing.Optional` imported but unused
+  --> tests\integration\test_canary_deployment.py:10:32
+   |
+ 8 | import pytest
+ 9 | import time
+10 | from typing import Dict, List, Optional
+   |                                ^^^^^^^^
+11 | from dataclasses import dataclass
+12 | from enum import Enum
+   |
+help: Remove unused import: `typing.Optional`
+
+F401 [*] `typing.Dict` imported but unused
+  --> tests\integration\test_canary_routing.py:10:20
+   |
+ 8 | import hashlib
+ 9 | import pytest
+10 | from typing import Dict, List
+   |                    ^^^^
+11 |
+12 | pytestmark = pytest.mark.integration
+   |
+help: Remove unused import
+
+F401 [*] `typing.List` imported but unused
+  --> tests\integration\test_canary_routing.py:10:26
+   |
+ 8 | import hashlib
+ 9 | import pytest
+10 | from typing import Dict, List
+   |                          ^^^^
+11 |
+12 | pytestmark = pytest.mark.integration
+   |
+help: Remove unused import
+
+F841 Local variable `new_users` is assigned to but never used
+   --> tests\integration\test_canary_routing.py:114:17
+    |
+112 |             # 新增加的流量应只包含之前未在灰度中的用户
+113 |             if prev_canary_users:
+114 |                 new_users = current_canary - prev_canary_users
+    |                 ^^^^^^^^^
+115 |                 removed_users = prev_canary_users - current_canary
+116 |                 assert len(removed_users) == 0, (
+    |
+help: Remove assignment to unused variable `new_users`
+
+F841 Local variable `train_clean` is assigned to but never used
+   --> tests\ml\test_data_cleaner.py:209:9
+    |
+207 |         cleaner = DataCleaner(missing_threshold=0.3)
+208 |         # 仅在训练集上 fit
+209 |         train_clean = cleaner.fit_transform(train_df)
+    |         ^^^^^^^^^^^
+210 |         # 用训练集统计量 transform 测试集
+211 |         test_clean = cleaner.transform(test_df)
+    |
+help: Remove assignment to unused variable `train_clean`
+
+F401 [*] `pytest` imported but unused
+ --> tests\ml\test_evaluation.py:6:8
+  |
+5 | import numpy as np
+6 | import pytest
+  |        ^^^^^^
+7 |
+8 | from app.ml.evaluation import (
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `numpy` imported but unused
+ --> tests\ml\test_feature_engineering.py:5:17
+  |
+3 | from __future__ import annotations
+4 |
+5 | import numpy as np
+  |                 ^^
+6 | import pandas as pd
+7 | import pytest
+  |
+help: Remove unused import: `numpy`
+
+F401 [*] `pytest` imported but unused
+ --> tests\ml\test_feature_engineering.py:7:8
+  |
+5 | import numpy as np
+6 | import pandas as pd
+7 | import pytest
+  |        ^^^^^^
+8 |
+9 | from app.ml.feature_engineering import (
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `tempfile` imported but unused
+  --> tests\ml\test_ml_zero_coverage_modules.py:18:8
+   |
+17 | import json
+18 | import tempfile
+   |        ^^^^^^^^
+19 | from pathlib import Path
+20 | from unittest.mock import MagicMock
+   |
+help: Remove unused import: `tempfile`
+
+F401 [*] `pathlib.Path` imported but unused
+  --> tests\ml\test_ml_zero_coverage_modules.py:19:21
+   |
+17 | import json
+18 | import tempfile
+19 | from pathlib import Path
+   |                     ^^^^
+20 | from unittest.mock import MagicMock
+   |
+help: Remove unused import: `pathlib.Path`
+
+F841 Local variable `original_scipy_stats` is assigned to but never used
+    --> tests\ml\test_ml_zero_coverage_modules.py:1990:9
+     |
+1988 |         # 模拟 scipy.stats.chi2 不可用
+1989 |         import sys
+1990 |         original_scipy_stats = sys.modules.get("scipy.stats")
+     |         ^^^^^^^^^^^^^^^^^^^^
+1991 |         original_scipy = sys.modules.get("scipy")
+1992 |         # 临时移除 scipy.stats 模块以触发 ImportError
+     |
+help: Remove assignment to unused variable `original_scipy_stats`
+
+F841 Local variable `original_scipy` is assigned to but never used
+    --> tests\ml\test_ml_zero_coverage_modules.py:1991:9
+     |
+1989 |         import sys
+1990 |         original_scipy_stats = sys.modules.get("scipy.stats")
+1991 |         original_scipy = sys.modules.get("scipy")
+     |         ^^^^^^^^^^^^^^
+1992 |         # 临时移除 scipy.stats 模块以触发 ImportError
+1993 |         if "scipy.stats" in sys.modules:
+     |
+help: Remove assignment to unused variable `original_scipy`
+
+F401 [*] `numpy` imported but unused
+  --> tests\ml\test_model_loader.py:10:17
+   |
+ 8 | from pathlib import Path
+ 9 |
+10 | import numpy as np
+   |                 ^^
+11 | import pytest
+   |
+help: Remove unused import: `numpy`
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\services\test_admin_service.py:17:27
+   |
+16 | from datetime import UTC, datetime, timedelta
+17 | from unittest.mock import AsyncMock, patch
+   |                           ^^^^^^^^^
+18 |
+19 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\services\test_admin_service.py:17:38
+   |
+16 | from datetime import UTC, datetime, timedelta
+17 | from unittest.mock import AsyncMock, patch
+   |                                      ^^^^^
+18 |
+19 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `app.models.admin.EducationContent` imported but unused
+  --> tests\services\test_admin_service.py:23:5
+   |
+22 | from app.models.admin import (
+23 |     EducationContent,
+   |     ^^^^^^^^^^^^^^^^
+24 |     ModelFeedback,
+25 |     ModelRegistry,
+   |
+help: Remove unused import: `app.models.admin.EducationContent`
+
+F401 [*] `app.models.user.User` imported but unused
+  --> tests\services\test_admin_service.py:32:29
+   |
+30 | from app.models.intervention import InterventionTemplate
+31 | from app.models.risk import RiskAssessment, WarningNotification
+32 | from app.models.user import User
+   |                             ^^^^
+33 | from app.services.admin_service import AdminService
+   |
+help: Remove unused import: `app.models.user.User`
+
+F841 Local variable `deleted` is assigned to but never used
+   --> tests\services\test_admin_service.py:701:9
+    |
+699 |         await db_session.commit()
+700 |
+701 |         deleted = await admin_service.archive_old_logs(days=90)
+    |         ^^^^^^^
+702 |         # 注意: SQLite 的 rowcount 可能返回 -1 或 0, 此处仅断言保留的记录数
+703 |         # 验证旧日志已删除, 新日志保留
+    |
+help: Remove assignment to unused variable `deleted`
+
+F401 [*] `app.models.counselor.ClientGroup` imported but unused
+  --> tests\services\test_counselor_service.py:12:5
+   |
+10 | from app.core.states import BindingStatus
+11 | from app.models.counselor import (
+12 |     ClientGroup,
+   |     ^^^^^^^^^^^
+13 |     ClientGroupMember,
+14 |     ConsultationRecord,
+   |
+help: Remove unused import
+
+F401 [*] `app.models.counselor.ConsultationRecord` imported but unused
+  --> tests\services\test_counselor_service.py:14:5
+   |
+12 |     ClientGroup,
+13 |     ClientGroupMember,
+14 |     ConsultationRecord,
+   |     ^^^^^^^^^^^^^^^^^^
+15 | )
+16 | from app.models.risk import RiskAssessment, WarningNotification
+   |
+help: Remove unused import
+
+F401 [*] `pytest` imported but unused
+  --> tests\services\test_excel_export_service.py:8:8
+   |
+ 6 | from __future__ import annotations
+ 7 |
+ 8 | import pytest
+   |        ^^^^^^
+ 9 |
+10 | from app.services.excel_export_service import ExcelExportService, ExcelExportResult
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `joblib` imported but unused
+  --> tests\services\test_experiment_evaluator.py:9:8
+   |
+ 7 | from unittest.mock import MagicMock, patch
+ 8 |
+ 9 | import joblib
+   |        ^^^^^^
+10 | import numpy as np
+11 | import pandas as pd
+   |
+help: Remove unused import: `joblib`
+
+F401 [*] `pytest` imported but unused
+ --> tests\services\test_experiment_metrics.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 |
+7 | from app.services.experiment_metrics import ExperimentMetrics
+  |
+help: Remove unused import: `pytest`
+
+F841 Local variable `result` is assigned to but never used
+   --> tests\services\test_experiment_service.py:143:9
+    |
+142 |         service = ExperimentService()
+143 |         result = service.evaluate_model("ds1", "physiological_v1", "test")
+    |         ^^^^^^
+144 |
+145 |         mock_data.load_physiological_dataset.assert_called_once_with("ds1")
+    |
+help: Remove assignment to unused variable `result`
+
+E402 Module level import not at top of file
+   --> tests\services\test_experiment_service.py:182:1
+    |
+180 | # ──────────────────────────────────────────────────────────────────────────
+181 |
+182 | import json
+    | ^^^^^^^^^^^
+183 | import tempfile
+184 | from pathlib import Path
+    |
+
+E402 Module level import not at top of file
+   --> tests\services\test_experiment_service.py:183:1
+    |
+182 | import json
+183 | import tempfile
+    | ^^^^^^^^^^^^^^^
+184 | from pathlib import Path
+    |
+
+E402 Module level import not at top of file
+   --> tests\services\test_experiment_service.py:184:1
+    |
+182 | import json
+183 | import tempfile
+184 | from pathlib import Path
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+185 |
+186 | from app.services.experiment_data import ExperimentDataManager
+    |
+
+E402 Module level import not at top of file
+   --> tests\services\test_experiment_service.py:186:1
+    |
+184 | from pathlib import Path
+185 |
+186 | from app.services.experiment_data import ExperimentDataManager
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+E402 Module level import not at top of file
+   --> tests\services\test_experiment_trainer.py:148:1
+    |
+146 | # ──────────────────────────────────────────────────────────────────────────
+147 |
+148 | import json
+    | ^^^^^^^^^^^
+149 | import numpy as np
+    |
+
+E402 Module level import not at top of file
+   --> tests\services\test_experiment_trainer.py:149:1
+    |
+148 | import json
+149 | import numpy as np
+    | ^^^^^^^^^^^^^^^^^^
+    |
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\services\test_gdpr_service.py:15:27
+   |
+14 | from datetime import UTC, datetime, timedelta
+15 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                           ^^^^^^^^^
+16 |
+17 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\services\test_gdpr_service.py:15:38
+   |
+14 | from datetime import UTC, datetime, timedelta
+15 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                      ^^^^^^^^^
+16 |
+17 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\services\test_gdpr_service.py:15:49
+   |
+14 | from datetime import UTC, datetime, timedelta
+15 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                                 ^^^^^
+16 |
+17 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `app.models.intervention.TaskExecution` imported but unused
+  --> tests\services\test_gdpr_service.py:26:73
+   |
+24 | from app.models.auth import RefreshTokenSession
+25 | from app.models.counselor import ConsultationRecord
+26 | from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
+   |                                                                         ^^^^^^^^^^^^^
+27 | from app.models.review import CrisisEvent
+28 | from app.models.risk import RiskAssessment, WarningNotification
+   |
+help: Remove unused import: `app.models.intervention.TaskExecution`
+
+F401 [*] `app.models.review.CrisisEvent` imported but unused
+  --> tests\services\test_gdpr_service.py:27:31
+   |
+25 | from app.models.counselor import ConsultationRecord
+26 | from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
+27 | from app.models.review import CrisisEvent
+   |                               ^^^^^^^^^^^
+28 | from app.models.risk import RiskAssessment, WarningNotification
+29 | from app.models.user import (
+   |
+help: Remove unused import: `app.models.review.CrisisEvent`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:639:35
+    |
+637 |     def test_profile_to_dict(self):
+638 |         """TC-COV-GDPR-037: _profile_to_dict 序列化."""
+639 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+640 |         p = MagicMock()
+641 |         p.nickname = "test"
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:656:35
+    |
+654 |     def test_contact_to_dict(self):
+655 |         """TC-COV-GDPR-038: _contact_to_dict 序列化."""
+656 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+657 |         c = MagicMock()
+658 |         c.name = "father"
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:670:35
+    |
+668 |         """TC-COV-GDPR-039: _binding_to_dict 序列化 (使用 bound_at 而非 created_at)."""
+669 |         from datetime import datetime
+670 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+671 |         b = MagicMock()
+672 |         b.counselor_id = 5
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:685:35
+    |
+683 |         """TC-COV-GDPR-040: _risk_to_dict 序列化."""
+684 |         from datetime import datetime
+685 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+686 |         r = MagicMock()
+687 |         r.id = 1
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:702:35
+    |
+700 |         """TC-COV-GDPR-041: _warning_to_dict 序列化."""
+701 |         from datetime import datetime
+702 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+703 |         w = MagicMock()
+704 |         w.id = 1
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:724:35
+    |
+722 |     def test_warning_to_dict_handled(self):
+723 |         """TC-COV-GDPR-042: _warning_to_dict 已处理状态."""
+724 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+725 |         w = MagicMock()
+726 |         w.is_handled = True
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:734:35
+    |
+732 |     def test_warning_to_dict_pending(self):
+733 |         """TC-COV-GDPR-043: _warning_to_dict pending 状态."""
+734 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+735 |         w = MagicMock()
+736 |         w.is_handled = False
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:745:35
+    |
+743 |         """TC-COV-GDPR-044: _crisis_to_dict 序列化."""
+744 |         from datetime import datetime
+745 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+746 |         c = MagicMock()
+747 |         c.id = 1
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:760:35
+    |
+758 |         """TC-COV-GDPR-045: _plan_to_dict 序列化."""
+759 |         from datetime import datetime
+760 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+761 |         p = MagicMock()
+762 |         p.id = 1
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:775:35
+    |
+773 |         """TC-COV-GDPR-046: _task_to_dict 序列化."""
+774 |         from datetime import datetime
+775 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+776 |         t = MagicMock()
+777 |         t.id = 1
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:796:35
+    |
+794 |         """TC-COV-GDPR-047: _log_to_dict 序列化."""
+795 |         from datetime import datetime
+796 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+797 |         o = MagicMock()
+798 |         o.action_type = "user.login"
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F811 [*] Redefinition of unused `MagicMock` from line 15
+   --> tests\services\test_gdpr_service.py:810:35
+    |
+808 |     def test_log_to_dict_with_none_created_at(self):
+809 |         """TC-COV-GDPR-048: _log_to_dict 处理 created_at=None."""
+810 |         from unittest.mock import MagicMock
+    |                                   ^^^^^^^^^ `MagicMock` redefined here
+811 |         o = MagicMock()
+812 |         o.action_type = "test"
+    |
+   ::: tests\services\test_gdpr_service.py:15:38
+    |
+ 14 | from datetime import UTC, datetime, timedelta
+ 15 | from unittest.mock import AsyncMock, MagicMock, patch
+    |                                      --------- previous definition of `MagicMock` here
+ 16 |
+ 17 | import pytest
+    |
+help: Remove definition: `MagicMock`
+
+F401 [*] `pytest` imported but unused
+ --> tests\services\test_input_validator.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | import math
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `math` imported but unused
+ --> tests\services\test_input_validator.py:6:8
+  |
+5 | import pytest
+6 | import math
+  |        ^^^^
+7 |
+8 | from app.services.input_validator import InputValidator, ValidationResult
+  |
+help: Remove unused import: `math`
+
+F841 Local variable `service` is assigned to but never used
+  --> tests\services\test_intervention_service.py:94:9
+   |
+92 |     async def test_ensure_transition_same_status(self, db_session):
+93 |         """TC-COV-INTV-012: Transition to same status returns False."""
+94 |         service = InterventionService(db_session)
+   |         ^^^^^^^
+95 |         valid, reason = InterventionService._ensure_transition("completed", "completed")
+96 |         assert valid is False
+   |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:102:9
+    |
+100 |     async def test_ensure_transition_from_terminal(self, db_session):
+101 |         """TC-COV-INTV-013: Transition from terminal status returns False."""
+102 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+103 |         valid, reason = InterventionService._ensure_transition("completed", "missed")
+104 |         assert valid is False
+    |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:110:9
+    |
+108 |     async def test_ensure_transition_invalid(self, db_session):
+109 |         """TC-COV-INTV-014: Invalid transition returns False."""
+110 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+111 |         valid, reason = InterventionService._ensure_transition("pending", "invalid")
+112 |         assert valid is False
+    |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:118:9
+    |
+116 |     async def test_ensure_transition_valid(self, db_session):
+117 |         """TC-COV-INTV-015: Valid transition returns True."""
+118 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+119 |         valid, reason = InterventionService._ensure_transition("pending", "completed")
+120 |         assert valid is True
+    |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:125:9
+    |
+123 |     def test_should_execute_today_daily(self, db_session):
+124 |         """TC-COV-INTV-016: Daily schedule should execute today."""
+125 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+126 |         today = date.today()
+127 |         assert InterventionService._should_execute_today("daily", today) is True
+    |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:131:9
+    |
+129 |     def test_should_execute_today_before_start(self, db_session):
+130 |         """TC-COV-INTV-017: Before start date should not execute."""
+131 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+132 |         future = date.today() + timedelta(days=7)
+133 |         assert InterventionService._should_execute_today("daily", future) is False
+    |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:137:9
+    |
+135 |     def test_should_execute_today_weekly(self, db_session):
+136 |         """TC-COV-INTV-018: Weekly schedule on correct day."""
+137 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+138 |         today = date.today()
+139 |         # Start today, so (today - start).days = 0, 0 % 7 == 0
+    |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:144:9
+    |
+142 |     def test_should_execute_today_one_time(self, db_session):
+143 |         """TC-COV-INTV-019: One-time schedule only on start date."""
+144 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+145 |         today = date.today()
+146 |         assert InterventionService._should_execute_today("one_time", today) is True
+    |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:152:9
+    |
+150 |     def test_should_execute_today_workday(self, db_session):
+151 |         """TC-COV-INTV-020: Workday schedule on weekdays."""
+152 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+153 |         today = date.today()
+154 |         # We can't control the day of week, but we can verify it returns a boolean
+    |
+help: Remove assignment to unused variable `service`
+
+F841 Local variable `service` is assigned to but never used
+   --> tests\services\test_intervention_service.py:160:9
+    |
+158 |     def test_should_execute_today_unknown(self, db_session):
+159 |         """TC-COV-INTV-021: Unknown schedule defaults to True."""
+160 |         service = InterventionService(db_session)
+    |         ^^^^^^^
+161 |         today = date.today()
+162 |         assert InterventionService._should_execute_today("unknown", today) is True
+    |
+help: Remove assignment to unused variable `service`
+
+E402 Module level import not at top of file
+   --> tests\services\test_model_predict_service.py:123:1
+    |
+121 | # =============================================================================
+122 |
+123 | import json
+    | ^^^^^^^^^^^
+124 | import logging
+125 | import threading
+    |
+
+E402 Module level import not at top of file
+   --> tests\services\test_model_predict_service.py:124:1
+    |
+123 | import json
+124 | import logging
+    | ^^^^^^^^^^^^^^
+125 | import threading
+    |
+
+E402 Module level import not at top of file
+   --> tests\services\test_model_predict_service.py:125:1
+    |
+123 | import json
+124 | import logging
+125 | import threading
+    | ^^^^^^^^^^^^^^^^
+126 |
+127 | from app.services import model_predict_service as _mps
+    |
+
+E402 Module level import not at top of file
+   --> tests\services\test_model_predict_service.py:127:1
+    |
+125 | import threading
+126 |
+127 | from app.services import model_predict_service as _mps
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+F401 [*] `unittest.mock.patch` imported but unused
+ --> tests\services\test_pdf_job_store.py:5:27
+  |
+4 | from datetime import datetime, timedelta, timezone
+5 | from unittest.mock import patch
+  |                           ^^^^^
+6 |
+7 | import pytest
+  |
+help: Remove unused import: `unittest.mock.patch`
+
+F401 [*] `app.services.pdf_job_store.MAX_PDF_JOBS` imported but unused
+  --> tests\services\test_pdf_job_store.py:11:5
+   |
+ 9 | from app.services.pdf_job_store import (
+10 |     JOB_TTL_SECONDS,
+11 |     MAX_PDF_JOBS,
+   |     ^^^^^^^^^^^^
+12 |     PdfJob,
+13 |     PdfJobStore,
+   |
+help: Remove unused import: `app.services.pdf_job_store.MAX_PDF_JOBS`
+
+F401 [*] `pytest` imported but unused
+  --> tests\services\test_pdf_report_service.py:8:8
+   |
+ 6 | from __future__ import annotations
+ 7 |
+ 8 | import pytest
+   |        ^^^^^^
+ 9 |
+10 | from app.services.pdf_report_service import PDFReportService, ReportData, PDFReportResult
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `sqlalchemy.text` imported but unused
+  --> tests\services\test_risk_service.py:9:24
+   |
+ 7 | import pytest
+ 8 | from unittest.mock import AsyncMock, MagicMock, patch, ANY
+ 9 | from sqlalchemy import text
+   |                        ^^^^
+10 | from sqlalchemy.ext.asyncio import AsyncSession
+   |
+help: Remove unused import: `sqlalchemy.text`
+
+F401 [*] `sqlalchemy.ext.asyncio.AsyncSession` imported but unused
+  --> tests\services\test_risk_service.py:10:36
+   |
+ 8 | from unittest.mock import AsyncMock, MagicMock, patch, ANY
+ 9 | from sqlalchemy import text
+10 | from sqlalchemy.ext.asyncio import AsyncSession
+   |                                    ^^^^^^^^^^^^
+11 |
+12 | from app.core.risk_thresholds import get_fusion_threshold, get_threshold_by_modality, should_fallback
+   |
+help: Remove unused import: `sqlalchemy.ext.asyncio.AsyncSession`
+
+F401 [*] `app.models.risk.WarningNotification` imported but unused
+  --> tests\services\test_risk_service.py:14:45
+   |
+12 | from app.core.risk_thresholds import get_fusion_threshold, get_threshold_by_modality, should_fallback
+13 | from app.models.intervention import InterventionPlan, InterventionTask, InterventionTemplate
+14 | from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
+   |                                             ^^^^^^^^^^^^^^^^^^^
+15 | from app.services.intervention_service import InterventionRecommendation
+16 | from app.services.risk_service import RiskService, _sanitize_csv_cell, shutdown_pdf_executor
+   |
+help: Remove unused import: `app.models.risk.WarningNotification`
+
+F841 Local variable `original` is assigned to but never used
+   --> tests\services\test_risk_service.py:315:9
+    |
+313 |         from concurrent.futures import ThreadPoolExecutor
+314 |         # 保存原 executor 并替换为新的，避免污染全局状态
+315 |         original = _rs._pdf_executor
+    |         ^^^^^^^^
+316 |         try:
+317 |             _rs._pdf_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="test_pdf")
+    |
+help: Remove assignment to unused variable `original`
+
+F401 [*] `app.services.risk_service._warning_intervention_tasks` imported but unused
+   --> tests\services\test_risk_service.py:528:13
+    |
+526 |         from app.services.risk_service import (
+527 |             _schedule_warning_and_intervention,
+528 |             _warning_intervention_tasks,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+529 |         )
+    |
+help: Remove unused import: `app.services.risk_service._warning_intervention_tasks`
+
+F401 [*] `app.models.assessment.DataDraft` imported but unused
+  --> tests\services\test_user_data_service.py:10:35
+   |
+ 9 | from app.services.user_data_service import UserDataService
+10 | from app.models.assessment import DataDraft, StructuredAssessment, TextEntry, PhysiologicalRecord
+   |                                   ^^^^^^^^^
+11 | from app.models.risk import RiskAssessment
+   |
+help: Remove unused import: `app.models.assessment.DataDraft`
+
+F401 [*] `app.models.risk.WarningSetting` imported but unused
+  --> tests\services\test_warning_service.py:11:50
+   |
+10 | from app.services.warning_service import WarningService
+11 | from app.models.risk import WarningNotification, WarningSetting
+   |                                                  ^^^^^^^^^^^^^^
+   |
+help: Remove unused import: `app.models.risk.WarningSetting`
+
+F401 [*] `json` imported but unused
+  --> tests\simulations\v1_38_dashboard_design.py:11:8
+   |
+ 9 | from __future__ import annotations
+10 |
+11 | import json
+   |        ^^^^
+12 | from pathlib import Path
+   |
+help: Remove unused import: `json`
+
+invalid-syntax: unexpected EOF while parsing
+  --> tests\smoke_real_postgres.py:35:1
+   |
+33 |                 models_used=["smoke"],
+34 |                 risk_factors=[{"feature": "stress_level", "importance": 0.7}],
+   |                                                                               ^
+   |
+
+F401 [*] `os` imported but unused
+ --> tests\stability\baseline_test.py:6:8
+  |
+4 | """
+5 |
+6 | import os
+  |        ^^
+7 | import re
+8 | import subprocess
+  |
+help: Remove unused import: `os`
+
+F401 [*] `subprocess` imported but unused
+  --> tests\stability\baseline_test.py:8:8
+   |
+ 6 | import os
+ 7 | import re
+ 8 | import subprocess
+   |        ^^^^^^^^^^
+ 9 | from pathlib import Path
+10 | from datetime import datetime, timezone
+   |
+help: Remove unused import: `subprocess`
+
+F541 [*] f-string without any placeholders
+  --> tests\stability\baseline_test.py:75:15
+   |
+73 |                     warning_patterns[pattern] += len(re.findall(pattern, content))
+74 |
+75 |         print(f"\n[BASELINE] Warning 模式统计:")
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+76 |         for pattern, count in warning_patterns.items():
+77 |             print(f"  - {pattern}: {count}")
+   |
+help: Remove extraneous `f` prefix
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\tasks\test_observability.py:12:38
+   |
+11 | import logging
+12 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                      ^^^^^^^^^
+13 |
+14 | import pytest
+   |
+help: Remove unused import: `unittest.mock.MagicMock`
+
+F401 [*] `app.tasks.scheduler` imported but unused
+  --> tests\tasks\test_scheduler.py:11:31
+   |
+ 9 | from celery.exceptions import Retry
+10 |
+11 | import app.tasks.scheduler as scheduler_mod
+   |                               ^^^^^^^^^^^^^
+12 | from app.core.celery_app import celery_app
+13 | from app.core import celery_async as celery_async_mod
+   |
+help: Remove unused import: `app.tasks.scheduler`
+
+F401 [*] `datetime.date` imported but unused
+   --> tests\tasks\test_scheduler.py:674:30
+    |
+672 |         时区凌晨 (UTC 仍为前一天) 时出现 ``end_date == today`` 的边界情况.
+673 |         """
+674 |         from datetime import date, datetime, UTC
+    |                              ^^^^
+675 |
+676 |         mock_plan = MagicMock()
+    |
+help: Remove unused import: `datetime.date`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_admin_models.py:9:8
+   |
+ 7 | from __future__ import annotations
+ 8 |
+ 9 | import pytest
+   |        ^^^^^^
+10 |
+11 | from app.models.admin import OperationLog
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_alert_rules.py:7:8
+  |
+5 | from __future__ import annotations
+6 |
+7 | import pytest
+  |        ^^^^^^
+8 |
+9 | from app.core.alert_rules import (
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.core.metrics.celery_task_failures_total` imported but unused
+   --> tests\test_alert_rules.py:205:38
+    |
+203 |     def test_on_task_failure_increments_counter(self) -> None:
+204 |         """任务失败时递增 celery_task_failures_total."""
+205 |         from app.core.metrics import celery_task_failures_total, reset_registry
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+206 |         from app.core.celery_app import on_task_failure
+    |
+help: Remove unused import: `app.core.metrics.celery_task_failures_total`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_am_sync.py:10:8
+   |
+ 8 | from unittest.mock import MagicMock, patch
+ 9 |
+10 | import pytest
+   |        ^^^^^^
+11 |
+12 | from app.monitoring.am_sync import (
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\test_anomaly_detection.py:24:27
+   |
+22 | import json
+23 | from datetime import datetime, timedelta, timezone
+24 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                           ^^^^^^^^^
+25 |
+26 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_anomaly_detection.py:24:38
+   |
+22 | import json
+23 | from datetime import datetime, timedelta, timezone
+24 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                      ^^^^^^^^^
+25 |
+26 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `tests.conftest.run` imported but unused
+  --> tests\test_anomaly_detection.py:32:28
+   |
+30 | from app.core.celery_app import celery_app
+31 | from app.models.admin import OperationLog
+32 | from tests.conftest import run
+   |                            ^^^
+   |
+help: Remove unused import: `tests.conftest.run`
+
+E402 Module level import not at top of file
+   --> tests\test_auto_rollback_service.py:104:1
+    |
+102 | # ===== 扩展测试：覆盖 check_canary_health / execute_rollback / check_all_canaries 业务逻辑 =====
+103 |
+104 | from datetime import datetime, timedelta, timezone
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+105 | from unittest.mock import MagicMock
+    |
+
+E402 Module level import not at top of file
+   --> tests\test_auto_rollback_service.py:105:1
+    |
+104 | from datetime import datetime, timedelta, timezone
+105 | from unittest.mock import MagicMock
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+106 |
+107 | from sqlalchemy import select
+    |
+
+E402 Module level import not at top of file
+   --> tests\test_auto_rollback_service.py:107:1
+    |
+105 | from unittest.mock import MagicMock
+106 |
+107 | from sqlalchemy import select
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+108 |
+109 | from app.models.monitoring import (
+    |
+
+E402 Module level import not at top of file
+   --> tests\test_auto_rollback_service.py:109:1
+    |
+107 |   from sqlalchemy import select
+108 |
+109 | / from app.models.monitoring import (
+110 | |     CanaryRecord,
+111 | |     CanaryStatus,
+112 | |     DriftAlert,
+113 | |     DriftSeverity,
+114 | |     MonitoringEventType,
+115 | |     MonitoringLog,
+116 | | )
+    | |_^
+    |
+
+F401 `scripts.baseline_freeze.save_baseline` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> tests\test_baseline_freeze.py:26:9
+   |
+24 |         CURRENT_BASELINE,
+25 |         load_actual_metrics,
+26 |         save_baseline,
+   |         ^^^^^^^^^^^^^
+27 |         validate_model_files,
+28 |     )
+   |
+help: Remove unused import: `scripts.baseline_freeze.save_baseline`
+
+E402 Module level import not at top of file
+  --> tests\test_canary_controller.py:30:1
+   |
+28 |     sys.path.insert(0, str(backend_root))
+29 |
+30 | from app.ml.canary_controller import CanaryConfig, CanaryController
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 [*] `os` imported but unused
+  --> tests\test_canary_fallback_monitor.py:15:8
+   |
+13 | import inspect
+14 | import logging
+15 | import os
+   |        ^^
+16 | import re
+17 | from datetime import datetime, timedelta
+   |
+help: Remove unused import: `os`
+
+F401 [*] `re` imported but unused
+  --> tests\test_canary_fallback_monitor.py:16:8
+   |
+14 | import logging
+15 | import os
+16 | import re
+   |        ^^
+17 | from datetime import datetime, timedelta
+18 | from unittest.mock import AsyncMock, MagicMock, patch
+   |
+help: Remove unused import: `re`
+
+F401 [*] `datetime.datetime` imported but unused
+  --> tests\test_canary_fallback_monitor.py:17:22
+   |
+15 | import os
+16 | import re
+17 | from datetime import datetime, timedelta
+   |                      ^^^^^^^^
+18 | from unittest.mock import AsyncMock, MagicMock, patch
+   |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+  --> tests\test_canary_fallback_monitor.py:17:32
+   |
+15 | import os
+16 | import re
+17 | from datetime import datetime, timedelta
+   |                                ^^^^^^^^^
+18 | from unittest.mock import AsyncMock, MagicMock, patch
+   |
+help: Remove unused import
+
+F841 Local variable `original_sleep` is assigned to but never used
+  --> tests\test_canary_fallback_monitor.py:64:9
+   |
+62 |         # 用 Event 控制循环执行次数
+63 |         iteration_done = asyncio.Event()
+64 |         original_sleep = asyncio.sleep
+   |         ^^^^^^^^^^^^^^
+65 |
+66 |         async def fake_sleep(seconds):
+   |
+help: Remove assignment to unused variable `original_sleep`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_canary_manager_compat.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import pytest
+  |        ^^^^^^
+4 | from sqlalchemy.ext.asyncio import AsyncSession
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.models.monitoring.CanaryRecord` imported but unused
+ --> tests\test_canary_manager_compat.py:6:35
+  |
+4 | from sqlalchemy.ext.asyncio import AsyncSession
+5 |
+6 | from app.models.monitoring import CanaryRecord, CanaryStatus
+  |                                   ^^^^^^^^^^^^
+7 | from app.services.canary_manager import CanaryManager, TrafficDecision, canary_manager
+  |
+help: Remove unused import
+
+F401 [*] `app.models.monitoring.CanaryStatus` imported but unused
+ --> tests\test_canary_manager_compat.py:6:49
+  |
+4 | from sqlalchemy.ext.asyncio import AsyncSession
+5 |
+6 | from app.models.monitoring import CanaryRecord, CanaryStatus
+  |                                                 ^^^^^^^^^^^^
+7 | from app.services.canary_manager import CanaryManager, TrafficDecision, canary_manager
+  |
+help: Remove unused import
+
+F401 [*] `app.services.canary_manager.TrafficDecision` imported but unused
+ --> tests\test_canary_manager_compat.py:7:56
+  |
+6 | from app.models.monitoring import CanaryRecord, CanaryStatus
+7 | from app.services.canary_manager import CanaryManager, TrafficDecision, canary_manager
+  |                                                        ^^^^^^^^^^^^^^^
+  |
+help: Remove unused import: `app.services.canary_manager.TrafficDecision`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_canary_record_model.py:6:8
+  |
+4 | from datetime import datetime
+5 |
+6 | import pytest
+  |        ^^^^^^
+7 | from sqlalchemy import inspect, select
+8 | from sqlalchemy.ext.asyncio import AsyncSession
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\test_celery_breaker.py:18:27
+   |
+16 | import asyncio
+17 | import inspect
+18 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                           ^^^^^^^^^
+19 |
+20 | import pytest
+   |
+help: Remove unused import: `unittest.mock.AsyncMock`
+
+F401 [*] `app.core.celery_breaker.celery_breaker` imported but unused
+  --> tests\test_celery_breaker.py:31:5
+   |
+29 |     call_with_celery_breaker,
+30 |     init_celery_breaker,
+31 |     celery_breaker,
+   |     ^^^^^^^^^^^^^^
+32 | )
+   |
+help: Remove unused import: `app.core.celery_breaker.celery_breaker`
+
+F401 [*] `app.core.contracts.ACTION_TYPE_WARNING_ESCALATE` imported but unused
+   --> tests\test_contracts_aggregation.py:351:13
+    |
+349 |         """原有从 contracts 导入的符号仍可用."""
+350 |         from app.core.contracts import (
+351 |             ACTION_TYPE_WARNING_ESCALATE,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+352 |             ACTION_TYPE_WARNING_HANDLE,
+353 |             ACTION_TYPE_WARNING_IGNORE,
+    |
+help: Remove unused import
+
+F401 [*] `app.core.contracts.ACTION_TYPE_WARNING_HANDLE` imported but unused
+   --> tests\test_contracts_aggregation.py:352:13
+    |
+350 |         from app.core.contracts import (
+351 |             ACTION_TYPE_WARNING_ESCALATE,
+352 |             ACTION_TYPE_WARNING_HANDLE,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+353 |             ACTION_TYPE_WARNING_IGNORE,
+354 |             ACTION_TYPE_WARNING_READ,
+    |
+help: Remove unused import
+
+F401 [*] `app.core.contracts.ACTION_TYPE_WARNING_IGNORE` imported but unused
+   --> tests\test_contracts_aggregation.py:353:13
+    |
+351 |             ACTION_TYPE_WARNING_ESCALATE,
+352 |             ACTION_TYPE_WARNING_HANDLE,
+353 |             ACTION_TYPE_WARNING_IGNORE,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+354 |             ACTION_TYPE_WARNING_READ,
+355 |             ACTION_TYPE_WARNING_READ_ALL,
+    |
+help: Remove unused import
+
+F401 [*] `app.core.contracts.ACTION_TYPE_WARNING_READ` imported but unused
+   --> tests\test_contracts_aggregation.py:354:13
+    |
+352 |             ACTION_TYPE_WARNING_HANDLE,
+353 |             ACTION_TYPE_WARNING_IGNORE,
+354 |             ACTION_TYPE_WARNING_READ,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^
+355 |             ACTION_TYPE_WARNING_READ_ALL,
+356 |             RISK_LEVEL_MAP,
+    |
+help: Remove unused import
+
+F401 [*] `app.core.contracts.ACTION_TYPE_WARNING_READ_ALL` imported but unused
+   --> tests\test_contracts_aggregation.py:355:13
+    |
+353 |             ACTION_TYPE_WARNING_IGNORE,
+354 |             ACTION_TYPE_WARNING_READ,
+355 |             ACTION_TYPE_WARNING_READ_ALL,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+356 |             RISK_LEVEL_MAP,
+357 |             WARNING_ACTION_ESCALATE,
+    |
+help: Remove unused import
+
+F401 [*] `app.core.contracts.WARNING_ACTION_ESCALATE` imported but unused
+   --> tests\test_contracts_aggregation.py:357:13
+    |
+355 |             ACTION_TYPE_WARNING_READ_ALL,
+356 |             RISK_LEVEL_MAP,
+357 |             WARNING_ACTION_ESCALATE,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^
+358 |             WARNING_ACTION_HANDLE,
+359 |             WARNING_ACTION_IGNORE,
+    |
+help: Remove unused import
+
+F401 [*] `app.core.contracts.WARNING_ACTION_IGNORE` imported but unused
+   --> tests\test_contracts_aggregation.py:359:13
+    |
+357 |             WARNING_ACTION_ESCALATE,
+358 |             WARNING_ACTION_HANDLE,
+359 |             WARNING_ACTION_IGNORE,
+    |             ^^^^^^^^^^^^^^^^^^^^^
+360 |             normalize_risk_level,
+361 |             resolve_warning_status,
+    |
+help: Remove unused import
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_core_contracts_extended.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 |
+7 | from app.core.contracts import (
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.core.database.init_db` imported but unused
+ --> tests\test_core_database_extended.py:8:31
+  |
+6 | from unittest.mock import AsyncMock, MagicMock, patch
+7 |
+8 | from app.core.database import init_db, close_db, get_db, engine, AsyncSessionLocal
+  |                               ^^^^^^^
+  |
+help: Remove unused import
+
+F401 [*] `app.core.database.close_db` imported but unused
+ --> tests\test_core_database_extended.py:8:40
+  |
+6 | from unittest.mock import AsyncMock, MagicMock, patch
+7 |
+8 | from app.core.database import init_db, close_db, get_db, engine, AsyncSessionLocal
+  |                                        ^^^^^^^^
+  |
+help: Remove unused import
+
+F401 [*] `asyncio` imported but unused
+ --> tests\test_core_deps.py:8:8
+  |
+6 | from __future__ import annotations
+7 |
+8 | import asyncio
+  |        ^^^^^^^
+9 | from unittest.mock import MagicMock, patch
+  |
+help: Remove unused import: `asyncio`
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_core_deps.py:9:27
+   |
+ 8 | import asyncio
+ 9 | from unittest.mock import MagicMock, patch
+   |                           ^^^^^^^^^
+10 |
+11 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_core_deps.py:9:38
+   |
+ 8 | import asyncio
+ 9 | from unittest.mock import MagicMock, patch
+   |                                      ^^^^^
+10 |
+11 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_core_exceptions_extended.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from fastapi import FastAPI, HTTPException
+7 | from fastapi.exceptions import RequestValidationError
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `fastapi.exceptions.RequestValidationError` imported but unused
+ --> tests\test_core_exceptions_extended.py:7:32
+  |
+5 | import pytest
+6 | from fastapi import FastAPI, HTTPException
+7 | from fastapi.exceptions import RequestValidationError
+  |                                ^^^^^^^^^^^^^^^^^^^^^^
+8 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import: `fastapi.exceptions.RequestValidationError`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_core_health.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 |
+7 | from app.core.health import (
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.core.health.HealthSnapshot` imported but unused
+  --> tests\test_core_health_extended.py:12:5
+   |
+11 | from app.core.health import (
+12 |     HealthSnapshot,
+   |     ^^^^^^^^^^^^^^
+13 |     check_database,
+14 |     check_redis,
+   |
+help: Remove unused import: `app.core.health.HealthSnapshot`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_core_middlewares_extended.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from fastapi import FastAPI, Request
+7 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_core_modules.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from fastapi import FastAPI, HTTPException, Request
+7 | from fastapi.exceptions import RequestValidationError
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `fastapi.HTTPException` imported but unused
+ --> tests\test_core_modules.py:6:30
+  |
+5 | import pytest
+6 | from fastapi import FastAPI, HTTPException, Request
+  |                              ^^^^^^^^^^^^^
+7 | from fastapi.exceptions import RequestValidationError
+8 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import
+
+F401 [*] `fastapi.Request` imported but unused
+ --> tests\test_core_modules.py:6:45
+  |
+5 | import pytest
+6 | from fastapi import FastAPI, HTTPException, Request
+  |                                             ^^^^^^^
+7 | from fastapi.exceptions import RequestValidationError
+8 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import
+
+F401 [*] `fastapi.exceptions.RequestValidationError` imported but unused
+ --> tests\test_core_modules.py:7:32
+  |
+5 | import pytest
+6 | from fastapi import FastAPI, HTTPException, Request
+7 | from fastapi.exceptions import RequestValidationError
+  |                                ^^^^^^^^^^^^^^^^^^^^^^
+8 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import: `fastapi.exceptions.RequestValidationError`
+
+F401 [*] `fastapi.testclient.TestClient` imported but unused
+  --> tests\test_core_modules.py:8:32
+   |
+ 6 | from fastapi import FastAPI, HTTPException, Request
+ 7 | from fastapi.exceptions import RequestValidationError
+ 8 | from fastapi.testclient import TestClient
+   |                                ^^^^^^^^^^
+ 9 |
+10 | from app.core.response import ok
+   |
+help: Remove unused import: `fastapi.testclient.TestClient`
+
+F401 [*] `app.core.contracts.RISK_LEVEL_MAP` imported but unused
+  --> tests\test_core_modules.py:12:5
+   |
+10 | from app.core.response import ok
+11 | from app.core.contracts import (
+12 |     RISK_LEVEL_MAP,
+   |     ^^^^^^^^^^^^^^
+13 |     WARNING_ACTION_HANDLE,
+14 |     WARNING_ACTION_IGNORE,
+   |
+help: Remove unused import: `app.core.contracts.RISK_LEVEL_MAP`
+
+F401 [*] `app.core.request_id.REQUEST_ID_HEADER` imported but unused
+  --> tests\test_core_modules.py:29:59
+   |
+27 | )
+28 | from app.core.states import BindingStatus
+29 | from app.core.request_id import get_or_create_request_id, REQUEST_ID_HEADER
+   |                                                           ^^^^^^^^^^^^^^^^^
+30 | from app.core.exceptions import (
+31 |     AppException,
+   |
+help: Remove unused import: `app.core.request_id.REQUEST_ID_HEADER`
+
+F401 [*] `starlette.datastructures.Headers` imported but unused
+   --> tests\test_core_modules.py:193:46
+    |
+191 |     def test_get_or_create_request_id_from_header(self):
+192 |         """TC-COV-CORE-024: Get request ID from header."""
+193 |         from starlette.datastructures import Headers
+    |                                              ^^^^^^^
+194 |         from starlette.requests import Request as StarletteRequest
+    |
+help: Remove unused import: `starlette.datastructures.Headers`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_core_response_extended.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 |
+7 | from app.core.response import ok
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `unittest.mock.patch` imported but unused
+ --> tests\test_core_security_extended.py:6:27
+  |
+5 | import pytest
+6 | from unittest.mock import patch
+  |                           ^^^^^
+7 |
+8 | from app.core.security import (
+  |
+help: Remove unused import: `unittest.mock.patch`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_core_states_extended.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 |
+7 | from app.core.states import BindingStatus
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_core_utils.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from fastapi import Request
+7 | from starlette.datastructures import Headers
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `starlette.datastructures.Headers` imported but unused
+ --> tests\test_core_utils.py:7:38
+  |
+5 | import pytest
+6 | from fastapi import Request
+7 | from starlette.datastructures import Headers
+  |                                      ^^^^^^^
+8 |
+9 | from app.core.risk_thresholds import (
+  |
+help: Remove unused import: `starlette.datastructures.Headers`
+
+F401 [*] `json` imported but unused
+ --> tests\test_csp_report_smoke.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import json
+  |        ^^^^
+6 |
+7 | import pytest
+  |
+help: Remove unused import: `json`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_csp_report_smoke.py:7:8
+  |
+5 | import json
+6 |
+7 | import pytest
+  |        ^^^^^^
+8 | from fastapi import FastAPI
+9 | from starlette.testclient import TestClient
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `subprocess` imported but unused
+  --> tests\test_dashboard_template.py:15:8
+   |
+13 | import json
+14 | import re
+15 | import subprocess
+   |        ^^^^^^^^^^
+16 | import sys
+17 | from pathlib import Path
+   |
+help: Remove unused import: `subprocess`
+
+F401 [*] `sys` imported but unused
+  --> tests\test_dashboard_template.py:16:8
+   |
+14 | import re
+15 | import subprocess
+16 | import sys
+   |        ^^^
+17 | from pathlib import Path
+   |
+help: Remove unused import: `sys`
+
+F401 [*] `numpy` imported but unused
+  --> tests\test_data_loader_smoke.py:8:17
+   |
+ 6 | from pathlib import Path
+ 7 |
+ 8 | import numpy as np
+   |                 ^^
+ 9 | import pandas as pd
+10 | import pytest
+   |
+help: Remove unused import: `numpy`
+
+E402 Module level import not at top of file
+  --> tests\test_data_split.py:26:1
+   |
+24 |       sys.path.insert(0, str(backend_root))
+25 |
+26 | / from app.ml.data_split import (
+27 | |     stratified_split,
+28 | |     verify_split_integrity,
+29 | | )
+   | |_^
+   |
+
+F401 [*] `time` imported but unused
+  --> tests\test_db_breaker.py:17:8
+   |
+16 | import asyncio
+17 | import time
+   |        ^^^^
+18 | from unittest.mock import patch
+   |
+help: Remove unused import: `time`
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_db_breaker.py:18:27
+   |
+16 | import asyncio
+17 | import time
+18 | from unittest.mock import patch
+   |                           ^^^^^
+19 |
+20 | import pytest
+   |
+help: Remove unused import: `unittest.mock.patch`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_dedup.py:8:8
+   |
+ 6 | from unittest.mock import AsyncMock, MagicMock
+ 7 |
+ 8 | import pytest
+   |        ^^^^^^
+ 9 |
+10 | from app.models.admin import OperationLog
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_drift_alert_model.py:6:8
+  |
+4 | from datetime import datetime
+5 |
+6 | import pytest
+  |        ^^^^^^
+7 | from sqlalchemy import inspect, select
+8 | from sqlalchemy.ext.asyncio import AsyncSession
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_drift_detector_boundary.py:6:8
+  |
+5 | import numpy as np
+6 | import pytest
+  |        ^^^^^^
+7 |
+8 | from app.ml.drift_detector import DriftDetector
+  |
+help: Remove unused import: `pytest`
+
+E402 Module level import not at top of file
+  --> tests\test_drift_detector_compat.py:28:1
+   |
+26 |     sys.path.insert(0, str(backend_root))
+27 |
+28 | from app.ml.drift_detector import DEFAULT_DRIFT_THRESHOLDS, DriftDetector, DriftReport
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_end_to_end.py:16:38
+   |
+14 | import sys
+15 | from pathlib import Path
+16 | from unittest.mock import MagicMock, patch
+   |                                      ^^^^^
+17 |
+18 | import numpy as np
+   |
+help: Remove unused import: `unittest.mock.patch`
+
+E402 Module level import not at top of file
+  --> tests\test_end_to_end.py:26:1
+   |
+24 |     sys.path.insert(0, str(backend_root))
+25 |
+26 | from app.ml.canary_controller import CanaryController, CanaryConfig
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+27 | from app.ml.fusion_engine import FusionEngine
+28 | from app.ml.unified_model_interface import ModelRegistry, UnifiedModelWrapper
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_end_to_end.py:27:1
+   |
+26 | from app.ml.canary_controller import CanaryController, CanaryConfig
+27 | from app.ml.fusion_engine import FusionEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 | from app.ml.unified_model_interface import ModelRegistry, UnifiedModelWrapper
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_end_to_end.py:28:1
+   |
+26 | from app.ml.canary_controller import CanaryController, CanaryConfig
+27 | from app.ml.fusion_engine import FusionEngine
+28 | from app.ml.unified_model_interface import ModelRegistry, UnifiedModelWrapper
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 |
+30 | pytestmark = [pytest.mark.e2e, pytest.mark.slow]
+   |
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_escalation.py:8:8
+   |
+ 6 | from unittest.mock import AsyncMock, MagicMock, patch
+ 7 |
+ 8 | import pytest
+   |        ^^^^^^
+ 9 |
+10 | from app.models.admin import OperationLog
+   |
+help: Remove unused import: `pytest`
+
+F821 Undefined name `AsyncSession`
+   --> tests\test_escalation.py:183:69
+    |
+183 | async def test_run_escalation_check_scans_firing_alerts(db_session: AsyncSession) -> None:
+    |                                                                     ^^^^^^^^^^^^
+184 |     """run_escalation_check 应扫描 alert_fired 告警并返回决策列表."""
+185 |     from sqlalchemy.ext.asyncio import AsyncSession
+    |
+
+F401 [*] `sqlalchemy.ext.asyncio.AsyncSession` imported but unused
+   --> tests\test_escalation.py:185:40
+    |
+183 | async def test_run_escalation_check_scans_firing_alerts(db_session: AsyncSession) -> None:
+184 |     """run_escalation_check 应扫描 alert_fired 告警并返回决策列表."""
+185 |     from sqlalchemy.ext.asyncio import AsyncSession
+    |                                        ^^^^^^^^^^^^
+186 |
+187 |     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    |
+help: Remove unused import: `sqlalchemy.ext.asyncio.AsyncSession`
+
+F821 Undefined name `AsyncSession`
+   --> tests\test_escalation.py:216:58
+    |
+216 | async def test_run_escalation_check_empty_db(db_session: AsyncSession) -> None:
+    |                                                          ^^^^^^^^^^^^
+217 |     """无告警时应返回空决策列表."""
+218 |     from sqlalchemy.ext.asyncio import AsyncSession
+    |
+
+F401 [*] `sqlalchemy.ext.asyncio.AsyncSession` imported but unused
+   --> tests\test_escalation.py:218:40
+    |
+216 | async def test_run_escalation_check_empty_db(db_session: AsyncSession) -> None:
+217 |     """无告警时应返回空决策列表."""
+218 |     from sqlalchemy.ext.asyncio import AsyncSession
+    |                                        ^^^^^^^^^^^^
+219 |
+220 |     decisions = await run_escalation_check(db_session)
+    |
+help: Remove unused import: `sqlalchemy.ext.asyncio.AsyncSession`
+
+F401 [*] `app.core.event_bus.event_bus` imported but unused
+  --> tests\test_event_bus.py:19:42
+   |
+18 | from app.core import metrics
+19 | from app.core.event_bus import EventBus, event_bus
+   |                                          ^^^^^^^^^
+20 |
+21 | # 模块加载时捕获真实 ObservabilityExporter 类引用.
+   |
+help: Remove unused import: `app.core.event_bus.event_bus`
+
+F841 Local variable `exporter` is assigned to but never used
+   --> tests\test_event_bus.py:153:9
+    |
+152 |         # 创建真实 ObservabilityExporter (注册 5 个事件处理器到 fresh_bus)
+153 |         exporter = ObservabilityExporter()
+    |         ^^^^^^^^
+154 |
+155 |         # 仅启动 EventBus 消费循环, 不调用 exporter.start() (避免 60s 轮询和 DB 依赖)
+    |
+help: Remove assignment to unused variable `exporter`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_exceptions.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from fastapi import FastAPI, HTTPException
+7 | from fastapi.exceptions import RequestValidationError
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `fastapi.exceptions.RequestValidationError` imported but unused
+ --> tests\test_exceptions.py:7:32
+  |
+5 | import pytest
+6 | from fastapi import FastAPI, HTTPException
+7 | from fastapi.exceptions import RequestValidationError
+  |                                ^^^^^^^^^^^^^^^^^^^^^^
+8 | from starlette.testclient import TestClient
+  |
+help: Remove unused import: `fastapi.exceptions.RequestValidationError`
+
+F401 [*] `numpy` imported but unused
+ --> tests\test_experiment_metrics_smoke.py:5:17
+  |
+3 | from __future__ import annotations
+4 |
+5 | import numpy as np
+  |                 ^^
+6 | import pytest
+  |
+help: Remove unused import: `numpy`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_experiment_metrics_smoke.py:6:8
+  |
+5 | import numpy as np
+6 | import pytest
+  |        ^^^^^^
+7 |
+8 | from app.services.experiment_metrics import ExperimentMetrics
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_export_audit_log.py:23:8
+   |
+21 | from datetime import date, timedelta
+22 |
+23 | import pytest
+   |        ^^^^^^
+24 | from fastapi.testclient import TestClient
+25 | from sqlalchemy import select
+   |
+help: Remove unused import: `pytest`
+
+E402 Module level import not at top of file
+  --> tests\test_fallback_mechanisms.py:30:1
+   |
+28 |     sys.path.insert(0, str(backend_root))
+29 |
+30 | from app.ml.unified_model_interface import ModelRegistry, UnifiedModelWrapper
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F841 Local variable `predictions` is assigned to but never used
+   --> tests\test_fallback_mechanisms.py:160:13
+    |
+158 |         start = time.time()
+159 |         try:
+160 |             predictions = wrapper.predict(X)
+    |             ^^^^^^^^^^^
+161 |             elapsed = (time.time() - start) * 1000
+    |
+help: Remove assignment to unused variable `predictions`
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_fault_injection.py:16:38
+   |
+14 | import pytest
+15 | from fastapi.testclient import TestClient
+16 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                      ^^^^^^^^^
+   |
+help: Remove unused import: `unittest.mock.MagicMock`
+
+F841 Local variable `original_limits` is assigned to but never used
+   --> tests\test_fault_injection.py:117:9
+    |
+115 |         # 临时启用限流
+116 |         original_enabled = limiter.enabled
+117 |         original_limits = limiter._limits if hasattr(limiter, "_limits") else None
+    |         ^^^^^^^^^^^^^^^
+118 |         limiter.enabled = True
+    |
+help: Remove assignment to unused variable `original_limits`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_feature_maps.py:19:8
+   |
+17 | from __future__ import annotations
+18 |
+19 | import pytest
+   |        ^^^^^^
+20 |
+21 | from app.core import feature_maps
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `numpy` imported but unused
+  --> tests\test_fusion_engine.py:21:17
+   |
+19 | from pathlib import Path
+20 |
+21 | import numpy as np
+   |                 ^^
+22 | import pytest
+   |
+help: Remove unused import: `numpy`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_fusion_engine.py:22:8
+   |
+21 | import numpy as np
+22 | import pytest
+   |        ^^^^^^
+23 |
+24 | # Add backend to path
+   |
+help: Remove unused import: `pytest`
+
+E402 Module level import not at top of file
+  --> tests\test_fusion_engine.py:29:1
+   |
+27 |     sys.path.insert(0, str(backend_root))
+28 |
+29 | from app.ml.fusion_engine import DEFAULT_WEIGHTS, FusionEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 [*] `app.ml.fusion_engine.DEFAULT_WEIGHTS` imported but unused
+  --> tests\test_fusion_engine.py:29:34
+   |
+27 |     sys.path.insert(0, str(backend_root))
+28 |
+29 | from app.ml.fusion_engine import DEFAULT_WEIGHTS, FusionEngine
+   |                                  ^^^^^^^^^^^^^^^
+   |
+help: Remove unused import: `app.ml.fusion_engine.DEFAULT_WEIGHTS`
+
+F401 [*] `json` imported but unused
+ --> tests\test_fusion_engine_extended.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import json
+  |        ^^^^
+6 | import tempfile
+7 | from pathlib import Path
+  |
+help: Remove unused import: `json`
+
+F401 [*] `numpy` imported but unused
+  --> tests\test_fusion_engine_extended.py:9:17
+   |
+ 7 | from pathlib import Path
+ 8 |
+ 9 | import numpy as np
+   |                 ^^
+10 | import pytest
+   |
+help: Remove unused import: `numpy`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_fusion_engine_extended.py:10:8
+   |
+ 9 | import numpy as np
+10 | import pytest
+   |        ^^^^^^
+11 |
+12 | from app.ml.fusion_engine import FusionEngine, DEFAULT_WEIGHTS, CONFIDENCE_THRESHOLDS
+   |
+help: Remove unused import: `pytest`
+
+E402 Module level import not at top of file
+  --> tests\test_fusion_scenarios_v2.py:19:1
+   |
+17 | sys.path.insert(0, str(project_root / "backend"))
+18 |
+19 | from app.core.model_engine import ModelEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 [*] `fastapi.Depends` imported but unused
+   --> tests\test_gdpr_pii.py:323:38
+    |
+321 |     def test_delete_endpoint_requires_confirm(self):
+322 |         """未传 confirm=true 应返回 400."""
+323 |         from fastapi import FastAPI, Depends
+    |                                      ^^^^^^^
+324 |         from fastapi.testclient import TestClient
+325 |         from app.api.v1.gdpr import router
+    |
+help: Remove unused import: `fastapi.Depends`
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\test_grafana_adapter.py:18:27
+   |
+17 | import os
+18 | from unittest.mock import AsyncMock, MagicMock
+   |                           ^^^^^^^^^
+19 |
+20 | os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-ci-only")
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_grafana_adapter.py:18:38
+   |
+17 | import os
+18 | from unittest.mock import AsyncMock, MagicMock
+   |                                      ^^^^^^^^^
+19 |
+20 | os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-ci-only")
+   |
+help: Remove unused import
+
+F401 [*] `inspect` imported but unused
+   --> tests\test_grafana_adapter.py:397:12
+    |
+395 | def test_test_count() -> None:
+396 |     """Meta-test: 验证本文件测试数量 == 15 (不含本 meta-test)."""
+397 |     import inspect
+    |            ^^^^^^^
+398 |     test_funcs = [
+399 |         name for name, obj in globals().items()
+    |
+help: Remove unused import: `inspect`
+
+F401 [*] `app.models.user.User` imported but unused
+  --> tests\test_grafana_auth.py:27:29
+   |
+25 | from app.main import app
+26 | from app.core.deps import require_sa_or_admin
+27 | from app.models.user import User
+   |                             ^^^^
+   |
+help: Remove unused import: `app.models.user.User`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_instance.py:7:8
+  |
+5 | from unittest.mock import patch
+6 |
+7 | import pytest
+  |        ^^^^^^
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `os` imported but unused
+  --> tests\test_logging_config.py:18:8
+   |
+16 | import logging
+17 | import logging.handlers
+18 | import os
+   |        ^^
+19 | from pathlib import Path
+20 | from unittest.mock import patch
+   |
+help: Remove unused import: `os`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_middlewares.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from fastapi import FastAPI, Request
+7 | from starlette.testclient import TestClient
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_ml_breaker.py:15:38
+   |
+14 | import asyncio
+15 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                      ^^^^^^^^^
+16 |
+17 | import pytest
+   |
+help: Remove unused import: `unittest.mock.MagicMock`
+
+F401 [*] `app.core.ml_breaker.ml_breaker` imported but unused
+  --> tests\test_ml_breaker.py:29:5
+   |
+27 |     call_with_ml_breaker,
+28 |     init_ml_breaker,
+29 |     ml_breaker,
+   |     ^^^^^^^^^^
+30 | )
+   |
+help: Remove unused import: `app.core.ml_breaker.ml_breaker`
+
+F401 [*] `app.ml.model_loader.check_model_exists` imported but unused
+  --> tests\test_ml_model.py:14:33
+   |
+12 | from app.ml.model import relu, relu_derivative, sigmoid, he_init, PhysiologicalMLP
+13 | from app.ml.scaler import SimpleStandardScaler, ensure_artifacts_dir
+14 | from app.ml.model_loader import check_model_exists
+   |                                 ^^^^^^^^^^^^^^^^^^
+15 | from app.ml.trainer import (
+16 |     sgd_optimizer,
+   |
+help: Remove unused import: `app.ml.model_loader.check_model_exists`
+
+F811 Redefinition of unused `TestDataset` from line 60
+   --> tests\test_ml_utils.py:113:7
+    |
+113 | class TestDataset:
+    |       ^^^^^^^^^^^ `TestDataset` redefined here
+114 |     """Test dataset and dataloader."""
+    |
+   ::: tests\test_ml_utils.py:60:7
+    |
+ 60 | class TestDataset:
+    |       ----------- previous definition of `TestDataset` here
+ 61 |     """Test PhysiologicalDataset."""
+    |
+help: Remove definition: `TestDataset`
+
+E402 Module level import not at top of file
+  --> tests\test_modality_missing.py:24:1
+   |
+22 |     sys.path.insert(0, str(backend_root))
+23 |
+24 | from app.ml.fusion_engine import FusionEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+25 |
+26 | try:
+   |
+
+F401 [*] `asyncio` imported but unused
+  --> tests\test_model_cache_lru.py:13:8
+   |
+11 | from __future__ import annotations
+12 |
+13 | import asyncio
+   |        ^^^^^^^
+14 | import inspect
+15 | import threading
+   |
+help: Remove unused import: `asyncio`
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\test_model_cache_lru.py:17:27
+   |
+15 | import threading
+16 | from collections import OrderedDict
+17 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                           ^^^^^^^^^
+18 |
+19 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_model_cache_lru.py:17:38
+   |
+15 | import threading
+16 | from collections import OrderedDict
+17 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                      ^^^^^^^^^
+18 |
+19 | import pytest
+   |
+help: Remove unused import
+
+F401 [*] `ast` imported but unused
+   --> tests\test_model_cache_lru.py:341:16
+    |
+339 |         """self.models 应为 OrderedDict 类型."""
+340 |         from app.core import model_engine
+341 |         import ast
+    |                ^^^
+342 |
+343 |         source = inspect.getsource(model_engine.ModelEngine.__init__)
+    |
+help: Remove unused import: `ast`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_model_compatibility.py:8:8
+   |
+ 6 | from unittest.mock import MagicMock, patch
+ 7 |
+ 8 | import pytest
+   |        ^^^^^^
+ 9 |
+10 | from app.core.model_compatibility import (
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_model_compatibility_registry.py:5:8
+  |
+3 | from unittest.mock import patch
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 |
+7 | from app.core.model_compatibility import (
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.core.metrics.model_inference_duration_seconds` imported but unused
+ --> tests\test_model_inference_metrics.py:7:5
+  |
+6 | from app.core.metrics import (
+7 |     model_inference_duration_seconds,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |     model_inference_total,
+9 |     render_exposition,
+  |
+help: Remove unused import: `app.core.metrics.model_inference_duration_seconds`
+
+E402 Module level import not at top of file
+  --> tests\test_model_monitor.py:28:1
+   |
+26 |     sys.path.insert(0, str(backend_root))
+27 |
+28 | from app.ml.model_monitor import DEFAULT_MONITOR_CONFIG, ModelHealth, ModelMonitor, MonitoringRecord
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 [*] `app.ml.model_monitor.ModelHealth` imported but unused
+  --> tests\test_model_monitor.py:28:58
+   |
+26 |     sys.path.insert(0, str(backend_root))
+27 |
+28 | from app.ml.model_monitor import DEFAULT_MONITOR_CONFIG, ModelHealth, ModelMonitor, MonitoringRecord
+   |                                                          ^^^^^^^^^^^
+   |
+help: Remove unused import
+
+F401 [*] `app.ml.model_monitor.MonitoringRecord` imported but unused
+  --> tests\test_model_monitor.py:28:85
+   |
+26 |     sys.path.insert(0, str(backend_root))
+27 |
+28 | from app.ml.model_monitor import DEFAULT_MONITOR_CONFIG, ModelHealth, ModelMonitor, MonitoringRecord
+   |                                                                                     ^^^^^^^^^^^^^^^^
+   |
+help: Remove unused import
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_model_registry.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 |
+7 | from app.core.model_registry import (
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `json` imported but unused
+  --> tests\test_model_registry_v2.py:12:8
+   |
+10 | from __future__ import annotations
+11 |
+12 | import json
+   |        ^^^^
+13 | import sys
+14 | import tempfile
+   |
+help: Remove unused import: `json`
+
+E402 Module level import not at top of file
+  --> tests\test_model_registry_v2.py:21:1
+   |
+19 | sys.path.insert(0, str(project_root))
+20 |
+21 | from app.core.model_registry_v2 import ModelRegistryV2, ModelStatus, ModelType
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_monitoring_api.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import pytest
+  |        ^^^^^^
+4 | from fastapi.testclient import TestClient
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.models.monitoring.MonitoringEventType` imported but unused
+ --> tests\test_monitoring_api.py:6:35
+  |
+4 | from fastapi.testclient import TestClient
+5 |
+6 | from app.models.monitoring import MonitoringEventType
+  |                                   ^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove unused import: `app.models.monitoring.MonitoringEventType`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_monitoring_log_model.py:5:8
+  |
+3 | import asyncio
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from sqlalchemy import inspect, select
+7 | from sqlalchemy.ext.asyncio import AsyncSession
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.services.mttr_service.mttr_service` imported but unused
+  --> tests\test_mttr_service.py:23:63
+   |
+21 | from app.core.alert_rules import ALERT_RULES, Severity
+22 | from app.core.metrics import alert_mttr_seconds, alert_resolved_total, alert_unresolved_count
+23 | from app.services.mttr_service import MttrService, MttrStats, mttr_service
+   |                                                               ^^^^^^^^^^^^
+   |
+help: Remove unused import: `app.services.mttr_service.mttr_service`
+
+F841 Local variable `collected` is assigned to but never used
+   --> tests\test_mttr_service.py:367:9
+    |
+365 |         alert_mttr_seconds.set(300.0, severity="critical")
+366 |         alert_mttr_seconds.set(120.0, severity="warning")
+367 |         collected = dict((tuple(sorted(d.items())), v) for d, v in alert_mttr_seconds.collect())
+    |         ^^^^^^^^^
+368 |         # 应有 critical=300 和 warning=120 两个标签
+369 |         assert any("critical" in str(d) for d, _ in alert_mttr_seconds.collect())
+    |
+help: Remove assignment to unused variable `collected`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_notifier.py:13:8
+   |
+11 | from unittest.mock import MagicMock, patch
+12 |
+13 | import pytest
+   |        ^^^^^^
+14 |
+15 | from app.monitoring.notifier import (
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.monitoring.notifier.Notifier` imported but unused
+  --> tests\test_notifier.py:20:5
+   |
+18 |     DingTalkNotifier,
+19 |     EmailNotifier,
+20 |     Notifier,
+   |     ^^^^^^^^
+21 |     SlackNotifier,
+22 |     WebhookNotifier,
+   |
+help: Remove unused import: `app.monitoring.notifier.Notifier`
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\test_observability_api.py:13:27
+   |
+11 | import json
+12 | from datetime import datetime, timezone, timedelta
+13 | from unittest.mock import AsyncMock, MagicMock
+   |                           ^^^^^^^^^
+14 |
+15 | import pytest
+   |
+help: Remove unused import: `unittest.mock.AsyncMock`
+
+F811 [*] Redefinition of unused `AsyncMock` from line 13
+  --> tests\test_observability_api.py:64:31
+   |
+62 | def test_observability_health_with_admin(monkeypatch) -> None:
+63 |     """v1.36 T2.1: admin 鉴权通过时返回 instance_id + cached + generated_at."""
+64 |     from unittest.mock import AsyncMock, MagicMock, patch
+   |                               ^^^^^^^^^ `AsyncMock` redefined here
+65 |     from fastapi.testclient import TestClient
+66 |     from app.main import app
+   |
+  ::: tests\test_observability_api.py:13:27
+   |
+11 | import json
+12 | from datetime import datetime, timezone, timedelta
+13 | from unittest.mock import AsyncMock, MagicMock
+   |                           --------- previous definition of `AsyncMock` here
+14 |
+15 | import pytest
+   |
+help: Remove definition: `AsyncMock`
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\test_observability_api.py:64:31
+   |
+62 | def test_observability_health_with_admin(monkeypatch) -> None:
+63 |     """v1.36 T2.1: admin 鉴权通过时返回 instance_id + cached + generated_at."""
+64 |     from unittest.mock import AsyncMock, MagicMock, patch
+   |                               ^^^^^^^^^
+65 |     from fastapi.testclient import TestClient
+66 |     from app.main import app
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_observability_api.py:64:53
+   |
+62 | def test_observability_health_with_admin(monkeypatch) -> None:
+63 |     """v1.36 T2.1: admin 鉴权通过时返回 instance_id + cached + generated_at."""
+64 |     from unittest.mock import AsyncMock, MagicMock, patch
+   |                                                     ^^^^^
+65 |     from fastapi.testclient import TestClient
+66 |     from app.main import app
+   |
+help: Remove unused import
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_observability_e2e.py:21:8
+   |
+19 | from unittest.mock import AsyncMock, MagicMock, patch
+20 |
+21 | import pytest
+   |        ^^^^^^
+22 | from sqlalchemy import select
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `sqlalchemy.text` imported but unused
+  --> tests\test_observability_exporter.py:23:24
+   |
+22 | import pytest
+23 | from sqlalchemy import text
+   |                        ^^^^
+24 | from sqlalchemy.ext.asyncio import AsyncSession
+   |
+help: Remove unused import: `sqlalchemy.text`
+
+F401 [*] `unittest.mock.AsyncMock` imported but unused
+  --> tests\test_observability_service.py:8:27
+   |
+ 7 | import pytest
+ 8 | from unittest.mock import AsyncMock, patch
+   |                           ^^^^^^^^^
+ 9 |
+10 | from app.services.observability_service import (
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_observability_service.py:8:38
+   |
+ 7 | import pytest
+ 8 | from unittest.mock import AsyncMock, patch
+   |                                      ^^^^^
+ 9 |
+10 | from app.services.observability_service import (
+   |
+help: Remove unused import
+
+F401 [*] `numpy` imported but unused
+  --> tests\test_optimize_fusion_weights.py:18:17
+   |
+16 | from pathlib import Path
+17 |
+18 | import numpy as np
+   |                 ^^
+19 | import pytest
+   |
+help: Remove unused import: `numpy`
+
+F401 [*] `app.models.admin.AlertArchive` imported but unused
+  --> tests\test_p1d_celery_idempotency_dlq.py:29:52
+   |
+27 |         """已归档的记录应被跳过, 不产生重复 AlertArchive 条目."""
+28 |         from app.tasks.alerts import _archive_impl
+29 |         from app.models.admin import OperationLog, AlertArchive
+   |                                                    ^^^^^^^^^^^^
+30 |
+31 |         # 模拟数据: 2 条 OperationLog, 其中 1 条已归档
+   |
+help: Remove unused import: `app.models.admin.AlertArchive`
+
+F401 [*] `json` imported but unused
+  --> tests\test_pdf_celery.py:12:8
+   |
+10 | from __future__ import annotations
+11 |
+12 | import json
+   |        ^^^^
+13 | from unittest.mock import MagicMock, patch
+   |
+help: Remove unused import: `json`
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_pii_key_rotation.py:25:49
+   |
+24 | import os
+25 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                                 ^^^^^
+26 |
+27 | import pytest
+   |
+help: Remove unused import: `unittest.mock.patch`
+
+E402 Module level import not at top of file
+   --> tests\test_pii_key_rotation.py:285:1
+    |
+284 | # 将 backend 目录加入 sys.path 以导入脚本模块
+285 | import sys as _sys
+    | ^^^^^^^^^^^^^^^^^^
+286 | from pathlib import Path as _Path
+    |
+
+E402 Module level import not at top of file
+   --> tests\test_pii_key_rotation.py:286:1
+    |
+284 | # 将 backend 目录加入 sys.path 以导入脚本模块
+285 | import sys as _sys
+286 | from pathlib import Path as _Path
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+287 |
+288 | _BACKEND_DIR = _Path(__file__).resolve().parents[1]
+    |
+
+E402 Module level import not at top of file
+   --> tests\test_pii_key_rotation.py:293:1
+    |
+292 | # 导入脚本模块 (脚本目录无 __init__.py, 用 importlib 加载)
+293 | import importlib.util as _importlib_util
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+294 |
+295 | _script_path = _BACKEND_DIR / "scripts" / "rotate_pii_keys.py"
+    |
+
+F401 [*] `asyncio` imported but unused
+  --> tests\test_predict_fusion_fire_forget.py:14:8
+   |
+12 | from __future__ import annotations
+13 |
+14 | import asyncio
+   |        ^^^^^^^
+15 | from unittest.mock import AsyncMock, MagicMock, patch
+   |
+help: Remove unused import: `asyncio`
+
+F401 [*] `app.api.v1.model_predict._assessment_save_tasks` imported but unused
+   --> tests\test_predict_fusion_fire_forget.py:180:46
+    |
+178 |         """两个 fire-and-forget 函数应共用 _assessment_save_tasks 集合."""
+179 |         # 这是设计约束: 单一任务集合便于统一管理
+180 |         from app.api.v1.model_predict import _assessment_save_tasks
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^
+181 |
+182 |         with patch("asyncio.ensure_future") as mock_ensure:
+    |
+help: Remove unused import: `app.api.v1.model_predict._assessment_save_tasks`
+
+E402 Module level import not at top of file
+  --> tests\test_pytorch_mlp.py:31:1
+   |
+29 |       sys.path.insert(0, str(backend_root))
+30 |
+31 | / from app.ml.pytorch_mlp import (
+32 | |     PyTorchMLP,
+33 | |     TORCH_AVAILABLE,
+34 | |     _compute_f1,
+35 | |     evaluate_pytorch_mlp,
+36 | |     train_pytorch_mlp,
+37 | | )
+   | |_^
+38 |
+39 |   pytestmark = pytest.mark.requires_ml
+   |
+
+F401 [*] `torch` imported but unused
+   --> tests\test_pytorch_mlp.py:373:16
+    |
+371 |             pytest.skip("PyTorch not installed")
+372 |
+373 |         import torch
+    |                ^^^^^
+374 |
+375 |         model = PyTorchMLP(input_dim=13, hidden_dims=[16, 8])
+    |
+help: Remove unused import: `torch`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_pytorch_optional_dependency.py:6:8
+  |
+4 | from unittest.mock import patch
+5 |
+6 | import pytest
+  |        ^^^^^^
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.core.model_engine.ModelEngine` imported but unused
+  --> tests\test_pytorch_optional_dependency.py:60:43
+   |
+58 |     def test_model_engine_imports_pytorch_flag(self) -> None:
+59 |         """验证 model_engine 正确导入 PYTORCH_AVAILABLE"""
+60 |         from app.core.model_engine import ModelEngine
+   |                                           ^^^^^^^^^^^
+61 |         from app.core.config import PYTORCH_AVAILABLE
+   |
+help: Remove unused import: `app.core.model_engine.ModelEngine`
+
+F841 Local variable `result` is assigned to but never used
+   --> tests\test_qa008_invalid_types_and_extreme_distributions.py:302:17
+    |
+300 |             warnings.simplefilter("always")
+301 |             try:
+302 |                 result = detector.calculate_psi(
+    |                 ^^^^^^
+303 |                     [1e-300, 1e300, 1e-300],
+304 |                     [1e300, 1e-300, 1e300],
+    |
+help: Remove assignment to unused variable `result`
+
+F401 [*] `typing.Any` imported but unused
+  --> tests\test_qa009_inference_performance.py:19:20
+   |
+17 | import statistics
+18 | import time
+19 | from typing import Any
+   |                    ^^^
+20 |
+21 | import pytest
+   |
+help: Remove unused import: `typing.Any`
+
+F841 Local variable `result` is assigned to but never used
+  --> tests\test_qa009_inference_performance.py:94:13
+   |
+92 |         for _ in range(50):
+93 |             start = time.perf_counter()
+94 |             result = detector.calculate_psi(baseline, current)
+   |             ^^^^^^
+95 |             elapsed_ms = (time.perf_counter() - start) * 1000
+96 |             latencies.append(elapsed_ms)
+   |
+help: Remove assignment to unused variable `result`
+
+F841 Local variable `score` is assigned to but never used
+   --> tests\test_qa009_inference_performance.py:189:13
+    |
+187 |         for _ in range(100):
+188 |             start = time.perf_counter()
+189 |             score = service._calculate_heuristic_score(features)
+    |             ^^^^^
+190 |             elapsed_ms = (time.perf_counter() - start) * 1000
+191 |             latencies.append(elapsed_ms)
+    |
+help: Remove assignment to unused variable `score`
+
+F401 [*] `typing.Any` imported but unused
+  --> tests\test_qa011_resource_usage.py:20:20
+   |
+18 | import time
+19 | import tracemalloc
+20 | from typing import Any
+   |                    ^^^
+21 |
+22 | import pytest
+   |
+help: Remove unused import: `typing.Any`
+
+F841 Local variable `result` is assigned to but never used
+   --> tests\test_qa011_resource_usage.py:233:9
+    |
+232 |         start = time.perf_counter()
+233 |         result = service.export_to_excel(data, "test_export")
+    |         ^^^^^^
+234 |         elapsed_s = time.perf_counter() - start
+    |
+help: Remove assignment to unused variable `result`
+
+F841 Local variable `result` is assigned to but never used
+   --> tests\test_qa011_resource_usage.py:260:9
+    |
+259 |         start = time.perf_counter()
+260 |         result = service.generate_user_risk_report(user_data)
+    |         ^^^^^^
+261 |         elapsed_s = time.perf_counter() - start
+    |
+help: Remove assignment to unused variable `result`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_rate_limit.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from fastapi import FastAPI, Request
+7 | from slowapi.errors import RateLimitExceeded
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `starlette.testclient.TestClient` imported but unused
+  --> tests\test_rate_limit.py:8:34
+   |
+ 6 | from fastapi import FastAPI, Request
+ 7 | from slowapi.errors import RateLimitExceeded
+ 8 | from starlette.testclient import TestClient
+   |                                  ^^^^^^^^^^
+ 9 |
+10 | from app.core.rate_limit import rate_limit_exceeded_handler, install_rate_limiter
+   |
+help: Remove unused import: `starlette.testclient.TestClient`
+
+F401 [*] `pathlib.Path` imported but unused
+  --> tests\test_rate_limit_coverage.py:16:21
+   |
+14 | import inspect
+15 | import re
+16 | from pathlib import Path
+   |                     ^^^^
+17 | from typing import Callable
+   |
+help: Remove unused import: `pathlib.Path`
+
+F401 [*] `typing.Callable` imported but unused
+  --> tests\test_rate_limit_coverage.py:17:20
+   |
+15 | import re
+16 | from pathlib import Path
+17 | from typing import Callable
+   |                    ^^^^^^^^
+18 |
+19 | import pytest
+   |
+help: Remove unused import: `typing.Callable`
+
+F401 [*] `unittest.mock.patch` imported but unused
+ --> tests\test_regression_v128_quality.py:5:49
+  |
+3 | import json
+4 | import pytest
+5 | from unittest.mock import AsyncMock, MagicMock, patch
+  |                                                 ^^^^^
+6 |
+7 | from app.core.crisis_detector import CrisisDetector
+  |
+help: Remove unused import: `unittest.mock.patch`
+
+F401 [*] `app.core.model_registry.get_model_info` imported but unused
+ --> tests\test_regression_v128_quality.py:9:55
+  |
+7 | from app.core.crisis_detector import CrisisDetector
+8 | from app.core.security import verify_password, get_password_hash
+9 | from app.core.model_registry import is_model_enabled, get_model_info, MODEL_REGISTRY, ModelMetadata
+  |                                                       ^^^^^^^^^^^^^^
+  |
+help: Remove unused import: `app.core.model_registry.get_model_info`
+
+F841 Local variable `model_feature_names` is assigned to but never used
+   --> tests\test_regression_v128_quality.py:119:9
+    |
+118 |         model = ModelEngine()
+119 |         model_feature_names = ["CGPA"]
+    |         ^^^^^^^^^^^^^^^^^^^
+120 |         mock_model = MagicMock()
+121 |         mock_model.feature_names_in_ = None
+    |
+help: Remove assignment to unused variable `model_feature_names`
+
+F841 Local variable `result` is assigned to but never used
+   --> tests\test_regression_v128_quality.py:124:9
+    |
+123 |         raw = {"cgpa": 3.8, "gpa_scale": 4.0}
+124 |         result = model._build_structured_input(raw, ["cgpa", "CGPA"], mock_model)
+    |         ^^^^^^
+125 |
+126 |         raw2 = {"cgpa": 3.8, "gpa_scale": 10.0}
+    |
+help: Remove assignment to unused variable `result`
+
+F841 Local variable `result2` is assigned to but never used
+   --> tests\test_regression_v128_quality.py:127:9
+    |
+126 |         raw2 = {"cgpa": 3.8, "gpa_scale": 10.0}
+127 |         result2 = model._build_structured_input(raw2, ["cgpa", "CGPA"], mock_model)
+    |         ^^^^^^^
+    |
+help: Remove assignment to unused variable `result2`
+
+F401 [*] `pathlib.Path` imported but unused
+  --> tests\test_resilience_phase5.py:17:21
+   |
+15 | import math
+16 | import time
+17 | from pathlib import Path
+   |                     ^^^^
+18 | from unittest.mock import MagicMock, patch
+   |
+help: Remove unused import: `pathlib.Path`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_resilience_phase5.py:21:8
+   |
+20 | import numpy as np
+21 | import pytest
+   |        ^^^^^^
+   |
+help: Remove unused import: `pytest`
+
+F841 Local variable `torch_available` is assigned to but never used
+   --> tests\test_resilience_phase5.py:188:9
+    |
+186 |         import importlib
+187 |
+188 |         torch_available = importlib.util.find_spec("torch") is not None
+    |         ^^^^^^^^^^^^^^^
+189 |
+190 |         # 验证核心服务不依赖 torch
+    |
+help: Remove assignment to unused variable `torch_available`
+
+F841 Local variable `predictions` is assigned to but never used
+   --> tests\test_resilience_phase5.py:321:13
+    |
+319 |         start = time.perf_counter()
+320 |         try:
+321 |             predictions = wrapper.predict(X)
+    |             ^^^^^^^^^^^
+322 |             elapsed_ms = (time.perf_counter() - start) * 1000
+    |
+help: Remove assignment to unused variable `predictions`
+
+F401 [*] `json` imported but unused
+  --> tests\test_resource_cleanup.py:14:8
+   |
+13 | import inspect
+14 | import json
+   |        ^^^^
+15 | import os
+16 | import shutil
+   |
+help: Remove unused import: `json`
+
+F401 [*] `datetime.datetime` imported but unused
+  --> tests\test_resource_cleanup.py:19:22
+   |
+17 | import tempfile
+18 | import time
+19 | from datetime import datetime, timedelta, timezone
+   |                      ^^^^^^^^
+20 | from pathlib import Path
+21 | from unittest.mock import MagicMock, patch
+   |
+help: Remove unused import
+
+F401 [*] `datetime.timedelta` imported but unused
+  --> tests\test_resource_cleanup.py:19:32
+   |
+17 | import tempfile
+18 | import time
+19 | from datetime import datetime, timedelta, timezone
+   |                                ^^^^^^^^^
+20 | from pathlib import Path
+21 | from unittest.mock import MagicMock, patch
+   |
+help: Remove unused import
+
+F401 [*] `datetime.timezone` imported but unused
+  --> tests\test_resource_cleanup.py:19:43
+   |
+17 | import tempfile
+18 | import time
+19 | from datetime import datetime, timedelta, timezone
+   |                                           ^^^^^^^^
+20 | from pathlib import Path
+21 | from unittest.mock import MagicMock, patch
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_resource_cleanup.py:21:27
+   |
+19 | from datetime import datetime, timedelta, timezone
+20 | from pathlib import Path
+21 | from unittest.mock import MagicMock, patch
+   |                           ^^^^^^^^^
+22 |
+23 | import pytest
+   |
+help: Remove unused import: `unittest.mock.MagicMock`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_resource_cleanup.py:23:8
+   |
+21 | from unittest.mock import MagicMock, patch
+22 |
+23 | import pytest
+   |        ^^^^^^
+24 |
+25 | from app.services.model_predict_service import (
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_response_unified.py:17:8
+   |
+15 | from __future__ import annotations
+16 |
+17 | import pytest
+   |        ^^^^^^
+18 | from fastapi import FastAPI, HTTPException
+19 | from fastapi.exceptions import RequestValidationError
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `fastapi.exceptions.RequestValidationError` imported but unused
+  --> tests\test_response_unified.py:19:32
+   |
+17 | import pytest
+18 | from fastapi import FastAPI, HTTPException
+19 | from fastapi.exceptions import RequestValidationError
+   |                                ^^^^^^^^^^^^^^^^^^^^^^
+20 | from slowapi.errors import RateLimitExceeded
+21 | from starlette.testclient import TestClient
+   |
+help: Remove unused import: `fastapi.exceptions.RequestValidationError`
+
+F401 [*] `json` imported but unused
+ --> tests\test_schema_admin.py:6:8
+  |
+5 | import pytest
+6 | import json
+  |        ^^^^
+7 |
+8 | from app.schemas.admin import (
+  |
+help: Remove unused import: `json`
+
+F401 [*] `starlette.requests.Request` imported but unused
+   --> tests\test_security_p1_fixes.py:192:40
+    |
+190 |     def test_uses_cached_payload(self):
+191 |         """当 request.state.token_payload 已设置, 应直接返回."""
+192 |         from starlette.requests import Request
+    |                                        ^^^^^^^
+193 |
+194 |         class FakeRequest:
+    |
+help: Remove unused import: `starlette.requests.Request`
+
+F401 [*] `app.core.rate_limit.limiter` imported but unused
+   --> tests\test_security_p1_fixes.py:225:57
+    |
+223 |     def test_build_limiter_sets_enabled_true(self):
+224 |         """_build_limiter 内部设置 limiter.enabled = True (配置层意图)."""
+225 |         from app.core.rate_limit import _build_limiter, limiter
+    |                                                         ^^^^^^^
+226 |         # 重新调用 _build_limiter, 验证其内部将 enabled 设为 True
+227 |         # 由于 conftest.py 的 fixture 会在测试结束后还原, 不会污染全局
+    |
+help: Remove unused import: `app.core.rate_limit.limiter`
+
+F841 Local variable `new_limiter` is assigned to but never used
+   --> tests\test_security_p1_fixes.py:228:9
+    |
+226 |         # 重新调用 _build_limiter, 验证其内部将 enabled 设为 True
+227 |         # 由于 conftest.py 的 fixture 会在测试结束后还原, 不会污染全局
+228 |         new_limiter = _build_limiter()
+    |         ^^^^^^^^^^^
+229 |         # 新建的 limiter 应该 enabled=True (除非 fixture 干预)
+230 |         # 由于 fixture 是 autouse, 我们只能通过代码静态分析验证意图
+    |
+help: Remove assignment to unused variable `new_limiter`
+
+F401 [*] `app.core.config.settings` imported but unused
+   --> tests\test_security_p1_fixes.py:240:37
+    |
+238 |         """默认限制值应随环境变化."""
+239 |         from app.core import rate_limit
+240 |         from app.core.config import settings
+    |                                     ^^^^^^^^
+241 |
+242 |         # 模拟生产环境
+    |
+help: Remove unused import: `app.core.config.settings`
+
+F401 [*] `datetime.timedelta` imported but unused
+   --> tests\test_security_p1_fixes.py:479:40
+    |
+477 |         """仅提供 start_time 或 end_time 应通过校验."""
+478 |         from app.api.v1.alerts import _validate_history_time_range
+479 |         from datetime import datetime, timedelta
+    |                                        ^^^^^^^^^
+480 |
+481 |         now = datetime.utcnow()
+    |
+help: Remove unused import: `datetime.timedelta`
+
+F401 [*] `numpy` imported but unused
+  --> tests\test_select_best_model.py:17:17
+   |
+15 | from pathlib import Path
+16 |
+17 | import numpy as np
+   |                 ^^
+18 | import pytest
+   |
+help: Remove unused import: `numpy`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_silence.py:7:8
+  |
+5 | from unittest.mock import AsyncMock, MagicMock
+6 |
+7 | import pytest
+  |        ^^^^^^
+8 |
+9 | from app.models.admin import AlertSilence
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_smtp_breaker.py:18:38
+   |
+16 | import inspect
+17 | import smtplib
+18 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                      ^^^^^^^^^
+19 |
+20 | import pytest
+   |
+help: Remove unused import: `unittest.mock.MagicMock`
+
+F401 [*] `app.core.smtp_breaker.smtp_breaker` imported but unused
+  --> tests\test_smtp_breaker.py:31:5
+   |
+29 |     call_with_smtp_breaker,
+30 |     init_smtp_breaker,
+31 |     smtp_breaker,
+   |     ^^^^^^^^^^^^
+32 | )
+   |
+help: Remove unused import: `app.core.smtp_breaker.smtp_breaker`
+
+F401 [*] `app.core.startup_status.StartupStatus` imported but unused
+  --> tests\test_startup_status.py:28:5
+   |
+26 | from app.core.startup_status import (
+27 |     ComponentStatus,
+28 |     StartupStatus,
+   |     ^^^^^^^^^^^^^
+29 |     record_step_async,
+30 |     record_step_sync,
+   |
+help: Remove unused import: `app.core.startup_status.StartupStatus`
+
+F401 [*] `pytest` imported but unused
+  --> tests\test_statement_timeout.py:16:8
+   |
+14 | from dataclasses import dataclass
+15 |
+16 | import pytest
+   |        ^^^^^^
+17 |
+18 | from app.core.database import _build_engine_kwargs
+   |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.core.token_blocklist._BLOCKLIST_KEY_PREFIX` imported but unused
+  --> tests\test_token_blocklist.py:18:5
+   |
+17 | from app.core.token_blocklist import (
+18 |     _BLOCKLIST_KEY_PREFIX,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+19 |     _make_key,
+20 |     is_token_revoked,
+   |
+help: Remove unused import: `app.core.token_blocklist._BLOCKLIST_KEY_PREFIX`
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_train_lightgbm.py:17:38
+   |
+15 | import sys
+16 | from pathlib import Path
+17 | from unittest.mock import MagicMock, patch
+   |                                      ^^^^^
+18 |
+19 | import numpy as np
+   |
+help: Remove unused import: `unittest.mock.patch`
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_train_text_bert.py:17:27
+   |
+15 | import sys
+16 | from pathlib import Path
+17 | from unittest.mock import MagicMock, patch
+   |                           ^^^^^^^^^
+18 |
+19 | import numpy as np
+   |
+help: Remove unused import
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_train_text_bert.py:17:38
+   |
+15 | import sys
+16 | from pathlib import Path
+17 | from unittest.mock import MagicMock, patch
+   |                                      ^^^^^
+18 |
+19 | import numpy as np
+   |
+help: Remove unused import
+
+E741 Ambiguous variable name: `l`
+  --> tests\test_train_text_bert.py:68:43
+   |
+66 |         assert len(labels) == 100
+67 |         assert all(isinstance(t, str) for t in texts)
+68 |         assert all(isinstance(l, int) for l in labels)
+   |                                           ^
+69 |         assert set(labels).issubset({0, 1})
+   |
+
+F401 [*] `unittest.mock.patch` imported but unused
+  --> tests\test_train_xgboost.py:17:38
+   |
+15 | import sys
+16 | from pathlib import Path
+17 | from unittest.mock import MagicMock, patch
+   |                                      ^^^^^
+18 |
+19 | import numpy as np
+   |
+help: Remove unused import: `unittest.mock.patch`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_trainer.py:6:8
+  |
+5 | import numpy as np
+6 | import pytest
+  |        ^^^^^^
+7 |
+8 | from app.ml.trainer import (
+  |
+help: Remove unused import: `pytest`
+
+E741 Ambiguous variable name: `l`
+   --> tests\test_trainer.py:171:39
+    |
+169 |         model = PhysiologicalMLP(input_dim=2, hidden_dims=[3], use_batch_norm=False)
+170 |         es = EarlyStopping(patience=3)
+171 |         layers_before = [l.copy() for l in model.layers]
+    |                                       ^
+172 |         es.restore_best_weights(model)
+173 |         for a, b in zip(model.layers, layers_before):
+    |
+
+E402 Module level import not at top of file
+  --> tests\test_unified_model_interface.py:29:1
+   |
+27 |     sys.path.insert(0, str(backend_root))
+28 |
+29 | from app.ml.unified_model_interface import ModelRegistry, UnifiedModelWrapper
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 [*] `app.main.app` imported but unused
+  --> tests\test_v136_regression.py:30:22
+   |
+28 | from fastapi.testclient import TestClient
+29 |
+30 | from app.main import app
+   |                      ^^^
+   |
+help: Remove unused import: `app.main.app`
+
+F401 [*] `numpy` imported but unused
+ --> tests\test_validation_engine.py:7:17
+  |
+5 | from pathlib import Path
+6 |
+7 | import numpy as np
+  |                 ^^
+8 | import pytest
+  |
+help: Remove unused import: `numpy`
+
+F401 [*] `pytest` imported but unused
+ --> tests\test_validation_result_model.py:5:8
+  |
+3 | import asyncio
+4 |
+5 | import pytest
+  |        ^^^^^^
+6 | from sqlalchemy import inspect, select
+7 | from sqlalchemy.ext.asyncio import AsyncSession
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `unittest.mock.MagicMock` imported but unused
+  --> tests\test_ws_pubsub.py:15:38
+   |
+13 | import asyncio
+14 | import json
+15 | from unittest.mock import AsyncMock, MagicMock, patch
+   |                                      ^^^^^^^^^
+16 |
+17 | import pytest
+   |
+help: Remove unused import: `unittest.mock.MagicMock`
+
+F401 [*] `pytest` imported but unused
+ --> tests\unit\test_review_reasons.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import pytest
+  |        ^^^^^^
+4 |
+5 | from app.core.review_reasons import REVIEW_REASON_LABELS, ReviewReason
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `app.models.review.CrisisEvent` imported but unused
+ --> tests\unit\test_review_service.py:7:31
+  |
+5 | import pytest
+6 |
+7 | from app.models.review import CrisisEvent, ReviewTask
+  |                               ^^^^^^^^^^^
+8 | from app.schemas.review import (
+9 |     CrisisEventCreate,
+  |
+help: Remove unused import
+
+F401 [*] `app.models.review.ReviewTask` imported but unused
+ --> tests\unit\test_review_service.py:7:44
+  |
+5 | import pytest
+6 |
+7 | from app.models.review import CrisisEvent, ReviewTask
+  |                                            ^^^^^^^^^^
+8 | from app.schemas.review import (
+9 |     CrisisEventCreate,
+  |
+help: Remove unused import
+
+F401 [*] `sqlalchemy.text` imported but unused
+   --> tests\unit\test_review_service.py:234:40
+    |
+232 |         """TC-REVIEW-COV-001: 覆盖 PostgreSQL advisory lock 分支（SQLite 环境下 mock 模拟）。"""
+233 |         from app.services import review_service as rs_module
+234 |         from sqlalchemy import text as original_text
+    |                                        ^^^^^^^^^^^^^
+235 |
+236 |         monkeypatch.setattr(db_session.bind.dialect, "name", "postgresql")
+    |
+help: Remove unused import: `sqlalchemy.text`
+
+F401 [*] `pytest` imported but unused
+ --> tests\unit\test_risk_thresholds.py:3:8
+  |
+1 | from __future__ import annotations
+2 |
+3 | import pytest
+  |        ^^^^^^
+4 |
+5 | from app.core.risk_thresholds import (
+  |
+help: Remove unused import: `pytest`
+
+F401 [*] `pytest` imported but unused
+ --> tests\unit\test_schema_v116.py:4:8
+  |
+2 | from __future__ import annotations
+3 |
+4 | import pytest
+  |        ^^^^^^
+5 | from app.schemas.model_predict import (
+6 |     DataQualityItem,
+  |
+help: Remove unused import: `pytest`
+
+F541 [*] f-string without any placeholders
+   --> tests\validate_alerting_paths.py:156:23
+    |
+154 |     r7_expr = r7["data"][0]["model"]["expr"]
+155 |     if "lock_acquire_total > 0" not in r7_expr:
+156 |         errors.append(f"GAP-1 regression: R7 missing 'lock_acquire_total > 0'")
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+157 |     return errors
+    |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+  --> tests\validate_dashboard_json.py:91:11
+   |
+89 |     expected = list(range(1, 25))
+90 |     assert ids == expected, f"panel.id not 1-24: got {ids}"
+91 |     print(f"  PASS: C-8 (panel.id 1-24)")
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+92 |     return True
+   |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+  --> tests\validate_grafana_assets.py:29:11
+   |
+27 |         print(f"  FAIL: missing required fields: {missing}")
+28 |         sys.exit(1)
+29 |     print(f"  PASS: dashboard JSON schema valid (Grafana 11.6)")
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+30 | except Exception as e:
+31 |     print(f"  FAIL: {e}")
+   |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+  --> tests\validate_grafana_assets.py:47:11
+   |
+45 |         assert ds.get("url"), "datasource url missing"
+46 |         assert ds.get("secureJsonData", {}).get("Authorization"), "Authorization header missing"
+47 |     print(f"  PASS: datasource provisioning YAML valid")
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+48 | except Exception as e:
+49 |     print(f"  FAIL: {e}")
+   |
+help: Remove extraneous `f` prefix
+
+F541 [*] f-string without any placeholders
+  --> tests\validate_grafana_assets.py:63:11
+   |
+61 |         print(f"  provider: {p.get('name')} folder={p.get('folder')} path={p.get('options', {}).get('path')}")
+62 |         assert p.get("options", {}).get("path"), "provider path missing"
+63 |     print(f"  PASS: dashboard provider provisioning YAML valid")
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+64 | except Exception as e:
+65 |     print(f"  FAIL: {e}")
+   |
+help: Remove extraneous `f` prefix
+
+E402 Module level import not at top of file
+  --> tests\validate_grafana_assets.py:70:1
+   |
+68 | # 4. Docker compose grafana service
+69 | print("\n=== test_docker_compose_grafana (static) ===")
+70 | import yaml as _yaml
+   | ^^^^^^^^^^^^^^^^^^^^
+71 | compose_path = ROOT / "docker-compose.yml"
+72 | try:
+   |
+
+F541 [*] f-string without any placeholders
+  --> tests\validate_grafana_assets.py:83:11
+   |
+81 |     print(f"  GF_PLUGINS_PREINSTALL: {svc.get('environment', {}).get('GF_PLUGINS_PREINSTALL')}")
+82 |     assert "simpod-json-datasource" in (svc.get("environment", {}).get("GF_PLUGINS_PREINSTALL", "") or "")
+83 |     print(f"  PASS: docker-compose grafana service valid")
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+84 | except Exception as e:
+85 |     print(f"  FAIL: {e}")
+   |
+help: Remove extraneous `f` prefix
+
+Found 451 errors.
+[*] 317 fixable with the `--fix` option (45 hidden fixes can be enabled with the `--unsafe-fixes` option).

@@ -33,7 +33,11 @@ class DriftDetector:
         combined = np.concatenate((base, curr))
         min_value = float(np.min(combined))
         max_value = float(np.max(combined))
-        if not math.isfinite(min_value) or not math.isfinite(max_value) or min_value == max_value:
+        if (
+            not math.isfinite(min_value)
+            or not math.isfinite(max_value)
+            or min_value == max_value
+        ):
             return 0.0
 
         bucket_count = max(2, int(buckets))
@@ -55,7 +59,10 @@ class DriftDetector:
     def _clean_array(self, values: Iterable[float] | np.ndarray) -> np.ndarray:
         """Convert values to a finite float array."""
         try:
-            array = np.asarray(list(values) if not isinstance(values, np.ndarray) else values, dtype=float)
+            array = np.asarray(
+                list(values) if not isinstance(values, np.ndarray) else values,
+                dtype=float,
+            )
         except (TypeError, ValueError):
             return np.array([], dtype=float)
         if array.size == 0:

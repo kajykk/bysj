@@ -26,6 +26,14 @@ black>=24.0.0
 # Security Testing
 bandit>=1.7.8
 
+# SCA (Software Composition Analysis) - SEC-A 依赖项漏洞扫描
+# CI 中通过 dependency-scan.yml 调用, HIGH/CRITICAL 漏洞阻塞 PR 合并
+pip-audit>=2.7.0
+safety>=3.2.0
+
 # Documentation
 mkdocs>=1.5.0
 mkdocs-material>=9.5.0
+
+# Load Testing
+locust>=2.20.0,<3.0.0

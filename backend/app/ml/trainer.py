@@ -46,7 +46,11 @@ def sgd_optimizer(
                 if grad_a.shape == mask.shape:
                     grad_a = grad_a * mask / (1 - cache.get("dropout_rate", 0.1))
                 else:
-                    grad_a = grad_a * mask[:grad_a.shape[0], :grad_a.shape[1]] / (1 - cache.get("dropout_rate", 0.1))
+                    grad_a = (
+                        grad_a
+                        * mask[: grad_a.shape[0], : grad_a.shape[1]]
+                        / (1 - cache.get("dropout_rate", 0.1))
+                    )
             grad_z = grad_a * (cache["z"] > 0).astype(np.float32)  # ReLU derivative
 
         # BatchNorm backward
@@ -63,10 +67,14 @@ def sgd_optimizer(
             grad_x_norm = grad_z * layer["bn_gamma"]
 
             # Compute gradient w.r.t. BatchNorm input via chain rule
-            grad_x = (1.0 / N) * (1.0 / std) * (
-                N * grad_x_norm
-                - np.sum(grad_x_norm, axis=0)
-                - x_norm * np.sum(grad_x_norm * x_norm, axis=0)
+            grad_x = (
+                (1.0 / N)
+                * (1.0 / std)
+                * (
+                    N * grad_x_norm
+                    - np.sum(grad_x_norm, axis=0)
+                    - x_norm * np.sum(grad_x_norm * x_norm, axis=0)
+                )
             )
             grad_z = grad_x
 
@@ -114,7 +122,11 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
 
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
 
     # ROC-AUC
     roc_auc = compute_roc_auc(y_true_flat, y_pred.flatten())
@@ -145,7 +157,7 @@ def compute_roc_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     # Flatten inputs
     y_true = np.asarray(y_true).flatten()
     y_scores = np.asarray(y_scores).flatten()
-    
+
     n_pos = np.sum(y_true)
     n_neg = len(y_true) - n_pos
 
@@ -303,7 +315,9 @@ def train_epoch(
     Returns:
         Tuple of (avg_loss, metrics).
     """
-    model.training = True
+    # C-ML-1 修复：删除 model.training = True 实例状态修改。
+    # 原实现直接修改 model.training，多线程下 evaluate() 设置 model.training = False
+    # 会影响 train_epoch 中的 Dropout 行为。改为通过 forward(training=True) 参数传入。
     n_samples = len(X_train)
     sampler = rng if rng is not None else np.random
     indices = sampler.permutation(n_samples)
@@ -317,7 +331,8 @@ def train_epoch(
         y_batch = y_train[batch_idx]
 
         # Forward
-        output, caches = model.forward(X_batch)
+        # C-ML-1 修复：显式传入 training=True，不依赖实例状态
+        output, caches = model.forward(X_batch, training=True)
 
         # Loss
         loss, grad = loss_fn(output, y_batch)
@@ -354,8 +369,9 @@ def evaluate(
     Returns:
         Tuple of (loss, metrics).
     """
-    model.training = False
-    output, _ = model.forward(X)
+    # C-ML-1 修复：删除 model.training = False 实例状态修改。
+    # 通过 forward(training=False) 参数传入，避免多线程下与 train_epoch 竞态。
+    output, _ = model.forward(X, training=False)
     loss, _ = loss_fn(output, y)
     metrics = compute_metrics(y, output)
     return loss, metrics
@@ -410,7 +426,12 @@ def train_model(
         "best_val_f1": 0.0,
     }
 
-    logger.info("Starting training: epochs=%d, lr=%.4f, wd=%.4f", epochs, learning_rate, weight_decay)
+    logger.info(
+        "Starting training: epochs=%d, lr=%.4f, wd=%.4f",
+        epochs,
+        learning_rate,
+        weight_decay,
+    )
 
     # Training gap monitoring
     gap_threshold = 0.15
@@ -420,7 +441,14 @@ def train_model(
     for epoch in range(epochs):
         # Train
         train_loss, train_metrics = train_epoch(
-            model, X_train, y_train, batch_size, learning_rate, weight_decay, loss_fn, rng=rng
+            model,
+            X_train,
+            y_train,
+            batch_size,
+            learning_rate,
+            weight_decay,
+            loss_fn,
+            rng=rng,
         )
 
         # Validate

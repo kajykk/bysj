@@ -14,6 +14,7 @@ v1.36 兼容性:
 - 复用 v1.36 ``_compute_*`` 函数
 - 不修改 v1.36 数据库 schema
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -25,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_sa_or_admin
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.models.user import User
 
 # 类型别名: 减少 endpoint 签名噪音
@@ -54,7 +56,7 @@ _GRAFANA_VALID_VAR_TYPES = frozenset({"rule", "matcher", "operation", "channel"}
 # ===== 端点 1: 根路径 (Test connection 兼容) =====
 
 
-@router.get("/")
+@router.get("/", responses=COMMON_ERROR_RESPONSES)
 async def grafana_root(
     _user: User = _SAOrAdminDep,
 ) -> dict:
@@ -76,7 +78,7 @@ async def grafana_root(
 # ===== 端点 2: Health Check =====
 
 
-@router.get("/health")
+@router.get("/health", responses=COMMON_ERROR_RESPONSES)
 async def grafana_health(
     _user: User = _SAOrAdminDep,
 ) -> dict:
@@ -241,7 +243,7 @@ _METRICS: list[dict] = [
 ]
 
 
-@router.post("/metrics")
+@router.post("/metrics", responses=COMMON_ERROR_RESPONSES)
 async def grafana_metrics(
     _user: User = _SAOrAdminDep,
 ) -> list[dict]:
@@ -301,16 +303,17 @@ class GrafanaVariableRequest(BaseModel):
     type: Literal["rule", "matcher", "operation", "channel"]
 
 
-@router.post("/variable")
+@router.post("/variable", responses=COMMON_ERROR_RESPONSES)
 async def grafana_variable(
     req: GrafanaVariableRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     _user: User = _SAOrAdminDep,
-    start_time: datetime | None = Query(
+    # M-API-7 修复：与 /query 端点统一使用 str + _parse_iso_datetime 解析，避免类型不一致
+    start_time: str | None = Query(
         None,
         description="开始时间 (ISO 格式). 默认: 7 天前.",
     ),
-    end_time: datetime | None = Query(
+    end_time: str | None = Query(
         None,
         description="结束时间 (ISO 格式). 默认: 现在.",
     ),
@@ -326,24 +329,24 @@ async def grafana_variable(
     返回格式: ``[{"text": "<label>", "value": "<id>"}, ...]``
     兼容 Grafana variable query (Custom variable) 类型.
     """
+    # M-API-7 修复：统一用 _parse_iso_datetime 解析，与 /query 端点行为一致
+    parsed_start = _parse_iso_datetime(start_time)
+    parsed_end = _parse_iso_datetime(end_time)
     # 默认时间范围: 最近 7 天 (足够覆盖大多数告警 + 静默历史)
     now = datetime.now(timezone.utc)
-    if end_time is None:
-        end_time = now
-    if start_time is None:
-        start_time = now - timedelta(days=7)
-    # 时区处理: 若 start_time 缺 tz, 视为 UTC
-    if start_time.tzinfo is None:
-        start_time = start_time.replace(tzinfo=timezone.utc)
-    if end_time.tzinfo is None:
-        end_time = end_time.replace(tzinfo=timezone.utc)
+    if parsed_end is None:
+        parsed_end = now
+    if parsed_start is None:
+        parsed_start = now - timedelta(days=7)
+    start_time_dt = _ensure_aware(parsed_start)
+    end_time_dt = _ensure_aware(parsed_end)
     # P1-SEC-023 修复：校验时间范围，防止超大窗口导致 DoS
-    if start_time > end_time:
+    if start_time_dt > end_time_dt:
         raise HTTPException(
             status_code=400,
             detail="start_time 不能晚于 end_time",
         )
-    if (end_time - start_time) > timedelta(days=_GRAFANA_MAX_RANGE_DAYS):
+    if (end_time_dt - start_time_dt) > timedelta(days=_GRAFANA_MAX_RANGE_DAYS):
         raise HTTPException(
             status_code=400,
             detail=f"查询时间跨度不能超过 {_GRAFANA_MAX_RANGE_DAYS} 天",
@@ -355,8 +358,8 @@ async def grafana_variable(
 
         result = await _compute_trend(
             db,
-            start_time=start_time,
-            end_time=end_time,
+            start_time=start_time_dt,
+            end_time=end_time_dt,
             bucket="1h",
             severity=None,
             status=None,
@@ -373,7 +376,7 @@ async def grafana_variable(
         # 复用 v1.36 _compute_silence_hit_rate
         from app.api.v1.observability import _compute_silence_hit_rate
 
-        result = await _compute_silence_hit_rate(db, start_time, end_time)
+        result = await _compute_silence_hit_rate(db, start_time_dt, end_time_dt)
         by_matcher = result.get("by_matcher") or []
         # by_matcher: list[{silence_name, silenced_count, by_severity}]
         return [
@@ -447,7 +450,11 @@ async def _trend_handler(db: AsyncSession, params: dict) -> dict:
         end_time=params.get("end_time"),
         bucket=params.get("bucket", _DEFAULT_BUCKET),
         severity=_normalize_severity(params.get("severity")),
-        status=params.get("status") if params.get("status") not in (None, "all", "") else None,
+        status=(
+            params.get("status")
+            if params.get("status") not in (None, "all", "")
+            else None
+        ),
         group_by=params.get("group_by", _DEFAULT_GROUP_BY),
     )
 
@@ -554,10 +561,18 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt
     except (ValueError, TypeError):
+        # H-4 修复：解析失败返回 None 由调用方走默认值兜底，不再让 None 进入后续比较
         return None
 
 
-@router.post("/query")
+def _ensure_aware(dt: datetime) -> datetime:
+    """H-4 修复：统一 datetime 为 aware UTC，避免比较时抛 TypeError."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+@router.post("/query", responses=COMMON_ERROR_RESPONSES)
 async def grafana_query(
     req: GrafanaQueryRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -598,8 +613,13 @@ async def grafana_query(
     body_start = req.params.get("start_time")
     body_end = req.params.get("end_time")
 
-    final_start = qs_start or (body_start if isinstance(body_start, datetime) else default_start)
+    # H-4 修复：统一归一化为 aware UTC，避免 None 或 naive datetime 进入比较
+    final_start = qs_start or (
+        body_start if isinstance(body_start, datetime) else default_start
+    )
     final_end = qs_end or (body_end if isinstance(body_end, datetime) else default_end)
+    final_start = _ensure_aware(final_start)
+    final_end = _ensure_aware(final_end)
 
     # P1-SEC-023 修复：校验时间范围，防止超大窗口导致 DoS
     if final_start > final_end:
@@ -708,7 +728,10 @@ def _format_for_grafana_response_time(data: dict) -> list[dict]:
         {"target": "response_time_p99", "datapoints": [[rt.get("p99", 0), now_ms]]},
         {"target": "ack_rate", "datapoints": [[data.get("ack_rate", 0), now_ms]]},
         {"target": "total_fired", "datapoints": [[data.get("total_fired", 0), now_ms]]},
-        {"target": "total_pending", "datapoints": [[data.get("total_pending", 0), now_ms]]},
+        {
+            "target": "total_pending",
+            "datapoints": [[data.get("total_pending", 0), now_ms]],
+        },
     ]
 
 
@@ -727,19 +750,25 @@ def _format_for_grafana_escalation(data: dict) -> list[dict]:
     # by_level: 每级别一个 series (Grafana 饼图/条形图可消费)
     for level in ("P0", "P1", "P2", "P3"):
         if level in by_level:
-            series.append({
-                "target": f"escalated_to_{level}",
-                "datapoints": [[by_level[level], now_ms]],
-            })
+            series.append(
+                {
+                    "target": f"escalated_to_{level}",
+                    "datapoints": [[by_level[level], now_ms]],
+                }
+            )
     # 概览指标
-    series.append({
-        "target": "escalation_rate",
-        "datapoints": [[data.get("escalation_rate", 0), now_ms]],
-    })
-    series.append({
-        "target": "total_escalated",
-        "datapoints": [[data.get("total_escalated", 0), now_ms]],
-    })
+    series.append(
+        {
+            "target": "escalation_rate",
+            "datapoints": [[data.get("escalation_rate", 0), now_ms]],
+        }
+    )
+    series.append(
+        {
+            "target": "total_escalated",
+            "datapoints": [[data.get("total_escalated", 0), now_ms]],
+        }
+    )
     if not series:
         series = [{"target": "escalation_empty", "datapoints": []}]
     return series
@@ -759,30 +788,40 @@ def _format_for_grafana_channel_stats(data: dict) -> list[dict]:
     series = []
     for ch_name, ch_data in channels.items():
         # 成功率 (bargauge 友好)
-        series.append({
-            "target": f"{ch_name}_success_rate",
-            "datapoints": [[ch_data.get("success_rate", 0), now_ms]],
-        })
+        series.append(
+            {
+                "target": f"{ch_name}_success_rate",
+                "datapoints": [[ch_data.get("success_rate", 0), now_ms]],
+            }
+        )
         # 发送数
-        series.append({
-            "target": f"{ch_name}_sent",
-            "datapoints": [[ch_data.get("sent", 0), now_ms]],
-        })
+        series.append(
+            {
+                "target": f"{ch_name}_sent",
+                "datapoints": [[ch_data.get("sent", 0), now_ms]],
+            }
+        )
         # 失败数
-        series.append({
-            "target": f"{ch_name}_failed",
-            "datapoints": [[ch_data.get("failed", 0), now_ms]],
-        })
+        series.append(
+            {
+                "target": f"{ch_name}_failed",
+                "datapoints": [[ch_data.get("failed", 0), now_ms]],
+            }
+        )
         # 平均延迟
-        series.append({
-            "target": f"{ch_name}_avg_duration_ms",
-            "datapoints": [[ch_data.get("avg_duration_ms", 0), now_ms]],
-        })
+        series.append(
+            {
+                "target": f"{ch_name}_avg_duration_ms",
+                "datapoints": [[ch_data.get("avg_duration_ms", 0), now_ms]],
+            }
+        )
     # 整体成功率
-    series.append({
-        "target": "overall_success_rate",
-        "datapoints": [[data.get("overall_success_rate", 0), now_ms]],
-    })
+    series.append(
+        {
+            "target": "overall_success_rate",
+            "datapoints": [[data.get("overall_success_rate", 0), now_ms]],
+        }
+    )
     if not series:
         series = [{"target": "channels_empty", "datapoints": []}]
     return series
@@ -797,21 +836,27 @@ def _format_for_grafana_silence_hit_rate(data: dict) -> list[dict]:
     转换: hit_rate 单点, by_matcher 每个 matcher 一个 series.
     """
     now_ms = _now_epoch_ms()
-    series = [{
-        "target": "silence_hit_rate",
-        "datapoints": [[data.get("hit_rate", 0), now_ms]],
-    }, {
-        "target": "total_silenced",
-        "datapoints": [[data.get("total_silenced", 0), now_ms]],
-    }, {
-        "target": "total_processed",
-        "datapoints": [[data.get("total_processed", 0), now_ms]],
-    }]
+    series = [
+        {
+            "target": "silence_hit_rate",
+            "datapoints": [[data.get("hit_rate", 0), now_ms]],
+        },
+        {
+            "target": "total_silenced",
+            "datapoints": [[data.get("total_silenced", 0), now_ms]],
+        },
+        {
+            "target": "total_processed",
+            "datapoints": [[data.get("total_processed", 0), now_ms]],
+        },
+    ]
     for m in data.get("by_matcher") or []:
-        series.append({
-            "target": f"matcher_{m['silence_name']}",
-            "datapoints": [[m.get("silenced_count", 0), now_ms]],
-        })
+        series.append(
+            {
+                "target": f"matcher_{m['silence_name']}",
+                "datapoints": [[m.get("silenced_count", 0), now_ms]],
+            }
+        )
     return series
 
 
@@ -824,26 +869,34 @@ def _format_for_grafana_am_sync(data: dict) -> list[dict]:
     转换: success_rate gauge + by_operation 每个 op 3 series.
     """
     now_ms = _now_epoch_ms()
-    series = [{
-        "target": "am_sync_success_rate",
-        "datapoints": [[data.get("success_rate", 0), now_ms]],
-    }, {
-        "target": "am_sync_total",
-        "datapoints": [[data.get("total", 0), now_ms]],
-    }, {
-        "target": "am_sync_avg_duration_ms",
-        "datapoints": [[data.get("avg_duration_ms", 0), now_ms]],
-    }]
+    series = [
+        {
+            "target": "am_sync_success_rate",
+            "datapoints": [[data.get("success_rate", 0), now_ms]],
+        },
+        {
+            "target": "am_sync_total",
+            "datapoints": [[data.get("total", 0), now_ms]],
+        },
+        {
+            "target": "am_sync_avg_duration_ms",
+            "datapoints": [[data.get("avg_duration_ms", 0), now_ms]],
+        },
+    ]
     for op in data.get("by_operation") or []:
         op_name = op.get("operation", "unknown")
-        series.append({
-            "target": f"am_{op_name}_success",
-            "datapoints": [[op.get("success", 0), now_ms]],
-        })
-        series.append({
-            "target": f"am_{op_name}_failed",
-            "datapoints": [[op.get("failed", 0), now_ms]],
-        })
+        series.append(
+            {
+                "target": f"am_{op_name}_success",
+                "datapoints": [[op.get("success", 0), now_ms]],
+            }
+        )
+        series.append(
+            {
+                "target": f"am_{op_name}_failed",
+                "datapoints": [[op.get("failed", 0), now_ms]],
+            }
+        )
     return series
 
 
@@ -858,22 +911,28 @@ def _format_for_grafana_lock_stats(data: dict) -> list[dict]:
     now_ms = _now_epoch_ms()
     memory = data.get("memory") or {}
     hist = data.get("historical_recent") or {}
-    series = [{
-        "target": "lock_acquire_rate",
-        "datapoints": [[memory.get("acquire_rate", 0), now_ms]],
-    }, {
-        "target": "lock_fallback_rate",
-        "datapoints": [[memory.get("fallback_rate", 0), now_ms]],
-    }, {
-        "target": "lock_error_rate",
-        "datapoints": [[memory.get("error_rate", 0), now_ms]],
-    }, {
-        "target": "lock_memory_total",
-        "datapoints": [[memory.get("total", 0), now_ms]],
-    }, {
-        "target": "lock_recent_flush_count",
-        "datapoints": [[hist.get("recent_flush_count", 0), now_ms]],
-    }]
+    series = [
+        {
+            "target": "lock_acquire_rate",
+            "datapoints": [[memory.get("acquire_rate", 0), now_ms]],
+        },
+        {
+            "target": "lock_fallback_rate",
+            "datapoints": [[memory.get("fallback_rate", 0), now_ms]],
+        },
+        {
+            "target": "lock_error_rate",
+            "datapoints": [[memory.get("error_rate", 0), now_ms]],
+        },
+        {
+            "target": "lock_memory_total",
+            "datapoints": [[memory.get("total", 0), now_ms]],
+        },
+        {
+            "target": "lock_recent_flush_count",
+            "datapoints": [[hist.get("recent_flush_count", 0), now_ms]],
+        },
+    ]
     return series
 
 

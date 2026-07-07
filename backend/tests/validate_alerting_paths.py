@@ -7,6 +7,7 @@ Usage:
     python backend/tests/validate_alerting_paths.py
     python backend/tests/validate_alerting_paths.py --check-promql
 """
+
 from __future__ import annotations
 
 import argparse
@@ -84,13 +85,18 @@ def _check_contact_points() -> list[str]:
 
 
 def _check_policies() -> list[str]:
-    """验证 policies.yaml 包含 3 个 routes (P0/P1/P2)."""
+    """验证 policies.yaml 覆盖 P0/P1/P2 三个 severity.
+
+    注意: 每个 severity 可能有多个 routes (多渠道并发, continue: true),
+    因此不检查 routes 总数, 只检查 severity 覆盖完整.
+    """
     errors = []
     p_yaml = ALERTING / "policies.yaml"
     data = yaml.safe_load(p_yaml.read_text(encoding="utf-8"))
     routes = data["policies"][0]["routes"]
-    if len(routes) != 3:
-        errors.append(f"routes count={len(routes)}, expected 3")
+    if not routes:
+        errors.append("no routes defined in policies.yaml")
+        return errors
     severities = set()
     for r in routes:
         for m in r.get("object_matchers", []):
@@ -124,7 +130,9 @@ def _check_datasource_uid() -> list[str]:
     for r in rules_data["groups"][0]["rules"]:
         for d in r["data"]:
             if d["datasourceUid"] not in (PROMETHEUS_DS_UID, "__expr__"):
-                errors.append(f"rule {r['uid']} uses unexpected datasourceUid: {d['datasourceUid']}")
+                errors.append(
+                    f"rule {r['uid']} uses unexpected datasourceUid: {d['datasourceUid']}"
+                )
     return errors
 
 
@@ -141,20 +149,30 @@ def _check_promql_validity() -> list[str]:
                 errors.append(f"rule {r['uid']} has empty expr")
                 continue
             # 粗略校验: 必须以 observability_ 或 up{ 开头 (R11 meta)
-            if not (expr.startswith("observability_") or expr.startswith("up{") or expr.startswith("sum(")):
-                errors.append(f"rule {r['uid']} expr '{expr}' not in expected namespace")
+            if not (
+                expr.startswith("observability_")
+                or expr.startswith("up{")
+                or expr.startswith("sum(")
+            ):
+                errors.append(
+                    f"rule {r['uid']} expr '{expr}' not in expected namespace"
+                )
 
     # GAP-1: R7 必须包含 lock_acquire_total > 0
-    r7 = next(r for r in rules_data["groups"][0]["rules"] if r["uid"] == "r-lock-error-high")
+    r7 = next(
+        r for r in rules_data["groups"][0]["rules"] if r["uid"] == "r-lock-error-high"
+    )
     r7_expr = r7["data"][0]["model"]["expr"]
     if "lock_acquire_total > 0" not in r7_expr:
-        errors.append(f"GAP-1 regression: R7 missing 'lock_acquire_total > 0'")
+        errors.append("GAP-1 regression: R7 missing 'lock_acquire_total > 0'")
     return errors
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="v1.39 alerting static validator")
-    parser.add_argument("--check-promql", action="store_true", help="validate PromQL expr namespace")
+    parser.add_argument(
+        "--check-promql", action="store_true", help="validate PromQL expr namespace"
+    )
     args = parser.parse_args()
 
     checks = [

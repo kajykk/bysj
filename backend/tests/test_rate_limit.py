@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi import FastAPI, Request
 from slowapi.errors import RateLimitExceeded
-from starlette.testclient import TestClient
 
-from app.core.rate_limit import rate_limit_exceeded_handler, install_rate_limiter
+from app.core.rate_limit import install_rate_limiter, rate_limit_exceeded_handler
 
 
 class TestRateLimit:
@@ -16,6 +14,7 @@ class TestRateLimit:
     def test_rate_limit_exceeded_handler(self):
         """TC-COV-RL-001: Rate limit exceeded handler."""
         from unittest.mock import Mock
+
         request = Mock(spec=Request)
         # RateLimitExceeded requires a limit object with error_message
         mock_limit = Mock()
@@ -24,6 +23,7 @@ class TestRateLimit:
         response = rate_limit_exceeded_handler(request, exc)
         assert response.status_code == 429
         import json
+
         data = json.loads(response.body)
         assert data["code"] == 429
         assert "请求过于频繁" in data["message"]

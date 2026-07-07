@@ -1,36 +1,158 @@
 :root {
-  --primary-color: #409eff;
-  --primary-light: #ecf5ff;
-  --success-color: #67c23a;
-  --warning-color: #e6a23c;
-  --danger-color: #f56c6c;
-  --info-color: #909399;
-  --text-primary: #303133;
-  --text-regular: #606266;
-  --text-secondary: #909399;
+  /* ===== 品牌主色 ===== */
+  --primary-color: #3b82c4;
+  --primary-hover: #4a9bd6;
+  --primary-active: #2e6fa8;
+  --primary-light: #e8f1f8;
+  --primary-lighter: #f3f8fc;
+  --primary-surface: rgba(59, 130, 196, 0.08);
+
+  /* ===== 语义色 ===== */
+  --success-color: #5a9e3a;
+  --success-light: #eef5e8;
+  --warning-color: #d4923a;
+  --warning-light: #faf3e8;
+  --danger-color: #d65a5a;
+  --danger-light: #faecec;
+  --info-color: #7a8290;
+  --info-light: #f0f2f5;
+
+  /* ===== 风险等级色阶 ===== */
+  --risk-none: #7a8290;
+  --risk-mild: #5a9e3a;
+  --risk-moderate: #d4923a;
+  --risk-high: #d65a5a;
+  --risk-critical: #a82e28;
+
+  /* ===== 文字色阶 ===== */
+  --text-primary: #2c3340;
+  --text-regular: #5a6470;
+  --text-secondary: #7a8290;
   --text-placeholder: #a8abb2;
+  --text-disabled: #c0c4cc;
+  --text-inverse: #ffffff;
+
+  /* ===== 边框色阶 ===== */
   --border-color: #dcdfe6;
   --border-light: #e4e7ed;
   --border-lighter: #ebeef5;
   --border-extra-light: #f2f6fc;
-  --bg-color: #ffffff;
+
+  /* ===== 背景色阶 ===== */
+  /* ISS-023 修复：统一命名为 --bg-primary，与 theme.scss 保持一致 */
+  --bg-primary: #ffffff;
   --bg-page: #f5f7fa;
   --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-hover: #f5f7fa;
+  --bg-active: #ecf5ff;
+
+  /* ===== 间距系统 (8px 基准，符合 4/8/12/16/24/32/48 规范) ===== */
+  /* ISS-024 修复：--spacing-md 由 12px 调整为 16px，符合计划规范 */
   --spacing-base: 8px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  --spacing-section: 24px;
+
+  /* ===== 圆角系统 ===== */
+  /* ISS-025 修复：补充 6/10/16/20 圆角令牌，原有 4/8/12 保留为更小粒度别名 */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  /* 旧令牌保留作为向后兼容别名（不建议新代码使用） */
   --radius-base: 4px;
+  --radius-small: 2px;
   --radius-large: 8px;
-  --shadow-base: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  --shadow-light: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --radius-xl-legacy: 12px;
+  --radius-circle: 50%;
+
+  /* ===== 阴影系统（着色阴影，匹配主色色相） ===== */
+  --shadow-base: 0 2px 12px 0 rgba(59, 130, 196, 0.08);
+  --shadow-light: 0 1px 3px rgba(59, 130, 196, 0.04);
+  --shadow-card: 0 2px 8px rgba(59, 130, 196, 0.06);
+  --shadow-card-hover: 0 8px 24px rgba(59, 130, 196, 0.12);
+  --shadow-dropdown: 0 4px 16px rgba(59, 130, 196, 0.08);
+  --shadow-modal: 0 16px 48px rgba(59, 130, 196, 0.16);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  /* ===== 表格行高亮 ===== */
+  /* ISS-031 修复：PageTable 行高亮颜色令牌化，深色模式在 theme.scss 中重写 */
+  --row-highlight-bg: #ecf5ff;
+
+  /* ===== 动效系统 ===== */
   --transition-duration: 0.3s;
+  --transition-fast: 0.15s;
   --transition-timing: ease-in-out;
-  --font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  --transition-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-quicker: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ===== 字体系统（design-taste-frontend-v1：禁用 Inter，使用 Geist 高端字体） ===== */
+  --font-family: 'Geist', -apple-system, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', 'Segoe UI', Roboto, sans-serif;
+  --font-family-display: 'Geist', -apple-system, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', 'Segoe UI', Roboto, sans-serif;
+  --font-family-mono: 'Geist Mono', 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --font-size-display: 28px;
   --font-size-extra-large: 20px;
   --font-size-large: 18px;
   --font-size-medium: 16px;
   --font-size-base: 14px;
   --font-size-small: 13px;
   --font-size-extra-small: 12px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+
+  /* ===== 布局尺寸 ===== */
+  --layout-sidebar-width: 220px;
+  --layout-sidebar-collapsed: 64px;
+  --layout-header-height: 56px;
+  --layout-content-max-width: 1400px;
+
+  /* ===== 品牌渐变（去除 AI 紫蓝渐变，使用克制的同色系） ===== */
+  --gradient-primary: linear-gradient(135deg, #3b82c4 0%, #4a9bd6 100%);
+  --gradient-surface: linear-gradient(180deg, rgba(59, 130, 196, 0.04) 0%, transparent 100%);
+  --gradient-success: linear-gradient(135deg, #5a9e3a 0%, #7ab558 100%);
+  --gradient-danger: linear-gradient(135deg, #d65a5a 0%, #e07878 100%);
+  /* ISS-011 修复：补充统计卡片使用的渐变令牌，避免组件内硬编码 */
+  --gradient-blue: linear-gradient(135deg, #3b82c4, #5ba0d8);
+  --gradient-green: linear-gradient(135deg, #5a9e3a, #7ab558);
+  --gradient-gold: linear-gradient(135deg, #d4923a, #e4b46a);
+
+  /* ===== 图表色板（ISS-076~078 修复：统一 ECharts 配色，消除组件内硬编码 hex） ===== */
+  --chart-color-primary: #3b82c4;
+  --chart-color-success: #5a9e3a;
+  --chart-color-danger: #d65a5a;
+  --chart-color-warning: #d4923a;
+  --chart-color-info: #7a8290;
+  --chart-color-primary-area: rgba(59, 130, 196, 0.25);
+  --chart-color-primary-area-end: rgba(59, 130, 196, 0.04);
+
+  /* ===== 表单令牌（ISS-080 修复：统一主要表单 label-width，默认 100px） ===== */
+  /* 注意：未全局强制覆盖 .el-form-item__label，避免影响布局密集型小表单；
+     主要表单可在 label-width 属性使用 var(--form-label-width) 引用 */
+  --form-label-width: 100px;
+  --form-label-width-compact: 80px;
+
+  /* ISS-099 TODO：部分次级文字色（如 --text-secondary #7a8290 与白底对比度约 4.0）在小字号下
+     可能未达 WCAG AA 标准（4.5:1），后续可调整为更深的 #6a727f 提升可读性 */
+  /* ISS-103 TODO：字体规范已建立完整令牌（display→extra-small 七档），后续应全局审计
+     .vue 文件中残留的硬编码 px 字号（如 0.9375rem / 0.75rem 等），统一改用 var(--font-size-*) */
+  /* ISS-104 TODO：色板目前以单一主色 + 语义色为主，后续可补充 tints/shades 渐变阶梯
+     （如 --primary-50/100/.../900），支持更丰富的视觉层次与图表多系列区分 */
 }
 
 $primary-color: var(--primary-color);
@@ -43,7 +165,7 @@ $text-regular: var(--text-regular);
 $text-secondary: var(--text-secondary);
 $border-color: var(--border-color);
 $border-light: var(--border-light);
-$bg-color: var(--bg-color);
+$bg-color: var(--bg-primary);
 $bg-page: var(--bg-page);
 
 $spacing-base: 8px;
@@ -72,3 +194,10 @@ $font-size-extra-small: var(--font-size-extra-small);
 
 $breakpoint-mobile: 768px;
 $breakpoint-tablet: 1280px;
+/* ISS-026 修复：统一断点令牌为 375/390/768/1024/1366/1920 六档 */
+$breakpoint-xs: 375px;
+$breakpoint-sm: 390px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1366px;
+$breakpoint-xxl: 1920px;

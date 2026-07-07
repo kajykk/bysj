@@ -1,24 +1,25 @@
 <template>
   <div class="template-page">
-    <el-card>
-      <template #header>
-        <div class="header-row">
-          <span class="card-title">干预模板管理</span>
-          <el-button
-            type="primary"
-            size="small"
-            @click="openCreate"
-          >
-            新增模板
-          </el-button>
-        </div>
+    <BentoCell
+      :title="t('adminTemplates.cardTitle')"
+      class="template-card bento-item"
+    >
+      <template #actions>
+        <el-button
+          type="primary"
+          size="small"
+          class="magnetic-press"
+          @click="openCreate"
+        >
+          {{ t('adminTemplates.createBtn') }}
+        </el-button>
       </template>
 
       <StatefulContainer
         :loading="loading"
         :empty="!loading && rows.length === 0"
         :error-message="pageError"
-        empty-text="暂无干预模板"
+        :empty-text="t('adminTemplates.empty')"
         @retry="loadData"
       >
         <el-table
@@ -28,17 +29,17 @@
         >
           <el-table-column
             prop="id"
-            label="ID"
+            :label="t('adminTemplates.colId')"
             width="80"
           />
           <el-table-column
             prop="template_name"
-            label="模板名称"
+            :label="t('adminTemplates.colTemplateName')"
             min-width="160"
           />
           <el-table-column
             prop="applicable_levels"
-            label="适用等级"
+            :label="t('adminTemplates.colApplicableLevels')"
             width="160"
           >
             <template #default="{ row }">
@@ -46,15 +47,15 @@
                 v-for="lv in row.applicable_levels"
                 :key="lv"
                 size="small"
-                style="margin-right: 4px"
+                class="level-tag"
               >
-                等级{{ lv }}
+                {{ t('adminTemplates.levelTag', { level: lv }) }}
               </el-tag>
             </template>
           </el-table-column>
           <el-table-column
             prop="estimated_weeks"
-            label="预计周数"
+            :label="t('adminTemplates.colEstimatedWeeks')"
             width="100"
           >
             <template #default="{ row }">
@@ -63,7 +64,7 @@
           </el-table-column>
           <el-table-column
             prop="task_list"
-            label="任务数"
+            :label="t('adminTemplates.colTaskCount')"
             width="80"
           >
             <template #default="{ row }">
@@ -72,7 +73,7 @@
           </el-table-column>
           <el-table-column
             prop="status"
-            label="状态"
+            :label="t('adminTemplates.colStatus')"
             width="100"
           >
             <template #default="{ row }">
@@ -86,8 +87,8 @@
             </template>
           </el-table-column>
           <el-table-column
-            label="操作"
-            width="180"
+            :label="t('adminTemplates.colOperation')"
+            width="220"
             fixed="right"
           >
             <template #default="{ row }">
@@ -97,7 +98,7 @@
                 size="small"
                 @click="openPreview(row)"
               >
-                预览
+                {{ t('adminTemplates.btnPreview') }}
               </el-button>
               <el-button
                 link
@@ -105,7 +106,16 @@
                 size="small"
                 @click="openEdit(row)"
               >
-                编辑
+                {{ t('adminTemplates.btnEdit') }}
+              </el-button>
+              <!-- ISS-075: 删除模板按钮 -->
+              <el-button
+                link
+                type="danger"
+                size="small"
+                @click="handleDelete(row)"
+              >
+                {{ t('adminTemplates.btnDelete') }}
               </el-button>
             </template>
           </el-table-column>
@@ -122,11 +132,11 @@
           @current-change="handlePageChange"
         />
       </div>
-    </el-card>
+    </BentoCell>
 
     <el-dialog
       v-model="previewVisible"
-      title="模板预览"
+      :title="t('adminTemplates.previewTitle')"
       width="600px"
       destroy-on-close
     >
@@ -138,38 +148,38 @@
           :column="1"
           border
         >
-          <el-descriptions-item label="模板名称">
+          <el-descriptions-item :label="t('adminTemplates.previewTemplateName')">
             {{ previewRow.template_name }}
           </el-descriptions-item>
-          <el-descriptions-item label="适用等级">
+          <el-descriptions-item :label="t('adminTemplates.previewApplicableLevels')">
             <el-tag
               v-for="lv in previewRow.applicable_levels"
               :key="lv"
               size="small"
-              style="margin-right: 4px"
+              class="level-tag"
             >
-              等级{{ lv }}
+              {{ t('adminTemplates.levelTag', { level: lv }) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="预计周数">
-            {{ previewRow.estimated_weeks ?? '-' }} 周
+          <el-descriptions-item :label="t('adminTemplates.previewEstimatedWeeks')">
+            {{ previewRow.estimated_weeks != null ? t('adminTemplates.previewEstimatedWeeksValue', { count: previewRow.estimated_weeks }) : '-' }}
           </el-descriptions-item>
-          <el-descriptions-item label="状态">
+          <el-descriptions-item :label="t('adminTemplates.previewStatus')">
             <el-tag
               :type="previewRow.status === 'active' ? 'success' : 'info'"
               size="small"
             >
-              {{ previewRow.status === 'active' ? '启用' : '停用' }}
+              {{ previewRow.status === 'active' ? t('adminTemplates.statusActive') : t('adminTemplates.statusInactive') }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="任务列表">
+          <el-descriptions-item :label="t('adminTemplates.previewTaskList')">
             <div
               v-if="previewRow.task_list?.length"
               class="task-list"
             >
               <div
                 v-for="(task, idx) in previewRow.task_list"
-                :key="idx"
+                :key="task.task_name + '-' + idx"
                 class="task-item"
               >
                 <span class="task-index">{{ Number(idx) + 1 }}</span>
@@ -184,32 +194,32 @@
                 <span
                   v-if="task.duration_minutes"
                   class="task-duration"
-                >{{ task.duration_minutes }}分钟</span>
+                >{{ t('adminTemplates.taskDuration', { minutes: task.duration_minutes }) }}</span>
               </div>
             </div>
             <span
               v-else
               class="text-muted"
-            >暂无任务</span>
+            >{{ t('adminTemplates.noTasks') }}</span>
           </el-descriptions-item>
         </el-descriptions>
       </div>
       <template #footer>
         <el-button @click="previewVisible = false">
-          关闭
+          {{ t('common.close') }}
         </el-button>
         <el-button
           type="primary"
           @click="openEdit(previewRow!); previewVisible = false"
         >
-          编辑
+          {{ t('adminTemplates.btnEdit') }}
         </el-button>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="formVisible"
-      :title="editingId ? '编辑模板' : '新增模板'"
+      :title="editingId ? t('adminTemplates.formTitleEdit') : t('adminTemplates.formTitleCreate')"
       width="600px"
       destroy-on-close
     >
@@ -218,16 +228,16 @@
         label-width="100px"
       >
         <el-form-item
-          label="模板名称"
+          :label="t('adminTemplates.formTemplateName')"
           required
         >
           <el-input
             v-model="form.template_name"
-            placeholder="请输入模板名称"
+            :placeholder="t('adminTemplates.formTemplateNamePlaceholder')"
           />
         </el-form-item>
         <el-form-item
-          label="适用等级"
+          :label="t('adminTemplates.formApplicableLevels')"
           required
         >
           <el-select
@@ -236,46 +246,46 @@
             style="width: 100%"
           >
             <el-option
-              label="等级1"
+              :label="t('adminTemplates.levelOption1')"
               :value="1"
             />
             <el-option
-              label="等级2"
+              :label="t('adminTemplates.levelOption2')"
               :value="2"
             />
             <el-option
-              label="等级3"
+              :label="t('adminTemplates.levelOption3')"
               :value="3"
             />
             <el-option
-              label="等级4"
+              :label="t('adminTemplates.levelOption4')"
               :value="4"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="预计周数">
+        <el-form-item :label="t('adminTemplates.formEstimatedWeeks')">
           <el-input-number
             v-model="form.estimated_weeks"
             :min="1"
             :max="52"
           />
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item :label="t('adminTemplates.formStatus')">
           <el-select
             v-model="form.status"
             style="width: 200px"
           >
             <el-option
-              label="启用"
+              :label="t('adminTemplates.statusOptionActive')"
               value="active"
             />
             <el-option
-              label="停用"
+              :label="t('adminTemplates.statusOptionInactive')"
               value="inactive"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="任务列表">
+        <el-form-item :label="t('adminTemplates.formTaskList')">
           <el-input
             v-model="taskListJson"
             type="textarea"
@@ -283,20 +293,20 @@
             :placeholder="taskListPlaceholder"
           />
           <div class="hint">
-            允许的任务类型：{{ TASK_TYPES.join('、') }}
+            {{ t('adminTemplates.formTaskListHint', { types: TASK_TYPES.join('、') }) }}
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="formVisible = false">
-          取消
+          {{ t('common.cancel') }}
         </el-button>
         <el-button
           type="primary"
           :loading="formSaving"
           @click="submitForm"
         >
-          保存
+          {{ t('common.save') }}
         </el-button>
       </template>
     </el-dialog>
@@ -304,12 +314,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
+import BentoCell from '@/components/common/BentoCell.vue'
 import { adminApi, type TemplateItem } from '@/api/adminApi'
 import { TASK_TYPES, TASK_TYPE_SET, type TaskType } from '@/api/taskTypes'
 import { showHttpFeedback } from '@/utils/httpFeedback'
+
+const { t } = useI18n()
 
 const rows = ref<TemplateItem[]>([])
 const total = ref(0)
@@ -329,9 +343,9 @@ const form = reactive<{
   status: TemplateStatus
 }>({ template_name: '', applicable_levels: [2] as number[], estimated_weeks: 4, status: 'active' as TemplateStatus })
 const taskListJson = ref('[]')
-const taskListPlaceholder = JSON.stringify([
-  { task_name: '呼吸训练', task_type: 'meditation', schedule: 'daily', duration_minutes: 15 },
-], null, 2)
+const taskListPlaceholder = computed(() => JSON.stringify([
+  { task_name: t('adminTemplates.placeholderTaskName'), task_type: 'meditation', schedule: 'daily', duration_minutes: 15 },
+], null, 2))
 const previewVisible = ref(false)
 const previewRow = ref<TemplateItem | null>(null)
 
@@ -346,7 +360,7 @@ const loadData = async () => {
     }))
     total.value = data.total
   } catch (error) {
-    pageError.value = showHttpFeedback(error, '模板列表加载失败').detail
+    pageError.value = showHttpFeedback(error, t('adminTemplates.loadFailed')).detail
   } finally {
     loading.value = false
   }
@@ -393,22 +407,43 @@ const handleStatusChange = async (row: TemplateItem & { statusLoading?: boolean 
       estimated_weeks: row.estimated_weeks,
       status: val,
     })
-    ElMessage.success(val === 'active' ? '模板已启用' : '模板已停用')
+    ElMessage.success(val === 'active' ? t('adminTemplates.templateEnabled') : t('adminTemplates.templateDisabled'))
   } catch (error) {
     row.status = val === 'active' ? 'inactive' : 'active'
-    showHttpFeedback(error, '状态更新失败')
+    showHttpFeedback(error, t('adminTemplates.statusUpdateFailed'))
   } finally {
     row.statusLoading = false
   }
 }
 
+// ISS-075: 删除模板
+// ISS-035 修复：删除操作属于不可逆销毁操作，确认框类型由 warning 调整为 error
+const handleDelete = async (row: TemplateItem) => {
+  try {
+    await ElMessageBox.confirm(
+      t('adminTemplates.deleteConfirmText', { name: row.template_name }),
+      t('adminTemplates.deleteConfirmTitle'),
+      { type: 'error', confirmButtonText: t('adminTemplates.deleteConfirmBtn'), cancelButtonText: t('adminTemplates.deleteCancelBtn') }
+    )
+  } catch {
+    return // 用户取消
+  }
+  try {
+    await adminApi.deleteAdminTemplate(row.id)
+    ElMessage.success(t('adminTemplates.deleteSuccess'))
+    await loadData()
+  } catch (error) {
+    showHttpFeedback(error, t('adminTemplates.deleteFailed'))
+  }
+}
+
 const submitForm = async () => {
   if (!form.template_name.trim()) {
-    ElMessage.warning('请输入模板名称')
+    ElMessage.warning(t('adminTemplates.errorTemplateNameRequired'))
     return
   }
   if (!form.applicable_levels.length) {
-    ElMessage.warning('请选择至少一个适用等级')
+    ElMessage.warning(t('adminTemplates.errorLevelsRequired'))
     return
   }
   type TaskItem = { task_name: string; task_type: TaskType } & Record<string, unknown>
@@ -418,12 +453,12 @@ const submitForm = async () => {
     if (!Array.isArray(parsed)) throw new Error('任务列表必须是数组')
     taskList = parsed as unknown as TaskItem[]
   } catch {
-    ElMessage.warning('任务列表 JSON 格式错误，请检查后重试')
+    ElMessage.warning(t('adminTemplates.errorTaskListJsonInvalid'))
     return
   }
   const invalidTask = taskList.find((task) => typeof task.task_name !== 'string' || !TASK_TYPE_SET.has(task.task_type))
   if (invalidTask) {
-    ElMessage.warning('任务列表中每项都需要包含 task_name 和合法 task_type')
+    ElMessage.warning(t('adminTemplates.errorTaskItemInvalid'))
     return
   }
   formSaving.value = true
@@ -438,9 +473,9 @@ const submitForm = async () => {
     })
     formVisible.value = false
     await loadData()
-    ElMessage.success('模板已保存')
+    ElMessage.success(t('adminTemplates.saved'))
   } catch (error) {
-    showHttpFeedback(error, '保存失败')
+    showHttpFeedback(error, t('adminTemplates.saveFailed'))
   } finally {
     formSaving.value = false
   }
@@ -450,37 +485,41 @@ onMounted(loadData)
 </script>
 
 <style scoped>
+.level-tag {
+  margin-right: var(--spacing-xs);
+}
+
 .hint {
-  margin-top: 8px;
-  color: #909399;
-  font-size: 12px;
+  margin-top: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-extra-small);
 }
 
 .preview-content {
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .task-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #f5f7fa;
-  border-radius: 4px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-page);
+  border-radius: var(--radius-base);
 }
 
 .task-index {
   width: 20px;
   height: 20px;
-  border-radius: 50%;
-  background: #409eff;
-  color: #fff;
+  border-radius: var(--radius-circle);
+  background: var(--primary-color);
+  color: var(--text-inverse);
   font-size: 11px;
   display: flex;
   align-items: center;
@@ -489,23 +528,23 @@ onMounted(loadData)
 }
 
 .task-name {
-  font-weight: 500;
-  color: #303133;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
   flex: 1;
 }
 
 .task-schedule {
-  font-size: 12px;
-  color: #909399;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
 }
 
 .task-duration {
-  font-size: 12px;
-  color: #606266;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-regular);
 }
 
 .text-muted {
-  color: #909399;
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
 }
 </style>

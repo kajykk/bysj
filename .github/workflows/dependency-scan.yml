@@ -1,0 +1,80 @@
+name: Dependency Security Scan
+
+# SEC-A: 依赖项 SCA 扫描 (Software Composition Analysis)
+# 双重扫描: pip-audit (PyPI 数据源) + safety (商业数据库兜底)
+# 严重漏洞 (HIGH/CRITICAL) 阻塞 PR 合并
+# 每周一 02:00 UTC (北京时间 10:00) 全量扫描
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/requirements.txt'
+      - 'backend/requirements-dev.txt'
+      - '.github/workflows/dependency-scan.yml'
+  schedule:
+    # 每周一 02:00 UTC (北京时间 10:00) 全量扫描
+    - cron: '0 2 * * 1'
+  workflow_dispatch: # 支持手动触发
+
+jobs:
+  pip-audit:
+    name: pip-audit Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install pip-audit
+        run: python -m pip install --upgrade "pip-audit>=2.7.0"
+      - name: Scan backend dependencies
+        working-directory: backend
+        run: |
+          # --strict: 任何漏洞都返回非零退出码
+          # --vulnerability-service: 使用 PyPI Advisory 数据库
+          pip-audit \
+            --requirement requirements.txt \
+            --requirement requirements-dev.txt \
+            --format json \
+            --output pip-audit-report.json \
+            --strict
+      - name: Upload scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: backend/pip-audit-report.json
+          retention-days: 30
+
+  safety-scan:
+    name: Safety Scan (Cross-check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install safety
+        run: python -m pip install --upgrade "safety>=3.2.0"
+      - name: Scan with safety
+        working-directory: backend
+        run: |
+          # safety 3.x 命令格式: safety scan --file <requirements>
+          # --output json: 输出 JSON 报告
+          # exit-code 非零表示发现漏洞 (与 pip-audit 交叉验证)
+          safety scan \
+            --file requirements.txt \
+            --output json \
+            --save-safety-report safety-report.json
+      - name: Upload safety report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-report
+          path: backend/safety-report.json
+          retention-days: 30

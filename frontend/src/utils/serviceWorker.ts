@@ -4,6 +4,10 @@
  */
 
 import { useRegisterSW } from 'virtual:pwa-register/vue'
+import { ElNotification } from 'element-plus'
+import i18n from '@/i18n'
+
+const t = i18n.global.t.bind(i18n.global)
 
 export function registerServiceWorker(): void {
   const { updateServiceWorker } = useRegisterSW({
@@ -18,9 +22,16 @@ export function registerServiceWorker(): void {
     },
     onNeedRefresh() {
       console.log('[SW] New version available')
-      if (confirm('新版本可用，是否立即更新？')) {
-        updateServiceWorker(true)
-      }
+      // M-31 修复：使用异步通知替代同步 confirm()，避免阻塞主线程
+      ElNotification({
+        title: t('serviceWorker.updateAvailableTitle'),
+        message: t('serviceWorker.updateAvailableMessage'),
+        type: 'success',
+        duration: 0,
+        onClick: () => {
+          updateServiceWorker(true)
+        },
+      })
     },
     onOfflineReady() {
       console.log('[SW] Offline ready')
@@ -30,8 +41,11 @@ export function registerServiceWorker(): void {
 
 export function unregisterServiceWorker(): void {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then((registration) => {
-      registration.unregister()
-    })
+    // M-L 修复：添加 .catch() 处理注销失败，避免未捕获的 Promise rejection
+    navigator.serviceWorker.ready
+      .then((registration) => registration.unregister())
+      .catch((error) => {
+        console.error('[SW] Unregister failed:', error)
+      })
   }
 }

@@ -1,179 +1,181 @@
 <template>
   <div class="counselor-users-page">
     <ListPageScaffold
-      title="用户管理"
+      :title="t('counselorUsers.pageTitle')"
       :loading="loading"
       :empty="!loading && rows.length === 0"
       :error-message="pageError"
-      empty-text="暂无用户数据"
+      :empty-text="t('counselorUsers.emptyText')"
       @retry="fetchData"
     >
-    <template #filters>
-      <FilterBar
-        @search="fetchData"
-        @reset="handleReset"
-      >
-        <el-form-item label="风险等级">
-          <el-select
-            v-model="filters.riskLevel"
-            placeholder="全部等级"
-            clearable
-            style="width: 140px"
-          >
-            <el-option
-              label="无风险"
-              :value="0"
-            />
-            <el-option
-              label="低风险"
-              :value="1"
-            />
-            <el-option
-              label="中风险"
-              :value="2"
-            />
-            <el-option
-              label="高风险"
-              :value="3"
-            />
-            <el-option
-              label="严重"
-              :value="4"
-            />
-          </el-select>
-        </el-form-item>
-      </FilterBar>
-    </template>
-
-    <PageTable
-      :loading="loading"
-      :data="filteredRows"
-      :total="filteredTotal"
-      :page="page"
-      :page-size="pageSize"
-      @update:page="onPageChange"
-      @update:page-size="onPageSizeChange"
-    >
-      <el-table-column
-        prop="id"
-        label="ID"
-        width="80"
-      />
-      <el-table-column
-        label="用户"
-        min-width="200"
-      >
-        <template #default="{ row }">
-          <div class="user-cell">
-            <el-avatar
-              :size="32"
-              :style="{ backgroundColor: getAvatarColor(row.username) }"
+      <template #filters>
+        <FilterBar
+          @search="fetchData"
+          @reset="handleReset"
+        >
+          <el-form-item :label="t('counselorUsers.filterRiskLevel')">
+            <el-select
+              v-model="filters.riskLevel"
+              :placeholder="t('counselorUsers.filterRiskLevelPlaceholder')"
+              clearable
+              style="width: 140px"
+              @change="onRiskLevelChange"
             >
-              {{ getInitials(row.nickname || row.username) }}
-            </el-avatar>
-            <div class="user-info">
-              <div class="user-name">
-                {{ row.nickname || row.username }}
-              </div>
-              <div class="user-username">
-                @{{ row.username }}
+              <el-option
+                :label="t('counselorUsers.riskOptionNone')"
+                :value="0"
+              />
+              <el-option
+                :label="t('counselorUsers.riskOptionLow')"
+                :value="1"
+              />
+              <el-option
+                :label="t('counselorUsers.riskOptionMedium')"
+                :value="2"
+              />
+              <el-option
+                :label="t('counselorUsers.riskOptionHigh')"
+                :value="3"
+              />
+              <el-option
+                :label="t('counselorUsers.riskOptionCritical')"
+                :value="4"
+              />
+            </el-select>
+          </el-form-item>
+        </FilterBar>
+      </template>
+
+      <PageTable
+        :loading="loading"
+        :data="rows"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        @update:page="onPageChange"
+        @update:page-size="onPageSizeChange"
+      >
+        <el-table-column
+          prop="id"
+          :label="t('counselorUsers.colId')"
+          width="80"
+        />
+        <el-table-column
+          :label="t('counselorUsers.colUser')"
+          min-width="200"
+        >
+          <template #default="{ row }">
+            <div class="user-cell">
+              <el-avatar
+                :size="32"
+                :style="{ backgroundColor: getAvatarColor(row.username) }"
+              >
+                {{ getInitials(row.nickname || row.username) }}
+              </el-avatar>
+              <div class="user-info">
+                <div class="user-name">
+                  {{ row.nickname || row.username }}
+                </div>
+                <div class="user-username">
+                  @{{ row.username }}
+                </div>
               </div>
             </div>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column
-        prop="email"
-        label="邮箱"
-        min-width="220"
-      />
-      <el-table-column
-        label="风险等级"
-        width="120"
-      >
-        <template #default="{ row }">
-          <el-tag
-            :type="getRiskTagType(row.risk_level)"
-            size="small"
-          >
-            {{ getRiskLabel(row.risk_level) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column
-        prop="status"
-        label="状态"
-        width="120"
-      />
-      <el-table-column
-        label="操作"
-        width="140"
-        fixed="right"
-      >
-        <template #default="{ row }">
-          <ActionColumn
-            label="查看详情"
-            :disabled="!canViewConsultation"
-            disabled-reason="无权限"
-            show-audit
-            @action="openDetail(row)"
-          />
-        </template>
-      </el-table-column>
-    </PageTable>
-  </ListPageScaffold>
-
-  <el-drawer
-    v-model="detailVisible"
-    title="用户详情"
-    size="500px"
-    destroy-on-close
-  >
-    <div
-      v-if="detailRow"
-      class="detail-content"
-    >
-      <div class="detail-header">
-        <el-avatar
-          :size="64"
-          :style="{ backgroundColor: getAvatarColor(detailRow.username) }"
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="email"
+          :label="t('counselorUsers.colEmail')"
+          min-width="220"
+        />
+        <el-table-column
+          :label="t('counselorUsers.colRiskLevel')"
+          width="120"
         >
-          {{ getInitials(detailRow.nickname || detailRow.username) }}
-        </el-avatar>
-        <div class="detail-header-info">
-          <h3>{{ detailRow.nickname || detailRow.username }}</h3>
-          <p>@{{ detailRow.username }}</p>
-        </div>
-      </div>
-      <el-descriptions
-        :column="1"
-        border
+          <template #default="{ row }">
+            <el-tag
+              :type="getRiskTagType(row.risk_level)"
+              size="small"
+            >
+              {{ getRiskLabel(row.risk_level) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="status"
+          :label="t('counselorUsers.colStatus')"
+          width="120"
+        />
+        <el-table-column
+          :label="t('counselorUsers.colOperation')"
+          width="140"
+          fixed="right"
+        >
+          <template #default="{ row }">
+            <ActionColumn
+              :label="t('counselorUsers.btnViewDetail')"
+              :disabled="!canViewConsultation"
+              :disabled-reason="t('counselorUsers.noPermission')"
+              show-audit
+              @action="openDetail(row)"
+            />
+          </template>
+        </el-table-column>
+      </PageTable>
+    </ListPageScaffold>
+
+    <el-drawer
+      v-model="detailVisible"
+      :title="t('counselorUsers.drawerTitle')"
+      size="500px"
+      destroy-on-close
+    >
+      <div
+        v-if="detailRow"
+        class="detail-content"
       >
-        <el-descriptions-item label="ID">
-          {{ detailRow.id }}
-        </el-descriptions-item>
-        <el-descriptions-item label="邮箱">
-          {{ detailRow.email || '—' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="风险等级">
-          <el-tag
-            :type="getRiskTagType(detailRow.risk_level)"
-            size="small"
+        <div class="detail-header">
+          <el-avatar
+            :size="64"
+            :style="{ backgroundColor: getAvatarColor(detailRow.username) }"
           >
-            {{ getRiskLabel(detailRow.risk_level) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="状态">
-          {{ detailRow.status }}
-        </el-descriptions-item>
-      </el-descriptions>
-    </div>
-  </el-drawer>
+            {{ getInitials(detailRow.nickname || detailRow.username) }}
+          </el-avatar>
+          <div class="detail-header-info">
+            <h3>{{ detailRow.nickname || detailRow.username }}</h3>
+            <p>@{{ detailRow.username }}</p>
+          </div>
+        </div>
+        <el-descriptions
+          :column="1"
+          border
+        >
+          <el-descriptions-item :label="t('counselorUsers.detailColId')">
+            {{ detailRow.id }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorUsers.detailColEmail')">
+            {{ detailRow.email || '—' }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorUsers.detailColRiskLevel')">
+            <el-tag
+              :type="getRiskTagType(detailRow.risk_level)"
+              size="small"
+            >
+              {{ getRiskLabel(detailRow.risk_level) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorUsers.detailColStatus')">
+            {{ detailRow.status }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { counselorApi, type UserManageItem } from '@/api/counselorApi'
 import PageTable from '@/components/common/PageTable.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
@@ -182,9 +184,11 @@ import FilterBar from '@/components/common/FilterBar.vue'
 import { mockUsers } from '@/mocks/business'
 import { withMockFallback } from '@/utils/mockFallback'
 import { normalizeHttpError } from '@/utils/errorPolicy'
-import { hasPermission } from '@/types/permission'
+import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { useListQueryState } from '@/composables/useListQueryState'
+
+const { t } = useI18n()
 
 interface UserRow extends UserManageItem {
   risk_level: number
@@ -216,13 +220,6 @@ const filters = reactive({ riskLevel: null as number | null })
 const page = computed(() => queryState.page.value)
 const pageSize = computed(() => queryState.pageSize.value)
 
-const filteredRows = computed(() => {
-  if (filters.riskLevel === null) return rows.value
-  return rows.value.filter((row) => row.risk_level === filters.riskLevel)
-})
-
-const filteredTotal = computed(() => filteredRows.value.length)
-
 const canViewConsultation = hasPermission(auth.role, 'counselor.user.consultation.view')
 
 const getInitials = (name: string) => {
@@ -231,7 +228,7 @@ const getInitials = (name: string) => {
 }
 
 const getAvatarColor = (username: string) => {
-  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#9254de', '#ff85c0']
+  const colors = ['#3b82c4', '#5a9e3a', '#d4923a', '#d65a5a', '#7a8290', '#9254de', '#ff85c0']
   let hash = 0
   for (let i = 0; i < username.length; i++) {
     hash = username.charCodeAt(i) + ((hash << 5) - hash)
@@ -244,9 +241,11 @@ const getRiskTagType = (level: number | undefined): 'info' | 'success' | 'warnin
   return map[level ?? 0] || 'info'
 }
 
+const RISK_LABEL_KEYS = ['riskLabelNone', 'riskLabelLow', 'riskLabelMedium', 'riskLabelHigh', 'riskLabelCritical']
+
 const getRiskLabel = (level: number | undefined) => {
-  const map: Record<number, string> = { 0: '无风险', 1: '低风险', 2: '中风险', 3: '高风险', 4: '严重' }
-  return map[level ?? 0] || '未知'
+  const key = RISK_LABEL_KEYS[level ?? 0]
+  return key ? t(`counselorUsers.${key}`) : t('counselorUsers.riskLabelUnknown')
 }
 
 const fetchData = async () => {
@@ -254,16 +253,21 @@ const fetchData = async () => {
   pageError.value = ''
   try {
     const data = await withMockFallback(
-      () => counselorApi.getCounselorUsers({ page: page.value, page_size: pageSize.value }),
+      () => counselorApi.getCounselorUsers({ page: page.value, page_size: pageSize.value, risk_level: filters.riskLevel ?? undefined }),
       () => mockUsers(page.value, pageSize.value)
     )
     rows.value = data.items.map(normalizeUserRow)
     total.value = data.total
   } catch (error) {
-    pageError.value = normalizeHttpError(error, '用户列表加载失败').detail
+    pageError.value = normalizeHttpError(error, t('counselorUsers.loadFailed')).detail
   } finally {
     loading.value = false
   }
+}
+
+const onRiskLevelChange = async () => {
+  await queryState.setQuery({ page: 1 })
+  fetchData()
 }
 
 const onPageChange = async (value: number) => {
@@ -297,7 +301,7 @@ onMounted(fetchData)
 .user-cell {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-md);
 }
 
 .user-info {
@@ -306,37 +310,44 @@ onMounted(fetchData)
 }
 
 .user-name {
-  font-weight: 500;
-  color: #303133;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
 }
 
 .user-username {
-  font-size: 12px;
-  color: #909399;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
 }
 
 .detail-content {
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .detail-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e4e7ed;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .detail-header-info h3 {
-  margin: 0 0 4px;
-  font-size: 18px;
-  color: #303133;
+  margin: 0 0 var(--spacing-xs);
+  font-size: var(--font-size-large);
+  color: var(--text-primary);
 }
 
 .detail-header-info p {
   margin: 0;
-  color: #909399;
-  font-size: 14px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+}
+
+/* 响应式：移动端适配 */
+@media (max-width: 768px) {
+  :deep(.el-drawer) {
+    width: 90% !important;
+  }
 }
 </style>

@@ -16,6 +16,7 @@ v1.37 兼容性验证:
 - 不需要 grafana adapter 鉴权 (使用原有 AdminDep)
 - 数据结构与 v1.36 完全一致
 """
+
 from __future__ import annotations
 
 import os
@@ -27,15 +28,16 @@ os.environ.setdefault("OMP_NUM_THREADS", "1")
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-
 
 @pytest.fixture
-def admin_client(as_role):
-    """提供 admin 身份的 TestClient (使用 conftest 已有 override)."""
+def admin_client(as_role, client: TestClient):
+    """提供 admin 身份的 TestClient.
+
+    复用 conftest.py 的 session-scope client, 避免创建新 TestClient
+    触发 lifespan 重复启动 (model_engine 不支持重复 preload).
+    """
     as_role("admin", 3)
-    with TestClient(app) as c:
-        yield c
+    yield client
 
 
 # ============ v1.36 端点 smoke 测试 (8) ============
@@ -105,7 +107,12 @@ def test_health_endpoint(admin_client: TestClient) -> None:
 def test_test_count() -> None:
     """Meta-test: 验证本文件测试数量 == 8 (不含本 meta-test)."""
     test_funcs = [
-        name for name in globals()
-        if name.startswith("test_") and callable(globals()[name]) and name != "test_test_count"
+        name
+        for name in globals()
+        if name.startswith("test_")
+        and callable(globals()[name])
+        and name != "test_test_count"
     ]
-    assert len(test_funcs) == 8, f"expected 8 tests, got {len(test_funcs)}: {test_funcs}"
+    assert (
+        len(test_funcs) == 8
+    ), f"expected 8 tests, got {len(test_funcs)}: {test_funcs}"

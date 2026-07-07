@@ -1,10 +1,13 @@
 """v1.33: AlertManager Webhook 与告警历史 API 测试"""
+
 from __future__ import annotations
 
-import json
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+
+# CRIT-006: Webhook 端点要求 Bearer 密钥鉴权，非生产环境使用默认 dev secret
+_WEBHOOK_AUTH = {"Authorization": "Bearer dev-only-webhook-secret"}
 
 
 def test_webhook_receives_alertmanager_payload(client: TestClient) -> None:
@@ -30,7 +33,9 @@ def test_webhook_receives_alertmanager_payload(client: TestClient) -> None:
         mock_notifier = mock_notifier_cls.return_value
         mock_notifier.send.return_value = {"webhook": True}
 
-        resp = client.post("/api/v1/alerts/webhook", json=payload)
+        resp = client.post(
+            "/api/v1/alerts/webhook", json=payload, headers=_WEBHOOK_AUTH
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -41,7 +46,9 @@ def test_webhook_receives_alertmanager_payload(client: TestClient) -> None:
 
 def test_webhook_handles_empty_alerts(client: TestClient) -> None:
     """v1.33: 空 alerts 数组应返回 processed=0."""
-    resp = client.post("/api/v1/alerts/webhook", json={"alerts": []})
+    resp = client.post(
+        "/api/v1/alerts/webhook", json={"alerts": []}, headers=_WEBHOOK_AUTH
+    )
     assert resp.status_code == 200
     assert resp.json()["processed"] == 0
 
@@ -52,36 +59,58 @@ def test_webhook_severity_normalization(client: TestClient) -> None:
         "version": "4",
         "status": "firing",
         "alerts": [
-            {"status": "firing", "labels": {"alertname": "A1", "severity": "critical"}, "fingerprint": "1"},
-            {"status": "firing", "labels": {"alertname": "A2", "severity": "warning"}, "fingerprint": "2"},
-            {"status": "firing", "labels": {"alertname": "A3", "severity": "info"}, "fingerprint": "3"},
+            {
+                "status": "firing",
+                "labels": {"alertname": "A1", "severity": "critical"},
+                "fingerprint": "1",
+            },
+            {
+                "status": "firing",
+                "labels": {"alertname": "A2", "severity": "warning"},
+                "fingerprint": "2",
+            },
+            {
+                "status": "firing",
+                "labels": {"alertname": "A3", "severity": "info"},
+                "fingerprint": "3",
+            },
         ],
     }
     with patch("app.api.v1.alerts.CompositeNotifier") as mock_notifier_cls:
         mock_notifier = mock_notifier_cls.return_value
         mock_notifier.send.return_value = {}
 
-        resp = client.post("/api/v1/alerts/webhook", json=payload)
+        resp = client.post(
+            "/api/v1/alerts/webhook", json=payload, headers=_WEBHOOK_AUTH
+        )
         assert resp.status_code == 200
         # 验证 send 被调用 3 次, 每次的 payload.severity 不同
         assert mock_notifier.send.call_count == 3
-        severities = [call.args[0].severity for call in mock_notifier.send.call_args_list]
+        severities = [
+            call.args[0].severity for call in mock_notifier.send.call_args_list
+        ]
         assert severities == ["P0", "P1", "P2"]
 
 
 def test_webhook_handles_resolved_status(client: TestClient) -> None:
     """v1.33: resolved 状态应触发 alert_resolved action_type."""
+    # H-2 修复后 savepoint + commit 会持久化到 DB 文件，test_webhook_severity_normalization
+    # 也使用 fingerprint="1" 会触发 5min 去重，需使用独立 fingerprint 避免测试间污染。
     payload = {
         "version": "4",
         "status": "resolved",
         "alerts": [
-            {"status": "resolved", "labels": {"alertname": "A1", "severity": "critical"}, "fingerprint": "1"},
+            {
+                "status": "resolved",
+                "labels": {"alertname": "A1", "severity": "critical"},
+                "fingerprint": "resolved-unique-1",
+            },
         ],
     }
     with patch("app.api.v1.alerts.CompositeNotifier") as mock_notifier_cls:
         instance = mock_notifier_cls.return_value
         instance.send.return_value = {}
-        client.post("/api/v1/alerts/webhook", json=payload)
+        client.post("/api/v1/alerts/webhook", json=payload, headers=_WEBHOOK_AUTH)
         # alert.status 应为 resolved
         assert instance.send.call_count == 1
         assert instance.send.call_args.args[0].status == "resolved"
@@ -89,16 +118,21 @@ def test_webhook_handles_resolved_status(client: TestClient) -> None:
 
 def test_webhook_persists_to_operation_log(client: TestClient) -> None:
     """v1.33: 告警应持久化到 OperationLog."""
-    from app.models.admin import OperationLog
-    from app.core.database import get_db
     from app.core.deps import get_current_user
-    from app.models.user import User
 
     # 注入 admin
     from app.main import app
+    from app.models.user import User
 
     async def _admin_user() -> User:
-        return User(id=1, username="admin", email="a@t.com", role="admin", status="active", password_hash="x")
+        return User(
+            id=1,
+            username="admin",
+            email="a@t.com",
+            role="admin",
+            status="active",
+            password_hash="x",
+        )
 
     app.dependency_overrides[get_current_user] = _admin_user
 
@@ -106,12 +140,16 @@ def test_webhook_persists_to_operation_log(client: TestClient) -> None:
         "version": "4",
         "status": "firing",
         "alerts": [
-            {"status": "firing", "labels": {"alertname": "PersistTest", "severity": "critical"}, "fingerprint": "persist-1"},
+            {
+                "status": "firing",
+                "labels": {"alertname": "PersistTest", "severity": "critical"},
+                "fingerprint": "persist-1",
+            },
         ],
     }
     with patch("app.api.v1.alerts.CompositeNotifier") as mock_notifier:
         mock_notifier.return_value.send.return_value = {}
-        client.post("/api/v1/alerts/webhook", json=payload)
+        client.post("/api/v1/alerts/webhook", json=payload, headers=_WEBHOOK_AUTH)
 
     # 检查 OperationLog (通过 admin endpoint)
     app.dependency_overrides.pop(get_current_user, None)
@@ -121,7 +159,8 @@ def test_webhook_persists_to_operation_log(client: TestClient) -> None:
     assert resp.status_code == 200
     data = resp.json()["data"]
     found = any(
-        item.get("action_type") == "alert_fired" and "PersistTest" in (item.get("detail") or "")
+        item.get("action_type") == "alert_fired"
+        and "PersistTest" in (item.get("detail") or "")
         for item in data["items"]
     )
     assert found, f"alert_fired log not found in {data}"

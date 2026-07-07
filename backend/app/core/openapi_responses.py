@@ -1,11 +1,9 @@
-from app.schemas.common import ErrorResponse
-
+# PERF/SCHEMA: 使用 $ref 引用 FastAPI 自动注册的 components/schemas/ErrorResponse,
+# 而非 ErrorResponse.model_json_schema() (会内联 $defs/ErrorDetail, OpenAPI 3.0 不识别).
 ERROR_RESPONSE_SCHEMA = {
     "description": "统一错误响应",
     "content": {
-        "application/json": {
-            "schema": ErrorResponse.model_json_schema()
-        }
+        "application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}
     },
 }
 

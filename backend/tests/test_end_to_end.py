@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -23,7 +23,7 @@ backend_root = Path(__file__).resolve().parents[1]
 if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
-from app.ml.canary_controller import CanaryController, CanaryConfig
+from app.ml.canary_controller import CanaryConfig, CanaryController
 from app.ml.fusion_engine import FusionEngine
 from app.ml.unified_model_interface import ModelRegistry, UnifiedModelWrapper
 
@@ -57,7 +57,9 @@ class TestEndToEnd:
         model.predict_proba.return_value = np.array([[0.4, 0.6]])
         return model
 
-    def test_complete_prediction_pipeline(self, mock_structured_model, mock_text_model, mock_physio_model) -> None:
+    def test_complete_prediction_pipeline(
+        self, mock_structured_model, mock_text_model, mock_physio_model
+    ) -> None:
         """TC-E2E-001: 验证完整预测链路."""
         # Setup registry
         registry = ModelRegistry()
@@ -86,29 +88,37 @@ class TestEndToEnd:
         assert "confidence" in result
         assert result["fusion_scheme"] == "full_three_modality"
 
-    def test_multimodal_input(self, mock_structured_model, mock_text_model, mock_physio_model) -> None:
+    def test_multimodal_input(
+        self, mock_structured_model, mock_text_model, mock_physio_model
+    ) -> None:
         """TC-E2E-002: 验证多模态输入."""
         fusion = FusionEngine()
 
         # Test with all modalities
-        result_all = fusion.fuse({
-            "structured": 50.0,
-            "text": 60.0,
-            "physiological": 40.0,
-        })
+        result_all = fusion.fuse(
+            {
+                "structured": 50.0,
+                "text": 60.0,
+                "physiological": 40.0,
+            }
+        )
         assert result_all["fusion_scheme"] == "full_three_modality"
 
         # Test with two modalities
-        result_two = fusion.fuse({
-            "structured": 50.0,
-            "text": 60.0,
-        })
+        result_two = fusion.fuse(
+            {
+                "structured": 50.0,
+                "text": 60.0,
+            }
+        )
         assert result_two["fusion_scheme"] == "dual_modality"
 
         # Test with one modality
-        result_one = fusion.fuse({
-            "structured": 50.0,
-        })
+        result_one = fusion.fuse(
+            {
+                "structured": 50.0,
+            }
+        )
         assert result_one["fusion_scheme"] == "single_modality"
 
     def test_abnormal_input_handling(self) -> None:
@@ -121,10 +131,12 @@ class TestEndToEnd:
         assert result["risk_score"] == 0.0
 
         # Invalid scores
-        result = fusion.fuse({
-            "structured": -10.0,  # Below valid range
-            "text": 110.0,  # Above valid range
-        })
+        result = fusion.fuse(
+            {
+                "structured": -10.0,  # Below valid range
+                "text": 110.0,  # Above valid range
+            }
+        )
         # Should still produce a result
         assert "risk_score" in result
 
@@ -182,7 +194,9 @@ class TestEndToEnd:
         # Should be roughly 50/50
         total = new_count + old_count
         new_ratio = new_count / total
-        assert 0.4 <= new_ratio <= 0.6, f"New model ratio {new_ratio} not within expected range"
+        assert (
+            0.4 <= new_ratio <= 0.6
+        ), f"New model ratio {new_ratio} not within expected range"
 
     def test_prediction_with_monitoring(self, mock_structured_model) -> None:
         """TC-E2E-006: 验证带监控的预测."""

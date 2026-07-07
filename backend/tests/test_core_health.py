@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.health import (
     HealthSnapshot,
     get_health_cache_ttl_seconds,
@@ -23,7 +21,9 @@ class TestHealthSnapshot:
 
     def test_custom_creation(self):
         """TC-COV-CORE-045: HealthSnapshot with custom values."""
-        snapshot = HealthSnapshot(database=True, redis=False, celery_worker=True, collected_at=1.0)
+        snapshot = HealthSnapshot(
+            database=True, redis=False, celery_worker=True, collected_at=1.0
+        )
         assert snapshot.database is True
         assert snapshot.redis is False
         assert snapshot.celery_worker is True

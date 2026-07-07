@@ -14,10 +14,10 @@ from app.ml.scaler import (
     SimpleStandardScaler,
     ensure_artifacts_dir,
     fit_scaler,
-    load_scaler,
     load_feature_names,
-    save_scaler,
+    load_scaler,
     save_feature_names,
+    save_scaler,
     scale_features,
 )
 
@@ -197,6 +197,7 @@ class TestEnsureArtifactsDir:
         """TC-COV-SCALER-017: ensure_artifacts_dir creates directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             from app.ml import scaler as scaler_module
+
             orig_dir = scaler_module.ARTIFACTS_DIR
             try:
                 custom_dir = Path(tmpdir) / "artifacts" / "physiological"

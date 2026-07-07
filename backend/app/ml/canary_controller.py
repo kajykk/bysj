@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,7 +35,9 @@ class CanaryConfig:
     new_model_traffic_percentage: float = 10.0  # Start with 10%
     user_id_salt: str = "canary_salt_v1"
     enable_parallel_execution: bool = True
-    comparison_metrics: list[str] = field(default_factory=lambda: ["f1", "accuracy", "latency_ms"])
+    comparison_metrics: list[str] = field(
+        default_factory=lambda: ["f1", "accuracy", "latency_ms"]
+    )
 
 
 @dataclass
@@ -72,6 +75,8 @@ class CanaryController:
         self.comparison_history: list[ComparisonResult] = []
         self.new_model_requests = 0
         self.old_model_requests = 0
+        # H-13 修复：保护 new_model_requests/old_model_requests/comparison_history 的并发读写
+        self._lock = threading.Lock()
 
         logger.info(
             "CanaryController initialized: traffic=%.1f%%, parallel=%s",
@@ -79,7 +84,9 @@ class CanaryController:
             self.config.enable_parallel_execution,
         )
 
-    def set_models(self, old_model: UnifiedModelWrapper, new_model: UnifiedModelWrapper) -> None:
+    def set_models(
+        self, old_model: UnifiedModelWrapper, new_model: UnifiedModelWrapper
+    ) -> None:
         """Set old and new models.
 
         Args:
@@ -100,7 +107,7 @@ class CanaryController:
         """
         hash_input = f"{user_id}:{self.config.user_id_salt}"
         hash_value = hashlib.sha256(hash_input.encode()).hexdigest()
-        return int(hash_value, 16) / (2 ** 256)
+        return int(hash_value, 16) / (2**256)
 
     def should_use_new_model(self, user_id: str) -> bool:
         """Determine if user should use new model.
@@ -131,14 +138,16 @@ class CanaryController:
         """
         use_new = self.should_use_new_model(user_id)
 
-        if use_new and self.new_model is not None:
-            self.new_model_requests += 1
-            model_name = "new"
-            model = self.new_model
-        else:
-            self.old_model_requests += 1
-            model_name = "old"
-            model = self.old_model
+        # H-13 修复：计数器修改加锁，避免并发推理下丢失更新
+        with self._lock:
+            if use_new and self.new_model is not None:
+                self.new_model_requests += 1
+                model_name = "new"
+                model = self.new_model
+            else:
+                self.old_model_requests += 1
+                model_name = "old"
+                model = self.old_model
 
         # Make prediction
         start = time.perf_counter()
@@ -153,28 +162,50 @@ class CanaryController:
         }
 
         # Parallel execution for comparison
-        if self.config.enable_parallel_execution and self.old_model is not None and self.new_model is not None:
-            self._log_comparison(X, user_id)
+        if (
+            self.config.enable_parallel_execution
+            and self.old_model is not None
+            and self.new_model is not None
+        ):
+            # H-ML-4 修复：将已计算的路由模型预测结果传入 _log_comparison，
+            # 避免在 _log_comparison 中重复调用 old + new 模型（原实现产生 3 倍推理）
+            self._log_comparison(X, user_id, model_name, predictions, latency_ms)
 
         return result
 
-    def _log_comparison(self, X: np.ndarray, user_id: str) -> None:
+    def _log_comparison(
+        self,
+        X: np.ndarray,
+        user_id: str,
+        routed_model_name: str,
+        routed_predictions: np.ndarray,
+        routed_latency_ms: float,
+    ) -> None:
         """Log comparison between old and new models.
 
         Args:
             X: Input features.
             user_id: User identifier.
+            routed_model_name: 实际路由到的模型名称（"old" 或 "new"）。
+            routed_predictions: 路由模型已计算的预测结果。
+            routed_latency_ms: 路由模型已计算的延迟。
         """
         try:
-            # Old model prediction
-            old_start = time.perf_counter()
-            old_predictions = self.old_model.predict(X)
-            old_latency = (time.perf_counter() - old_start) * 1000
-
-            # New model prediction
-            new_start = time.perf_counter()
-            new_predictions = self.new_model.predict(X)
-            new_latency = (time.perf_counter() - new_start) * 1000
+            # H-ML-4 修复：复用已计算的路由模型预测结果，仅推理另一个模型，避免重复推理
+            if routed_model_name == "new":
+                new_predictions = routed_predictions
+                new_latency = routed_latency_ms
+                # 仅计算 old model
+                old_start = time.perf_counter()
+                old_predictions = self.old_model.predict(X)
+                old_latency = (time.perf_counter() - old_start) * 1000
+            else:
+                old_predictions = routed_predictions
+                old_latency = routed_latency_ms
+                # 仅计算 new model
+                new_start = time.perf_counter()
+                new_predictions = self.new_model.predict(X)
+                new_latency = (time.perf_counter() - new_start) * 1000
 
             # Calculate differences
             differences = {}
@@ -193,11 +224,13 @@ class CanaryController:
                 differences=differences,
             )
 
-            self.comparison_history.append(comparison)
+            # H-13 修复：comparison_history 修改加锁，避免并发 append 导致列表损坏
+            with self._lock:
+                self.comparison_history.append(comparison)
 
-            # Keep history bounded
-            if len(self.comparison_history) > 10000:
-                self.comparison_history = self.comparison_history[-10000:]
+                # Keep history bounded
+                if len(self.comparison_history) > 10000:
+                    self.comparison_history = self.comparison_history[-10000:]
 
         except Exception as exc:
             logger.warning("Comparison logging failed: %s", exc)
@@ -213,7 +246,8 @@ class CanaryController:
 
         total_comparisons = len(self.comparison_history)
         mismatch_count = sum(
-            1 for c in self.comparison_history
+            1
+            for c in self.comparison_history
             if c.differences.get("prediction_mismatch_rate", 0) > 0
         )
 
@@ -223,14 +257,20 @@ class CanaryController:
         return {
             "total_comparisons": total_comparisons,
             "mismatch_count": mismatch_count,
-            "mismatch_rate": mismatch_count / total_comparisons if total_comparisons > 0 else 0,
+            "mismatch_rate": (
+                mismatch_count / total_comparisons if total_comparisons > 0 else 0
+            ),
             "old_model": {
                 "avg_latency_ms": np.mean(old_latencies) if old_latencies else 0,
-                "p95_latency_ms": np.percentile(old_latencies, 95) if old_latencies else 0,
+                "p95_latency_ms": (
+                    np.percentile(old_latencies, 95) if old_latencies else 0
+                ),
             },
             "new_model": {
                 "avg_latency_ms": np.mean(new_latencies) if new_latencies else 0,
-                "p95_latency_ms": np.percentile(new_latencies, 95) if new_latencies else 0,
+                "p95_latency_ms": (
+                    np.percentile(new_latencies, 95) if new_latencies else 0
+                ),
             },
             "traffic_allocation": {
                 "new_model_percentage": self.config.new_model_traffic_percentage,
@@ -273,6 +313,11 @@ class CanaryController:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
+        # M-ML-1 修复：在锁内快照 comparison_history，序列化后重启可恢复对比数据，
+        # 避免并发 append 导致序列化数据不一致
+        with self._lock:
+            history_snapshot = list(self.comparison_history)
+
         state = {
             "config": {
                 "new_model_traffic_percentage": self.config.new_model_traffic_percentage,
@@ -282,9 +327,22 @@ class CanaryController:
             "statistics": {
                 "new_model_requests": self.new_model_requests,
                 "old_model_requests": self.old_model_requests,
-                "total_comparisons": len(self.comparison_history),
+                "total_comparisons": len(history_snapshot),
             },
             "comparison_summary": self.get_comparison_summary(),
+            # M-ML-1 修复：序列化 comparison_history，重启后可恢复对比数据
+            "comparison_history": [
+                {
+                    "user_id": c.user_id,
+                    "old_model_result": c.old_model_result,
+                    "new_model_result": c.new_model_result,
+                    "old_model_latency_ms": c.old_model_latency_ms,
+                    "new_model_latency_ms": c.new_model_latency_ms,
+                    "timestamp": c.timestamp,
+                    "differences": c.differences,
+                }
+                for c in history_snapshot
+            ],
         }
 
         with open(path, "w", encoding="utf-8") as f:
@@ -307,7 +365,9 @@ class CanaryController:
             state = json.load(f)
 
         config = CanaryConfig(
-            new_model_traffic_percentage=state["config"]["new_model_traffic_percentage"],
+            new_model_traffic_percentage=state["config"][
+                "new_model_traffic_percentage"
+            ],
             user_id_salt=state["config"]["user_id_salt"],
             enable_parallel_execution=state["config"]["enable_parallel_execution"],
         )
@@ -315,5 +375,20 @@ class CanaryController:
         controller = cls(config=config)
         controller.new_model_requests = state["statistics"]["new_model_requests"]
         controller.old_model_requests = state["statistics"]["old_model_requests"]
+
+        # M-ML-1 修复：恢复 comparison_history，避免重启后丢失对比数据。
+        # 兼容旧版状态文件（无 comparison_history 字段时保持空列表）
+        controller.comparison_history = [
+            ComparisonResult(
+                user_id=c["user_id"],
+                old_model_result=c["old_model_result"],
+                new_model_result=c["new_model_result"],
+                old_model_latency_ms=c["old_model_latency_ms"],
+                new_model_latency_ms=c["new_model_latency_ms"],
+                timestamp=c["timestamp"],
+                differences=c.get("differences", {}),
+            )
+            for c in state.get("comparison_history", [])
+        ]
 
         return controller

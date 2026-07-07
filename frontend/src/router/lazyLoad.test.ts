@@ -1,5 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
-import type { RouteRecordRaw } from 'vue-router'
+import { describe, it, expect } from 'vitest'
 
 describe('Route Lazy Loading', () => {
   it('should use dynamic import for all main routes', async () => {

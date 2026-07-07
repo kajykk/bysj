@@ -1,48 +1,73 @@
 <template>
   <div class="review-detail-page">
-    <el-page-header @back="goBack" title="复核详情" />
+    <el-page-header
+      :title="t('counselorReviews.detailTitle')"
+      @back="goBack"
+    />
 
-    <el-card v-if="review" style="margin-top: 16px">
+    <el-card
+      v-if="review"
+      style="margin-top: 16px"
+    >
       <!-- 危机警告横幅 -->
       <el-alert
         v-if="review.crisis_override"
-        title="危机事件"
+        :title="t('counselorReviews.crisisAlertTitle')"
         type="error"
         :closable="false"
         show-icon
         style="margin-bottom: 16px"
       >
         <template #default>
-          <strong>该用户触发了危机表达覆盖，请立即关注并处理。</strong>
+          <strong>{{ t('counselorReviews.crisisAlertMessage') }}</strong>
         </template>
       </el-alert>
 
       <!-- 用户信息 -->
-      <el-descriptions title="用户信息" :column="2" border>
-        <el-descriptions-item label="用户ID">{{ review.user_id }}</el-descriptions-item>
-        <el-descriptions-item label="复核ID">{{ review.id }}</el-descriptions-item>
+      <el-descriptions
+        :title="t('counselorReviews.userInfoTitle')"
+        :column="2"
+        border
+      >
+        <el-descriptions-item :label="t('counselorReviews.detailColUserId')">
+          {{ review.user_id }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('counselorReviews.detailColReviewId')">
+          {{ review.id }}
+        </el-descriptions-item>
       </el-descriptions>
 
       <!-- 模型预测结果 -->
-      <el-descriptions title="模型预测结果" :column="2" border style="margin-top: 16px">
-        <el-descriptions-item label="风险分数">
+      <el-descriptions
+        :title="t('counselorReviews.modelPredictionTitle')"
+        :column="2"
+        border
+        style="margin-top: 16px"
+      >
+        <el-descriptions-item :label="t('counselorReviews.detailColRiskScore')">
           <el-progress
             :percentage="review.risk_score"
             :color="getScoreColor(review.risk_score)"
             :stroke-width="16"
           />
         </el-descriptions-item>
-        <el-descriptions-item label="风险等级">
-          <el-tag :type="getRiskLevelType(review.risk_level)" size="large">
+        <el-descriptions-item :label="t('counselorReviews.detailColRiskLevel')">
+          <el-tag
+            :type="getRiskLevelType(review.risk_level)"
+            size="large"
+          >
             {{ getRiskLevelLabel(review.risk_level) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="优先级">
-          <el-tag :type="getPriorityType(review.priority)" effect="dark">
+        <el-descriptions-item :label="t('counselorReviews.detailColPriority')">
+          <el-tag
+            :type="getPriorityType(review.priority)"
+            effect="dark"
+          >
             {{ getPriorityLabel(review.priority) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="状态">
+        <el-descriptions-item :label="t('counselorReviews.detailColStatus')">
           <el-tag :type="getStatusType(review.status)">
             {{ getStatusLabel(review.status) }}
           </el-tag>
@@ -50,8 +75,13 @@
       </el-descriptions>
 
       <!-- 触发原因 -->
-      <el-descriptions title="触发原因" :column="1" border style="margin-top: 16px">
-        <el-descriptions-item label="复核原因">
+      <el-descriptions
+        :title="t('counselorReviews.triggerReasonTitle')"
+        :column="1"
+        border
+        style="margin-top: 16px"
+      >
+        <el-descriptions-item :label="t('counselorReviews.triggerReasonLabel')">
           <el-tag
             v-for="trigger in review.review_triggers"
             :key="trigger"
@@ -61,93 +91,108 @@
             {{ trigger }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="危机覆盖">
-          {{ review.crisis_override ? '是' : '否' }}
+        <el-descriptions-item :label="t('counselorReviews.crisisOverrideLabel')">
+          {{ review.crisis_override ? t('counselorReviews.yesLabel') : t('counselorReviews.noLabel') }}
         </el-descriptions-item>
       </el-descriptions>
 
       <!-- 处理操作 -->
-      <div v-if="review.status === 'pending' || review.status === 'in_review'" class="actions" style="margin-top: 24px">
-        <el-divider>处理操作</el-divider>
+      <div
+        v-if="review.status === 'pending' || review.status === 'in_review'"
+        class="actions"
+        style="margin-top: 24px"
+      >
+        <el-divider>{{ t('counselorReviews.actionsDivider') }}</el-divider>
 
-        <el-form :model="form" label-width="100px">
-          <el-form-item label="处理备注">
+        <el-form
+          :model="form"
+          label-width="100px"
+        >
+          <el-form-item :label="t('counselorReviews.formNoteLabel')">
             <el-input
               v-model="form.note"
               type="textarea"
               :rows="4"
-              placeholder="请输入处理备注..."
+              :placeholder="t('counselorReviews.formNotePlaceholder')"
             />
           </el-form-item>
 
           <el-form-item>
-            <el-button type="success" @click="handleResolve">
+            <el-button
+              type="success"
+              @click="handleResolve"
+            >
               <el-icon><Check /></el-icon>
-              标记已处理
+              {{ t('counselorReviews.btnMarkResolved') }}
             </el-button>
-            <el-button type="danger" @click="handleEscalate">
+            <el-button
+              type="danger"
+              @click="handleEscalate"
+            >
               <el-icon><Top /></el-icon>
-              升级危机事件
+              {{ t('counselorReviews.btnEscalate') }}
             </el-button>
           </el-form-item>
         </el-form>
       </div>
 
       <!-- 处理结果 -->
-      <div v-else class="resolution" style="margin-top: 24px">
-        <el-divider>处理结果</el-divider>
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="处理人">{{ review.resolved_by }}</el-descriptions-item>
-          <el-descriptions-item label="处理备注">{{ review.resolution_note }}</el-descriptions-item>
-          <el-descriptions-item label="处理时间">{{ formatDate(review.resolved_at) }}</el-descriptions-item>
+      <div
+        v-else
+        class="resolution"
+        style="margin-top: 24px"
+      >
+        <el-divider>{{ t('counselorReviews.resolutionDivider') }}</el-divider>
+        <el-descriptions
+          :column="1"
+          border
+        >
+          <el-descriptions-item :label="t('counselorReviews.resolutionResolver')">
+            {{ review.resolved_by }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorReviews.resolutionNote')">
+            {{ review.resolution_note }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorReviews.resolutionTime')">
+            {{ formatDate(review.resolved_at) }}
+          </el-descriptions-item>
         </el-descriptions>
       </div>
     </el-card>
 
-    <el-skeleton v-else :rows="10" animated />
+    <el-skeleton
+      v-else
+      :rows="10"
+      animated
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Check, Top } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-// 使用项目封装的 request 实例，确保 Authorization 注入、401 刷新与统一错误处理
-import request from '@/api/request'
+import { counselorApi, type ReviewItem } from '@/api/counselorApi'
 // P2-A 修复：使用共享的 formatDate 替代本地重复实现
 import { formatDate } from '@/utils/formatUtils'
 
-// P1-E 修复：移除 any 类型，定义明确的接口类型
-interface ReviewDetail {
-  id: number
-  user_id: number
-  risk_score: number
-  risk_level: number
-  priority: string
-  status: string
-  crisis_override: boolean
-  review_triggers: string[]
-  resolved_by?: string | null
-  resolution_note?: string | null
-  resolved_at?: string | null
-}
-
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
-const review = ref<ReviewDetail | null>(null)
+const review = ref<ReviewItem | null>(null)
 const form = ref({
   note: '',
 })
 
 const loadReview = async () => {
-  const id = route.params.id
+  const id = Number(route.params.id)
   try {
-    const response = await request.get(`/reviews/${id}`)
-    review.value = response.data.data
+    review.value = await counselorApi.getReviewDetail(id)
   } catch (error) {
-    ElMessage.error('加载复核详情失败')
+    ElMessage.error(t('counselorReviews.loadDetailFailed'))
   }
 }
 
@@ -158,53 +203,49 @@ const goBack = () => {
 // P1-E 修复：移除 any 类型，使用 unknown 并进行类型守卫
 const handleResolve = async () => {
   try {
-    await ElMessageBox.confirm('确认标记该复核任务为已处理？', '确认', {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('counselorReviews.resolveConfirm'), t('counselorReviews.resolveConfirmTitle'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning',
     })
 
-    const id = route.params.id
-    await request.post(`/reviews/${id}/resolve`, null, {
-      params: { resolution_note: form.value.note || '已处理' },
-    })
+    const id = Number(route.params.id)
+    await counselorApi.resolveReview(id, { resolution_note: form.value.note || t('counselorReviews.defaultResolveNote') })
 
-    ElMessage.success('已标记为处理完成')
+    ElMessage.success(t('counselorReviews.resolveSuccess'))
     loadReview()
   } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error('处理失败')
+      ElMessage.error(t('counselorReviews.resolveFailed'))
     }
   }
 }
 
 const handleEscalate = async () => {
   try {
-    await ElMessageBox.confirm('确认升级该危机事件？', '确认', {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('counselorReviews.escalateConfirm'), t('counselorReviews.escalateConfirmTitle'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'error',
     })
 
-    const id = route.params.id
-    await request.post(`/reviews/${id}/escalate`, null, {
-      params: { reason: form.value.note || '需要升级处理' },
-    })
+    const id = Number(route.params.id)
+    await counselorApi.escalateReview(id, { reason: form.value.note || t('counselorReviews.defaultEscalateReason') })
 
-    ElMessage.success('已升级危机事件')
+    ElMessage.success(t('counselorReviews.escalateSuccess'))
     loadReview()
   } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error('升级失败')
+      ElMessage.error(t('counselorReviews.escalateFailed'))
     }
   }
 }
 
 const getScoreColor = (score: number) => {
-  if (score >= 80) return '#f56c6c'
-  if (score >= 60) return '#e6a23c'
-  if (score >= 40) return '#409eff'
-  return '#67c23a'
+  if (score >= 80) return '#d65a5a'
+  if (score >= 60) return '#d4923a'
+  if (score >= 40) return '#3b82c4'
+  return '#5a9e3a'
 }
 
 type ElTagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
@@ -214,9 +255,11 @@ const getRiskLevelType = (level: number): ElTagType => {
   return types[level] || 'info'
 }
 
+const RISK_LEVEL_LABEL_KEYS = ['riskLevelNone', 'riskLevelLow', 'riskLevelMedium', 'riskLevelHigh', 'riskLevelCritical']
+
 const getRiskLevelLabel = (level: number) => {
-  const labels = ['无', '轻度', '中度', '较高', '严重']
-  return labels[level] || '未知'
+  const key = RISK_LEVEL_LABEL_KEYS[level]
+  return key ? t(`counselorReviews.${key}`) : t('counselorReviews.riskLevelUnknown')
 }
 
 const getPriorityType = (priority: string): ElTagType => {
@@ -228,13 +271,15 @@ const getPriorityType = (priority: string): ElTagType => {
   return types[priority] || 'info'
 }
 
+const PRIORITY_LABEL_KEYS: Record<string, string> = {
+  normal_review: 'priorityNormal',
+  high_risk_review: 'priorityHighRisk',
+  crisis_review: 'priorityCrisis',
+}
+
 const getPriorityLabel = (priority: string) => {
-  const labels: Record<string, string> = {
-    normal_review: '普通',
-    high_risk_review: '高风险',
-    crisis_review: '危机',
-  }
-  return labels[priority] || '未知'
+  const key = PRIORITY_LABEL_KEYS[priority]
+  return key ? t(`counselorReviews.${key}`) : t('counselorReviews.priorityUnknown')
 }
 
 const getStatusType = (status: string): ElTagType => {
@@ -247,14 +292,16 @@ const getStatusType = (status: string): ElTagType => {
   return types[status] || 'info'
 }
 
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  pending: 'statusPending',
+  in_review: 'statusInReview',
+  resolved: 'statusResolved',
+  escalated: 'statusEscalated',
+}
+
 const getStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
-    pending: '待处理',
-    in_review: '处理中',
-    resolved: '已处理',
-    escalated: '已升级',
-  }
-  return labels[status] || '未知'
+  const key = STATUS_LABEL_KEYS[status]
+  return key ? t(`counselorReviews.${key}`) : t('counselorReviews.statusUnknown')
 }
 
 // P2-A 修复：formatDate 已从 @/utils/formatUtils 导入，移除本地重复定义
@@ -266,18 +313,18 @@ onMounted(() => {
 
 <style scoped>
 .review-detail-page {
-  padding: 16px;
+  padding: var(--spacing-lg);
 }
 
 .actions {
-  padding: 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  padding: var(--spacing-lg);
+  background: var(--bg-page);
+  border-radius: var(--radius-large);
 }
 
 .resolution {
-  padding: 16px;
-  background: #f0f9ff;
-  border-radius: 8px;
+  padding: var(--spacing-lg);
+  background: var(--primary-light);
+  border-radius: var(--radius-large);
 }
 </style>

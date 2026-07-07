@@ -3,7 +3,9 @@ from datetime import date
 from fastapi.testclient import TestClient
 
 
-def test_completed_cannot_skip_again(client: TestClient, as_role, seed_intervention_for_user: int) -> None:
+def test_completed_cannot_skip_again(
+    client: TestClient, as_role, seed_intervention_for_user: int
+) -> None:
     as_role("user", 1)
     task_id = seed_intervention_for_user
 
@@ -20,17 +22,24 @@ def test_completed_cannot_skip_again(client: TestClient, as_role, seed_intervent
     assert skip_res.status_code == 409
 
 
-def test_pending_can_postpone(client: TestClient, as_role, seed_intervention_for_user: int) -> None:
+def test_pending_can_postpone(
+    client: TestClient, as_role, seed_intervention_for_user: int
+) -> None:
     as_role("user", 1)
     task_id = seed_intervention_for_user
     postpone_res = client.put(
         f"/api/v1/user/intervention/tasks/{task_id}/postpone",
-        json={"scheduled_date": date.today().isoformat(), "postpone_to": date.today().isoformat()},
+        json={
+            "scheduled_date": date.today().isoformat(),
+            "postpone_to": date.today().isoformat(),
+        },
     )
     assert postpone_res.status_code == 200
 
 
-def test_completed_cannot_postpone_again(client: TestClient, as_role, seed_intervention_for_user: int) -> None:
+def test_completed_cannot_postpone_again(
+    client: TestClient, as_role, seed_intervention_for_user: int
+) -> None:
     as_role("user", 1)
     task_id = seed_intervention_for_user
 
@@ -42,6 +51,9 @@ def test_completed_cannot_postpone_again(client: TestClient, as_role, seed_inter
 
     postpone_res = client.put(
         f"/api/v1/user/intervention/tasks/{task_id}/postpone",
-        json={"scheduled_date": date.today().isoformat(), "postpone_to": date.today().isoformat()},
+        json={
+            "scheduled_date": date.today().isoformat(),
+            "postpone_to": date.today().isoformat(),
+        },
     )
     assert postpone_res.status_code == 409

@@ -5,9 +5,7 @@ TC-FE-EXL-001 ~ TC-FE-EXL-012: Excel export stability.
 
 from __future__ import annotations
 
-import pytest
-
-from app.services.excel_export_service import ExcelExportService, ExcelExportResult
+from app.services.excel_export_service import ExcelExportResult, ExcelExportService
 
 
 class TestExcelExportService:
@@ -66,6 +64,7 @@ class TestExcelExportService:
     def test_export_no_openpyxl(self, monkeypatch):
         """TC-FE-EXL-005: Handle missing openpyxl gracefully."""
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):

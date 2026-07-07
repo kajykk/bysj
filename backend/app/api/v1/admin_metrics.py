@@ -5,29 +5,31 @@
 - 关键性能指标 (P50/P95/P99, RPS, 错误率)
 - 用于运维监控和故障排查
 """
+
 from __future__ import annotations
 
 import time
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import PlainTextResponse
 
+from app.api.v1.version import RELEASE_VERSION
 from app.core.config import settings
+from app.core.deps import require_role
 from app.core.metrics import (
     db_pool_size,
-    http_request_duration_seconds,
     http_requests_total,
     model_inference_total,
-    render_exposition,
     websocket_connections_active,
 )
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 
 router = APIRouter(prefix="/admin", tags=["admin", "metrics"])
 
 
-@router.get("/metrics-summary")
+@router.get("/metrics-summary", responses=COMMON_ERROR_RESPONSES)
 async def metrics_summary(
-    _admin=Depends(__import__("app.core.deps", fromlist=["require_role"]).require_role("admin")),
+    # L-17 修复：使用直接导入替代 __import__ 动态导入，提高可读性和可维护性
+    _admin=Depends(require_role("admin")),
 ) -> dict:
     """返回当前指标的人类可读摘要.
 
@@ -49,6 +51,19 @@ async def metrics_summary(
 
     # 计算错误率
     error_rate = (http_errors_5xx / http_total) if http_total > 0 else 0.0
+
+    # C-API-4 修复：top_paths 模糊化，避免暴露完整 API 表面（含 admin 接口路径）。
+    # 将具体 path 按模块前缀聚合，仅返回模块级统计。
+    def _blur_path(path: str) -> str:
+        parts = path.strip("/").split("/")
+        if len(parts) >= 3:
+            return "/" + "/".join(parts[:3]) + "/*"
+        return path
+
+    blurred_breakdown: dict[str, int] = {}
+    for path, count in path_breakdown.items():
+        blurred = _blur_path(path)
+        blurred_breakdown[blurred] = blurred_breakdown.get(blurred, 0) + count
 
     # WebSocket 统计
     ws_active = 0
@@ -74,13 +89,16 @@ async def metrics_summary(
 
     return {
         "timestamp": int(time.time()),
-        "version": "v1.32-observability-complete",
-        "env": settings.app_env,
+        # L-API-1 修复：版本号统一从 version.py 的 RELEASE_VERSION 读取，避免多处硬编码不一致
+        "version": RELEASE_VERSION,
+        # C-API-4 修复：移除 env 字段（可能泄露内部环境名如 staging-cn-beijing-1），改为布尔值
+        "is_production": settings.app_env.lower() == "production",
         "http": {
             "total_requests": http_total,
             "5xx_errors": http_errors_5xx,
             "error_rate": round(error_rate, 4),
-            "top_paths": sorted(path_breakdown.items(), key=lambda x: -x[1])[:5],
+            # C-API-4 修复：返回模糊化后的 top_paths
+            "top_paths": sorted(blurred_breakdown.items(), key=lambda x: -x[1])[:5],
         },
         "websocket": {
             "active_connections": ws_active,

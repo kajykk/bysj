@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.monitoring import CanaryRecord, CanaryStatus, MonitoringEventType
+from app.models.monitoring import CanaryRecord, CanaryStatus
 from app.services.observability_service import observability_collector
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class CanaryManager:
     """Manages canary deployments with traffic splitting and auto-rollback.
 
     Features:
-    - Stable hash-based traffic allocation (md5(user_id)[0:8] % 100)
+    - Stable hash-based traffic allocation (sha256(user_id)[0:8] % 100)
     - Dynamic configuration via database (no restart required)
     - Version routing decisions
     - Auto-rollback based on thresholds
@@ -54,9 +54,10 @@ class CanaryManager:
     def _hash_user_id(self, user_id: int | str) -> int:
         """Compute stable hash for user_id.
 
-        Uses md5(user_id)[0:8] % 100 for consistent traffic allocation.
+        ISS-001/ISS-012 修复：使用 sha256 替代 md5，消除 Bandit High 告警。
+        sha256(user_id)[0:8] % 100 保持一致的流量分配语义。
         """
-        digest = hashlib.md5(str(user_id).encode()).hexdigest()[:8]
+        digest = hashlib.sha256(str(user_id).encode()).hexdigest()[:8]
         return int(digest, 16) % 100
 
     def is_canary_user(self, user_id: int | str, traffic_percent: int) -> bool:
@@ -83,9 +84,11 @@ class CanaryManager:
             Active canary record or None.
         """
         result = await db_session.execute(
-            select(CanaryRecord).where(
+            select(CanaryRecord)
+            .where(
                 CanaryRecord.status == CanaryStatus.RUNNING,
-            ).order_by(CanaryRecord.started_at.desc())
+            )
+            .order_by(CanaryRecord.started_at.desc())
         )
         return result.scalar_one_or_none()
 
@@ -179,19 +182,27 @@ class CanaryManager:
             status=CanaryStatus.RUNNING,
             auto_rollback_thresholds=default_thresholds,
             triggered_by=triggered_by,
-            started_at=datetime.now(timezone.utc),
+            # H-Svc-4 修复：DateTime 列为 naive，写入前剥离 tzinfo 避免 aware/naive 混用
+            started_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db_session.add(canary)
-        await db_session.commit()
+        # H-4 修复：service 层不调用 commit()，改用 flush() 将更改刷入数据库但不提交事务。
+        # 事务边界由调用方（API 层或 auto_rollback_service 的 savepoint）管理。
+        await db_session.flush()
         await db_session.refresh(canary)
 
         observability_collector.record_model_success(
             model_version=version,
             user_id=triggered_by,
-            response_summary={"event": "canary_started", "traffic_percent": traffic_percent},
+            response_summary={
+                "event": "canary_started",
+                "traffic_percent": traffic_percent,
+            },
         )
 
-        logger.info("Canary started: version=%s, traffic=%d%%", version, traffic_percent)
+        logger.info(
+            "Canary started: version=%s, traffic=%d%%", version, traffic_percent
+        )
         return canary
 
     async def update_traffic_percent(
@@ -210,26 +221,40 @@ class CanaryManager:
         Returns:
             Updated canary record.
         """
-        result = await db_session.execute(select(CanaryRecord).where(CanaryRecord.id == canary_id))
+        result = await db_session.execute(
+            select(CanaryRecord).where(CanaryRecord.id == canary_id)
+        )
         canary = result.scalar_one_or_none()
 
         if not canary:
             raise ValueError(f"Canary {canary_id} not found")
 
         if canary.status not in {CanaryStatus.RUNNING, CanaryStatus.PAUSED}:
-            raise ValueError(f"Cannot update traffic for canary in status: {canary.status}")
+            raise ValueError(
+                f"Cannot update traffic for canary in status: {canary.status}"
+            )
 
         old_percent = canary.traffic_percent
         canary.traffic_percent = new_percent
-        await db_session.commit()
+        # H-Svc-1 修复：与 start_canary/rollback_canary 保持一致，service 层使用 flush() 而非 commit()
+        await db_session.flush()
         await db_session.refresh(canary)
 
-        logger.info("Canary %d traffic updated: %d%% -> %d%%", canary_id, old_percent, new_percent)
+        logger.info(
+            "Canary %d traffic updated: %d%% -> %d%%",
+            canary_id,
+            old_percent,
+            new_percent,
+        )
         return canary
 
-    async def pause_canary(self, db_session: AsyncSession, canary_id: int) -> CanaryRecord:
+    async def pause_canary(
+        self, db_session: AsyncSession, canary_id: int
+    ) -> CanaryRecord:
         """Pause a running canary."""
-        result = await db_session.execute(select(CanaryRecord).where(CanaryRecord.id == canary_id))
+        result = await db_session.execute(
+            select(CanaryRecord).where(CanaryRecord.id == canary_id)
+        )
         canary = result.scalar_one_or_none()
 
         if not canary:
@@ -239,15 +264,20 @@ class CanaryManager:
             raise ValueError(f"Cannot pause canary in status: {canary.status}")
 
         canary.status = CanaryStatus.PAUSED
-        await db_session.commit()
+        # H-Svc-1 修复：service 层使用 flush() 而非 commit()，事务边界由调用方管理
+        await db_session.flush()
         await db_session.refresh(canary)
 
         logger.info("Canary %d paused", canary_id)
         return canary
 
-    async def resume_canary(self, db_session: AsyncSession, canary_id: int) -> CanaryRecord:
+    async def resume_canary(
+        self, db_session: AsyncSession, canary_id: int
+    ) -> CanaryRecord:
         """Resume a paused canary."""
-        result = await db_session.execute(select(CanaryRecord).where(CanaryRecord.id == canary_id))
+        result = await db_session.execute(
+            select(CanaryRecord).where(CanaryRecord.id == canary_id)
+        )
         canary = result.scalar_one_or_none()
 
         if not canary:
@@ -257,7 +287,8 @@ class CanaryManager:
             raise ValueError(f"Cannot resume canary in status: {canary.status}")
 
         canary.status = CanaryStatus.RUNNING
-        await db_session.commit()
+        # H-Svc-1 修复：service 层使用 flush() 而非 commit()，事务边界由调用方管理
+        await db_session.flush()
         await db_session.refresh(canary)
 
         logger.info("Canary %d resumed", canary_id)
@@ -279,7 +310,9 @@ class CanaryManager:
         Returns:
             Updated canary record.
         """
-        result = await db_session.execute(select(CanaryRecord).where(CanaryRecord.id == canary_id))
+        result = await db_session.execute(
+            select(CanaryRecord).where(CanaryRecord.id == canary_id)
+        )
         canary = result.scalar_one_or_none()
 
         if not canary:
@@ -289,9 +322,12 @@ class CanaryManager:
             raise ValueError(f"Cannot rollback canary in status: {canary.status}")
 
         canary.status = CanaryStatus.ROLLED_BACK
-        canary.ended_at = datetime.now(timezone.utc)
+        # H-Svc-4 修复：DateTime 列为 naive，写入前剥离 tzinfo
+        canary.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
         canary.rollback_reason = reason
-        await db_session.commit()
+        # H-4 修复：commit() 会提交最外层事务而非仅释放 savepoint，破坏 auto_rollback_service
+        # 的 begin_nested() 隔离。改用 flush() 仅将更改刷入 DB，由调用方管理事务提交。
+        await db_session.flush()
         await db_session.refresh(canary)
 
         observability_collector.record_fallback(
@@ -303,9 +339,13 @@ class CanaryManager:
         logger.info("Canary %d rolled back: %s", canary_id, reason)
         return canary
 
-    async def complete_canary(self, db_session: AsyncSession, canary_id: int) -> CanaryRecord:
+    async def complete_canary(
+        self, db_session: AsyncSession, canary_id: int
+    ) -> CanaryRecord:
         """Complete a successful canary deployment."""
-        result = await db_session.execute(select(CanaryRecord).where(CanaryRecord.id == canary_id))
+        result = await db_session.execute(
+            select(CanaryRecord).where(CanaryRecord.id == canary_id)
+        )
         canary = result.scalar_one_or_none()
 
         if not canary:
@@ -315,8 +355,10 @@ class CanaryManager:
             raise ValueError(f"Cannot complete canary in status: {canary.status}")
 
         canary.status = CanaryStatus.COMPLETED
-        canary.ended_at = datetime.now(timezone.utc)
-        await db_session.commit()
+        # H-Svc-4 修复：DateTime 列为 naive，写入前剥离 tzinfo
+        canary.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        # H-4 修复：与 rollback_canary 保持一致，service 层使用 flush() 而非 commit()
+        await db_session.flush()
         await db_session.refresh(canary)
 
         logger.info("Canary %d completed successfully", canary_id)
@@ -342,7 +384,9 @@ class CanaryManager:
         if db_session is None:
             return self._evaluate_rollback_metrics({}, metrics)
 
-        result = await db_session.execute(select(CanaryRecord).where(CanaryRecord.id == canary_id))
+        result = await db_session.execute(
+            select(CanaryRecord).where(CanaryRecord.id == canary_id)
+        )
         canary = result.scalar_one_or_none()
 
         if not canary or canary.status != CanaryStatus.RUNNING:
@@ -360,17 +404,26 @@ class CanaryManager:
         if "fallback_rate" in metrics:
             max_rate = thresholds.get("max_fallback_rate", 0.05)
             if metrics["fallback_rate"] > max_rate:
-                return True, f"fallback_rate {metrics['fallback_rate']:.2%} exceeds threshold {max_rate:.2%}"
+                return (
+                    True,
+                    f"fallback_rate {metrics['fallback_rate']:.2%} exceeds threshold {max_rate:.2%}",
+                )
 
         if "drift_alerts_per_hour" in metrics:
             max_alerts = thresholds.get("max_drift_alerts_per_hour", 10)
             if metrics["drift_alerts_per_hour"] > max_alerts:
-                return True, f"drift_alerts_per_hour {metrics['drift_alerts_per_hour']} exceeds threshold {max_alerts}"
+                return (
+                    True,
+                    f"drift_alerts_per_hour {metrics['drift_alerts_per_hour']} exceeds threshold {max_alerts}",
+                )
 
         if "avg_latency_ms" in metrics:
             max_latency = thresholds.get("max_avg_latency_ms", 500.0)
             if metrics["avg_latency_ms"] > max_latency:
-                return True, f"avg_latency_ms {metrics['avg_latency_ms']} exceeds threshold {max_latency}"
+                return (
+                    True,
+                    f"avg_latency_ms {metrics['avg_latency_ms']} exceeds threshold {max_latency}",
+                )
 
         return False, "within_thresholds"
 

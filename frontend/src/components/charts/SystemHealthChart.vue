@@ -9,8 +9,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
 import type { EChartsCoreOption } from 'echarts/core'
+
+const { t } = useI18n()
 
 interface HealthDataPoint {
   time: string
@@ -28,9 +31,11 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   height: '300px',
-  title: '系统健康监控',
+  title: undefined,
   autoResize: true,
 })
+
+const effectiveTitle = computed(() => props.title ?? t('charts.systemHealthTitle'))
 
 const emit = defineEmits<{
   chartReady: [instance: unknown]
@@ -45,7 +50,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
 
   return {
     title: {
-      text: props.title,
+      text: effectiveTitle.value,
       left: 'center',
       textStyle: {
         fontSize: 16,
@@ -76,7 +81,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
     yAxis: [
       {
         type: 'value',
-        name: '比率',
+        name: t('charts.yAxisRatio'),
         min: 0,
         max: 100,
         position: 'left',
@@ -86,7 +91,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
       },
       {
         type: 'value',
-        name: '延迟 (ms)',
+        name: t('charts.yAxisLatency'),
         min: 0,
         position: 'right',
         axisLabel: {
@@ -97,12 +102,12 @@ const chartOption = computed<EChartsCoreOption>(() => {
     toolbox: {
       feature: {
         saveAsImage: {
-          title: '保存图片',
+          title: t('charts.saveImage'),
         },
         dataZoom: {
           title: {
-            zoom: '区域缩放',
-            back: '缩放还原',
+            zoom: t('charts.zoomIn'),
+            back: t('charts.zoomReset'),
           },
         },
       },
@@ -116,13 +121,13 @@ const chartOption = computed<EChartsCoreOption>(() => {
     ],
     series: [
       {
-        name: '成功率',
+        name: t('charts.seriesSuccessRate'),
         type: 'line',
         data: props.data.map((d) => d.successRate),
         smooth: true,
         yAxisIndex: 0,
-        lineStyle: { width: 2, color: '#67c23a' },
-        itemStyle: { color: '#67c23a' },
+        lineStyle: { width: 2, color: '#5a9e3a' },
+        itemStyle: { color: '#5a9e3a' },
         areaStyle: {
           color: {
             type: 'linear',
@@ -131,29 +136,29 @@ const chartOption = computed<EChartsCoreOption>(() => {
             x2: 0,
             y2: 1,
             colorStops: [
-              { offset: 0, color: 'rgba(103, 194, 58, 0.3)' },
-              { offset: 1, color: 'rgba(103, 194, 58, 0.05)' },
+              { offset: 0, color: 'rgba(90, 158, 58, 0.25)' },
+              { offset: 1, color: 'rgba(90, 158, 58, 0.04)' },
             ],
           },
         },
       },
       {
-        name: '回退率',
+        name: t('charts.seriesFallbackRate'),
         type: 'line',
         data: props.data.map((d) => d.fallbackRate),
         smooth: true,
         yAxisIndex: 0,
-        lineStyle: { width: 2, color: '#f56c6c' },
-        itemStyle: { color: '#f56c6c' },
+        lineStyle: { width: 2, color: '#d65a5a' },
+        itemStyle: { color: '#d65a5a' },
       },
       {
-        name: '延迟',
+        name: t('charts.seriesLatency'),
         type: 'line',
         data: props.data.map((d) => d.latency),
         smooth: true,
         yAxisIndex: 1,
-        lineStyle: { width: 2, color: '#409eff', type: 'dashed' },
-        itemStyle: { color: '#409eff' },
+        lineStyle: { width: 2, color: '#3b82c4', type: 'dashed' },
+        itemStyle: { color: '#3b82c4' },
       },
     ],
   }

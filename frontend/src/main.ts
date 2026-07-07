@@ -6,13 +6,18 @@ import router from './router'
 import i18n from './i18n'
 import { applyCspMetaTag } from './csp'
 import { useAuthStore } from './stores/auth'
+import { setRedirectToLogin } from './api/request'
 import { registerServiceWorker } from './utils/serviceWorker'
 import { initSentry, captureException } from './plugins/sentry'
 
+// 性能分析：Vite 会将以下 CSS 内联到主 chunk，不会产生额外网络请求，因此同步 import 的实际开销有限。
+// variables/theme 为首屏必需；mixins/transitions/utilities 为工具样式，可能被首屏组件引用，保留同步加载以避免 FOUC。
+// element-plus 暗色变量：若改为 useTheme.ts 动态 import，会在切换暗色时产生 FOUC（暗色类已加但 CSS 未就绪），故保留在此处。
 import './styles/variables.scss'
 import './styles/mixins.scss'
 import './styles/transitions.scss'
 import './styles/theme.scss'
+import './styles/utilities.scss'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 
 applyCspMetaTag()
@@ -26,6 +31,14 @@ app.use(i18n)
 
 const auth = useAuthStore(pinia)
 auth.restore()
+
+// 循环依赖治理：注入 router.replace 回调，替代 request.ts 内部的动态 import('@/router')。
+// 必须在 mount 之前注入：restore() 不发请求，首个可能触发 401 的请求发生在组件挂载之后。
+// R-002 修复：保留完整 URL（pathname + search + hash），登录后可恢复 query/hash 上下文。
+setRedirectToLogin(() => {
+  const { pathname, search, hash } = window.location
+  router.replace({ path: '/login', query: { redirect: pathname + search + hash } })
+})
 
 // 初始化 Sentry 监控（需在 router 注册之后、mount 之前）
 initSentry(app, router)

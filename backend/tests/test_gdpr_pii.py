@@ -15,11 +15,14 @@
 from __future__ import annotations
 
 import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 
 # 在导入被测模块前确保 PII 密钥存在
-os.environ.setdefault("PII_ENCRYPTION_KEY", "test-pii-key-for-unit-tests-1234567890abcdef==")
+os.environ.setdefault(
+    "PII_ENCRYPTION_KEY", "test-pii-key-for-unit-tests-1234567890abcdef=="
+)
 
 
 @pytest.fixture(autouse=True)
@@ -41,7 +44,7 @@ class TestPIICrypto:
 
     def test_encrypt_decrypt_roundtrip(self):
         """同一字段的加密解密 roundtrip 应正确."""
-        from app.core.pii_crypto import encrypt_field, decrypt_field
+        from app.core.pii_crypto import decrypt_field, encrypt_field
 
         original = "user@example.com"
         encrypted = encrypt_field(original, "email")
@@ -59,7 +62,7 @@ class TestPIICrypto:
 
     def test_empty_value_passthrough(self):
         """空值/None 应直接透传, 不加密."""
-        from app.core.pii_crypto import encrypt_field, decrypt_field
+        from app.core.pii_crypto import decrypt_field, encrypt_field
 
         assert encrypt_field("", "email") == ""
         assert encrypt_field(None, "email") is None
@@ -68,7 +71,7 @@ class TestPIICrypto:
 
     def test_double_encryption_prevented(self):
         """已加密的密文不应被重复加密."""
-        from app.core.pii_crypto import encrypt_field, decrypt_field
+        from app.core.pii_crypto import decrypt_field, encrypt_field
 
         original = "test@example.com"
         encrypted = encrypt_field(original, "email")
@@ -298,6 +301,7 @@ class TestGDPRAPIEndpoints:
         """未登录访问 /user/gdpr/export 应返回 401."""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
         from app.api.v1.gdpr import router
 
         app = FastAPI()
@@ -310,6 +314,7 @@ class TestGDPRAPIEndpoints:
         """未登录访问 /user/gdpr/delete 应返回 401."""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
         from app.api.v1.gdpr import router
 
         app = FastAPI()
@@ -320,8 +325,9 @@ class TestGDPRAPIEndpoints:
 
     def test_delete_endpoint_requires_confirm(self):
         """未传 confirm=true 应返回 400."""
-        from fastapi import FastAPI, Depends
+        from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
         from app.api.v1.gdpr import router
         from app.core.deps import get_current_user
         from app.models.user import User
@@ -334,6 +340,8 @@ class TestGDPRAPIEndpoints:
         app.dependency_overrides[get_current_user] = fake_user
         app.include_router(router)
         client = TestClient(app)
-        resp = client.post("/user/gdpr/delete", json={"password": "x", "confirm": False})
+        resp = client.post(
+            "/user/gdpr/delete", json={"password": "x", "confirm": False}
+        )
         assert resp.status_code == 400
         assert "确认" in resp.json()["detail"]

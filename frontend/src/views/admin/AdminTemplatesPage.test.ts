@@ -45,11 +45,11 @@ describe('AdminTemplatesPage - 5.2.1 模板列表增强', () => {
       width: '20px',
       height: '20px',
       borderRadius: '50%',
-      background: '#409eff',
+      background: '#3b82c4',
       color: '#fff'
     }
 
     expect(taskIndexStyle.borderRadius).toBe('50%')
-    expect(taskIndexStyle.background).toBe('#409eff')
+    expect(taskIndexStyle.background).toBe('#3b82c4')
   })
 })

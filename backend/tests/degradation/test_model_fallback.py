@@ -50,5 +50,6 @@ class TestModelFallback:
     def test_should_fallback_unavailable(self):
         """TC-DEG-005: should_fallback returns True when model unavailable."""
         from app.core.risk_thresholds import should_fallback
+
         assert should_fallback(0.9, False) is True
         assert should_fallback(None, False) is True

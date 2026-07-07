@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.model_registry import (
     MODEL_PATHS,
     MODEL_REGISTRY,
     ModelMetadata,
+    get_model_info,
+    is_model_enabled,
     normalize_model_id,
     register_model,
-    get_model_info,
     resolve_model_path,
-    is_model_enabled,
 )
 
 

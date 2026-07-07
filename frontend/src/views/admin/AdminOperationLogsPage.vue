@@ -1,10 +1,10 @@
 <template>
   <ListPageScaffold
-    title="操作日志"
+    :title="t('adminOperationLogs.title')"
     :loading="loading"
     :empty="!loading && rows.length === 0"
     :error-message="pageError"
-    empty-text="暂无日志数据"
+    :empty-text="t('adminOperationLogs.empty')"
     @retry="fetchData"
   >
     <template #filters>
@@ -12,53 +12,53 @@
         @search="handleSearch"
         @reset="handleReset"
       >
-        <el-form-item label="动作类型">
+        <el-form-item :label="t('adminOperationLogs.filterActionType')">
           <el-input
             v-model="filters.actionType"
             clearable
-            placeholder="可输入动作类型，如 warning_handle"
+            :placeholder="t('adminOperationLogs.actionTypePlaceholder')"
             style="width: 220px"
           />
         </el-form-item>
 
-        <el-form-item label="操作者角色">
+        <el-form-item :label="t('adminOperationLogs.filterOperatorRole')">
           <el-select
             v-model="filters.operatorRole"
             clearable
             style="width: 180px"
           >
             <el-option
-              label="用户"
+              :label="t('role.user')"
               value="user"
             />
             <el-option
-              label="咨询师"
+              :label="t('role.counselor')"
               value="counselor"
             />
             <el-option
-              label="管理员"
+              :label="t('role.admin')"
               value="admin"
             />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="操作者">
+        <el-form-item :label="t('adminOperationLogs.filterOperatorName')">
           <el-input
             v-model="filters.operatorName"
             clearable
-            placeholder="输入用户名"
+            :placeholder="t('adminOperationLogs.operatorNamePlaceholder')"
             style="width: 160px"
           />
         </el-form-item>
 
-        <el-form-item label="时间区间">
+        <el-form-item :label="t('adminOperationLogs.filterRange')">
           <el-date-picker
             v-model="filters.range"
             type="datetimerange"
             value-format="YYYY-MM-DD HH:mm:ss"
-            range-separator="至"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
+            :range-separator="t('adminOperationLogs.rangeSeparator')"
+            :start-placeholder="t('adminOperationLogs.rangeStart')"
+            :end-placeholder="t('adminOperationLogs.rangeEnd')"
           />
         </el-form-item>
 
@@ -69,7 +69,7 @@
             :loading="exporting"
             @click="exportLogs"
           >
-            <el-icon><Download /></el-icon> 导出 CSV
+            <el-icon><Download /></el-icon> {{ t('adminOperationLogs.exportCsv') }}
           </el-button>
         </el-form-item>
       </FilterBar>
@@ -86,12 +86,12 @@
     >
       <el-table-column
         prop="id"
-        label="ID"
+        :label="t('adminOperationLogs.colId')"
         width="80"
       />
       <el-table-column
         prop="action_type"
-        label="操作类型"
+        :label="t('adminOperationLogs.colActionType')"
         width="160"
       >
         <template #default="{ row }">
@@ -105,7 +105,7 @@
       </el-table-column>
       <el-table-column
         prop="operator_role"
-        label="操作者角色"
+        :label="t('adminOperationLogs.colOperatorRole')"
         width="120"
       >
         <template #default="{ row }">
@@ -120,29 +120,29 @@
       </el-table-column>
       <el-table-column
         prop="target_type"
-        label="目标类型"
+        :label="t('adminOperationLogs.colTargetType')"
         width="140"
       />
       <el-table-column
         prop="target_id"
-        label="目标ID"
+        :label="t('adminOperationLogs.colTargetId')"
         width="120"
       />
       <el-table-column
         prop="created_at"
-        label="时间"
+        :label="t('adminOperationLogs.colCreatedAt')"
         min-width="180"
       />
       <el-table-column
-        label="操作"
+        :label="t('adminOperationLogs.colOperation')"
         width="160"
         fixed="right"
       >
         <template #default="{ row }">
           <ActionColumn
-            label="查看详情"
+            :label="t('adminOperationLogs.actionViewDetail')"
             :disabled="!canAuditDetail"
-            disabled-reason="无审计权限"
+            :disabled-reason="t('adminOperationLogs.detailNoPermission')"
             show-audit
             @action="openDetail(row)"
           />
@@ -152,7 +152,7 @@
 
     <el-dialog
       v-model="detailVisible"
-      title="日志详情"
+      :title="t('adminOperationLogs.detailTitle')"
       width="620px"
       @closed="current = null"
     >
@@ -162,13 +162,13 @@
           :disabled="!current"
           @click="copyDetail"
         >
-          复制详情
+          {{ t('adminOperationLogs.copyDetail') }}
         </el-button>
         <el-button
           type="primary"
           @click="detailVisible = false"
         >
-          关闭
+          {{ t('common.close') }}
         </el-button>
       </template>
     </el-dialog>
@@ -177,6 +177,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import { adminApi, type OperationLogItem } from '@/api/adminApi'
@@ -185,12 +186,14 @@ import FilterBar from '@/components/common/FilterBar.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import type { ActionType } from '@/types/contracts'
-import { hasPermission } from '@/types/permission'
+import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
-import { sanitizeCellForExcel } from '@/utils/exportUtils'
+// ISS-052 修复：复用 exportToCSV 统一公式注入防护与单元格转义，消除手动拼接
+import { exportToCSV } from '@/utils/exportUtils'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const queryState = useListQueryState('aol')
 
@@ -228,11 +231,18 @@ const getRoleTagType = (role: string): 'success' | 'warning' | 'danger' | 'info'
   return map[role] || 'info'
 }
 
-const getRoleLabel = (role: string) => {
-  const map: Record<string, string> = { user: '用户', counselor: '咨询师', admin: '管理员' }
-  return map[role] || role
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  user: 'role.user',
+  counselor: 'role.counselor',
+  admin: 'role.admin'
 }
 
+const getRoleLabel = (role: string): string => {
+  const key = ROLE_LABEL_KEYS[role]
+  return key ? t(key) : role
+}
+
+// ISS-060 备注：safeJson 在 copyDetail 中使用（非模板），保留不删除
 const safeJson = (value: Record<string, unknown> | null) => JSON.stringify(value ?? {}, null, 2)
 
 const fetchData = async () => {
@@ -250,7 +260,7 @@ const fetchData = async () => {
     rows.value = data.items
     total.value = data.total
   } catch (error) {
-    pageError.value = showHttpFeedback(error, '日志加载失败').detail
+    pageError.value = showHttpFeedback(error, t('adminOperationLogs.loadFailed')).detail
   } finally {
     loading.value = false
   }
@@ -261,40 +271,42 @@ const onPageSizeChange = async (value: number) => { await queryState.setQuery({ 
 const handleSearch = async () => { await queryState.setQuery({ page: 1, action_type: filters.actionType, operator_role: filters.operatorRole, operator_name: filters.operatorName, start_time: filters.range?.[0], end_time: filters.range?.[1] }); fetchData() }
 const handleReset = async () => { filters.actionType = undefined; filters.operatorRole = ''; filters.operatorName = ''; filters.range = []; await queryState.setQuery({ page: 1, action_type: undefined, operator_role: undefined, operator_name: undefined, start_time: undefined, end_time: undefined }); fetchData() }
 
-const exportLogs = () => {
+const exportLogs = async () => {
   exporting.value = true
   try {
-    const headers = ['ID', '操作类型', '操作者角色', '目标类型', '目标ID', '时间']
-    // P1-FE-006 修复：对每个单元格调用 sanitizeCellForExcel 防止 CSV 公式注入
-    const csvContent = [
-      headers.map((h) => `"${sanitizeCellForExcel(String(h)).replace(/"/g, '""')}"`).join(','),
-      ...rows.value.map((row) => [
-        row.id,
-        row.action_type,
-        row.operator_role,
-        row.target_type,
-        row.target_id,
-        row.created_at
-      ].map((v) => `"${sanitizeCellForExcel(String(v)).replace(/"/g, '""')}"`).join(','))
-    ].join('\n')
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `operation_logs_${new Date().toISOString().slice(0, 10)}.csv`
-    link.click()
-    URL.revokeObjectURL(link.href)
-    ElMessage.success('日志导出成功')
-  } catch {
-    ElMessage.error('导出失败')
+    // ISS-080: 调用后端导出接口获取全部筛选结果，而非仅导出当前页
+    const data = await adminApi.exportAdminOperationLogs({
+      action_type: filters.actionType,
+      operator_role: filters.operatorRole || undefined,
+      start_time: filters.range?.[0],
+      end_time: filters.range?.[1]
+    })
+    const allRows = data.items
+    // ISS-052 修复：复用 exportToCSV，内部统一调用 sanitizeCellForExcel 防止公式注入
+    exportToCSV(
+      allRows as unknown as Record<string, unknown>[],
+      [
+        { key: 'id', label: t('adminOperationLogs.csvHeaderId') },
+        { key: 'action_type', label: t('adminOperationLogs.csvHeaderActionType') },
+        { key: 'operator_role', label: t('adminOperationLogs.csvHeaderOperatorRole') },
+        { key: 'target_type', label: t('adminOperationLogs.csvHeaderTargetType') },
+        { key: 'target_id', label: t('adminOperationLogs.csvHeaderTargetId') },
+        { key: 'created_at', label: t('adminOperationLogs.csvHeaderCreatedAt') }
+      ],
+      `operation_logs_${new Date().toISOString().slice(0, 10)}.csv`
+    )
+    ElMessage.success(t('adminOperationLogs.exportSuccess', { count: allRows.length }))
+  } catch (error) {
+    showHttpFeedback(error, t('adminOperationLogs.exportFailed'))
   } finally {
     exporting.value = false
   }
 }
 
 const openDetail = (row: Record<string, unknown>) => {
+  // ISS-013 修复：权限不足改为行级 ElMessage.warning 提示，避免污染页面级 pageError 导致整页错误
   if (!canAuditDetail) {
-    pageError.value = '无权限查看审计详情'
+    ElMessage.warning(t('adminOperationLogs.noAuditPermission'))
     return
   }
   current.value = row
@@ -305,9 +317,9 @@ const copyDetail = async () => {
   if (!current.value) return
   try {
     await navigator.clipboard.writeText(safeJson(current.value))
-    ElMessage.success('已复制日志详情')
+    ElMessage.success(t('adminOperationLogs.copySuccess'))
   } catch {
-    ElMessage.error('复制失败，请手动选择内容复制')
+    ElMessage.error(t('adminOperationLogs.copyFailed'))
   }
 }
 

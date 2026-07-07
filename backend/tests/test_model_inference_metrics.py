@@ -1,10 +1,10 @@
 """模型推理指标追踪测试 (v1.32)"""
+
 from __future__ import annotations
 
 import pytest
 
 from app.core.metrics import (
-    model_inference_duration_seconds,
     model_inference_total,
     render_exposition,
     reset_registry,
@@ -54,7 +54,10 @@ def test_track_model_inference_duration() -> None:
     assert 'model_inference_duration_seconds_count{model_name="test_model"} 1' in body
     assert 'model_inference_duration_seconds_sum{model_name="test_model"}' in body
     # bucket 也应存在
-    assert 'model_inference_duration_seconds_bucket{model_name="test_model",le="+Inf"} 1' in body
+    assert (
+        'model_inference_duration_seconds_bucket{model_name="test_model",le="+Inf"} 1'
+        in body
+    )
 
 
 def test_track_model_inference_metrics_failure_does_not_break() -> None:

@@ -1,25 +1,24 @@
 <template>
-  <el-card>
-    <template #header>
-      我的预警
-    </template>
-
+  <BentoCell
+    :title="t('userWarnings.title')"
+    class="warnings-card bento-item"
+  >
     <FilterBar
       @search="fetchData"
       @reset="handleReset"
     >
-      <el-form-item label="状态">
+      <el-form-item :label="t('userWarnings.filterStatusLabel')">
         <el-select
           v-model="filters.isRead"
           clearable
           style="width: 140px"
         >
           <el-option
-            label="未读"
+            :label="t('userWarnings.filterUnread')"
             :value="false"
           />
           <el-option
-            label="已读"
+            :label="t('userWarnings.filterRead')"
             :value="true"
           />
         </el-select>
@@ -29,10 +28,10 @@
           type="primary"
           plain
           :loading="bulkLoading"
-          :disabled="!rows.some((row) => !row.is_read)"
+          :disabled="!hasUnreadRows"
           @click="handleMarkAllRead"
         >
-          全部标记已读
+          {{ t('userWarnings.btnMarkAllRead') }}
         </el-button>
       </el-form-item>
     </FilterBar>
@@ -41,9 +40,14 @@
       :loading="loading"
       :empty="!loading && rows.length === 0"
       :error-message="pageError"
-      empty-text="暂无预警数据"
+      :empty-text="t('userWarnings.emptyText')"
       @retry="fetchData"
     >
+      <!-- L-29 优化说明：大数据列表渲染优化
+           该页面已通过 PageTable 实现服务端分页（仅渲染当前 page_size 条数据），
+           DOM 节点数量受 page_size 限制，性能影响较小。
+           若后续需在单页渲染超大量数据（如关闭分页或 page_size > 200），
+           建议迁移至 el-table-v2（虚拟滚动版本）以避免全量 DOM 渲染。 -->
       <PageTable
         :loading="loading"
         :data="rows"
@@ -56,16 +60,16 @@
       >
         <el-table-column
           prop="id"
-          label="ID"
+          :label="t('userWarnings.colId')"
           width="80"
         />
         <el-table-column
           prop="title"
-          label="标题"
+          :label="t('userWarnings.colTitle')"
           min-width="180"
         />
         <el-table-column
-          label="内容摘要"
+          :label="t('userWarnings.colContent')"
           min-width="220"
         >
           <template #default="{ row }">
@@ -73,7 +77,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          label="风险等级"
+          :label="t('userWarnings.colRiskLevel')"
           width="120"
         >
           <template #default="{ row }">
@@ -86,7 +90,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          label="处理状态"
+          :label="t('userWarnings.colStatus')"
           width="120"
         >
           <template #default="{ row }">
@@ -99,7 +103,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          label="已读状态"
+          :label="t('userWarnings.colReadStatus')"
           width="100"
         >
           <template #default="{ row }">
@@ -107,13 +111,13 @@
               :type="row.is_read ? 'success' : 'warning'"
               size="small"
             >
-              {{ row.is_read ? '已读' : '未读' }}
+              {{ row.is_read ? t('userWarnings.readLabel') : t('userWarnings.unreadLabel') }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column
           prop="created_at"
-          label="时间"
+          :label="t('userWarnings.colTime')"
           min-width="180"
         >
           <template #default="{ row }">
@@ -121,19 +125,19 @@
           </template>
         </el-table-column>
         <el-table-column
-          label="处理记录"
+          :label="t('userWarnings.colHandleRecord')"
           min-width="240"
         >
           <template #default="{ row }">
             <div class="row-meta">
-              <span>处理人：{{ row.handled_by || '—' }}</span>
-              <span>处理时间：{{ formatWarningDateTime(row.handled_at) }}</span>
-              <span>备注：{{ row.handled_note || '—' }}</span>
+              <span>{{ t('userWarnings.handlerLabel') }}{{ row.handled_by || '—' }}</span>
+              <span>{{ t('userWarnings.handleTimeLabel') }}{{ formatWarningDateTime(row.handled_at) }}</span>
+              <span>{{ t('userWarnings.handleNoteLabel') }}{{ row.handled_note || '—' }}</span>
             </div>
           </template>
         </el-table-column>
         <el-table-column
-          label="行内提示"
+          :label="t('userWarnings.colInlineHint')"
           min-width="200"
         >
           <template #default="{ row }">
@@ -148,18 +152,18 @@
           </template>
         </el-table-column>
         <el-table-column
-          label="模态信息"
+          :label="t('userWarnings.colModalInfo')"
           min-width="180"
         >
           <template #default="{ row }">
             <div class="row-meta">
-              <span>生理分数：{{ row.physiological_score ?? '—' }}</span>
-              <span>融合详情：{{ row.fusion_detail ? '已包含' : '—' }}</span>
+              <span>{{ t('userWarnings.physiologicalScoreLabel') }}{{ row.physiological_score ?? '—' }}</span>
+              <span>{{ t('userWarnings.fusionDetailLabel') }}{{ row.fusion_detail ? t('userWarnings.fusionIncluded') : '—' }}</span>
             </div>
           </template>
         </el-table-column>
         <el-table-column
-          label="操作"
+          :label="t('userWarnings.colOperation')"
           width="140"
           fixed="right"
         >
@@ -172,38 +176,41 @@
               :disabled="row.is_read || isRowPending(row.id)"
               @click="handleMarkRead(row)"
             >
-              标记已读
+              {{ t('userWarnings.btnMarkRead') }}
             </el-button>
             <el-tag
               v-else
               type="info"
               size="small"
             >
-              无追踪权限
+              {{ t('userWarnings.noTrackPermission') }}
             </el-tag>
           </template>
         </el-table-column>
       </PageTable>
     </StatefulContainer>
-  </el-card>
+  </BentoCell>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { userApi, type WarningItem } from '@/api/userApi'
 import FilterBar from '@/components/common/FilterBar.vue'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import PageTable from '@/components/common/PageTable.vue'
+import BentoCell from '@/components/common/BentoCell.vue'
 import { mockWarnings } from '@/mocks/business'
 import { withMockFallback } from '@/utils/mockFallback'
 import { getErrorDetail } from '@/utils/errorDetail'
 import { normalizeHttpError } from '@/utils/errorPolicy'
-import { hasPermission } from '@/types/permission'
+import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { formatWarningDateTime, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const queryState = useListQueryState('uw')
 
@@ -215,6 +222,8 @@ const bulkLoading = ref(false)
 
 const page = computed(() => queryState.page.value)
 const pageSize = computed(() => queryState.pageSize.value)
+// R-009 修复：将模板中的 rows.some() 提取为 computed，避免每次渲染都重新遍历数组
+const hasUnreadRows = computed(() => rows.value.some((row) => !row.is_read))
 
 const rowPendingIds = ref<Set<number>>(new Set())
 const rowErrors = ref<Record<number, string>>({})
@@ -276,7 +285,7 @@ const fetchData = async () => {
   if (!canReadWarning()) {
     rows.value = []
     total.value = 0
-    pageError.value = '无权限查看预警列表'
+    pageError.value = t('userWarnings.noReadPermission')
     return
   }
 
@@ -292,7 +301,7 @@ const fetchData = async () => {
     total.value = data.total
     clearTransientRowState()
   } catch (error) {
-    pageError.value = normalizeHttpError(error, '预警列表加载失败').detail
+    pageError.value = normalizeHttpError(error, t('userWarnings.loadFailed')).detail
   } finally {
     loading.value = false
   }
@@ -302,7 +311,7 @@ const handleMarkRead = async (row: WarningItem) => {
   if (row.is_read || isRowPending(row.id)) return
 
   try {
-    await ElMessageBox.confirm('确认将该预警标记为已读吗？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm(t('userWarnings.markReadConfirm'), t('common.info'), { type: 'warning' })
   } catch {
     return
   }
@@ -315,10 +324,10 @@ const handleMarkRead = async (row: WarningItem) => {
   try {
     await userApi.markUserWarningRead(row.id)
     highlightRowFor2s(row.id)
-    ElMessage.success('已标记为已读')
+    ElMessage.success(t('userWarnings.markReadSuccess'))
   } catch (error) {
     row.is_read = previousIsRead
-    setRowError(row.id, getErrorDetail(error, '标记已读失败，请稍后重试'))
+    setRowError(row.id, getErrorDetail(error, t('userWarnings.markReadFailed')))
   } finally {
     setRowPending(row.id, false)
   }
@@ -332,19 +341,19 @@ const handleMarkAllRead = async () => {
   try {
     await userApi.markAllWarningsRead()
     unread.forEach((row) => { row.is_read = true; highlightRowFor2s(row.id) })
-    ElMessage.success('已全部标记为已读')
+    ElMessage.success(t('userWarnings.markAllReadSuccess'))
     await fetchData()
   } catch (error) {
-    ElMessage.error(normalizeHttpError(error, '批量标记失败').detail)
+    ElMessage.error(normalizeHttpError(error, t('userWarnings.bulkMarkFailed')).detail)
   } finally {
     bulkLoading.value = false
   }
 }
 
-const handleReset = () => {
+const handleReset = async () => {
   filters.isRead = undefined
   clearTransientRowState()
-  queryState.setQuery({ page: 1 })
+  await queryState.setQuery({ page: 1 })
   fetchData()
 }
 
@@ -359,24 +368,24 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .row-error {
-  color: #f56c6c;
+  color: var(--danger-color);
 }
 
 .row-ok {
-  color: #909399;
+  color: var(--text-secondary);
 }
 
 .row-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 :deep(.row-highlight-success) {
-  --el-table-tr-bg-color: #f0f9eb;
+  --el-table-tr-bg-color: var(--success-light);
 }
 
 :deep(.row-highlight-error) {
-  --el-table-tr-bg-color: #fef0f0;
+  --el-table-tr-bg-color: var(--danger-light);
 }
 </style>

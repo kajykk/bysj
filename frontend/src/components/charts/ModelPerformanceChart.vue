@@ -9,8 +9,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
 import type { EChartsCoreOption } from 'echarts/core'
+
+const { t } = useI18n()
 
 interface ModelMetric {
   name: string
@@ -30,9 +33,11 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   height: '300px',
-  title: '模型性能对比',
+  title: undefined,
   autoResize: true,
 })
+
+const effectiveTitle = computed(() => props.title ?? t('charts.modelPerformanceTitle'))
 
 const emit = defineEmits<{
   chartReady: [instance: unknown]
@@ -47,7 +52,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
 
   return {
     title: {
-      text: props.title,
+      text: effectiveTitle.value,
       left: 'center',
       textStyle: {
         fontSize: 16,
@@ -85,7 +90,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
     toolbox: {
       feature: {
         saveAsImage: {
-          title: '保存图片',
+          title: t('charts.saveImage'),
         },
       },
     },
@@ -94,31 +99,31 @@ const chartOption = computed<EChartsCoreOption>(() => {
         name: 'Accuracy',
         type: 'bar',
         data: props.data.map((d) => d.accuracy),
-        itemStyle: { color: '#409eff' },
+        itemStyle: { color: '#3b82c4' },
       },
       {
         name: 'Precision',
         type: 'bar',
         data: props.data.map((d) => d.precision),
-        itemStyle: { color: '#67c23a' },
+        itemStyle: { color: '#5a9e3a' },
       },
       {
         name: 'Recall',
         type: 'bar',
         data: props.data.map((d) => d.recall),
-        itemStyle: { color: '#e6a23c' },
+        itemStyle: { color: '#d4923a' },
       },
       {
         name: 'F1',
         type: 'bar',
         data: props.data.map((d) => d.f1),
-        itemStyle: { color: '#f56c6c' },
+        itemStyle: { color: '#d65a5a' },
       },
       {
         name: 'AUC',
         type: 'bar',
         data: props.data.map((d) => d.auc),
-        itemStyle: { color: '#909399' },
+        itemStyle: { color: '#7a8290' },
       },
     ],
   }

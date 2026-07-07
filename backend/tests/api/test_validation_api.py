@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 class TestValidationApi:
     """Test validation API endpoints."""
@@ -17,13 +15,17 @@ class TestValidationApi:
     def test_get_status_not_found(self, client, auth_headers, as_role):
         """TC-COV-API-026: Get status for non-existent job returns 404 (v1.31: 需 admin 角色)."""
         as_role("admin", 1)
-        response = client.get("/api/v1/validation/nonexistent-id/status", headers=auth_headers)
+        response = client.get(
+            "/api/v1/validation/nonexistent-id/status", headers=auth_headers
+        )
         assert response.status_code in (200, 404, 500)
 
     def test_get_results_not_found(self, client, auth_headers, as_role):
         """TC-COV-API-027: Get results for non-existent job returns 404 (v1.31: 需 admin 角色)."""
         as_role("admin", 1)
-        response = client.get("/api/v1/validation/nonexistent-id/results", headers=auth_headers)
+        response = client.get(
+            "/api/v1/validation/nonexistent-id/results", headers=auth_headers
+        )
         assert response.status_code in (200, 404, 500)
 
     def test_list_jobs(self, client, auth_headers, as_role):

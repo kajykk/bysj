@@ -1,4 +1,5 @@
 """Admin metrics summary 端点测试 (v1.32)"""
+
 from __future__ import annotations
 
 import pytest

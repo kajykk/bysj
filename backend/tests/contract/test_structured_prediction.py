@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from app.main import app
 
@@ -25,7 +26,9 @@ class TestStructuredPredictionContract:
         exercise_minutes=st.floats(min_value=0.0, max_value=300.0),
         heart_rate_avg=st.floats(min_value=40.0, max_value=200.0),
     )
-    def test_valid_structured_input_returns_prediction(self, sleep_hours, exercise_minutes, heart_rate_avg):
+    def test_valid_structured_input_returns_prediction(
+        self, sleep_hours, exercise_minutes, heart_rate_avg
+    ):
         """TC-CNT-HP-001: Valid structured input returns prediction with required fields."""
         response = client.post(
             "/api/v1/predict/structured",

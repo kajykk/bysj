@@ -37,7 +37,9 @@ class TestUnifiedModelInterface:
         """Create a mock model."""
         model = MagicMock()
         model.predict.return_value = np.array([1, 0, 1])
-        model.predict_proba.return_value = np.array([[0.2, 0.8], [0.7, 0.3], [0.1, 0.9]])
+        model.predict_proba.return_value = np.array(
+            [[0.2, 0.8], [0.7, 0.3], [0.1, 0.9]]
+        )
         model.get_version.return_value = {"model_name": "test", "model_version": "1.0"}
         model.get_latency.return_value = 5.0
         return model
@@ -47,7 +49,9 @@ class TestUnifiedModelInterface:
         """Create a mock fallback model."""
         model = MagicMock()
         model.predict.return_value = np.array([0, 1, 0])
-        model.predict_proba.return_value = np.array([[0.6, 0.4], [0.3, 0.7], [0.8, 0.2]])
+        model.predict_proba.return_value = np.array(
+            [[0.6, 0.4], [0.3, 0.7], [0.8, 0.2]]
+        )
         return model
 
     def test_model_wrapper_predict(self, mock_model: MagicMock) -> None:
@@ -79,7 +83,9 @@ class TestUnifiedModelInterface:
         assert "model_name" in version
         assert "model_version" in version
 
-    def test_model_wrapper_fallback(self, mock_model: MagicMock, mock_fallback: MagicMock) -> None:
+    def test_model_wrapper_fallback(
+        self, mock_model: MagicMock, mock_fallback: MagicMock
+    ) -> None:
         """TC-GOV-005: 验证回退机制."""
         wrapper = UnifiedModelWrapper(mock_model, "test")
         wrapper.set_fallback(mock_fallback)
@@ -103,12 +109,16 @@ class TestUnifiedModelInterface:
         assert retrieved is not None
         assert retrieved.model_type == "test"
 
-    def test_model_registry_fallback_chain(self, mock_model: MagicMock, mock_fallback: MagicMock) -> None:
+    def test_model_registry_fallback_chain(
+        self, mock_model: MagicMock, mock_fallback: MagicMock
+    ) -> None:
         """TC-GOV-006: 验证回退链设置."""
         registry = ModelRegistry()
         registry.register("primary", mock_model, "test")
         registry.register("fallback", mock_fallback, "test")
-        registry.register("main", mock_model, "test", fallback_names=["primary", "fallback"])
+        registry.register(
+            "main", mock_model, "test", fallback_names=["primary", "fallback"]
+        )
 
         registry.setup_fallback_chain("main")
 
@@ -137,7 +147,9 @@ class TestUnifiedModelInterface:
         assert any(m["name"] == "model1" for m in models)
         assert any(m["name"] == "model2" for m in models)
 
-    def test_fallback_on_predict_proba(self, mock_model: MagicMock, mock_fallback: MagicMock) -> None:
+    def test_fallback_on_predict_proba(
+        self, mock_model: MagicMock, mock_fallback: MagicMock
+    ) -> None:
         """TC-GOV-009: 验证概率预测回退."""
         wrapper = UnifiedModelWrapper(mock_model, "test")
         wrapper.set_fallback(mock_fallback)

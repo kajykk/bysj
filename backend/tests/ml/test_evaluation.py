@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from app.ml.evaluation import (
     compute_calibration_curve,
@@ -91,7 +90,9 @@ class TestComputeShapValues:
         def mock_predict(X):
             return X[:, 0] + X[:, 1]
 
-        result = compute_shap_values_approximation(X, feature_names, mock_predict, n_samples=3)
+        result = compute_shap_values_approximation(
+            X, feature_names, mock_predict, n_samples=3
+        )
         assert "feature_importances" in result
         assert "sorted_features" in result
         assert len(result["sorted_features"]) == 2
@@ -119,5 +120,11 @@ class TestGenerateEvaluationReport:
         def mock_predict(X):
             return X[:, 0]
 
-        result = generate_evaluation_report(y_true, y_pred, feature_names=feature_names, model_predict_fn=mock_predict, X=X)
+        result = generate_evaluation_report(
+            y_true,
+            y_pred,
+            feature_names=feature_names,
+            model_predict_fn=mock_predict,
+            X=X,
+        )
         assert "shap_values" in result

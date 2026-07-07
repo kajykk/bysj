@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
+from pathlib import Path
 
 from .core import HarnessRun
 
@@ -17,7 +17,11 @@ class HarnessReporter:
         if isinstance(value, (str, int, float, bool)) or value is None:
             return value
         if isinstance(value, dict):
-            return {str(k): self._safe_value(v, seen) for k, v in value.items() if k != "client" and k != "session"}
+            return {
+                str(k): self._safe_value(v, seen)
+                for k, v in value.items()
+                if k != "client" and k != "session"
+            }
         if isinstance(value, (list, tuple)):
             return [self._safe_value(item, seen) for item in value]
         if hasattr(value, "model_dump"):
@@ -54,7 +58,9 @@ class HarnessReporter:
                 for result in run.results
             ],
         }
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         return path
 
     def write_markdown(self, run: HarnessRun, name: str = "harness-report.md") -> Path:
@@ -70,10 +76,23 @@ class HarnessReporter:
             "| --- | --- | --- | ---: | --- |",
         ]
         for result in run.results:
-            steps = result.details.get("steps", []) if isinstance(result.details, dict) else []
-            request_ids = ", ".join(
-                sorted({step.get("request_id") for step in steps if isinstance(step, dict) and step.get("request_id")})
-            ) or "-"
+            steps = (
+                result.details.get("steps", [])
+                if isinstance(result.details, dict)
+                else []
+            )
+            request_ids = (
+                ", ".join(
+                    sorted(
+                        {
+                            step.get("request_id")
+                            for step in steps
+                            if isinstance(step, dict) and step.get("request_id")
+                        }
+                    )
+                )
+                or "-"
+            )
             lines.append(
                 f"| {result.name} | {result.kind} | {'yes' if result.passed else 'no'} | {result.duration_ms:.2f} | {request_ids} |"
             )

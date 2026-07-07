@@ -5,17 +5,16 @@ T-QA-002 融合逻辑集成测试
 验证标准: 融合输出在预期范围内
 """
 
-import pytest
+from typing import Dict, List, Tuple
+
 import numpy as np
-from typing import List, Dict, Tuple
+import pytest
 
 pytestmark = pytest.mark.integration
 
 
 def weighted_fusion(
-    predictions: List[float],
-    weights: List[float],
-    method: str = "weighted_average"
+    predictions: List[float], weights: List[float], method: str = "weighted_average"
 ) -> float:
     """
     多模型融合逻辑
@@ -56,7 +55,7 @@ def weighted_fusion(
 def ensemble_predict(
     model_predictions: Dict[str, float],
     model_weights: Dict[str, float],
-    method: str = "weighted_average"
+    method: str = "weighted_average",
 ) -> Tuple[float, Dict[str, float]]:
     """
     集成预测：返回融合结果和各个模型的贡献
@@ -89,9 +88,9 @@ class TestWeightedFusion:
 
         # 等权重融合应等于平均值
         expected = sum(predictions) / len(predictions)
-        assert abs(result - expected) < 1e-6, (
-            f"等权重融合结果应为 {expected}，实际为 {result}"
-        )
+        assert (
+            abs(result - expected) < 1e-6
+        ), f"等权重融合结果应为 {expected}，实际为 {result}"
 
     def test_unequal_weights_fusion(self):
         """测试不等权重融合"""
@@ -102,9 +101,9 @@ class TestWeightedFusion:
 
         # 归一化权重: [0.25, 0.5, 0.25]
         expected = 0.3 * 0.25 + 0.5 * 0.5 + 0.7 * 0.25
-        assert abs(result - expected) < 1e-6, (
-            f"不等权重融合结果应为 {expected}，实际为 {result}"
-        )
+        assert (
+            abs(result - expected) < 1e-6
+        ), f"不等权重融合结果应为 {expected}，实际为 {result}"
 
     def test_single_model_fusion(self):
         """测试单模型融合"""
@@ -195,9 +194,9 @@ class TestEnsemblePredict:
         fused, contributions = ensemble_predict(model_predictions, model_weights)
 
         total_contribution = sum(contributions.values())
-        assert abs(fused - total_contribution) < 1e-6, (
-            f"贡献值之和 {total_contribution} 应等于融合结果 {fused}"
-        )
+        assert (
+            abs(fused - total_contribution) < 1e-6
+        ), f"贡献值之和 {total_contribution} 应等于融合结果 {fused}"
 
 
 class TestFusionMethods:

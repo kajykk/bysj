@@ -7,7 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.model_engine import model_engine
-from app.models.assessment import DataDraft, PhysiologicalRecord, StructuredAssessment, TextEntry
+from app.models.assessment import (
+    DataDraft,
+    PhysiologicalRecord,
+    StructuredAssessment,
+    TextEntry,
+)
 from app.models.risk import RiskAssessment
 from app.services.risk_service import RiskService
 
@@ -47,9 +52,17 @@ class UserDataService:
 
         if assessment_type == "text":
             sentiment = result.get("sentiment_score")
-            text_score = round(sentiment * 100, 2) if sentiment is not None else result.get("risk_score")
+            text_score = (
+                round(sentiment * 100, 2)
+                if sentiment is not None
+                else result.get("risk_score")
+            )
         elif assessment_type == "physiological":
-            physio_score = result.get("risk_score") if result.get("risk_score") is not None else None
+            physio_score = (
+                result.get("risk_score")
+                if result.get("risk_score") is not None
+                else None
+            )
 
         models_used = result.get("model_used", [])
         if isinstance(models_used, str):
@@ -58,22 +71,30 @@ class UserDataService:
         if assessment_type == "physiological":
             risk_factors = self._generate_physio_factors(result, payload)
         elif assessment_type == "text":
-            risk_factors = result.get("risk_factors", result.get("crisis_keywords", [])) or []
+            risk_factors = (
+                result.get("risk_factors", result.get("crisis_keywords", [])) or []
+            )
         else:
             risk_factors = result.get("risk_factors") or []
 
-        risk_score_value = result.get("risk_score") or 0
-        if risk_score_value <= 0:
-            logger.info(
-                "Skipped saving %s assessment for user %s (risk_score=%s, empty input likely)",
-                assessment_type, user_id, risk_score_value,
+        # C-04 修复：使用显式 None 检查，避免合法的 0 分被跳过保存
+        raw_score = result.get("risk_score")
+        risk_score_value = float(raw_score) if raw_score is not None else 0.0
+        if risk_score_value < 0:
+            logger.warning(
+                "Skipped saving %s assessment for user %s (invalid risk_score=%s)",
+                assessment_type,
+                user_id,
+                risk_score_value,
             )
             return
 
         risk = RiskAssessment(
             user_id=user_id,
             risk_score=risk_score_value,
-            risk_level=result.get("risk_level") or 0,
+            risk_level=(
+                result.get("risk_level") if result.get("risk_level") is not None else 0
+            ),
             structured_score=structured_score,
             text_score=text_score,
             physiological_score=physio_score,
@@ -88,10 +109,14 @@ class UserDataService:
         await risk_service.generate_intervention_for_risk(risk)
 
     @staticmethod
-    def _generate_physio_factors(result: dict, payload: dict | None = None) -> list[dict]:
+    def _generate_physio_factors(
+        result: dict, payload: dict | None = None
+    ) -> list[dict]:
         """生成生理数据风险因素列表（从 model_predict.py 内联，避免反向依赖）。"""
         factors: list[dict] = []
-        physio_data = (payload or {}).get("physiological", {}) or result.get("physiological_data", {})
+        physio_data = (payload or {}).get("physiological", {}) or result.get(
+            "physiological_data", {}
+        )
         data_quality = result.get("data_quality", "partial")
 
         for key, label in _PHYSIO_FEATURE_LABELS.items():
@@ -101,9 +126,21 @@ class UserDataService:
                     try:
                         s = float(sleep)
                         if s < 6:
-                            factors.append({"feature": label, "importance": round((6 - s) / 6, 2), "direction": "睡眠不足"})
+                            factors.append(
+                                {
+                                    "feature": label,
+                                    "importance": round((6 - s) / 6, 2),
+                                    "direction": "睡眠不足",
+                                }
+                            )
                         elif s > 10:
-                            factors.append({"feature": label, "importance": 0.5, "direction": "睡眠过长"})
+                            factors.append(
+                                {
+                                    "feature": label,
+                                    "importance": 0.5,
+                                    "direction": "睡眠过长",
+                                }
+                            )
                     except (TypeError, ValueError):
                         pass
             elif key == "heart_rate":
@@ -112,7 +149,13 @@ class UserDataService:
                     try:
                         h = float(hr)
                         if h >= 90:
-                            factors.append({"feature": label, "importance": min(round((h - 80) / 30, 2), 1.0), "direction": "偏高"})
+                            factors.append(
+                                {
+                                    "feature": label,
+                                    "importance": min(round((h - 80) / 30, 2), 1.0),
+                                    "direction": "偏高",
+                                }
+                            )
                     except (TypeError, ValueError):
                         pass
             elif key == "steps":
@@ -121,7 +164,15 @@ class UserDataService:
                     try:
                         st = float(steps)
                         if st < 3000:
-                            factors.append({"feature": label, "importance": min(round((3000 - st) / 3000, 2), 1.0), "direction": "活动过少"})
+                            factors.append(
+                                {
+                                    "feature": label,
+                                    "importance": min(
+                                        round((3000 - st) / 3000, 2), 1.0
+                                    ),
+                                    "direction": "活动过少",
+                                }
+                            )
                     except (TypeError, ValueError):
                         pass
             elif key == "exercise_minutes":
@@ -130,31 +181,52 @@ class UserDataService:
                     try:
                         e = float(ex)
                         if e < 15:
-                            factors.append({"feature": label, "importance": min(round((15 - e) / 15, 2), 1.0), "direction": "运动不足"})
+                            factors.append(
+                                {
+                                    "feature": label,
+                                    "importance": min(round((15 - e) / 15, 2), 1.0),
+                                    "direction": "运动不足",
+                                }
+                            )
                     except (TypeError, ValueError):
                         pass
 
         if not factors and data_quality == "poor":
-            factors.append({"feature": "数据质量", "importance": 0.5, "direction": "生理数据不足，建议补充更多指标"})
+            factors.append(
+                {
+                    "feature": "数据质量",
+                    "importance": 0.5,
+                    "direction": "生理数据不足，建议补充更多指标",
+                }
+            )
 
         factors.sort(key=lambda f: f["importance"], reverse=True)
         return factors[:5]
 
-    async def upsert_draft(self, user_id: int, draft_type: str, data_payload: dict) -> int:
-        stmt = select(DataDraft).where(DataDraft.user_id == user_id, DataDraft.draft_type == draft_type)
+    async def upsert_draft(
+        self, user_id: int, draft_type: str, data_payload: dict
+    ) -> int:
+        stmt = select(DataDraft).where(
+            DataDraft.user_id == user_id, DataDraft.draft_type == draft_type
+        )
         draft = (await self.db.execute(stmt)).scalar_one_or_none()
         if draft:
             draft.data_payload = data_payload
-            draft.updated_at = datetime.now(UTC)
+            # M-33 修复：DataDraft.updated_at 为 naive DateTime 列，需用 naive UTC 与其他列保持一致
+            draft.updated_at = datetime.now(UTC).replace(tzinfo=None)
         else:
-            draft = DataDraft(user_id=user_id, draft_type=draft_type, data_payload=data_payload)
+            draft = DataDraft(
+                user_id=user_id, draft_type=draft_type, data_payload=data_payload
+            )
             self.db.add(draft)
         await self.db.commit()
         await self.db.refresh(draft)
         return draft.id
 
     async def get_draft(self, user_id: int, draft_type: str) -> DataDraft | None:
-        stmt = select(DataDraft).where(DataDraft.user_id == user_id, DataDraft.draft_type == draft_type)
+        stmt = select(DataDraft).where(
+            DataDraft.user_id == user_id, DataDraft.draft_type == draft_type
+        )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
     async def analyze_text(
@@ -176,18 +248,25 @@ class UserDataService:
         await self.db.flush()
 
         result = await model_engine.predict_text(content)
-        entry.sentiment_score = result["sentiment_score"]
-        entry.sentiment_label = result["sentiment_label"]
+        # M-Svc-11 修复：使用 .get() 防御 KeyError，避免模型返回结果缺少字段时崩溃
+        entry.sentiment_score = result.get("sentiment_score")
+        entry.sentiment_label = result.get("sentiment_label")
 
         risk_score = round(float(result.get("sentiment_score", 0)) * 100, 2)
         risk_result = {
             **result,
             "risk_score": risk_score,
-            "risk_level": result.get("risk_level") if result.get("risk_level") is not None else model_engine.score_to_level(risk_score, "text"),
+            "risk_level": (
+                result.get("risk_level")
+                if result.get("risk_level") is not None
+                else model_engine.score_to_level(risk_score, "text")
+            ),
         }
         # M18 修复：内联 save_assessment_result 逻辑，避免 services 层反向依赖 API 层
         # M19 修复：将 commit 移到 save_assessment_result 之后，确保文本记录和风险评估在同一事务内提交
-        await self._save_assessment_result(risk_result, user_id, "text", {"text": content})
+        await self._save_assessment_result(
+            risk_result, user_id, "text", {"text": content}
+        )
         await self.db.commit()
 
         return {
@@ -198,8 +277,15 @@ class UserDataService:
 
     async def record_physiological(self, user_id: int, payload: dict) -> int:
         allowed_fields = {
-            "source", "sleep_hours", "sleep_quality", "exercise_minutes",
-            "heart_rate", "systolic_bp", "diastolic_bp", "steps", "data_payload",
+            "source",
+            "sleep_hours",
+            "sleep_quality",
+            "exercise_minutes",
+            "heart_rate",
+            "systolic_bp",
+            "diastolic_bp",
+            "steps",
+            "data_payload",
         }
         safe_payload = {k: v for k, v in payload.items() if k in allowed_fields}
         if "data_payload" not in safe_payload or safe_payload["data_payload"] is None:
@@ -218,11 +304,15 @@ class UserDataService:
             "diastolic_bp": safe_payload.get("diastolic_bp"),
             "steps": safe_payload.get("steps"),
         }
-        prediction_payload = {k: v for k, v in prediction_payload.items() if v is not None}
+        prediction_payload = {
+            k: v for k, v in prediction_payload.items() if v is not None
+        }
         if prediction_payload:
             result = await model_engine.predict_physiological(prediction_payload)
             # M18 修复：内联 save_assessment_result 逻辑，避免 services 层反向依赖 API 层
-            await self._save_assessment_result(result, user_id, "physiological", {"physiological": prediction_payload})
+            await self._save_assessment_result(
+                result, user_id, "physiological", {"physiological": prediction_payload}
+            )
 
         await self.db.commit()
         await self.db.refresh(record)
@@ -248,14 +338,24 @@ class UserDataService:
                 .where(StructuredAssessment.user_id == user_id)
                 .order_by(StructuredAssessment.created_at.desc())
             )
-            count_stmt = select(func.count()).select_from(StructuredAssessment).where(StructuredAssessment.user_id == user_id)
+            count_stmt = (
+                select(func.count())
+                .select_from(StructuredAssessment)
+                .where(StructuredAssessment.user_id == user_id)
+            )
             if start_dt:
                 stmt = stmt.where(StructuredAssessment.created_at >= start_dt)
-                count_stmt = count_stmt.where(StructuredAssessment.created_at >= start_dt)
+                count_stmt = count_stmt.where(
+                    StructuredAssessment.created_at >= start_dt
+                )
             if end_dt:
                 stmt = stmt.where(StructuredAssessment.created_at <= end_dt)
                 count_stmt = count_stmt.where(StructuredAssessment.created_at <= end_dt)
-            rows = (await self.db.execute(stmt.offset(offset).limit(page_size))).scalars().all()
+            rows = (
+                (await self.db.execute(stmt.offset(offset).limit(page_size)))
+                .scalars()
+                .all()
+            )
             total = (await self.db.execute(count_stmt)).scalar_one()
             items = [
                 {
@@ -272,15 +372,27 @@ class UserDataService:
                 for row in rows
             ]
         elif normalized_type == "text":
-            stmt = select(TextEntry).where(TextEntry.user_id == user_id).order_by(TextEntry.created_at.desc())
-            count_stmt = select(func.count()).select_from(TextEntry).where(TextEntry.user_id == user_id)
+            stmt = (
+                select(TextEntry)
+                .where(TextEntry.user_id == user_id)
+                .order_by(TextEntry.created_at.desc())
+            )
+            count_stmt = (
+                select(func.count())
+                .select_from(TextEntry)
+                .where(TextEntry.user_id == user_id)
+            )
             if start_dt:
                 stmt = stmt.where(TextEntry.created_at >= start_dt)
                 count_stmt = count_stmt.where(TextEntry.created_at >= start_dt)
             if end_dt:
                 stmt = stmt.where(TextEntry.created_at <= end_dt)
                 count_stmt = count_stmt.where(TextEntry.created_at <= end_dt)
-            rows = (await self.db.execute(stmt.offset(offset).limit(page_size))).scalars().all()
+            rows = (
+                (await self.db.execute(stmt.offset(offset).limit(page_size)))
+                .scalars()
+                .all()
+            )
             total = (await self.db.execute(count_stmt)).scalar_one()
             items = [
                 {
@@ -304,15 +416,23 @@ class UserDataService:
                 .order_by(PhysiologicalRecord.recorded_at.desc())
             )
             count_stmt = (
-                select(func.count()).select_from(PhysiologicalRecord).where(PhysiologicalRecord.user_id == user_id)
+                select(func.count())
+                .select_from(PhysiologicalRecord)
+                .where(PhysiologicalRecord.user_id == user_id)
             )
             if start_dt:
                 stmt = stmt.where(PhysiologicalRecord.recorded_at >= start_dt)
-                count_stmt = count_stmt.where(PhysiologicalRecord.recorded_at >= start_dt)
+                count_stmt = count_stmt.where(
+                    PhysiologicalRecord.recorded_at >= start_dt
+                )
             if end_dt:
                 stmt = stmt.where(PhysiologicalRecord.recorded_at <= end_dt)
                 count_stmt = count_stmt.where(PhysiologicalRecord.recorded_at <= end_dt)
-            rows = (await self.db.execute(stmt.offset(offset).limit(page_size))).scalars().all()
+            rows = (
+                (await self.db.execute(stmt.offset(offset).limit(page_size)))
+                .scalars()
+                .all()
+            )
             total = (await self.db.execute(count_stmt)).scalar_one()
             items = [
                 {

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 class ModelStatus(Enum):
     """Model lifecycle statuses."""
+
     CANDIDATE = "candidate"
     STAGING = "staging"
     PRODUCTION = "production"
@@ -48,6 +49,7 @@ class ModelStatus(Enum):
 
 class ModelType(Enum):
     """Supported model types."""
+
     XGBOOST = "xgboost"
     LIGHTGBM = "lightgbm"
     MLP = "mlp"
@@ -58,6 +60,7 @@ class ModelType(Enum):
 @dataclass
 class ModelRecord:
     """A single model record in the registry."""
+
     model_id: str
     name: str
     version: str
@@ -123,7 +126,8 @@ class ModelRegistryV2:
                 for model_id, record_data in data.get("models", {}).items():
                     self.registry[model_id] = ModelRecord.from_dict(record_data)
                 logger.info("Loaded %d models from registry", len(self.registry))
-            except (json.JSONDecodeError, KeyError) as exc:
+            # M-Core-14 修复：扩大异常捕获范围，避免未知异常导致启动崩溃
+            except (json.JSONDecodeError, KeyError, OSError, ValueError) as exc:
                 logger.warning("Failed to load registry: %s", exc)
 
     def _save_registry(self) -> None:
@@ -135,8 +139,7 @@ class ModelRegistryV2:
             "version": "2.0",
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "models": {
-                model_id: record.to_dict()
-                for model_id, record in self.registry.items()
+                model_id: record.to_dict() for model_id, record in self.registry.items()
             },
         }
 
@@ -161,7 +164,20 @@ class ModelRegistryV2:
 
         if model_id in self.registry:
             # Update existing model
+            # M-07 修复：保存旧状态，磁盘写入失败时回滚内存状态
             record = self.registry[model_id]
+            old_snapshot = {
+                "name": record.name,
+                "version": record.version,
+                "model_type": record.model_type,
+                "status": record.status,
+                "fallback_id": record.fallback_id,
+                "performance_threshold": record.performance_threshold,
+                "metrics": record.metrics,
+                "artifact_path": record.artifact_path,
+                "training_config": record.training_config,
+                "updated_at": record.updated_at,
+            }
             record.name = name
             record.version = version
             record.model_type = model_type
@@ -172,6 +188,22 @@ class ModelRegistryV2:
             record.artifact_path = artifact_path
             record.training_config = training_config or {}
             record.updated_at = now
+            try:
+                self._save_registry()
+            except Exception as exc:
+                # 磁盘写入失败，回滚内存状态
+                record.name = old_snapshot["name"]
+                record.version = old_snapshot["version"]
+                record.model_type = old_snapshot["model_type"]
+                record.status = old_snapshot["status"]
+                record.fallback_id = old_snapshot["fallback_id"]
+                record.performance_threshold = old_snapshot["performance_threshold"]
+                record.metrics = old_snapshot["metrics"]
+                record.artifact_path = old_snapshot["artifact_path"]
+                record.training_config = old_snapshot["training_config"]
+                record.updated_at = old_snapshot["updated_at"]
+                logger.error("Failed to persist model update %s: %s", model_id, exc)
+                raise
             logger.info("Updated model %s to version %s", model_id, version)
         else:
             # Create new model record
@@ -189,10 +221,19 @@ class ModelRegistryV2:
                 created_at=now,
                 updated_at=now,
             )
+            # 先加入内存 registry，再保存到磁盘；保存失败时回滚内存状态。
+            # 原实现顺序相反，导致 _save_registry 遍历 self.registry 时新记录尚未入表，
+            # 写入文件的 "models" 字段为空，重启后加载不出新建模型。
             self.registry[model_id] = record
+            try:
+                self._save_registry()
+            except Exception as exc:
+                # 磁盘写入失败，回滚内存 registry
+                del self.registry[model_id]
+                logger.error("Failed to persist new model %s: %s", model_id, exc)
+                raise
             logger.info("Registered new model %s (version %s)", model_id, version)
 
-        self._save_registry()
         return record
 
     def get_model(self, model_id: str) -> ModelRecord | None:
@@ -207,7 +248,9 @@ class ModelRegistryV2:
         """Get all production models."""
         return self.get_models_by_status(ModelStatus.PRODUCTION)
 
-    def promote_model(self, model_id: str, new_status: ModelStatus) -> ModelRecord | None:
+    def promote_model(
+        self, model_id: str, new_status: ModelStatus
+    ) -> ModelRecord | None:
         """Promote or demote a model to a new status."""
         record = self.registry.get(model_id)
         if not record:
@@ -230,9 +273,24 @@ class ModelRegistryV2:
             )
             return None
 
+        # M-07 修复：先保存旧状态，磁盘写入失败时回滚内存状态，保持一致性
+        old_status = record.status
+        old_updated_at = record.updated_at
         record.status = new_status
         record.updated_at = datetime.now(timezone.utc).isoformat()
-        self._save_registry()
+        try:
+            self._save_registry()
+        except Exception as exc:
+            # 磁盘写入失败，回滚内存状态
+            record.status = old_status
+            record.updated_at = old_updated_at
+            logger.error(
+                "Failed to persist model promotion %s -> %s: %s",
+                model_id,
+                new_status.value,
+                exc,
+            )
+            return None
 
         logger.info("Model %s promoted to %s", model_id, new_status.value)
         return record
@@ -271,14 +329,17 @@ class ModelRegistryV2:
             if current_value is None:
                 continue
 
-            # Check if performance dropped below threshold
-            if metric == "f1_score" and current_value < threshold_value:
-                regressions.append({
-                    "metric": metric,
-                    "current": current_value,
-                    "threshold": threshold_value,
-                    "drop": threshold_value - current_value,
-                })
+            # H-Core-6 修复：对所有 metric 执行回归检查（原实现仅检查 f1_score，
+            # 导致 precision/recall/auc 等指标的性能回归被静默忽略）
+            if current_value < threshold_value:
+                regressions.append(
+                    {
+                        "metric": metric,
+                        "current": current_value,
+                        "threshold": threshold_value,
+                        "drop": threshold_value - current_value,
+                    }
+                )
 
         return {
             "regression_detected": len(regressions) > 0,

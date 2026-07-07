@@ -1,7 +1,6 @@
 """v1.35: 告警归档 API 测试"""
-from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from __future__ import annotations
 
 from fastapi.testclient import TestClient
 

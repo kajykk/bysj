@@ -1,7 +1,9 @@
 """多模态融合增强逻辑测试"""
+
 import asyncio
 
 import pytest
+
 from app.core.model_engine import ModelEngine
 
 
@@ -31,23 +33,40 @@ class TestFusionEnhanced:
         result = _run(
             model_engine.predict_fusion(
                 features={
-                    "age": 22, "gender": 1, "study_year": 3, "cgpa": 3.5,
-                    "stress_level": 3, "sleep_duration": 7, "social_support": 4,
-                    "financial_pressure": 2, "family_history": 0,
-                    "academic_pressure": 3, "exercise_frequency": 2,
-                    "anxiety": 2, "panic_attack": 0, "treatment_seeking": 1,
+                    "age": 22,
+                    "gender": 1,
+                    "study_year": 3,
+                    "cgpa": 3.5,
+                    "stress_level": 3,
+                    "sleep_duration": 7,
+                    "social_support": 4,
+                    "financial_pressure": 2,
+                    "family_history": 0,
+                    "academic_pressure": 3,
+                    "exercise_frequency": 2,
+                    "anxiety": 2,
+                    "panic_attack": 0,
+                    "treatment_seeking": 1,
                 },
                 text="最近压力比较大，晚上睡不好",
                 physiological={
-                    "sleep_hours": 5, "sleep_quality": 1,
-                    "exercise_minutes": 10, "heart_rate": 95,
-                    "systolic_bp": 145, "diastolic_bp": 95, "steps": 1200,
+                    "sleep_hours": 5,
+                    "sleep_quality": 1,
+                    "exercise_minutes": 10,
+                    "heart_rate": 95,
+                    "systolic_bp": 145,
+                    "diastolic_bp": 95,
+                    "steps": 1200,
                 },
             )
         )
         assert result["risk_score"] >= 0
         assert result["risk_level"] >= 0
-        assert result["fusion_detail"]["dominant_modality"] in {"structured", "text", "physiological"}
+        assert result["fusion_detail"]["dominant_modality"] in {
+            "structured",
+            "text",
+            "physiological",
+        }
         assert "modality_quality" in result["fusion_detail"]
         assert "intervention_level" in result
         assert "intervention_actions" in result
@@ -57,17 +76,30 @@ class TestFusionEnhanced:
         result = _run(
             model_engine.predict_fusion(
                 features={
-                    "age": 22, "gender": 1, "study_year": 3, "cgpa": 3.5,
-                    "stress_level": 2, "sleep_duration": 8, "social_support": 5,
-                    "financial_pressure": 1, "family_history": 0,
-                    "academic_pressure": 2, "exercise_frequency": 3,
-                    "anxiety": 1, "panic_attack": 0, "treatment_seeking": 0,
+                    "age": 22,
+                    "gender": 1,
+                    "study_year": 3,
+                    "cgpa": 3.5,
+                    "stress_level": 2,
+                    "sleep_duration": 8,
+                    "social_support": 5,
+                    "financial_pressure": 1,
+                    "family_history": 0,
+                    "academic_pressure": 2,
+                    "exercise_frequency": 3,
+                    "anxiety": 1,
+                    "panic_attack": 0,
+                    "treatment_seeking": 0,
                 },
                 text="最近状态还不错，学习和生活都比较顺利",
                 physiological={
-                    "sleep_hours": 8, "sleep_quality": 5,
-                    "exercise_minutes": 60, "heart_rate": 65,
-                    "systolic_bp": 110, "diastolic_bp": 70, "steps": 12000,
+                    "sleep_hours": 8,
+                    "sleep_quality": 5,
+                    "exercise_minutes": 60,
+                    "heart_rate": 65,
+                    "systolic_bp": 110,
+                    "diastolic_bp": 70,
+                    "steps": 12000,
                 },
             )
         )
@@ -80,11 +112,20 @@ class TestFusionEnhanced:
         result = _run(
             model_engine.predict_fusion(
                 features={
-                    "age": 22, "gender": 1, "study_year": 3, "cgpa": 3.5,
-                    "stress_level": 3, "sleep_duration": 7, "social_support": 4,
-                    "financial_pressure": 2, "family_history": 0,
-                    "academic_pressure": 3, "exercise_frequency": 2,
-                    "anxiety": 2, "panic_attack": 0, "treatment_seeking": 1,
+                    "age": 22,
+                    "gender": 1,
+                    "study_year": 3,
+                    "cgpa": 3.5,
+                    "stress_level": 3,
+                    "sleep_duration": 7,
+                    "social_support": 4,
+                    "financial_pressure": 2,
+                    "family_history": 0,
+                    "academic_pressure": 3,
+                    "exercise_frequency": 2,
+                    "anxiety": 2,
+                    "panic_attack": 0,
+                    "treatment_seeking": 1,
                 },
                 text=None,
                 physiological=None,
@@ -100,9 +141,13 @@ class TestFusionEnhanced:
                 features=None,
                 text=None,
                 physiological={
-                    "sleep_hours": 5, "sleep_quality": 1,
-                    "exercise_minutes": 10, "heart_rate": 95,
-                    "systolic_bp": 145, "diastolic_bp": 95, "steps": 1200,
+                    "sleep_hours": 5,
+                    "sleep_quality": 1,
+                    "exercise_minutes": 10,
+                    "heart_rate": 95,
+                    "systolic_bp": 145,
+                    "diastolic_bp": 95,
+                    "steps": 1200,
                 },
             )
         )
@@ -114,17 +159,30 @@ class TestFusionEnhanced:
         result = _run(
             model_engine.predict_fusion(
                 features={
-                    "age": 22, "gender": 1, "study_year": 3, "cgpa": 3.5,
-                    "stress_level": 3, "sleep_duration": 7, "social_support": 4,
-                    "financial_pressure": 2, "family_history": 0,
-                    "academic_pressure": 3, "exercise_frequency": 2,
-                    "anxiety": 2, "panic_attack": 0, "treatment_seeking": 1,
+                    "age": 22,
+                    "gender": 1,
+                    "study_year": 3,
+                    "cgpa": 3.5,
+                    "stress_level": 3,
+                    "sleep_duration": 7,
+                    "social_support": 4,
+                    "financial_pressure": 2,
+                    "family_history": 0,
+                    "academic_pressure": 3,
+                    "exercise_frequency": 2,
+                    "anxiety": 2,
+                    "panic_attack": 0,
+                    "treatment_seeking": 1,
                 },
                 text=None,
                 physiological={
-                    "sleep_hours": 6, "sleep_quality": 3,
-                    "exercise_minutes": 30, "heart_rate": 75,
-                    "systolic_bp": 120, "diastolic_bp": 80, "steps": 6000,
+                    "sleep_hours": 6,
+                    "sleep_quality": 3,
+                    "exercise_minutes": 30,
+                    "heart_rate": 75,
+                    "systolic_bp": 120,
+                    "diastolic_bp": 80,
+                    "steps": 6000,
                 },
             )
         )
@@ -137,17 +195,30 @@ class TestFusionEnhanced:
         result = _run(
             model_engine.predict_fusion(
                 features={
-                    "age": 22, "gender": 1, "study_year": 3, "cgpa": 3.5,
-                    "stress_level": 5, "sleep_duration": 3, "social_support": 1,
-                    "financial_pressure": 5, "family_history": 1,
-                    "academic_pressure": 5, "exercise_frequency": 0,
-                    "anxiety": 5, "panic_attack": 1, "treatment_seeking": 0,
+                    "age": 22,
+                    "gender": 1,
+                    "study_year": 3,
+                    "cgpa": 3.5,
+                    "stress_level": 5,
+                    "sleep_duration": 3,
+                    "social_support": 1,
+                    "financial_pressure": 5,
+                    "family_history": 1,
+                    "academic_pressure": 5,
+                    "exercise_frequency": 0,
+                    "anxiety": 5,
+                    "panic_attack": 1,
+                    "treatment_seeking": 0,
                 },
                 text="最近压力特别大，晚上完全睡不着",
                 physiological={
-                    "sleep_hours": 2, "sleep_quality": 1,
-                    "exercise_minutes": 0, "heart_rate": 110,
-                    "systolic_bp": 160, "diastolic_bp": 105, "steps": 300,
+                    "sleep_hours": 2,
+                    "sleep_quality": 1,
+                    "exercise_minutes": 0,
+                    "heart_rate": 110,
+                    "systolic_bp": 160,
+                    "diastolic_bp": 105,
+                    "steps": 300,
                 },
             )
         )

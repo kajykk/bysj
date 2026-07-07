@@ -5,15 +5,13 @@ from datetime import date
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.admin import EducationContent
 from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
 from app.models.risk import RiskAssessment
 from app.models.user import User
-
-from tests.harness.core import HarnessAssertion, HarnessScenario, HarnessSuite
+from tests.harness.core import HarnessScenario, HarnessSuite
 
 
 @dataclass(slots=True)
@@ -57,7 +55,14 @@ class BackendHarnessFactory:
     def _seed_risk_context(self, context: dict[str, Any]) -> dict[str, Any]:
         session: AsyncSession = context["session"]
         user_id = context["user_id"]
-        user = User(id=user_id, username="harness_user", email="harness@test.com", password_hash="x", role="user", status="active")
+        user = User(
+            id=user_id,
+            username="harness_user",
+            email="harness@test.com",
+            password_hash="x",
+            role="user",
+            status="active",
+        )
         session.add(user)
         session.add(
             RiskAssessment(
@@ -110,20 +115,39 @@ class BackendHarnessFactory:
         )
         session.add(task)
         session.flush()
-        session.add(TaskExecution(task_id=task.id, user_id=user_id, scheduled_date=date.today(), status="pending"))
+        session.add(
+            TaskExecution(
+                task_id=task.id,
+                user_id=user_id,
+                scheduled_date=date.today(),
+                status="pending",
+            )
+        )
         context["task_id"] = task.id
         return {"expected_pass": True, "task_id": task.id}
 
     def _call_risk_report(self, context: dict[str, Any]) -> dict[str, Any]:
         client: TestClient = context["client"]
-        response = client.get("/api/v1/user/risk/report", headers=context["auth_headers"])
-        return {"passed": response.status_code == 200, "status_code": response.status_code, "response": response.json()}
+        response = client.get(
+            "/api/v1/user/risk/report", headers=context["auth_headers"]
+        )
+        return {
+            "passed": response.status_code == 200,
+            "status_code": response.status_code,
+            "response": response.json(),
+        }
 
     def _call_recommendations(self, context: dict[str, Any]) -> dict[str, Any]:
         client: TestClient = context["client"]
-        response = client.get("/api/v1/user/content/recommendations", headers=context["auth_headers"])
+        response = client.get(
+            "/api/v1/user/content/recommendations", headers=context["auth_headers"]
+        )
         payload = response.json()
-        return {"passed": response.status_code == 200, "status_code": response.status_code, "response": payload}
+        return {
+            "passed": response.status_code == 200,
+            "status_code": response.status_code,
+            "response": payload,
+        }
 
     def _call_task_flow(self, context: dict[str, Any]) -> dict[str, Any]:
         client: TestClient = context["client"]
@@ -138,4 +162,7 @@ class BackendHarnessFactory:
             headers=context["auth_headers"],
             json={"scheduled_date": date.today().isoformat(), "note": "harness"},
         )
-        return {"complete_status": complete.status_code, "skip_status": skip.status_code}
+        return {
+            "complete_status": complete.status_code,
+            "skip_status": skip.status_code,
+        }

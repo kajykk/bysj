@@ -6,7 +6,11 @@ from app.core import ws as ws_module
 
 
 class FakeWebSocket:
-    def __init__(self, messages: list[str] | None = None, query_params: dict[str, str] | None = None):
+    def __init__(
+        self,
+        messages: list[str] | None = None,
+        query_params: dict[str, str] | None = None,
+    ):
         self.messages = list(messages or [])
         self.query_params = query_params or {}
         self.accepted = False
@@ -54,7 +58,9 @@ async def test_websocket_requires_first_auth_message():
 async def test_websocket_accepts_token_from_first_auth_message(monkeypatch):
     ws = FakeWebSocket(messages=['{"type":"auth","token":"Bearer access-token"}'])
 
-    monkeypatch.setattr(ws_module, "decode_token", lambda token: {"type": "access", "sub": "1"})
+    monkeypatch.setattr(
+        ws_module, "decode_token", lambda token: {"type": "access", "sub": "1"}
+    )
 
     class _Result:
         def scalar_one_or_none(self):
@@ -71,8 +77,15 @@ async def test_websocket_accepts_token_from_first_auth_message(monkeypatch):
             return _Result()
 
     monkeypatch.setattr(ws_module, "AsyncSessionLocal", lambda: _Session())
-    monkeypatch.setattr(ws_module.ws_manager, "connect", lambda user_id, websocket: True)
-    monkeypatch.setattr(ws_module.ws_manager, "disconnect", lambda user_id, websocket: None)
+
+    # M-Core-15 修复：connect 已改为 async，monkeypatch 需使用 async 函数
+    async def _fake_connect(user_id, websocket):
+        return True
+
+    monkeypatch.setattr(ws_module.ws_manager, "connect", _fake_connect)
+    monkeypatch.setattr(
+        ws_module.ws_manager, "disconnect", lambda user_id, websocket: None
+    )
 
     await ws_module.websocket_endpoint(ws, user_id=1)
 

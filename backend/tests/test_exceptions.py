@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi import FastAPI, HTTPException
-from fastapi.exceptions import RequestValidationError
 from starlette.testclient import TestClient
 
 from app.core.exceptions import (
     AppException,
     ModelException,
-    ValidationException,
     ServiceException,
+    ValidationException,
     install_exception_handlers,
 )
-
 
 app = FastAPI()
 install_exception_handlers(app)
@@ -138,6 +135,7 @@ class TestExceptions:
         # Create a fresh app with exception handlers but no Starlette error middleware
         from fastapi import FastAPI
         from starlette.testclient import TestClient
+
         from app.core.exceptions import install_exception_handlers
 
         test_app = FastAPI()

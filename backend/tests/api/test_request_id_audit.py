@@ -6,7 +6,7 @@ def test_generate_request_id_when_missing(client: TestClient, as_role) -> None:
     res = client.post(
         "/api/v1/admin/thresholds",
         json={
-            "level": 8,
+            "level": 3,
             "level_name": "high",
             "min_score": 70,
             "max_score": 89,
@@ -22,7 +22,11 @@ def test_generate_request_id_when_missing(client: TestClient, as_role) -> None:
 def test_echo_request_id_when_provided(client: TestClient, as_role) -> None:
     as_role("counselor", 2)
     list_res = client.get("/api/v1/counselor/warnings")
-    warning_id = list_res.json()["data"]["items"][0]["id"] if list_res.status_code == 200 and list_res.json()["data"]["items"] else 1
+    warning_id = (
+        list_res.json()["data"]["items"][0]["id"]
+        if list_res.status_code == 200 and list_res.json()["data"]["items"]
+        else 1
+    )
 
     req_id = "req-abc-123"
     res = client.put(

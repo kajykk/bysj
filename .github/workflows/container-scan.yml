@@ -1,0 +1,104 @@
+name: Container Image Security Scan
+
+# SEC-B: 容器镜像 trivy 扫描
+# - PR 修改 Dockerfile / docker-compose.yml 时触发
+# - 每周日 03:00 UTC 全量扫描已发布镜像
+# - HIGH/CRITICAL 漏洞阻塞合并 (exit-code: 1)
+# - SARIF 报告上传到 GitHub Security tab
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/Dockerfile'
+      - 'frontend/Dockerfile'
+      - 'docker-compose.yml'
+      - 'backend/.trivyignore'
+      - 'frontend/.trivyignore'
+  schedule:
+    # 每周日 03:00 UTC (北京时间 11:00) 全量扫描已发布镜像
+    - cron: '0 3 * * 0'
+  workflow_dispatch: # 支持手动触发
+
+jobs:
+  scan-backend:
+    name: Scan Backend Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        working-directory: backend
+        run: |
+          docker build -f Dockerfile -t dws-backend:scan .
+
+      - name: Run Trivy scan on backend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: dws-backend:scan
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1' # HIGH/CRITICAL 漏洞导致 CI 失败
+          ignore-unfixed: true # 仅报告有修复版本的漏洞
+          vuln-type: 'os,library' # 同时扫描 OS 包和语言依赖
+          # 通过 args 传递 .trivyignore 文件 (trivy-action 无专门 input)
+          args: --ignorefile backend/.trivyignore
+
+      - name: Upload SARIF report to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-backend-results.sarif
+
+      - name: Upload scan artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-backend-report
+          path: trivy-backend-results.sarif
+          retention-days: 30
+
+  scan-frontend:
+    name: Scan Frontend Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build frontend image
+        working-directory: frontend
+        run: |
+          docker build -f Dockerfile -t dws-frontend:scan .
+
+      - name: Run Trivy scan on frontend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: dws-frontend:scan
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          args: --ignorefile frontend/.trivyignore
+
+      - name: Upload SARIF report to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend-results.sarif
+
+      - name: Upload scan artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-frontend-report
+          path: trivy-frontend-results.sarif
+          retention-days: 30

@@ -8,6 +8,11 @@ class WarningHandleRequest(BaseModel):
     note: str | None = None
 
 
+# ISS-058: 预警升级请求
+class WarningEscalateRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class ConsultationCreateRequest(BaseModel):
     warning_id: int | None = Field(default=None, ge=1)
     main_topics: str | None = Field(default=None, min_length=1, max_length=500)

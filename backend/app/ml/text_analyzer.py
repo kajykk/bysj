@@ -8,14 +8,63 @@ class TextAnalyzer:
     """文本风险分析器，提取 risk_factors 和 protective_factors。"""
 
     RISK_KEYWORDS: dict[str, list[str]] = {
-        "interest_loss": ["没兴趣", "不想做", "没意思", "没动力", "不想动", "提不起兴趣", "什么都不想做"],
-        "sleep_problem": ["睡不着", "失眠", "睡不好", "早醒", "多梦", "睡眠差", "睡得很少"],
-        "low_mood": [
-            "难过", "低落", "沮丧", "郁闷", "痛苦", "空虚", "心情不好", "心情很差", "不开心",
-            "很烦", "烦躁", "压抑", "难受", "崩溃", "糟糕", "emo", "伤心", "悲伤",
+        "interest_loss": [
+            "没兴趣",
+            "不想做",
+            "没意思",
+            "没动力",
+            "不想动",
+            "提不起兴趣",
+            "什么都不想做",
         ],
-        "anxiety": ["焦虑", "担心", "紧张", "不安", "心慌", "害怕", "恐惧", "压力大", "很慌"],
-        "social_withdrawal": ["不想见人", "不想出门", "孤立", "独处", "没人理解", "不想说话"],
+        "sleep_problem": [
+            "睡不着",
+            "失眠",
+            "睡不好",
+            "早醒",
+            "多梦",
+            "睡眠差",
+            "睡得很少",
+        ],
+        "low_mood": [
+            "难过",
+            "低落",
+            "沮丧",
+            "郁闷",
+            "痛苦",
+            "空虚",
+            "心情不好",
+            "心情很差",
+            "不开心",
+            "很烦",
+            "烦躁",
+            "压抑",
+            "难受",
+            "崩溃",
+            "糟糕",
+            "emo",
+            "伤心",
+            "悲伤",
+        ],
+        "anxiety": [
+            "焦虑",
+            "担心",
+            "紧张",
+            "不安",
+            "心慌",
+            "害怕",
+            "恐惧",
+            "压力大",
+            "很慌",
+        ],
+        "social_withdrawal": [
+            "不想见人",
+            "不想出门",
+            "孤立",
+            "独处",
+            "没人理解",
+            "不想说话",
+        ],
         "fatigue": ["累", "疲惫", "没力气", "乏力", "精疲力尽", "很累", "太累了"],
     }
 
@@ -23,7 +72,15 @@ class TextAnalyzer:
         "help_seeking": ["想求助", "需要帮助", "想聊聊", "想咨询", "谁能帮帮我"],
         "social_support": ["朋友", "家人", "陪伴", "支持", "关心我的人"],
         "positive_coping": ["运动", "听音乐", "散步", "放松", "深呼吸"],
-        "future_oriented": ["想变好", "会好的", "坚持", "努力", "希望", "期待", "有信心"],
+        "future_oriented": [
+            "想变好",
+            "会好的",
+            "坚持",
+            "努力",
+            "希望",
+            "期待",
+            "有信心",
+        ],
     }
 
     def __init__(self) -> None:
@@ -54,6 +111,18 @@ class TextAnalyzer:
                 "protective_factor_scores": dict[str, float],
             }
         """
+        # H-ML-2 修复：处理 None/非字符串输入，避免 re.findall(text) 抛 TypeError
+        # 融合引擎中文本模态缺失时可能传入 None
+        if not text or not isinstance(text, str):
+            return {
+                "risk_factors": [],
+                "protective_factors": [],
+                "risk_factor_scores": {},
+                "protective_factor_scores": {},
+                "heuristic_sentiment_score": 0.0,
+                "heuristic_sentiment_label": "positive",
+            }
+
         risk_factors: list[str] = []
         risk_factor_scores: dict[str, float] = {}
 
@@ -79,7 +148,9 @@ class TextAnalyzer:
 
         risk_total = sum(risk_factor_scores.values())
         protective_total = sum(protective_factor_scores.values())
-        heuristic_sentiment_score = max(0.0, min(1.0, (risk_total - protective_total * 0.6) / 100.0))
+        heuristic_sentiment_score = max(
+            0.0, min(1.0, (risk_total - protective_total * 0.6) / 100.0)
+        )
 
         return {
             "risk_factors": risk_factors,
@@ -87,7 +158,9 @@ class TextAnalyzer:
             "risk_factor_scores": risk_factor_scores,
             "protective_factor_scores": protective_factor_scores,
             "heuristic_sentiment_score": round(heuristic_sentiment_score, 4),
-            "heuristic_sentiment_label": "negative" if heuristic_sentiment_score >= 0.2 else "positive",
+            "heuristic_sentiment_label": (
+                "negative" if heuristic_sentiment_score >= 0.2 else "positive"
+            ),
         }
 
     @staticmethod

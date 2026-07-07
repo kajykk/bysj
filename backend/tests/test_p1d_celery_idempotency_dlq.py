@@ -4,6 +4,7 @@
 1. archive_old_alerts_task 幂等性 - 跳过已归档的记录
 2. DLQ 信号处理器 - 任务失败时记录完整上下文
 """
+
 from __future__ import annotations
 
 import logging
@@ -11,8 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.core.celery_app import celery_app, on_task_failure, _sanitize_task_args
-
+from app.core.celery_app import _sanitize_task_args, celery_app, on_task_failure
 
 # ---------------------------------------------------------------------------
 # P1-D-7: archive_old_alerts_task 幂等性
@@ -25,8 +25,8 @@ class TestArchiveIdempotency:
     @pytest.mark.asyncio
     async def test_archive_skips_already_archived_records(self) -> None:
         """已归档的记录应被跳过, 不产生重复 AlertArchive 条目."""
+        from app.models.admin import OperationLog
         from app.tasks.alerts import _archive_impl
-        from app.models.admin import OperationLog, AlertArchive
 
         # 模拟数据: 2 条 OperationLog, 其中 1 条已归档
         mock_log_1 = MagicMock(spec=OperationLog)
@@ -70,8 +70,8 @@ class TestArchiveIdempotency:
     @pytest.mark.asyncio
     async def test_archive_all_new_records(self) -> None:
         """全部新记录 (无已归档) 应全部归档."""
-        from app.tasks.alerts import _archive_impl
         from app.models.admin import OperationLog
+        from app.tasks.alerts import _archive_impl
 
         mock_log = MagicMock(spec=OperationLog)
         mock_log.id = 201
@@ -219,6 +219,7 @@ class TestSanitizeTaskArgs:
 
     def test_sanitize_unreprable_args(self) -> None:
         """无法 repr 的参数应返回 <unreprable>."""
+
         class Unreprable:
             def __repr__(self):
                 raise Exception("cannot repr")

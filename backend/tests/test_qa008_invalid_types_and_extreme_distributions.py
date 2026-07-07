@@ -299,15 +299,17 @@ class TestInvalidTypesAndExtremeDistributions:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             try:
-                result = detector.calculate_psi(
+                detector.calculate_psi(
                     [1e-300, 1e300, 1e-300],
                     [1e300, 1e-300, 1e300],
                 )
                 # 检查没有 RuntimeWarning
-                runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
-                assert len(runtime_warnings) == 0, (
-                    f"RuntimeWarning detected: {[str(x.message) for x in runtime_warnings]}"
-                )
+                runtime_warnings = [
+                    x for x in w if issubclass(x.category, RuntimeWarning)
+                ]
+                assert (
+                    len(runtime_warnings) == 0
+                ), f"RuntimeWarning detected: {[str(x.message) for x in runtime_warnings]}"
             except Exception as e:
                 pytest.fail(f"Extreme values should not raise exception: {e}")
 
@@ -321,13 +323,28 @@ class TestInvalidTypesAndExtremeDistributions:
 
         test_cases = [
             # (method, path, body, description)
-            ("POST", "/api/v1/validation/run", {"model_version": 12345, "dataset_path": "/tmp/test.json"}, "numeric model_version"),
-            ("POST", "/api/v1/validation/run", {"model_version": "v1.5.0", "dataset_path": ["a", "b"]}, "list dataset_path"),
-            ("POST", "/api/v1/canary/deployments", {"version": 123, "traffic_percent": "five"}, "invalid types"),
+            (
+                "POST",
+                "/api/v1/validation/run",
+                {"model_version": 12345, "dataset_path": "/tmp/test.json"},
+                "numeric model_version",
+            ),
+            (
+                "POST",
+                "/api/v1/validation/run",
+                {"model_version": "v1.5.0", "dataset_path": ["a", "b"]},
+                "list dataset_path",
+            ),
+            (
+                "POST",
+                "/api/v1/canary/deployments",
+                {"version": 123, "traffic_percent": "five"},
+                "invalid types",
+            ),
         ]
 
         for method, path, body, desc in test_cases:
             response = client.request(method, path, json=body)
-            assert response.status_code != 500, (
-                f"Endpoint {method} {path} ({desc}) returned 500"
-            )
+            assert (
+                response.status_code != 500
+            ), f"Endpoint {method} {path} ({desc}) returned 500"

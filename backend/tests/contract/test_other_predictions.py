@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from app.main import app
 
@@ -196,9 +197,15 @@ class TestPredictionResponseSchema:
     def test_prediction_response_has_required_fields(self):
         """TC-CNT-HP-023: All prediction responses have required fields."""
         endpoints = [
-            ("/api/v1/predict/structured", {"sleep_hours": 7.0, "exercise_minutes": 30.0}),
+            (
+                "/api/v1/predict/structured",
+                {"sleep_hours": 7.0, "exercise_minutes": 30.0},
+            ),
             ("/api/v1/predict/text", {"text": "I feel happy"}),
-            ("/api/v1/predict/physiological", {"sleep_hours": 7.0, "exercise_minutes": 30.0}),
+            (
+                "/api/v1/predict/physiological",
+                {"sleep_hours": 7.0, "exercise_minutes": 30.0},
+            ),
         ]
 
         for endpoint, payload in endpoints:

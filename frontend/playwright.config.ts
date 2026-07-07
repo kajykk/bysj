@@ -6,8 +6,6 @@ const frontendUrl = 'http://localhost:5173'
 const backendUrl = 'http://127.0.0.1:8000'
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const frontendDir = currentDir
-const rootDir = path.resolve(currentDir, '..')
-const backendDir = path.join(rootDir, 'backend')
 
 export default defineConfig({
   testDir: './e2e',
@@ -52,6 +50,10 @@ export default defineConfig({
     cwd: frontendDir,
     env: {
       VITE_API_BASE_URL: `${backendUrl}/api/v1`,
+      // ISSUE-004 修复：传递种子密码到 E2E 测试环境，与后端 .env 保持一致
+      E2E_ADMIN_PASSWORD: process.env.E2E_ADMIN_PASSWORD || 'E2E@Admin123',
+      E2E_COUNSELOR_PASSWORD: process.env.E2E_COUNSELOR_PASSWORD || 'E2E@Counselor123',
+      E2E_USER_PASSWORD: process.env.E2E_USER_PASSWORD || 'E2E@User123',
     },
   },
 })

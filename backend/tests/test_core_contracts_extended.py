@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.contracts import (
-    RISK_LEVEL_MAP,
-    WARNING_ACTION_HANDLE,
-    WARNING_ACTION_IGNORE,
     ACTION_TYPE_WARNING_HANDLE,
     ACTION_TYPE_WARNING_IGNORE,
     ACTION_TYPE_WARNING_READ,
     ACTION_TYPE_WARNING_READ_ALL,
+    RISK_LEVEL_MAP,
+    WARNING_ACTION_HANDLE,
+    WARNING_ACTION_IGNORE,
     normalize_risk_level,
     resolve_warning_status,
 )
@@ -45,9 +43,13 @@ class TestNormalizeRiskLevel:
         assert normalize_risk_level(4) == "critical"
 
     def test_normalize_invalid_level(self):
-        """TC-COV-045: normalize_risk_level returns 'critical' for invalid level."""
-        assert normalize_risk_level(999) == "critical"
-        assert normalize_risk_level(-1) == "critical"
+        """TC-COV-045: normalize_risk_level returns 'unknown' for invalid level.
+
+        P1-F7 修复：原逻辑返回 'critical' 会触发虚假紧急告警，
+        现改为返回 'unknown' 让调用方显式处理异常情况。
+        """
+        assert normalize_risk_level(999) == "unknown"
+        assert normalize_risk_level(-1) == "unknown"
 
 
 class TestResolveWarningStatus:

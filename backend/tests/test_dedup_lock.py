@@ -2,19 +2,24 @@
 
 v1.36: 增加 T1.3 - dedup_lock 内存计数 + flush 测试.
 """
+
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.monitoring import dedup_lock as dedup_lock_mod
 from app.monitoring.dedup_lock import (
+    _get_redis_url,
     flush_lock_stats,
+    get_last_flush_at,
     get_stats,
     release_lock,
     reset_stats,
+    set_last_flush_at,
     try_acquire_lock,
 )
 
@@ -88,7 +93,9 @@ async def test_acquire_lock_custom_ttl() -> None:
         mock_client.aclose = AsyncMock()
         mock_aioredis.from_url.return_value = mock_client
 
-        await try_acquire_lock("fp-1", ttl_seconds=60, redis_url="redis://localhost:6379/0")
+        await try_acquire_lock(
+            "fp-1", ttl_seconds=60, redis_url="redis://localhost:6379/0"
+        )
         call_args = mock_client.set.call_args
         assert call_args.kwargs["ex"] == 60
 
@@ -286,3 +293,240 @@ async def test_flush_lock_stats_failure_keeps_memory() -> None:
     # 失败时计数应保留
     assert stats["acquired"] == 8
     assert stats["skipped"] == 4
+
+
+# ===== 新增: 覆盖 _get_redis_url (L49-55) =====
+
+
+def test_get_redis_url_from_settings() -> None:
+    """settings.redis_url 有效且以 redis 开头时应返回该值."""
+    with patch("app.core.config.settings") as mock_settings:
+        mock_settings.redis_url = "redis://localhost:6379/0"
+        assert _get_redis_url() == "redis://localhost:6379/0"
+
+
+def test_get_redis_url_invalid_protocol() -> None:
+    """settings.redis_url 不以 redis 开头时应回退到环境变量."""
+    with patch.dict(os.environ, {"REDIS_URL": "redis://env:6379/0"}, clear=False):
+        with patch("app.core.config.settings") as mock_settings:
+            mock_settings.redis_url = "memory://invalid"
+            assert _get_redis_url() == "redis://env:6379/0"
+
+
+def test_get_redis_url_empty_settings() -> None:
+    """settings.redis_url 为空时应回退到环境变量."""
+    with patch.dict(os.environ, {"REDIS_URL": "redis://env:6379/0"}, clear=False):
+        with patch("app.core.config.settings") as mock_settings:
+            mock_settings.redis_url = ""
+            assert _get_redis_url() == "redis://env:6379/0"
+
+
+def test_get_redis_url_settings_exception() -> None:
+    """settings 访问异常时应回退到环境变量 (except 分支)."""
+    with patch.dict(os.environ, {"REDIS_URL": "redis://env:6379/0"}, clear=False):
+        # 模拟 settings 属性访问抛异常
+        class _ExplodingSettings:
+            @property
+            def redis_url(self):
+                raise RuntimeError("config init failed")
+
+        with patch("app.core.config.settings", _ExplodingSettings()):
+            result = _get_redis_url()
+            assert result == "redis://env:6379/0"
+
+
+def test_get_redis_url_no_env_var() -> None:
+    """settings 无效且无环境变量时应返回 None."""
+    with patch.dict(os.environ, {}, clear=True):
+        with patch("app.core.config.settings") as mock_settings:
+            mock_settings.redis_url = ""
+            assert _get_redis_url() is None
+
+
+# ===== 新增: 覆盖 get_last_flush_at / set_last_flush_at (L65) =====
+
+
+def test_get_last_flush_at_initial() -> None:
+    """初始状态下 get_last_flush_at 应返回 None."""
+    reset_stats()
+    assert get_last_flush_at() is None
+
+
+def test_set_and_get_last_flush_at() -> None:
+    """set_last_flush_at 设置后 get_last_flush_at 应返回该值."""
+    set_last_flush_at("2024-01-01T00:00:00Z")
+    assert get_last_flush_at() == "2024-01-01T00:00:00Z"
+    # 清理
+    set_last_flush_at(None)
+    assert get_last_flush_at() is None
+
+
+# ===== 新增: 覆盖 try_acquire_lock 共享 client 路径 (L113-127) =====
+
+
+async def test_acquire_lock_shared_client_success() -> None:
+    """redis_url=None 时使用共享 client, 成功获取锁."""
+    mock_client = AsyncMock()
+    mock_client.set = AsyncMock(return_value=True)
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=mock_client)):
+        result = await try_acquire_lock("fp-shared")
+    assert result is True
+    mock_client.set.assert_awaited_once()
+    stats = get_stats()
+    assert stats["acquired"] == 1
+
+
+async def test_acquire_lock_shared_client_held() -> None:
+    """redis_url=None 时锁已被其他实例持有."""
+    mock_client = AsyncMock()
+    mock_client.set = AsyncMock(return_value=False)
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=mock_client)):
+        result = await try_acquire_lock("fp-held-shared")
+    assert result is False
+    stats = get_stats()
+    assert stats["skipped"] == 1
+
+
+async def test_acquire_lock_shared_client_none() -> None:
+    """redis_url=None 时共享 client 为 None (无 Redis 配置), 应回退降级."""
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=None)):
+        result = await try_acquire_lock("fp-no-client")
+    assert result is True
+    stats = get_stats()
+    assert stats["fallback"] == 1
+
+
+async def test_acquire_lock_shared_client_exception() -> None:
+    """redis_url=None 时共享 client 抛异常, 应降级返回 True."""
+    with patch(
+        "app.core.cache.get_redis_client",
+        AsyncMock(side_effect=Exception("redis down")),
+    ):
+        result = await try_acquire_lock("fp-exception")
+    assert result is True
+    stats = get_stats()
+    assert stats["fallback"] == 1
+
+
+async def test_acquire_lock_shared_client_custom_ttl() -> None:
+    """redis_url=None 时自定义 TTL 应传给共享 client."""
+    mock_client = AsyncMock()
+    mock_client.set = AsyncMock(return_value=True)
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=mock_client)):
+        await try_acquire_lock("fp-ttl", ttl_seconds=60)
+    call_args = mock_client.set.call_args
+    assert call_args.kwargs["ex"] == 60
+    assert call_args.kwargs["nx"] is True
+
+
+# ===== 新增: 覆盖 release_lock 共享 client 路径 (L168, L171) =====
+
+
+async def test_release_lock_shared_client_success() -> None:
+    """redis_url=None 时通过共享 client 释放锁."""
+    mock_client = AsyncMock()
+    mock_client.delete = AsyncMock(return_value=1)
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=mock_client)):
+        result = await release_lock("fp-release")
+    assert result is True
+    mock_client.delete.assert_awaited_once()
+
+
+async def test_release_lock_shared_client_not_found() -> None:
+    """redis_url=None 时锁不存在, delete 返回 0."""
+    mock_client = AsyncMock()
+    mock_client.delete = AsyncMock(return_value=0)
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=mock_client)):
+        result = await release_lock("fp-not-found")
+    assert result is False
+
+
+async def test_release_lock_shared_client_none() -> None:
+    """redis_url=None 时共享 client 为 None, 应返回 False."""
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=None)):
+        result = await release_lock("fp-no-client")
+    assert result is False
+
+
+async def test_release_lock_shared_client_exception() -> None:
+    """redis_url=None 时共享 client 抛异常, 应返回 False."""
+    with patch(
+        "app.core.cache.get_redis_client",
+        AsyncMock(side_effect=Exception("redis down")),
+    ):
+        result = await release_lock("fp-exception")
+    assert result is False
+
+
+# ===== 新增: 覆盖 flush_lock_stats 负数 clamp (L235) =====
+
+
+async def test_flush_lock_stats_clamps_negative() -> None:
+    """flush 期间 stats 被并发减少时应 clamp 到 0 (不出现负数)."""
+    dedup_lock_mod._stats["acquired"] = 5
+
+    async def _reduce_stats():
+        # 模拟并发修改: flush 期间 stats 被重置
+        dedup_lock_mod._stats["acquired"] = 2
+
+    db = MagicMock()
+    db.add = MagicMock()
+    db.flush = AsyncMock(side_effect=_reduce_stats)
+
+    success = await flush_lock_stats(db)
+    assert success is True
+    # snapshot=5, 当前=2, 2-5=-3 -> clamp to 0
+    assert get_stats()["acquired"] == 0
+
+
+# ===== 新增: 锁竞争场景验证 =====
+
+
+async def test_lock_competition_first_wins() -> None:
+    """锁竞争: 第一个实例获取成功, 第二个失败."""
+    mock_client = AsyncMock()
+    mock_client.set = AsyncMock(side_effect=[True, False])  # 第一次成功, 第二次失败
+    with patch("app.monitoring.dedup_lock.aioredis") as mock_aioredis:
+        mock_aioredis.from_url.return_value = mock_client
+
+        r1 = await try_acquire_lock("fp-comp", redis_url="redis://localhost:6379/0")
+        r2 = await try_acquire_lock("fp-comp", redis_url="redis://localhost:6379/0")
+
+    assert r1 is True
+    assert r2 is False
+    stats = get_stats()
+    assert stats["acquired"] == 1
+    assert stats["skipped"] == 1
+
+
+# ===== 新增: TOCTOU 修复点验证 (with_for_update 锁相关) =====
+
+
+async def test_acquire_lock_uses_setnx_semantics() -> None:
+    """TOCTOU 修复: SETNX 原子操作避免竞态条件 (验证 nx=True)."""
+    mock_client = AsyncMock()
+    mock_client.set = AsyncMock(return_value=True)
+    mock_client.aclose = AsyncMock()
+    with patch("app.monitoring.dedup_lock.aioredis") as mock_aioredis:
+        mock_aioredis.from_url.return_value = mock_client
+        await try_acquire_lock("fp-toctou", redis_url="redis://localhost:6379/0")
+
+    # 验证 SETNX 语义: nx=True 保证原子性
+    call_args = mock_client.set.call_args
+    assert call_args.kwargs["nx"] is True
+    assert call_args.kwargs["ex"] == 300  # TTL 默认 5 分钟
+
+
+# ===== 新增: Redis 失败回退路径 (共享 client) =====
+
+
+async def test_acquire_lock_fallback_does_not_block() -> None:
+    """Redis 不可用时降级返回 True, 不阻止发送 (由 SQL dedup 二次校验)."""
+    # 共享 client 路径降级
+    with patch(
+        "app.core.cache.get_redis_client",
+        AsyncMock(side_effect=ConnectionError("refused")),
+    ):
+        result = await try_acquire_lock("fp-fallback")
+    assert result is True
+    assert get_stats()["fallback"] == 1

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.core.database import init_db, close_db, get_db, engine, AsyncSessionLocal
+import pytest
+
+from app.core.database import AsyncSessionLocal, engine, get_db
 
 
 class TestDatabaseInit:
@@ -17,10 +18,13 @@ class TestDatabaseInit:
         with patch("app.core.database.engine", new=MagicMock()) as mock_engine:
             mock_conn = AsyncMock()
             mock_conn.run_sync = AsyncMock()
-            mock_engine.begin.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+            mock_engine.begin.return_value.__aenter__ = AsyncMock(
+                return_value=mock_conn
+            )
             mock_engine.begin.return_value.__aexit__ = AsyncMock(return_value=False)
 
             from app.core.database import init_db
+
             await init_db()
             mock_engine.begin.assert_called_once()
 
@@ -30,6 +34,7 @@ class TestDatabaseInit:
         with patch("app.core.database.engine", new=MagicMock()) as mock_engine:
             mock_engine.dispose = AsyncMock()
             from app.core.database import close_db
+
             await close_db()
             mock_engine.dispose.assert_called_once()
 
@@ -44,7 +49,9 @@ class TestGetDb:
         mock_session.close = AsyncMock()
 
         with patch("app.core.database.AsyncSessionLocal") as mock_session_local:
-            mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_local.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session
+            )
             mock_session_local.return_value.__aexit__ = AsyncMock(return_value=False)
 
             gen = get_db()

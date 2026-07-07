@@ -3,16 +3,17 @@
     <el-tabs
       v-model="activeTab"
       type="border-card"
+      @tab-change="handleTabChange"
     >
       <el-tab-pane
-        label="当前计划"
+        :label="t('userIntervention.tabActive')"
         name="active"
       >
         <StatefulContainer
           :loading="activeLoading"
           :empty="!activeLoading && !activeData.plan.id"
           :error-message="activeError"
-          empty-text="暂无活跃干预方案，请先完成风险评估"
+          :empty-text="t('userIntervention.emptyActive')"
           @retry="loadActive"
         >
           <template v-if="activeData.plan.id">
@@ -25,17 +26,17 @@
                       :type="riskLevelTag(activeData.plan.risk_level)"
                       size="small"
                     >
-                      风险等级 {{ activeData.plan.risk_level }}
+                      {{ t('userIntervention.riskLevelLabel') }} {{ activeData.plan.risk_level }}
                     </el-tag>
                     <span
                       v-if="activeData.plan.start_date"
                       class="plan-date"
-                    >开始日期：{{ activeData.plan.start_date }}</span>
+                    >{{ t('userIntervention.startDatePrefix') }}{{ activeData.plan.start_date }}</span>
                   </div>
                 </div>
               </template>
               <div class="progress-wrap">
-                <span class="progress-label">总体进度</span>
+                <span class="progress-label">{{ t('userIntervention.progressLabel') }}</span>
                 <el-progress
                   :percentage="activeData.plan.progress"
                   :stroke-width="16"
@@ -46,19 +47,19 @@
                 v-if="activeData.plan.dominant_modality"
                 class="plan-modality"
               >
-                主导模态：{{ modalityLabelMap[activeData.plan.dominant_modality] || activeData.plan.dominant_modality }}
+                {{ t('userIntervention.dominantModalityPrefix') }}{{ getModalityLabel(activeData.plan.dominant_modality) }}
               </div>
             </el-card>
 
-            <el-card style="margin-top: 16px">
+            <el-card class="section-card">
               <template #header>
-                <span class="card-title">今日任务</span>
+                <span class="card-title">{{ t('userIntervention.todayTasksTitle') }}</span>
               </template>
               <div
                 v-if="activeData.tasks.length === 0"
                 class="text-muted"
               >
-                今日暂无任务安排
+                {{ t('userIntervention.emptyTodayTasks') }}
               </div>
               <div
                 v-for="task in activeData.tasks"
@@ -79,7 +80,7 @@
                   </div>
                 </div>
                 <div class="task-right">
-                  <span class="task-meta">{{ task.schedule === 'daily' ? '每日' : task.schedule === 'weekly' ? '每周' : '一次性' }} · {{ task.duration_minutes }}分钟</span>
+                  <span class="task-meta">{{ getScheduleLabel(task.schedule) }} · {{ task.duration_minutes }}{{ t('userIntervention.durationUnit') }}</span>
                   <div class="task-actions">
                     <el-button
                       v-if="task.today_status === 'pending' || task.today_status === 'postponed'"
@@ -88,7 +89,7 @@
                       :loading="taskPendingIds.has(task.id) && taskActionType[task.id] === 'complete'"
                       @click="handleComplete(task)"
                     >
-                      完成
+                      {{ t('userIntervention.btnComplete') }}
                     </el-button>
                     <el-button
                       v-if="task.today_status === 'pending' || task.today_status === 'postponed'"
@@ -96,7 +97,7 @@
                       :loading="taskPendingIds.has(task.id) && taskActionType[task.id] === 'skip'"
                       @click="handleSkip(task)"
                     >
-                      跳过
+                      {{ t('userIntervention.btnSkip') }}
                     </el-button>
                     <el-button
                       v-if="task.today_status === 'pending' || task.today_status === 'postponed'"
@@ -104,7 +105,7 @@
                       :loading="taskPendingIds.has(task.id) && taskActionType[task.id] === 'postpone'"
                       @click="openPostpone(task)"
                     >
-                      延期
+                      {{ t('userIntervention.btnPostpone') }}
                     </el-button>
                     <el-button
                       v-if="task.today_status === 'completed'"
@@ -113,7 +114,7 @@
                       :loading="taskPendingIds.has(task.id) && taskActionType[task.id] === 'feedback'"
                       @click="openFeedback(task)"
                     >
-                      反馈
+                      {{ t('userIntervention.btnFeedback') }}
                     </el-button>
                   </div>
                 </div>
@@ -124,15 +125,15 @@
       </el-tab-pane>
 
       <el-tab-pane
-        label="历史方案"
+        :label="t('userIntervention.tabHistory')"
         name="history"
       >
         <ListPageScaffold
-          title="干预方案历史"
+          :title="t('userIntervention.historyTitle')"
           :loading="historyLoading"
           :empty="!historyLoading && historyRows.length === 0"
           :error-message="historyError"
-          empty-text="暂无历史干预方案"
+          :empty-text="t('userIntervention.emptyHistory')"
           @retry="loadHistory"
         >
           <PageTable
@@ -146,17 +147,17 @@
           >
             <el-table-column
               prop="plan_id"
-              label="ID"
+              :label="t('userIntervention.colId')"
               width="80"
             />
             <el-table-column
               prop="plan_name"
-              label="方案名称"
+              :label="t('userIntervention.colPlanName')"
               min-width="180"
             />
             <el-table-column
               prop="status"
-              label="状态"
+              :label="t('userIntervention.colStatus')"
               width="100"
             >
               <template #default="{ row }">
@@ -164,18 +165,18 @@
                   :type="row.status === 'active' ? 'success' : row.status === 'completed' ? 'info' : 'warning'"
                   size="small"
                 >
-                  {{ row.status === 'active' ? '进行中' : row.status === 'completed' ? '已完成' : row.status === 'cancelled' ? '已取消' : row.status }}
+                  {{ getHistoryStatusLabel(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
             <el-table-column
               prop="start_date"
-              label="开始日期"
+              :label="t('userIntervention.colStartDate')"
               width="120"
             />
             <el-table-column
               prop="end_date"
-              label="结束日期"
+              :label="t('userIntervention.colEndDate')"
               width="120"
             >
               <template #default="{ row }">
@@ -184,7 +185,7 @@
             </el-table-column>
             <el-table-column
               prop="completion_rate"
-              label="完成率"
+              :label="t('userIntervention.colCompletionRate')"
               width="120"
             >
               <template #default="{ row }">
@@ -197,11 +198,11 @@
             </el-table-column>
             <el-table-column
               prop="dominant_modality"
-              label="主导模态"
+              :label="t('userIntervention.colDominantModality')"
               min-width="120"
             >
               <template #default="{ row }">
-                {{ row.dominant_modality ? (modalityLabelMap[row.dominant_modality] || row.dominant_modality) : '-' }}
+                {{ row.dominant_modality ? getModalityLabel(row.dominant_modality) : '-' }}
               </template>
             </el-table-column>
           </PageTable>
@@ -211,69 +212,69 @@
 
     <el-dialog
       v-model="feedbackVisible"
-      title="任务反馈"
+      :title="t('userIntervention.feedbackDialogTitle')"
       width="420px"
       destroy-on-close
     >
       <el-form label-width="80px">
-        <el-form-item label="评分">
+        <el-form-item :label="t('userIntervention.feedbackScoreLabel')">
           <el-rate
             v-model="feedbackForm.score"
             :max="5"
             show-score
           />
         </el-form-item>
-        <el-form-item label="备注">
+        <el-form-item :label="t('userIntervention.feedbackNoteLabel')">
           <el-input
             v-model="feedbackForm.note"
             type="textarea"
             :rows="3"
-            placeholder="记录你的感受..."
+            :placeholder="t('userIntervention.feedbackNotePlaceholder')"
           />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="feedbackVisible = false">
-          取消
+          {{ t('common.cancel') }}
         </el-button>
         <el-button
           type="primary"
           :loading="feedbackSubmitting"
           @click="submitFeedback"
         >
-          提交
+          {{ t('userIntervention.btnSubmit') }}
         </el-button>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="postponeVisible"
-      title="延期任务"
+      :title="t('userIntervention.postponeDialogTitle')"
       width="420px"
       destroy-on-close
     >
       <el-form label-width="80px">
-        <el-form-item label="延期至">
+        <el-form-item :label="t('userIntervention.postponeDateLabel')">
           <el-date-picker
             v-model="postponeForm.date"
             type="date"
             value-format="YYYY-MM-DD"
-            placeholder="选择延期日期"
+            :placeholder="t('userIntervention.postponeDatePlaceholder')"
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="备注">
+        <el-form-item :label="t('userIntervention.feedbackNoteLabel')">
           <el-input
             v-model="postponeForm.note"
             type="textarea"
             :rows="2"
-            placeholder="延期原因..."
+            :placeholder="t('userIntervention.postponeNotePlaceholder')"
           />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="postponeVisible = false">
-          取消
+          {{ t('common.cancel') }}
         </el-button>
         <el-button
           type="primary"
@@ -281,7 +282,7 @@
           :disabled="!postponeForm.date"
           @click="submitPostpone"
         >
-          确认延期
+          {{ t('userIntervention.btnConfirmPostpone') }}
         </el-button>
       </template>
     </el-dialog>
@@ -290,6 +291,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
@@ -299,12 +301,47 @@ import type { ActiveIntervention, InterventionHistoryItem } from '@/api/userType
 import type { InterventionTaskItem } from '@/api/userInterventionApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 
-const modalityLabelMap: Record<string, string> = {
-  structured: '结构化',
-  text: '文本',
-  physiological: '生理',
-  fused: '融合',
-  questionnaire: '问卷'
+const { t } = useI18n()
+
+const MODALITY_LABEL_KEYS: Record<string, string> = {
+  structured: 'modalityStructured',
+  text: 'modalityText',
+  physiological: 'modalityPhysiological',
+  fused: 'modalityFused',
+  questionnaire: 'modalityQuestionnaire'
+}
+const getModalityLabel = (modality: string | null | undefined) => {
+  if (!modality) return ''
+  const key = MODALITY_LABEL_KEYS[modality]
+  return key ? t(`userIntervention.${key}`) : modality
+}
+
+const SCHEDULE_LABEL_KEYS: Record<string, string> = {
+  daily: 'scheduleDaily',
+  weekly: 'scheduleWeekly',
+  once: 'scheduleOnce'
+}
+const getScheduleLabel = (schedule: string) => {
+  const key = SCHEDULE_LABEL_KEYS[schedule]
+  return key ? t(`userIntervention.${key}`) : schedule
+}
+
+const HISTORY_STATUS_LABEL_KEYS: Record<string, string> = {
+  active: 'statusActive',
+  completed: 'statusCompleted',
+  cancelled: 'statusCancelled'
+}
+const getHistoryStatusLabel = (status: string) => {
+  const key = HISTORY_STATUS_LABEL_KEYS[status]
+  return key ? t(`userIntervention.${key}`) : status
+}
+
+const TASK_STATUS_LABEL_KEYS: Record<string, string> = {
+  pending: 'taskStatusPending',
+  completed: 'taskStatusCompleted',
+  missed: 'taskStatusMissed',
+  skipped: 'taskStatusSkipped',
+  postponed: 'taskStatusPostponed'
 }
 
 const activeTab = ref('active')
@@ -336,7 +373,7 @@ const loadActive = async () => {
   try {
     activeData.value = await userApi.getActiveIntervention()
   } catch (error) {
-    activeError.value = normalizeHttpError(error, '加载失败').detail
+    activeError.value = normalizeHttpError(error, t('userIntervention.loadFailed')).detail
   } finally {
     activeLoading.value = false
   }
@@ -359,25 +396,27 @@ const taskStatusTag = (status: string) => {
 }
 
 const taskStatusLabel = (status: string) => {
-  const map: Record<string, string> = { pending: '待完成', completed: '已完成', missed: '未完成', skipped: '已跳过', postponed: '已延期' }
-  return map[status] || status
+  const key = TASK_STATUS_LABEL_KEYS[status]
+  return key ? t(`userIntervention.${key}`) : status
 }
 
-const getTodayDate = () => new Date().toISOString().slice(0, 10)
+// ISS-016 修复：改用本地日期，避免 toISOString 返回 UTC 日期导致东八区 0-8 点跨日错位
+// 'sv-SE' locale 输出 YYYY-MM-DD 格式的本地日期
+const getTodayDate = () => new Date().toLocaleDateString('sv-SE')
 
 const handleComplete = async (task: InterventionTaskItem) => {
   try {
-    await ElMessageBox.confirm(`确认完成任务「${task.task_name}」？`, '确认', { type: 'success' })
+    await ElMessageBox.confirm(t('userIntervention.completeConfirm', { name: task.task_name }), t('common.confirm'), { type: 'success' })
   } catch {
     return
   }
   setTaskPending(task.id, 'complete', true)
   try {
     await userApi.completeInterventionTask(task.id, getTodayDate())
-    ElMessage.success('任务已完成')
+    ElMessage.success(t('userIntervention.completeSuccess'))
     await loadActive()
   } catch (error) {
-    ElMessage.error(normalizeHttpError(error, '操作失败').detail)
+    ElMessage.error(normalizeHttpError(error, t('userIntervention.operationFailed')).detail)
   } finally {
     setTaskPending(task.id, 'complete', false)
   }
@@ -385,17 +424,17 @@ const handleComplete = async (task: InterventionTaskItem) => {
 
 const handleSkip = async (task: InterventionTaskItem) => {
   try {
-    await ElMessageBox.confirm(`确认跳过任务「${task.task_name}」？`, '确认', { type: 'warning' })
+    await ElMessageBox.confirm(t('userIntervention.skipConfirm', { name: task.task_name }), t('common.confirm'), { type: 'warning' })
   } catch {
     return
   }
   setTaskPending(task.id, 'skip', true)
   try {
     await userApi.skipInterventionTask(task.id, { scheduled_date: getTodayDate() })
-    ElMessage.success('任务已跳过')
+    ElMessage.success(t('userIntervention.skipSuccess'))
     await loadActive()
   } catch (error) {
-    ElMessage.error(normalizeHttpError(error, '操作失败').detail)
+    ElMessage.error(normalizeHttpError(error, t('userIntervention.operationFailed')).detail)
   } finally {
     setTaskPending(task.id, 'skip', false)
   }
@@ -421,11 +460,11 @@ const submitFeedback = async () => {
       feedback_score: feedbackForm.score,
       feedback_note: feedbackForm.note || undefined
     })
-    ElMessage.success('反馈已提交')
+    ElMessage.success(t('userIntervention.feedbackSuccess'))
     feedbackVisible.value = false
     await loadActive()
   } catch (error) {
-    ElMessage.error(normalizeHttpError(error, '提交失败').detail)
+    ElMessage.error(normalizeHttpError(error, t('userIntervention.submitFailed')).detail)
   } finally {
     feedbackSubmitting.value = false
   }
@@ -452,11 +491,11 @@ const submitPostpone = async () => {
       postpone_to: postponeForm.date,
       note: postponeForm.note || undefined
     })
-    ElMessage.success('任务已延期')
+    ElMessage.success(t('userIntervention.postponeSuccess'))
     postponeVisible.value = false
     await loadActive()
   } catch (error) {
-    ElMessage.error(normalizeHttpError(error, '延期失败').detail)
+    ElMessage.error(normalizeHttpError(error, t('userIntervention.postponeFailed')).detail)
   } finally {
     postponeSubmitting.value = false
   }
@@ -468,6 +507,8 @@ const historyPage = ref(1)
 const historyPageSize = ref(10)
 const historyLoading = ref(false)
 const historyError = ref('')
+// ISS-054/061 修复：history tab 改为 lazy 加载，仅在首次激活时拉取，避免 onMounted 并行请求浪费带宽
+const historyLoaded = ref(false)
 
 const loadHistory = async () => {
   historyLoading.value = true
@@ -477,15 +518,22 @@ const loadHistory = async () => {
     historyRows.value = data.items
     historyTotal.value = data.total
   } catch (error) {
-    historyError.value = normalizeHttpError(error, '历史记录加载失败').detail
+    historyError.value = normalizeHttpError(error, t('userIntervention.historyLoadFailed')).detail
   } finally {
     historyLoading.value = false
   }
 }
 
+const handleTabChange = (name: string | number) => {
+  // ISS-054/061：切换到 history tab 时首次加载历史数据
+  if (name === 'history' && !historyLoaded.value) {
+    historyLoaded.value = true
+    loadHistory()
+  }
+}
+
 onMounted(() => {
   loadActive()
-  loadHistory()
 })
 </script>
 
@@ -495,36 +543,40 @@ onMounted(() => {
 }
 
 .card-title {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+}
+
+.section-card {
+  margin-top: var(--spacing-lg);
 }
 
 .plan-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--spacing-md);
 }
 
 .plan-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
 }
 
 .plan-date {
-  font-size: 13px;
-  color: #909399;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
 }
 
 .progress-wrap {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
 }
 
 .progress-label {
-  font-size: 13px;
-  color: #606266;
+  font-size: var(--font-size-small);
+  color: var(--text-regular);
   white-space: nowrap;
 }
 
@@ -536,8 +588,8 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid #f0f2f5;
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--border-lighter);
 }
 
 .task-item:last-child {
@@ -547,7 +599,7 @@ onMounted(() => {
 .task-left {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--spacing-md);
   flex: 1;
 }
 
@@ -558,34 +610,34 @@ onMounted(() => {
 }
 
 .task-name {
-  font-weight: 500;
-  font-size: 14px;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
 }
 
 .task-desc {
-  font-size: 12px;
-  color: #909399;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
 }
 
 .task-right {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: var(--spacing-xs);
 }
 
 .task-meta {
-  font-size: 12px;
-  color: #c0c4cc;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-disabled);
 }
 
 .task-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .text-muted {
-  color: #909399;
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
 }
 </style>

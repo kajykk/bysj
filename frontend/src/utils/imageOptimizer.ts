@@ -2,6 +2,10 @@
  * Image optimization utilities for WebP conversion and responsive images.
  */
 
+// L-08 修复：缓存格式检测结果，避免每次调用都创建 canvas 检测
+let _webpSupported: boolean | null = null
+let _avifSupported: boolean | null = null
+
 export interface ImageOptimizationOptions {
   quality?: number
   widths?: number[]
@@ -18,22 +22,28 @@ const DEFAULT_OPTIONS: ImageOptimizationOptions = {
  * Check if browser supports WebP format.
  */
 export function supportsWebP(): boolean {
+  if (_webpSupported !== null) return _webpSupported
   const canvas = document.createElement('canvas')
   if (canvas.getContext && canvas.getContext('2d')) {
-    return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0
+    _webpSupported = canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0
+  } else {
+    _webpSupported = false
   }
-  return false
+  return _webpSupported
 }
 
 /**
  * Check if browser supports AVIF format.
  */
 export function supportsAVIF(): boolean {
+  if (_avifSupported !== null) return _avifSupported
   const canvas = document.createElement('canvas')
   if (canvas.getContext && canvas.getContext('2d')) {
-    return canvas.toDataURL('image/avif').indexOf('data:image/avif') === 0
+    _avifSupported = canvas.toDataURL('image/avif').indexOf('data:image/avif') === 0
+  } else {
+    _avifSupported = false
   }
-  return false
+  return _avifSupported
 }
 
 /**
@@ -73,7 +83,9 @@ export function generateSrcSet(
 
   return opts.widths!
     .map((width) => {
-      const url = `${src}?w=${width}&format=${format}&quality=${opts.quality}`
+      // M-30 修复：处理已有查询参数，使用正确的分隔符
+      const separator = src.includes('?') ? '&' : '?'
+      const url = `${src}${separator}w=${width}&format=${format}&quality=${opts.quality}`
       return `${url} ${width}w`
     })
     .join(', ')

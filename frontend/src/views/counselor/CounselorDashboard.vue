@@ -2,71 +2,100 @@
   <div class="layout">
     <div class="layout__header">
       <div>
-        <h2>咨询师工作台</h2>
-        <p>欢迎，{{ auth.user?.nickname || auth.user?.username || '咨询师' }}</p>
+        <p class="layout__eyebrow">
+          <span
+            class="layout__eyebrow-dot breathe-dot"
+            aria-hidden="true"
+          />
+          {{ t('counselorDashboard.eyebrow') }}
+        </p>
+        <h2>{{ t('counselorDashboard.title') }}</h2>
+        <p>{{ t('counselorDashboard.welcome', { name: auth.user?.nickname || auth.user?.username || t('counselorDashboard.defaultCounselorName') }) }}</p>
       </div>
       <div class="layout__actions">
         <el-tag type="success">
-          咨询师端
+          {{ t('counselorDashboard.tagCounselor') }}
         </el-tag>
         <el-button @click="handleLogout">
-          退出登录
+          {{ t('counselorDashboard.btnLogout') }}
         </el-button>
       </div>
     </div>
 
-    <el-row :gutter="16">
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-header">
-            <el-icon class="stat-icon warning">
-              <Warning />
-            </el-icon>
-            <h3>今日待处理预警</h3>
-          </div>
-          <div
-            v-if="statsLoading"
-            class="stat-loading"
+    <!-- Bento 统计区：今日预警 Hero + 副卡堆叠（绑定用户数 / 绑定码） -->
+    <div class="bento-stats">
+      <!-- Hero：今日待处理预警 -->
+      <BentoCell
+        hero
+        shimmer
+        :live-dot="unhandledCount > 0 ? 'alert' : 'primary'"
+        :title="t('counselorDashboard.heroTitle')"
+        class="bento-item"
+      >
+        <template #actions>
+          <el-tag
+            v-if="unhandledCount > 0"
+            type="danger"
+            size="small"
+            effect="light"
+            round
           >
-            <el-skeleton
-              :rows="1"
-              animated
-            />
-          </div>
-          <div
-            v-else
-            class="stat warning"
-          >
+            {{ t('counselorDashboard.heroTagNeedHandle') }}
+          </el-tag>
+        </template>
+        <div
+          v-if="statsLoading"
+          class="stat-loading"
+        >
+          <el-skeleton
+            :rows="2"
+            animated
+          />
+        </div>
+        <template v-else>
+          <div class="stat stat--hero stat--warning tabular-nums">
             <CountUp
               :end="unhandledCount"
               :duration="1200"
             />
+            <span class="stat-unit">{{ t('counselorDashboard.heroUnit') }}</span>
           </div>
+          <p class="stat-sub">
+            {{ t('counselorDashboard.heroSub') }}
+          </p>
+        </template>
+        <template #footer>
           <el-button
             v-if="canHandleWarnings"
             type="warning"
             plain
+            class="magnetic-press"
             @click="router.push('/counselor/warnings')"
           >
-            <el-icon><Bell /></el-icon> 进入处理队列
+            <el-icon><Bell /></el-icon> {{ t('counselorDashboard.heroBtnEnterQueue') }}
           </el-button>
           <el-tag
             v-else
             type="info"
             size="small"
           >
-            无预警处理权限
+            {{ t('counselorDashboard.heroNoPermission') }}
           </el-tag>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-header">
-            <el-icon class="stat-icon primary">
+        </template>
+      </BentoCell>
+
+      <!-- 副卡堆叠：绑定用户数 + 绑定码 -->
+      <div class="bento-stat-stack">
+        <BentoCell
+          shimmer
+          :title="t('counselorDashboard.userCountTitle')"
+          class="bento-item"
+        >
+          <template #actions>
+            <el-icon class="stat-icon stat-icon--primary">
               <User />
             </el-icon>
-            <h3>绑定用户数</h3>
-          </div>
+          </template>
           <div
             v-if="statsLoading"
             class="stat-loading"
@@ -76,40 +105,46 @@
               animated
             />
           </div>
-          <div
-            v-else
-            class="stat primary"
-          >
-            <CountUp
-              :end="userCount"
-              :duration="1200"
-            />
-          </div>
-          <el-button
-            v-if="canViewConsultations"
-            type="primary"
-            plain
-            @click="router.push('/counselor/users')"
-          >
-            <el-icon><Management /></el-icon> 查看用户列表
-          </el-button>
-          <el-tag
-            v-else
-            type="info"
-            size="small"
-          >
-            无用户查看权限
-          </el-tag>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-header">
-            <el-icon class="stat-icon primary">
+          <template v-else>
+            <div class="stat stat--primary tabular-nums">
+              <CountUp
+                :end="userCount"
+                :duration="1200"
+              />
+              <span class="stat-unit">{{ t('counselorDashboard.userCountUnit') }}</span>
+            </div>
+          </template>
+          <template #footer>
+            <el-button
+              v-if="canViewConsultations"
+              type="primary"
+              plain
+              size="small"
+              class="magnetic-press"
+              @click="router.push('/counselor/users')"
+            >
+              <el-icon><Management /></el-icon> {{ t('counselorDashboard.userCountBtnViewList') }}
+            </el-button>
+            <el-tag
+              v-else
+              type="info"
+              size="small"
+            >
+              {{ t('counselorDashboard.userCountNoPermission') }}
+            </el-tag>
+          </template>
+        </BentoCell>
+
+        <BentoCell
+          shimmer
+          :title="t('counselorDashboard.bindCodeTitle')"
+          class="bento-item"
+        >
+          <template #actions>
+            <el-icon class="stat-icon stat-icon--primary">
               <CopyDocument />
             </el-icon>
-            <h3>绑定码</h3>
-          </div>
+          </template>
           <div
             v-if="bindCodeLoading"
             class="stat-loading"
@@ -119,74 +154,84 @@
               animated
             />
           </div>
-          <div
-            v-else
-            class="stat primary bind-code"
-          >
-            {{ bindCode || '—' }}
-          </div>
-          <div class="bind-actions">
-            <el-button
-              v-if="bindCode"
-              type="success"
-              plain
-              size="small"
-              @click="copyBindCode"
-            >
-              <el-icon><CopyDocument /></el-icon> 复制
-            </el-button>
-            <el-button
-              v-if="canViewConsultations"
-              plain
-              size="small"
-              :loading="bindCodeLoading"
-              @click="refreshBindCode"
-            >
-              刷新
-            </el-button>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-header">
-            <el-icon class="stat-icon success">
-              <Management />
-            </el-icon>
-            <h3>快捷操作</h3>
-          </div>
-          <div class="quick-actions">
-            <el-button
-              type="primary"
-              plain
-              @click="router.push('/counselor/warnings')"
-            >
-              <el-icon><Warning /></el-icon> 处理预警
-            </el-button>
-            <el-button
-              type="success"
-              plain
-              @click="router.push('/counselor/users')"
-            >
-              <el-icon><User /></el-icon> 用户管理
-            </el-button>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+          <template v-else>
+            <div class="stat stat--primary bind-code tabular-nums">
+              {{ bindCode || '—' }}
+            </div>
+          </template>
+          <template #footer>
+            <div class="bind-actions">
+              <el-button
+                v-if="bindCode"
+                type="success"
+                plain
+                size="small"
+                class="magnetic-press"
+                @click="copyBindCode"
+              >
+                <el-icon><CopyDocument /></el-icon> {{ t('counselorDashboard.bindCodeBtnCopy') }}
+              </el-button>
+              <el-button
+                v-if="canViewConsultations"
+                plain
+                size="small"
+                :loading="bindCodeLoading"
+                class="magnetic-press"
+                @click="refreshBindCode"
+              >
+                {{ t('counselorDashboard.bindCodeBtnRefresh') }}
+              </el-button>
+            </div>
+          </template>
+        </BentoCell>
+      </div>
+    </div>
+
+    <!-- 第二行：快捷操作（全宽） -->
+    <BentoCell
+      :title="t('counselorDashboard.quickActionsTitle')"
+      class="bento-item"
+    >
+      <template #actions>
+        <el-icon class="stat-icon stat-icon--success">
+          <Management />
+        </el-icon>
+      </template>
+      <div class="quick-actions">
+        <el-button
+          type="primary"
+          plain
+          class="magnetic-press"
+          @click="router.push('/counselor/warnings')"
+        >
+          <el-icon><Warning /></el-icon> {{ t('counselorDashboard.quickActionHandleWarning') }}
+        </el-button>
+        <el-button
+          type="success"
+          plain
+          class="magnetic-press"
+          @click="router.push('/counselor/users')"
+        >
+          <el-icon><User /></el-icon> {{ t('counselorDashboard.quickActionUserManagement') }}
+        </el-button>
+      </div>
+    </BentoCell>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
-import { hasPermission } from '@/types/permission'
+import { hasPermission } from '@/config/permissions'
 import { counselorApi } from '@/api/counselorApi'
 import CountUp from '@/components/common/CountUp.vue'
+import BentoCell from '@/components/common/BentoCell.vue'
 import { Warning, User, CopyDocument, Bell, Management } from '@element-plus/icons-vue'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 
@@ -229,9 +274,9 @@ const refreshBindCode = async () => {
   try {
     const data = await counselorApi.refreshCounselorBindCode()
     bindCode.value = data.bind_code
-    ElMessage.success('绑定码已刷新')
+    ElMessage.success(t('counselorDashboard.bindCodeRefreshed'))
   } catch {
-    ElMessage.error('刷新绑定码失败')
+    ElMessage.error(t('counselorDashboard.bindCodeRefreshFailed'))
   } finally {
     bindCodeLoading.value = false
   }
@@ -241,15 +286,27 @@ const copyBindCode = async () => {
   if (!bindCode.value) return
   try {
     await navigator.clipboard.writeText(bindCode.value)
-    ElMessage.success('绑定码已复制到剪贴板')
+    ElMessage.success(t('counselorDashboard.bindCodeCopied'))
   } catch {
-    ElMessage.error('复制失败，请手动复制')
+    ElMessage.error(t('counselorDashboard.bindCodeCopyFailed'))
   }
 }
 
 const handleLogout = async () => {
-  await ElMessageBox.confirm('确认退出当前账号吗？', '提示', { type: 'warning' })
-  await auth.logout()
+  // P1-F8 修复：原代码无 try/catch，用户取消确认框或 logout API 失败时
+  // 会抛出未处理的 Promise rejection，导致控制台报错和用户体验异常。
+  try {
+    await ElMessageBox.confirm(t('counselorDashboard.logoutConfirm'), t('counselorDashboard.logoutConfirmTitle'), { type: 'warning' })
+  } catch {
+    // 用户点击取消，静默处理
+    return
+  }
+  try {
+    await auth.logout()
+  } catch {
+    // logout API 失败不阻塞跳转，避免用户被困在当前页面
+    ElMessage.warning(t('counselorDashboard.logoutFailed'))
+  }
   await router.push('/login')
 }
 
@@ -261,98 +318,171 @@ onMounted(() => {
 
 <style scoped>
 .layout {
-  padding: 24px;
+  padding: var(--spacing-xl);
+  max-width: var(--layout-content-max-width);
+  margin: 0 auto;
 }
 
+/* ===== 头部 ===== */
 .layout__header {
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-2xl);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.layout__eyebrow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 0.5rem;
+  margin: 0 0 0.375rem;
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.layout__eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success-color);
+  box-shadow: 0 0 8px rgba(90, 158, 58, 0.6);
 }
 
 .layout__header h2 {
   margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--text-primary);
 }
 
 .layout__header p {
-  margin: 6px 0 0;
-  color: #6b7280;
+  margin: 0.375rem 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-normal);
 }
 
 .layout__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
 }
 
+/* ===== Bento 统计区：Hero（1.3fr）+ 副卡堆叠（2fr） ===== */
+.bento-stats {
+  display: grid;
+  grid-template-columns: 1.3fr 2fr;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.bento-stat-stack {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+/* ===== 统计数字 ===== */
 .stat {
-  font-size: 32px;
+  font-family: var(--font-family-display);
+  font-size: 2rem;
   font-weight: 700;
-  margin: 8px 0 14px;
+  letter-spacing: -0.03em;
+  margin: 0.25rem 0 0.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  color: var(--text-primary);
 }
 
-.stat.warning {
-  color: #e6a23c;
+.stat--hero {
+  font-size: 3.25rem;
 }
 
-.stat.primary {
-  color: #409eff;
+.stat--warning { color: var(--warning-color); }
+.stat--primary { color: var(--primary-color); }
+
+.stat-unit {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0;
+}
+
+.stat-sub {
+  margin: 0 0 0.5rem;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
 }
 
 .stat-loading {
-  min-height: 50px;
+  min-height: 44px;
 }
 
-.quick-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.stat-card {
-  height: 100%;
-}
-
-.stat-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.stat-header h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #606266;
-}
-
+/* 图标 */
 .stat-icon {
   font-size: 18px;
 }
 
-.stat-icon.warning {
-  color: #e6a23c;
-}
+.stat-icon--primary { color: var(--primary-color); }
+.stat-icon--success { color: var(--success-color); }
 
-.stat-icon.primary {
-  color: #409eff;
-}
-
-.stat-icon.success {
-  color: #67c23a;
-}
-
+/* 绑定码 */
 .bind-code {
-  font-size: 24px;
-  letter-spacing: 2px;
+  font-size: 1.75rem;
+  letter-spacing: 0.15em;
+  font-family: var(--font-family-mono);
 }
 
 .bind-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--spacing-sm);
+}
+
+/* 快捷操作 */
+.quick-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 1024px) {
+  .bento-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .bento-stat-stack {
+    grid-template-rows: auto auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    padding: var(--spacing-md);
+  }
+
+  .layout__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+
+  .stat {
+    font-size: 1.75rem;
+  }
+
+  .stat--hero {
+    font-size: 2.5rem;
+  }
 }
 </style>

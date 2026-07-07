@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import json
-
-import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from app.api.csp_report import router as csp_router
-
 
 app = FastAPI()
 app.include_router(csp_router)
@@ -21,7 +17,12 @@ class TestCSPReport:
 
     def test_empty_body(self):
         """TC-COV-CSP-001: Empty body returns 204."""
-        response = client.post("/api/v1/csp-report", data=b"")
+        # M-API-11: 必须显式声明 Content-Type，否则返回 415
+        response = client.post(
+            "/api/v1/csp-report",
+            data=b"",
+            headers={"Content-Type": "application/json"},
+        )
         assert response.status_code == 204
 
     def test_empty_json(self):
@@ -61,7 +62,7 @@ class TestCSPReport:
             "body": {
                 "blocked-url": "https://evil.com/script.js",
                 "document-url": "https://example.com/page",
-            }
+            },
         }
         response = client.post("/api/v1/csp-report", json=payload)
         assert response.status_code == 204

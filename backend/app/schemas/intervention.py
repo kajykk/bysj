@@ -20,6 +20,12 @@ class TaskStatusUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_postpone_date(self) -> "TaskStatusUpdateRequest":
-        if self.scheduled_date and self.postpone_to and self.postpone_to < self.scheduled_date:
-            raise ValueError("postpone_to must be later than or equal to scheduled_date")
+        if (
+            self.scheduled_date
+            and self.postpone_to
+            and self.postpone_to < self.scheduled_date
+        ):
+            raise ValueError(
+                "postpone_to must be later than or equal to scheduled_date"
+            )
         return self

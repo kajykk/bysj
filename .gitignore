@@ -61,6 +61,7 @@ outputs/
 *.pdf
 *.docx
 *.doc
+*.pptx
 *.zip
 *.png
 *.jpg
@@ -78,6 +79,13 @@ outputs/
 !frontend/dist/icon.svg
 !frontend/dist/icon-192x192.png
 !frontend/dist/icon-512x512.png
+
+# Thesis & defense materials (NEVER commit these)
+~$*.docx
+~$*.pptx
+毕业答辩*
+答辩*
+论文*
 
 # Test artifacts
 frontend/playwright-report/
@@ -111,6 +119,9 @@ md/
 原文/
 论文图表/
 thesis_charts/
+
+# Local backup directory (not part of project)
+__backup__/
 
 # Root-level temporary outputs (not part of source)
 api_mutation_result.txt
@@ -159,6 +170,7 @@ backend/htmlcov/
 backend/.coverage
 backend/coverage.xml
 backend/.env
+backend/.pii_key
 
 # Models runtime
 models/

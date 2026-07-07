@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -31,7 +30,9 @@ class TestStructuredDataCollect:
         assert "risk_score" in body["data"]
         assert "risk_level" in body["data"]
 
-    def test_collect_structured_non_student_normalization(self, client: TestClient, as_role):
+    def test_collect_structured_non_student_normalization(
+        self, client: TestClient, as_role
+    ):
         as_role("user", 1)
         resp = client.post(
             "/api/v1/user/data/collect",
@@ -55,7 +56,9 @@ class TestStructuredDataCollect:
         body = resp.json()
         assert body["code"] == 200
 
-    def test_collect_structured_empty_payload_uses_fallback(self, client: TestClient, as_role):
+    def test_collect_structured_empty_payload_uses_fallback(
+        self, client: TestClient, as_role
+    ):
         as_role("user", 1)
         resp = client.post(
             "/api/v1/user/data/collect",
@@ -128,7 +131,9 @@ class TestTextAnalyze:
         body = resp.json()
         assert body["code"] == 200
 
-    def test_text_analyze_empty_content_returns_error(self, client: TestClient, as_role):
+    def test_text_analyze_empty_content_returns_error(
+        self, client: TestClient, as_role
+    ):
         as_role("user", 1)
         resp = client.post(
             "/api/v1/user/data/text/analyze",
@@ -162,7 +167,9 @@ class TestPhysiologicalRecord:
         assert body["code"] == 200
         assert "record_id" in body["data"]
 
-    def test_record_physiological_invalid_fields_filtered(self, client: TestClient, as_role):
+    def test_record_physiological_invalid_fields_filtered(
+        self, client: TestClient, as_role
+    ):
         as_role("user", 1)
         resp = client.post(
             "/api/v1/user/data/physiological/record",
@@ -175,7 +182,9 @@ class TestPhysiologicalRecord:
         )
         assert resp.status_code == 200
 
-    def test_record_physiological_negative_values_rejected(self, client: TestClient, as_role):
+    def test_record_physiological_negative_values_rejected(
+        self, client: TestClient, as_role
+    ):
         as_role("user", 1)
         resp = client.post(
             "/api/v1/user/data/physiological/record",

@@ -30,13 +30,18 @@ class TestUserUploadApi:
         response = client.post(
             "/api/v1/user/upload",
             headers=auth_headers,
-            files={"file": ("test.exe", io.BytesIO(b"test"), "application/octet-stream")},
+            files={
+                "file": ("test.exe", io.BytesIO(b"test"), "application/octet-stream")
+            },
         )
         assert response.status_code == 400
 
     def test_upload_batch_too_many_files(self, client, auth_headers):
         """TC-COV-API-021: Batch upload with more than 10 files returns 400."""
-        files = [(f"file{i}", (f"test{i}.txt", io.BytesIO(b"test"), "text/plain")) for i in range(11)]
+        files = [
+            (f"file{i}", (f"test{i}.txt", io.BytesIO(b"test"), "text/plain"))
+            for i in range(11)
+        ]
         response = client.post(
             "/api/v1/user/upload/batch",
             headers=auth_headers,
@@ -54,11 +59,13 @@ class TestUserUploadApi:
     def test_validate_extension_no_extension(self):
         """TC-COV-API-023: Validate extension for file without extension."""
         from app.api.v1.user_upload import _validate_extension
+
         with pytest.raises(Exception):
             _validate_extension("noextension")
 
     def test_validate_extension_invalid_category(self):
         """TC-COV-API-024: Validate extension with invalid category."""
         from app.api.v1.user_upload import _validate_extension
+
         with pytest.raises(Exception):
             _validate_extension("test.exe", category="image")

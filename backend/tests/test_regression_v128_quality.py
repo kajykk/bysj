@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.core.crisis_detector import CrisisDetector
-from app.core.security import verify_password, get_password_hash
-from app.core.model_registry import is_model_enabled, get_model_info, MODEL_REGISTRY, ModelMetadata
+from app.core.model_registry import MODEL_REGISTRY, ModelMetadata, is_model_enabled
+from app.core.security import get_password_hash, verify_password
 
 
 class TestCrisisDetectorSeverity:
@@ -77,9 +78,11 @@ class TestSecurityExceptions:
         assert verify_password("anything", "") is False
 
     def test_verify_password_long_password_truncated(self):
+        # Phase 1 安全加固：超长密码不再被静默截断，而是直接拒绝
+        # 防止两个共享前 72 字节的密码被视为相同
         long_password = "a" * 80
-        hashed = get_password_hash(long_password)
-        assert verify_password(long_password, hashed) is True
+        with pytest.raises(ValueError, match="密码不能超过"):
+            get_password_hash(long_password)
 
     def test_password_hash_is_deterministic_for_same_input(self):
         password = "uniquepassword123"
@@ -114,15 +117,14 @@ class TestGpaScaling:
         from app.core.model_engine import ModelEngine
 
         model = ModelEngine()
-        model_feature_names = ["CGPA"]
         mock_model = MagicMock()
         mock_model.feature_names_in_ = None
 
         raw = {"cgpa": 3.8, "gpa_scale": 4.0}
-        result = model._build_structured_input(raw, ["cgpa", "CGPA"], mock_model)
+        model._build_structured_input(raw, ["cgpa", "CGPA"], mock_model)
 
         raw2 = {"cgpa": 3.8, "gpa_scale": 10.0}
-        result2 = model._build_structured_input(raw2, ["cgpa", "CGPA"], mock_model)
+        model._build_structured_input(raw2, ["cgpa", "CGPA"], mock_model)
 
 
 class TestSuicidalThoughtsSeparate:
@@ -262,7 +264,7 @@ class TestPasswordByteValidation:
         validate_password_bytes("密" * 20)
 
     def test_mixed_password_correctly_computed(self):
-        from app.core.security import validate_password_bytes, MAX_PASSWORD_BYTES
+        from app.core.security import MAX_PASSWORD_BYTES, validate_password_bytes
 
         pwd = "abc中文123"
         byte_len = len(pwd.encode("utf-8"))
@@ -303,7 +305,7 @@ class TestFileSha256:
         assert h == expected
 
     def test_compute_sha256_on_large_file(self, tmp_path):
-        from app.core.model_engine import _compute_file_sha256, CHUNK_SIZE
+        from app.core.model_engine import CHUNK_SIZE, _compute_file_sha256
 
         f = tmp_path / "large.bin"
         data = b"X" * (CHUNK_SIZE * 3 + 123)
@@ -318,8 +320,9 @@ class TestFileSha256:
 
 class TestPreloadExceptionClassification:
     def test_preload_handles_filenotfound_as_warning(self, caplog):
-        from app.core.model_engine import model_engine
         import logging
+
+        from app.core.model_engine import model_engine
 
         original_ids = model_engine.PRELOAD_IDS
         model_engine.PRELOAD_IDS = ["nonexistent_model_for_test"]
@@ -329,8 +332,10 @@ class TestPreloadExceptionClassification:
         finally:
             model_engine.PRELOAD_IDS = original_ids
 
-        assert any("recoverable" in r.message.lower() or "not found" in r.message.lower()
-                   for r in caplog.records)
+        assert any(
+            "recoverable" in r.message.lower() or "not found" in r.message.lower()
+            for r in caplog.records
+        )
 
     def test_preload_does_not_crash_on_all_errors(self):
         from app.core.model_engine import model_engine

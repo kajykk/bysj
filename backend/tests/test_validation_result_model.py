@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -83,12 +82,32 @@ class TestValidationResultModel:
         """验证数据库写入和读取"""
         run(self._async_test_db_write_and_read(db_session))
 
-    async def _async_test_query_by_model_version(self, db_session: AsyncSession) -> None:
+    async def _async_test_query_by_model_version(
+        self, db_session: AsyncSession
+    ) -> None:
         """异步辅助：按 model_version 查询"""
         results = [
-            ValidationResult(sample_id="s1", model_version="v1.5.0", ground_truth=1, prediction=1, is_correct=1),
-            ValidationResult(sample_id="s2", model_version="v1.5.0", ground_truth=0, prediction=0, is_correct=1),
-            ValidationResult(sample_id="s3", model_version="v1.4.0", ground_truth=1, prediction=0, is_correct=0),
+            ValidationResult(
+                sample_id="s1",
+                model_version="v1.5.0",
+                ground_truth=1,
+                prediction=1,
+                is_correct=1,
+            ),
+            ValidationResult(
+                sample_id="s2",
+                model_version="v1.5.0",
+                ground_truth=0,
+                prediction=0,
+                is_correct=1,
+            ),
+            ValidationResult(
+                sample_id="s3",
+                model_version="v1.4.0",
+                ground_truth=1,
+                prediction=0,
+                is_correct=0,
+            ),
         ]
         db_session.add_all(results)
         await db_session.commit()
@@ -151,6 +170,7 @@ class TestValidationResultModel:
 
     def test_table_exists_in_db(self, db_connection) -> None:
         """验证表在数据库中真实存在"""
+
         def check_table(sync_conn):
             inspector = inspect(sync_conn)
             tables = inspector.get_table_names()
@@ -160,9 +180,12 @@ class TestValidationResultModel:
 
     def test_table_columns_exist(self, db_connection) -> None:
         """验证所有字段在数据库中存在"""
+
         def check_columns(sync_conn):
             inspector = inspect(sync_conn)
-            columns = {col["name"] for col in inspector.get_columns("validation_results")}
+            columns = {
+                col["name"] for col in inspector.get_columns("validation_results")
+            }
             expected = {
                 "id",
                 "sample_id",

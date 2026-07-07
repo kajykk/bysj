@@ -70,18 +70,32 @@ class HarnessScenario:
             output = self.execute(context) if self.execute is not None else None
             if output:
                 context.update(output)
-            assertions = output.get("assertions", []) if isinstance(output, dict) else []
+            assertions = (
+                output.get("assertions", []) if isinstance(output, dict) else []
+            )
             steps = output.get("steps", []) if isinstance(output, dict) else []
-            passed = all(assertion.passed for assertion in assertions) if assertions else bool(
-                output.get("passed", context.get("expected_pass", True)) if isinstance(output, dict) else context.get("expected_pass", True)
+            passed = (
+                all(assertion.passed for assertion in assertions)
+                if assertions
+                else bool(
+                    output.get("passed", context.get("expected_pass", True))
+                    if isinstance(output, dict)
+                    else context.get("expected_pass", True)
+                )
             )
             if assertions and not passed:
-                passed = all(getattr(assertion, "passed", False) for assertion in assertions)
+                passed = all(
+                    getattr(assertion, "passed", False) for assertion in assertions
+                )
             details = {
                 "output": output or {},
                 "context": {k: v for k, v in context.items() if k != "client"},
                 "assertions": [
-                    {"name": assertion.name, "passed": assertion.passed, "message": assertion.message}
+                    {
+                        "name": assertion.name,
+                        "passed": assertion.passed,
+                        "message": assertion.message,
+                    }
                     for assertion in assertions
                 ],
                 "steps": [
@@ -109,7 +123,9 @@ class HarnessScenario:
                 passed=False,
                 duration_ms=(datetime.now(timezone.utc) - start).total_seconds() * 1000,
                 error=str(exc),
-                details={"context": {k: v for k, v in context.items() if k != "client"}},
+                details={
+                    "context": {k: v for k, v in context.items() if k != "client"}
+                },
             )
         finally:
             if self.teardown is not None:

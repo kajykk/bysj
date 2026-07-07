@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-import math
-
 from app.services.input_validator import InputValidator, ValidationResult
 
 
@@ -44,11 +41,13 @@ class TestInputValidator:
     def test_validate_tabular_with_valid_data(self):
         """TC-COV-VAL-004: Valid structured data passes validation."""
         validator = InputValidator()
-        result = validator.validate_tabular({
-            "sleep_hours": 7.0,
-            "exercise_minutes": 30.0,
-            "heart_rate": 70.0,
-        })
+        result = validator.validate_tabular(
+            {
+                "sleep_hours": 7.0,
+                "exercise_minutes": 30.0,
+                "heart_rate": 70.0,
+            }
+        )
         assert result.is_valid is True
         assert len(result.errors) == 0
         assert result.sanitized_input["sleep_hours"] == 7.0
@@ -77,57 +76,70 @@ class TestInputValidator:
     def test_validate_tabular_with_all_empty_values(self):
         """TC-COV-VAL-008: All-empty values returns validation error."""
         validator = InputValidator()
-        result = validator.validate_tabular({
-            "sleep_hours": None,
-            "exercise_minutes": "",
-        })
+        result = validator.validate_tabular(
+            {
+                "sleep_hours": None,
+                "exercise_minutes": "",
+            }
+        )
         assert result.is_valid is False
         assert any(e["anomaly_type"] == "all_empty" for e in result.errors)
 
     def test_validate_tabular_with_invalid_types(self):
         """TC-COV-VAL-009: Invalid types returns validation error."""
         validator = InputValidator()
-        result = validator.validate_tabular({
-            "sleep_hours": [1, 2, 3],
-            "exercise_minutes": {"value": 10},
-        })
+        result = validator.validate_tabular(
+            {
+                "sleep_hours": [1, 2, 3],
+                "exercise_minutes": {"value": 10},
+            }
+        )
         assert result.is_valid is False
-        assert any(e["anomaly_type"] == "illegal_type" for e in result.errors)
+        # M-Svc-14: list/dict 被转为 tuple 后参与范围检查，float(tuple) 抛 TypeError → type_error
+        assert any(e["anomaly_type"] == "type_error" for e in result.errors)
 
     def test_validate_tabular_with_nan_values(self):
         """TC-COV-VAL-010: NaN values returns validation error."""
         validator = InputValidator()
-        result = validator.validate_tabular({
-            "sleep_hours": float("nan"),
-        })
+        result = validator.validate_tabular(
+            {
+                "sleep_hours": float("nan"),
+            }
+        )
         assert result.is_valid is False
         assert any(e["anomaly_type"] == "nan_value" for e in result.errors)
 
     def test_validate_tabular_with_inf_values(self):
         """TC-COV-VAL-011: Inf values returns validation error."""
         validator = InputValidator()
-        result = validator.validate_tabular({
-            "exercise_minutes": float("inf"),
-        })
+        result = validator.validate_tabular(
+            {
+                "exercise_minutes": float("inf"),
+            }
+        )
         assert result.is_valid is False
         assert any(e["anomaly_type"] == "inf_value" for e in result.errors)
 
     def test_validate_tabular_with_negative_inf_values(self):
         """TC-COV-VAL-012: Negative Inf values returns validation error."""
         validator = InputValidator()
-        result = validator.validate_tabular({
-            "exercise_minutes": float("-inf"),
-        })
+        result = validator.validate_tabular(
+            {
+                "exercise_minutes": float("-inf"),
+            }
+        )
         assert result.is_valid is False
         assert any(e["anomaly_type"] == "inf_value" for e in result.errors)
 
     def test_validate_tabular_with_out_of_range_values(self):
         """TC-COV-VAL-013: Out-of-range values returns validation error."""
         validator = InputValidator()
-        result = validator.validate_tabular({
-            "sleep_hours": 999.0,
-            "exercise_minutes": -10.0,
-        })
+        result = validator.validate_tabular(
+            {
+                "sleep_hours": 999.0,
+                "exercise_minutes": -10.0,
+            }
+        )
         assert result.is_valid is False
         assert any(e["anomaly_type"] == "out_of_range" for e in result.errors)
 
@@ -144,9 +156,11 @@ class TestInputValidator:
     def test_validate_tabular_with_non_numeric_range_field(self):
         """TC-COV-VAL-015: Non-numeric value in range field returns error."""
         validator = InputValidator()
-        result = validator.validate_tabular({
-            "sleep_hours": "not_a_number",
-        })
+        result = validator.validate_tabular(
+            {
+                "sleep_hours": "not_a_number",
+            }
+        )
         assert result.is_valid is False
         assert any(e["anomaly_type"] == "type_error" for e in result.errors)
 
@@ -210,23 +224,27 @@ class TestInputValidator:
     def test_validate_physiological_with_valid_data(self):
         """TC-COV-VAL-024: Valid physiological data passes validation."""
         validator = InputValidator()
-        result = validator.validate_physiological({
-            "sleep_hours": 7.0,
-            "sleep_quality": 8,
-            "exercise_minutes": 30,
-            "heart_rate": 70,
-            "systolic_bp": 120,
-            "diastolic_bp": 80,
-            "steps": 10000,
-        })
+        result = validator.validate_physiological(
+            {
+                "sleep_hours": 7.0,
+                "sleep_quality": 8,
+                "exercise_minutes": 30,
+                "heart_rate": 70,
+                "systolic_bp": 120,
+                "diastolic_bp": 80,
+                "steps": 10000,
+            }
+        )
         assert result.is_valid is True
 
     def test_validate_physiological_with_missing_required(self):
         """TC-COV-VAL-025: Missing required physiological fields returns error."""
         validator = InputValidator()
-        result = validator.validate_physiological({
-            "sleep_hours": 7.0,
-        })
+        result = validator.validate_physiological(
+            {
+                "sleep_hours": 7.0,
+            }
+        )
         assert result.is_valid is False
         assert any(e["anomaly_type"] == "missing_required" for e in result.errors)
 
@@ -275,4 +293,5 @@ class TestInputValidator:
     def test_global_validator_instance(self):
         """TC-COV-VAL-030: Global validator instance exists."""
         from app.services.input_validator import input_validator
+
         assert isinstance(input_validator, InputValidator)

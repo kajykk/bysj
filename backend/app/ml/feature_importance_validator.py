@@ -7,8 +7,8 @@ from typing import Callable
 
 import numpy as np
 
-from app.ml.feature_analysis import compute_vif
 from app.ml.evaluation import compute_shap_values_approximation
+from app.ml.feature_analysis import compute_vif
 
 logger = logging.getLogger(__name__)
 
@@ -70,30 +70,40 @@ def validate_feature_importance(
             category = "optional"
             recommendation = "Optional: Not important and not collinear"
 
-        feature_analysis.append({
-            "feature": feat,
-            "shap_importance": float(shap_imp),
-            "vif": float(vif_val),
-            "is_important": is_important,
-            "is_collinear": is_collinear,
-            "category": category,
-            "recommendation": recommendation,
-        })
+        feature_analysis.append(
+            {
+                "feature": feat,
+                "shap_importance": float(shap_imp),
+                "vif": float(vif_val),
+                "is_important": is_important,
+                "is_collinear": is_collinear,
+                "category": category,
+                "recommendation": recommendation,
+            }
+        )
 
     # Sort by SHAP importance descending
     feature_analysis.sort(key=lambda x: x["shap_importance"], reverse=True)
 
     # Generate summary
     keep_features = [f["feature"] for f in feature_analysis if f["category"] == "keep"]
-    review_features = [f["feature"] for f in feature_analysis if f["category"] == "review"]
-    remove_candidates = [f["feature"] for f in feature_analysis if f["category"] == "remove_candidate"]
-    optional_features = [f["feature"] for f in feature_analysis if f["category"] == "optional"]
+    review_features = [
+        f["feature"] for f in feature_analysis if f["category"] == "review"
+    ]
+    remove_candidates = [
+        f["feature"] for f in feature_analysis if f["category"] == "remove_candidate"
+    ]
+    optional_features = [
+        f["feature"] for f in feature_analysis if f["category"] == "optional"
+    ]
 
     summary = {
         "total_features": len(feature_names),
         "keep": len(keep_features),
         "review": len(review_features),
-        "remove_candidates": len(remove_candidates),
+        # BUG-004 修复：原 "remove_candidates" 键同时被赋值为 int (count, L96) 和
+        # list (feature names, L100)，后者覆盖前者，导致计数丢失。改用不冲突的键名。
+        "remove_candidate_count": len(remove_candidates),
         "optional": len(optional_features),
         "keep_features": keep_features,
         "review_features": review_features,

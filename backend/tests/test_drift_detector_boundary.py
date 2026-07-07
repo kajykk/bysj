@@ -3,7 +3,6 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
-import pytest
 
 from app.ml.drift_detector import DriftDetector
 
@@ -80,7 +79,9 @@ class TestDriftDetectorBoundary:
     def test_psi_constant_distribution(self) -> None:
         """验证 PSI 常量分布处理"""
         detector = DriftDetector()
-        result = detector.compute_psi(np.array([5.0, 5.0, 5.0]), np.array([5.0, 5.0, 5.0]))
+        result = detector.compute_psi(
+            np.array([5.0, 5.0, 5.0]), np.array([5.0, 5.0, 5.0])
+        )
         assert result["psi"] == 0.0
         assert result["is_drift"] is False
 
@@ -91,16 +92,22 @@ class TestDriftDetectorBoundary:
             warnings.simplefilter("always")
             detector.compute_psi(np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.0]))
             runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
-            assert len(runtime_warnings) == 0, f"Unexpected RuntimeWarning: {runtime_warnings}"
+            assert (
+                len(runtime_warnings) == 0
+            ), f"Unexpected RuntimeWarning: {runtime_warnings}"
 
     def test_ks_test_no_runtime_warning(self) -> None:
         """验证 KS 测试不产生 RuntimeWarning"""
         detector = DriftDetector()
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            detector._approximate_ks_test(np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.0]))
+            detector._approximate_ks_test(
+                np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.0])
+            )
             runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
-            assert len(runtime_warnings) == 0, f"Unexpected RuntimeWarning: {runtime_warnings}"
+            assert (
+                len(runtime_warnings) == 0
+            ), f"Unexpected RuntimeWarning: {runtime_warnings}"
 
     def test_psi_normal_distribution(self) -> None:
         """验证 PSI 正常分布计算正确"""
@@ -110,7 +117,12 @@ class TestDriftDetectorBoundary:
         curr = np.random.normal(0, 1, 1000)
         result = detector.compute_psi(ref, curr)
         assert result["psi"] >= 0.0
-        assert result["interpretation"] in ["no_drift", "minor_drift", "moderate_drift", "major_drift"]
+        assert result["interpretation"] in [
+            "no_drift",
+            "minor_drift",
+            "moderate_drift",
+            "major_drift",
+        ]
         assert "is_drift" in result
 
     def test_detect_feature_drift_with_empty(self) -> None:

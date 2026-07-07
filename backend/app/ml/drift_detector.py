@@ -81,7 +81,9 @@ class DriftDetector:
         self.reference_data = data
         logger.info("Set reference data for %d features", len(data))
 
-    def compute_ks_test(self, reference: np.ndarray, current: np.ndarray) -> dict[str, float]:
+    def compute_ks_test(
+        self, reference: np.ndarray, current: np.ndarray
+    ) -> dict[str, float]:
         """Compute Kolmogorov-Smirnov test.
 
         Args:
@@ -92,7 +94,11 @@ class DriftDetector:
             Dictionary with KS statistic and p-value.
         """
         if len(reference) == 0 or len(current) == 0:
-            logger.warning("Empty array detected in KS test: reference=%d, current=%d", len(reference), len(current))
+            logger.warning(
+                "Empty array detected in KS test: reference=%d, current=%d",
+                len(reference),
+                len(current),
+            )
             return {
                 "statistic": 0.0,
                 "p_value": 1.0,
@@ -114,7 +120,9 @@ class DriftDetector:
             logger.warning("scipy not installed, using approximate KS test")
             return self._approximate_ks_test(reference, current)
 
-    def _approximate_ks_test(self, reference: np.ndarray, current: np.ndarray) -> dict[str, float]:
+    def _approximate_ks_test(
+        self, reference: np.ndarray, current: np.ndarray
+    ) -> dict[str, float]:
         """Approximate KS test without scipy.
 
         Args:
@@ -128,7 +136,11 @@ class DriftDetector:
 
         # Handle empty arrays
         if len(reference) == 0 or len(current) == 0:
-            logger.warning("Empty array detected in KS test: reference=%d, current=%d", len(reference), len(current))
+            logger.warning(
+                "Empty array detected in KS test: reference=%d, current=%d",
+                len(reference),
+                len(current),
+            )
             return {
                 "statistic": 0.0,
                 "p_value": 1.0,
@@ -157,16 +169,41 @@ class DriftDetector:
         # Compute ECDFs
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
-            ref_cdf = np.searchsorted(ref_sorted, all_values, side="right") / len(ref_sorted)
-            curr_cdf = np.searchsorted(curr_sorted, all_values, side="right") / len(curr_sorted)
+            ref_cdf = np.searchsorted(ref_sorted, all_values, side="right") / len(
+                ref_sorted
+            )
+            curr_cdf = np.searchsorted(curr_sorted, all_values, side="right") / len(
+                curr_sorted
+            )
 
         # KS statistic
         statistic = float(np.max(np.abs(ref_cdf - curr_cdf)))
 
-        # Approximate p-value (simplified)
+        # P1-F4 修复：原 asymptotic 公式 `exp(-2 * (statistic * en) ** 2)`
+        # 仅取 Kolmogorov 级数第一项且缺少因子 2，对 n<40 小样本不准确。
+        # 改进方案：
+        # 1. 加入小样本修正项 (en + 0.12 + 0.11/en)
+        # 2. 使用级数前若干项求和（默认 100 项，收敛快）
+        # 3. 裁剪到 [0, 1]
         n1, n2 = len(reference), len(current)
         en = np.sqrt(n1 * n2 / (n1 + n2))
-        p_value = float(np.exp(-2 * (statistic * en) ** 2))
+        # 小样本修正
+        lambda_val = (en + 0.12 + 0.11 / en) * statistic if en > 0 else statistic
+        p_value = 0.0
+        for k in range(1, 101):
+            term = 2 * ((-1) ** (k - 1)) * np.exp(-2 * k * k * lambda_val * lambda_val)
+            p_value += term
+            if abs(term) < 1e-10:
+                break
+        p_value = float(max(0.0, min(1.0, p_value)))
+        # 小样本时记录警告，提示用户结果可能不够精确
+        if n1 < 40 or n2 < 40:
+            logger.warning(
+                "Approximate KS test with small samples (n1=%d, n2=%d) may be inaccurate; "
+                "install scipy for exact distribution",
+                n1,
+                n2,
+            )
 
         return {
             "statistic": statistic,
@@ -174,7 +211,9 @@ class DriftDetector:
             "is_drift": bool(p_value < self.thresholds["ks_test"]),
         }
 
-    def compute_psi(self, reference: np.ndarray, current: np.ndarray, bins: int = 10) -> dict[str, float]:
+    def compute_psi(
+        self, reference: np.ndarray, current: np.ndarray, bins: int = 10
+    ) -> dict[str, float]:
         """Compute Population Stability Index.
 
         Args:
@@ -189,7 +228,11 @@ class DriftDetector:
 
         # Handle empty arrays
         if len(reference) == 0 or len(current) == 0:
-            logger.warning("Empty array detected in PSI: reference=%d, current=%d", len(reference), len(current))
+            logger.warning(
+                "Empty array detected in PSI: reference=%d, current=%d",
+                len(reference),
+                len(current),
+            )
             return {
                 "psi": 0.0,
                 "interpretation": "no_drift",
@@ -243,7 +286,11 @@ class DriftDetector:
         curr_sum = np.sum(curr_hist)
 
         if ref_sum == 0 or curr_sum == 0:
-            logger.warning("Zero sum histogram detected: ref_sum=%d, curr_sum=%d", ref_sum, curr_sum)
+            logger.warning(
+                "Zero sum histogram detected: ref_sum=%d, curr_sum=%d",
+                ref_sum,
+                curr_sum,
+            )
             return {
                 "psi": 0.0,
                 "interpretation": "no_drift",
@@ -259,6 +306,8 @@ class DriftDetector:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
             psi_values = (curr_dist - ref_dist) * np.log(curr_dist / ref_dist)
+            # L-ML-4 修复：对单 bin 贡献设上限，避免空 bin 导致 PSI 爆炸
+            psi_values = np.clip(psi_values, -10.0, 10.0)
             psi = float(np.sum(psi_values))
 
         # Interpretation
@@ -278,7 +327,9 @@ class DriftDetector:
             "bins": bins,
         }
 
-    def detect_feature_drift(self, current_data: dict[str, np.ndarray]) -> dict[str, dict[str, Any]]:
+    def detect_feature_drift(
+        self, current_data: dict[str, np.ndarray]
+    ) -> dict[str, dict[str, Any]]:
         """Detect feature drift.
 
         Args:
@@ -359,13 +410,18 @@ class DriftDetector:
 
             current_value = current_metrics[metric_name]
             change = baseline_value - current_value
+            # P1-F3 修复：baseline=0 时原逻辑将 relative_change 设为 1e9，
+            # 任何非零 current 都会触发误报。实际上对于 accuracy/precision 等
+            # "越高越好"的指标，baseline=0 且 current>0 表示从 0 提升（改善），
+            # 不应标记为退化。改为：仅当 current < baseline（即 change > 0）时
+            # 才视为退化，使用绝对变化量作为 relative_change。
             if baseline_value == 0:
-                if current_value == 0:
-                    # baseline 和 current 均为 0，无退化
+                if change <= 0:
+                    # current >= baseline=0，无退化（改善或持平）
                     relative_change = 0.0
                 else:
-                    # baseline=0 但 current 不为 0，表示严重退化（相对变化为无穷大）
-                    relative_change = float('inf')
+                    # current < baseline=0（异常负值），按绝对变化量计
+                    relative_change = abs(change)
             else:
                 relative_change = change / baseline_value
 
@@ -415,17 +471,23 @@ class DriftDetector:
         # Prediction drift
         prediction_drift = {}
         if current_predictions is not None and reference_predictions is not None:
-            prediction_drift = self.detect_prediction_drift(reference_predictions, current_predictions)
+            prediction_drift = self.detect_prediction_drift(
+                reference_predictions, current_predictions
+            )
 
         # Performance drift
         performance_drift = None
         if baseline_metrics is not None and current_metrics is not None:
-            performance_drift = self.detect_performance_drift(baseline_metrics, current_metrics)
+            performance_drift = self.detect_performance_drift(
+                baseline_metrics, current_metrics
+            )
 
         # Determine if drift is detected
         is_drift = any(r.get("is_drift", False) for r in feature_drift.values())
         is_drift = is_drift or prediction_drift.get("is_drift", False)
-        is_drift = is_drift or (performance_drift.get("is_degraded", False) if performance_drift else False)
+        is_drift = is_drift or (
+            performance_drift.get("is_degraded", False) if performance_drift else False
+        )
 
         report = DriftReport(
             feature_drift=feature_drift,

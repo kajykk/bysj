@@ -1,0 +1,192 @@
+# 稳定性维度任务清单 (Stability Tasks)
+
+> 维度: stability | 负责人: - | 最后更新: 2026-06-29
+> 评估来源: sysopt-stability assess 模式
+> 调整记录: 2026-06-29 STAB-P0-003 (PG 单点) 降级为 STAB-P1-001 (毕业设计环境无需生产级 HA)，原 P1 任务顺延为 P1-002~019
+
+## P0 任务 (必须立即处理)
+- [x] STAB-P0-001: 数据库无熔断器 PG 宕机级联失败 → pybreaker 断路器 (database.py) ✅ 2026-06-29
+  - 新增 `app/core/db_breaker.py`：自实现轻量级异步熔断器 (无第三方依赖)
+  - 状态机：CLOSED→OPEN(连续5次失败)→HALF_OPEN(30s后)→CLOSED(测试成功)/OPEN(测试失败)
+  - 只捕获连接级异常 (OperationalError/OSError/TimeoutError)，业务异常 (IntegrityError) 不触发
+  - config.py 新增 4 项配置 (db_circuit_breaker_enabled/db_failure_threshold/db_recovery_timeout/db_half_open_max_calls)
+  - database.py get_db() 集成熔断器：before_request(OPEN 时 503) + on_success/on_failure
+  - main.py lifespan 启动时调用 init_db_breaker()
+  - 新增 30 个测试用例 (tests/test_db_breaker.py)，全部通过
+  - 回归测试 116/116 通过
+- [x] STAB-P0-002: 数据库查询无语句级超时 → statement_timeout=10s (database.py) ✅ 2026-06-29
+  - config.py 新增 `db_statement_timeout: int = 10` (秒, 0 表示禁用)
+  - database.py 抽取 `_build_engine_kwargs()` 函数, PostgreSQL 模式下通过 asyncpg `server_settings` 透传 `statement_timeout` (毫秒单位)
+  - SQLite 模式自动跳过 (不支持 statement_timeout)
+  - 新增 21 个测试用例 (tests/test_statement_timeout.py), 覆盖 SQLite/PostgreSQL 双模式 + 幂等性 + 集成验证
+  - 回归测试: database 相关 61 个测试全部通过, core 相关 153 个测试全部通过, tests/api/ 302 个测试全部通过
+
+## P1 任务 (高优先级)
+- [ ] STAB-P1-001: PostgreSQL 单点故障无 HA → 流复制+Patroni 或 RDS Multi-AZ (从 P0 降级)
+- [x] STAB-P1-002: 成功与错误响应体结构不一致 → 统一 {code,message,data,error} ✅ 2026-07-02
+  - 修改 `app/core/response.py`：ok() 添加 `error: None` 字段 + 新增 fail() 函数 (message/code/error/data 关键字参数)
+  - 修改 `app/core/exceptions.py`：4 个异常处理器 (AppException/HTTPException/RequestValidationError/Exception) 统一为 `{code, message, data: None, error: {...}}` 结构
+    - `AppException.to_dict()` 返回 4 字段 (顶层 code/message/data + 嵌套 error 含 code/message/status_code/layer/fallback_to/timestamp/request_id/details)
+    - `_http_exception_handler` 添加 code="HTTP_{status}" + message + status_code + timestamp + request_id
+    - `_validation_exception_handler` 添加 code="VALIDATION_ERROR" + status_code=422 + details.errors + timestamp + request_id
+    - `_generic_exception_handler` 添加 code="INTERNAL_ERROR" + status_code=500 + timestamp + request_id (开发环境附加 detail/exception_type)
+  - 修改 `app/core/rate_limit.py`：限流响应 `rate_limit_exceeded_handler` 改为 4 字段结构 (code=429, message="请求过于频繁，请稍后再试", data=None, error={code:"RATE_LIMIT_EXCEEDED", message:"请求过于频繁，请稍后再试"})
+  - 新增 41 个测试用例 (tests/test_response_unified.py), 8 个测试类:
+    - TestOkFunction (7): ok() 函数测试
+    - TestFailFunction (7): fail() 函数测试
+    - TestAppExceptionHandlerUnified (5): AppException handler 4 字段验证
+    - TestHttpExceptionHandlerUnified (4): HTTPException handler 4 字段验证
+    - TestGenericExceptionHandlerUnified (4): generic Exception handler 4 字段验证
+    - TestValidationExceptionHandlerUnified (4): RequestValidationError handler 4 字段验证
+    - TestRateLimitHandlerUnified (5): 限流响应 4 字段验证 (用 MagicMock(spec=RateLimitExceeded) 避免复杂 Limit 构造)
+    - TestStructureConsistency (5): 成功 vs 错误响应 keys 对齐
+  - 回归 211 tests passed (test_rate_limit + test_response_unified + test_exceptions + test_security_p1_fixes + test_regression_v128_quality + test_rate_limit_coverage + test_health_models_check + test_core_health + test_core_health_extended)
+- [x] STAB-P1-003: ML 推理无熔断器与超时 → asyncio.wait_for(timeout=5) + 模型熔断 ✅ 2026-07-01
+  - 新增 `app/core/ml_breaker.py`：ML 专用熔断器 (复用 CircuitBreaker 状态机 + 自定义失败分类器)
+  - 修改 `app/core/db_breaker.py`：CircuitBreaker 新增 `failure_classifier` 参数 (向后兼容, 默认 DB 分类器)
+  - `_is_ml_failure` 分类器：TimeoutError/OSError/FileNotFoundError/RuntimeError/MemoryError/ImportError → 触发熔断; ValueError/TypeError/KeyError/HTTPException → 不触发 (业务异常)
+  - `call_with_ml_breaker(coro, timeout)` 异步包装：before_request(OPEN 时 503) + asyncio.wait_for(5s 默认) + on_success/on_failure
+  - config.py 新增 5 项配置 (ml_circuit_breaker_enabled/ml_failure_threshold/ml_recovery_timeout/ml_half_open_max_calls/ml_inference_timeout)
+  - ModelPredictService 4 个 predict 方法 (tabular/text/physiological/fusion) 包装熔断器 + 超时
+  - predict.py 4 个端点新增 CircuitBreakerOpenError 放行 + asyncio.TimeoutError→503 处理
+  - metrics.py 新增 ml_circuit_failure_count + ml_circuit_state 两个 Prometheus 指标
+  - main.py lifespan 启动时调用 init_ml_breaker()
+  - 修复 metrics.py 预存 bug (局部 `from app.core.config import settings` 遮蔽模块级导入导致 UnboundLocalError)
+  - 新增 41 个测试用例 (tests/test_ml_breaker.py), 覆盖分类器/自定义分类器/call_with_ml_breaker/服务集成/init/API 层
+  - 回归 215 tests passed (db_breaker + ml_breaker + predict_fusion + model_predict + fusion_enhanced + user_data + resilience + risk_service)
+- [x] STAB-P1-004: Email/SMTP 无熔断器 → SMTP 熔断器 ✅ 2026-07-02
+  - 新增 `app/core/smtp_breaker.py`：SMTP 专用熔断器 (复用 CircuitBreaker 状态机 + 自定义失败分类器)
+  - `_is_smtp_failure` 分类器：smtplib.SMTPException/OSError/ConnectionError/TimeoutError → 触发熔断; ValueError/TypeError/KeyError/HTTPException → 不触发 (业务异常)
+  - `call_with_smtp_breaker(coro)` 异步包装：before_request(OPEN 时 503) + on_success/on_failure (不加额外超时, SMTP 内部已有 15s 超时/次 + 2 次重试)
+  - config.py 新增 4 项配置 (smtp_circuit_breaker_enabled/smtp_failure_threshold=5/smtp_recovery_timeout=60/smtp_half_open_max_calls=1)
+  - EmailService.send_password_reset_email 用 call_with_smtp_breaker 包装 asyncio.to_thread(self._send_smtp, message)
+  - 新增 CircuitBreakerOpenError 处理: 转为 ValueError("邮件服务暂时不可用，请稍后重试") 快速失败
+  - metrics.py 新增 smtp_circuit_failure_count + smtp_circuit_state 两个 Prometheus 指标
+  - api/v1/metrics.py 新增 SMTP 指标采集块
+  - main.py lifespan 启动时调用 init_smtp_breaker()
+  - 新增 49 个测试用例 (tests/test_smtp_breaker.py), 覆盖分类器/call_with_smtp_breaker/服务集成/init/metrics+main 集成/端到端场景
+  - 回归 151 tests passed (email_service 4 + db_breaker + ml_breaker + smtp_breaker 49 + metrics + admin_metrics + fault_injection 12; 1 个 test_render_exposition_idempotent 预存隔离问题, 单独运行通过)
+- [x] STAB-P1-005: Celery broker 无熔断与快速失败 → Celery broker 熔断器 ✅ 2026-07-02
+  - 新增 `app/core/celery_breaker.py`：Celery broker 专用熔断器 (复用 CircuitBreaker 状态机 + 自定义失败分类器)
+  - `_is_celery_failure` 分类器：动态收集 kombu/celery/redis 三类异常, 缺失则跳过 (兼容未安装环境)
+    - 触发熔断: `kombu.exceptions.OperationalError`, `celery.exceptions.TimeoutError`, `OSError`, `ConnectionError`, `TimeoutError`, `redis.exceptions.ConnectionError`, `redis.exceptions.BusyLoadingError`
+    - 不触发熔断: `ValueError`/`TypeError`/`KeyError`/`HTTPException`/`CircuitBreakerOpenError` (业务异常)
+  - `call_with_celery_breaker(coro)` 异步包装：before_request(OPEN 时 503) + on_success/on_failure (不加额外超时, 调用方已有 inspect(timeout=1.5) 超时)
+  - config.py 新增 4 项配置 (celery_circuit_breaker_enabled/celery_failure_threshold=5/celery_recovery_timeout=30/celery_half_open_max_calls=1)
+  - health.py `check_celery_worker` 用 `call_with_celery_breaker` 包装 `asyncio.to_thread(inspect.stats)`, CircuitBreakerOpenError 返回 False 快速失败
+  - 顺带激活 `celery_worker_heartbeat` 指标 (STAB-P1-018 定义但此前无人 set): 成功=1.0, 失败=0.0, 使 AR-205 告警规则生效
+  - metrics.py 新增 `celery_circuit_failure_count` + `celery_circuit_state` 两个 Prometheus 指标
+  - api/v1/metrics.py 新增 Celery 指标采集块
+  - main.py lifespan 启动时调用 `init_celery_breaker()`
+  - 新增 58 个测试用例 (tests/test_celery_breaker.py), 覆盖分类器/异步包装/health 集成/init/metrics+main 静态检查/端到端场景
+  - 回归 262 tests passed (celery_breaker 58 + 熔断器套件 167 + metrics 套件 37; 1 个 test_render_exposition_idempotent 预存隔离问题, 单独运行通过)
+  - 熔断覆盖率 4/5→5/5 (Redis+DB+ML+SMTP+Celery) ✅ 达成 KPI 目标
+- [x] STAB-P1-006: 限流盲区 (reports/validation/canary/experiment) → 显式限流配置 ✅ 2026-07-02
+  - 为 5 个文件 32 个端点添加显式 `@limiter.limit` 装饰器:
+    - `app/api/v1/reports.py` (7 个端点): PDF/Excel 生成 5/min + templates/list/status/download/jobs 30/min + async 10/min
+    - `app/api/v1/validation.py` (4 个端点): run 5/min + 其余 30/min
+    - `app/api/v1/canary.py` (9 个端点): pause/resume/rollback/complete/traffic 10/min + 列表/详情/状态 30/min
+    - `app/api/v1/model_predict/experiment.py` (4 个端点): ML 实验全部 5/min
+    - `app/api/v1/observability/__init__.py` (8 个端点): 全部查询 30/min
+  - 限流策略:
+    - 计算密集接口 (PDF/Excel 生成、ML 实验、校验运行): 5/minute
+    - 敏感操作 (金丝雀部署/回滚/pause/resume/rollback/complete/traffic): 10/minute
+    - 普通查询 (列表/详情/状态/templates): 30/minute
+  - 所有端点新增 `request: Request` 参数 (slowapi 强制要求)
+  - 装饰器顺序: `@router.xxx(...)` 在上, `@limiter.limit(...)` 紧贴其下 (FastAPI 先解析路由参数, limiter 再包装)
+  - 新增 21 个测试用例 (tests/test_rate_limit_coverage.py), 4 个测试类:
+    - TestAllEndpointsHaveLimiter (参数化 5 模块): 验证所有端点都有 @limiter.limit 装饰器
+    - TestRateLimitValues (6 个具体端点策略验证): PDF/Excel 5/min, validation run 5/min, experiment 5/min, canary 敏感操作 10/min, observability 30/min
+    - TestRequestParameter (参数化 5 模块): 验证所有限流端点都有 request: Request 参数
+    - TestRateLimitValueValidity (参数化 5 模块): 验证所有限流值都是 5/10/30 per minute 之一
+  - 关键实现: 用源码扫描 (inspect.getsource + 正则匹配 @router.xxx 和 @limiter.limit) 替代函数名导入, 避免 ImportError
+  - 回归 211 tests passed (test_rate_limit + test_response_unified + test_exceptions + test_security_p1_fixes + test_regression_v128_quality + test_rate_limit_coverage + test_health_models_check + test_core_health + test_core_health_extended)
+- [x] STAB-P1-007: 健康检查未覆盖 ML 模型可用性 → HealthSnapshot 增加 models 字段 ✅ 2026-07-02
+  - 修改 `app/core/health.py`：HealthSnapshot 新增 `models: bool | None` 字段
+  - 新增 `check_models()` 异步函数：检查 3 个核心模型文件存在性 (structured_logistic_regression_quick + text_depression_model + text_depression_tfidf)
+  - 新增 `_CORE_MODEL_IDS` 常量：与 ModelPredictService.get_model_status 的 ready 逻辑一致
+  - `get_health_snapshot()` 改为 4 项并行 gather (database/redis/celery/models)
+  - `basic_health_snapshot()` 返回 models=None (未检查)
+  - 修改 `app/main.py`：`/health` 和 `/health/ready` 端点新增 models 检查项 ("failed (optional)" 不影响整体 status)
+  - 设计要点：仅检查文件存在性不加载模型 (延迟 <100ms), models 失败标记为 optional 不降级整体 status
+  - 新增 26 个测试用例 (tests/test_health_models_check.py), 覆盖 _CORE_MODEL_IDS/HealthSnapshot.models/check_models/basic_snapshot/get_health_snapshot 集成/端点静态检查/端到端场景
+  - 回归 167 tests passed (core_health + core_health_extended + health_models_check + smtp_breaker + ml_breaker + db_breaker); fault_injection + email_service + metrics 2 个预存隔离问题 (单独运行通过)
+- [x] STAB-P1-008: 无 MTTR 自动统计 → 基于 OperationLog 时间差计算 ✅ 2026-07-02
+  - 新增 `app/services/mttr_service.py`：MttrService 类 + MttrStats dataclass
+  - 数据源: OperationLog 表中 `alert_fired` (故障开始) / `alert_resolved` (故障恢复) 按 detail JSON 中的 fingerprint 字段配对
+  - `compute_mttr(db_session, window_hours=24)` 计算 MTTR = Σ(resolved_at - fired_at) / N
+  - 跨 90 天窗口: 同时查询 `operation_logs` 和 `alert_archives` 两张表 (AlertArchive 用 status 字段映射 action_type)
+  - 按 severity 分组: critical/warning/info 分别统计 mttr_seconds/resolved_count/unresolved_count
+  - 未配对告警: 单独统计 unresolved_count (有 fired 但无 resolved)
+  - 负 MTTR (resolved 早于 fired) 不计入 (窗口边界异常保护)
+  - 新增 3 个 Prometheus Gauge 指标 (`app/core/metrics.py`):
+    - `alert_mttr_seconds{severity}` - 按 severity 分组的平均恢复时长 (AR-206 threshold=300s)
+    - `alert_resolved_total` - 24h 内已配对恢复的告警总数
+    - `alert_unresolved_count` - 24h 内未恢复的告警数 (AR-207 threshold>0 for 1h)
+  - `/metrics` 端点 (`app/api/v1/metrics.py`) 采集 MTTR 指标: 调用 `mttr_service.compute_mttr()` 并 `.set()` 到 Gauge, 无数据时设置 0 避免指标缺失
+  - 新增 2 条告警规则 (`app/core/alert_rules.py`):
+    - AR-206 `high_mttr`: MTTR > 300s 持续 10min (Severity.WARNING, category=stability)
+    - AR-207 `unresolved_alerts`: 未恢复告警 > 0 持续 1h (Severity.WARNING, category=stability)
+  - 新增 29 个测试用例 (`tests/test_mttr_service.py`), 6 个测试类:
+    - TestParseOperationLogRow (5): detail JSON 解析 (有效行/None/非法JSON/缺fingerprint/缺severity)
+    - TestGroupByFingerprint (4): fingerprint 分组排序 (单条/多条/时间升序/空列表)
+    - TestComputeMttr (9): MTTR 计算逻辑 (空DB/单对/多对平均/未恢复/severity分组/负MTTR/仅resolved/窗口参数/实例窗口)
+    - TestMttrStats (1): MttrStats 数据类字段完整性
+    - TestMttrMetricsIntegration (7): 指标定义 + AR-206/AR-207 规则 + category 标签
+    - TestMttrServiceIntegration (3): 真实 DB 集成测试 (空DB/单对配对/未恢复)
+  - 回归 268 tests passed (mttr_service 29 + alert_rules + metrics + observability_service + health_models + celery_breaker 58 + smtp_breaker 49 + ml_breaker 41)
+- [x] STAB-P1-009: 金丝雀回滚强依赖 Celery → 备用 asyncio.create_task ✅ 2026-07-02
+  - 新增 `app/services/canary_fallback_monitor.py`：金丝雀自动回滚备用监控 (asyncio.create_task fallback)
+  - 原问题: `canary_auto_rollback_check` 由 Celery beat 每 30s 触发, 当 Celery broker/worker 不可用时 (circuit OPEN), 自动回滚检查停止, 金丝雀异常无法被自动回滚
+  - 修复方案: 在 FastAPI lifespan 进程内启动 `asyncio.create_task` 后台任务, 周期性 (30s) 检查 `celery_breaker` 状态
+    - state == "closed": Celery 可用, 跳过本次执行 (让 Celery beat 处理, 避免双重执行)
+    - state != "closed" (open/half_open): Celery 不可用, 调用 `auto_rollback_service.check_all_canaries()` 执行 fallback rollback check
+  - 设计原则: 不与 Celery beat 双重执行 (通过 celery_breaker 状态判断), 不阻塞 lifespan (后台任务), 测试环境跳过启动 (PYTEST_CURRENT_TEST 检测), 应用关闭时正确取消任务 (CancelledError 处理), 循环内异常不退出 (持续监控)
+  - `main.py` lifespan 启动阶段调用 `start_canary_fallback_monitor(app)`, 关闭阶段调用 `stop_canary_fallback_monitor()`
+  - 新增 29 个测试用例 (`tests/test_canary_fallback_monitor.py`), 8 个测试类:
+    - TestIsTestEnvironment (2): PYTEST_CURRENT_TEST 环境变量检测
+    - TestCanaryFallbackLoopSkipWhenCeleryAvailable (2): celery_breaker=closed 跳过 + debug 日志
+    - TestCanaryFallbackLoopExecutesWhenCeleryUnavailable (3): open/half_open 执行 + warning 日志
+    - TestCanaryFallbackLoopRollbackTriggered (2): 触发回滚 count 日志 + 无需回滚 debug 日志
+    - TestCanaryFallbackLoopErrorHandling (2): rollback check 异常继续循环 + breaker snapshot 异常继续循环
+    - TestStartStopMonitor (5): 测试环境跳过 + 创建任务 + 重复启动跳过 + stop no-op + stop 取消任务
+    - TestIsCanaryFallbackRunning (3): 任务 None/done/running 状态查询
+    - TestCanaryFallbackMonitorSourceStructure (10): 源码静态扫描关键设计点 (间隔 30s + celery_breaker 状态 + auto_rollback_service 调用 + CancelledError 处理 + 异常继续 + 测试环境检查 + app.state 赋值 + task.cancel + main.py lifespan 接入 + 循环内导入)
+  - 回归 244 tests passed (canary_fallback_monitor 29 + auto_rollback_service + canary_manager + canary_manager_compat + celery_breaker 58 + scheduler)
+- [ ] STAB-P1-010: ML 模型文件依赖本地文件系统 → 对象存储 + SHA256 校验
+- [ ] STAB-P1-011: Redis 单实例无 Sentinel → 部署 Sentinel (3 节点)
+- [ ] STAB-P1-012: Celery worker 单点 → 部署至少 2 个 worker
+- [ ] STAB-P1-013: CI 未运行稳定性测试 → 增加 stability-tests job
+- [ ] STAB-P1-014: CI 未运行负载测试 → nightly 负载测试 job
+- [x] STAB-P1-015: 告警规则未在代码中定义 → monitoring/alert_rules.yml + CI 校验 (fixed in advance: alert_rules.py 14 条规则 + alert_rules.yml + 32 测试) ✅ 2026-06-30
+- [x] STAB-P1-016: DB 连接池使用率无指标 → /metrics 暴露 db_pool_* (fixed in advance: db_pool_size + db_pool_utilization + db_circuit_failure_count + db_circuit_state) ✅ 2026-06-30
+- [x] STAB-P1-017: Redis 熔断状态无指标 → redis_circuit_state 指标 (fixed in advance: redis_circuit_state 指标已暴露) ✅ 2026-06-30
+- [x] STAB-P1-018: 模型 fallback 率无全局告警 → model_fallback_rate 指标 (fixed in advance: model_fallback_rate 指标已暴露) ✅ 2026-06-30
+- [x] STAB-P1-019: Celery 任务失败无告警 → celery_task_failures_total 指标 (fixed in advance: celery_task_failures_total + celery_worker_heartbeat 指标已暴露) ✅ 2026-06-30
+
+## P2 任务 (中优先级)
+- [ ] STAB-P2-001: DB 异常未分类处理 → IntegrityError→409, OperationalError→503
+- [ ] STAB-P2-002: v1.15 回滚方案仍为 Draft → 归档标注 superseded
+- [ ] STAB-P2-003: 非金丝雀发布无自动回滚 → 健康检查门禁
+- [ ] STAB-P2-004: 模型预加载阻塞启动 → 后台预加载 asyncio.create_task
+- [ ] STAB-P2-005: 覆盖率门禁过低 (40%) → 分阶段提升至 60%→70%→80%
+- [ ] STAB-P2-006: 金丝雀仅覆盖模型预测 → 扩展按路由前缀分流
+- [ ] STAB-P2-007: 无发布窗口控制 → CI/CD deployment window 检查
+- [ ] STAB-P2-008: 数据库迁移无向后兼容性检查 → CI 增加 downgrade 测试
+- [ ] STAB-P2-009: 分布式追踪未导出 → OpenTelemetry SDK + OTLP
+- [ ] STAB-P2-010: Sentry 采样率偏低 (10%) → 5xx 100% 采样
+- [ ] STAB-P2-011: 无 SLO/SLI 仪表盘 → 定义 SLO + 错误预算
+
+## P3 任务 (低优先级)
+- [ ] STAB-P3-001: 废弃中间件残留 → 删除或 raise ImportError
+- [ ] STAB-P3-002: WebSocket 单用户连接数硬编码 → 迁移到 settings
+- [ ] STAB-P3-003: 开发环境 metrics 端点无鉴权 → 非本地环境强制 token
+
+---
+## 进度统计
+- P0: 2/2 ✅ STAB-P0-001, STAB-P0-002
+- P1: 13/19 ✅ STAB-P1-002/003/004/005/006/007/008/009 + (5 个 fixed in advance: STAB-P1-015~019, 对应 problem-inventory STAB-P1-014~018 告警阈值相关)
+- P2: 0/11
+- P3: 0/3
+
+- **总计**: 15/35

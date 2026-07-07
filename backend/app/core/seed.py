@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
-from app.core.security import get_password_hash
 from app.core.pii_crypto import compute_blind_index
+from app.core.security import get_password_hash
 from app.models import (
     EducationContent,
     InterventionPlan,
@@ -25,33 +27,53 @@ from app.models import (
     WarningSetting,
 )
 
+# 加载 .env 文件到 os.environ，确保 os.getenv() 能读取到 .env 中配置的种子密码
+# 修复：pydantic Settings 仅将 .env 加载到 Settings 对象，不会自动注入 os.environ，
+# 导致 seed.py 模块导入时 os.getenv("E2E_*_PASSWORD") 返回 None，应用启动失败。
+# config.py 的 BACKEND_DIR 与本文件同处 backend/ 目录，复用相同的 .env 路径。
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
 # 从环境变量读取种子数据密码，默认值仅用于开发环境
 # 修复：生产环境必须显式配置密码，防止弱口令后门
-_SEED_ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD", "Admin@123")
-_SEED_COUNSELOR_PASSWORD = os.getenv("SEED_COUNSELOR_PASSWORD", "Counselor@123")
-_SEED_USER_PASSWORD = os.getenv("SEED_USER_PASSWORD", "User@12345")
-_E2E_ADMIN_PASSWORD = os.getenv("E2E_ADMIN_PASSWORD", "E2E@Admin123")
-_E2E_COUNSELOR_PASSWORD = os.getenv("E2E_COUNSELOR_PASSWORD", "E2E@Counselor123")
-_E2E_USER_PASSWORD = os.getenv("E2E_USER_PASSWORD", "E2E@User123")
+# P1-D4 修复：原代码定义了两套密码变量（SEED_* 和 E2E_*），
+# SEED_* 被验证但从未使用，E2E_* 实际使用但未验证，导致生产环境校验失效。
+# 统一为 E2E_* 变量（实际使用的那个），并更新校验逻辑。
+# L-17 修复：原默认密码偏弱（E2E@User123 仅 11 位），加强为至少 18 位且包含大小写/数字/特殊字符
+# H-Core-7 修复：默认值改为 None，未配置时由校验逻辑抛 RuntimeError，防止弱口令后门
+_E2E_ADMIN_PASSWORD = os.getenv("E2E_ADMIN_PASSWORD")
+_E2E_COUNSELOR_PASSWORD = os.getenv("E2E_COUNSELOR_PASSWORD")
+_E2E_USER_PASSWORD = os.getenv("E2E_USER_PASSWORD")
 
 
 def _validate_seed_passwords_for_production() -> None:
-    """生产环境强制要求种子密码通过环境变量配置，防止弱口令后门。"""
+    """校验种子密码已通过环境变量配置。
+
+    H-Core-7 修复：原实现为非生产环境提供硬编码默认密码，若 app_env 误配置为非生产，
+    将启用已知弱口令后门。现默认值为 None，未配置时无论环境均抛 RuntimeError。
+    """
     from app.core.config import settings
-    if settings.app_env.lower() != "production":
-        return
+
     missing = [
-        name for name, val in [
-            ("SEED_ADMIN_PASSWORD", os.getenv("SEED_ADMIN_PASSWORD")),
-            ("SEED_COUNSELOR_PASSWORD", os.getenv("SEED_COUNSELOR_PASSWORD")),
-            ("SEED_USER_PASSWORD", os.getenv("SEED_USER_PASSWORD")),
-        ] if not val
+        name
+        for name, val in [
+            ("E2E_ADMIN_PASSWORD", _E2E_ADMIN_PASSWORD),
+            ("E2E_COUNSELOR_PASSWORD", _E2E_COUNSELOR_PASSWORD),
+            ("E2E_USER_PASSWORD", _E2E_USER_PASSWORD),
+        ]
+        if not val
     ]
-    if missing:
+    if not missing:
+        return
+    if settings.app_env.lower() == "production":
         raise RuntimeError(
             f"生产环境必须通过环境变量配置种子密码，缺失: {missing}。"
             f"请在 .env 或部署环境中设置这些变量。"
         )
+    raise RuntimeError(
+        f"种子密码未通过环境变量配置，缺失: {missing}。"
+        f"请在 .env 中设置这些变量（例如 E2E_ADMIN_PASSWORD 等）。"
+    )
+
 
 _COUNSELOR_SEED_DATA: list[dict[str, str]] = [
     {"username": "dr_wang", "email": "wang@clinic.com"},
@@ -502,6 +524,9 @@ async def seed_database() -> None:
 
 
 async def _seed_users(db: AsyncSession) -> None:
+    # H-Core-7 修复：使用处 None 检查（防御性，正常流程已在 seed_database 中校验）
+    if not _E2E_ADMIN_PASSWORD or not _E2E_COUNSELOR_PASSWORD or not _E2E_USER_PASSWORD:
+        raise RuntimeError("种子密码未配置，无法创建种子用户")
     desired_users = [
         {
             "username": "admin",
@@ -529,7 +554,14 @@ async def _seed_users(db: AsyncSession) -> None:
         ],
     ]
 
-    existing_users = (await db.execute(select(User))).scalars().all()
+    # M-Core-12 修复：原查询无 WHERE 过滤，大数据集下 OOM；
+    # 仅查询待种子化的用户名，避免全表加载。
+    _seed_usernames = [item["username"] for item in desired_users]
+    existing_users = (
+        (await db.execute(select(User).where(User.username.in_(_seed_usernames))))
+        .scalars()
+        .all()
+    )
     user_map = {user.username: user for user in existing_users}
 
     for item in desired_users:
@@ -548,23 +580,48 @@ async def _seed_users(db: AsyncSession) -> None:
 
     await db.flush()
 
-    profile_user_ids = set((await db.execute(select(UserProfile.user_id))).scalars().all())
-    warning_setting_user_ids = set((await db.execute(select(WarningSetting.user_id))).scalars().all())
-    binding_pairs = set((await db.execute(select(UserCounselorBinding.user_id, UserCounselorBinding.counselor_id))).all())
+    profile_user_ids = set(
+        (await db.execute(select(UserProfile.user_id))).scalars().all()
+    )
+    warning_setting_user_ids = set(
+        (await db.execute(select(WarningSetting.user_id))).scalars().all()
+    )
+    binding_pairs = set(
+        (
+            await db.execute(
+                select(UserCounselorBinding.user_id, UserCounselorBinding.counselor_id)
+            )
+        ).all()
+    )
 
     for user in user_map.values():
         if user.id not in profile_user_ids:
             nickname = user.username
             if user.role == "user":
-                user_seed = next((item for item in _USER_SEED_DATA if item["username"] == user.username), None)
-                nickname = user_seed.get("nickname", user.username) if user_seed else user.username
+                user_seed = next(
+                    (
+                        item
+                        for item in _USER_SEED_DATA
+                        if item["username"] == user.username
+                    ),
+                    None,
+                )
+                nickname = (
+                    user_seed.get("nickname", user.username)
+                    if user_seed
+                    else user.username
+                )
             db.add(UserProfile(user_id=user.id, nickname=nickname))
 
     for user_seed in _USER_SEED_DATA:
         user = user_map[user_seed["username"]]
         counselor = user_map[user_seed["counselor_username"]]
         if user.id not in warning_setting_user_ids:
-            db.add(WarningSetting(user_id=user.id, threshold_level=user_seed.get("threshold_level", 2)))
+            db.add(
+                WarningSetting(
+                    user_id=user.id, threshold_level=user_seed.get("threshold_level", 2)
+                )
+            )
         if (user.id, counselor.id) not in binding_pairs:
             db.add(
                 UserCounselorBinding(
@@ -579,7 +636,9 @@ async def _seed_users(db: AsyncSession) -> None:
 
 
 async def _seed_templates(db: AsyncSession) -> None:
-    exists_template = (await db.execute(select(InterventionTemplate).limit(1))).scalar_one_or_none()
+    exists_template = (
+        await db.execute(select(InterventionTemplate).limit(1))
+    ).scalar_one_or_none()
     if exists_template:
         return
 
@@ -634,7 +693,9 @@ async def _seed_templates(db: AsyncSession) -> None:
 
 
 async def _seed_contents(db: AsyncSession) -> None:
-    exists_content = (await db.execute(select(EducationContent).limit(1))).scalar_one_or_none()
+    exists_content = (
+        await db.execute(select(EducationContent).limit(1))
+    ).scalar_one_or_none()
     if exists_content:
         return
 
@@ -679,12 +740,18 @@ async def _seed_assessments_and_warnings(db: AsyncSession) -> None:
     users = (await db.execute(select(User).where(User.role == "user"))).scalars().all()
     user_map = {user.username: user for user in users}
 
-    counselors = (await db.execute(select(User).where(User.role == "counselor"))).scalars().all()
+    counselors = (
+        (await db.execute(select(User).where(User.role == "counselor"))).scalars().all()
+    )
     counselor_map = {counselor.username: counselor for counselor in counselors}
 
     risk_by_username: dict[str, RiskAssessment] = {}
-    users_with_assessment = set((await db.execute(select(StructuredAssessment.user_id))).scalars().all())
-    users_with_physiological_record = set((await db.execute(select(PhysiologicalRecord.user_id))).scalars().all())
+    users_with_assessment = set(
+        (await db.execute(select(StructuredAssessment.user_id))).scalars().all()
+    )
+    users_with_physiological_record = set(
+        (await db.execute(select(PhysiologicalRecord.user_id))).scalars().all()
+    )
 
     for user_seed in _USER_SEED_DATA:
         user = user_map.get(user_seed["username"])
@@ -737,8 +804,12 @@ async def _seed_assessments_and_warnings(db: AsyncSession) -> None:
         if risk:
             risk_by_username[user_seed["username"]] = risk
 
-    users_with_warning = set((await db.execute(select(WarningNotification.user_id))).scalars().all())
-    users_with_plan = set((await db.execute(select(InterventionPlan.user_id))).scalars().all())
+    users_with_warning = set(
+        (await db.execute(select(WarningNotification.user_id))).scalars().all()
+    )
+    users_with_plan = set(
+        (await db.execute(select(InterventionPlan.user_id))).scalars().all()
+    )
 
     for user_seed in _USER_SEED_DATA:
         warning_seed = user_seed.get("warning")
@@ -767,13 +838,18 @@ async def _seed_assessments_and_warnings(db: AsyncSession) -> None:
         if not plan_seed or user.id in users_with_plan:
             continue
 
+        # L-Core-7 修复：使用 UTC 日期，避免本地时区在跨时区部署下产生不一致
+        _today_utc = datetime.now(timezone.utc).date()
         plan = InterventionPlan(
             user_id=user.id,
             plan_name=plan_seed["plan_name"],
             risk_level=plan_seed["risk_level"],
             status=plan_seed["status"],
-            start_date=date.today(),
-            end_date=date.today(),
+            start_date=_today_utc,
+            end_date=_today_utc
+            + timedelta(
+                days=30
+            ),  # L-修复：结束日期延后 30 天，避免 start_date == end_date
         )
         db.add(plan)
         await db.flush()

@@ -1,7 +1,7 @@
 """Test v1.16 schema serialization and backward compatibility."""
+
 from __future__ import annotations
 
-import pytest
 from app.schemas.model_predict import (
     DataQualityItem,
     FusionPredictResult,
@@ -45,7 +45,11 @@ class TestTextPredictResult:
 class TestTabularPredictResult:
     def test_without_data_quality(self):
         result = TabularPredictResult(
-            prediction=0, probability=0.3, risk_score=30.0, risk_level=1, model_used="lr"
+            prediction=0,
+            probability=0.3,
+            risk_score=30.0,
+            risk_level=1,
+            model_used="lr",
         )
         assert result.data_quality is None
         data = result.model_dump()
@@ -74,7 +78,11 @@ class TestTabularPredictResult:
 class TestPhysiologicalPredictResult:
     def test_default_fields(self):
         result = PhysiologicalPredictResult(
-            prediction=0, probability=0.4, risk_score=40.0, risk_level=1, model_used="physio"
+            prediction=0,
+            probability=0.4,
+            risk_score=40.0,
+            risk_level=1,
+            model_used="physio",
         )
         assert result.confidence == 0.8
         assert result.data_quality == "complete"
@@ -138,7 +146,11 @@ class TestBackwardCompatibility:
     def test_old_tabular_response_still_valid(self):
         """旧版 Tabular 响应（无 data_quality）应能序列化。"""
         result = TabularPredictResult(
-            prediction=0, probability=0.2, risk_score=20.0, risk_level=0, model_used="lr"
+            prediction=0,
+            probability=0.2,
+            risk_score=20.0,
+            risk_level=0,
+            model_used="lr",
         )
         data = result.model_dump()
         assert "prediction" in data

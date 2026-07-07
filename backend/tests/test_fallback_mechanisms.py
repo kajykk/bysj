@@ -47,16 +47,22 @@ class TestFallbackMechanisms:
         """Create a fallback model that works."""
         model = MagicMock()
         model.predict.return_value = np.array([1, 0, 1])
-        model.predict_proba.return_value = np.array([[0.2, 0.8], [0.7, 0.3], [0.1, 0.9]])
+        model.predict_proba.return_value = np.array(
+            [[0.2, 0.8], [0.7, 0.3], [0.1, 0.9]]
+        )
         model.get_version.return_value = {"model_name": "fallback", "version": "1.0"}
         return model
 
-    def test_physiological_fallback(self, primary_model: MagicMock, fallback_model: MagicMock) -> None:
+    def test_physiological_fallback(
+        self, primary_model: MagicMock, fallback_model: MagicMock
+    ) -> None:
         """TC-FALL-001: 验证生理模型回退 (XGBoost -> NumPy MLP)."""
         registry = ModelRegistry()
         registry.register("xgboost", primary_model, "xgboost")
         registry.register("numpy_mlp", fallback_model, "numpy")
-        registry.register("physiological", primary_model, "xgboost", fallback_names=["numpy_mlp"])
+        registry.register(
+            "physiological", primary_model, "xgboost", fallback_names=["numpy_mlp"]
+        )
 
         registry.setup_fallback_chain("physiological")
 
@@ -68,12 +74,16 @@ class TestFallbackMechanisms:
         assert len(predictions) == 3
         fallback_model.predict.assert_called_once()
 
-    def test_fusion_fallback(self, primary_model: MagicMock, fallback_model: MagicMock) -> None:
+    def test_fusion_fallback(
+        self, primary_model: MagicMock, fallback_model: MagicMock
+    ) -> None:
         """TC-FALL-002: 验证融合层回退 (可学习 -> 规则)."""
         registry = ModelRegistry()
         registry.register("learnable_fusion", primary_model, "learnable")
         registry.register("rule_fusion", fallback_model, "rule")
-        registry.register("fusion", primary_model, "learnable", fallback_names=["rule_fusion"])
+        registry.register(
+            "fusion", primary_model, "learnable", fallback_names=["rule_fusion"]
+        )
 
         registry.setup_fallback_chain("fusion")
 
@@ -84,7 +94,9 @@ class TestFallbackMechanisms:
         assert len(predictions) == 3
         fallback_model.predict.assert_called_once()
 
-    def test_text_fallback(self, primary_model: MagicMock, fallback_model: MagicMock) -> None:
+    def test_text_fallback(
+        self, primary_model: MagicMock, fallback_model: MagicMock
+    ) -> None:
         """TC-FALL-003: 验证文本模型回退 (BERT -> TF-IDF+LR)."""
         registry = ModelRegistry()
         registry.register("bert", primary_model, "bert")
@@ -102,6 +114,7 @@ class TestFallbackMechanisms:
 
     def test_model_load_failure_fallback(self) -> None:
         """TC-FALL-004: 验证模型加载失败回退."""
+
         # Simulate model load failure
         def failing_load(path):
             raise FileNotFoundError("Model file not found")
@@ -123,7 +136,9 @@ class TestFallbackMechanisms:
             predictions = wrapper.predict(X)
             assert len(predictions) == 3
 
-    def test_prediction_anomaly_fallback(self, primary_model: MagicMock, fallback_model: MagicMock) -> None:
+    def test_prediction_anomaly_fallback(
+        self, primary_model: MagicMock, fallback_model: MagicMock
+    ) -> None:
         """TC-FALL-005: 验证预测异常回退."""
         # Primary returns NaN/Inf
         primary_model.predict.side_effect = None
@@ -157,7 +172,7 @@ class TestFallbackMechanisms:
 
         start = time.time()
         try:
-            predictions = wrapper.predict(X)
+            wrapper.predict(X)
             elapsed = (time.time() - start) * 1000
 
             if elapsed > 200:
@@ -183,7 +198,9 @@ class TestFallbackMechanisms:
             predictions = wrapper.predict(X)
             assert len(predictions) == 3
 
-    def test_fallback_logging(self, primary_model: MagicMock, fallback_model: MagicMock, caplog) -> None:
+    def test_fallback_logging(
+        self, primary_model: MagicMock, fallback_model: MagicMock, caplog
+    ) -> None:
         """TC-FALL-008: 验证回退日志记录."""
         import logging
 
@@ -213,7 +230,9 @@ class TestFallbackMechanisms:
         registry.register("primary", primary, "test")
         registry.register("secondary", secondary, "test")
         registry.register("tertiary", tertiary, "test")
-        registry.register("main", primary, "test", fallback_names=["secondary", "tertiary"])
+        registry.register(
+            "main", primary, "test", fallback_names=["secondary", "tertiary"]
+        )
 
         registry.setup_fallback_chain("main")
 

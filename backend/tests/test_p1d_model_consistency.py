@@ -5,6 +5,7 @@
 2. CrisisEvent.crisis_score 类型为 Float (与迁移一致)
 3. 14 个外键均声明了 ondelete="SET NULL" 策略
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,7 +22,6 @@ from app.models.counselor import ConsultationAppointment, ConsultationRecord
 from app.models.intervention import InterventionPlan, InterventionTemplate
 from app.models.review import CrisisEvent
 from app.models.risk import WarningNotification
-
 
 # ---------------------------------------------------------------------------
 # P1-D-1: CrisisEvent 模型一致性
@@ -47,7 +47,11 @@ class TestCrisisEventModelConsistency:
         """复合索引应包含 (status, created_at) 列."""
         table = CrisisEvent.__table__
         idx = next(
-            (i for i in table.indexes if i.name == "ix_crisis_events_status_created_at"),
+            (
+                i
+                for i in table.indexes
+                if i.name == "ix_crisis_events_status_created_at"
+            ),
             None,
         )
         assert idx is not None
@@ -72,16 +76,16 @@ class TestCrisisEventModelConsistency:
     def test_crisis_score_is_float_type(self) -> None:
         """crisis_score 字段类型应为 Float (与迁移一致)."""
         column = CrisisEvent.__table__.c.crisis_score
-        assert isinstance(column.type, Float), (
-            f"crisis_score 应为 Float, 实际为 {type(column.type).__name__}"
-        )
+        assert isinstance(
+            column.type, Float
+        ), f"crisis_score 应为 Float, 实际为 {type(column.type).__name__}"
 
     def test_crisis_score_is_not_integer_type(self) -> None:
         """crisis_score 字段类型不应为 Integer."""
         column = CrisisEvent.__table__.c.crisis_score
-        assert not isinstance(column.type, Integer), (
-            "crisis_score 不应为 Integer (与迁移 Float 类型不一致)"
-        )
+        assert not isinstance(
+            column.type, Integer
+        ), "crisis_score 不应为 Integer (与迁移 Float 类型不一致)"
 
 
 # ---------------------------------------------------------------------------
@@ -149,8 +153,7 @@ class TestForeignKeyOndeleteStrategies:
     def test_consultation_records_counselor_id_ondelete(self) -> None:
         """consultation_records.counselor_id -> users.id, ondelete=SET NULL."""
         assert (
-            _get_fk_ondelete(ConsultationRecord.__table__, "counselor_id")
-            == "SET NULL"
+            _get_fk_ondelete(ConsultationRecord.__table__, "counselor_id") == "SET NULL"
         )
 
     # intervention.py (2 处)
@@ -163,8 +166,7 @@ class TestForeignKeyOndeleteStrategies:
     def test_intervention_templates_created_by_ondelete(self) -> None:
         """intervention_templates.created_by -> users.id, ondelete=SET NULL."""
         assert (
-            _get_fk_ondelete(InterventionTemplate.__table__, "created_by")
-            == "SET NULL"
+            _get_fk_ondelete(InterventionTemplate.__table__, "created_by") == "SET NULL"
         )
 
     # risk.py (2 处)
@@ -212,6 +214,4 @@ class TestAllForeignKeysHaveOndelete:
                     missing.append(
                         f"{table.name}.{column.name} -> {fk.target_fullname}"
                     )
-        assert not missing, (
-            f"以下外键缺少 ondelete 策略: {missing}"
-        )
+        assert not missing, f"以下外键缺少 ondelete 策略: {missing}"

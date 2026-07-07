@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 import time
 from collections.abc import Awaitable, Callable
 
@@ -10,15 +11,27 @@ from app.core.config import settings
 from app.core.metrics import http_request_duration_seconds, http_requests_total
 from app.core.request_id import REQUEST_ID_HEADER, get_or_create_request_id
 
+# L-13 修复：将 tracing 导入移到模块顶部，避免每次请求都执行 import 语句
+# tracing 模块仅依赖标准库，无循环导入风险
+# ISS-100 修复：同时设置 request_id ContextVar，供日志 Filter 注入
+from app.core.tracing import (
+    extract_or_new_trace,
+    set_current_request_id,
+    set_current_trace,
+)
+
 logger = logging.getLogger(__name__)
 
 
-async def request_id_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+async def request_id_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     request_id = get_or_create_request_id(request)
     request.state.request_id = request_id
+    # ISS-100 修复：同步设置到 ContextVar，使日志 Filter 能注入 request_id
+    set_current_request_id(request_id)
 
     # v1.33: W3C Trace Context 集成
-    from app.core.tracing import extract_or_new_trace, set_current_trace
     traceparent_header = request.headers.get("traceparent")
     trace = extract_or_new_trace(traceparent_header)
     set_current_trace(trace)
@@ -27,16 +40,21 @@ async def request_id_middleware(request: Request, call_next: Callable[[Request],
 
     try:
         response = await call_next(request)
+        # H-Core-9 修复：将 headers 设置移到 try 块内（call_next 成功后、finally 之前），
+        # 避免 call_next 抛异常时 response 未定义导致 UnboundLocalError
+        response.headers[REQUEST_ID_HEADER] = request_id
+        response.headers["X-Trace-Id"] = trace.trace_id
+        response.headers["X-Span-Id"] = trace.span_id
     finally:
-        # 清理当前 trace context (避免泄漏到下一个请求)
+        # 清理当前 trace context 和 request_id (避免泄漏到下一个请求)
         set_current_trace(None)
-    response.headers[REQUEST_ID_HEADER] = request_id
-    response.headers["X-Trace-Id"] = trace.trace_id
-    response.headers["X-Span-Id"] = trace.span_id
+        set_current_request_id(None)
     return response
 
 
-async def metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+async def metrics_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     """记录 HTTP 请求指标 (v1.30).
 
     收集:
@@ -60,16 +78,27 @@ async def metrics_middleware(request: Request, call_next: Callable[[Request], Aw
             method = request.method
             status = str(response.status_code)
             http_requests_total.inc(method=method, path=path_template, status=status)
-            http_request_duration_seconds.observe(duration, method=method, path=path_template)
+            http_request_duration_seconds.observe(
+                duration, method=method, path=path_template
+            )
         except Exception as exc:
             # P1-E 修复：HTTP 指标记录失败必须记录日志，便于发现指标系统异常
-            logger.warning("HTTP metrics recording failed for %s %s: %s", request.method, path_template, exc)
+            logger.warning(
+                "HTTP metrics recording failed for %s %s: %s",
+                request.method,
+                path_template,
+                exc,
+            )
 
     return response
 
 
-async def security_headers_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+async def security_headers_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     """添加安全响应头中间件 (v1.10 增强版)"""
+    # H-02 修复：主动生成 CSP nonce 并设置到 request.state，供响应头使用
+    request.state.csp_nonce = secrets.token_urlsafe(16)
     response = await call_next(request)
 
     # 基础安全头（所有环境）
@@ -77,12 +106,16 @@ async def security_headers_middleware(request: Request, call_next: Callable[[Req
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "0"  # 现代浏览器使用CSP
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+    response.headers["Permissions-Policy"] = (
+        "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+    )
     response.headers["X-DNS-Prefetch-Control"] = "off"
 
     # CSP 策略 (v1.27 强化: 生产环境强制执行；非生产环境 Report-Only 以便调试)
-    nonce = getattr(request.state, 'csp_nonce', "")
-    script_src = f"script-src 'self' 'nonce-{nonce}'; " if nonce else "script-src 'self'; "
+    nonce = getattr(request.state, "csp_nonce", "")
+    script_src = (
+        f"script-src 'self' 'nonce-{nonce}'; " if nonce else "script-src 'self'; "
+    )
     style_src = f"style-src 'self' 'nonce-{nonce}'; " if nonce else "style-src 'self'; "
     csp_value = (
         "default-src 'self'; "
@@ -106,6 +139,8 @@ async def security_headers_middleware(request: Request, call_next: Callable[[Req
 
     # HSTS（仅生产环境）
     if settings.app_env.lower() == "production":
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
 
     return response

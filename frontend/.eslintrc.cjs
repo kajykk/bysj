@@ -27,7 +27,7 @@ module.exports = {
 
     // TypeScript 规则 - 首轮适度放宽
     '@typescript-eslint/no-explicit-any': 'warn',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }],
 
     // 风格规则 - 由 Prettier 处理，ESLint 不重复
     'quotes': 'off',
@@ -39,5 +39,14 @@ module.exports = {
     'node_modules',
     'coverage',
     '*.d.ts'
+  ],
+  overrides: [
+    {
+      // 测试文件允许使用 any (mock 对象、类型绕过是测试中的常见模式)
+      files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off'
+      }
+    }
   ]
 }

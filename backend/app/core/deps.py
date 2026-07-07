@@ -1,13 +1,18 @@
-from typing import Annotated
-
 import logging
 import secrets
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.contracts import (
+    USER_ROLE_ADMIN,
+    USER_ROLE_COUNSELOR,
+    USER_ROLE_USER,
+    USER_STATUS_ACTIVE,
+)
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.user import User
@@ -15,14 +20,15 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
+# MAINT-P1-003: 角色与状态字面量统一引用 contracts.py 契约常量 (Single Source of Truth)
 ROLE_HIERARCHY: dict[str, set[str]] = {
-    "admin": {"admin", "counselor", "user"},
-    "counselor": {"counselor"},
-    "user": {"user"},
+    USER_ROLE_ADMIN: {USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_USER},
+    USER_ROLE_COUNSELOR: {USER_ROLE_COUNSELOR},
+    USER_ROLE_USER: {USER_ROLE_USER},
 }
 
 PERMISSION_MATRIX: dict[str, set[str]] = {
-    "user": {
+    USER_ROLE_USER: {
         "user.warning.read",
         "user.warning.track",
         "user.assessment.read",
@@ -33,7 +39,7 @@ PERMISSION_MATRIX: dict[str, set[str]] = {
         "user.intervention.read",
         "user.settings.manage",
     },
-    "counselor": {
+    USER_ROLE_COUNSELOR: {
         "counselor.warning.handle",
         "counselor.warning.ignore",
         "counselor.warning.batch",
@@ -44,7 +50,7 @@ PERMISSION_MATRIX: dict[str, set[str]] = {
         "review.view",
         "review.handle",
     },
-    "admin": {
+    USER_ROLE_ADMIN: {
         "admin.operation_log.view",
         "admin.operation_log.filter",
         "admin.operation_log.audit",
@@ -52,9 +58,13 @@ PERMISSION_MATRIX: dict[str, set[str]] = {
         "admin.dashboard.view",
         "admin.settings.manage",
         "admin.template.manage",
+        # ISS-095 修复：补齐与前端 permissions.ts 对齐的告警/静默权限
+        "admin.alerts.view",
+        "admin.silences.manage",
         "review.view",
         "review.handle",
         "crisis_event.view",
+        "crisis_event.handle",
         "crisis_event.export",
     },
 }
@@ -66,27 +76,57 @@ async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未提供认证Token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="未提供认证Token"
+        )
     try:
         payload = decode_token(token)
         # v1.27: 缓存到 request.state，供 _role_for_request 等复用，避免重复 decode
         request.state.token_payload = payload
         if payload.get("type") != "access":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的Token类型")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的Token类型"
+            )
         sub = payload.get("sub")
         if sub is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token缺少主体信息")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token缺少主体信息"
+            )
         user_id = int(sub)
     except HTTPException:
         raise
     except (PyJWTError, ValueError, TypeError) as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效或已过期的Token") from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="无效或已过期的Token"
+        ) from exc
+
+    # SEC-P1-001: 检查 jti 是否在 blocklist 中 (登出撤销)
+    from app.core.token_blocklist import is_token_revoked
+
+    jti = payload.get("jti")
+    if jti and await is_token_revoked(jti):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token已被撤销"
+        )
 
     user = await db.get(User, user_id)
-    if not user or user.status != "active":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用")
+    if not user or user.status != USER_STATUS_ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用"
+        )
     if not user.role:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户角色缺失")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户角色缺失"
+        )
+
+    # SEC-P1-001: 校验 JWT role 与 DB role 一致 (防止降权后继续使用旧 token)
+    token_role = payload.get("role")
+    if token_role and token_role != user.role:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token角色与当前用户角色不匹配",
+        )
+
     return user
 
 
@@ -125,7 +165,12 @@ def require_role(*roles: str):
         request: Request,
         current_user: Annotated[User, Depends(get_current_user)],
     ) -> User:
-        effective = ROLE_HIERARCHY.get(current_user.role, {current_user.role})
+        # 未知角色直接拒绝，防止注入异常角色名绕过权限
+        if current_user.role not in ROLE_HIERARCHY:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
+            )
+        effective = ROLE_HIERARCHY[current_user.role]
         if effective.intersection(allowed):
             return current_user
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
@@ -137,7 +182,9 @@ def require_permission(permission: str):
     async def checker(current_user: Annotated[User, Depends(get_current_user)]) -> User:
         granted = PERMISSION_MATRIX.get(current_user.role, set())
         if permission not in granted:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
+            )
         return current_user
 
     return checker
@@ -158,10 +205,13 @@ async def _resolve_current_user(
 
     v1.37 修复: ``require_sa_or_admin`` 直接调用 ``get_current_user`` 会绕过
     FastAPI 的依赖覆盖系统, 导致测试无法 mock. 这里手动检查覆盖.
-    """
-    from app.main import app as _app  # 避免循环导入
 
-    override = _app.dependency_overrides.get(get_current_user)
+    治理循环依赖: 原实现 ``from app.main import app`` 会形成
+    ``api.v1.* -> core.deps -> main -> api.v1.*`` 启动期循环依赖 (已用 lazy import
+    缓解为运行期循环). 改用 ``request.app`` 拿当前 FastAPI 实例 —— FastAPI 在
+    路由分发时自动注入 ``request.app``, 语义等价且彻底消除对 app.main 的导入依赖.
+    """
+    override = request.app.dependency_overrides.get(get_current_user)
     if override is not None:
         # 优先: 走覆盖函数 (测试用)
         result = override(request=request, token=token, db=db)
@@ -208,18 +258,28 @@ async def require_sa_or_admin(
     sa_token = settings.grafana_service_token
     if sa_token and secrets.compare_digest(token, sa_token):
         # 虚拟 admin 用户 (不写库, 仅作为鉴权通过的标识)
+        # M-01 修复: 填充所有必要字段，避免下游代码访问未设置字段时得到 None。
+        # created_at/updated_at 使用当前时间，last_login_at 同理，确保类型为 datetime。
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
         sa_user = User(
             id=0,
             username="grafana-service-account",
             email="grafana-sa@bysj.local",
             email_hash="grafana-sa-blind-index-placeholder",
-            role="admin",
-            status="active",
+            phone=None,
             password_hash="!grafana-sa-token!",
+            role=USER_ROLE_ADMIN,
+            status=USER_STATUS_ACTIVE,
+            avatar_url=None,
+            last_login_at=now,
+            created_at=now,
+            updated_at=now,
         )
         # 缓存 token payload 到 request.state, 供下游 _role_for_request 复用
         request.state.token_payload = {
-            "role": "admin",
+            "role": USER_ROLE_ADMIN,
             "sub": "0",
             "type": "service_account",
         }
@@ -227,7 +287,7 @@ async def require_sa_or_admin(
 
     # 路径 2: Admin User JWT (人类管理员登录)
     user = await _resolve_current_user(request=request, token=token, db=db)
-    if user.role != "admin":
+    if user.role != USER_ROLE_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Grafana 端点需要管理员权限",

@@ -1,3 +1,4 @@
+import { gdprApi } from './gdprApi'
 import { userBindingApi } from './userBindingApi'
 import { userContentApi } from './userContentApi'
 import { userFileApi } from './userFileApi'
@@ -24,6 +25,8 @@ export type {
   TextAnalyzeResult,
 } from './userRiskApi'
 
+export type { GdprDeleteResult } from './gdprApi'
+
 export const userApi = {
   ...userWarningsApi,
   ...userRiskApi,
@@ -31,4 +34,5 @@ export const userApi = {
   ...userInterventionApi,
   ...userBindingApi,
   ...userFileApi,
+  ...gdprApi,
 }

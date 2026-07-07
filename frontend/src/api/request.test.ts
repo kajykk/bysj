@@ -34,8 +34,11 @@ describe('request interceptor auth handling', () => {
   })
 
   it('reads refresh token through the shared storage helper', async () => {
+    // 安全修复：refresh_token 不再存入 localStorage（XSS 可窃取长期凭证）
+    // setStoredAuth 应清除旧版本残留的 refresh_token
+    localStorage.setItem('refreshToken', 'stale-token')
     setStoredAuth({ refreshToken: 'refresh-xyz' })
-    expect(localStorage.getItem('refreshToken')).toBe('refresh-xyz')
+    expect(localStorage.getItem('refreshToken')).toBeNull()
   })
 
   it('exposes warning message handler mock', () => {

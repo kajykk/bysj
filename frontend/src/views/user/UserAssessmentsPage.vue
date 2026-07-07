@@ -1,10 +1,10 @@
 <template>
   <ListPageScaffold
-    title="评估记录"
+    :title="t('userAssessments.pageTitle')"
     :loading="loading"
     :empty="!loading && rows.length === 0"
     :error-message="pageError"
-    empty-text="暂无评估记录"
+    :empty-text="t('userAssessments.emptyText')"
     @retry="fetchData"
   >
     <template #filters>
@@ -12,41 +12,41 @@
         @search="handleSearch"
         @reset="handleReset"
       >
-        <el-form-item label="类型">
+        <el-form-item :label="t('userAssessments.filterType')">
           <el-select
             v-model="filters.type"
             clearable
             style="width: 160px"
           >
             <el-option
-              label="结构化"
+              :label="t('userAssessments.typeStructured')"
               value="structured"
             />
             <el-option
-              label="文本"
+              :label="t('userAssessments.typeText')"
               value="text"
             />
             <el-option
-              label="生理"
+              :label="t('userAssessments.typePhysiological')"
               value="physiological"
             />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="时间区间">
+        <el-form-item :label="t('userAssessments.filterTimeRange')">
           <el-date-picker
             v-model="filters.range"
             type="daterange"
             value-format="YYYY-MM-DD"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            :range-separator="t('userAssessments.rangeSeparator')"
+            :start-placeholder="t('userAssessments.startPlaceholder')"
+            :end-placeholder="t('userAssessments.endPlaceholder')"
           />
         </el-form-item>
 
         <el-form-item>
           <el-button @click="handleExport">
-            导出
+            {{ t('userAssessments.btnExport') }}
           </el-button>
         </el-form-item>
       </FilterBar>
@@ -63,44 +63,44 @@
     >
       <el-table-column
         prop="id"
-        label="ID"
+        :label="t('userAssessments.colId')"
         width="80"
       />
       <el-table-column
         prop="assessment_type"
-        label="类型"
+        :label="t('userAssessments.colType')"
         width="120"
       />
       <el-table-column
         prop="score"
-        label="得分"
+        :label="t('userAssessments.colScore')"
         width="100"
       />
       <el-table-column
         prop="risk_level"
-        label="风险等级"
+        :label="t('userAssessments.colRiskLevel')"
         width="120"
       />
       <el-table-column
         prop="summary"
-        label="摘要"
+        :label="t('userAssessments.colSummary')"
         min-width="220"
       />
       <el-table-column
         prop="created_at"
-        label="时间"
+        :label="t('userAssessments.colTime')"
         min-width="180"
       />
       <el-table-column
-        label="操作"
+        :label="t('userAssessments.colOperation')"
         width="180"
         fixed="right"
       >
         <template #default="{ row }">
           <ActionColumn
-            label="查看详情"
+            :label="t('userAssessments.btnViewDetail')"
             :disabled="!canViewAssessment"
-            disabled-reason="无权限"
+            :disabled-reason="t('userAssessments.noPermission')"
             show-audit
             @action="openDetail(row)"
           />
@@ -113,6 +113,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { userApi, type AssessmentRecordItem } from '@/api/userApi'
 import { userFileApi } from '@/api/userFileApi'
@@ -124,11 +125,12 @@ import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import { mockAssessments } from '@/mocks/business'
 import { withMockFallback } from '@/utils/mockFallback'
-import { hasPermission } from '@/types/permission'
+import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { useListQueryState } from '@/composables/useListQueryState'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 const queryState = useListQueryState('ua')
@@ -193,7 +195,7 @@ const fetchData = async () => {
     rows.value = data.items
     total.value = data.total
   } catch (error) {
-    pageError.value = normalizeHttpError(error, '评估记录加载失败').detail
+    pageError.value = normalizeHttpError(error, t('userAssessments.loadFailed')).detail
   } finally {
     loading.value = false
   }
@@ -230,13 +232,14 @@ const handleExport = async () => {
     const res = await userFileApi.exportRiskData('csv', 3650)
     const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(blob)
+    link.href = url
     link.download = `assessment_export_${Date.now()}.csv`
     link.click()
-    URL.revokeObjectURL(link.href)
-    ElMessage.success('导出成功')
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    ElMessage.success(t('userAssessments.exportSuccess'))
   } catch (error) {
-    ElMessage.error(normalizeHttpError(error, '导出失败').detail)
+    ElMessage.error(normalizeHttpError(error, t('userAssessments.exportFailed')).detail)
   }
 }
 

@@ -24,7 +24,9 @@ def sigmoid(x: np.ndarray) -> np.ndarray:
     return 1 / (1 + np.exp(-np.clip(x, -500, 500)))
 
 
-def he_init(shape: tuple[int, ...], rng: np.random.RandomState | None = None) -> np.ndarray:
+def he_init(
+    shape: tuple[int, ...], rng: np.random.RandomState | None = None
+) -> np.ndarray:
     """He (Kaiming) initialization for ReLU activations.
 
     Args:
@@ -116,12 +118,12 @@ class PhysiologicalMLP:
             var = np.var(x, axis=0)
             # Update running statistics
             momentum = 0.1
-            layer["bn_running_mean"] = (
-                1 - momentum
-            ) * layer["bn_running_mean"] + momentum * mean
-            layer["bn_running_var"] = (
-                1 - momentum
-            ) * layer["bn_running_var"] + momentum * var
+            layer["bn_running_mean"] = (1 - momentum) * layer[
+                "bn_running_mean"
+            ] + momentum * mean
+            layer["bn_running_var"] = (1 - momentum) * layer[
+                "bn_running_var"
+            ] + momentum * var
         else:
             mean = layer["bn_running_mean"]
             var = layer["bn_running_var"]
@@ -132,22 +134,38 @@ class PhysiologicalMLP:
         cache = {"x": x, "mean": mean, "var": var, "x_norm": x_norm}
         return out, cache
 
-    def _dropout_forward(self, x: np.ndarray, rate: float) -> tuple[np.ndarray, np.ndarray]:
-        """Dropout forward pass."""
-        if not self.training or rate == 0:
+    def _dropout_forward(
+        self, x: np.ndarray, rate: float, training: bool = True
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Dropout forward pass.
+
+        C-ML-1 修复：原实现检查 self.training 实例属性而非局部 training 参数。
+        当 trainer.py 的 evaluate() 设置 model.training = False 后，
+        另一线程的 train_epoch 调用 forward(training=True) 进入本方法时，
+        self.training 已被改为 False，导致 Dropout 被静默跳过，
+        模型在无正则化下训练。
+        """
+        if not training or rate == 0:
             return x, np.ones_like(x)
         mask = (self.rng.rand(*x.shape) > rate).astype(np.float32)
         return x * mask / (1 - rate), mask
 
-    def forward(self, X: np.ndarray) -> tuple[np.ndarray, list[dict]]:
+    def forward(
+        self, X: np.ndarray, training: bool | None = None
+    ) -> tuple[np.ndarray, list[dict]]:
         """Forward pass through the network.
 
         Args:
             X: Input features (batch_size, input_dim).
+            training: M-3 修复：显式传入 training 状态，避免修改实例状态导致多线程竞态。
+                None 时回退到 self.training（向后兼容）。
 
         Returns:
             Tuple of (output, caches).
         """
+        # M-3 修复：使用局部变量避免多线程并发修改 self.training 导致 BatchNorm/Dropout 行为异常
+        if training is None:
+            training = self.training
         caches = []
         current = X
 
@@ -158,7 +176,7 @@ class PhysiologicalMLP:
 
             # BatchNorm (except last layer)
             if self.use_batch_norm and "bn_gamma" in layer:
-                z, bn_cache = self._batch_norm_forward(z, layer, self.training)
+                z, bn_cache = self._batch_norm_forward(z, layer, training)
                 cache["bn"] = bn_cache
                 cache["z"] = z  # Update to post-BatchNorm z (actual ReLU input)
 
@@ -167,8 +185,14 @@ class PhysiologicalMLP:
                 a = relu(z)
                 # Dropout with decreasing rate
                 drop_rate = self.dropout_rate * (1.0 - 0.2 * i)
-                drop_rate = max(0.1, drop_rate)
-                a, mask = self._dropout_forward(a, drop_rate)
+                # M-3 修复：允许 dropout_rate=0 生效（原 max(0.1, ...) 强制最小 0.1）
+                drop_rate = max(0.0, drop_rate)
+                # 推理阶段不应用 dropout
+                if not training or drop_rate == 0:
+                    a, mask = a, np.ones_like(a)
+                else:
+                    # C-ML-1 修复：传入局部 training 参数，避免 _dropout_forward 回退到 self.training
+                    a, mask = self._dropout_forward(a, drop_rate, training=training)
                 cache["dropout_mask"] = mask
                 cache["dropout_rate"] = drop_rate
             else:  # Output layer
@@ -189,13 +213,8 @@ class PhysiologicalMLP:
         Returns:
             Predicted probabilities.
         """
-        # 线程安全：保存原状态，确保异常时也能恢复（避免 dropout/BatchNorm 状态错乱）
-        prev_training = self.training
-        self.training = False
-        try:
-            output, _ = self.forward(X)
-        finally:
-            self.training = prev_training
+        # M-3 修复：通过参数传入 training=False，避免修改实例状态（线程安全）
+        output, _ = self.forward(X, training=False)
         return output
 
     def predict(self, X: np.ndarray, threshold: float = 0.5) -> np.ndarray:
@@ -245,6 +264,12 @@ class PhysiologicalMLP:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(model_data, f, ensure_ascii=False, indent=2)
 
+        # C-ML-2 修复：生成 .sha256 侧车校验文件，与 load_model 的 require_checksum=True 对齐
+        # 治理循环依赖：改从 app.utils.checksum 导入，避免反向依赖 model_loader 形成环。
+        from app.utils.checksum import write_sha256_sidecar
+
+        write_sha256_sidecar(path)
+
         logger.info("Saved model to %s (%d parameters)", path, self._param_count)
 
     @classmethod
@@ -272,10 +297,18 @@ class PhysiologicalMLP:
             model.layers[i]["W"] = np.array(layer_data["W"], dtype=np.float32)
             model.layers[i]["b"] = np.array(layer_data["b"], dtype=np.float32)
             if "bn_gamma" in layer_data:
-                model.layers[i]["bn_gamma"] = np.array(layer_data["bn_gamma"], dtype=np.float32)
-                model.layers[i]["bn_beta"] = np.array(layer_data["bn_beta"], dtype=np.float32)
-                model.layers[i]["bn_running_mean"] = np.array(layer_data["bn_running_mean"], dtype=np.float32)
-                model.layers[i]["bn_running_var"] = np.array(layer_data["bn_running_var"], dtype=np.float32)
+                model.layers[i]["bn_gamma"] = np.array(
+                    layer_data["bn_gamma"], dtype=np.float32
+                )
+                model.layers[i]["bn_beta"] = np.array(
+                    layer_data["bn_beta"], dtype=np.float32
+                )
+                model.layers[i]["bn_running_mean"] = np.array(
+                    layer_data["bn_running_mean"], dtype=np.float32
+                )
+                model.layers[i]["bn_running_var"] = np.array(
+                    layer_data["bn_running_var"], dtype=np.float32
+                )
 
         logger.info("Loaded model from %s", path)
         return model

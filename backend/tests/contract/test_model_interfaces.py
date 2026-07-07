@@ -56,7 +56,13 @@ class TestStructuredModelContract:
         if response.status_code == 200:
             data = response.json()
             if "risk_level" in data:
-                assert data["risk_level"] in ["low", "medium", "high", "critical", "normal"]
+                assert data["risk_level"] in [
+                    "low",
+                    "medium",
+                    "high",
+                    "critical",
+                    "normal",
+                ]
 
     def test_structured_missing_field_fallback(self):
         """TC-CNT-HP-057: Missing fields trigger fallback or validation."""
@@ -228,7 +234,9 @@ class TestModelFallbackBehavior:
         if response.status_code == 200:
             data = response.json()
             # Should indicate if fallback was used
-            assert "fallback_used" in data or "model_used" in data or "risk_score" in data
+            assert (
+                "fallback_used" in data or "model_used" in data or "risk_score" in data
+            )
 
     def test_all_models_return_consistent_format(self):
         """TC-CNT-HP-070: All model endpoints return consistent format."""

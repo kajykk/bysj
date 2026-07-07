@@ -69,7 +69,9 @@ class FusionEngine:
             use_modality_missing_handling,
         )
 
-    def compute_confidence(self, modality: str, score: float, metadata: dict[str, Any] | None = None) -> float:
+    def compute_confidence(
+        self, modality: str, score: float, metadata: dict[str, Any] | None = None
+    ) -> float:
         """Compute confidence score for a modality.
 
         Args:
@@ -105,7 +107,7 @@ class FusionEngine:
             if metadata:
                 missing_fields = metadata.get("missing_fields", 0)
                 if missing_fields > 0:
-                    base_confidence *= (1 - missing_fields * 0.2)
+                    base_confidence *= 1 - missing_fields * 0.2
 
         return float(np.clip(base_confidence, 0.1, 1.0))
 
@@ -122,7 +124,9 @@ class FusionEngine:
             return {k: v for k, v in self.weights.items() if k in available_modalities}
 
         # Get weights for available modalities
-        available_weights = {k: v for k, v in self.weights.items() if k in available_modalities}
+        available_weights = {
+            k: v for k, v in self.weights.items() if k in available_modalities
+        }
 
         if not available_weights:
             return {}
@@ -158,6 +162,13 @@ class FusionEngine:
                 "modality_contributions": {},
                 "fusion_scheme": "empty",
             }
+
+        # L-ML-6 修复：校验 modality_scores 值类型，None 或非数值类型会导致 TypeError
+        for k, v in modality_scores.items():
+            if v is None or not isinstance(v, (int, float)):
+                raise TypeError(
+                    f"modality_scores[{k!r}] 必须为数值类型，实际为 {type(v).__name__}"
+                )
 
         modality_metadata = modality_metadata or {}
         available_modalities = set(modality_scores.keys())
@@ -196,8 +207,7 @@ class FusionEngine:
 
         # Compute fused score
         fused_score = sum(
-            modality_scores[m] * final_weights.get(m, 0)
-            for m in available_modalities
+            modality_scores[m] * final_weights.get(m, 0) for m in available_modalities
         )
 
         # Compute overall confidence
@@ -248,9 +258,15 @@ class FusionEngine:
         """
         from app.core.risk_thresholds import MODALITY_RISK_THRESHOLDS
 
-        thresholds = MODALITY_RISK_THRESHOLDS.get("fusion", {
-            "mild": 22, "moderate": 42, "high": 62, "critical": 82,
-        })
+        thresholds = MODALITY_RISK_THRESHOLDS.get(
+            "fusion",
+            {
+                "mild": 22,
+                "moderate": 42,
+                "high": 62,
+                "critical": 82,
+            },
+        )
         if score >= thresholds["critical"]:
             return 4
         if score >= thresholds["high"]:
@@ -285,18 +301,49 @@ class FusionEngine:
     def load_config(cls, path: Path | str) -> "FusionEngine":
         """Load fusion engine configuration.
 
+        M25 修复：加载配置前校验文件完整性，防止融合权重被篡改导致
+        所有用户被判定为低风险（绕过预警系统）。
+
         Args:
             path: Path to configuration file.
 
         Returns:
             FusionEngine instance.
+
+        Raises:
+            FileNotFoundError: If config file does not exist.
+            ValueError: If integrity check fails or weights are invalid.
         """
         path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Fusion config not found: {path}")
+
+        # M25 修复：校验配置文件完整性
+        from app.ml.model_loader import _verify_integrity
+
+        _verify_integrity(path, require_checksum=True)
+
         with open(path, "r", encoding="utf-8") as f:
             config = json.load(f)
 
+        # M25 修复：校验权重合法性（非负且和为 1.0）
+        weights = config.get("weights")
+        if weights is not None:
+            weight_sum = (
+                sum(weights.values()) if isinstance(weights, dict) else sum(weights)
+            )
+            if weight_sum <= 0:
+                raise ValueError(f"融合权重总和必须为正数，实际为 {weight_sum}")
+            if any(
+                w < 0
+                for w in (weights.values() if isinstance(weights, dict) else weights)
+            ):
+                raise ValueError("融合权重不能为负数")
+
         return cls(
-            weights=config.get("weights"),
+            weights=weights,
             use_confidence_weighting=config.get("use_confidence_weighting", True),
-            use_modality_missing_handling=config.get("use_modality_missing_handling", True),
+            use_modality_missing_handling=config.get(
+                "use_modality_missing_handling", True
+            ),
         )

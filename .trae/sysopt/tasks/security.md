@@ -1,0 +1,160 @@
+# 安全维度任务清单 (Security Tasks)
+
+> 维度: security | 负责人: - | 最后更新: 2026-06-29
+> 评估来源: sysopt-security assess 模式
+
+## P0 任务 (必须立即处理)
+- [x] SEC-P0-001: /uploads/* 静态服务无鉴权 → 移除 StaticFiles mount，改为鉴权路由 (main.py:117) ✅ 2026-06-29
+
+## P1 任务 (高优先级)
+- [x] SEC-P1-001: JWT role 未与 DB 实时校验 → get_current_user 增加 role 对比 + token blocklist (deps.py:74) ✅ 2026-07-02
+  - 新增 `app/core/token_blocklist.py`: JWT access token blocklist (撤销机制), 复用 cache_get/cache_set (Redis 断路器 + 内存 LRU 回退), TTL = token 剩余有效期
+  - 修改 `app/core/deps.py` `get_current_user`: 1) 检查 jti 是否在 blocklist 中 (登出撤销) 2) 校验 JWT payload role 与 DB user.role 一致 (防止降权后继续使用旧 token)
+  - 修改 `app/services/auth_service.py` `logout`: 新增 access_token_jti 和 access_token_exp 参数, 登出时将 access_token 的 jti 加入 blocklist (TTL = token 剩余有效期)
+  - 修改 `app/api/v1/auth.py` `logout` 端点: 从 request.state.token_payload 获取 access_token 的 jti 和 exp, 传递给 service.logout
+  - 设计原则: role 对比防止降权后继续使用旧 token (核心防御), blocklist 提供登出撤销能力, 向后兼容 (无 role/jti 的旧 token 跳过检查), 复用现有 cache 基础设施 (Redis 断路器 + 内存 LRU 回退)
+  - 新增 26 个测试 (`tests/test_token_blocklist.py`), 6 个测试类:
+    - TestMakeKey (2): blocklist key 构造
+    - TestIsTokenRevoked (5): 空/None jti + 不在 blocklist + 在 blocklist + cache_get 调用验证
+    - TestRevokeToken (4): 空 jti + ttl<=0 + 成功 + cache_set 失败
+    - TestGetCurrentUserRoleCheck (3): role 不一致拒绝 + 一致通过 + 无 role 向后兼容
+    - TestGetCurrentUserBlocklistCheck (2): 已撤销 jti 拒绝 + 无 jti 跳过检查
+    - TestAuthServiceLogout (4): 撤销 access_token + 无 jti 跳过 + TTL 计算剩余秒数 + 已过期 TTL 最小为 1
+    - TestSourceStructure (6): 模块存在 + deps 导入 + role 校验 + auth_service 撤销 + auth 端点传递 + 复用 cache
+  - 回归 111 tests passed (token_blocklist 26 + auth_service + auth_flow + auth_p0p1 + response_unified 41)
+- [x] SEC-P1-002: 密码重置链接默认 HTTP → 生产环境强制 HTTPS 校验 (config.py:178) ✅ 2026-07-02
+  - 修改 `app/core/config.py` `apply_env_defaults` model_validator: 新增生产环境校验, `password_reset_base_url` 必须以 `https://` 开头, 否则启动失败 (与现有 sqlite/jwt_secret_key 校验风格一致)
+  - 修改 `app/services/email_service.py` `send_password_reset_email`: 新增运行时防御, 使用 `urlparse` 提取 host
+    - 非 localhost/127.0.0.1/::1 的 HTTP 链接: 拒绝发送, `raise ValueError` (防止 staging/prod 误配置泄露 token)
+    - localhost HTTP 链接: 仅记录 `warning` 日志, 不阻断邮件发送 (便于开发调试)
+    - 生产环境已由启动校验拦截, 此分支为额外防御
+  - 修改 `backend/.env.example` 和 `.env.example`: 添加注释提醒生产环境必须 HTTPS
+  - 设计原则: 启动时强校验 (fail-fast) + 运行时防御 (defense-in-depth), 向后兼容 (开发环境默认 HTTP 不变)
+  - 新增 13 个测试 (`tests/test_password_reset_https.py`), 3 个测试类:
+    - TestConfigProductionHttpsCheck (4): 生产环境 HTTP 拒绝 + HTTPS 通过 + 开发环境 HTTP 通过 + 空 URL 拒绝
+    - TestEmailServiceRuntimeDefense (5): HTTPS 正常发送 + localhost HTTP warning 但发送 + 127.0.0.1 HTTP warning 但发送 + 非 localhost HTTP 拒绝 + staging 域名 HTTP 拒绝
+    - TestSourceStructure (4): config 校验存在 + email_service 防御存在 + .env.example 文档化 + 字段注释存在
+  - 修复 `test_core_config.py` 预存测试 `test_app_env_override`: 添加 HTTPS `PASSWORD_RESET_BASE_URL` 适配新校验
+  - 回归 204 tests passed (test_email_service 4 + test_smtp_breaker 49 + test_auth_service + test_auth_flow + test_auth_p0p1 + test_token_blocklist 26 + test_password_reset_https 13 + test_core_config + test_security_p1_fixes)
+- [x] SEC-P1-003: 数据导出端点无审计日志 → 每个导出端点添加 OperationLog 审计 ✅ 2026-07-02
+  - 调研 4 个数据导出端点: gdpr.export_my_data / user_risk.export_risk / reports.batch_export_excel / admin.export_crisis_events
+  - 修改 `app/api/v1/gdpr.py` `export_my_data`: 流式响应前先 `await db.commit()` 提交审计日志 (避免事务在流式生成期间关闭), action_type=`user.gdpr.export_self`, target_type=user, target_id=current_user.id, detail={export_id}
+  - 修改 `app/api/v1/user_risk.py` `export_risk`: 新增 `request: Request` 参数 + 导入 `OperationLog`, action_type=`user.risk.export`, detail={format, days, filename}
+  - 修改 `app/api/v1/reports.py` `batch_export_excel`: 新增 `import json` + `from app.models.admin import OperationLog`, action_type=`admin.report.batch_export_excel`, target_type=report, target_id=None (报告类无特定目标), detail={filename, row_count, columns, filters, file_size}
+  - 修改 `app/api/v1/admin.py` `export_crisis_events`: action_type=`admin.crisis.export`, target_type=crisis_event, target_id=None, detail={start_date, end_date, filename, content_size}
+  - 设计原则: 直接构造 OperationLog (与 admin.py/gdpr.py 现有模式一致), 流式响应端点在 return 前提交 (避免事务提前关闭), 失败路径不写审计 (HTTPException 抛出前不写), detail 截断 5000 字符 (与全局一致), 4 个 action_type 互不相同便于审计聚合
+  - 新增 19 个测试 (`tests/test_export_audit_log.py`), 6 个测试类:
+    - TestGdprExportAuditLog (2): GDPR 自助导出审计日志写入 + detail 长度截断 5000
+    - TestUserRiskExportAuditLog (3): json/csv 格式审计日志 + days 参数记录
+    - TestBatchExportExcelAuditLog (3): 成功审计 + 失败不写审计 + filename 脱敏后写入 detail
+    - TestCrisisEventsExportAuditLog (4): 成功审计 + 日期范围校验失败 422 不写审计 + 超 90 天 422 不写审计 + filename 记录
+    - TestExportEndpointPermission (2): 普通用户访问管理员端点 403 + 无审计日志
+    - TestSourceStructure (5): 4 个端点源码包含 OperationLog 写入 + 4 个 action_type 互不相同
+  - 回归 80 tests passed (test_admin_gdpr 8 + test_gdpr_pii 16 + test_health_and_admin_logs + test_contract_and_closure + test_counselor_admin + test_resilience_observability_and_security + test_admin_models 7 + test_reports_api_extended + test_risk_export + test_alerts_webhook)
+- [x] SEC-P1-004: 文件上传/咨询师查看无审计 → upload_file + counselor 增加审计 ✅ 2026-07-02
+  - 6 个端点补充 OperationLog 审计日志: user_upload.py (upload_file + upload_batch) + counselor.py (list_users + get_user_detail + list_consultation_records) + uploads.py (serve_upload 私有分支)
+  - 6 个 action_type 互不相同: user_file_upload / user_file_upload_batch / user_file_download / counselor_view_user_list / counselor_view_user_detail / counselor_view_consultation_records
+  - 公共资源下载不记录审计 (serve_upload 公共分支无 current_user)
+  - 失败路径不写审计 (400/404/422 校验失败前不写审计日志)
+  - 新增 18 个测试 (test_upload_counselor_audit_log.py), 回归 88 tests passed (test_export_audit_log + test_user_upload + test_upload_security + test_uploads_auth + test_contract_and_closure + test_counselor_admin_invalid + test_access_control_regression)
+- [x] SEC-P1-005: 异常访问检测缺失 → Celery 周期扫描 + anomaly rule ✅ 2026-07-03
+  - 新增 `app/services/anomaly_detection_service.py`: 4 个异常访问检测器 + `AnomalyFinding` 数据类 (`@dataclass(frozen=True)`, 含 anomaly_type/operator_id/operator_role/detail/ip_address/rule_id/evidence)
+    - `detect_high_frequency`: 同一用户 N 分钟内操作数 > threshold (默认 5min/100 次)
+    - `detect_off_hours`: 22:00~06:00 (UTC) 非工作时间管理员/咨询师操作 (使用 `func.strftime("%H", ...)` 兼容 SQLite/PG)
+    - `detect_cross_region`: 同一用户 N 小时内访问的不同 IP 数量 > threshold (默认 24h/3 个, 因无 GeoIP 简化为基于 IP 数量的检测)
+    - `detect_lateral_access`: 同一用户 N 分钟内访问的不同 target_type 数量超阈值 (阈值按 operator_role 区分: admin=8, counselor=7, 默认=config 5, 避免咨询师正常多业务被误报)
+    - `detect_all`: 聚合执行所有检测器, 单个检测器失败不影响其他 (try/except 隔离)
+    - 设计原则: 纯查询不直接写入 (持久化由 Celery 任务负责), 幂等性 (同一窗口重复扫描结果一致), 时区安全 (使用 `_utcnow_naive()` 避免 naive/aware datetime 相减 TypeError), 性能上限 (单次扫描最多 100 条 finding)
+  - 新增 `app/tasks/anomaly_detection.py`: Celery 周期任务 `detect_anomaly_access_task` (bind=True, max_retries=2, default_retry_delay=60, time_limit=180s, soft_time_limit=150s)
+    - 遵循 `_run_async + _get_loop + _event_loop_lock` 事件循环复用范式 (与 scheduler.py / mttr_service.py 一致)
+    - `_detect_impl` 实现: enabled=False 时返回 `{"detected": 0, "skipped": "disabled"}`, 无 findings 时更新 `anomaly_access_last_detected_at.set(0.0)` 并返回 `{"detected": 0}`, 有 findings 时写入 OperationLog (action_type=`anomaly_detected`, target_type=`anomaly_finding`, target_id=operator_id, detail 含 anomaly_type/rule_id/evidence) + 递增 Counter `anomaly_access_detected_total{type=...}` + 更新 Gauge + commit, 事务失败时 rollback 并 raise
+  - 修改 `app/core/config.py`: 新增 11 项 anomaly 检测配置 (anomaly_detection_enabled / high_freq_window_minutes=5 / high_freq_threshold=100 / off_hours_start=22 / off_hours_end=6 / cross_region_window_hours=24 / cross_region_ip_threshold=3 / lateral_window_minutes=30 / lateral_target_type_threshold=5 / scan_interval_seconds=300)
+  - 修改 `app/core/alert_rules.py`: 新增 AR-303~AR-306 四条规则 (均使用 `anomaly_access_detected_total` 指标 + severity=WARNING + labels 区分 `anomaly_type`)
+    - AR-303 `high_frequency_access`: 同一用户 5 分钟内操作数 > 100
+    - AR-304 `off_hours_access`: 22:00~06:00 UTC 非工作时间管理员/咨询师操作
+    - AR-305 `cross_region_access`: 同一用户 24 小时内访问 IP 数量 > 3
+    - AR-306 `lateral_access_anomaly`: 同一用户 30 分钟内访问 > 5 种 target_type
+  - 修改 `app/core/celery_app.py`: beat_schedule 注册 `detect-anomaly-access` 任务 (schedule=300.0s, 每 5 分钟扫描 OperationLog)
+  - 修改 `app/core/metrics.py`: 新增 2 个 Prometheus 指标
+    - `anomaly_access_detected_total` (Counter, labelnames=("type",)): AR-303~AR-306 触发条件为 > 0
+    - `anomaly_access_last_detected_at` (Gauge): 最后一次异常检测扫描时间戳 (Unix seconds)
+  - 设计原则: Counter/Gauge 由 Celery 任务直接 `.inc()`/`.set()` 更新 (无需在 /metrics 端点添加采集块, render_exposition 自动输出 _REGISTRY 中的指标), 与 mttr_service.py 的指标更新模式一致
+  - 新增 43 个测试 (`tests/test_anomaly_detection.py`), 13 个测试类:
+    - TestAnomalyDetectionConfig (6): 配置项默认值校验
+    - TestAlertRulesRegistration (6): AR-303~306 注册 + 共享 metric + validate_rules 通过
+    - TestCeleryBeatSchedule (2): beat schedule 注册 + task 注册
+    - TestMetricsDefinitions (3): Counter/Gauge 定义 + _REGISTRY 注册
+    - TestDetectHighFrequency (3): 检测高频 + 阈值以下不检测 + 旧操作不计入窗口
+    - TestDetectOffHours (3): admin 非工作时间检测 + 业务时间不检测 + user 角色不检测
+    - TestDetectCrossRegion (3): 多 IP 检测 + 阈值以下不检测 + 旧操作不计入窗口
+    - TestDetectLateralAccess (3): 普通用户检测 + counselor 阈值=7 不检测 + counselor 超阈值检测
+    - TestDetectAll (3): 聚合检测 + 无异常返回空 + 单个检测器失败继续执行
+    - TestDisabledDetection (1): enabled=False 时所有检测器返回空
+    - TestDetectImpl (4): 写入 OperationLog + 无 findings 返回 0 + disabled 返回 skipped + 递增指标
+    - TestDetectAnomalyAccessTask (3): 任务执行 + 空结果 + 重试耗尽返回 error
+    - TestBasicFunctions (3): _get_loop 单例 + _run_async 执行协程 + _utcnow_naive 返回 naive
+  - 回归 172 tests passed (test_anomaly_detection 43 + test_alert_tasks + test_alert_rules + test_upload_counselor_audit_log + test_core_config + test_metrics + test_security_p1_fixes + test_export_audit_log)
+- [x] SEC-P1-006: nginx 仅监听 80 无 TLS → 增加 443 ssl + 80→443 跳转 ✅ 2026-07-03
+  - 修改 `frontend/nginx.conf`: 拆分为 2 个 server 块
+    - 80 端口 server: `return 301 https://$host$request_uri` 永久跳转到 HTTPS (纯跳转无 location/proxy_pass)
+    - 443 端口 server: `listen 443 ssl` + `http2 on` + 保留所有原有 location/gzip/安全头配置
+  - TLS 优化配置 (Mozilla Intermediate 兼容性推荐):
+    - `ssl_certificate /etc/nginx/certs/server.crt` + `ssl_certificate_key /etc/nginx/certs/server.key` (证书由 docker-compose 挂载)
+    - `ssl_protocols TLSv1.2 TLSv1.3` (禁用 SSLv3/TLSv1.0/TLSv1.1, 防 POODLE/BEAST)
+    - `ssl_ciphers` 优先 ECDHE 前向保密 + AES-GCM/CHACHA20 (ECDHE-ECDSA-AES128-GCM-SHA256 等 8 套)
+    - `ssl_prefer_server_ciphers off` (TLS 1.3 由客户端选择密码套件)
+    - `ssl_session_cache shared:SSL:10m` (减少握手开销, 10m ≈ 4 万会话)
+    - `ssl_session_timeout 1d` + `ssl_session_tickets off` (禁用会话票据避免前向保密被削弱)
+  - HSTS 头 `Strict-Transport-Security max-age=31536000; includeSubDomains` 现在在 443 server 块中 (HTTPS 下浏览器接受 HSTS, 此前在 HTTP 下不生效)
+  - 修改 `frontend/Dockerfile`:
+    - 移除 `USER nginx` (443 < 1024 特权端口, 非 root 无法绑定), 恢复 nginx 默认安全模型 (master root 启动绑定端口 + worker nginx 用户运行, 容器内 root 与宿主机隔离)
+    - `EXPOSE 80 443`
+    - HEALTHCHECK 改为 `wget --no-check-certificate --spider https://localhost/health` (80 端口已跳转, 直接检查 HTTPS, --no-check-certificate 容忍自签名证书)
+    - 保留 `chown -R nginx:nginx` (worker 进程仍以非特权用户运行)
+  - 修改 `docker-compose.yml` frontend 服务:
+    - ports 增加 `"443:443"`
+    - volumes 增加 `./infra/nginx/certs:/etc/nginx/certs:ro` (只读挂载证书目录)
+    - healthcheck 改为 `https://localhost/health` + `--no-check-certificate`
+  - 新增 `scripts/generate-self-signed-cert.sh`: 自签名证书生成脚本
+    - 使用 `openssl req -x509 -nodes -days 825 -newkey rsa:2048` (825 天为浏览器对自签名证书最大接受期限)
+    - 添加 `subjectAltName=DNS:localhost,IP:127.0.0.1` (现代浏览器要求 SAN 而非仅 CN)
+    - 输出到 `infra/nginx/certs/server.{crt,key}` (infra/ 已在 .gitignore 中, 证书不提交)
+    - 私钥权限 600, 证书权限 644
+    - 包含生产环境替换为 CA 证书 (Let's Encrypt / 云厂商) 的提示
+  - 设计原则: 开发/测试用自签名证书 (浏览器警告点击继续即可), 生产环境替换为 CA 签发证书直接覆盖文件; HSTS 仅在 HTTPS 下生效 (此前 HTTP 下 HSTS 头被浏览器忽略); nginx master root + worker nginx 是 nginx 标准安全模型, 容器内 root 隔离于宿主机
+  - 新增 35 个测试 (`tests/test_nginx_tls_config.py`), 8 个测试类:
+    - TestNginxConfigStructure (4): 2 个 server 块 + 80 跳转纯跳转无 proxy_pass + 443 ssl 包含 root/location/proxy_pass
+    - TestNginxTlsConfig (7): 证书路径 + TLS 1.2/1.3 禁用旧协议 + ECDHE/GCM/CHACHA20 密码套件 + prefer_server_ciphers off + session_cache + session_tickets off + http2
+    - TestNginxSecurityHeaders (3): HSTS 存在 + HSTS 在 443 块不在 80 块 + 其他安全头保留 (X-Frame-Options/CSP/Referrer-Policy/Permissions-Policy)
+    - TestDockerfileConfig (5): EXPOSE 80 443 + 无 USER nginx + HTTPS healthcheck + chown nginx 保留
+    - TestDockerComposeConfig (4): 80:80 + 443:443 + 证书挂载 :ro + HTTPS healthcheck
+    - TestCertScript (6): 脚本存在 + openssl req -x509 + 输出路径 + 权限 600 + SAN + 生产环境警告
+    - TestGitignoreExcludesCerts (3): .gitignore 存在 + infra/ 排除 + 证书不被跟踪
+    - TestIntegrationConsistency (3): 证书路径跨文件一致 + healthcheck 跨文件一致 + 端口跨文件一致
+  - 回归 204 tests passed (test_nginx_tls_config 35 + test_security_p1_fixes + test_core_config + test_password_reset_https + test_token_blocklist + test_export_audit_log + test_anomaly_detection)
+
+## P2 任务 (中优先级)
+- [ ] SEC-P2-001: JWT 使用 HS256 对称签名 → 迁移到 RS256/ES256
+- [ ] SEC-P2-002: access token 无撤销机制 → Redis revoked_jti SET
+- [ ] SEC-P2-003: 上传文件无安全扫描/EXIF 剥离 → ClamAV + Pillow 重编码
+- [ ] SEC-P2-004: PII 加密使用 AES-128 → 迁移到 AES-256-GCM
+- [ ] SEC-P2-005: 后端依赖版本未固定 → pip-compile + requirements.lock
+- [ ] SEC-P2-006: OperationLog detail 截断 5000 字符 → TEXT 类型或拆分字段
+- [ ] SEC-P2-007: 日志脱敏无集中化强制 → 统一 logging.Filter
+- [ ] SEC-P2-008: OperationLog 保留 IP 违反 GDPR → 30/90 天后掩码
+- [ ] SEC-P2-009: CSP 不一致 + unsafe-inline → 仅 nginx 层设置 + nonce
+- [ ] SEC-P2-010: X-Frame-Options 前后端冲突 → 仅 nginx 层设置
+
+## P3 任务 (低优先级)
+- [ ] SEC-P3-001: JWT 缺 issuer/audience → 增加 iss/aud 声明
+- [ ] SEC-P3-002: requirements.txt 混入测试依赖 → 移除 pytest-cov 到 dev
+- [ ] SEC-P3-003: 前端无 npm audit CI → 增加 npm audit 步骤
+- [ ] SEC-P3-004: PII 轮换脚本可能泄露明文 → 失败日志仅记录 id
+
+---
+## 进度统计
+- P0: 1/1 ✅
+- P1: 6/6 ✅ SEC-P1-001 + SEC-P1-002 + SEC-P1-003 + SEC-P1-004 + SEC-P1-005 + SEC-P1-006 (安全维度 P1 100% 收口)
+- P2: 0/10
+- P3: 0/4
+- **总计**: 7/21

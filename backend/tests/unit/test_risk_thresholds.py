@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from app.core.risk_thresholds import (
     MODALITY_RISK_THRESHOLDS,
     score_to_level,

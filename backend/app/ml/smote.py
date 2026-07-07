@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from pandas import DataFrame
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,21 @@ def simple_smote(
         n_majority,
         n_minority / n_majority,
     )
+
+    # M-ML-2 修复：少数类样本数 < 2 时无法计算最近邻（至少需要 2 个样本），
+    # 显式告警并返回原数据，避免静默失败
+    if n_minority < 2:
+        logger.warning("SMOTE skipped: minority class has only %d samples", n_minority)
+        return X.copy(), y.copy()
+
+    # H-09 修复：少数类样本数不足时自动调整 k_neighbors，防止越界
+    if n_minority <= k_neighbors:
+        k_neighbors = max(1, n_minority - 1)
+        logger.warning(
+            "minority samples (%d) <= k_neighbors, adjusted k_neighbors to %d",
+            n_minority,
+            k_neighbors,
+        )
 
     # Calculate target number of minority samples
     target_minority = int(n_majority * sampling_strategy)

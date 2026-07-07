@@ -2,25 +2,119 @@
   <div class="layout">
     <div class="layout__header">
       <div>
-        <h2>用户仪表盘</h2>
-        <p>欢迎回来，{{ auth.user?.nickname || auth.user?.username || '同学' }}</p>
+        <p class="layout__eyebrow">
+          <span
+            class="layout__eyebrow-dot breathe-dot"
+            aria-hidden="true"
+          />
+          {{ t('userDashboard.eyebrow') }}
+        </p>
+        <h2>{{ t('userDashboard.title') }}</h2>
+        <p>{{ t('userDashboard.welcome', { name: auth.user?.nickname || auth.user?.username || t('userDashboard.defaultUserName') }) }}</p>
       </div>
       <div class="layout__actions">
         <el-tag type="primary">
-          用户端
+          {{ t('userDashboard.tagUserEnd') }}
         </el-tag>
         <el-button @click="handleLogout">
-          退出登录
+          {{ t('userDashboard.btnLogout') }}
         </el-button>
       </div>
     </div>
 
-    <el-row :gutter="16">
-      <el-col :span="8">
-        <el-card class="dash-card">
-          <template #header>
-            <span class="card-title">最近测评</span>
+    <!-- Bento 网格：风险状态主视觉（2fr）+ 副卡（1fr），打破 3 等宽卡片行 -->
+    <div class="bento-grid bento-grid--top">
+      <!-- 主视觉：风险状态（占据更宽列，作为 Hero 数据卡） -->
+      <section class="bento-cell bento-cell--hero bento-item shimmer-sweep">
+        <header class="bento-cell__head">
+          <div class="bento-cell__title-group">
+            <span
+              class="bento-cell__live-dot breathe-dot"
+              aria-hidden="true"
+            />
+            <h3 class="bento-cell__title">
+              {{ t('userDashboard.riskStatusTitle') }}
+            </h3>
+          </div>
+          <el-tag
+            :type="severityTagType"
+            size="small"
+            effect="light"
+            round
+          >
+            {{ severityLabel }}
+          </el-tag>
+        </header>
+
+        <div
+          v-if="riskLoading"
+          class="card-loading"
+        >
+          <el-skeleton
+            :rows="3"
+            animated
+          />
+        </div>
+        <EmptyState
+          v-else-if="riskError"
+          :title="t('userDashboard.loadFailed')"
+          :description="riskError"
+          :image-size="40"
+        >
+          <template #action>
+            <el-button
+              type="primary"
+              plain
+              @click="loadRiskReport"
+            >
+              {{ t('userDashboard.btnReload') }}
+            </el-button>
           </template>
+        </EmptyState>
+        <template v-else>
+          <div class="risk-score-display">
+            <CountUp
+              :end="riskReport.risk_score"
+              :duration="1500"
+              :suffix="t('userDashboard.scoreUnit')"
+            />
+          </div>
+          <el-progress
+            :percentage="riskReport.risk_score"
+            :color="riskColor"
+            :stroke-width="14"
+            :text-inside="true"
+            :format="(p: number) => p + t('userDashboard.scoreUnit')"
+          />
+          <div class="risk-meta">
+            <span class="trend-label">
+              {{ t('userDashboard.trendLabel') }}
+              <el-icon
+                v-if="riskReport.trend === 'up'"
+                color="#d65a5a"
+              ><Top /></el-icon>
+              <el-icon
+                v-else-if="riskReport.trend === 'down'"
+                color="#5a9e3a"
+              ><Bottom /></el-icon>
+              <span v-else>{{ t('userDashboard.trendStable') }}</span>
+            </span>
+          </div>
+          <p class="risk-advice">
+            <!-- ISS-092 TODO：风险说明目前仅显示 advice 第一条文案，后续可补充可展开的"风险因子与保护因素"详细说明 -->
+            {{ riskReport.advice?.[0] || t('userDashboard.riskAdviceFallback') }}
+          </p>
+        </template>
+      </section>
+
+      <!-- 副卡列：最近测评 + 干预计划垂直堆叠 -->
+      <div class="bento-cell-stack">
+        <section class="bento-cell bento-item shimmer-sweep">
+          <header class="bento-cell__head">
+            <h3 class="bento-cell__title">
+              {{ t('userDashboard.latestAssessmentTitle') }}
+            </h3>
+          </header>
           <div
             v-if="assessmentLoading"
             class="card-loading"
@@ -32,7 +126,7 @@
           </div>
           <EmptyState
             v-else-if="assessmentError"
-            title="加载失败"
+            :title="t('userDashboard.loadFailed')"
             :description="assessmentError"
             :image-size="40"
           >
@@ -42,34 +136,34 @@
                 plain
                 @click="loadLatestAssessment"
               >
-                重新加载
+                {{ t('userDashboard.btnReload') }}
               </el-button>
             </template>
           </EmptyState>
           <template v-else-if="latestAssessment">
             <div class="stat-row">
-              <span class="stat-label">评估类型</span>
+              <span class="stat-label">{{ t('userDashboard.assessmentTypeLabel') }}</span>
               <el-tag size="small">
                 {{ assessmentTypeLabel(getAssessmentType(latestAssessment)) }}
               </el-tag>
             </div>
             <div class="stat-row">
-              <span class="stat-label">评估时间</span>
-              <span class="stat-value">{{ formatDate(latestAssessment.created_at) }}</span>
+              <span class="stat-label">{{ t('userDashboard.assessmentTimeLabel') }}</span>
+              <span class="stat-value tabular-nums">{{ formatDate(latestAssessment.created_at, 'MM/DD HH:mm') }}</span>
             </div>
             <el-button
               type="primary"
               plain
-              style="margin-top: 12px"
+              class="cell-action"
               @click="router.push('/user/risk')"
             >
-              开始测评
+              {{ t('userDashboard.btnStartAssessment') }}
             </el-button>
           </template>
           <template v-else>
             <EmptyState
-              title="暂无记录"
-              description="点击开始你的首次心理评估"
+              :title="t('userDashboard.emptyNoRecord')"
+              :description="t('userDashboard.emptyNoRecordDesc')"
               :image-size="40"
             >
               <template #action>
@@ -78,91 +172,19 @@
                   plain
                   @click="router.push('/user/risk')"
                 >
-                  开始测评
+                  {{ t('userDashboard.btnStartAssessment') }}
                 </el-button>
               </template>
             </EmptyState>
           </template>
-        </el-card>
-      </el-col>
+        </section>
 
-      <el-col :span="8">
-        <el-card class="dash-card">
-          <template #header>
-            <span class="card-title">风险状态</span>
-          </template>
-          <div
-            v-if="riskLoading"
-            class="card-loading"
-          >
-            <el-skeleton
-              :rows="2"
-              animated
-            />
-          </div>
-          <EmptyState
-            v-else-if="riskError"
-            title="加载失败"
-            :description="riskError"
-            :image-size="40"
-          >
-            <template #action>
-              <el-button
-                type="primary"
-                plain
-                @click="loadRiskReport"
-              >
-                重新加载
-              </el-button>
-            </template>
-          </EmptyState>
-          <template v-else>
-            <div class="risk-score-display">
-              <CountUp
-                :end="riskReport.risk_score"
-                :duration="1500"
-                suffix="分"
-              />
-            </div>
-            <el-progress
-              :percentage="riskReport.risk_score"
-              :color="riskColor"
-              :stroke-width="18"
-              :text-inside="true"
-              :format="(p: number) => p + '分'"
-            />
-            <div class="risk-meta">
-              <el-tag
-                :type="severityTagType"
-                size="small"
-              >
-                {{ severityLabel }}
-              </el-tag>
-              <span class="trend-label">
-                趋势：
-                <el-icon
-                  v-if="riskReport.trend === 'up'"
-                  color="#f56c6c"
-                ><Top /></el-icon>
-                <el-icon
-                  v-else-if="riskReport.trend === 'down'"
-                  color="#67c23a"
-                ><Bottom /></el-icon>
-                <span v-else>稳定</span>
-              </span>
-            </div>
-            <p class="risk-advice">
-              {{ riskReport.advice?.[0] || '请保持规律作息，持续关注自身状态。' }}
-            </p>
-          </template>
-        </el-card>
-      </el-col>
-
-      <el-col :span="8">
-        <el-card class="dash-card">
-          <template #header>
-            <span class="card-title">干预计划</span>
-          </template>
+        <section class="bento-cell bento-item shimmer-sweep">
+          <header class="bento-cell__head">
+            <h3 class="bento-cell__title">
+              {{ t('userDashboard.interventionPlanTitle') }}
+            </h3>
+          </header>
           <div
             v-if="interventionLoading"
             class="card-loading"
@@ -174,7 +196,7 @@
           </div>
           <EmptyState
             v-else-if="interventionError"
-            title="加载失败"
+            :title="t('userDashboard.loadFailed')"
             :description="interventionError"
             :image-size="40"
           >
@@ -184,37 +206,37 @@
                 plain
                 @click="loadActiveIntervention"
               >
-                重新加载
+                {{ t('userDashboard.btnReload') }}
               </el-button>
             </template>
           </EmptyState>
           <template v-else-if="activeIntervention.plan.id">
             <div class="stat-row">
-              <span class="stat-label">方案名称</span>
+              <span class="stat-label">{{ t('userDashboard.planNameLabel') }}</span>
               <span class="stat-value">{{ activeIntervention.plan.plan_name }}</span>
             </div>
             <el-progress
               :percentage="activeIntervention.plan.progress"
-              :stroke-width="12"
-              style="margin: 8px 0"
+              :stroke-width="10"
+              class="intervention-progress"
             />
             <div class="stat-row">
-              <span class="stat-label">今日任务</span>
-              <span class="stat-value">{{ completedTasks }}/{{ activeIntervention.tasks.length }}</span>
+              <span class="stat-label">{{ t('userDashboard.todayTasksLabel') }}</span>
+              <span class="stat-value tabular-nums">{{ completedTasks }}/{{ activeIntervention.tasks.length }}</span>
             </div>
             <el-button
               type="primary"
               plain
-              style="margin-top: 8px"
+              class="cell-action"
               @click="router.push('/user/intervention')"
             >
-              查看详情
+              {{ t('userDashboard.btnViewDetail') }}
             </el-button>
           </template>
           <template v-else>
             <EmptyState
-              title="暂无活跃方案"
-              description="完成评估后将为您推荐干预方案"
+              :title="t('userDashboard.emptyNoActivePlan')"
+              :description="t('userDashboard.emptyNoActivePlanDesc')"
               :image-size="40"
             >
               <template #action>
@@ -223,111 +245,121 @@
                   plain
                   @click="router.push('/user/risk')"
                 >
-                  先进行评估
+                  {{ t('userDashboard.btnAssessFirst') }}
                 </el-button>
               </template>
             </EmptyState>
           </template>
-        </el-card>
-      </el-col>
-    </el-row>
+        </section>
+      </div>
+    </div>
 
-    <el-row
-      :gutter="16"
-      style="margin-top: 16px"
-    >
-      <el-col :span="16">
-        <el-card>
-          <template #header>
-            <div class="trend-header">
-              <span class="card-title">风险趋势</span>
-              <el-radio-group
-                v-model="trendDays"
-                size="small"
-                @change="handleTrendDaysChange"
-              >
-                <el-radio-button :value="7">
-                  7天
-                </el-radio-button>
-                <el-radio-button :value="30">
-                  30天
-                </el-radio-button>
-                <el-radio-button :value="90">
-                  90天
-                </el-radio-button>
-              </el-radio-group>
-            </div>
-          </template>
-          <div
-            v-if="trendLoading"
-            class="card-loading"
+    <!-- 第二行：风险趋势（宽）+ 未读预警（窄） -->
+    <div class="bento-grid bento-grid--bottom">
+      <section class="bento-cell bento-item">
+        <header class="bento-cell__head bento-cell__head--split">
+          <h3 class="bento-cell__title">
+            {{ t('userDashboard.riskTrendTitle') }}
+          </h3>
+          <el-radio-group
+            v-model="trendDays"
+            size="small"
+            @change="handleTrendDaysChange"
           >
-            <el-skeleton
-              :rows="4"
-              animated
-            />
-          </div>
-          <EmptyState
-            v-else-if="trendError"
-            title="加载失败"
-            :description="trendError"
-            :image-size="60"
-          >
-            <template #action>
-              <el-button
-                type="primary"
-                plain
-                @click="loadRiskTrend"
-              >
-                重新加载
-              </el-button>
-            </template>
-          </EmptyState>
-          <EmptyState
-            v-else-if="!riskTrend.points.length"
-            title="暂无趋势数据"
-            description="完成更多评估后将生成风险趋势图"
-            :image-size="60"
+            <el-radio-button :value="7">
+              {{ t('userDashboard.trendDays7') }}
+            </el-radio-button>
+            <el-radio-button :value="30">
+              {{ t('userDashboard.trendDays30') }}
+            </el-radio-button>
+            <el-radio-button :value="90">
+              {{ t('userDashboard.trendDays90') }}
+            </el-radio-button>
+          </el-radio-group>
+        </header>
+        <div
+          v-if="trendLoading"
+          class="card-loading"
+        >
+          <el-skeleton
+            :rows="4"
+            animated
           />
-          <div
-            v-else
-            ref="trendChartRef"
-            style="height: 280px"
-          />
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card>
-          <template #header>
-            <span class="card-title">未读预警</span>
+        </div>
+        <EmptyState
+          v-else-if="trendError"
+          :title="t('userDashboard.loadFailed')"
+          :description="trendError"
+          :image-size="60"
+        >
+          <template #action>
+            <el-button
+              type="primary"
+              plain
+              @click="loadRiskTrend"
+            >
+              {{ t('userDashboard.btnReload') }}
+            </el-button>
           </template>
-          <div
-            v-if="warningLoading"
-            class="card-loading"
-          >
-            <el-skeleton
-              :rows="3"
-              animated
+        </EmptyState>
+        <EmptyState
+          v-else-if="!riskTrend.points.length"
+          :title="t('userDashboard.emptyNoTrend')"
+          :description="t('userDashboard.emptyNoTrendDesc')"
+          :image-size="60"
+        />
+        <div
+          v-else
+          ref="trendChartRef"
+          class="trend-chart"
+        />
+      </section>
+
+      <section class="bento-cell bento-item">
+        <header class="bento-cell__head">
+          <div class="bento-cell__title-group">
+            <span
+              v-if="unreadWarnings.length > 0"
+              class="bento-cell__live-dot bento-cell__live-dot--alert breathe-dot"
+              aria-hidden="true"
             />
+            <h3 class="bento-cell__title">
+              {{ t('userDashboard.unreadWarningsTitle') }}
+            </h3>
           </div>
-          <EmptyState
-            v-else-if="warningError"
-            title="加载失败"
-            :description="warningError"
-            :image-size="60"
-          >
-            <template #action>
-              <el-button
-                type="primary"
-                plain
-                @click="loadWarnings"
-              >
-                重新加载
-              </el-button>
-            </template>
-          </EmptyState>
-          <template v-else-if="unreadWarnings.length > 0">
-            <div
+          <span
+            v-if="unreadWarnings.length > 0"
+            class="warning-count tabular-nums"
+          >{{ unreadWarnings.length }}</span>
+        </header>
+        <div
+          v-if="warningLoading"
+          class="card-loading"
+        >
+          <el-skeleton
+            :rows="3"
+            animated
+          />
+        </div>
+        <EmptyState
+          v-else-if="warningError"
+          :title="t('userDashboard.loadFailed')"
+          :description="warningError"
+          :image-size="60"
+        >
+          <template #action>
+            <el-button
+              type="primary"
+              plain
+              @click="loadWarnings"
+            >
+              {{ t('userDashboard.btnReload') }}
+            </el-button>
+          </template>
+        </EmptyState>
+        <template v-else-if="unreadWarnings.length > 0">
+          <ul class="warning-list">
+            <li
               v-for="w in unreadWarnings.slice(0, 5)"
               :key="w.id"
               class="warning-item"
@@ -335,39 +367,41 @@
               <el-tag
                 :type="w.risk_level >= 3 ? 'danger' : w.risk_level === 2 ? 'warning' : 'info'"
                 size="small"
+                effect="light"
               >
-                {{ w.risk_level >= 3 ? '高' : w.risk_level === 2 ? '中' : '低' }}
+                {{ w.risk_level >= 3 ? t('userDashboard.warningHigh') : w.risk_level === 2 ? t('userDashboard.warningMedium') : t('userDashboard.warningLow') }}
               </el-tag>
               <span class="warning-title">{{ w.title }}</span>
-              <span class="warning-time">{{ formatDate(w.created_at) }}</span>
-            </div>
-            <el-button
-              type="primary"
-              link
-              style="margin-top: 8px"
-              @click="router.push('/user/warnings')"
-            >
-              查看全部
-            </el-button>
-          </template>
-          <EmptyState
-            v-else
-            title="暂无未读预警"
-            description="当前没有新的风险预警通知"
-            :image-size="60"
-          />
-        </el-card>
-      </el-col>
-    </el-row>
+              <span class="warning-time tabular-nums">{{ formatDate(w.created_at, 'MM/DD HH:mm') }}</span>
+            </li>
+          </ul>
+          <el-button
+            type="primary"
+            link
+            class="cell-action"
+            @click="router.push('/user/warnings')"
+          >
+            {{ t('userDashboard.btnViewAll') }}
+          </el-button>
+        </template>
+        <EmptyState
+          v-else
+          :title="t('userDashboard.emptyNoUnread')"
+          :description="t('userDashboard.emptyNoUnreadDesc')"
+          :image-size="60"
+        />
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Top, Bottom } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+import { echarts, type ECharts } from '@/utils/echarts'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/userApi'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -376,9 +410,22 @@ import type { ActiveIntervention, RiskReport, RiskTrend } from '@/api/userRiskAp
 import type { WarningItem, DataHistoryItem } from '@/api/userTypes'
 // P2-D 修复：复用 riskFormatters 的 getRiskScoreColor，消除魔法数字
 import { getRiskScoreColor } from '@/utils/riskFormatters'
+import { formatDate } from '@/utils/formatUtils'
+import { subscribeResize } from '@/utils/sharedResize'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
+
+// 防止组件卸载后异步请求返回仍赋值 ref
+let isUnmounted = false
+
+// ISS-077 修复：从 CSS 变量读取图表色板，消除 echarts 配置中的硬编码 hex
+const readChartVar = (name: string, fallback: string): string => {
+  if (typeof window === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
 
 const riskReport = ref<RiskReport>({
   risk_level: 0,
@@ -393,7 +440,7 @@ const riskLoading = ref(true)
 const riskError = ref('')
 
 const activeIntervention = ref<ActiveIntervention>({
-  plan: { id: null, plan_name: '暂无活跃方案', risk_level: 0, start_date: null, progress: 0 },
+  plan: { id: null, plan_name: '', risk_level: 0, start_date: null, progress: 0 },
   tasks: []
 })
 const interventionLoading = ref(true)
@@ -404,15 +451,17 @@ const trendLoading = ref(true)
 const trendError = ref('')
 const trendDays = ref(30)
 const trendChartRef = ref<HTMLElement>()
-let trendChart: echarts.ECharts | null = null
-const handleTrendResize = () => trendChart?.resize()
+let trendChart: ECharts | null = null
+// R-009 修复：使用 subscribeResize 共享全局节流 resize 监听，避免独立注册
+let unsubscribeTrendResize: (() => void) | null = null
 
 const handleTrendDaysChange = async () => {
   await loadRiskTrend()
 }
 
 const disposeTrendChart = () => {
-  window.removeEventListener('resize', handleTrendResize)
+  unsubscribeTrendResize?.()
+  unsubscribeTrendResize = null
   trendChart?.dispose()
   trendChart = null
 }
@@ -425,13 +474,21 @@ const latestAssessment = ref<DataHistoryItem | null>(null)
 const assessmentLoading = ref(true)
 const assessmentError = ref('')
 
-const completedTasks = computed(() => activeIntervention.value.tasks.filter((t) => t.today_status === 'completed').length)
+const completedTasks = computed(() => activeIntervention.value.tasks.filter((task) => task.today_status === 'completed').length)
 
 const riskColor = computed(() => getRiskScoreColor(riskReport.value.risk_score))
 
+const SEVERITY_LABEL_KEYS: Record<string, string> = {
+  none: 'severityNone',
+  mild: 'severityMild',
+  moderate: 'severityModerate',
+  high: 'severityHigh',
+  critical: 'severityCritical',
+  unknown: 'severityUnknown'
+}
 const severityLabel = computed(() => {
-  const map: Record<string, string> = { none: '无风险', mild: '轻度', moderate: '中度', high: '较高', critical: '严重', unknown: '未知' }
-  return map[riskReport.value.severity] || riskReport.value.severity
+  const key = SEVERITY_LABEL_KEYS[riskReport.value.severity]
+  return key ? t(`userDashboard.${key}`) : riskReport.value.severity
 })
 
 const severityTagType = computed(() => {
@@ -439,25 +496,20 @@ const severityTagType = computed(() => {
   return (map[riskReport.value.severity] || 'info') as 'info' | 'success' | 'warning' | 'danger'
 })
 
+const ASSESSMENT_TYPE_LABEL_KEYS: Record<string, string> = {
+  structured: 'assessmentStructured',
+  text: 'assessmentText',
+  physiological: 'assessmentPhysiological',
+  physio: 'assessmentPhysio',
+  record: 'assessmentRecord'
+}
 const assessmentTypeLabel = (value: string | null | undefined) => {
-  const map: Record<string, string> = {
-    structured: '结构化',
-    text: '文本',
-    physiological: '生理',
-    physio: '生理',
-    record: '记录',
-  }
-  return map[value || ''] || '未知'
+  const key = ASSESSMENT_TYPE_LABEL_KEYS[value || '']
+  return key ? t(`userDashboard.${key}`) : t('userDashboard.assessmentUnknown')
 }
 
 const getAssessmentType = (item: DataHistoryItem | null) => {
   return (item?.data as { assessment_type?: string } | undefined)?.assessment_type
-}
-
-const formatDate = (dateStr: string | null | undefined) => {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 const escapeHtml = (value: unknown) => {
@@ -474,11 +526,13 @@ const loadRiskReport = async () => {
   riskLoading.value = true
   riskError.value = ''
   try {
-    riskReport.value = await userApi.getRiskReport()
+    const data = await userApi.getRiskReport()
+    if (isUnmounted) return
+    riskReport.value = data
   } catch {
-    riskError.value = '风险状态加载失败'
+    if (!isUnmounted) riskError.value = t('userDashboard.loadRiskFailed')
   } finally {
-    riskLoading.value = false
+    if (!isUnmounted) riskLoading.value = false
   }
 }
 
@@ -486,11 +540,13 @@ const loadActiveIntervention = async () => {
   interventionLoading.value = true
   interventionError.value = ''
   try {
-    activeIntervention.value = await userApi.getActiveIntervention()
+    const data = await userApi.getActiveIntervention()
+    if (isUnmounted) return
+    activeIntervention.value = data
   } catch {
-    interventionError.value = '干预计划加载失败'
+    if (!isUnmounted) interventionError.value = t('userDashboard.loadInterventionFailed')
   } finally {
-    interventionLoading.value = false
+    if (!isUnmounted) interventionLoading.value = false
   }
 }
 
@@ -498,15 +554,17 @@ const loadRiskTrend = async () => {
   trendLoading.value = true
   trendError.value = ''
   try {
-    riskTrend.value = await userApi.getRiskTrend(trendDays.value)
+    const data = await userApi.getRiskTrend(trendDays.value)
+    if (isUnmounted) return
+    riskTrend.value = data
   } catch {
-    trendError.value = '风险趋势加载失败'
+    if (!isUnmounted) trendError.value = t('userDashboard.loadTrendFailed')
   } finally {
-    trendLoading.value = false
+    if (!isUnmounted) trendLoading.value = false
     await nextTick()
-    if (riskTrend.value.points.length > 0 && !trendError.value) {
+    if (!isUnmounted && riskTrend.value.points.length > 0 && !trendError.value) {
       renderTrendChart()
-    } else {
+    } else if (!isUnmounted) {
       disposeTrendChart()
     }
   }
@@ -517,11 +575,12 @@ const loadWarnings = async () => {
   warningError.value = ''
   try {
     const data = await userApi.getUserWarnings({ page: 1, page_size: 10, is_read: false })
+    if (isUnmounted) return
     unreadWarnings.value = data.items
   } catch {
-    warningError.value = '未读预警加载失败'
+    if (!isUnmounted) warningError.value = t('userDashboard.loadWarningsFailed')
   } finally {
-    warningLoading.value = false
+    if (!isUnmounted) warningLoading.value = false
   }
 }
 
@@ -530,11 +589,12 @@ const loadLatestAssessment = async () => {
   assessmentError.value = ''
   try {
     const data = await userApi.getDataHistory({ page: 1, page_size: 1 })
+    if (isUnmounted) return
     latestAssessment.value = data.items[0] || null
   } catch {
-    assessmentError.value = '最近测评加载失败'
+    if (!isUnmounted) assessmentError.value = t('userDashboard.loadAssessmentFailed')
   } finally {
-    assessmentLoading.value = false
+    if (!isUnmounted) assessmentLoading.value = false
   }
 }
 
@@ -548,46 +608,69 @@ const loadDashboard = async () => {
   ])
   const errors = [riskError.value, interventionError.value, trendError.value, warningError.value, assessmentError.value].filter(Boolean)
   if (errors.length > 0) {
-    ElMessage.warning('仪表盘部分数据加载失败，请稍后重试')
+    ElMessage.warning(t('userDashboard.dashboardPartialError'))
   }
+}
+
+const CHART_RISK_LEVEL_KEYS: Record<number, string> = {
+  0: 'chartRiskLevel0',
+  1: 'chartRiskLevel1',
+  2: 'chartRiskLevel2',
+  3: 'chartRiskLevel3',
+  4: 'chartRiskLevel4'
+}
+const CHART_TREND_KEYS: Record<string, string> = {
+  up: 'chartTrendUp',
+  down: 'chartTrendDown',
+  stable: 'trendStable'
 }
 
 const renderTrendChart = () => {
   if (!trendChartRef.value) return
   if (!trendChart) {
     trendChart = echarts.init(trendChartRef.value)
-    window.addEventListener('resize', handleTrendResize)
+    // R-009 修复：通过 subscribeResize 注册共享监听
+    unsubscribeTrendResize = subscribeResize(() => trendChart?.resize())
   }
   const points = riskTrend.value.points
-  const riskLevelMap: Record<number, string> = { 0: '无风险', 1: '低风险', 2: '中风险', 3: '高风险', 4: '严重' }
-  const trendMap: Record<string, string> = { up: '上升', down: '下降', stable: '稳定' }
+
+  // ISS-077 修复：图表配色读取 CSS 变量令牌，与 variables.scss 统一
+  const chartDanger = readChartVar('--chart-color-danger', '#d65a5a')
+  const chartTextPrimary = readChartVar('--text-primary', '#2c3340')
+  const chartTextSecondary = readChartVar('--text-secondary', '#8a929e')
 
   trendChart.setOption({
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(255,255,255,0.95)',
-      borderColor: '#e4e7ed',
+      borderColor: '#dce1e7',
       borderWidth: 1,
-      textStyle: { color: '#303133', fontSize: 13 },
-      extraCssText: 'box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1); border-radius: 4px;',
+      textStyle: { color: chartTextPrimary, fontSize: 13 },
+      extraCssText: 'box-shadow: 0 4px 16px rgba(59, 130, 196, 0.08); border-radius: 8px;',
       formatter: (params: unknown) => {
         const p = (params as Array<{ dataIndex: number }>)[0]
         const point = points[p.dataIndex]
         if (!point) return ''
-        const levelText = riskLevelMap[point.risk_level] || '未知'
-        const trendText = trendMap[riskTrend.value.direction] || '稳定'
+        const levelKey = CHART_RISK_LEVEL_KEYS[point.risk_level]
+        const levelText = levelKey ? t(`userDashboard.${levelKey}`) : t('userDashboard.severityUnknown')
+        const trendKey = CHART_TREND_KEYS[riskTrend.value.direction]
+        const trendText = trendKey ? t(`userDashboard.${trendKey}`) : t('userDashboard.trendStable')
         const date = escapeHtml(point.date)
         const score = escapeHtml(point.risk_score)
         const level = escapeHtml(levelText)
         const trend = escapeHtml(trendText)
+        const scoreLabel = t('userDashboard.chartRiskScoreLabel')
+        const levelLabel = t('userDashboard.chartRiskLevelLabel')
+        const trendLabel = t('userDashboard.chartOverallTrendLabel')
+        const scoreUnit = t('userDashboard.scoreUnit')
         return `<div style="padding: 4px 2px;">
-          <div style="font-weight:600;margin-bottom:6px;color:#303133;">${date}</div>
+          <div style="font-weight:600;margin-bottom:6px;color:${chartTextPrimary};">${date}</div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f56c6c;"></span>
-            <span>风险分数：<strong>${score}分</strong></span>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${chartDanger};"></span>
+            <span>${scoreLabel}<strong>${score}${scoreUnit}</strong></span>
           </div>
-          <div style="margin-bottom:4px;padding-left:16px;">风险等级：<span style="color:#f56c6c;font-weight:500;">${level}</span></div>
-          <div style="padding-left:16px;color:#909399;font-size:12px;">整体趋势：${trend}</div>
+          <div style="margin-bottom:4px;padding-left:16px;">${levelLabel}<span style="color:${chartDanger};font-weight:500;">${level}</span></div>
+          <div style="padding-left:16px;color:${chartTextSecondary};font-size:12px;">${trendLabel}${trend}</div>
         </div>`
       }
     },
@@ -599,13 +682,13 @@ const renderTrendChart = () => {
       data: points.map((p) => p.risk_score),
       smooth: true,
       areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: 'rgba(245,108,108,0.3)' },
-        { offset: 1, color: 'rgba(245,108,108,0.02)' }
+        { offset: 0, color: 'rgba(214,90,90,0.25)' },
+        { offset: 1, color: 'rgba(214,90,90,0.02)' }
       ]) },
-      lineStyle: { color: '#f56c6c', width: 2 },
-      itemStyle: { color: '#f56c6c' },
+      lineStyle: { color: chartDanger, width: 2 },
+      itemStyle: { color: chartDanger },
       emphasis: {
-        itemStyle: { borderWidth: 2, borderColor: '#fff', shadowBlur: 8, shadowColor: 'rgba(245,108,108,0.5)' },
+        itemStyle: { borderWidth: 2, borderColor: '#fff', shadowBlur: 8, shadowColor: 'rgba(214,90,90,0.5)' },
         scale: 1.5
       }
     }]
@@ -614,7 +697,7 @@ const renderTrendChart = () => {
 
 const handleLogout = async () => {
   try {
-    await ElMessageBox.confirm('确认退出当前账号吗？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm(t('userDashboard.logoutConfirm'), t('common.info'), { type: 'warning' })
   } catch {
     return
   }
@@ -627,106 +710,312 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  isUnmounted = true
   disposeTrendChart()
 })
 </script>
 
 <style scoped>
 .layout {
-  padding: 16px;
+  padding: var(--spacing-xl);
+  max-width: var(--layout-content-max-width);
+  margin: 0 auto;
 }
 
+/* ===== 头部 ===== */
 .layout__header {
   display: flex;
   justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--spacing-2xl);
+  gap: var(--spacing-lg);
+}
+
+.layout__eyebrow {
+  display: flex;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 0.5rem;
+  margin: 0 0 0.375rem;
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.layout__eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  box-shadow: 0 0 8px rgba(59, 130, 196, 0.6);
+}
+
+.layout__header h2 {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.layout__header p {
+  margin: 0.375rem 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-normal);
 }
 
 .layout__actions {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
   align-items: center;
+  flex-shrink: 0;
 }
 
-.dash-card {
-  min-height: 200px;
+/* ===== Bento 网格（非对称：2fr 1fr，规则 6：DESIGN_VARIANCE=8） ===== */
+.bento-grid--top {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
 }
 
-.card-title {
+.bento-grid--bottom {
+  display: grid;
+  grid-template-columns: 1.85fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+.bento-cell-stack {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+/* Bento 单元：替代通用 el-card，使用纯净白底 + 1px 边框 + 扩散阴影（规则 9-A） */
+.bento-cell {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-extra-light);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04);
+  transition: box-shadow 0.3s var(--transition-ease-out),
+    border-color 0.3s var(--transition-ease-out);
+}
+
+.bento-cell:hover {
+  box-shadow: 0 12px 32px -12px rgba(59, 130, 196, 0.14);
+  border-color: var(--border-light);
+}
+
+.bento-cell--hero {
+  background:
+    linear-gradient(180deg, rgba(59, 130, 196, 0.025) 0%, transparent 60%),
+    var(--bg-primary);
+}
+
+.bento-cell__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.125rem;
+}
+
+.bento-cell__head--split {
+  margin-bottom: 1rem;
+}
+
+.bento-cell__title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bento-cell__title {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 0.9375rem;
   font-weight: 600;
-  font-size: 14px;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.bento-cell__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  box-shadow: 0 0 8px rgba(59, 130, 196, 0.6);
+  flex-shrink: 0;
+}
+
+.bento-cell__live-dot--alert {
+  background: var(--danger-color);
+  box-shadow: 0 0 8px rgba(214, 90, 90, 0.6);
+}
+
+.warning-count {
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--danger-color);
+  background: var(--danger-light);
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  min-width: 1.5rem;
+  text-align: center;
 }
 
 .card-loading {
-  padding: 16px 0;
+  padding: var(--spacing-lg) 0;
 }
 
 .stat-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: var(--spacing-md);
 }
 
 .stat-label {
-  font-size: 13px;
-  color: #606266;
+  font-size: var(--font-size-small);
+  color: var(--text-regular);
 }
 
 .stat-value {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
 }
 
+/* 风险分数主视觉（Hero 卡内） */
 .risk-score-display {
-  font-size: 32px;
+  font-family: var(--font-family-display);
+  font-size: 3.5rem;
   font-weight: 700;
-  color: var(--el-text-color-primary);
-  text-align: center;
-  margin-bottom: 12px;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+  margin: 0.5rem 0 1rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.risk-score-display :deep(.count-up-number) {
+  font-family: var(--font-family-display);
 }
 
 .risk-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-top: 10px;
+  margin-top: var(--spacing-md);
 }
 
 .trend-label {
-  font-size: 12px;
-  color: #909399;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .risk-advice {
-  font-size: 12px;
-  color: #606266;
-  margin-top: 8px;
-  line-height: 1.5;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-regular);
+  margin-top: var(--spacing-md);
+  line-height: 1.6;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-hover);
+  border-radius: 0.625rem;
+  border-left: 2px solid var(--primary-color);
+}
+
+.intervention-progress {
+  margin: var(--spacing-sm) 0;
+}
+
+.cell-action {
+  margin-top: auto;
+  align-self: flex-start;
+  padding-top: 0.75rem;
+}
+
+/* 未读预警列表 */
+.warning-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .warning-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f2f5;
+  gap: var(--spacing-sm);
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--border-extra-light);
+  transition: background var(--transition-fast) var(--transition-timing);
+}
+
+.warning-item:last-child {
+  border-bottom: none;
+}
+
+.warning-item:hover {
+  background: var(--bg-hover);
 }
 
 .warning-title {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--font-size-small);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-primary);
 }
 
 .warning-time {
-  font-size: 12px;
-  color: #909399;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+}
+
+.trend-chart {
+  height: 300px;
+  width: 100%;
+}
+
+/* ===== 响应式：移动端强制单列（规则 6：MOBILE OVERRIDE） ===== */
+@media (max-width: 1024px) {
+  .bento-grid--top,
+  .bento-grid--bottom {
+    grid-template-columns: 1fr;
+  }
+
+  .bento-cell-stack {
+    grid-template-rows: auto auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    padding: var(--spacing-md);
+  }
+
+  .layout__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+
+  .risk-score-display {
+    font-size: 2.75rem;
+  }
 }
 </style>

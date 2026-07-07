@@ -101,7 +101,11 @@ class TestSettingsEnvOverride:
         settings = Settings()
         assert settings.jwt_secret_key == "my-secret-key"
 
-    @patch.dict(os.environ, {"DATABASE_URL": "postgresql+asyncpg://user:pass@db/db"}, clear=False)
+    @patch.dict(
+        os.environ,
+        {"DATABASE_URL": "postgresql+asyncpg://user:pass@db/db"},
+        clear=False,
+    )
     def test_database_url_override(self):
         """TC-COV-CONFIG-011: DATABASE_URL from environment."""
         from app.core.config import Settings
@@ -109,11 +113,21 @@ class TestSettingsEnvOverride:
         settings = Settings()
         assert settings.database_url == "postgresql+asyncpg://user:pass@db/db"
 
-    @patch.dict(os.environ, {"APP_ENV": "production"}, clear=False)
+    @patch.dict(
+        os.environ,
+        {
+            "APP_ENV": "production",
+            "DATABASE_URL": "postgresql+asyncpg://user:pass@db/prod",
+            "PASSWORD_RESET_BASE_URL": "https://example.com/reset-password",
+        },
+        clear=False,
+    )
     def test_app_env_override(self):
         """TC-COV-CONFIG-012: APP_ENV from environment."""
         from app.core.config import Settings
 
+        # Phase 1 安全加固：生产环境必须显式设置非 SQLite 的 DATABASE_URL
+        # SEC-P1-002 修复：生产环境必须使用 HTTPS 的 PASSWORD_RESET_BASE_URL
         settings = Settings()
         assert settings.app_env == "production"
 
@@ -122,10 +136,10 @@ class TestSettingsValidation:
     """Test Settings validation logic."""
 
     def test_production_sqlite_override(self):
-        """TC-COV-CONFIG-013: Production env overrides SQLite to PostgreSQL."""
+        """TC-COV-CONFIG-013: Production env rejects SQLite DATABASE_URL."""
         from app.core.config import Settings
 
-        # In production with SQLite, validator overrides to PostgreSQL URL
+        # Phase 1 安全加固：生产环境直接拒绝 SQLite，不再自动转为 PostgreSQL
         with patch.dict(
             os.environ,
             {
@@ -135,17 +149,29 @@ class TestSettingsValidation:
             },
             clear=False,
         ):
-            settings = Settings()
-            assert settings.database_url.startswith("postgresql+asyncpg://")
+            with pytest.raises(
+                ValueError, match="DATABASE_URL must be explicitly set in production"
+            ):
+                Settings()
 
     def test_production_secure_jwt_required(self):
         """TC-COV-CONFIG-014: Production requires secure JWT key."""
         from app.core.config import Settings
 
-        with patch.dict(os.environ, {"APP_ENV": "production", "JWT_SECRET_KEY": "change-this-to-a-random-secret-key"}, clear=False):
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "production",
+                "JWT_SECRET_KEY": "change-this-to-a-random-secret-key",
+                "DATABASE_URL": "postgresql+asyncpg://user:pass@db/prod",
+            },
+            clear=False,
+        ):
             with pytest.raises(ValueError) as exc_info:
                 Settings()
-            assert "JWT_SECRET_KEY is required and must be secure" in str(exc_info.value)
+            assert "JWT_SECRET_KEY is required and must be secure" in str(
+                exc_info.value
+            )
 
 
 class TestDependencyDetection:

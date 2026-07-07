@@ -12,7 +12,9 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     ActionColumn: typeof import('./components/common/ActionColumn.vue')['default']
+    AuthBrandPanel: typeof import('./components/common/AuthBrandPanel.vue')['default']
     BaseChart: typeof import('./components/charts/BaseChart.vue')['default']
+    BentoCell: typeof import('./components/common/BentoCell.vue')['default']
     BottomNav: typeof import('./components/common/BottomNav.vue')['default']
     BreadcrumbNav: typeof import('./components/common/BreadcrumbNav.vue')['default']
     CountUp: typeof import('./components/common/CountUp.vue')['default']

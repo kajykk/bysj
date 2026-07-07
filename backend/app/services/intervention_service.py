@@ -12,11 +12,17 @@ from app.models.intervention import InterventionPlan, InterventionTask, TaskExec
 
 class InterventionRecommendation:
     @staticmethod
-    def build_from_risk_level(risk_level: int, dominant_modality: str | None = None) -> tuple[str, list[str]]:
+    def build_from_risk_level(
+        risk_level: int, dominant_modality: str | None = None
+    ) -> tuple[str, list[str]]:
         if risk_level <= 0:
             return "none", ["保持日常心理健康维护", "推荐心理健康教育内容"]
         if risk_level == 1:
-            return "low", ["推送轻度风险提醒", "推荐放松训练与睡眠管理", "建议 7 日内复测"]
+            return "low", [
+                "推送轻度风险提醒",
+                "推荐放松训练与睡眠管理",
+                "建议 7 日内复测",
+            ]
         if risk_level == 2:
             actions = ["触发咨询师关注", "推荐在线心理测评", "建议尽快预约辅导"]
             if dominant_modality == "physiological":
@@ -35,8 +41,6 @@ class InterventionRecommendation:
         return "critical", actions
 
 
-
-
 class InterventionService:
     TERMINAL_STATUSES = {"completed", "missed", "skipped"}
     MUTABLE_STATUSES = {"pending", "postponed"}
@@ -44,10 +48,12 @@ class InterventionService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get_active(self, user_id: int) -> dict:
+    async def get_active(self, user_id: int, *, create_missing: bool = True) -> dict:
         stmt = (
             select(InterventionPlan)
-            .where(InterventionPlan.user_id == user_id, InterventionPlan.status == "active")
+            .where(
+                InterventionPlan.user_id == user_id, InterventionPlan.status == "active"
+            )
             .order_by(InterventionPlan.created_at.desc())
             .limit(1)
         )
@@ -65,7 +71,11 @@ class InterventionService:
                 "tasks": [],
             }
 
-        task_stmt = select(InterventionTask).where(InterventionTask.plan_id == plan.id).order_by(InterventionTask.sort_order)
+        task_stmt = (
+            select(InterventionTask)
+            .where(InterventionTask.plan_id == plan.id)
+            .order_by(InterventionTask.sort_order)
+        )
         tasks = (await self.db.execute(task_stmt)).scalars().all()
 
         today = date.today()
@@ -74,12 +84,34 @@ class InterventionService:
         task_items: list[dict] = []
 
         for task in tasks:
-            should_execute = self._should_execute_today(task.schedule or "daily", plan.start_date)
+            should_execute = self._should_execute_today(
+                task.schedule or "daily", plan.start_date
+            )
             if not should_execute:
                 continue
 
             total_tasks += 1
-            execution = await self._get_or_create_execution(task.id, user_id, today)
+            if create_missing:
+                execution = await self._get_or_create_execution(task.id, user_id, today)
+            else:
+                # 只读模式：仅查询已有执行记录，不创建新记录（用于 GET 端点，保证幂等性）
+                execution = await self._get_execution(task.id, user_id, today)
+                if execution is None:
+                    task_items.append(
+                        {
+                            "id": task.id,
+                            "task_name": task.task_name,
+                            "task_type": task.task_type,
+                            "description": task.description,
+                            "schedule": task.schedule,
+                            "duration_minutes": task.duration_minutes,
+                            "today_status": "pending",
+                            "feedback_score": None,
+                            "feedback_note": None,
+                            "modality_based_actions": [],
+                        }
+                    )
+                    continue
 
             status = execution.status
             if status == "completed":
@@ -101,7 +133,8 @@ class InterventionService:
             )
 
         progress = round(completed_tasks / total_tasks * 100, 1) if total_tasks else 0
-        await self.db.commit()
+        if create_missing:
+            await self.db.commit()
 
         return {
             "plan": {
@@ -126,30 +159,36 @@ class InterventionService:
         )
         rows = (await self.db.execute(stmt)).scalars().all()
 
-        count_stmt = select(func.count()).select_from(InterventionPlan).where(InterventionPlan.user_id == user_id)
+        count_stmt = (
+            select(func.count())
+            .select_from(InterventionPlan)
+            .where(InterventionPlan.user_id == user_id)
+        )
         total = (await self.db.execute(count_stmt)).scalar_one()
 
         # 批量查询优化（修复N+1问题）
         plan_ids = [p.id for p in rows]
         execution_map: dict[int, list] = {}
         task_count_map: dict[int, int] = {}
-        
+
         if plan_ids:
-            tasks_stmt = select(InterventionTask).where(InterventionTask.plan_id.in_(plan_ids))
+            tasks_stmt = select(InterventionTask).where(
+                InterventionTask.plan_id.in_(plan_ids)
+            )
             tasks = (await self.db.execute(tasks_stmt)).scalars().all()
             task_ids = [t.id for t in tasks]
             task_map = {t.id: t.plan_id for t in tasks}  # task_id -> plan_id
             task_count_map = {plan_id: 0 for plan_id in plan_ids}
             for task in tasks:
                 task_count_map[task.plan_id] = task_count_map.get(task.plan_id, 0) + 1
-            
+
             if task_ids:
                 exec_stmt = select(TaskExecution).where(
                     TaskExecution.task_id.in_(task_ids),
                     TaskExecution.user_id == user_id,
                 )
                 executions = (await self.db.execute(exec_stmt)).scalars().all()
-                
+
                 for exe in executions:
                     plan_id = task_map.get(exe.task_id)
                     if plan_id:
@@ -160,7 +199,11 @@ class InterventionService:
             executions = execution_map.get(row.id, [])
             total_tasks_in_plan = task_count_map.get(row.id, len(executions))
             completed = len([x for x in executions if x.status == "completed"])
-            rate = round((completed / total_tasks_in_plan * 100), 1) if total_tasks_in_plan else 0
+            rate = (
+                round((completed / total_tasks_in_plan * 100), 1)
+                if total_tasks_in_plan
+                else 0
+            )
             items.append(
                 {
                     "plan_id": row.id,
@@ -181,17 +224,24 @@ class InterventionService:
             "page_size": page_size,
         }
 
-    async def complete_task(self, user_id: int, task_id: int, scheduled_date: date | None) -> tuple[bool, str | None]:
-        task, execution = await self._load_task_execution(task_id, user_id, scheduled_date)
-        if task is None or execution is None:
+    async def complete_task(
+        self, user_id: int, task_id: int, scheduled_date: date | None
+    ) -> tuple[bool, str | None]:
+        task, execution = await self._load_task_execution_readonly(
+            task_id, user_id, scheduled_date
+        )
+        if task is None:
             return False, None
+        # H-Svc-15 修复：执行记录不存在说明任务今日未排期，不应自动创建后变更状态
+        if execution is None:
+            return False, "task_not_scheduled_today"
 
         valid, reason = self._ensure_transition(execution.status, "completed")
         if not valid:
             return False, reason
 
         execution.status = "completed"
-        execution.completed_at = datetime.now(UTC)
+        execution.completed_at = datetime.now(UTC).replace(tzinfo=None)
         self.db.add(
             OperationLog(
                 operator_id=user_id,
@@ -213,7 +263,9 @@ class InterventionService:
         feedback_score: int | None,
         feedback_note: str | None,
     ) -> tuple[bool, str | None]:
-        task, execution = await self._load_task_execution(task_id, user_id, scheduled_date)
+        task, execution = await self._load_task_execution(
+            task_id, user_id, scheduled_date
+        )
         if task is None or execution is None:
             return False, None
 
@@ -228,7 +280,7 @@ class InterventionService:
             if not valid:
                 return False, reason
             execution.status = "completed"
-            execution.completed_at = datetime.now(UTC)
+            execution.completed_at = datetime.now(UTC).replace(tzinfo=None)
             status_changed = True
 
         self.db.add(
@@ -251,9 +303,14 @@ class InterventionService:
         scheduled_date: date | None,
         note: str | None,
     ) -> tuple[bool, str | None]:
-        task, execution = await self._load_task_execution(task_id, user_id, scheduled_date)
-        if task is None or execution is None:
+        task, execution = await self._load_task_execution_readonly(
+            task_id, user_id, scheduled_date
+        )
+        if task is None:
             return False, None
+        # H-Svc-15 修复：执行记录不存在说明任务今日未排期，不应自动创建后变更状态
+        if execution is None:
+            return False, "task_not_scheduled_today"
 
         valid, reason = self._ensure_transition(execution.status, "missed")
         if not valid:
@@ -272,9 +329,14 @@ class InterventionService:
         scheduled_date: date | None,
         note: str | None,
     ) -> tuple[bool, str | None]:
-        task, execution = await self._load_task_execution(task_id, user_id, scheduled_date)
-        if task is None or execution is None:
+        task, execution = await self._load_task_execution_readonly(
+            task_id, user_id, scheduled_date
+        )
+        if task is None:
             return False, None
+        # H-Svc-15 修复：执行记录不存在说明任务今日未排期，不应自动创建后变更状态
+        if execution is None:
+            return False, "task_not_scheduled_today"
 
         valid, reason = self._ensure_transition(execution.status, "skipped")
         if not valid:
@@ -297,7 +359,9 @@ class InterventionService:
         if postpone_to < date.today():
             return False, "延期日期不能早于今天"
 
-        task, origin_exec = await self._load_task_execution(task_id, user_id, scheduled_date)
+        task, origin_exec = await self._load_task_execution(
+            task_id, user_id, scheduled_date
+        )
         if task is None or origin_exec is None:
             return False, None
 
@@ -336,7 +400,44 @@ class InterventionService:
         execution = await self._get_or_create_execution(task_id, user_id, when)
         return task, execution
 
-    async def _get_or_create_execution(self, task_id: int, user_id: int, scheduled_date: date) -> TaskExecution:
+    async def _load_task_execution_readonly(
+        self,
+        task_id: int,
+        user_id: int,
+        scheduled_date: date | None,
+    ) -> tuple[InterventionTask | None, TaskExecution | None]:
+        """H-Svc-15 修复：只读加载任务执行记录，不自动创建。
+
+        用于状态变更操作（complete/mark_missed/skip），避免自动创建 pending execution 后
+        立刻转为 completed/missed/skipped，绕过 schedule 检查。
+        执行记录不存在时返回 (task, None)，由调用方返回 task_not_scheduled_today 错误。
+        """
+        task = await self.db.get(InterventionTask, task_id)
+        if task is None:
+            return None, None
+
+        plan = await self.db.get(InterventionPlan, task.plan_id)
+        if plan is None or plan.user_id != user_id:
+            return None, None
+
+        when = scheduled_date or date.today()
+        execution = await self._get_execution(task_id, user_id, when)
+        return task, execution
+
+    async def _get_execution(
+        self, task_id: int, user_id: int, scheduled_date: date
+    ) -> TaskExecution | None:
+        """只读查询执行记录，不创建新记录（用于 GET 端点保证幂等性）。"""
+        stmt = select(TaskExecution).where(
+            TaskExecution.task_id == task_id,
+            TaskExecution.user_id == user_id,
+            TaskExecution.scheduled_date == scheduled_date,
+        )
+        return (await self.db.execute(stmt)).scalar_one_or_none()
+
+    async def _get_or_create_execution(
+        self, task_id: int, user_id: int, scheduled_date: date
+    ) -> TaskExecution:
         stmt = select(TaskExecution).where(
             TaskExecution.task_id == task_id,
             TaskExecution.user_id == user_id,
@@ -354,10 +455,13 @@ class InterventionService:
         )
         self.db.add(execution)
         try:
-            await self.db.flush()
+            # M-10 修复：使用 begin_nested savepoint 隔离 flush 操作
+            # 失败时只回滚 savepoint，不影响外层事务中已做的其他修改
+            async with self.db.begin_nested():
+                await self.db.flush()
             return execution
         except IntegrityError:
-            await self.db.rollback()
+            # savepoint 已自动回滚，无需手动 rollback
             stmt_retry = select(TaskExecution).where(
                 TaskExecution.task_id == task_id,
                 TaskExecution.user_id == user_id,
@@ -369,7 +473,9 @@ class InterventionService:
             return retried
 
     @classmethod
-    def _ensure_transition(cls, current_status: str, target_status: str) -> tuple[bool, str | None]:
+    def _ensure_transition(
+        cls, current_status: str, target_status: str
+    ) -> tuple[bool, str | None]:
         if current_status == target_status:
             return False, f"当前状态已是{target_status}，无需重复提交"
 
@@ -386,9 +492,10 @@ class InterventionService:
         return True, None
 
     @staticmethod
-    def _should_execute_today(schedule: str, start_date: date) -> bool:
+    def _should_execute_today(schedule: str, start_date: date | None) -> bool:
         today = date.today()
-        if today < start_date:
+        # H-Svc-14 修复：start_date 可能为 None，直接比较会抛 TypeError 导致整个 get_active 接口 500
+        if start_date is None or today < start_date:
             return False
         normalized = (schedule or "daily").strip().lower()
         if normalized == "daily":

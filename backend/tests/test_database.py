@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.database import init_db, close_db, get_db, engine, AsyncSessionLocal
+from app.core.database import AsyncSessionLocal, close_db, engine, get_db, init_db
 
 
 class TestDatabase:

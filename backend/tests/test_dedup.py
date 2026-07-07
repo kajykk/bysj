@@ -1,18 +1,19 @@
 """v1.34: dedup 模块测试"""
+
 from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from app.models.admin import OperationLog
 from app.monitoring.dedup import should_send
 from app.monitoring.notifier import AlertPayload
 
 
-def _make_log(fingerprint: str, age_minutes: int, action_type: str = "alert_fired") -> OperationLog:
+def _make_log(
+    fingerprint: str, age_minutes: int, action_type: str = "alert_fired"
+) -> OperationLog:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     detail = json.dumps({"fingerprint": fingerprint, "rule": "Test", "severity": "P1"})
     return OperationLog(

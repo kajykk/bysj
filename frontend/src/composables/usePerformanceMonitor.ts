@@ -1,4 +1,5 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted } from 'vue'
+import { getStoredToken } from '@/utils/authStorage'
 
 /**
  * 前端性能监控指标类型
@@ -7,7 +8,7 @@ export interface PerformanceMetrics {
   // Core Web Vitals
   fcp?: number // First Contentful Paint
   lcp?: number // Largest Contentful Paint
-  fid?: number // First Input Delay
+  inp?: number // Interaction to Next Paint (M-48: 替代已废弃的 FID)
   cls?: number // Cumulative Layout Shift
   ttfb?: number // Time to First Byte
 
@@ -38,20 +39,24 @@ export interface PerformanceMonitorOptions {
 }
 
 const DEFAULT_OPTIONS: Required<PerformanceMonitorOptions> = {
-  reportInterval: 30000,
-  autoReport: true,
-  reportUrl: '/api/monitoring/frontend-metrics',
+  reportInterval: 300000,
+  autoReport: false,
+  // P3-3 修复: 后端 monitoring router 挂载在 /api/v1/monitoring, 原路径缺少 /v1/ 前缀
+  reportUrl: '/api/v1/monitoring/frontend-metrics',
   clsSessionWindow: 5000,
 }
 
 /**
  * 使用 PerformanceObserver 采集指标
+ * L-FE-10 修复：observer 创建失败时返回 noop cleanup（而非 null），
+ * 使调用方无需判空，cleanup 数组中 noop 调用无副作用
  */
 const observeMetric = (
   entryType: string,
   callback: (entries: PerformanceEntryList) => void
-): (() => void) | null => {
-  if (!('PerformanceObserver' in window)) return null
+): () => void => {
+  const noop = () => {}
+  if (!('PerformanceObserver' in window)) return noop
 
   try {
     const observer = new PerformanceObserver((list) => {
@@ -60,7 +65,7 @@ const observeMetric = (
     observer.observe({ entryTypes: [entryType] })
     return () => observer.disconnect()
   } catch {
-    return null
+    return noop
   }
 }
 
@@ -68,7 +73,7 @@ const observeMetric = (
  * 前端性能监控 Composable
  *
  * 采集 Core Web Vitals 和自定义性能指标
- * 自动上报到后端 /monitoring/frontend-metrics
+ * 自动上报到后端 /api/v1/monitoring/frontend-metrics
  *
  * @example
  * ```ts
@@ -80,20 +85,30 @@ const observeMetric = (
 export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options }
 
-  const metrics = ref<PerformanceMetrics>({
+  // M-FE-23 修复：改用 shallowRef，避免性能指标频繁更新触发深层响应式开销
+  // 所有更新需整体替换 .value，而非深层修改字段
+  const metrics = shallowRef<PerformanceMetrics>({
     url: window.location.href,
     timestamp: Date.now(),
     userAgent: navigator.userAgent,
   })
 
   const isCollecting = ref(false)
-  const reportTimer = ref<ReturnType<typeof setInterval> | null>(null)
+  let reportTimer: ReturnType<typeof setInterval> | null = null
   const cleanupFns: (() => void)[] = []
 
   // CLS 计算状态
   interface LayoutShiftEntry extends PerformanceEntry {
     value: number
     hadRecentInput: boolean
+  }
+
+  // M-48 修复：定义 PerformanceEventTiming，用于 INP 采集
+  interface PerformanceEventTiming extends PerformanceEntry {
+    interactionId: number
+    duration: number
+    processingStart: number
+    processingEnd: number
   }
 
   let clsValue = 0
@@ -107,7 +122,8 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
     const cleanup = observeMetric('paint', (entries) => {
       entries.forEach((entry) => {
         if (entry.name === 'first-contentful-paint') {
-          metrics.value.fcp = entry.startTime
+          // M-FE-23 修复：shallowRef 需整体替换
+          metrics.value = { ...metrics.value, fcp: entry.startTime }
         }
       })
     })
@@ -121,25 +137,66 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
     const cleanup = observeMetric('largest-contentful-paint', (entries) => {
       const lastEntry = entries[entries.length - 1] as PerformanceEntry & { startTime: number }
       if (lastEntry) {
-        metrics.value.lcp = lastEntry.startTime
+        // M-FE-23 修复：shallowRef 需整体替换
+        metrics.value = { ...metrics.value, lcp: lastEntry.startTime }
       }
     })
     if (cleanup) cleanupFns.push(cleanup)
   }
 
+  // M-FE-9 修复：按 interactionId 分组记录每次交互的最大 duration，
+  // 避免同一交互的多个事件（pointerdown/click/pointerup）被重复计入导致 INP 高估
+  const interactionMaxDuration = new Map<number, number>()
+
   /**
-   * 采集 FID (First Input Delay)
+   * 采集 INP (Interaction to Next Paint)
+   *
+   * M-48 修复：FID 已被 Chrome 弃用（2024 年 9 月），改用 INP 作为 Core Web Vital。
+   * INP 测量页面生命周期内最差的交互延迟（pointerdown、pointerup、click 等）。
+   * 取所有 interaction 的最大 duration 作为 INP 值。
+   * 仅记录 interactionId > 0 的条目（排除非交互事件）。
+   * M-FE-9 修复：按 interactionId 分组，每组取最大 duration，避免同一交互多事件高估。
    */
-  const collectFID = () => {
-    const cleanup = observeMetric('first-input', (entries) => {
+  const collectINP = () => {
+    const cleanup = observeMetric('event', (entries) => {
       entries.forEach((entry) => {
-        const firstInput = entry as PerformanceEventTiming
-        if (firstInput.processingStart && firstInput.startTime) {
-          metrics.value.fid = firstInput.processingStart - firstInput.startTime
+        const eventEntry = entry as PerformanceEventTiming
+        // 仅记录有效交互（interactionId > 0）
+        if (eventEntry.interactionId) {
+          const id = eventEntry.interactionId
+          const duration = eventEntry.duration
+          // M-FE-9 修复：按 interactionId 分组，取每组最大 duration
+          const prev = interactionMaxDuration.get(id)
+          if (prev === undefined || duration > prev) {
+            interactionMaxDuration.set(id, duration)
+          }
+          // INP 取所有交互中最大的 duration
+          const worst = Math.max(...interactionMaxDuration.values())
+          if (!metrics.value.inp || worst > metrics.value.inp) {
+            // M-FE-23 修复：shallowRef 需整体替换
+            metrics.value = { ...metrics.value, inp: worst }
+          }
         }
       })
     })
     if (cleanup) cleanupFns.push(cleanup)
+  }
+
+  /**
+   * C-FE-5 修复：将当前 clsSessionEntries 累加到 metrics.value.cls。
+   * 原实现仅在新会话窗口开始时才更新 metrics.value.cls，
+   * 若页面在当前会话窗口内被关闭（常见情况），最终 CLS 累积值不会被写入，
+   * reportWithBeacon 上报的是旧值或 undefined。
+   */
+  const flushClsSession = () => {
+    if (clsSessionEntries.length > 0) {
+      const sessionCls = clsSessionEntries.reduce((sum, e) => sum + e.value, 0)
+      if (sessionCls > clsValue) {
+        clsValue = sessionCls
+        // M-FE-23 修复：shallowRef 需整体替换
+        metrics.value = { ...metrics.value, cls: clsValue }
+      }
+    }
   }
 
   /**
@@ -166,7 +223,8 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
                 const sessionCls = clsSessionEntries.reduce((sum, e) => sum + e.value, 0)
                 if (sessionCls > clsValue) {
                   clsValue = sessionCls
-                  metrics.value.cls = clsValue
+                  // M-FE-23 修复：shallowRef 需整体替换
+                  metrics.value = { ...metrics.value, cls: clsValue }
                 }
               }
               clsSessionEntries = []
@@ -188,32 +246,39 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
    * 采集 TTFB (Time to First Byte)
    */
   const collectTTFB = () => {
-    onMounted(() => {
-      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-      if (navigation) {
-        metrics.value.ttfb = navigation.responseStart - navigation.startTime
-        metrics.value.domReadyTime = navigation.domContentLoadedEventEnd - navigation.startTime
-        metrics.value.pageLoadTime = navigation.loadEventEnd - navigation.startTime
+    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+    if (navigation) {
+      // M-FE-23 修复：shallowRef 需整体替换，合并多个字段一次性更新
+      metrics.value = {
+        ...metrics.value,
+        ttfb: navigation.responseStart - navigation.startTime,
+        domReadyTime: navigation.domContentLoadedEventEnd - navigation.startTime,
+        pageLoadTime: navigation.loadEventEnd - navigation.startTime,
       }
-    })
+    }
   }
 
   /**
    * 采集资源加载信息
    */
   const collectResources = () => {
-    onMounted(() => {
-      const resources = performance.getEntriesByType('resource')
-      metrics.value.resourceCount = resources.length
-      metrics.value.resourceSize = resources.reduce((total, r) => {
+    const resources = performance.getEntriesByType('resource')
+    // M-FE-23 修复：shallowRef 需整体替换，合并多个字段一次性更新
+    metrics.value = {
+      ...metrics.value,
+      resourceCount: resources.length,
+      resourceSize: resources.reduce((total, r) => {
         const resource = r as PerformanceResourceTiming
         return total + (resource.transferSize || 0)
-      }, 0)
-    })
+      }, 0),
+    }
   }
 
   /**
    * 上报性能指标到后端
+   * FM-03 修复：手动添加 Authorization header，确保后端能鉴权。
+   * 不使用封装的 request 实例，因为需要 keepalive 支持页面卸载时上报，
+   * 且性能上报不应触发 401 token 刷新逻辑。
    */
   const reportMetrics = async (): Promise<boolean> => {
     try {
@@ -223,14 +288,23 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
         timestamp: Date.now(),
       }
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      // 注入 access token，与 request 拦截器保持一致
+      const token = getStoredToken()
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
       const response = await fetch(opts.reportUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
         // 使用 keepalive 确保页面卸载时也能发送
         keepalive: true,
+        // H-FE-4 修复：显式携带 credentials，确保后端鉴权通过（fetch 默认不发送 Cookie）
+        credentials: 'include',
       })
 
       return response.ok
@@ -252,7 +326,10 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
         url: window.location.href,
         timestamp: Date.now(),
       })
-      return navigator.sendBeacon(opts.reportUrl, payload)
+      // H-FE-7 修复：用 Blob 包装 payload 并指定 Content-Type 为 application/json
+      // 原直接传字符串时 sendBeacon 默认 Content-Type 为 text/plain;charset=UTF-8，后端可能 422 拒绝
+      const blob = new Blob([payload], { type: 'application/json' })
+      return navigator.sendBeacon(opts.reportUrl, blob)
     } catch {
       return false
     }
@@ -267,20 +344,22 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
 
     collectFCP()
     collectLCP()
-    collectFID()
+    collectINP()
     collectCLS()
     collectTTFB()
     collectResources()
 
     // 自动上报
     if (opts.autoReport) {
-      reportTimer.value = setInterval(() => {
+      reportTimer = setInterval(() => {
         reportMetrics()
       }, opts.reportInterval)
     }
 
     // 页面卸载时使用 Beacon 上报
     const handleBeforeUnload = () => {
+      // C-FE-5 修复：卸载前先把当前 CLS 会话窗口的累积值写入 metrics
+      flushClsSession()
       reportWithBeacon()
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -289,6 +368,8 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
     // 页面可见性变化时上报
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
+        // C-FE-5 修复：隐藏前先把当前 CLS 会话窗口的累积值写入 metrics
+        flushClsSession()
         reportWithBeacon()
       }
     }
@@ -302,9 +383,9 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
   const stop = () => {
     isCollecting.value = false
 
-    if (reportTimer.value) {
-      clearInterval(reportTimer.value)
-      reportTimer.value = null
+    if (reportTimer) {
+      clearInterval(reportTimer)
+      reportTimer = null
     }
 
     cleanupFns.forEach((fn) => fn())

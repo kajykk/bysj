@@ -1,4 +1,5 @@
 import request, { requestData } from './request'
+import type { AssessmentRecordItem } from './userTypes'
 
 export interface ReportFactor {
   feature: string
@@ -114,4 +115,5 @@ export const userRiskApi = {
     requestData<TextAnalyzeResult>(request.post('/user/data/text/analyze', payload)),
   recordPhysiological: (payload: Record<string, unknown>) => requestData<{ record_id: number }>(request.post('/user/data/physiological/record', payload)),
   predictTextModel: (text: string) => requestData<TextPredictModelResult>(request.post('/model/predict/text', { text })),
+  getAssessmentDetail: (id: number) => requestData<AssessmentRecordItem>(request.get(`/user/risk/assessments/${id}`)),
 }

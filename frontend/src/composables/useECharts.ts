@@ -1,6 +1,6 @@
 import { onBeforeUnmount, onMounted } from 'vue'
-import * as echarts from 'echarts'
-import type { ECharts, EChartsOption } from 'echarts'
+import { echarts, type ECharts, type EChartsCoreOption } from '@/utils/echarts'
+import { subscribeResize } from '@/utils/sharedResize'
 
 /**
  * ECharts composable.
@@ -12,7 +12,7 @@ import type { ECharts, EChartsOption } from 'echarts'
 export function useECharts() {
   const chartInstances = new Map<string, ECharts>()
 
-  const registerChart = (key: string, dom: HTMLElement | null, option?: EChartsOption): ECharts | null => {
+  const registerChart = (key: string, dom: HTMLElement | null, option?: EChartsCoreOption): ECharts | null => {
     if (!dom) return null
 
     disposeChart(key)
@@ -26,7 +26,7 @@ export function useECharts() {
     return instance
   }
 
-  const updateChart = (key: string, option: EChartsOption): void => {
+  const updateChart = (key: string, option: EChartsCoreOption): void => {
     const instance = chartInstances.get(key)
     if (instance) {
       instance.setOption(option, true)
@@ -83,17 +83,16 @@ export function useECharts() {
  *
  * @param resizeAll - 触发所有图表 resize 的回调函数
  */
-export function useChartResize(resizeAll: () => void = () => {}) {
-  let resizeHandler: (() => void) | null = null
+// L-FE-15 修复：resizeAll 标注为必填，空函数默认值无实际意义且会掩盖调用遗漏
+export function useChartResize(resizeAll: () => void) {
+  // L-FE-2 修复：使用共享 resize 监听，避免每个图表组件实例独立注册
+  let unsubscribe: (() => void) | null = null
 
   onMounted(() => {
-    resizeHandler = resizeAll
-    window.addEventListener('resize', resizeHandler)
+    unsubscribe = subscribeResize(resizeAll)
   })
 
   onBeforeUnmount(() => {
-    if (resizeHandler) {
-      window.removeEventListener('resize', resizeHandler)
-    }
+    unsubscribe?.()
   })
 }

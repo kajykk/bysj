@@ -1,19 +1,24 @@
+import html
+import json
 import logging
 import uuid
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 
 try:
     import magic
 except ImportError as exc:  # pragma: no cover - dependency requirement enforcement
     raise RuntimeError("python-magic is required for upload MIME validation") from exc
 
+from app.core.database import get_db
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
-from app.core.rate_limit import limiter
+from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
+from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
 
@@ -30,12 +35,35 @@ ALLOWED_EXTENSIONS: dict[str, set[str]] = {
 # MIME类型映射（用于验证文件内容）
 ALLOWED_MIME_TYPES: dict[str, set[str]] = {
     "image": {"image/jpeg", "image/png", "image/gif", "image/webp"},
-    "audio": {"audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/aac", "audio/x-m4a"},
+    "audio": {
+        "audio/mpeg",
+        "audio/wav",
+        "audio/ogg",
+        "audio/mp4",
+        "audio/aac",
+        "audio/x-m4a",
+    },
     "document": {"application/pdf", "text/plain", "text/csv", "application/csv"},
 }
 
 MAX_FILE_SIZE = 20 * 1024 * 1024
 CHUNK_SIZE = 1024 * 1024
+
+# L-19 修复：定义允许的 category 集合，用于验证用户传入的 category 参数
+ALLOWED_CATEGORIES = set(ALLOWED_EXTENSIONS.keys())
+
+
+def _validate_category(category: str | None) -> str | None:
+    """验证 category 是否在允许的列表中。
+
+    如果 category 不为 None 且不在允许列表中，抛出 400 错误。
+    """
+    if category is not None and category not in ALLOWED_CATEGORIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件分类: {category}，允许: {', '.join(sorted(ALLOWED_CATEGORIES))}",
+        )
+    return category
 
 
 def _safe_resolve_path(base: Path, user_id: str, save_name: str) -> Path:
@@ -55,7 +83,10 @@ def _validate_extension(filename: str, category: str | None = None) -> str:
         raise HTTPException(status_code=400, detail="文件缺少扩展名")
     if category and category in ALLOWED_EXTENSIONS:
         if ext not in ALLOWED_EXTENSIONS[category]:
-            raise HTTPException(status_code=400, detail=f"不支持的文件类型: .{ext}，允许: {', '.join(ALLOWED_EXTENSIONS[category])}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的文件类型: .{ext}，允许: {', '.join(ALLOWED_EXTENSIONS[category])}",
+            )
     else:
         all_ext = set()
         for exts in ALLOWED_EXTENSIONS.values():
@@ -76,11 +107,10 @@ async def _validate_mime_type(file_content: bytes, category: str | None = None) 
         allowed = set()
         for mime_types in ALLOWED_MIME_TYPES.values():
             allowed |= mime_types
-    
+
     if mime not in allowed:
         raise HTTPException(
-            status_code=400,
-            detail=f"文件内容类型({mime})与扩展名不匹配"
+            status_code=400, detail=f"文件内容类型({mime})与扩展名不匹配"
         )
 
 
@@ -123,12 +153,15 @@ async def _save_upload_stream(file: UploadFile, save_path: Path) -> tuple[int, b
 async def upload_file(
     request: Request,
     current_user: Annotated[User, Depends(require_permission("user.settings.manage"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
     file: UploadFile = File(...),
     category: str | None = None,
 ) -> dict:
     if not file.filename:
         raise HTTPException(status_code=400, detail="文件名为空")
 
+    # L-19 修复：验证 category 参数，避免传入未知 category 跳过扩展名检查
+    category = _validate_category(category)
     ext = _validate_extension(file.filename, category)
 
     upload_base = Path("uploads")
@@ -154,14 +187,40 @@ async def upload_file(
 
     logger.info("User %s uploaded %s (%d bytes)", current_user.id, save_name, size)
 
+    # SEC-P1-004 修复：记录单文件上传审计日志
     url = f"/uploads/{current_user.id}/{save_name}"
-    return ok({
-        "url": url,
-        "filename": save_name,
-        "original_name": file.filename,
-        "size": size,
-        "content_type": file.content_type,
-    })
+    db.add(
+        OperationLog(
+            operator_id=current_user.id,
+            operator_role=current_user.role,
+            action_type="user_file_upload",
+            target_type="user_upload",
+            target_id=current_user.id,
+            detail=json.dumps(
+                {
+                    "filename": save_name,
+                    "original_name": file.filename,
+                    "size": size,
+                    "category": category,
+                    "content_type": file.content_type,
+                    "url": url,
+                },
+                ensure_ascii=False,
+            )[:5000],
+            ip_address=get_real_client_ip(request),
+        )
+    )
+    await db.commit()
+
+    return ok(
+        {
+            "url": url,
+            "filename": save_name,
+            "original_name": html.escape(file.filename),
+            "size": size,
+            "content_type": file.content_type,
+        }
+    )
 
 
 @router.post("/batch", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
@@ -169,12 +228,18 @@ async def upload_file(
 async def upload_batch(
     request: Request,
     current_user: Annotated[User, Depends(require_permission("user.settings.manage"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
     files: list[UploadFile] = File(...),
     category: str | None = None,
 ) -> dict:
     if len(files) > 10:
         raise HTTPException(status_code=400, detail="最多同时上传10个文件")
 
+    # L-19 修复：验证 category 参数，避免传入未知 category 跳过扩展名检查
+    category = _validate_category(category)
+
+    # TODO(M-API-10): 当前 10 个文件串行处理，大文件场景可能超时。
+    # 后续应改为后台任务（如 Celery/RQ）或 asyncio.gather 并行处理，避免请求长时间阻塞。
     results = []
     upload_base = Path("uploads")
     upload_base.mkdir(parents=True, exist_ok=True)
@@ -192,18 +257,21 @@ async def upload_batch(
             file_id = uuid.uuid4().hex[:12]
             save_name = f"{file_id}.{ext}"
             save_path = _safe_resolve_path(upload_base, user_id_str, save_name)
-            size, content = await _save_upload_stream(file, save_path)
-
-            # MIME类型验证
-            await _validate_mime_type(content, category)
+            # H-API-8 修复：先读取文件头部校验 MIME，再落盘，避免恶意 polyglot 文件先写入磁盘
+            head_content = await file.read(8192)
+            await file.seek(0)
+            await _validate_mime_type(head_content, category)
+            size, _ = await _save_upload_stream(file, save_path)
 
             url = f"/uploads/{current_user.id}/{save_name}"
-            results.append({
-                "url": url,
-                "filename": save_name,
-                "original_name": file.filename,
-                "size": size,
-            })
+            results.append(
+                {
+                    "url": url,
+                    "filename": save_name,
+                    "original_name": html.escape(file.filename),
+                    "size": size,
+                }
+            )
         except HTTPException as exc:
             if save_path is not None:
                 save_path.unlink(missing_ok=True)
@@ -211,6 +279,36 @@ async def upload_batch(
         except Exception:
             if save_path is not None:
                 save_path.unlink(missing_ok=True)
-            raise
+            # 记录错误并继续处理后续文件，不中断整个批量上传
+            results.append({"filename": file.filename, "error": "内部错误"})
+
+    # SEC-P1-004 修复：记录批量上传审计日志
+    success_count = sum(1 for r in results if "error" not in r)
+    failed_count = len(results) - success_count
+    db.add(
+        OperationLog(
+            operator_id=current_user.id,
+            operator_role=current_user.role,
+            action_type="user_file_upload_batch",
+            target_type="user_upload",
+            target_id=current_user.id,
+            detail=json.dumps(
+                {
+                    "total_count": len(results),
+                    "success_count": success_count,
+                    "failed_count": failed_count,
+                    "category": category,
+                    "items": [
+                        {"filename": r.get("filename"), "size": r.get("size")}
+                        for r in results
+                        if "error" not in r
+                    ][:20],
+                },
+                ensure_ascii=False,
+            )[:5000],
+            ip_address=get_real_client_ip(request),
+        )
+    )
+    await db.commit()
 
     return ok({"items": results, "count": len(results)})

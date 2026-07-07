@@ -11,6 +11,8 @@ Each layer logs structured information on success/failure.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -77,7 +79,9 @@ class FallbackHierarchy:
     def __init__(self) -> None:
         self._layers: list[tuple[str, str, Callable]] = []
 
-    def register_layer(self, layer_code: str, layer_desc: str, predict_fn: Callable) -> None:
+    def register_layer(
+        self, layer_code: str, layer_desc: str, predict_fn: Callable
+    ) -> None:
         """Register a fallback layer.
 
         Args:
@@ -88,7 +92,9 @@ class FallbackHierarchy:
         self._layers.append((layer_code, layer_desc, predict_fn))
         logger.info("Registered fallback layer: %s (%s)", layer_code, layer_desc)
 
-    def predict_with_fallback(self, features: Any, request_id: str | None = None) -> tuple[Any, FallbackLog]:
+    def predict_with_fallback(
+        self, features: Any, request_id: str | None = None
+    ) -> tuple[Any, FallbackLog]:
         """Execute prediction with fallback support.
 
         Args:
@@ -103,6 +109,27 @@ class FallbackHierarchy:
         for i, (layer_code, layer_desc, predict_fn) in enumerate(self._layers):
             try:
                 result = predict_fn(features)
+                # M-05 修复：检测 predict_fn 是否为 async 函数，避免返回未 await 的 coroutine
+                if inspect.iscoroutine(result):
+                    logger.warning(
+                        "[FALLBACK_ASYNC_MISUSE] layer=%s returned coroutine in sync predict_with_fallback, "
+                        "use async_predict_with_fallback instead. Awaiting coroutine synchronously.",
+                        layer_code,
+                    )
+                    # 在同步上下文中收到 coroutine，尝试用 asyncio.run 消费
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+                    if loop is not None:
+                        # M-Core-8 修复：已在事件循环中，无法用 asyncio.run；
+                        # 不调用 result.close()（可能清理不完整），仅记录日志并抛异常。
+                        raise TypeError(
+                            f"Received coroutine in sync path (layer={layer_code}); "
+                            "use await async_predict_with_fallback() instead"
+                        )
+                    result = asyncio.run(_consume_coroutine(result))
+
                 success_result = FallbackResult(
                     success=True,
                     layer=layer_code,
@@ -114,7 +141,9 @@ class FallbackHierarchy:
                 return result, log
             except Exception as exc:
                 error_msg = str(exc)
-                fallback_to = self._layers[i + 1][0] if i + 1 < len(self._layers) else None
+                fallback_to = (
+                    self._layers[i + 1][0] if i + 1 < len(self._layers) else None
+                )
                 fail_result = FallbackResult(
                     success=False,
                     layer=layer_code,
@@ -123,7 +152,9 @@ class FallbackHierarchy:
                     fallback_to=fallback_to,
                 )
                 log.add_attempt(fail_result)
-                self._log_failure(layer_code, layer_desc, error_msg, fallback_to, request_id)
+                self._log_failure(
+                    layer_code, layer_desc, error_msg, fallback_to, request_id
+                )
 
         # All layers failed
         logger.error(
@@ -131,7 +162,61 @@ class FallbackHierarchy:
             len(self._layers),
             request_id,
         )
-        raise FallbackExhaustedError(f"All fallback layers failed for request={request_id}")
+        raise FallbackExhaustedError(
+            f"All fallback layers failed for request={request_id}"
+        )
+
+    async def async_predict_with_fallback(
+        self, features: Any, request_id: str | None = None
+    ) -> tuple[Any, FallbackLog]:
+        """Async version of predict_with_fallback.
+
+        M-05 修复：支持 async predict_fn，正确 await coroutine 返回值。
+        同时兼容同步 predict_fn。
+        """
+        log = FallbackLog(request_id=request_id or "unknown")
+
+        for i, (layer_code, layer_desc, predict_fn) in enumerate(self._layers):
+            try:
+                result = predict_fn(features)
+                # 若 predict_fn 是 async，await 其返回的 coroutine
+                if inspect.iscoroutine(result):
+                    result = await result
+
+                success_result = FallbackResult(
+                    success=True,
+                    layer=layer_code,
+                    layer_desc=layer_desc,
+                    result=result,
+                )
+                log.add_attempt(success_result)
+                self._log_success(layer_code, layer_desc, request_id)
+                return result, log
+            except Exception as exc:
+                error_msg = str(exc)
+                fallback_to = (
+                    self._layers[i + 1][0] if i + 1 < len(self._layers) else None
+                )
+                fail_result = FallbackResult(
+                    success=False,
+                    layer=layer_code,
+                    layer_desc=layer_desc,
+                    error=error_msg,
+                    fallback_to=fallback_to,
+                )
+                log.add_attempt(fail_result)
+                self._log_failure(
+                    layer_code, layer_desc, error_msg, fallback_to, request_id
+                )
+
+        logger.error(
+            "[FALLBACK_EXHAUSTED] All %d fallback layers failed for request=%s",
+            len(self._layers),
+            request_id,
+        )
+        raise FallbackExhaustedError(
+            f"All fallback layers failed for request={request_id}"
+        )
 
     @staticmethod
     def _log_success(layer: str, desc: str, request_id: str | None) -> None:
@@ -143,7 +228,13 @@ class FallbackHierarchy:
         )
 
     @staticmethod
-    def _log_failure(layer: str, desc: str, error: str, fallback_to: str | None, request_id: str | None) -> None:
+    def _log_failure(
+        layer: str,
+        desc: str,
+        error: str,
+        fallback_to: str | None,
+        request_id: str | None,
+    ) -> None:
         logger.warning(
             "[FALLBACK_FAILURE] layer=%s (%s) error=%s fallback_to=%s request_id=%s",
             layer,
@@ -158,6 +249,11 @@ class FallbackExhaustedError(Exception):
     """Raised when all fallback layers have failed."""
 
     pass
+
+
+async def _consume_coroutine(coro: Any) -> Any:
+    """Helper to consume a coroutine for use with asyncio.run."""
+    return await coro
 
 
 # Global fallback hierarchy instance

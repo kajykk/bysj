@@ -1,16 +1,14 @@
 from fastapi import APIRouter
 
-from app.core.config import settings
+from app.core.config import RELEASE_VERSION, settings
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 
 router = APIRouter(tags=["version"])
-
-# 项目发布版本(在 v1.x 迭代下,以迭代号为准)
-RELEASE_VERSION = "v1.32-observability-complete"
 RELEASE_DATE = "2026-06-03"
 RELEASE_STATUS = "OBSERVABILITY-ENHANCED"
 
 
-@router.get("/version")
+@router.get("/version", responses=COMMON_ERROR_RESPONSES)
 async def get_version():
     """版本端点 - 单一事实来源。
 

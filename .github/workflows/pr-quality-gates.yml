@@ -247,10 +247,119 @@ jobs:
         env:
           CI: true
 
+  # SEC-A: 依赖项 SCA 扫描 (HIGH/CRITICAL 漏洞阻塞 PR 合并)
+  # 仅在依赖文件变更时触发, 避免无依赖变更的 PR 浪费 CI 资源
+  dependency-scan:
+    name: Dependency SCA Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # 仅在依赖文件变更时运行, 减少无谓扫描
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.changed_files_url, 'requirements.txt') ||
+      contains(toJson(github.event.pull_request.files), 'requirements.txt') ||
+      contains(toJson(github.event.pull_request.files), 'requirements-dev.txt')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install pip-audit
+        run: python -m pip install --upgrade "pip-audit>=2.7.0"
+      - name: Scan backend dependencies
+        working-directory: backend
+        run: |
+          # --strict: 任何漏洞都返回非零退出码, 阻塞合并
+          pip-audit \
+            --requirement requirements.txt \
+            --requirement requirements-dev.txt \
+            --format json \
+            --output pip-audit-report.json \
+            --strict
+      - name: Upload scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: backend/pip-audit-report.json
+          retention-days: 30
+
+  # SEC-B: 容器镜像 trivy 扫描 (HIGH/CRITICAL 漏洞阻塞 PR 合并)
+  # 仅在 Dockerfile / docker-compose.yml / .trivyignore 变更时触发
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(toJson(github.event.pull_request.files), 'Dockerfile') ||
+      contains(toJson(github.event.pull_request.files), 'docker-compose.yml') ||
+      contains(toJson(github.event.pull_request.files), '.trivyignore')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        working-directory: backend
+        run: docker build -f Dockerfile -t dws-backend:scan .
+
+      - name: Build frontend image
+        working-directory: frontend
+        run: docker build -f Dockerfile -t dws-frontend:scan .
+
+      - name: Scan backend image with trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: dws-backend:scan
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          args: --ignorefile backend/.trivyignore
+
+      - name: Scan frontend image with trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: dws-frontend:scan
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          args: --ignorefile frontend/.trivyignore
+
+      - name: Upload backend SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-backend-results.sarif
+
+      - name: Upload frontend SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend-results.sarif
+
+      - name: Upload scan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan-reports
+          path: |
+            trivy-backend-results.sarif
+            trivy-frontend-results.sarif
+          retention-days: 30
+
   quality-gate-summary:
     name: Quality Gate Summary
     runs-on: ubuntu-latest
-    needs: [sklearn-compat-check, unit-tests, integration-tests, contract-tests, coverage-check, frontend-build, frontend-tests, e2e-smoke]
+    needs: [sklearn-compat-check, unit-tests, integration-tests, contract-tests, coverage-check, frontend-build, frontend-tests, e2e-smoke, dependency-scan, container-scan]
     if: always()
     steps:
       - name: Check all jobs passed
@@ -264,6 +373,21 @@ jobs:
           echo "- Frontend Build: ${{ needs.frontend-build.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Frontend Tests: ${{ needs.frontend-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- E2E Smoke: ${{ needs.e2e-smoke.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependency SCA: ${{ needs.dependency-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Container Scan: ${{ needs.container-scan.result }}" >> $GITHUB_STEP_SUMMARY
+
+          # dependency-scan 与 container-scan 为条件触发 (skipped 视为通过)
+          SCAN_RESULT="${{ needs.dependency-scan.result }}"
+          if [ "$SCAN_RESULT" != "success" ] && [ "$SCAN_RESULT" != "skipped" ]; then
+            echo "❌ Quality gates failed (dependency-scan)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          CONTAINER_RESULT="${{ needs.container-scan.result }}"
+          if [ "$CONTAINER_RESULT" != "success" ] && [ "$CONTAINER_RESULT" != "skipped" ]; then
+            echo "❌ Quality gates failed (container-scan)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
           if [ "${{ needs.sklearn-compat-check.result }}" != "success" ] || \
              [ "${{ needs.unit-tests.result }}" != "success" ] || \

@@ -1,10 +1,13 @@
 """v1.32: Audit-logs 合规审计端点测试"""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
 
-def test_admin_can_query_audit_logs(client: TestClient, as_role, seed_admin_data: None) -> None:
+def test_admin_can_query_audit_logs(
+    client: TestClient, as_role, seed_admin_data: None
+) -> None:
     """v1.32: admin 应能查询审计日志"""
     as_role("admin", 3)
 
@@ -43,7 +46,9 @@ def test_audit_logs_requires_admin(client: TestClient, as_role) -> None:
     assert res.status_code in (200, 401, 403, 307)
 
 
-def test_audit_logs_action_types_filter(client: TestClient, as_role, seed_admin_data: None) -> None:
+def test_audit_logs_action_types_filter(
+    client: TestClient, as_role, seed_admin_data: None
+) -> None:
     """v1.32: 支持多 action_type 过滤"""
     as_role("admin", 3)
     res = client.get(
@@ -54,10 +59,15 @@ def test_audit_logs_action_types_filter(client: TestClient, as_role, seed_admin_
     data = res.json()["data"]
     # 所有 item.action_type 应在过滤集合内 (或为空)
     for item in data["items"]:
-        assert item["action_type"] in {"upsert_warning_threshold", "upsert_system_config"}
+        assert item["action_type"] in {
+            "upsert_warning_threshold",
+            "upsert_system_config",
+        }
 
 
-def test_audit_logs_target_type_filter(client: TestClient, as_role, seed_admin_data: None) -> None:
+def test_audit_logs_target_type_filter(
+    client: TestClient, as_role, seed_admin_data: None
+) -> None:
     """v1.32: 支持 target_type 过滤"""
     as_role("admin", 3)
     res = client.get(

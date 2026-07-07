@@ -1,7 +1,9 @@
 """ML模型预测测试"""
+
 import asyncio
 
 import pytest
+
 from app.core.model_engine import ModelEngine
 
 
@@ -35,7 +37,7 @@ class TestModelPredict:
             "exercise_frequency": 2,
             "anxiety": 2,
             "panic_attack": 0,
-            "treatment_seeking": 1
+            "treatment_seeking": 1,
         }
         result = _run(model_engine.predict_structured(features))
         assert "risk_score" in result
@@ -72,7 +74,9 @@ class TestModelPredict:
         assert model_engine.models is not None
 
     def test_fusion_gate_boost_prefers_physiology(self, model_engine):
-        weights = model_engine._boost_gate_for_physiology([40.0, 30.0, 70.0], [0.1, 0.1, 0.8])
+        weights = model_engine._boost_gate_for_physiology(
+            [40.0, 30.0, 70.0], [0.1, 0.1, 0.8]
+        )
         assert len(weights) == 3
         assert abs(sum(weights) - 1.0) < 0.001
         assert weights[2] >= 0.8
@@ -145,12 +149,14 @@ class TestModelPredict:
             ),
         ],
     )
-    def test_physiological_prediction_matches_expected_risk_level(self, model_engine, physiological, expected_level):
+    def test_physiological_prediction_matches_expected_risk_level(
+        self, model_engine, physiological, expected_level
+    ):
         """测试生理模型专用阈值使典型样本风险等级符合预期 (v1.31: 接受范围)."""
         result = _run(model_engine.predict_physiological(physiological))
-        assert result["risk_level"] in expected_level, (
-            f"实际风险等级 {result['risk_level']} 不在预期范围 {expected_level} 内"
-        )
+        assert (
+            result["risk_level"] in expected_level
+        ), f"实际风险等级 {result['risk_level']} 不在预期范围 {expected_level} 内"
 
     def test_fusion_with_physiological_high_risk(self, model_engine):
         """测试高风险生理数据对融合结果的影响"""
@@ -186,7 +192,11 @@ class TestModelPredict:
         )
         assert result["risk_score"] >= 0
         assert result["risk_level"] >= 0
-        assert result["fusion_detail"]["dominant_modality"] in {"structured", "text", "physiological"}
+        assert result["fusion_detail"]["dominant_modality"] in {
+            "structured",
+            "text",
+            "physiological",
+        }
         assert "intervention_level" in result
         assert "intervention_actions" in result
 

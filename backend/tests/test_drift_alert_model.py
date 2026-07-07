@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 
-import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -127,9 +126,21 @@ class TestDriftAlertModel:
     async def _async_test_query_by_severity(self, db_session: AsyncSession) -> None:
         """异步辅助：按 severity 查询"""
         alerts = [
-            DriftAlert(drift_type="feature_drift", severity=DriftSeverity.HIGH, model_version="v1.5.0"),
-            DriftAlert(drift_type="feature_drift", severity=DriftSeverity.HIGH, model_version="v1.5.0"),
-            DriftAlert(drift_type="prediction_drift", severity=DriftSeverity.LOW, model_version="v1.5.0"),
+            DriftAlert(
+                drift_type="feature_drift",
+                severity=DriftSeverity.HIGH,
+                model_version="v1.5.0",
+            ),
+            DriftAlert(
+                drift_type="feature_drift",
+                severity=DriftSeverity.HIGH,
+                model_version="v1.5.0",
+            ),
+            DriftAlert(
+                drift_type="prediction_drift",
+                severity=DriftSeverity.LOW,
+                model_version="v1.5.0",
+            ),
         ]
         db_session.add_all(alerts)
         await db_session.commit()
@@ -146,6 +157,7 @@ class TestDriftAlertModel:
 
     def test_table_exists_in_db(self, db_connection) -> None:
         """验证表在数据库中真实存在"""
+
         def check_table(sync_conn):
             inspector = inspect(sync_conn)
             tables = inspector.get_table_names()
@@ -155,6 +167,7 @@ class TestDriftAlertModel:
 
     def test_table_columns_exist(self, db_connection) -> None:
         """验证所有字段在数据库中存在"""
+
         def check_columns(sync_conn):
             inspector = inspect(sync_conn)
             columns = {col["name"] for col in inspector.get_columns("drift_alerts")}

@@ -9,8 +9,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
 import type { EChartsCoreOption } from 'echarts/core'
+
+const { t } = useI18n()
+
+// ISS-076 修复：从 CSS 变量读取图表色板，消除硬编码 hex，与 variables.scss 令牌统一
+const readChartVar = (name: string, fallback: string): string => {
+  if (typeof window === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
 
 interface DataPoint {
   date: string
@@ -29,10 +39,12 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   height: '300px',
-  title: '风险趋势',
+  title: undefined,
   showBounds: true,
   autoResize: true,
 })
+
+const effectiveTitle = computed(() => props.title ?? t('charts.riskTrendTitle'))
 
 const emit = defineEmits<{
   chartReady: [instance: unknown]
@@ -43,6 +55,13 @@ const handleChartReady = (instance: unknown) => {
 }
 
 const chartOption = computed<EChartsCoreOption>(() => {
+  // ISS-076 修复：图表配色读取 CSS 变量令牌，与 variables.scss 统一
+  const colorPrimary = readChartVar('--chart-color-primary', '#3b82c4')
+  const colorDanger = readChartVar('--chart-color-danger', '#d65a5a')
+  const colorSuccess = readChartVar('--chart-color-success', '#5a9e3a')
+  const areaStart = readChartVar('--chart-color-primary-area', 'rgba(59, 130, 196, 0.25)')
+  const areaEnd = readChartVar('--chart-color-primary-area-end', 'rgba(59, 130, 196, 0.04)')
+
   const dates = props.data.map((d) => d.date)
   const values = props.data.map((d) => d.value)
   const upperBounds = props.data.map((d) => d.upperBound)
@@ -50,7 +69,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
 
   const series: unknown[] = [
     {
-      name: '风险值',
+      name: t('charts.seriesRiskValue'),
       type: 'line',
       data: values,
       smooth: true,
@@ -58,10 +77,10 @@ const chartOption = computed<EChartsCoreOption>(() => {
       symbolSize: 6,
       lineStyle: {
         width: 3,
-        color: '#409eff',
+        color: colorPrimary,
       },
       itemStyle: {
-        color: '#409eff',
+        color: colorPrimary,
       },
       areaStyle: {
         color: {
@@ -71,8 +90,8 @@ const chartOption = computed<EChartsCoreOption>(() => {
           x2: 0,
           y2: 1,
           colorStops: [
-            { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
-            { offset: 1, color: 'rgba(64, 158, 255, 0.05)' },
+            { offset: 0, color: areaStart },
+            { offset: 1, color: areaEnd },
           ],
         },
       },
@@ -81,33 +100,33 @@ const chartOption = computed<EChartsCoreOption>(() => {
 
   if (props.showBounds && upperBounds.some((v) => v !== undefined)) {
     series.push({
-      name: '上限',
+      name: t('charts.seriesUpperBound'),
       type: 'line',
       data: upperBounds,
       smooth: true,
       lineStyle: {
         width: 2,
         type: 'dashed',
-        color: '#f56c6c',
+        color: colorDanger,
       },
       itemStyle: {
-        color: '#f56c6c',
+        color: colorDanger,
       },
       symbol: 'none',
     })
 
     series.push({
-      name: '下限',
+      name: t('charts.seriesLowerBound'),
       type: 'line',
       data: lowerBounds,
       smooth: true,
       lineStyle: {
         width: 2,
         type: 'dashed',
-        color: '#67c23a',
+        color: colorSuccess,
       },
       itemStyle: {
-        color: '#67c23a',
+        color: colorSuccess,
       },
       symbol: 'none',
     })
@@ -115,7 +134,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
 
   return {
     title: {
-      text: props.title,
+      text: effectiveTitle.value,
       left: 'center',
       textStyle: {
         fontSize: 16,
@@ -151,12 +170,12 @@ const chartOption = computed<EChartsCoreOption>(() => {
     toolbox: {
       feature: {
         saveAsImage: {
-          title: '保存图片',
+          title: t('charts.saveImage'),
         },
         dataZoom: {
           title: {
-            zoom: '区域缩放',
-            back: '缩放还原',
+            zoom: t('charts.zoomIn'),
+            back: t('charts.zoomReset'),
           },
         },
       },

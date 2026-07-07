@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 
 from app.core.security import (
-    verify_password,
-    get_password_hash,
     create_access_token,
-    create_refresh_token,
     create_password_reset_token,
+    create_refresh_token,
     decode_token,
+    get_password_hash,
+    verify_password,
 )
 
 
@@ -38,10 +38,15 @@ class TestSecurity:
         assert verify_password("password", "invalid_hash") is False
 
     def test_verify_password_long_password(self):
-        """TC-COV-CORE-037: verify_password truncates long password."""
+        """TC-COV-CORE-037: get_password_hash rejects passwords exceeding 72 bytes."""
         long_password = "a" * 100
-        hashed = get_password_hash(long_password)
-        assert verify_password(long_password, hashed) is True
+        with pytest.raises(ValueError):
+            get_password_hash(long_password)
+
+        # 72-byte password should still hash and verify correctly
+        max_password = "a" * 72
+        hashed = get_password_hash(max_password)
+        assert verify_password(max_password, hashed) is True
 
     def test_create_access_token(self):
         """TC-COV-CORE-038: create_access_token generates valid token."""

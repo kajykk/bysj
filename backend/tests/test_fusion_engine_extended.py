@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
 
-import numpy as np
-import pytest
-
-from app.ml.fusion_engine import FusionEngine, DEFAULT_WEIGHTS, CONFIDENCE_THRESHOLDS
+from app.ml.fusion_engine import CONFIDENCE_THRESHOLDS, DEFAULT_WEIGHTS, FusionEngine
 
 
 class TestFusionEngine:
@@ -142,6 +138,15 @@ class TestFusionEngine:
             engine = FusionEngine(weights={"structured": 0.5, "text": 0.5})
             engine.save_config(path)
             assert path.exists()
+
+            # M25 修复：load_config 现在强制要求 .sha256 校验文件
+            import hashlib
+
+            sha = hashlib.sha256()
+            with open(path, "rb") as f:
+                sha.update(f.read())
+            checksum_path = path.with_suffix(path.suffix + ".sha256")
+            checksum_path.write_text(sha.hexdigest(), encoding="utf-8")
 
             loaded = FusionEngine.load_config(path)
             assert loaded.weights == engine.weights

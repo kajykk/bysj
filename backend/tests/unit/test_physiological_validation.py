@@ -11,24 +11,45 @@ class TestPhysiologicalValidation:
 
     def test_valid_data(self) -> None:
         """有效数据应通过校验。"""
-        req = PhysiologicalPredictRequest(physiological={
-            "sleep_hours": 8, "sleep_quality": 7, "exercise_minutes": 30,
-            "heart_rate": 75, "systolic_bp": 120, "diastolic_bp": 80, "steps": 8000,
-        })
+        req = PhysiologicalPredictRequest(
+            physiological={
+                "sleep_hours": 8,
+                "sleep_quality": 7,
+                "exercise_minutes": 30,
+                "heart_rate": 75,
+                "systolic_bp": 120,
+                "diastolic_bp": 80,
+                "steps": 8000,
+            }
+        )
         assert req.physiological["sleep_hours"] == 8
 
     def test_boundary_values(self) -> None:
         """边界值应通过校验。"""
-        req = PhysiologicalPredictRequest(physiological={
-            "sleep_hours": 0, "sleep_quality": 1, "exercise_minutes": 0,
-            "heart_rate": 35, "systolic_bp": 70, "diastolic_bp": 40, "steps": 0,
-        })
+        req = PhysiologicalPredictRequest(
+            physiological={
+                "sleep_hours": 0,
+                "sleep_quality": 1,
+                "exercise_minutes": 0,
+                "heart_rate": 35,
+                "systolic_bp": 70,
+                "diastolic_bp": 40,
+                "steps": 0,
+            }
+        )
         assert req.physiological["sleep_hours"] == 0
 
-        req = PhysiologicalPredictRequest(physiological={
-            "sleep_hours": 16, "sleep_quality": 10, "exercise_minutes": 300,
-            "heart_rate": 220, "systolic_bp": 220, "diastolic_bp": 140, "steps": 50000,
-        })
+        req = PhysiologicalPredictRequest(
+            physiological={
+                "sleep_hours": 16,
+                "sleep_quality": 10,
+                "exercise_minutes": 300,
+                "heart_rate": 220,
+                "systolic_bp": 220,
+                "diastolic_bp": 140,
+                "steps": 50000,
+            }
+        )
         assert req.physiological["sleep_hours"] == 16
 
     def test_sleep_hours_negative(self) -> None:
@@ -39,8 +60,9 @@ class TestPhysiologicalValidation:
 
     def test_sleep_hours_too_high(self) -> None:
         """睡眠时间过高应返回 422。"""
+        # P1-F5 修复：sleep_hours 范围已与 DB 约束对齐为 [0, 24]，17 在新范围内合法
         with pytest.raises(ValidationError) as exc_info:
-            PhysiologicalPredictRequest(physiological={"sleep_hours": 17})
+            PhysiologicalPredictRequest(physiological={"sleep_hours": 25})
         assert "超出有效范围" in str(exc_info.value)
 
     def test_heart_rate_too_high(self) -> None:
@@ -58,9 +80,13 @@ class TestPhysiologicalValidation:
     def test_multiple_errors(self) -> None:
         """多个字段错误应全部返回。"""
         with pytest.raises(ValidationError) as exc_info:
-            PhysiologicalPredictRequest(physiological={
-                "sleep_hours": -1, "heart_rate": 300, "steps": 999999,
-            })
+            PhysiologicalPredictRequest(
+                physiological={
+                    "sleep_hours": -1,
+                    "heart_rate": 300,
+                    "steps": 999999,
+                }
+            )
         error_msg = str(exc_info.value)
         assert "sleep_hours" in error_msg
         assert "heart_rate" in error_msg

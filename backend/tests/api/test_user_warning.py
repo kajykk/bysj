@@ -12,7 +12,9 @@ from app.models.risk import WarningNotification, WarningSetting
 from tests.conftest import run
 
 
-def _seed_warning(db_session: AsyncSession, user_id: int = 1, counselor_id: int = 2) -> int:
+def _seed_warning(
+    db_session: AsyncSession, user_id: int = 1, counselor_id: int = 2
+) -> int:
     async def _seed() -> int:
         warning = WarningNotification(
             user_id=user_id,
@@ -31,7 +33,9 @@ def _seed_warning(db_session: AsyncSession, user_id: int = 1, counselor_id: int 
     return run(_seed())
 
 
-def test_list_warnings_returns_enriched_items(client: TestClient, db_session: AsyncSession, seeded_user_id: int) -> None:
+def test_list_warnings_returns_enriched_items(
+    client: TestClient, db_session: AsyncSession, seeded_user_id: int
+) -> None:
     warning_id = _seed_warning(db_session, user_id=seeded_user_id)
 
     res = client.get("/api/v1/user/warnings")
@@ -44,15 +48,31 @@ def test_list_warnings_returns_enriched_items(client: TestClient, db_session: As
     assert body["items"][0]["status"] == "pending"
 
 
-def test_mark_warning_read_marks_single_item_and_logs(client: TestClient, db_session: AsyncSession, seeded_user_id: int) -> None:
+def test_mark_warning_read_marks_single_item_and_logs(
+    client: TestClient, db_session: AsyncSession, seeded_user_id: int
+) -> None:
     warning_id = _seed_warning(db_session, user_id=seeded_user_id)
 
     res = client.put(f"/api/v1/user/warnings/{warning_id}/read")
     assert res.status_code == 200
 
     async def _assert_state() -> tuple[bool, int]:
-        warning = (await db_session.execute(select(WarningNotification).where(WarningNotification.id == warning_id))).scalar_one()
-        log_count = len((await db_session.execute(select(OperationLog).where(OperationLog.action_type == ACTION_TYPE_WARNING_READ))).scalars().all())
+        warning = (
+            await db_session.execute(
+                select(WarningNotification).where(WarningNotification.id == warning_id)
+            )
+        ).scalar_one()
+        log_count = len(
+            (
+                await db_session.execute(
+                    select(OperationLog).where(
+                        OperationLog.action_type == ACTION_TYPE_WARNING_READ
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
         return warning.is_read, log_count
 
     is_read, log_count = run(_assert_state())
@@ -60,7 +80,9 @@ def test_mark_warning_read_marks_single_item_and_logs(client: TestClient, db_ses
     assert log_count == 1
 
 
-def test_mark_all_warning_read_marks_all_and_logs(client: TestClient, db_session: AsyncSession, seeded_user_id: int) -> None:
+def test_mark_all_warning_read_marks_all_and_logs(
+    client: TestClient, db_session: AsyncSession, seeded_user_id: int
+) -> None:
     _seed_warning(db_session, user_id=seeded_user_id)
     _seed_warning(db_session, user_id=seeded_user_id)
 
@@ -69,8 +91,29 @@ def test_mark_all_warning_read_marks_all_and_logs(client: TestClient, db_session
     assert res.json()["data"]["count"] == 2
 
     async def _assert_state() -> tuple[int, int]:
-        unread = len((await db_session.execute(select(WarningNotification).where(WarningNotification.user_id == seeded_user_id, WarningNotification.is_read.is_(False)))).scalars().all())
-        logs = len((await db_session.execute(select(OperationLog).where(OperationLog.action_type == ACTION_TYPE_WARNING_READ_ALL))).scalars().all())
+        unread = len(
+            (
+                await db_session.execute(
+                    select(WarningNotification).where(
+                        WarningNotification.user_id == seeded_user_id,
+                        WarningNotification.is_read.is_(False),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        logs = len(
+            (
+                await db_session.execute(
+                    select(OperationLog).where(
+                        OperationLog.action_type == ACTION_TYPE_WARNING_READ_ALL
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
         return unread, logs
 
     unread, logs = run(_assert_state())
@@ -78,7 +121,9 @@ def test_mark_all_warning_read_marks_all_and_logs(client: TestClient, db_session
     assert logs == 1
 
 
-def test_warning_setting_round_trip(client: TestClient, db_session: AsyncSession, seeded_user_id: int) -> None:
+def test_warning_setting_round_trip(
+    client: TestClient, db_session: AsyncSession, seeded_user_id: int
+) -> None:
     res = client.get("/api/v1/user/warning-settings")
     assert res.status_code == 200
     body = res.json()["data"]
@@ -96,9 +141,29 @@ def test_warning_setting_round_trip(client: TestClient, db_session: AsyncSession
     assert update.status_code == 200
 
     async def _assert_state() -> tuple[int, dict, time | None, time | None, int]:
-        setting = (await db_session.execute(select(WarningSetting).where(WarningSetting.user_id == seeded_user_id))).scalar_one()
-        logs = len((await db_session.execute(select(OperationLog).where(OperationLog.action_type == "update_warning_setting"))).scalars().all())
-        return setting.threshold_level, setting.notify_channels, setting.quiet_hours_start, setting.quiet_hours_end, logs
+        setting = (
+            await db_session.execute(
+                select(WarningSetting).where(WarningSetting.user_id == seeded_user_id)
+            )
+        ).scalar_one()
+        logs = len(
+            (
+                await db_session.execute(
+                    select(OperationLog).where(
+                        OperationLog.action_type == "update_warning_setting"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return (
+            setting.threshold_level,
+            setting.notify_channels,
+            setting.quiet_hours_start,
+            setting.quiet_hours_end,
+            logs,
+        )
 
     threshold_level, channels, quiet_start, quiet_end, logs = run(_assert_state())
     assert threshold_level == 4

@@ -1,4 +1,5 @@
 """WebSocket helper 函数单元测试 (v1.30)"""
+
 from __future__ import annotations
 
 import json
@@ -45,14 +46,18 @@ class TestReceiveAuthToken:
     @pytest.mark.asyncio
     async def test_valid_auth_message(self):
         ws = AsyncMock()
-        ws.receive_text = AsyncMock(return_value=json.dumps({"type": "auth", "token": "abc.def.ghi"}))
+        ws.receive_text = AsyncMock(
+            return_value=json.dumps({"type": "auth", "token": "abc.def.ghi"})
+        )
         result = await _receive_auth_token(ws)
         assert result == "abc.def.ghi"
 
     @pytest.mark.asyncio
     async def test_wrong_type_returns_empty(self):
         ws = AsyncMock()
-        ws.receive_text = AsyncMock(return_value=json.dumps({"type": "login", "token": "abc"}))
+        ws.receive_text = AsyncMock(
+            return_value=json.dumps({"type": "login", "token": "abc"})
+        )
         result = await _receive_auth_token(ws)
         assert result == ""
 
@@ -73,6 +78,8 @@ class TestReceiveAuthToken:
     @pytest.mark.asyncio
     async def test_token_with_bearer_prefix(self):
         ws = AsyncMock()
-        ws.receive_text = AsyncMock(return_value=json.dumps({"type": "auth", "token": "Bearer xyz"}))
+        ws.receive_text = AsyncMock(
+            return_value=json.dumps({"type": "auth", "token": "Bearer xyz"})
+        )
         result = await _receive_auth_token(ws)
         assert result == "xyz"
