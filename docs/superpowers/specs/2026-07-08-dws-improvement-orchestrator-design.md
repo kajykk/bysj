@@ -2,8 +2,8 @@
 
 - 日期：2026-07-08
 - 状态：已批准（待写实现计划）
-- 来源：`md/12.md`（DWS 8 周改进项目计划）、`md/13.md`、`md/15.md` 评审
-- 关联硬约束：项目 `project_memory.md` 中所有审计/优先级/状态文档规则
+- 来源：`md/12.md`（DWS 8 周改进项目计划）、`md/13.md`、`md/15.md`、`md/16.md` 评审
+- 关联硬约束：项目记忆中的硬约束（外部记忆系统 `project_memory.md`，非仓库文件）
 
 ## 1. 目标与定位
 
@@ -37,21 +37,21 @@ PHASE_0_INIT | PHASE_1_SECURITY | PHASE_2_UX | PHASE_3_WORKBENCH
 
 | 阶段流转 | 自动检查 | 人工确认 |
 |---|---|---|
-| PHASE_0→1 (M0) | backlog/acceptance-criteria/STATE.md 文件存在；测试账号字段非空 | 产品负责人确认范围冻结 |
-| PHASE_1→2 (M1) | P0 open count==0；`reports/crisis-chain-report.md` 存在且通过率==100% | 心理专家确认危机提示文案 |
-| PHASE_2→3 (M2) | P1 修复率≥85%（自动统计） | 产品+测试确认核心流程可用 |
-| PHASE_3→4 (M3) | 三类角色关键路径 E2E 通过 | 产品确认体验达标 |
-| PHASE_4→5 (M4) | `pilot/` 下 6 个文件存在；埋点事件覆盖率==100% | 心理专家审核问卷/访谈提纲 |
-| PHASE_5→6 (M5) | E2E/性能/安全/a11y 报告存在且达标 | 测试负责人签字 |
-| PHASE_6→CLOSED (M6) | 试点版本 tag/部署手册/复盘报告存在 | 干系人确认交付 |
+| PHASE_0_INIT → PHASE_1_SECURITY (M0) | backlog/acceptance-criteria/STATE.md 文件存在；测试账号字段非空 | 产品负责人确认范围冻结 |
+| PHASE_1_SECURITY → PHASE_2_UX (M1) | P0 open count==0；`reports/crisis-chain-report.md` 存在且通过率==100% | 心理专家确认危机提示文案 |
+| PHASE_2_UX → PHASE_3_WORKBENCH (M2) | P1 修复率≥85%（自动统计） | 产品+测试确认核心流程可用 |
+| PHASE_3_WORKBENCH → PHASE_4_DATA_PILOT (M3) | 三类角色关键路径 E2E 通过 | 产品确认体验达标 |
+| PHASE_4_DATA_PILOT → PHASE_5_VERIFICATION (M4) | `pilot/` 下 7 个文件存在；埋点事件覆盖率==100% | 心理专家审核问卷/访谈提纲 |
+| PHASE_5_VERIFICATION → PHASE_6_DELIVERY (M5) | E2E/性能/安全/a11y 报告存在且达标 | 测试负责人签字 |
+| PHASE_6_DELIVERY → CLOSED (M6) | 试点版本 tag/部署手册/复盘报告存在 | 干系人确认交付 |
 
 编排器不假装能判断材料质量，人工项必须显式确认后才前进。
 
 ### 2.3 门禁豁免规则
 
 **Non-waivable gates**（不可豁免）：
-- P0 open count must be 0 for PHASE_1→2 and all later transitions.
-- Crisis chain pass rate must be 100% for PHASE_1→2.
+- P0 open count must be 0 for PHASE_1_SECURITY → PHASE_2_UX and all later transitions.
+- Crisis chain pass rate must be 100% for PHASE_1_SECURITY → PHASE_2_UX.
 - Core E2E must pass before PHASE_6_DELIVERY.
 - Missing STATE.md/backlog.md/acceptance-criteria.md cannot be waived.
 
@@ -102,16 +102,25 @@ PHASE_0_INIT | PHASE_1_SECURITY | PHASE_2_UX | PHASE_3_WORKBENCH
 - Next recommended action:
 ```
 
+**`启动改进项目` 初始化范围**：必须创建或校验以下工件——`STATE.md`、`backlog.md`、`acceptance-criteria.md`、`metrics.md`、`decisions.md`、`dispatch-registry.md`、`phases/phase-0.md`…`phase-6.md`、`reports/`、`pilot/`。**若文件已存在，不覆盖**；先读取并校验结构，缺失区块则提示用户确认是否补齐，避免误覆盖已有状态。
+
+**`提交验收` 回归用例规则**：若任务缺少回归用例，`提交验收` 必须被拒绝；若确实无法自动化测试，必须提供人工验证步骤与验收证据，并在 `decisions.md` 记录原因。
+
 ## 4. 技能派发
 
 ### 4.1 派发语义
 
-**提示式调度**：编排器不调用技能 API，而是输出指令要求当前 Agent 读取并遵守对应 SKILL.md：
+**提示式调度**：编排器（一份 SKILL.md 文档）不进行程序化技能调用，而是输出指令要求当前 Agent 执行派发。派发优先级：
 
+1. 若技能在可用技能注册表（Skill 工具可调用）中 → 指示 Agent 通过 Skill 工具调用该技能
+2. 否则若 `.trae/skills/<name>/SKILL.md` 存在 → 指示 Agent 读取并遵守该 SKILL.md
+3. 否则 → fallback manual-mode
+
+示例：
 ```
-When dispatching WP1, instruct the agent to read and follow:
-- .trae/skills/remediation-orchestrator/SKILL.md
-- .trae/skills/sysopt-security/SKILL.md (if security review needed)
+When dispatching WP1, instruct the agent to:
+- invoke remediation-orchestrator via the Skill tool
+- invoke sysopt-security via the Skill tool if security review is needed
 ```
 
 ### 4.2 派发注册表
@@ -119,7 +128,7 @@ When dispatching WP1, instruct the agent to read and follow:
 独立文件 `dispatch-registry.md`，规则写入头部：
 
 ```markdown
-Skill names must match invokable skill names. If a skill is planned but not present, mark it with (planned) and fallback to manual-mode.
+Skill names must match invokable skills (available via Skill tool) or on-disk skills under .trae/skills/. Before dispatch, verify the skill is invokable; if not, mark it with (planned) and fallback to manual-mode.
 ```
 
 | WP | Required skill | Conditional supporting skill | fallback | blocking |
@@ -162,7 +171,7 @@ Skill names must match invokable skill names. If a skill is planned but not pres
 | 横向排查结论 | 是否发现同类问题 |
 | 回归用例 | 修复必须绑定的测试 |
 | 验收证据 | 测试命令/报告路径/截图/日志 |
-| 审计忽略 | 是否属状态文档，审计时忽略 |
+| 审计忽略 | 仅用于标记 STATE/backlog/metrics/decisions 等流程状态文档是否在代码审计中排除；**不得用于跳过代码、安全、功能、测试审查** |
 | 阻塞信息 | 阻塞原因/依赖任务/解除条件 |
 
 任务条目示例（写入 `templates/backlog.template.md`）：
@@ -185,15 +194,16 @@ Skill names must match invokable skill names. If a skill is planned but not pres
 
 ```
 docs/planning/v1.40-improvement/
-├── STATE.md                 # 当前阶段/任务/指标 X/Y/阻塞 + manual_confirmations
+├── STATE.md                 # 当前阶段/任务/指标 X/Y/阻塞 + manual_confirmations + current_task_queue
 ├── backlog.md               # P0/P1/P2 整改 Backlog
 ├── acceptance-criteria.md   # 验收指标表
 ├── metrics.md               # X/Y 指标 + 统计口径
-├── decisions.md             # 阶段流转/范围裁剪/人工豁免/风险接受决策
-├── dispatch-registry.md     # WP→技能映射（与技能目录同名文件镜像）
+├── decisions.md             # 阶段流转/范围裁剪/人工豁免/风险接受决策（带编号 DEC-YYYY-MM-DD-NNN）
+├── dispatch-registry.md     # WP→技能映射（运行时快照，见下方同步规则）
 ├── phases/phase-{0..6}.md   # 各阶段验收报告
 ├── reports/                 # 危机链路/E2E/性能/安全/a11y 报告
 └── pilot/                   # 试点材料
+    ├── event-tracking.md
     ├── interview-guide.md
     ├── questionnaire.md
     ├── privacy-notice.md
@@ -202,7 +212,12 @@ docs/planning/v1.40-improvement/
     └── rollback-plan.md
 ```
 
-`pilot/` 下 6 个文件名固定，使 M4 自动检查可执行。
+`pilot/` 下 7 个文件名固定，使 M4 自动检查可执行。
+
+**dispatch-registry.md 同步规则（source of truth）**：
+- `.trae/skills/dws-improvement-orchestrator/dispatch-registry.md` 是**模板源**
+- `docs/planning/v1.40-improvement/dispatch-registry.md` 是**运行时快照**
+- `启动改进项目` 时从技能目录复制生成；后续如需针对本项目阶段调整，以运行时快照为准，并在 `decisions.md` 记录偏离原因
 
 ### 7.1 STATE.md 的 manual_confirmations 区块
 
@@ -222,6 +237,17 @@ docs/planning/v1.40-improvement/
 
 `确认阶段` 检查顺序：自动项 → 人工确认已填写 → 证据存在。
 
+**Evidence 字段检查规则**：Evidence 可为文件路径、报告路径、测试命令记录、截图路径或会议纪要链接。若 Evidence 看起来像本地路径，编排器应检查文件存在；若是文字说明或外部链接，仅检查非空并要求人工确认。
+
+**STATE.md 的 current_task_queue 区块**（支持 `继续改进` 派发"下一个就绪任务"）：
+
+```markdown
+## Current Task Queue
+
+| Order | Task ID | Priority | WP | Status | Blocking Gate | Ready |
+|---:|---|---|---|---|---|---|
+```
+
 ### 7.2 metrics.md 的 X/Y 统计口径
 
 | Metric | Numerator X | Denominator Y | Source |
@@ -231,6 +257,8 @@ docs/planning/v1.40-improvement/
 | Crisis pass rate | 通过的危机链路测试数 | 全部危机链路测试数 | reports/crisis-chain-report.md |
 | E2E pass rate | 通过的 E2E 用例数 | 全部 E2E 用例数 | reports/e2e-report.md |
 | Event coverage | 已实现埋点事件数 | 计划埋点事件数 | pilot/event-tracking.md |
+
+**P1 修复率统计时点**：使用当前 backlog 实时统计；新增 P1 会进入分母。**所有 open P1 默认阻塞 M2**，除非 `decisions.md` 豁免；与当前阶段无关的新增 P1 也必须豁免记录，否则计入 M2 门禁。
 
 ## 8. 技能目录结构
 
@@ -250,6 +278,24 @@ docs/planning/v1.40-improvement/
 ```
 
 SKILL.md 只保留核心，详细矩阵拆到引用文件，按需读取（progressive disclosure）。
+
+**`decision-record.template.md` 字段**（每条决策带唯一编号与复审日期，避免豁免永久化）：
+
+```markdown
+## DEC-YYYY-MM-DD-NNN: [Title]
+- Date:
+- Related phase:
+- Related task:
+- Decision type: scope-cut / waiver / risk-acceptance / dispatch-change
+- Decision:
+- Reason:
+- Risk:
+- Owner:
+- Expiry / revisit date:
+- Approved by:
+```
+
+**`metrics.template.md` 区块**：Metric Definitions / Current Snapshot（Metric|X|Y|Percent|Source|Updated At）/ Gate Metrics（Gate|Required Metric|Current|Pass）/ Notes。
 
 ## 9. 错误处理与阻塞
 
@@ -308,7 +354,7 @@ description: Orchestrates the 8-week DWS improvement lifecycle across phases 0-6
 
 ## 14. 硬约束对齐
 
-本设计强制遵守 `project_memory.md` 中的硬约束：
+本设计强制遵守项目记忆中的硬约束（外部记忆系统 `project_memory.md`，非仓库文件）：
 - 所有状态文档在审计时显式忽略（任务字段 `审计忽略`）
 - 修复按 P0→P1→P2 优先级
 - Critical(P0) 必须在 High(P1) 前修复
