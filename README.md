@@ -47,9 +47,9 @@ DWS 是一个面向高校的心理健康筛查与干预平台，针对传统人�
 
 <img src="frontend/public/screenshots/03-real-time-warning.png" width="800" alt="实时监控"/>
 
-### 4. 模型治理中心（金丝雀发布 + 漂移检测）
+### 4. ML 训练与实验中心
 
-<img src="frontend/public/screenshots/04-model-management.png" width="800" alt="模型治理"/>
+<img src="frontend/public/screenshots/04-model-training.png" width="800" alt="ML 训练与实验中心"/>
 
 ### 5. 报告中心（PDF/Excel 导出）
 
@@ -181,9 +181,9 @@ docker-compose up -d
 
 | 角色 | 用户名 | 密码 |
 |---|---|---|
-| 管理员 | admin | admin123 |
-| 咨询师 | counselor1 | pass123 |
-| 普通用户 | user1 | pass123 |
+| 管理员 | admin | ***REMOVED*** |
+| 咨询师 | dr_wang | ***REMOVED*** |
+| 普通用户 | user_moderate | ***REMOVED*** |
 
 ⚠️ **生产环境请务必修改默认密码**
 
