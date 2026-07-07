@@ -4,9 +4,8 @@
 - idx_oplog_action_created: (action_type, created_at)
 - idx_oplog_target_action: (target_type, target_id, action_type)
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from app.models.admin import OperationLog
 

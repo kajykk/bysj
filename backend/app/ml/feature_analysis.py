@@ -20,7 +20,18 @@ def compute_correlation_matrix(X: np.ndarray, feature_names: list[str]) -> dict:
         Dictionary with correlation matrix and highly correlated pairs.
     """
     n_features = X.shape[1]
+    # L-ML-2 修复：检测常数列（std==0），corrcoef 对常数列会产生 NaN 相关系数
+    col_std = np.std(X, axis=0)
+    constant_cols = np.where(col_std == 0)[0]
+    if len(constant_cols) > 0:
+        logger.warning(
+            "检测到常数列（std==0），其相关系数为 NaN，已将 NaN 替换为 0: %s",
+            [feature_names[i] for i in constant_cols if i < len(feature_names)],
+        )
     corr_matrix = np.corrcoef(X.T)
+    # 常数列相关系数为 NaN，替换为 0 避免后续传播
+    if np.isnan(corr_matrix).any():
+        corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
 
     # Find highly correlated pairs (|r| > 0.8)
     high_corr_pairs = []
@@ -28,11 +39,13 @@ def compute_correlation_matrix(X: np.ndarray, feature_names: list[str]) -> dict:
         for j in range(i + 1, n_features):
             corr = corr_matrix[i, j]
             if abs(corr) > 0.8:
-                high_corr_pairs.append({
-                    "feature1": feature_names[i],
-                    "feature2": feature_names[j],
-                    "correlation": float(corr),
-                })
+                high_corr_pairs.append(
+                    {
+                        "feature1": feature_names[i],
+                        "feature2": feature_names[j],
+                        "correlation": float(corr),
+                    }
+                )
 
     result = {
         "correlation_matrix": corr_matrix.tolist(),
@@ -41,7 +54,10 @@ def compute_correlation_matrix(X: np.ndarray, feature_names: list[str]) -> dict:
         "n_high_correlation": len(high_corr_pairs),
     }
 
-    logger.info("Correlation matrix computed: %d high correlation pairs found", len(high_corr_pairs))
+    logger.info(
+        "Correlation matrix computed: %d high correlation pairs found",
+        len(high_corr_pairs),
+    )
     for pair in high_corr_pairs:
         logger.info(
             "  %s <-> %s: r=%.4f",
@@ -108,20 +124,26 @@ def compute_vif(X: np.ndarray, feature_names: list[str]) -> dict:
     high_vif_features = []
     for i, vif in enumerate(vif_values):
         if vif > 10:
-            high_vif_features.append({
-                "feature": feature_names[i],
-                "vif": float(vif),
-            })
+            high_vif_features.append(
+                {
+                    "feature": feature_names[i],
+                    "vif": float(vif),
+                }
+            )
 
     result = {
-        "vif_values": {feature_names[i]: float(vif_values[i]) for i in range(n_features)},
+        "vif_values": {
+            feature_names[i]: float(vif_values[i]) for i in range(n_features)
+        },
         "high_vif_features": high_vif_features,
         "n_high_vif": len(high_vif_features),
         "mean_vif": float(np.mean(vif_values)),
         "max_vif": float(np.max(vif_values)),
     }
 
-    logger.info("VIF analysis complete: %d features with VIF > 10", len(high_vif_features))
+    logger.info(
+        "VIF analysis complete: %d features with VIF > 10", len(high_vif_features)
+    )
     for feat in high_vif_features:
         logger.info("  %s: VIF=%.2f", feat["feature"], feat["vif"])
 

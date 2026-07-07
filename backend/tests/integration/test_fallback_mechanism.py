@@ -5,16 +5,18 @@ T-QA-003 回退机制集成测试
 验证标准: 回退触发成功率 100%，回退延迟 < 50ms
 """
 
-import pytest
 import time
-from typing import Optional, Dict, Any
 from enum import Enum
+from typing import Any, Dict, Optional
+
+import pytest
 
 pytestmark = pytest.mark.integration
 
 
 class FallbackReason(Enum):
     """回退原因枚举"""
+
     MODEL_LOAD_ERROR = "model_load_error"
     PREDICTION_ERROR = "prediction_error"
     TIMEOUT = "timeout"
@@ -24,13 +26,14 @@ class FallbackReason(Enum):
 
 class FallbackResult:
     """回退结果"""
+
     def __init__(
         self,
         success: bool,
         result: Any,
         fallback_reason: Optional[FallbackReason] = None,
         latency_ms: float = 0.0,
-        source: str = "model"
+        source: str = "model",
     ):
         self.success = success
         self.result = result
@@ -90,9 +93,7 @@ class FallbackManager:
         self.fallback_reasons: Dict[FallbackReason, int] = {}
 
     def predict_with_fallback(
-        self,
-        model: ModelPredictor,
-        input_data: Dict[str, Any]
+        self, model: ModelPredictor, input_data: Dict[str, Any]
     ) -> FallbackResult:
         """
         带回退的预测
@@ -120,10 +121,7 @@ class FallbackManager:
                 )
 
             return FallbackResult(
-                success=True,
-                result=result,
-                latency_ms=latency_ms,
-                source="model"
+                success=True, result=result, latency_ms=latency_ms, source="model"
             )
 
         except RuntimeError as e:
@@ -138,10 +136,7 @@ class FallbackManager:
             )
 
     def _fallback(
-        self,
-        input_data: Dict[str, Any],
-        reason: FallbackReason,
-        start_time: float
+        self, input_data: Dict[str, Any], reason: FallbackReason, start_time: float
     ) -> FallbackResult:
         """执行回退"""
         self.fallback_count += 1
@@ -156,7 +151,7 @@ class FallbackManager:
             result=result,
             fallback_reason=reason,
             latency_ms=latency_ms,
-            source="rule"
+            source="rule",
         )
 
     def _is_valid_output(self, result: Any) -> bool:
@@ -171,9 +166,7 @@ class FallbackManager:
         """获取回退统计"""
         return {
             "total_fallbacks": self.fallback_count,
-            "fallback_reasons": {
-                k.value: v for k, v in self.fallback_reasons.items()
-            },
+            "fallback_reasons": {k.value: v for k, v in self.fallback_reasons.items()},
         }
 
 
@@ -214,9 +207,9 @@ class TestFallbackMechanism:
 
         result = manager.predict_with_fallback(model, input_data)
 
-        assert result.latency_ms < 50, (
-            f"回退延迟 {result.latency_ms:.2f}ms 超过阈值 50ms"
-        )
+        assert (
+            result.latency_ms < 50
+        ), f"回退延迟 {result.latency_ms:.2f}ms 超过阈值 50ms"
 
     def test_fallback_success_rate(self):
         """测试回退触发成功率 100%"""
@@ -233,9 +226,7 @@ class TestFallbackMechanism:
                 success_count += 1
 
         success_rate = success_count / total_count
-        assert success_rate == 1.0, (
-            f"回退成功率 {success_rate * 100:.1f}% 未达到 100%"
-        )
+        assert success_rate == 1.0, f"回退成功率 {success_rate * 100:.1f}% 未达到 100%"
 
     def test_partial_model_failure(self):
         """测试部分模型失败时的回退"""
@@ -283,9 +274,9 @@ class TestFallbackMechanism:
         result = manager.predict_with_fallback(model, input_data)
 
         assert result.source == "rule", "无效输出时应回退到规则"
-        assert result.fallback_reason == FallbackReason.INVALID_OUTPUT, (
-            "回退原因应为无效输出"
-        )
+        assert (
+            result.fallback_reason == FallbackReason.INVALID_OUTPUT
+        ), "回退原因应为无效输出"
 
     def test_high_latency_fallback(self):
         """测试高延迟时回退"""
@@ -312,9 +303,7 @@ class TestFallbackMechanism:
             result = manager.predict_with_fallback(model, input_data)
             results.append(result.result)
 
-        assert all(r == results[0] for r in results), (
-            "规则引擎输出应一致"
-        )
+        assert all(r == results[0] for r in results), "规则引擎输出应一致"
 
     def test_empty_input_handling(self):
         """测试空输入处理"""
@@ -340,6 +329,6 @@ class TestFallbackMechanism:
 
         for input_data in test_cases:
             result = manager.predict_with_fallback(model, input_data)
-            assert 0 <= result.result <= 1, (
-                f"回退结果 {result.result} 应在 [0, 1] 范围内"
-            )
+            assert (
+                0 <= result.result <= 1
+            ), f"回退结果 {result.result} 应在 [0, 1] 范围内"

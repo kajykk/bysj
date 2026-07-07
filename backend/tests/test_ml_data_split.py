@@ -74,9 +74,14 @@ class TestVerifySplitIntegrity:
         """TC-COV-ML-053: Invalid total samples fails."""
         X = np.random.randn(100, 5)
         y = np.array([0] * 50 + [1] * 50)
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             verify_split_integrity(
-                X, y,
-                X[:30], X[:30], X[:30],
-                y[:30], y[:30], y[:30],
+                X,
+                y,
+                X[:30],
+                X[:30],
+                X[:30],
+                y[:30],
+                y[:30],
+                y[:30],
             )

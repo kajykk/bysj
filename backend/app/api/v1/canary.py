@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_permission
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES
+from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.models.user import User
 from app.schemas.canary import (
@@ -22,8 +24,12 @@ from app.services.canary_manager import canary_manager
 router = APIRouter(prefix="/canary", tags=["canary"])
 
 
-@router.post("/deployments", response_model=ApiResponse)
+@router.post(
+    "/deployments", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
+)
+@limiter.limit("10/minute")
 async def create_canary(
+    request: Request,
     payload: CanaryCreateRequest,
     current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -51,8 +57,12 @@ async def create_canary(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/deployments", response_model=ApiResponse)
+@router.get(
+    "/deployments", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
+)
+@limiter.limit("30/minute")
 async def list_canaries(
+    request: Request,
     _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     status: Annotated[str | None, Query(description="Filter by status")] = None,
@@ -94,11 +104,21 @@ async def list_canaries(
         for c in canaries
     ]
 
-    return ok(CanaryListResponse(total=total, limit=limit, offset=offset, items=data).model_dump())
+    return ok(
+        CanaryListResponse(
+            total=total, limit=limit, offset=offset, items=data
+        ).model_dump()
+    )
 
 
-@router.get("/deployments/{deployment_id}", response_model=ApiResponse)
+@router.get(
+    "/deployments/{deployment_id}",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("30/minute")
 async def get_canary(
+    request: Request,
     deployment_id: Annotated[int, Path()],
     _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -108,7 +128,9 @@ async def get_canary(
 
     from app.models.monitoring import CanaryRecord
 
-    result = await db.execute(select(CanaryRecord).where(CanaryRecord.id == deployment_id))
+    result = await db.execute(
+        select(CanaryRecord).where(CanaryRecord.id == deployment_id)
+    )
     canary = result.scalar_one_or_none()
 
     if not canary:
@@ -130,8 +152,14 @@ async def get_canary(
     )
 
 
-@router.patch("/deployments/{deployment_id}/traffic", response_model=ApiResponse)
+@router.patch(
+    "/deployments/{deployment_id}/traffic",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("10/minute")
 async def update_canary_traffic(
+    request: Request,
     deployment_id: Annotated[int, Path()],
     payload: CanaryTrafficUpdateRequest,
     _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
@@ -139,7 +167,9 @@ async def update_canary_traffic(
 ) -> dict:
     """Update canary traffic percentage."""
     try:
-        canary = await canary_manager.update_traffic_percent(db, deployment_id, payload.traffic_percent)
+        canary = await canary_manager.update_traffic_percent(
+            db, deployment_id, payload.traffic_percent
+        )
         return ok(
             {
                 "id": canary.id,
@@ -152,8 +182,14 @@ async def update_canary_traffic(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/deployments/{deployment_id}/pause", response_model=ApiResponse)
+@router.post(
+    "/deployments/{deployment_id}/pause",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("10/minute")
 async def pause_canary(
+    request: Request,
     deployment_id: Annotated[int, Path()],
     _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -172,8 +208,14 @@ async def pause_canary(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/deployments/{deployment_id}/resume", response_model=ApiResponse)
+@router.post(
+    "/deployments/{deployment_id}/resume",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("10/minute")
 async def resume_canary(
+    request: Request,
     deployment_id: Annotated[int, Path()],
     _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -192,8 +234,14 @@ async def resume_canary(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/deployments/{deployment_id}/rollback", response_model=ApiResponse)
+@router.post(
+    "/deployments/{deployment_id}/rollback",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("10/minute")
 async def rollback_canary(
+    request: Request,
     deployment_id: Annotated[int, Path()],
     payload: CanaryRollbackRequest,
     current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
@@ -219,8 +267,14 @@ async def rollback_canary(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/deployments/{deployment_id}/complete", response_model=ApiResponse)
+@router.post(
+    "/deployments/{deployment_id}/complete",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("10/minute")
 async def complete_canary(
+    request: Request,
     deployment_id: Annotated[int, Path()],
     _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -240,8 +294,12 @@ async def complete_canary(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/traffic-percentages", response_model=ApiResponse)
+@router.get(
+    "/traffic-percentages", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
+)
+@limiter.limit("30/minute")
 async def get_traffic_percentages(
+    request: Request,
     _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
 ) -> dict:
     """Get available traffic percentage options."""

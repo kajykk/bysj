@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from app.monitoring.alerting import (
-    MetricsSnapshot,
-    AlertRule,
     AlertEvent,
     AlertingEngine,
+    AlertRule,
+    MetricsSnapshot,
     create_default_rules,
 )
 

@@ -1,3 +1,7 @@
+import i18n from '@/i18n'
+
+const t = i18n.global.t.bind(i18n.global)
+
 export interface ExportColumn<T = unknown> {
   key: string
   label: string
@@ -32,7 +36,7 @@ export function exportToCSV<T extends Record<string, unknown>>(
   filename?: string
 ): void {
   if (!data.length) {
-    throw new Error('导出数据为空')
+    throw new Error(t('exportUtils.emptyData'))
   }
 
   const headers = columns.map((col) => col.label)
@@ -57,7 +61,9 @@ export function exportToCSV<T extends Record<string, unknown>>(
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(link.href)
+  // M-29 修复：延迟释放 ObjectURL，避免浏览器尚未开始下载就被回收
+  const csvUrl = link.href
+  setTimeout(() => URL.revokeObjectURL(csvUrl), 1000)
 }
 
 export function exportToExcel<T extends Record<string, unknown>>(
@@ -66,7 +72,7 @@ export function exportToExcel<T extends Record<string, unknown>>(
   filename?: string
 ): void {
   if (!data.length) {
-    throw new Error('导出数据为空')
+    throw new Error(t('exportUtils.emptyData'))
   }
 
   const headers = columns.map((col) => `<th>${escapeXml(col.label)}</th>`).join('')
@@ -99,7 +105,10 @@ export function exportToExcel<T extends Record<string, unknown>>(
     </html>
   `
 
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+  // L-09 修复：使用更准确的 MIME type，避免某些 Excel 版本打开时警告
+  // 注意：这是 HTML 表格伪装为 Excel 格式，非真正的 .xlsx 文件
+  // 如需真正的 Excel 格式，建议引入 SheetJS (xlsx) 库
+  const blob = new Blob([html], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;' })
 
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
@@ -107,7 +116,9 @@ export function exportToExcel<T extends Record<string, unknown>>(
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(link.href)
+  // M-29 修复：延迟释放 ObjectURL，避免浏览器尚未开始下载就被回收
+  const excelUrl = link.href
+  setTimeout(() => URL.revokeObjectURL(excelUrl), 1000)
 }
 
 function escapeXml(str: string): string {
@@ -129,5 +140,7 @@ export function downloadJSON(data: unknown, filename?: string): void {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(link.href)
+  // M-29 修复：延迟释放 ObjectURL，避免浏览器尚未开始下载就被回收
+  const jsonUrl = link.href
+  setTimeout(() => URL.revokeObjectURL(jsonUrl), 1000)
 }

@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
+from app.ml.loss import binary_cross_entropy_loss
+from app.ml.model import PhysiologicalMLP
 from app.ml.trainer import (
+    EarlyStopping,
+    compute_auprc,
     compute_metrics,
     compute_roc_auc,
-    compute_auprc,
-    EarlyStopping,
     evaluate,
     train_epoch,
     train_model,
 )
-from app.ml.model import PhysiologicalMLP
-from app.ml.loss import binary_cross_entropy_loss
 
 
 class TestComputeMetrics:
@@ -168,7 +167,7 @@ class TestEarlyStopping:
         """TC-COV-TRAIN-017: Restore when no best_weights."""
         model = PhysiologicalMLP(input_dim=2, hidden_dims=[3], use_batch_norm=False)
         es = EarlyStopping(patience=3)
-        layers_before = [l.copy() for l in model.layers]
+        layers_before = [layer.copy() for layer in model.layers]
         es.restore_best_weights(model)
         for a, b in zip(model.layers, layers_before):
             np.testing.assert_array_equal(a["W"], b["W"])
@@ -197,8 +196,13 @@ class TestTrainEpoch:
         X = np.random.randn(20, 2).astype(np.float32)
         y = np.random.randint(0, 2, size=(20, 1)).astype(np.float32)
         loss, metrics = train_epoch(
-            model, X, y, batch_size=5, learning_rate=0.001,
-            weight_decay=0.01, loss_fn=binary_cross_entropy_loss,
+            model,
+            X,
+            y,
+            batch_size=5,
+            learning_rate=0.001,
+            weight_decay=0.01,
+            loss_fn=binary_cross_entropy_loss,
         )
         assert isinstance(loss, float)
         assert "accuracy" in metrics
@@ -216,9 +220,16 @@ class TestTrainModel:
 
         split = int(len(X) * 0.8)
         history = train_model(
-            model, X[:split], y[:split], X[split:], y[split:],
-            epochs=5, batch_size=8, learning_rate=0.01,
-            weight_decay=0.01, patience=5,
+            model,
+            X[:split],
+            y[:split],
+            X[split:],
+            y[split:],
+            epochs=5,
+            batch_size=8,
+            learning_rate=0.01,
+            weight_decay=0.01,
+            patience=5,
         )
         assert len(history["train_loss"]) > 0
         assert history["best_val_f1"] >= 0.0
@@ -233,8 +244,14 @@ class TestTrainModel:
 
         split = int(len(X) * 0.7)
         history = train_model(
-            model, X[:split], y[:split], X[split:], y[split:],
-            epochs=3, batch_size=4, loss_fn=None,
+            model,
+            X[:split],
+            y[:split],
+            X[split:],
+            y[split:],
+            epochs=3,
+            batch_size=4,
+            loss_fn=None,
         )
         assert len(history["train_loss"]) > 0
 
@@ -248,8 +265,15 @@ class TestTrainModel:
         split = int(len(X) * 0.7)
         # Overfit scenario - use small patience
         history = train_model(
-            model, X[:split], y[:split], X[split:], y[split:],
-            epochs=100, batch_size=4, learning_rate=0.1,
-            weight_decay=0.0, patience=5,
+            model,
+            X[:split],
+            y[:split],
+            X[split:],
+            y[split:],
+            epochs=100,
+            batch_size=4,
+            learning_rate=0.1,
+            weight_decay=0.0,
+            patience=5,
         )
         assert history["best_epoch"] < 100 or len(history["train_loss"]) > 0

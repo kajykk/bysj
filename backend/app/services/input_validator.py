@@ -16,14 +16,18 @@ class ValidationResult:
     errors: list[dict[str, Any]] = field(default_factory=list)
     sanitized_input: dict[str, Any] | None = None
 
-    def add_error(self, field: str, anomaly_type: str, message: str, details: dict | None = None) -> None:
+    def add_error(
+        self, field: str, anomaly_type: str, message: str, details: dict | None = None
+    ) -> None:
         self.is_valid = False
-        self.errors.append({
-            "field": field,
-            "anomaly_type": anomaly_type,
-            "message": message,
-            "details": details or {},
-        })
+        self.errors.append(
+            {
+                "field": field,
+                "anomaly_type": anomaly_type,
+                "message": message,
+                "details": details or {},
+            }
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -61,7 +65,9 @@ class InputValidator:
     def __init__(self) -> None:
         pass
 
-    def validate_tabular(self, features: dict[str, Any] | None, required_fields: list[str] | None = None) -> ValidationResult:
+    def validate_tabular(
+        self, features: dict[str, Any] | None, required_fields: list[str] | None = None
+    ) -> ValidationResult:
         """Validate tabular/structured input features.
 
         Handles:
@@ -81,42 +87,69 @@ class InputValidator:
             return result
 
         if not isinstance(features, dict):
-            result.add_error("features", "type_error", f"Expected dict, got {type(features).__name__}")
+            result.add_error(
+                "features",
+                "type_error",
+                f"Expected dict, got {type(features).__name__}",
+            )
             return result
 
         if len(features) == 0:
-            result.add_error("features", "empty_input", "Input features cannot be empty")
+            result.add_error(
+                "features", "empty_input", "Input features cannot be empty"
+            )
             return result
 
         # Check for all-empty values (all keys have None/empty values)
         non_empty_values = [v for v in features.values() if v is not None and v != ""]
         if len(non_empty_values) == 0:
-            result.add_error("features", "all_empty", "All feature values are empty or null")
+            result.add_error(
+                "features", "all_empty", "All feature values are empty or null"
+            )
 
         # Check required fields
         if required_fields:
             for field_name in required_fields:
                 if field_name not in features or features[field_name] is None:
-                    result.add_error(field_name, "missing_required", f"Missing required field: {field_name}")
+                    result.add_error(
+                        field_name,
+                        "missing_required",
+                        f"Missing required field: {field_name}",
+                    )
 
         # Validate each feature
+        # L-11 修复：原实现对每个 key 调用 any(e["field"] == key for e in result.errors)
+        # 进行 O(n²) 嵌套查找。改为先构建错误字段集合，将 sanitize 检查降为 O(1)。
+        error_fields: set[str] = set()
         for key, value in features.items():
             # Skip None values (already handled by required_fields check)
             if value is None:
                 continue
 
-            # Check for illegal types
-            if isinstance(value, (list, dict, set)):
-                result.add_error(key, "illegal_type", f"Field {key} has unsupported type: {type(value).__name__}")
-                continue
+            # M-Svc-14 修复：list/dict/set 不直接拒绝，转换为可验证形式后继续验证。
+            # 原实现直接拒绝集合类型，导致多值特征（如 list/dict）无法通过校验。
+            # - list/set → tuple（不可变，更适合作为特征值）
+            # - dict → tuple(values())（提取值后验证）
+            if isinstance(value, list):
+                value = tuple(value)
+            elif isinstance(value, set):
+                value = tuple(value)
+            elif isinstance(value, dict):
+                value = tuple(value.values())
 
             # Check for NaN / Inf in numeric fields
             if isinstance(value, float):
                 if math.isnan(value):
-                    result.add_error(key, "nan_value", f"NaN value detected in field: {key}")
+                    result.add_error(
+                        key, "nan_value", f"NaN value detected in field: {key}"
+                    )
+                    error_fields.add(key)
                     continue
                 if math.isinf(value):
-                    result.add_error(key, "inf_value", f"Inf value detected in field: {key}")
+                    result.add_error(
+                        key, "inf_value", f"Inf value detected in field: {key}"
+                    )
+                    error_fields.add(key)
                     continue
 
             # Check range for known physiological fields
@@ -131,11 +164,15 @@ class InputValidator:
                             f"Value {numeric_value} out of range [{min_val}, {max_val}] for {key}",
                             {"min": min_val, "max": max_val, "value": numeric_value},
                         )
+                        error_fields.add(key)
                 except (ValueError, TypeError):
-                    result.add_error(key, "type_error", f"Non-numeric value for field: {key}")
+                    result.add_error(
+                        key, "type_error", f"Non-numeric value for field: {key}"
+                    )
+                    error_fields.add(key)
 
-            # Sanitize: keep valid values
-            if not any(e["field"] == key for e in result.errors):
+            # Sanitize: keep valid values (集合查找 O(1)，避免 O(n²) 嵌套遍历)
+            if key not in error_fields:
                 result.sanitized_input[key] = value
 
         # Record anomalies if any
@@ -145,7 +182,11 @@ class InputValidator:
 
                 observability_collector.record_input_anomaly(
                     anomaly_type=error["anomaly_type"],
-                    details={"field": error["field"], "message": error["message"], **error.get("details", {})},
+                    details={
+                        "field": error["field"],
+                        "message": error["message"],
+                        **error.get("details", {}),
+                    },
                 )
 
         return result
@@ -159,7 +200,9 @@ class InputValidator:
             return result
 
         if not isinstance(text, str):
-            result.add_error("text", "type_error", f"Expected string, got {type(text).__name__}")
+            result.add_error(
+                "text", "type_error", f"Expected string, got {type(text).__name__}"
+            )
             return result
 
         stripped = text.strip()
@@ -209,14 +252,26 @@ class InputValidator:
             for error in result.errors:
                 observability_collector.record_input_anomaly(
                     anomaly_type=error["anomaly_type"],
-                    details={"field": error["field"], "message": error["message"], **error.get("details", {})},
+                    details={
+                        "field": error["field"],
+                        "message": error["message"],
+                        **error.get("details", {}),
+                    },
                 )
 
         return result
 
     def validate_physiological(self, data: dict[str, Any]) -> ValidationResult:
         """Validate physiological data input."""
-        required = ["sleep_hours", "sleep_quality", "exercise_minutes", "heart_rate", "systolic_bp", "diastolic_bp", "steps"]
+        required = [
+            "sleep_hours",
+            "sleep_quality",
+            "exercise_minutes",
+            "heart_rate",
+            "systolic_bp",
+            "diastolic_bp",
+            "steps",
+        ]
         return self.validate_tabular(data, required_fields=required)
 
     def validate_fusion(
@@ -243,7 +298,11 @@ class InputValidator:
                 result.errors.extend(text_result.errors)
                 result.is_valid = False
             else:
-                result.sanitized_input["text"] = text_result.sanitized_input.get("text") if text_result.sanitized_input else None
+                result.sanitized_input["text"] = (
+                    text_result.sanitized_input.get("text")
+                    if text_result.sanitized_input
+                    else None
+                )
 
         if physiological:
             physio_result = self.validate_physiological(physiological)
@@ -260,7 +319,11 @@ class InputValidator:
             for error in result.errors:
                 observability_collector.record_input_anomaly(
                     anomaly_type=error["anomaly_type"],
-                    details={"field": error["field"], "message": error["message"], **error.get("details", {})},
+                    details={
+                        "field": error["field"],
+                        "message": error["message"],
+                        **error.get("details", {}),
+                    },
                 )
 
         return result

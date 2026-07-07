@@ -13,20 +13,21 @@
 
 from __future__ import annotations
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from app.core.deps import _role_for_request
+from app.core.middlewares import security_headers_middleware
 from app.middleware.xss import (
+    XSSProtectionMiddleware,
     looks_like_xss,
     sanitize_html,
     strip_html_tags,
-    XSSProtectionMiddleware,
 )
-from app.core.middlewares import security_headers_middleware
-from app.core.deps import _role_for_request
 
 
 class TestPathTraversalFix:
@@ -34,33 +35,39 @@ class TestPathTraversalFix:
 
     def test_validate_extension_rejects_slash(self):
         """文件名包含 / 应被拒绝."""
-        from app.api.v1.user_upload import _validate_extension
         from fastapi import HTTPException
+
+        from app.api.v1.user_upload import _validate_extension
 
         with pytest.raises(HTTPException) as exc_info:
             _validate_extension("../../../etc/passwd")
-        assert "非法字符" in str(exc_info.value.detail) or "不支持" in str(exc_info.value.detail)
+        assert "非法字符" in str(exc_info.value.detail) or "不支持" in str(
+            exc_info.value.detail
+        )
 
     def test_validate_extension_rejects_backslash(self):
         """文件名包含 \\ 应被拒绝."""
-        from app.api.v1.user_upload import _validate_extension
         from fastapi import HTTPException
+
+        from app.api.v1.user_upload import _validate_extension
 
         with pytest.raises(HTTPException):
             _validate_extension("..\\..\\windows\\system32\\config")
 
     def test_validate_extension_rejects_null_byte(self):
         """文件名包含 \\x00 应被拒绝."""
-        from app.api.v1.user_upload import _validate_extension
         from fastapi import HTTPException
+
+        from app.api.v1.user_upload import _validate_extension
 
         with pytest.raises(HTTPException):
             _validate_extension("file\x00.png")
 
     def test_safe_resolve_path_blocks_traversal(self, tmp_path: Path):
         """_safe_resolve_path 应阻止超出 base 目录的解析结果."""
-        from app.api.v1.user_upload import _safe_resolve_path
         from fastapi import HTTPException
+
+        from app.api.v1.user_upload import _safe_resolve_path
 
         with pytest.raises(HTTPException) as exc_info:
             _safe_resolve_path(tmp_path, "1", "../../../etc/passwd")
@@ -110,7 +117,9 @@ class TestXSSMiddlewareOptIn:
 
         @app.middleware("http")
         async def _add_mw(request, call_next):
-            return await XSSProtectionMiddleware(app, enabled=False).dispatch(request, call_next)
+            return await XSSProtectionMiddleware(app, enabled=False).dispatch(
+                request, call_next
+            )
 
         @app.post("/echo")
         async def _echo(payload: dict):
@@ -178,10 +187,13 @@ class TestCORSDefaults:
     def test_development_with_empty_origins_returns_defaults(self):
         """开发环境 + 未配置: 返回开发默认端口."""
         from app.core.config import Settings
+
         s = Settings()
         if s.app_env.lower() != "production" and not s.cors_allowed_origins:
             origins = s.cors_origins_list
-            assert "http://localhost:5173" in origins or "http://localhost:3000" in origins
+            assert (
+                "http://localhost:5173" in origins or "http://localhost:3000" in origins
+            )
 
 
 class TestRoleForRequestCache:
@@ -189,7 +201,6 @@ class TestRoleForRequestCache:
 
     def test_uses_cached_payload(self):
         """当 request.state.token_payload 已设置, 应直接返回."""
-        from starlette.requests import Request
 
         class FakeRequest:
             state = type("S", (), {"token_payload": {"role": "admin"}})()
@@ -201,6 +212,7 @@ class TestRoleForRequestCache:
     def test_falls_back_to_header_when_no_cache(self):
         """无缓存时, 从 header 解码."""
         from starlette.requests import Request
+
         from app.core.security import create_access_token
 
         token = create_access_token({"sub": "1", "role": "user", "type": "access"})
@@ -222,22 +234,23 @@ class TestRateLimitAlwaysEnabled:
 
     def test_build_limiter_sets_enabled_true(self):
         """_build_limiter 内部设置 limiter.enabled = True (配置层意图)."""
-        from app.core.rate_limit import _build_limiter, limiter
+        from app.core.rate_limit import _build_limiter
+
         # 重新调用 _build_limiter, 验证其内部将 enabled 设为 True
         # 由于 conftest.py 的 fixture 会在测试结束后还原, 不会污染全局
-        new_limiter = _build_limiter()
+        _build_limiter()
         # 新建的 limiter 应该 enabled=True (除非 fixture 干预)
         # 由于 fixture 是 autouse, 我们只能通过代码静态分析验证意图
         import inspect
+
         source = inspect.getsource(_build_limiter)
-        assert "limiter.enabled = True" in source, (
-            "rate_limit.py 必须显式设置 limiter.enabled = True"
-        )
+        assert (
+            "limiter.enabled = True" in source
+        ), "rate_limit.py 必须显式设置 limiter.enabled = True"
 
     def test_default_limits_depend_on_env(self, monkeypatch):
         """默认限制值应随环境变化."""
         from app.core import rate_limit
-        from app.core.config import settings
 
         # 模拟生产环境
         original_env = rate_limit.settings.app_env
@@ -257,11 +270,13 @@ class TestSilenceSchemaValidation:
 
     def test_silence_create_rejects_oversized_matcher_key(self):
         """matcher key 超长应被拒绝."""
-        from app.api.v1.silences import SilenceCreate
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
+
         from pydantic import ValidationError
 
-        now = datetime.utcnow()
+        from app.api.v1.silences import SilenceCreate
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         with pytest.raises(ValidationError):
             SilenceCreate(
                 name="test",
@@ -272,11 +287,13 @@ class TestSilenceSchemaValidation:
 
     def test_silence_create_rejects_oversized_matcher_value(self):
         """matcher value 超长应被拒绝."""
-        from app.api.v1.silences import SilenceCreate
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
+
         from pydantic import ValidationError
 
-        now = datetime.utcnow()
+        from app.api.v1.silences import SilenceCreate
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         with pytest.raises(ValidationError):
             SilenceCreate(
                 name="test",
@@ -287,11 +304,13 @@ class TestSilenceSchemaValidation:
 
     def test_silence_create_rejects_oversized_comment(self):
         """comment 超长应被拒绝."""
-        from app.api.v1.silences import SilenceCreate
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
+
         from pydantic import ValidationError
 
-        now = datetime.utcnow()
+        from app.api.v1.silences import SilenceCreate
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         with pytest.raises(ValidationError):
             SilenceCreate(
                 name="test",
@@ -303,11 +322,13 @@ class TestSilenceSchemaValidation:
 
     def test_silence_create_rejects_too_long_duration(self):
         """静默持续期超过 90 天应被拒绝."""
-        from app.api.v1.silences import SilenceCreate
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
+
         from pydantic import ValidationError
 
-        now = datetime.utcnow()
+        from app.api.v1.silences import SilenceCreate
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         with pytest.raises(ValidationError):
             SilenceCreate(
                 name="test",
@@ -318,11 +339,13 @@ class TestSilenceSchemaValidation:
 
     def test_silence_create_rejects_too_many_matcher_entries(self):
         """matcher 键值对超过 20 个应被拒绝."""
-        from app.api.v1.silences import SilenceCreate
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
+
         from pydantic import ValidationError
 
-        now = datetime.utcnow()
+        from app.api.v1.silences import SilenceCreate
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         too_many = {f"k{i}": "v" for i in range(21)}
         with pytest.raises(ValidationError):
             SilenceCreate(
@@ -334,10 +357,11 @@ class TestSilenceSchemaValidation:
 
     def test_silence_create_accepts_valid_input(self):
         """合法输入应通过校验."""
-        from app.api.v1.silences import SilenceCreate
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
-        now = datetime.utcnow()
+        from app.api.v1.silences import SilenceCreate
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         s = SilenceCreate(
             name="valid-silence",
             matcher={"severity": "P0"},
@@ -353,24 +377,27 @@ class TestAlertPayloadValidation:
 
     def test_alert_payload_rejects_too_many_alerts(self):
         """alerts 列表超过 500 应被拒绝."""
-        from app.api.v1.alerts import AlertManagerPayload
         from pydantic import ValidationError
+
+        from app.api.v1.alerts import AlertManagerPayload
 
         with pytest.raises(ValidationError):
             AlertManagerPayload(alerts=[{"status": "firing"}] * 501)
 
     def test_alert_payload_rejects_oversized_label_value(self):
         """label value 超长应被拒绝."""
-        from app.api.v1.alerts import AlertManagerAlert
         from pydantic import ValidationError
+
+        from app.api.v1.alerts import AlertManagerAlert
 
         with pytest.raises(ValidationError):
             AlertManagerAlert(labels={"k": "v" * 2049})
 
     def test_alert_payload_rejects_oversized_generator_url(self):
         """generatorURL 超长应被拒绝."""
-        from app.api.v1.alerts import AlertManagerAlert
         from pydantic import ValidationError
+
+        from app.api.v1.alerts import AlertManagerAlert
 
         with pytest.raises(ValidationError):
             AlertManagerAlert(generatorURL="http://" + "x" * 2050)
@@ -399,24 +426,27 @@ class TestGrafanaAdapterValidation:
 
     def test_grafana_query_rejects_unknown_metric(self):
         """未知 metric 应在 schema 层被拒绝 (422)."""
-        from app.api.v1.grafana_adapter import GrafanaQueryRequest
         from pydantic import ValidationError
+
+        from app.api.v1.grafana_adapter import GrafanaQueryRequest
 
         with pytest.raises(ValidationError):
             GrafanaQueryRequest(metric="unknown_metric", params={})
 
     def test_grafana_variable_rejects_unknown_type(self):
         """未知 variable type 应在 schema 层被拒绝 (422)."""
-        from app.api.v1.grafana_adapter import GrafanaVariableRequest
         from pydantic import ValidationError
+
+        from app.api.v1.grafana_adapter import GrafanaVariableRequest
 
         with pytest.raises(ValidationError):
             GrafanaVariableRequest(type="unknown_type")
 
     def test_grafana_query_rejects_too_many_params(self):
         """params 键值对超过 50 应被拒绝."""
-        from app.api.v1.grafana_adapter import GrafanaQueryRequest
         from pydantic import ValidationError
+
+        from app.api.v1.grafana_adapter import GrafanaQueryRequest
 
         too_many = {f"k{i}": "v" for i in range(51)}
         with pytest.raises(ValidationError):
@@ -435,11 +465,13 @@ class TestAlertHistoryTimeRangeValidation:
 
     def test_validate_history_time_range_rejects_inverted(self):
         """start_time > end_time 应被拒绝."""
-        from app.api.v1.alerts import _validate_history_time_range
-        from fastapi import HTTPException
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
-        now = datetime.utcnow()
+        from fastapi import HTTPException
+
+        from app.api.v1.alerts import _validate_history_time_range
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         with pytest.raises(HTTPException) as exc_info:
             _validate_history_time_range(
                 start_time=now,
@@ -449,11 +481,13 @@ class TestAlertHistoryTimeRangeValidation:
 
     def test_validate_history_time_range_rejects_oversized(self):
         """时间跨度超过 90 天应被拒绝."""
-        from app.api.v1.alerts import _validate_history_time_range
-        from fastapi import HTTPException
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
-        now = datetime.utcnow()
+        from fastapi import HTTPException
+
+        from app.api.v1.alerts import _validate_history_time_range
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         with pytest.raises(HTTPException) as exc_info:
             _validate_history_time_range(
                 start_time=now - timedelta(days=91),
@@ -463,10 +497,11 @@ class TestAlertHistoryTimeRangeValidation:
 
     def test_validate_history_time_range_accepts_valid(self):
         """合法时间范围应通过校验."""
-        from app.api.v1.alerts import _validate_history_time_range
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
-        now = datetime.utcnow()
+        from app.api.v1.alerts import _validate_history_time_range
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         # 不应抛出异常
         _validate_history_time_range(
             start_time=now - timedelta(days=7),
@@ -475,10 +510,11 @@ class TestAlertHistoryTimeRangeValidation:
 
     def test_validate_history_time_range_accepts_partial(self):
         """仅提供 start_time 或 end_time 应通过校验."""
-        from app.api.v1.alerts import _validate_history_time_range
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime
 
-        now = datetime.utcnow()
+        from app.api.v1.alerts import _validate_history_time_range
+
+        now = datetime.now(UTC).replace(tzinfo=None)
         _validate_history_time_range(start_time=now, end_time=None)
         _validate_history_time_range(start_time=None, end_time=now)
 
@@ -546,8 +582,9 @@ class TestReportFilenameLimit:
 
     def test_user_risk_report_request_rejects_oversized_username(self):
         """user_name 超长应被拒绝."""
-        from app.schemas.reports import UserRiskReportRequest
         from pydantic import ValidationError
+
+        from app.schemas.reports import UserRiskReportRequest
 
         with pytest.raises(ValidationError):
             UserRiskReportRequest(
@@ -569,8 +606,9 @@ class TestReportFilenameLimit:
 
     def test_batch_export_request_rejects_oversized_filename(self):
         """filename 超长应被拒绝."""
-        from app.schemas.reports import BatchExportRequest, BatchExportDataItem
         from pydantic import ValidationError
+
+        from app.schemas.reports import BatchExportDataItem, BatchExportRequest
 
         with pytest.raises(ValidationError):
             BatchExportRequest(
@@ -580,7 +618,7 @@ class TestReportFilenameLimit:
 
     def test_batch_export_request_accepts_valid_filename(self):
         """合法 filename 应通过校验."""
-        from app.schemas.reports import BatchExportRequest, BatchExportDataItem
+        from app.schemas.reports import BatchExportDataItem, BatchExportRequest
 
         req = BatchExportRequest(
             data=[BatchExportDataItem(data={"k": "v"})],

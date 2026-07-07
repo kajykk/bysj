@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import patch
 
 from app.core.security import (
-    verify_password,
-    get_password_hash,
     create_access_token,
-    create_refresh_token,
     create_password_reset_token,
+    create_refresh_token,
     decode_token,
+    get_password_hash,
+    verify_password,
 )
 
 
@@ -36,10 +35,15 @@ class TestPasswordHashing:
         assert verify_password("wrongpassword", hashed) is False
 
     def test_password_truncation(self):
-        """TC-COV-031: Passwords longer than 72 chars are truncated."""
+        """TC-COV-031: Passwords exceeding 72 bytes are rejected."""
         long_password = "a" * 100
-        hashed = get_password_hash(long_password)
-        assert verify_password(long_password, hashed) is True
+        with pytest.raises(ValueError):
+            get_password_hash(long_password)
+
+        # 72-byte password should still hash and verify correctly
+        max_password = "a" * 72
+        hashed = get_password_hash(max_password)
+        assert verify_password(max_password, hashed) is True
 
     def test_verify_password_invalid_hash(self):
         """TC-COV-032: verify_password returns False for invalid hash."""
@@ -122,6 +126,7 @@ class TestDecodeToken:
     def test_decode_expired_token(self):
         """TC-COV-041: decode_token raises ValueError for expired token."""
         from app.core.config import settings as real_settings
+
         original_expire = real_settings.access_token_expire_minutes
         real_settings.access_token_expire_minutes = -1
         try:

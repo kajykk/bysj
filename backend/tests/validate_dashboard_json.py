@@ -13,9 +13,10 @@
 10. 6 变量定义 (templating.list 长度 + 类型)
 
 用法:
-    cd e:\code\bysj
+    cd e:\\code\bysj
     python backend/tests/validate_dashboard_json.py
 """
+
 from __future__ import annotations
 
 import json
@@ -27,20 +28,39 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]  # backend/tests -> bysj
 
-DASHBOARD_JSON = ROOT / "infra" / "grafana" / "dashboards" / "v1.37-alerts-overview.json"
-PROVISIONING_YAML = ROOT / "infra" / "grafana" / "provisioning" / "dashboards" / "alerts-overview.yaml"
+DASHBOARD_JSON = (
+    ROOT / "infra" / "grafana" / "dashboards" / "v1.37-alerts-overview.json"
+)
+PROVISIONING_YAML = (
+    ROOT / "infra" / "grafana" / "provisioning" / "dashboards" / "alerts-overview.yaml"
+)
 
 # v1.37 7 metric (与 v1.37 grafana_adapter.py _METRIC_HANDLERS 一致)
 V137_METRICS = {
-    "trend", "response_time", "escalation", "channel_stats",
-    "silence_hit_rate", "am_sync", "lock_stats",
+    "trend",
+    "response_time",
+    "escalation",
+    "channel_stats",
+    "silence_hit_rate",
+    "am_sync",
+    "lock_stats",
 }
 
 # P0 panel ID 集合 (按 01-requirements.md §3.2)
 P0_PANEL_IDS = {
-    5, 6, 7, 8,                # Row 2: Response Time (P0)
-    10, 12, 13, 14, 15,        # Row 3 + Row 4 (P0)
-    19, 22, 23, 24,            # Row 6 + Row 7 (P0)
+    5,
+    6,
+    7,
+    8,  # Row 2: Response Time (P0)
+    10,
+    12,
+    13,
+    14,
+    15,  # Row 3 + Row 4 (P0)
+    19,
+    22,
+    23,
+    24,  # Row 6 + Row 7 (P0)
 }
 
 
@@ -55,7 +75,15 @@ def load_dashboard() -> dict:
 def validate_json_legal(d: dict) -> bool:
     """AC-1: JSON 合法 + 必要字段."""
     print("\n[VALIDATE 1] JSON legal + required fields:")
-    required = ["title", "uid", "schemaVersion", "panels", "templating", "tags", "refresh"]
+    required = [
+        "title",
+        "uid",
+        "schemaVersion",
+        "panels",
+        "templating",
+        "tags",
+        "refresh",
+    ]
     missing = [k for k in required if k not in d]
     assert not missing, f"missing fields: {missing}"
     print(f"  title: {d['title']}")
@@ -88,7 +116,7 @@ def validate_panel_ids(d: dict) -> bool:
     ids = sorted([p["id"] for p in d["panels"]])
     expected = list(range(1, 25))
     assert ids == expected, f"panel.id not 1-24: got {ids}"
-    print(f"  PASS: C-8 (panel.id 1-24)")
+    print("  PASS: C-8 (panel.id 1-24)")
     return True
 
 
@@ -98,7 +126,9 @@ def validate_metrics_exist(d: dict) -> bool:
     for p in d["panels"]:
         for t in p.get("targets", []):
             metric = t.get("payload", {}).get("metric")
-            assert metric in V137_METRICS, f"panel {p['id']} uses unknown metric: {metric}"
+            assert (
+                metric in V137_METRICS
+            ), f"panel {p['id']} uses unknown metric: {metric}"
     print(f"  PASS: AC-4 (all metrics in v1.37 set: {sorted(V137_METRICS)})")
     return True
 
@@ -150,7 +180,9 @@ def validate_grid_layout(d: dict) -> bool:
         for i in range(len(pls_sorted) - 1):
             end = pls_sorted[i]["gridPos"]["x"] + pls_sorted[i]["gridPos"]["w"]
             nxt = pls_sorted[i + 1]["gridPos"]["x"]
-            assert end <= nxt, f"row y={y}: panels {pls_sorted[i]['id']} and {pls_sorted[i+1]['id']} overlap"
+            assert (
+                end <= nxt
+            ), f"row y={y}: panels {pls_sorted[i]['id']} and {pls_sorted[i+1]['id']} overlap"
         # 总宽
         total_w = sum(p["gridPos"]["w"] for p in pls)
         assert total_w <= 24, f"row y={y}: total_w={total_w} > 24"
@@ -199,7 +231,9 @@ def validate_provisioning_yaml(d: dict) -> bool:
     assert cfg.get("apiVersion") == 1
     assert cfg.get("providers")
     p = cfg["providers"][0]
-    print(f"  provider: {p['name']}, folder: {p['folder']}, path: {p['options']['path']}")
+    print(
+        f"  provider: {p['name']}, folder: {p['folder']}, path: {p['options']['path']}"
+    )
     print("  PASS: AC-8")
     return True
 
@@ -209,7 +243,9 @@ def main() -> int:
     print("v1.38 Grafana Dashboard JSON 静态校验")
     print("=" * 70)
     d = load_dashboard()
-    print(f"[VALIDATE] loaded {DASHBOARD_JSON.name}: {len(d['panels'])} panels, {len(d['templating']['list'])} vars")
+    print(
+        f"[VALIDATE] loaded {DASHBOARD_JSON.name}: {len(d['panels'])} panels, {len(d['templating']['list'])} vars"
+    )
     all_pass = True
     for check in (
         validate_json_legal,

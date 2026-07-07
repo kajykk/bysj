@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 class TestUserContentApi:
     """Test user content API endpoints."""
@@ -18,21 +16,27 @@ class TestUserContentApi:
 
     def test_list_contents_with_filters(self, client, auth_headers):
         """TC-COV-API-002: List contents with category filter."""
-        response = client.get("/api/v1/user/content/?category=meditation", headers=auth_headers)
+        response = client.get(
+            "/api/v1/user/content/?category=meditation", headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["code"] == 200
 
     def test_list_favorites(self, client, auth_headers):
         """TC-COV-API-003: List favorites endpoint returns success."""
-        response = client.get("/api/v1/user/content/favorites/list", headers=auth_headers)
+        response = client.get(
+            "/api/v1/user/content/favorites/list", headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["code"] == 200
 
     def test_list_recommendations(self, client, auth_headers):
         """TC-COV-API-004: List recommendations endpoint returns success."""
-        response = client.get("/api/v1/user/content/recommendations", headers=auth_headers)
+        response = client.get(
+            "/api/v1/user/content/recommendations", headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["code"] == 200

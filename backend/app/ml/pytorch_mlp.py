@@ -12,7 +12,6 @@ Architecture: Input(13) -> 32 -> 16 -> Output(1)
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
@@ -23,25 +22,34 @@ try:
     import torch.nn as nn
     import torch.optim as optim
     from torch.utils.data import DataLoader, TensorDataset
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
+
     # Create dummy classes for type checking
     class nn:  # type: ignore
         class Module:
             pass
+
         class Linear:
             pass
+
         class BatchNorm1d:
             pass
+
         class Dropout:
             pass
+
         class ReLU:
             pass
+
         class Sigmoid:
             pass
+
     class torch:  # type: ignore
         pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +127,9 @@ class PyTorchMLP(nn.Module if TORCH_AVAILABLE else object):
         """Initialize weights with He (Kaiming) initialization."""
         for name, module in self.named_modules():
             if isinstance(module, nn.Linear):
-                nn.init.kaiming_normal_(module.weight, mode="fan_in", nonlinearity="relu")
+                nn.init.kaiming_normal_(
+                    module.weight, mode="fan_in", nonlinearity="relu"
+                )
                 if module.bias is not None:
                     nn.init.zeros_(module.bias)
 
@@ -178,19 +188,26 @@ class PyTorchMLP(nn.Module if TORCH_AVAILABLE else object):
         path.parent.mkdir(parents=True, exist_ok=True)
 
         # Save model state dict
-        torch.save({
-            "state_dict": self.state_dict(),
-            "input_dim": self.input_dim,
-            "hidden_dims": self.hidden_dims,
-            "dropout_rate": self.dropout_rate,
-            "use_batch_norm": self.use_batch_norm,
-            "param_count": self._param_count,
-        }, path)
+        torch.save(
+            {
+                "state_dict": self.state_dict(),
+                "input_dim": self.input_dim,
+                "hidden_dims": self.hidden_dims,
+                "dropout_rate": self.dropout_rate,
+                "use_batch_norm": self.use_batch_norm,
+                "param_count": self._param_count,
+            },
+            path,
+        )
 
-        logger.info("Saved PyTorch model to %s (%d parameters)", path, self._param_count)
+        logger.info(
+            "Saved PyTorch model to %s (%d parameters)", path, self._param_count
+        )
 
     @classmethod
-    def load(cls, path: Path | str, trusted_root: Path | str | None = "default") -> "PyTorchMLP":
+    def load(
+        cls, path: Path | str, trusted_root: Path | str | None = "default"
+    ) -> "PyTorchMLP":
         """Load model from file.
 
         Args:
@@ -213,7 +230,9 @@ class PyTorchMLP(nn.Module if TORCH_AVAILABLE else object):
 
         # 受信根目录：默认为项目 models 目录，防止路径穿越加载任意位置文件
         if trusted_root == "default":
-            _trusted_root: Path | None = Path(__file__).resolve().parent.parent.parent.parent / "models"
+            _trusted_root: Path | None = (
+                Path(__file__).resolve().parent.parent.parent.parent / "models"
+            )
         else:
             _trusted_root = Path(trusted_root) if trusted_root else None
 
@@ -288,8 +307,13 @@ def train_pytorch_mlp(
         torch.FloatTensor(X_train),
         torch.FloatTensor(y_train).reshape(-1, 1),
     )
+    # C-4 修复：drop_last=True 防止最后一个 batch_size=1 时 BatchNorm1d 抛出 ValueError
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, generator=_generator
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        generator=_generator,
+        drop_last=True,
     )
 
     val_dataset = TensorDataset(
@@ -300,7 +324,9 @@ def train_pytorch_mlp(
 
     # Loss function and optimizer
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = optim.Adam(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay
+    )
 
     # Learning rate scheduler
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -308,7 +334,9 @@ def train_pytorch_mlp(
     )
 
     # Early stopping
-    best_val_f1 = 0.0
+    # H-ML-1 修复：初始值改为 -1.0，确保 val_f1=0 时也能保存 best_state_dict
+    # 原值为 0.0 配合严格 > 比较，val_f1 恒为 0 时 best_state_dict 始终 None，早停后无法恢复权重
+    best_val_f1 = -1.0
     best_epoch = 0
     patience_counter = 0
     best_state_dict = None
@@ -323,7 +351,12 @@ def train_pytorch_mlp(
         "learning_rates": [],
     }
 
-    logger.info("Starting PyTorch training: epochs=%d, lr=%.4f, wd=%.4f", epochs, learning_rate, weight_decay)
+    logger.info(
+        "Starting PyTorch training: epochs=%d, lr=%.4f, wd=%.4f",
+        epochs,
+        learning_rate,
+        weight_decay,
+    )
 
     for epoch in range(epochs):
         # Training phase
@@ -386,7 +419,7 @@ def train_pytorch_mlp(
             best_val_f1 = val_f1
             best_epoch = epoch
             patience_counter = 0
-            best_state_dict = model.state_dict().copy()
+            best_state_dict = {k: v.clone() for k, v in model.state_dict().items()}
         else:
             patience_counter += 1
 
@@ -409,7 +442,13 @@ def train_pytorch_mlp(
     # Restore best weights
     if best_state_dict is not None:
         model.load_state_dict(best_state_dict)
-        logger.info("Restored best model weights (epoch=%d, val_f1=%.4f)", best_epoch, best_val_f1)
+        # L-22 修复：训练完成后将模型移回 CPU，避免 GPU 内存泄漏
+        model.cpu()
+        logger.info(
+            "Restored best model weights (epoch=%d, val_f1=%.4f)",
+            best_epoch,
+            best_val_f1,
+        )
 
     history["best_epoch"] = best_epoch
     history["best_val_f1"] = best_val_f1
@@ -423,7 +462,9 @@ def train_pytorch_mlp(
     return history
 
 
-def _compute_f1(y_true: np.ndarray, y_pred_proba: np.ndarray, threshold: float = 0.5) -> float:
+def _compute_f1(
+    y_true: np.ndarray, y_pred_proba: np.ndarray, threshold: float = 0.5
+) -> float:
     """Compute F1 score.
 
     Args:
@@ -444,7 +485,11 @@ def _compute_f1(y_true: np.ndarray, y_pred_proba: np.ndarray, threshold: float =
 
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
 
     return float(f1)
 

@@ -158,13 +158,19 @@ def check_sklearn_version() -> tuple[bool, str]:
         max_version = version.parse(SKLEARN_MAX_VERSION)
 
         if min_version <= current_version < max_version:
-            return True, f"sklearn version {sklearn.__version__} is within supported range [{SKLEARN_MIN_VERSION}, {SKLEARN_MAX_VERSION})"
+            return (
+                True,
+                f"sklearn version {sklearn.__version__} is within supported range [{SKLEARN_MIN_VERSION}, {SKLEARN_MAX_VERSION})",
+            )
         return (
             False,
             f"sklearn version mismatch: current {sklearn.__version__} outside supported range [{SKLEARN_MIN_VERSION}, {SKLEARN_MAX_VERSION})",
         )
     except ImportError:
         return False, "sklearn not installed"
+    except Exception as e:
+        # 捕获 version.parse 抛出的 InvalidVersion 等异常
+        return False, f"sklearn version check failed: {e}"
 
 
 def verify_model_compatibility(model: Any) -> tuple[bool, str]:
@@ -189,6 +195,7 @@ def verify_model_compatibility(model: Any) -> tuple[bool, str]:
             if hasattr(step, "sklearn_version"):
                 model_sklearn = step.sklearn_version
                 from packaging import version
+
                 model_v = version.parse(model_sklearn)
                 min_v = version.parse(SKLEARN_MIN_VERSION)
                 max_v = version.parse(SKLEARN_MAX_VERSION)
@@ -201,11 +208,15 @@ def verify_model_compatibility(model: Any) -> tuple[bool, str]:
     return True, "Model compatibility verified"
 
 
-def load_model_with_compatibility_check(model_path: Path) -> Any:
+def load_model_with_compatibility_check(
+    model_path: Path, trusted_root: Path | None = None
+) -> Any:
     """Load model with version compatibility check.
 
     Args:
         model_path: Path to model file.
+        trusted_root: Optional trusted directory for path traversal protection.
+            When provided, model_path must be under this directory.
 
     Returns:
         Loaded model.
@@ -224,9 +235,16 @@ def load_model_with_compatibility_check(model_path: Path) -> Any:
     # ML-005 修复：使用安全加载器（路径校验 + 大小校验 + 审计日志）
     from app.core.safe_pickle import safe_joblib_load
 
+    # 传入 trusted_root 启用路径遍历防护，防止 pickle 反序列化 RCE
+    # ISS-007 修复: 强制启用哈希校验, 防止模型文件被篡改
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        model = safe_joblib_load(model_path, model_id=str(model_path.name))
+        model = safe_joblib_load(
+            model_path,
+            model_id=str(model_path.name),
+            trusted_root=trusted_root,
+            require_hash=True,
+        )
 
         # Check for version warnings
         version_warnings = [
@@ -278,7 +296,9 @@ def check_all_model_compatibilities() -> dict[str, tuple[bool, str]]:
                 current = torch.__version__
                 if current != info.torch_version:
                     is_compat = False
-                    messages.append(f"torch mismatch: current={current}, required={info.torch_version}")
+                    messages.append(
+                        f"torch mismatch: current={current}, required={info.torch_version}"
+                    )
                 else:
                     messages.append(f"torch {current} OK")
             except ImportError:
@@ -292,7 +312,9 @@ def check_all_model_compatibilities() -> dict[str, tuple[bool, str]]:
                 current = transformers.__version__
                 if current != info.transformers_version:
                     is_compat = False
-                    messages.append(f"transformers mismatch: current={current}, required={info.transformers_version}")
+                    messages.append(
+                        f"transformers mismatch: current={current}, required={info.transformers_version}"
+                    )
                 else:
                     messages.append(f"transformers {current} OK")
             except ImportError:
@@ -306,7 +328,9 @@ def check_all_model_compatibilities() -> dict[str, tuple[bool, str]]:
                 current = tf.__version__
                 if current != info.tensorflow_version:
                     is_compat = False
-                    messages.append(f"tensorflow mismatch: current={current}, required={info.tensorflow_version}")
+                    messages.append(
+                        f"tensorflow mismatch: current={current}, required={info.tensorflow_version}"
+                    )
                 else:
                     messages.append(f"tensorflow {current} OK")
             except ImportError:

@@ -1,25 +1,32 @@
-from contextlib import asynccontextmanager
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
-from app.api.v1 import api_router
 from app.api.csp_report import router as csp_report_router
+from app.api.v1 import api_router
+from app.api.v1.uploads import router as uploads_router
 from app.core.config import settings
 from app.core.database import close_db, engine, init_db
 from app.core.exceptions import install_exception_handlers
-from app.core.health import get_health_snapshot, lightweight_health_snapshot
+from app.core.health import (
+    get_health_snapshot,
+    get_health_snapshot_nonblocking,
+    start_health_monitor,
+    stop_health_monitor,
+)
+from app.core.logging_config import configure_logging
 from app.core.middlewares import (
     metrics_middleware,
     request_id_middleware,
     security_headers_middleware,
 )
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
-from app.core.rate_limit import limiter, install_rate_limiter
+from app.core.pii_crypto import ensure_pii_key
+from app.core.rate_limit import install_rate_limiter, limiter
 from app.core.seed import seed_database
 from app.core.sentry import init_sentry
 from app.core.ws import websocket_endpoint
@@ -29,45 +36,138 @@ from app.services import ObservabilityExporter
 logger = logging.getLogger(__name__)
 
 
+async def _async_noop(func):
+    """将同步函数包装为协程，用于 record_step_async 调用同步函数."""
+    func()
+    return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # R-006 修复: 启动状态收集器 (进程级单例)，记录每个组件的启动结果
+    from app.core.startup_status import (
+        record_step_async,
+        record_step_sync,
+        startup_status,
+    )
+
+    # RES-P0-002 修复：在 lifespan 最开始配置日志轮转，确保后续所有启动日志均经过统一配置
+    await record_step_async(
+        "configure_logging", _async_noop(configure_logging), fatal=True
+    )
+    # STAB-P0-001 修复：根据 settings 初始化 DB 熔断器参数
+    from app.core.db_breaker import init_db_breaker
+
+    record_step_sync("init_db_breaker", init_db_breaker, fatal=True)
+    # STAB-P1-002 修复：根据 settings 初始化 ML 推理熔断器参数
+    from app.core.ml_breaker import init_ml_breaker
+
+    record_step_sync("init_ml_breaker", init_ml_breaker, fatal=True)
+    # STAB-P1-004 修复：根据 settings 初始化 SMTP 邮件熔断器参数
+    from app.core.smtp_breaker import init_smtp_breaker
+
+    record_step_sync("init_smtp_breaker", init_smtp_breaker, fatal=True)
+    # STAB-P1-005 修复：根据 settings 初始化 Celery broker 熔断器参数
+    from app.core.celery_breaker import init_celery_breaker
+
+    record_step_sync("init_celery_breaker", init_celery_breaker, fatal=True)
     app.state.seed_ready = False
-    await init_db()
+    # P0-1.1: startup 探针初始状态为 False, 启动完成后置 True
+    app.state.started = False
+    # H-01 修复：开发环境自动生成临时 PII 加密密钥，避免未配置时崩溃
+    record_step_sync("ensure_pii_key", ensure_pii_key, fatal=True)
+    await record_step_async("init_db", init_db(), fatal=True)
     # P1-INFRA-035 修复：生产环境使用 Alembic 迁移，不调用 create_all
     # 开发环境保留 create_all 以简化首次启动（自动建表）
     if settings.app_env.lower() != "production":
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     else:
-        logger.info("Production mode: skipping create_all, ensure 'alembic upgrade head' is run before startup")
+        logger.info(
+            "Production mode: skipping create_all, ensure 'alembic upgrade head' is run before startup"
+        )
     if settings.enable_seed:
-        await seed_database()
+        await record_step_async("seed_database", seed_database(), fatal=True)
         app.state.seed_ready = True
-    try:
+    else:
+        startup_status.record("seed_database", "skipped")
+
+    # R-006: model preload 是非致命组件 (失败时降级运行，不影响启动)
+    async def _preload_models():
         from app.core.model_engine import model_engine
+
         await asyncio.to_thread(model_engine.preload)
         model_engine.start_persist()
-    except Exception:
-        logger.exception("model.preload.failed")
-    init_sentry(
-        dsn=settings.sentry_dsn,
-        environment=settings.sentry_environment,
-        release=app.version,
-        traces_sample_rate=settings.sentry_traces_sample_rate,
-    )
+
+    await record_step_async("model_preload", _preload_models(), fatal=False)
+
+    # R-006: sentry 初始化失败不影响启动 (仅监控降级)
+    def _init_sentry():
+        init_sentry(
+            dsn=settings.sentry_dsn,
+            environment=settings.sentry_environment,
+            release=app.version,
+            traces_sample_rate=settings.sentry_traces_sample_rate,
+        )
+
+    record_step_sync("init_sentry", _init_sentry, fatal=False)
     # v1.39: 启动 ObservabilityExporter (60s 周期发布 7 v1.36 metric 到 Prometheus)
     observability_exporter = ObservabilityExporter()
-    await observability_exporter.start()
+    await record_step_async(
+        "observability_exporter", observability_exporter.start(), fatal=False
+    )
+    # P0-1.1: 启动后台健康监控任务, 周期性刷新健康快照缓存
+    # 确保 /health/ready 端点延迟 < 5ms (仅读取内存缓存, 永不阻塞)
+    await record_step_async(
+        "health_monitor",
+        start_health_monitor(app, engine, settings.redis_url),
+        fatal=False,
+    )
+    # P2-1: 启动 WebSocket pubsub 订阅器,支持多 worker 部署与 Celery 跨进程通知
+    # 订阅 ws:user:* pattern, 收到其他 worker/Celery 发布的消息后投递给本地连接
+    from app.core.ws import ws_manager
+
+    await record_step_async(
+        "ws_pubsub", ws_manager.start_pubsub_subscriber(), fatal=False
+    )
+    # STAB-P1-009: 启动金丝雀回滚备用监控 (Celery 不可用时的 fallback)
+    # 当 celery_breaker 状态 != closed 时, 后台任务接管 canary_auto_rollback_check
+    from app.services.canary_fallback_monitor import start_canary_fallback_monitor
+
+    await record_step_async(
+        "canary_fallback", start_canary_fallback_monitor(app), fatal=False
+    )
+    # R-006: 标记启动序列完成 (供 /health/startup 端点使用)
+    startup_status.mark_completed()
+    # P0-1.1: 标记应用启动完成, /health/startup 探针返回 ok
+    app.state.started = True
     try:
         yield
     finally:
+        # P2-1: 停止 WebSocket pubsub 订阅器
+        await ws_manager.stop_pubsub_subscriber()
+        # STAB-P1-009: 停止金丝雀回滚备用监控
+        from app.services.canary_fallback_monitor import stop_canary_fallback_monitor
+
+        await stop_canary_fallback_monitor()
+        # P0-1.1: 关闭后台健康监控任务
+        await stop_health_monitor()
         from app.core.model_engine import model_engine as _me
+
         try:
             await _me.stop_persist()
         except Exception:
             logger.warning("Failed to stop monitoring persist")
         # v1.39: 停止 ObservabilityExporter
         await observability_exporter.stop()
+        # H-Svc-9 修复：关闭 risk_service 的 PDF 生成线程池，避免应用关闭时线程泄漏
+        from app.services.risk_service import shutdown_pdf_executor
+
+        shutdown_pdf_executor()
+        # P1-2: 关闭共享 Redis 客户端, 释放连接池资源
+        from app.core.cache import close_redis_client
+
+        await close_redis_client()
         await close_db()
 
 
@@ -82,11 +182,18 @@ app.add_middleware(
 )
 
 upload_dir = Path(__file__).resolve().parent.parent / "uploads"
+# SEC-P0-001 修复：移除 StaticFiles 直接挂载，改为鉴权路由 + 归属校验
+# 原 app.mount("/uploads", StaticFiles(...)) 任何未登录用户均可访问 /uploads/*，
+# 泄露用户头像/音频/PDF 报告等敏感数据。
+# 现使用 app.api.v1.uploads 提供的两条鉴权路由：
+#   GET /uploads/{user_id}/{filename}   - 用户私有文件 (JWT + 归属校验)
+#   GET /uploads/public/{subpath:path}  - 公共资源 (白名单 audio/content 目录)
 try:
     upload_dir.mkdir(parents=True, exist_ok=True)
 except OSError:
-    logger.warning("upload_dir.creation.failed path=%s", upload_dir)
-app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
+    logger.warning(
+        "upload_dir.creation.failed path=%s - /uploads route may fail", upload_dir
+    )
 
 app.middleware("http")(request_id_middleware)
 app.middleware("http")(security_headers_middleware)
@@ -94,6 +201,7 @@ app.middleware("http")(metrics_middleware)
 install_rate_limiter(app)
 app.include_router(api_router)
 app.include_router(csp_report_router)
+app.include_router(uploads_router)
 install_exception_handlers(app)
 
 
@@ -106,28 +214,82 @@ async def ws_endpoint(ws: WebSocket, user_id: int):
 @limiter.exempt
 async def health_check() -> dict:
     snapshot = await get_health_snapshot(engine, settings.redis_url)
+    # R-006 修复: 暴露启动失败组件摘要，便于运维定位降级原因
+    from app.core.startup_status import startup_status
+
     return {
         "status": "ok" if snapshot.database else "degraded",
         "checks": {
             "database": "ok" if snapshot.database else "failed",
             "redis": "ok" if snapshot.redis else "failed (optional)",
             "celery_worker": "ok" if snapshot.celery_worker else "failed (optional)",
+            # STAB-P1-007: 暴露 ML 核心模型可用性 (3 个降级回退模型文件存在性)
+            "models": "ok" if snapshot.models else "failed (optional)",
         },
+        **startup_status.to_summary_dict(),
     }
+
+
+@app.get("/health/live", responses=COMMON_ERROR_RESPONSES)
+@limiter.exempt
+async def liveness_check() -> dict:
+    """P0-1.1: 轻量存活探针.
+
+    仅检查进程存活与事件循环响应能力, 不执行任何 I/O.
+    延迟目标: < 5ms. 适用于 k8s liveness probe.
+    """
+    return {"status": "ok"}
 
 
 @app.get("/health/ready", responses=COMMON_ERROR_RESPONSES)
 @limiter.exempt
 async def readiness_check() -> dict:
-    snapshot = await get_health_snapshot(engine, settings.redis_url)
+    """P0-1.1: 就绪探针 (非阻塞).
+
+    返回缓存中的健康快照, 永不阻塞. 后台健康监控任务
+    (start_health_monitor) 周期性刷新缓存, 确保数据常新.
+    延迟目标: < 5ms (仅读取内存缓存).
+    """
+    snapshot = await get_health_snapshot_nonblocking(engine, settings.redis_url)
+    # R-006 修复: 暴露启动失败组件摘要
+    from app.core.startup_status import startup_status
+
     status = "ok" if snapshot.database else "degraded"
+    # 若有启动失败组件，整体状态降级为 degraded
+    if startup_status.failed_components:
+        status = "degraded"
     return {
         "status": status,
         "checks": {
             "database": "ok" if snapshot.database else "failed",
             "redis": "ok" if snapshot.redis else "failed (optional)",
             "celery_worker": "ok" if snapshot.celery_worker else "failed (optional)",
+            # STAB-P1-007: 暴露 ML 核心模型可用性
+            "models": "ok" if snapshot.models else "failed (optional)",
         },
+        **startup_status.to_summary_dict(),
+    }
+
+
+@app.get("/health/startup", responses=COMMON_ERROR_RESPONSES)
+@limiter.exempt
+async def startup_check() -> dict:
+    """P0-1.1: 启动探针.
+
+    检查应用是否完成启动流程 (DB 初始化/模型预加载/健康监控启动).
+    适用于 k8s startup probe, 启动完成前返回 503, 完成后返回 200.
+
+    R-006 修复: 返回结构化启动状态，包含每个组件的成功/失败/跳过状态、
+    错误类型与摘要、耗时。便于运维通过 /health/startup 定位启动失败原因。
+    """
+    started = bool(getattr(app.state, "started", False))
+    # R-006: 暴露完整启动状态 (组件级详情 + 致命错误)
+    from app.core.startup_status import startup_status
+
+    return {
+        "status": "ok" if started else "starting",
+        "started": started,
+        **startup_status.to_dict(),
     }
 
 

@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
  * - 验证标准: 首屏加载时间降低 30%
  *
  * 对应测试计划:
- * - TC-FEO-HP-009: FCP/LCP/FID/CLS/TTFB 指标采集正确
+ * - TC-FEO-HP-009: FCP/LCP/INP/CLS/TTFB 指标采集正确
  * - TC-FEO-HP-010: 性能指标上报到后端成功
  * - TC-FEO-PERF-003: 首屏加载时间降低 30% (相比 v1.4)
  * - TC-FEO-PERF-004: FCP < 2.5s, LCP < 4.0s
@@ -20,7 +20,7 @@ describe('T-QA-010: 前端加载性能测试', () => {
   // 性能基线配置
   const BASELINE_FCP_MS = 2500
   const BASELINE_LCP_MS = 4000
-  const BASELINE_FID_MS = 100
+  const BASELINE_INP_MS = 200 // M-48: INP 基线 200ms (Google "Good" 阈值)
   const BASELINE_CLS = 0.1
   const MIN_SCROLL_FPS = 50
   const LOAD_TIME_IMPROVEMENT_PERCENT = 30
@@ -87,19 +87,30 @@ describe('T-QA-010: 前端加载性能测试', () => {
     })
   })
 
-  describe('3. FID (First Input Delay) 基线', () => {
-    it('FID 应小于 100ms', () => {
-      const fid = 45 // 模拟采集到的 FID 值
-      expect(fid).toBeLessThan(BASELINE_FID_MS)
+  describe('3. INP (Interaction to Next Paint) 基线', () => {
+    // M-48 修复：FID 已被 INP 替代，INP 测量页面生命周期内最差的交互延迟
+    it('INP 应小于 200ms', () => {
+      const inp = 120 // 模拟采集到的 INP 值（最差交互的 duration）
+      expect(inp).toBeLessThan(BASELINE_INP_MS)
     })
 
-    it('FID 计算应为 processingStart - startTime', () => {
-      const firstInput = {
-        startTime: 1000,
-        processingStart: 1045,
-      }
-      const fid = firstInput.processingStart - firstInput.startTime
-      expect(fid).toBe(45)
+    it('INP 应取所有交互中的最大 duration', () => {
+      // 模拟 PerformanceObserver 采集 event 条目
+      const eventEntries = [
+        { interactionId: 1, duration: 80 },
+        { interactionId: 2, duration: 120 },
+        { interactionId: 3, duration: 95 },
+        { interactionId: 0, duration: 200 }, // 非交互事件，应被忽略
+      ]
+      let inp = 0
+      eventEntries.forEach((entry) => {
+        if (entry.interactionId) {
+          if (entry.duration > inp) {
+            inp = entry.duration
+          }
+        }
+      })
+      expect(inp).toBe(120) // 应为最大交互的 duration
     })
   })
 
@@ -211,7 +222,7 @@ describe('T-QA-010: 前端加载性能测试', () => {
 
     it('requestAnimationFrame 节流应有效', () => {
       let rafCallCount = 0
-      const mockRAF = (callback: FrameRequestCallback): number => {
+      const mockRAF = (_callback: FrameRequestCallback): number => {
         rafCallCount++
         return 0
       }
@@ -282,7 +293,7 @@ describe('T-QA-010: 前端加载性能测试', () => {
       const payload = {
         fcp: 1800,
         lcp: 3200,
-        fid: 45,
+        inp: 120,
         cls: 0.05,
         ttfb: 150,
         url: 'http://localhost:5173/monitoring',
@@ -292,7 +303,7 @@ describe('T-QA-010: 前端加载性能测试', () => {
 
       expect(payload.fcp).toBeDefined()
       expect(payload.lcp).toBeDefined()
-      expect(payload.fid).toBeDefined()
+      expect(payload.inp).toBeDefined()
       expect(payload.cls).toBeDefined()
       expect(payload.ttfb).toBeDefined()
     })
@@ -317,13 +328,13 @@ describe('T-QA-010: 前端加载性能测试', () => {
       const metrics = {
         fcp: 1800,
         lcp: 3200,
-        fid: 45,
+        inp: 120,
         cls: 0.05,
       }
 
       expect(metrics.fcp).toBeLessThan(BASELINE_FCP_MS)
       expect(metrics.lcp).toBeLessThan(BASELINE_LCP_MS)
-      expect(metrics.fid).toBeLessThan(BASELINE_FID_MS)
+      expect(metrics.inp).toBeLessThan(BASELINE_INP_MS)
       expect(metrics.cls).toBeLessThan(BASELINE_CLS)
     })
 

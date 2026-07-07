@@ -56,15 +56,15 @@ const generateRiskTrendOption = (
       smooth: true,
       symbol: 'circle',
       symbolSize: 6,
-      lineStyle: { width: 3, color: '#409eff' },
-      itemStyle: { color: '#409eff' },
+      lineStyle: { width: 3, color: '#3b82c4' },
+      itemStyle: { color: '#3b82c4' },
       areaStyle: {
         color: {
           type: 'linear',
           x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [
-            { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
-            { offset: 1, color: 'rgba(64, 158, 255, 0.05)' },
+            { offset: 0, color: 'rgba(59, 130, 196, 0.25)' },
+            { offset: 1, color: 'rgba(59, 130, 196, 0.04)' },
           ],
         },
       },
@@ -81,8 +81,8 @@ const generateRiskTrendOption = (
         type: 'line',
         data: upperBounds,
         smooth: true,
-        lineStyle: { width: 2, type: 'dashed', color: '#f56c6c' },
-        itemStyle: { color: '#f56c6c' },
+        lineStyle: { width: 2, type: 'dashed', color: '#d65a5a' },
+        itemStyle: { color: '#d65a5a' },
         symbol: 'none',
       })
       series.push({
@@ -90,8 +90,8 @@ const generateRiskTrendOption = (
         type: 'line',
         data: lowerBounds,
         smooth: true,
-        lineStyle: { width: 2, type: 'dashed', color: '#67c23a' },
-        itemStyle: { color: '#67c23a' },
+        lineStyle: { width: 2, type: 'dashed', color: '#5a9e3a' },
+        itemStyle: { color: '#5a9e3a' },
         symbol: 'none',
       })
     }
@@ -122,11 +122,11 @@ const generateModelPerformanceOption = (data: ModelMetric[], title: string) => {
     xAxis: { type: 'category', data: models },
     yAxis: { type: 'value', min: 0, max: 1 },
     series: [
-      { name: 'Accuracy', type: 'bar', data: data.map((d) => d.accuracy), itemStyle: { color: '#409eff' } },
-      { name: 'Precision', type: 'bar', data: data.map((d) => d.precision), itemStyle: { color: '#67c23a' } },
-      { name: 'Recall', type: 'bar', data: data.map((d) => d.recall), itemStyle: { color: '#e6a23c' } },
-      { name: 'F1', type: 'bar', data: data.map((d) => d.f1), itemStyle: { color: '#f56c6c' } },
-      { name: 'AUC', type: 'bar', data: data.map((d) => d.auc), itemStyle: { color: '#909399' } },
+      { name: 'Accuracy', type: 'bar', data: data.map((d) => d.accuracy), itemStyle: { color: '#3b82c4' } },
+      { name: 'Precision', type: 'bar', data: data.map((d) => d.precision), itemStyle: { color: '#5a9e3a' } },
+      { name: 'Recall', type: 'bar', data: data.map((d) => d.recall), itemStyle: { color: '#d4923a' } },
+      { name: 'F1', type: 'bar', data: data.map((d) => d.f1), itemStyle: { color: '#d65a5a' } },
+      { name: 'AUC', type: 'bar', data: data.map((d) => d.auc), itemStyle: { color: '#7a8290' } },
     ],
   }
 }

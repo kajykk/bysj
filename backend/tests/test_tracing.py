@@ -1,4 +1,5 @@
 """v1.33: W3C Trace Context 测试"""
+
 from __future__ import annotations
 
 from app.core.tracing import (
@@ -28,8 +29,14 @@ def test_parse_traceparent_invalid_format() -> None:
     assert parse_traceparent(None) is None
     assert parse_traceparent("") is None
     assert parse_traceparent("garbage") is None
-    assert parse_traceparent("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331") is None
-    assert parse_traceparent("01-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01") is None  # 非 00 version
+    assert (
+        parse_traceparent("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331")
+        is None
+    )
+    assert (
+        parse_traceparent("01-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01")
+        is None
+    )  # 非 00 version
 
 
 def test_parse_traceparent_invalid_ids() -> None:
@@ -64,7 +71,9 @@ def test_trace_context_to_traceparent() -> None:
         span_id="b7ad6b7169203331",
         trace_flags="01",
     )
-    assert tc.to_traceparent() == "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+    assert (
+        tc.to_traceparent() == "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+    )
 
 
 def test_trace_context_child_span() -> None:

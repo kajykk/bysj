@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import pytest
-import json
 
 from app.schemas.admin import (
-    TemplateTaskItem,
-    TemplateUpsertRequest,
-    ThresholdUpsertRequest,
     ConfigUpsertRequest,
     ModelRegistryRequest,
     ModelUpdateRequest,
+    TemplateTaskItem,
+    TemplateUpsertRequest,
+    ThresholdUpsertRequest,
 )
 
 
@@ -51,18 +50,24 @@ class TestThresholdUpsertRequest:
         """TC-COV-SCHEMA-ADMIN-004: min > max raises error."""
         with pytest.raises(ValueError, match="less than"):
             ThresholdUpsertRequest(
-                level=1, level_name="low",
-                min_score=50, max_score=30,
-                color="red", action_required="act",
+                level=1,
+                level_name="low",
+                min_score=50,
+                max_score=30,
+                color="red",
+                action_required="act",
             )
 
     def test_min_equals_max(self):
         """TC-COV-SCHEMA-ADMIN-005: min == max raises error."""
         with pytest.raises(ValueError, match="not be equal"):
             ThresholdUpsertRequest(
-                level=1, level_name="low",
-                min_score=50, max_score=50,
-                color="red", action_required="act",
+                level=1,
+                level_name="low",
+                min_score=50,
+                max_score=50,
+                color="red",
+                action_required="act",
             )
 
 
@@ -112,6 +117,7 @@ class TestConfigUpsertRequest:
     def test_unsupported_type(self):
         """TC-COV-SCHEMA-ADMIN-013: Unsupported type raises error."""
         from datetime import datetime
+
         with pytest.raises(ValueError, match="unsupported type"):
             ConfigUpsertRequest(config_key="k", config_value={"t": datetime.now()})
 

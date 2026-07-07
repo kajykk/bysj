@@ -14,8 +14,14 @@ logger = logging.getLogger(__name__)
 
 # Dataset paths (relative to project root)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-DEPRESJON_PATH = _PROJECT_ROOT / "datasets/physiological/external/depresjon_processed/depresjon_physiological.csv"
-KAGGLE_PATH = _PROJECT_ROOT / "datasets/physiological/external/kaggle_wearable/mental_health_wearable_data.csv"
+DEPRESJON_PATH = (
+    _PROJECT_ROOT
+    / "datasets/physiological/external/depresjon_processed/depresjon_physiological.csv"
+)
+KAGGLE_PATH = (
+    _PROJECT_ROOT
+    / "datasets/physiological/external/kaggle_wearable/mental_health_wearable_data.csv"
+)
 
 # Required columns for the model
 REQUIRED_COLUMNS = [
@@ -68,7 +74,9 @@ def load_depresjon_data(path: Path | str | None = None) -> DataFrame:
         raise FileNotFoundError(f"Depresjon dataset not found: {path}")
 
     df = pd.read_csv(path)
-    logger.info("Loaded Depresjon dataset: %d rows, %d columns", len(df), len(df.columns))
+    logger.info(
+        "Loaded Depresjon dataset: %d rows, %d columns", len(df), len(df.columns)
+    )
 
     # Rename columns to unified schema
     df = df.rename(columns=DEPRESJON_COLUMN_MAP)
@@ -119,7 +127,8 @@ def load_kaggle_data(path: Path | str | None = None) -> DataFrame:
     for col in missing_columns:
         df[col] = np.nan
         logger.info(
-            "Filled %s with NaN (will be imputed by DataCleaner using train median)", col
+            "Filled %s with NaN (will be imputed by DataCleaner using train median)",
+            col,
         )
 
     # Select required columns

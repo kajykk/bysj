@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from app.core.security import create_access_token
 
 
@@ -24,9 +23,11 @@ def test_login_refresh_and_logout_flow(client, seeded_user_id: int) -> None:
     assert login_resp.status_code == 200
     login_data = login_resp.json()["data"]
     access_token = login_data["access_token"]
-    refresh_token = login_data["refresh_token"]
+    refresh_token = client.cookies.get("refresh_token")
 
-    refresh_resp = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
+    refresh_resp = client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
+    )
     assert refresh_resp.status_code == 200
     refresh_data = refresh_resp.json()["data"]
     assert refresh_data["access_token"]
@@ -36,7 +37,9 @@ def test_login_refresh_and_logout_flow(client, seeded_user_id: int) -> None:
     from app.main import app
     from app.models.user import User
 
-    registered_user_id = register_data.get("user", {}).get("id") or login_data.get("user", {}).get("id")
+    registered_user_id = register_data.get("user", {}).get("id") or login_data.get(
+        "user", {}
+    ).get("id")
 
     async def _override_for_logout():
         return User(

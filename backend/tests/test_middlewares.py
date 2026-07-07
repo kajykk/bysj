@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi import FastAPI, Request
 from starlette.testclient import TestClient
 
 from app.core.middlewares import request_id_middleware, security_headers_middleware
 
-
 app = FastAPI()
+
 
 @app.get("/test")
 def test_endpoint():
@@ -20,6 +19,7 @@ def test_endpoint():
 @app.middleware("http")
 async def _req_id_middleware(request: Request, call_next):
     return await request_id_middleware(request, call_next)
+
 
 @app.middleware("http")
 async def _sec_headers_middleware(request: Request, call_next):

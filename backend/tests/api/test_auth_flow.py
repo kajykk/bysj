@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -68,7 +66,9 @@ class TestLogin:
             },
         )
 
-        user = (await clean_db.execute(select(User).where(User.username == "disabled_user"))).scalar_one()
+        user = (
+            await clean_db.execute(select(User).where(User.username == "disabled_user"))
+        ).scalar_one()
         # P1-D-8: 使用约束允许的合法值 'inactive' (auth_service 通过 status != 'active' 判断禁用)
         user.status = "inactive"
         await clean_db.commit()
@@ -97,7 +97,8 @@ class TestLogin:
         body = resp.json()
         assert body["code"] == 200
         assert "access_token" in body["data"]
-        assert "refresh_token" in body["data"]
+        # H-API-12: refresh_token 不再在响应体返回，通过 httpOnly Cookie 设置
+        assert client.cookies.get("refresh_token") is not None
 
     def test_login_wrong_password(self, client: TestClient, clean_db):
         client.post(
@@ -134,7 +135,9 @@ class TestRequestReset:
                 "role": "user",
             },
         )
-        resp = client.post("/api/v1/auth/request-reset", json={"email": "reset@test.com"})
+        resp = client.post(
+            "/api/v1/auth/request-reset", json={"email": "reset@test.com"}
+        )
         assert resp.status_code == 200
         assert resp.json()["code"] == 200
 
@@ -154,11 +157,12 @@ class TestTokenRefresh:
                 "role": "user",
             },
         )
-        login_resp = client.post(
+        client.post(
             "/api/v1/auth/login",
             json={"username": "rotator", "password": "StrongPass123"},
         )
-        refresh_token = login_resp.json()["data"]["refresh_token"]
+        # H-API-12: refresh_token 通过 httpOnly Cookie 返回，不在响应体
+        refresh_token = client.cookies.get("refresh_token")
 
         resp = client.post(
             "/api/v1/auth/refresh",
@@ -181,11 +185,12 @@ class TestTokenRefresh:
                 "role": "user",
             },
         )
-        login_resp = client.post(
+        client.post(
             "/api/v1/auth/login",
             json={"username": "replay", "password": "StrongPass123"},
         )
-        refresh_token = login_resp.json()["data"]["refresh_token"]
+        # H-API-12: refresh_token 通过 httpOnly Cookie 返回
+        refresh_token = client.cookies.get("refresh_token")
 
         first = client.post(
             "/api/v1/auth/refresh",
@@ -209,11 +214,12 @@ class TestTokenRefresh:
                 "role": "user",
             },
         )
-        login_resp = client.post(
+        client.post(
             "/api/v1/auth/login",
             json={"username": "refresher", "password": "StrongPass123"},
         )
-        refresh_token = login_resp.json()["data"]["refresh_token"]
+        # H-API-12: refresh_token 通过 httpOnly Cookie 返回
+        refresh_token = client.cookies.get("refresh_token")
 
         resp = client.post(
             "/api/v1/auth/refresh",
@@ -323,13 +329,19 @@ class TestLoginRateLimit:
             for i in range(5):
                 resp = client.post(
                     "/api/v1/auth/login",
-                    json={"username": "nonexistent_user_ratelimit", "password": "WrongPass123"},
+                    json={
+                        "username": "nonexistent_user_ratelimit",
+                        "password": "WrongPass123",
+                    },
                 )
                 assert resp.status_code == 401
 
             resp = client.post(
                 "/api/v1/auth/login",
-                json={"username": "nonexistent_user_ratelimit", "password": "WrongPass123"},
+                json={
+                    "username": "nonexistent_user_ratelimit",
+                    "password": "WrongPass123",
+                },
             )
             assert resp.status_code == 429
         finally:
@@ -338,11 +350,13 @@ class TestLoginRateLimit:
 
 class TestTokenExpiration:
     def test_expired_access_token_rejected(self, client: TestClient, clean_db):
-        import jwt
         from datetime import datetime, timedelta, timezone
+
+        import jwt
+
         from app.core.config import settings
-        from app.main import app
         from app.core.deps import get_current_user
+        from app.main import app
 
         expired_token = jwt.encode(
             {
@@ -363,8 +377,10 @@ class TestTokenExpiration:
             )
             assert resp.status_code == 401
         finally:
+
             async def _override_get_current_user():
                 from app.models.user import User
+
                 return User(
                     id=1,
                     username="user_tester",

@@ -11,7 +11,9 @@ class TestFusionExpectedRisk:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_case", FUSION_TEST_CASES, ids=lambda x: x["name"])
-    async def test_fusion_risk_levels(self, model_engine: ModelEngine, test_case: dict) -> None:
+    async def test_fusion_risk_levels(
+        self, model_engine: ModelEngine, test_case: dict
+    ) -> None:
         """验证融合模型风险等级在预期范围内。"""
         result = await model_engine.predict_fusion(
             features=test_case["features"],
@@ -27,7 +29,9 @@ class TestFusionExpectedRisk:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_case", FUSION_TEST_CASES, ids=lambda x: x["name"])
-    async def test_fusion_crisis_override(self, model_engine: ModelEngine, test_case: dict) -> None:
+    async def test_fusion_crisis_override(
+        self, model_engine: ModelEngine, test_case: dict
+    ) -> None:
         """验证融合模型危机覆盖。"""
         result = await model_engine.predict_fusion(
             features=test_case["features"],
@@ -43,7 +47,9 @@ class TestFusionExpectedRisk:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_case", FUSION_TEST_CASES, ids=lambda x: x["name"])
-    async def test_fusion_review_required(self, model_engine: ModelEngine, test_case: dict) -> None:
+    async def test_fusion_review_required(
+        self, model_engine: ModelEngine, test_case: dict
+    ) -> None:
         """验证融合模型复核标记。"""
         result = await model_engine.predict_fusion(
             features=test_case["features"],

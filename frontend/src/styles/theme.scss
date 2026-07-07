@@ -2,41 +2,194 @@
 // 浅色主题（默认）
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f5f7fa;
-  --bg-tertiary: #f0f2f5;
-  --text-primary: #303133;
-  --text-secondary: #606266;
-  --text-tertiary: #909399;
-  --border-color: #dcdfe6;
-  --border-light: #e4e7ed;
-  --primary-color: #409eff;
-  --primary-light: #ecf5ff;
-  --success-color: #67c23a;
-  --warning-color: #e6a23c;
-  --danger-color: #f56c6c;
-  --info-color: #909399;
+  --bg-secondary: #f7f9fb;
+  --bg-tertiary: #eef2f6;
+  --text-primary: #2c3340;
+  --text-secondary: #5a6470;
+  --text-tertiary: #8a929e;
+  --border-color: #dce1e7;
+  --border-light: #e8ecf0;
+  --primary-color: #3b82c4;
+  --primary-light: #e8f1f8;
+  --success-color: #5a9e3a;
+  --warning-color: #d4923a;
+  --danger-color: #d65a5a;
+  --info-color: #7a8290;
+
+  /* ===== Element Plus 主题覆盖 ===== */
+  --el-color-primary: #3b82c4;
+  --el-color-primary-light-3: #6ba3d4;
+  --el-color-primary-light-5: #9ac4e3;
+  --el-color-primary-light-7: #c5dcef;
+  --el-color-primary-light-8: #dae6f4;
+  --el-color-primary-light-9: #e8f1f8;
+  --el-color-primary-dark-2: #2e6fa8;
+
+  --el-color-success: #5a9e3a;
+  --el-color-success-light-3: #84b86a;
+  --el-color-success-light-5: #a8ce95;
+  --el-color-success-light-7: #cbe0c0;
+  --el-color-success-light-8: #dbe9d3;
+  --el-color-success-light-9: #eaf2e6;
+  --el-color-success-dark-2: #487e2e;
+
+  --el-color-warning: #d4923a;
+  --el-color-warning-light-3: #dfac6a;
+  --el-color-warning-light-5: #e8c095;
+  --el-color-warning-light-7: #f0d4c0;
+  --el-color-warning-light-8: #f4e0d3;
+  --el-color-warning-light-9: #f9ede6;
+  --el-color-warning-dark-2: #aa752e;
+
+  --el-color-danger: #d65a5a;
+  --el-color-danger-light-3: #df8484;
+  --el-color-danger-light-5: #e8a0a0;
+  --el-color-danger-light-7: #f0c3c3;
+  --el-color-danger-light-8: #f4d3d3;
+  --el-color-danger-light-9: #f9e6e6;
+  --el-color-danger-dark-2: #ab4848;
+
+  --el-color-info: #7a8290;
+  --el-color-info-light-3: #9ba1ab;
+  --el-color-info-light-5: #b5bac2;
+  --el-color-info-light-7: #cfd3d8;
+  --el-color-info-light-8: #dce0e4;
+  --el-color-info-light-9: #e9ebed;
+  --el-color-info-dark-2: #626872;
+
+  --el-text-color-primary: #2c3340;
+  --el-text-color-regular: #5a6470;
+  --el-text-color-secondary: #7a8290;
+  --el-text-color-placeholder: #a8abb2;
+  --el-text-color-disabled: #c0c4cc;
+
+  --el-border-color: #dce1e7;
+  --el-border-color-light: #e8ecf0;
+  --el-border-color-lighter: #eef2f6;
+  --el-border-color-extra-light: #f3f6f9;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f7f9fb;
+  --el-bg-color-overlay: #ffffff;
+  --el-fill-color: #f7f9fb;
+  --el-fill-color-light: #f0f3f7;
+  --el-fill-color-lighter: #f7f9fb;
+  --el-fill-color-blank: #ffffff;
+
+  --el-box-shadow: 0 2px 12px 0 rgba(59, 130, 196, 0.08);
+  --el-box-shadow-light: 0 1px 3px rgba(59, 130, 196, 0.04);
+  --el-box-shadow-lighter: 0 2px 8px rgba(59, 130, 196, 0.06);
+  --el-box-shadow-dark: 0 8px 24px rgba(59, 130, 196, 0.12);
 }
 
 // 深色主题
 html.dark {
-  --bg-primary: #141414;
-  --bg-secondary: #1d1d1d;
-  --bg-tertiary: #262626;
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0a0;
-  --text-tertiary: #737373;
-  --border-color: #434343;
-  --border-light: #2c2c2c;
-  --primary-color: #5b8ff9;
-  --primary-light: #1a1a2e;
-  --success-color: #52c41a;
-  --warning-color: #faad14;
-  --danger-color: #ff4d4f;
-  --info-color: #737373;
+  --bg-primary: #131820;
+  --bg-secondary: #1a2029;
+  --bg-tertiary: #232a35;
+  --text-primary: #e0e6ed;
+  --text-secondary: #a0a8b4;
+  --text-tertiary: #6a7280;
+  --border-color: #3a4250;
+  --border-light: #2a313c;
+  --primary-color: #4a9bd6;
+  --primary-light: #1a2530;
+  --success-color: #6ab84a;
+  --warning-color: #e4a64a;
+  --danger-color: #e06868;
+  --info-color: #6a7280;
+  /* ISS-031 修复：表格行高亮深色模式适配 */
+  --row-highlight-bg: #1f2d3f;
+
+  /* ===== Element Plus 深色主题覆盖 ===== */
+  --el-color-primary: #4a9bd6;
+  --el-color-primary-light-3: #6eb3de;
+  --el-color-primary-light-5: #93c4e6;
+  --el-color-primary-light-7: #b8d5ee;
+  --el-color-primary-light-8: #cae0f2;
+  --el-color-primary-light-9: #1a2530;
+  --el-color-primary-dark-2: #3b82c4;
+
+  --el-color-success: #6ab84a;
+  --el-color-success-light-3: #88c770;
+  --el-color-success-light-5: #a5d595;
+  --el-color-success-light-7: #c2e3ba;
+  --el-color-success-light-8: #d0e9ca;
+  --el-color-success-light-9: #1e2e15;
+  --el-color-success-dark-2: #5a9e3a;
+
+  --el-color-warning: #e4a64a;
+  --el-color-warning-light-3: #ebb871;
+  --el-color-warning-light-5: #f0c995;
+  --el-color-warning-light-7: #f5dab8;
+  --el-color-warning-light-8: #f8e3ca;
+  --el-color-warning-light-9: #2e2415;
+  --el-color-warning-dark-2: #d4923a;
+
+  --el-color-danger: #e06868;
+  --el-color-danger-light-3: #e78888;
+  --el-color-danger-light-5: #eda0a0;
+  --el-color-danger-light-7: #f3c0c0;
+  --el-color-danger-light-8: #f6d0d0;
+  --el-color-danger-light-9: #2e1515;
+  --el-color-danger-dark-2: #d65a5a;
+
+  --el-color-info: #6a7280;
+  --el-color-info-light-3: #8a909a;
+  --el-color-info-light-5: #a5abb5;
+  --el-color-info-light-7: #c0c5cd;
+  --el-color-info-light-8: #cdd2d8;
+  --el-color-info-light-9: #1a1d22;
+  --el-color-info-dark-2: #7a8290;
+
+  --el-text-color-primary: #e0e6ed;
+  --el-text-color-regular: #a0a8b4;
+  --el-text-color-secondary: #6a7280;
+  --el-text-color-placeholder: #4a5260;
+  --el-text-color-disabled: #3a4250;
+
+  --el-border-color: #3a4250;
+  --el-border-color-light: #2a313c;
+  --el-border-color-lighter: #232a35;
+  --el-border-color-extra-light: #1a2029;
+
+  --el-bg-color: #1a2029;
+  --el-bg-color-page: #131820;
+  --el-bg-color-overlay: #1a2029;
+  --el-fill-color: #232a35;
+  --el-fill-color-light: #1a2029;
+  --el-fill-color-lighter: #131820;
+  --el-fill-color-blank: #1a2029;
+
+  --el-box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.3);
+  --el-box-shadow-light: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --el-box-shadow-lighter: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --el-box-shadow-dark: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 // 主题过渡动画
-* {
+// P1-P6 修复：原 `*` 通配符选择器会为页面所有元素添加 transition，
+// 导致：
+// 1. 性能问题：浏览器需为每个元素计算过渡，即使未发生变化
+// 2. 意外动画：hover/focus 等状态变化也会触发主题过渡
+// 3. 布局抖动：过渡期间可能触发重排
+// 改为仅对主题相关的布局容器应用过渡，覆盖大多数视觉变化场景。
+body,
+.layout,
+.el-card,
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper,
+.el-button,
+.el-menu,
+.el-header,
+.el-aside,
+.el-main,
+.el-footer,
+.el-table,
+.el-dialog,
+.el-drawer,
+.el-pagination {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 

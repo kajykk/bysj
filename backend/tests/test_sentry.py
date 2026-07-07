@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.sentry import init_sentry, capture_exception, capture_message
+from app.core.sentry import capture_exception, capture_message, init_sentry
 
 pytestmark = pytest.mark.requires_external
 

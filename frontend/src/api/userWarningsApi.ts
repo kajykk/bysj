@@ -2,7 +2,7 @@ import request, { requestData, requestPageData } from './request'
 import { buildPageParams } from './business.shared'
 import type { PageQuery } from '@/types/api'
 import type { AssessmentType } from '@/types/contracts'
-import type { AssessmentRecordItem, DataHistoryItem, WarningItem, WarningSettingData } from './userTypes'
+import type { DataHistoryItem, WarningItem, WarningSettingData } from './userTypes'
 
 export const userWarningsApi = {
   getUserWarnings: (query?: PageQuery & { is_read?: boolean }) =>

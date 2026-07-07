@@ -7,9 +7,15 @@ from starlette.websockets import WebSocketDisconnect
 from app.core.security import create_access_token, create_refresh_token
 
 
-def test_admin_dashboard_rejects_user_role(client: TestClient, seeded_user_id: int) -> None:
+def test_admin_dashboard_rejects_user_role(
+    client: TestClient, seeded_user_id: int
+) -> None:
     token = create_access_token({"sub": str(seeded_user_id), "role": "user"})
-    resp = client.get("/api/v1/admin/dashboard", headers={"Authorization": f"Bearer {token}"}, follow_redirects=False)
+    resp = client.get(
+        "/api/v1/admin/dashboard",
+        headers={"Authorization": f"Bearer {token}"},
+        follow_redirects=False,
+    )
     assert resp.status_code in (302, 307, 308, 403)
 
 
@@ -22,7 +28,9 @@ def test_admin_dashboard_rejects_user_role(client: TestClient, seeded_user_id: i
         "/api/v1/admin/operation-logs",
     ],
 )
-def test_admin_routes_reject_counselor_role(client: TestClient, as_role, path: str) -> None:
+def test_admin_routes_reject_counselor_role(
+    client: TestClient, as_role, path: str
+) -> None:
     as_role("counselor", 2)
     resp = client.get(path)
     assert resp.status_code == 403
@@ -37,7 +45,9 @@ def test_admin_routes_reject_counselor_role(client: TestClient, as_role, path: s
         "/api/v1/counselor/bind-code",
     ],
 )
-def test_counselor_routes_reject_user_role(client: TestClient, as_role, path: str) -> None:
+def test_counselor_routes_reject_user_role(
+    client: TestClient, as_role, path: str
+) -> None:
     as_role("user", 1)
     resp = client.get(path)
     assert resp.status_code == 403
@@ -58,7 +68,9 @@ def test_risk_export_requires_export_permission(client: TestClient, as_role) -> 
     assert resp.status_code == 403
 
 
-def test_model_predict_requires_prediction_permission(client: TestClient, as_role) -> None:
+def test_model_predict_requires_prediction_permission(
+    client: TestClient, as_role
+) -> None:
     as_role("counselor", 2)
     resp = client.post("/api/v1/model/predict/text", json={"text": "最近有点难过"})
     assert resp.status_code == 403

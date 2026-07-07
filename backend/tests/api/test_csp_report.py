@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -99,7 +96,9 @@ class TestCSPReport:
 
     def test_csp_report_empty_body(self, client: TestClient) -> None:
         """TC-SEC-006: Empty body returns 204."""
-        resp = client.post("/api/v1/csp-report", data="")
+        resp = client.post(
+            "/api/v1/csp-report", data="", headers={"Content-Type": "application/json"}
+        )
         assert resp.status_code == 204
 
     def test_csp_report_empty_json(self, client: TestClient) -> None:

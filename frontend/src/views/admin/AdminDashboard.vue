@@ -2,24 +2,74 @@
   <div class="layout">
     <div class="layout__header">
       <div>
-        <h2>管理员工作台</h2>
-        <p>欢迎，{{ auth.user?.nickname || auth.user?.username || '管理员' }}</p>
+        <p class="layout__eyebrow">
+          <span
+            class="layout__eyebrow-dot breathe-dot"
+            aria-hidden="true"
+          />
+          {{ t('adminDashboard.eyebrow') }}
+        </p>
+        <h2>{{ t('adminDashboard.title') }}</h2>
+        <p>{{ t('adminDashboard.welcome', { name: auth.user?.nickname || auth.user?.username || t('adminDashboard.welcomeFallback') }) }}</p>
       </div>
       <div class="layout__actions">
         <el-tag type="danger">
-          管理员端
+          {{ t('adminDashboard.tagAdmin') }}
         </el-tag>
         <el-button @click="handleLogout">
-          退出登录
+          {{ t('user.logout') }}
         </el-button>
       </div>
     </div>
 
-    <el-row :gutter="16">
-      <el-col :span="6">
-        <el-card class="stat-card">
+    <!-- Bento 统计区：主指标卡（注册用户）+ 副指标 2x2 网格 -->
+    <div class="bento-stats">
+      <!-- 主指标卡：注册用户（Hero stat） -->
+      <section class="bento-stat bento-stat--hero bento-item shimmer-sweep">
+        <div class="stat-label">
+          {{ primaryStat.label }}
+        </div>
+        <div
+          v-if="statsLoading"
+          class="stat-loading"
+        >
+          <el-skeleton
+            :rows="1"
+            animated
+          />
+        </div>
+        <div
+          v-else
+          class="stat stat--hero tabular-nums"
+        >
+          {{ primaryStat.value }}
+        </div>
+        <div class="stat-trend">
+          <el-tag
+            :type="primaryStat.trendType"
+            size="small"
+            effect="plain"
+          >
+            <el-icon>
+              <ArrowUp v-if="primaryStat.trend >= 0" />
+              <ArrowDown v-else />
+            </el-icon>
+            {{ Math.abs(primaryStat.trend) }}%
+          </el-tag>
+          <span class="trend-label">{{ t('adminDashboard.trendDayOverDay') }}</span>
+        </div>
+        <span class="stat-sub">{{ primaryStat.sub }}</span>
+      </section>
+
+      <!-- 副指标 2x2 网格 -->
+      <div class="bento-stat-grid">
+        <section
+          v-for="card in secondaryStats"
+          :key="card.key"
+          class="bento-stat bento-item shimmer-sweep"
+        >
           <div class="stat-label">
-            注册用户
+            {{ card.label }}
           </div>
           <div
             v-if="statsLoading"
@@ -32,231 +82,132 @@
           </div>
           <div
             v-else
-            class="stat primary"
+            class="stat tabular-nums"
+            :class="`stat--${card.tone}`"
           >
-            {{ stats.total_users }}
+            {{ card.value }}
           </div>
           <div class="stat-trend">
             <el-tag
-              :type="userTrend >= 0 ? 'success' : 'danger'"
+              :type="card.trendType"
               size="small"
               effect="plain"
             >
-              <el-icon><ArrowUp v-if="userTrend >= 0" /><ArrowDown v-else /></el-icon>
-              {{ Math.abs(userTrend) }}%
+              <el-icon>
+                <ArrowUp v-if="card.trend >= 0" />
+                <ArrowDown v-else />
+              </el-icon>
+              {{ Math.abs(card.trend) }}%
             </el-tag>
-            <span class="trend-label">环比昨日</span>
+            <span class="trend-label">{{ t('adminDashboard.trend') }}</span>
           </div>
-          <span class="stat-sub">咨询师 {{ stats.total_counselors }} 人</span>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-label">
-            今日预警
-          </div>
-          <div
-            v-if="statsLoading"
-            class="stat-loading"
-          >
-            <el-skeleton
-              :rows="1"
-              animated
-            />
-          </div>
-          <div
-            v-else
-            class="stat warning"
-          >
-            {{ stats.today_warnings }}
-          </div>
-          <div class="stat-trend">
-            <el-tag
-              :type="warningTrend <= 0 ? 'success' : 'danger'"
-              size="small"
-              effect="plain"
-            >
-              <el-icon><ArrowUp v-if="warningTrend >= 0" /><ArrowDown v-else /></el-icon>
-              {{ Math.abs(warningTrend) }}%
-            </el-tag>
-            <span class="trend-label">环比昨日</span>
-          </div>
-          <span class="stat-sub">未处理 {{ stats.today_unhandled_warnings }} 条</span>
+          <span class="stat-sub">{{ card.sub }}</span>
           <el-button
-            type="warning"
+            v-if="card.action"
+            :type="card.actionType"
             link
-            @click="router.push('/admin/operation-logs')"
+            class="stat-action"
+            @click="card.action"
           >
-            查看日志
+            {{ card.actionText }}
           </el-button>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-label">
-            评估总量
-          </div>
-          <div
-            v-if="statsLoading"
-            class="stat-loading"
-          >
-            <el-skeleton
-              :rows="1"
-              animated
+        </section>
+      </div>
+    </div>
+
+    <!-- 第二行：系统状态（宽，Live Status）+ 快捷操作（窄） -->
+    <div class="bento-grid bento-grid--bottom">
+      <section class="bento-cell bento-item">
+        <header class="bento-cell__head bento-cell__head--split">
+          <div class="bento-cell__title-group">
+            <span
+              class="bento-cell__live-dot"
+              :class="systemHealthy ? '' : 'bento-cell__live-dot--alert'"
+              :aria-hidden="true"
             />
-          </div>
-          <div
-            v-else
-            class="stat danger"
-          >
-            {{ stats.total_assessments }}
-          </div>
-          <div class="stat-trend">
-            <el-tag
-              :type="assessmentTrend >= 0 ? 'success' : 'danger'"
-              size="small"
-              effect="plain"
-            >
-              <el-icon><ArrowUp v-if="assessmentTrend >= 0" /><ArrowDown v-else /></el-icon>
-              {{ Math.abs(assessmentTrend) }}%
-            </el-tag>
-            <span class="trend-label">环比昨日</span>
-          </div>
-          <span class="stat-sub">高风险用户 {{ stats.high_risk_users }} 人</span>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-label">
-            干预模板
-          </div>
-          <div
-            v-if="statsLoading"
-            class="stat-loading"
-          >
-            <el-skeleton
-              :rows="1"
-              animated
-            />
-          </div>
-          <div
-            v-else
-            class="stat success"
-          >
-            {{ stats.active_templates }}/{{ stats.total_templates }}
-          </div>
-          <div class="stat-trend">
-            <el-tag
-              :type="templateTrend >= 0 ? 'success' : 'danger'"
-              size="small"
-              effect="plain"
-            >
-              <el-icon><ArrowUp v-if="templateTrend >= 0" /><ArrowDown v-else /></el-icon>
-              {{ Math.abs(templateTrend) }}%
-            </el-tag>
-            <span class="trend-label">环比昨日</span>
+            <h3 class="bento-cell__title">
+              {{ t('adminDashboard.systemStatusTitle') }}
+            </h3>
+            <span class="bento-cell__status-text">
+              {{ systemHealthy ? t('adminDashboard.systemStatusAllOk') : t('adminDashboard.systemStatusPartial') }}
+            </span>
           </div>
           <el-button
-            type="success"
+            type="primary"
             link
+            size="small"
+            @click="router.push('/admin/settings')"
+          >
+            {{ t('adminDashboard.viewConfig') }}
+          </el-button>
+        </header>
+        <div
+          v-if="healthLoading"
+          class="card-loading"
+        >
+          <el-skeleton
+            :rows="4"
+            animated
+          />
+        </div>
+        <template v-else>
+          <ul class="component-list">
+            <li
+              v-for="comp in componentStatus"
+              :key="comp.key"
+              class="component-item"
+            >
+              <div class="component-info">
+                <span
+                  class="component-dot"
+                  :class="{ 'component-dot--healthy': comp.healthy, 'breathe-dot': comp.healthy }"
+                  :aria-hidden="true"
+                />
+                <span class="component-name">{{ t(COMPONENT_NAME_KEYS[comp.key]) }}</span>
+              </div>
+              <el-tag
+                :type="comp.healthy ? 'success' : 'danger'"
+                size="small"
+                effect="light"
+              >
+                {{ comp.healthy ? t('adminDashboard.statusHealthy') : t('adminDashboard.statusUnhealthy') }}
+              </el-tag>
+            </li>
+          </ul>
+        </template>
+      </section>
+
+      <section class="bento-cell bento-item">
+        <header class="bento-cell__head">
+          <h3 class="bento-cell__title">
+            {{ t('adminDashboard.quickActions') }}
+          </h3>
+        </header>
+        <div class="quick-actions">
+          <el-button
+            type="primary"
+            class="magnetic-press"
             @click="router.push('/admin/templates')"
           >
-            管理模板
+            {{ t('adminDashboard.btnTemplates') }}
           </el-button>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row
-      :gutter="16"
-      style="margin-top: 16px"
-    >
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <span class="card-title">快捷操作</span>
-          </template>
-          <div class="quick-actions">
-            <el-button
-              type="primary"
-              @click="router.push('/admin/templates')"
-            >
-              模板管理
-            </el-button>
-            <el-button
-              type="warning"
-              @click="router.push('/admin/settings')"
-            >
-              系统设置
-            </el-button>
-            <el-button
-              type="info"
-              @click="router.push('/admin/operation-logs')"
-            >
-              操作日志
-            </el-button>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <div class="header-row">
-              <span class="card-title">系统状态</span>
-              <el-button
-                type="primary"
-                link
-                size="small"
-                @click="router.push('/admin/settings')"
-              >
-                查看配置
-              </el-button>
-            </div>
-          </template>
-          <div
-            v-if="healthLoading"
-            style="padding: 20px"
+          <el-button
+            type="warning"
+            class="magnetic-press"
+            @click="router.push('/admin/settings')"
           >
-            <el-skeleton
-              :rows="3"
-              animated
-            />
-          </div>
-          <template v-else>
-            <el-result
-              :icon="systemHealthy ? 'success' : 'warning'"
-              :title="systemHealthy ? '服务运行正常' : '部分服务异常'"
-              :sub-title="systemHealthy ? '所有核心服务运行正常' : '请检查系统配置'"
-            />
-            <el-divider />
-            <div class="component-list">
-              <div
-                v-for="comp in componentStatus"
-                :key="comp.name"
-                class="component-item"
-              >
-                <div class="component-info">
-                  <el-icon
-                    :size="16"
-                    :color="comp.healthy ? '#67c23a' : '#f56c6c'"
-                  >
-                    <CircleCheck v-if="comp.healthy" />
-                    <CircleClose v-else />
-                  </el-icon>
-                  <span class="component-name">{{ comp.name }}</span>
-                </div>
-                <el-tag
-                  :type="comp.healthy ? 'success' : 'danger'"
-                  size="small"
-                >
-                  {{ comp.healthy ? '正常' : '异常' }}
-                </el-tag>
-              </div>
-            </div>
-          </template>
-        </el-card>
-      </el-col>
-    </el-row>
+            {{ t('adminDashboard.btnSettings') }}
+          </el-button>
+          <el-button
+            type="info"
+            class="magnetic-press"
+            @click="router.push('/admin/operation-logs')"
+          >
+            {{ t('adminDashboard.btnOperationLogs') }}
+          </el-button>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -264,10 +215,12 @@
 import { onMounted, reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { adminApi } from '@/api/adminApi'
-import { ArrowUp, ArrowDown, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 
@@ -309,13 +262,80 @@ const templateTrend = computed(() => {
   return Math.round(((stats.active_templates - stats.yesterday_templates) / stats.yesterday_templates) * 100)
 })
 
-const componentStatus = ref([
-  { name: 'API 服务', healthy: true },
-  { name: '数据库', healthy: true },
-  { name: 'Redis 缓存', healthy: true },
-  { name: '消息队列', healthy: true },
-  { name: '文件存储', healthy: true },
+interface StatCard {
+  key: string
+  label: string
+  value: string | number
+  tone: 'primary' | 'warning' | 'danger' | 'success'
+  trend: number
+  trendType: 'success' | 'danger'
+  sub: string
+  action?: () => void
+  actionText?: string
+  actionType?: 'primary' | 'warning' | 'success' | 'info'
+}
+
+const statCards = computed<StatCard[]>(() => [
+  {
+    key: 'users',
+    label: t('adminDashboard.statLabelUsers'),
+    value: stats.total_users,
+    tone: 'primary',
+    trend: userTrend.value,
+    trendType: userTrend.value >= 0 ? 'success' : 'danger',
+    sub: t('adminDashboard.statSubUsers', { count: stats.total_counselors }),
+  },
+  {
+    key: 'warnings',
+    label: t('adminDashboard.statLabelWarnings'),
+    value: stats.today_warnings,
+    tone: 'warning',
+    trend: warningTrend.value,
+    trendType: warningTrend.value <= 0 ? 'success' : 'danger',
+    sub: t('adminDashboard.statSubWarnings', { count: stats.today_unhandled_warnings }),
+    action: () => router.push('/admin/operation-logs'),
+    actionText: t('adminDashboard.actionWarnings'),
+    actionType: 'warning',
+  },
+  {
+    key: 'assessments',
+    label: t('adminDashboard.statLabelAssessments'),
+    value: stats.total_assessments,
+    tone: 'danger',
+    trend: assessmentTrend.value,
+    trendType: assessmentTrend.value >= 0 ? 'success' : 'danger',
+    sub: t('adminDashboard.statSubAssessments', { count: stats.high_risk_users }),
+  },
+  {
+    key: 'templates',
+    label: t('adminDashboard.statLabelTemplates'),
+    value: `${stats.active_templates}/${stats.total_templates}`,
+    tone: 'success',
+    trend: templateTrend.value,
+    trendType: templateTrend.value >= 0 ? 'success' : 'danger',
+    sub: '',
+    action: () => router.push('/admin/templates'),
+    actionText: t('adminDashboard.actionTemplates'),
+    actionType: 'success',
+  },
 ])
+
+// Bento 拆分：主指标（注册用户）单独成 Hero 卡，其余 3 项进入副指标网格
+const primaryStat = computed<StatCard>(() => statCards.value[0])
+const secondaryStats = computed<StatCard[]>(() => statCards.value.slice(1))
+
+// 系统组件状态：使用稳定 key 作为后端映射标识，显示名通过 i18n 渲染
+const COMPONENT_NAME_KEYS: Record<string, string> = {
+  api: 'adminDashboard.componentApi',
+  database: 'adminDashboard.componentDatabase',
+  redis: 'adminDashboard.componentRedis',
+  celery_worker: 'adminDashboard.componentQueue',
+  storage: 'adminDashboard.componentStorage',
+}
+
+const componentStatus = ref<{ key: string; healthy: boolean }[]>(
+  Object.keys(COMPONENT_NAME_KEYS).map((key) => ({ key, healthy: true }))
+)
 
 const loadStats = async () => {
   statsLoading.value = true
@@ -337,15 +357,9 @@ const checkHealth = async () => {
     const checks = data.checks || {}
     // /health 接口返回的 checks 字段映射到组件状态；
     // API 服务能否拿到响应即代表其健康；文件存储不在 /health 检查范围内，保持默认健康
-    const keyMap: Record<string, string> = {
-      '数据库': 'database',
-      'Redis 缓存': 'redis',
-      '消息队列': 'celery_worker',
-    }
     componentStatus.value = componentStatus.value.map((comp) => {
-      const key = keyMap[comp.name]
-      if (!key) return comp
-      return { ...comp, healthy: checks[key] === 'ok' }
+      if (comp.key === 'api' || comp.key === 'storage') return comp
+      return { ...comp, healthy: checks[comp.key] === 'ok' }
     })
   } catch {
     systemHealthy.value = false
@@ -357,7 +371,7 @@ const checkHealth = async () => {
 
 const handleLogout = async () => {
   try {
-    await ElMessageBox.confirm('确认退出登录吗？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm(t('layout.logoutConfirm'), t('layout.logoutConfirmTitle'), { type: 'warning' })
   } catch {
     return
   }
@@ -373,111 +387,248 @@ onMounted(() => {
 
 <style scoped>
 .layout {
-  padding: 24px;
+  padding: var(--spacing-xl);
+  max-width: var(--layout-content-max-width);
+  margin: 0 auto;
 }
 
+/* ===== 头部 ===== */
 .layout__header {
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-2xl);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.layout__eyebrow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 0.5rem;
+  margin: 0 0 0.375rem;
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.layout__eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger-color);
+  box-shadow: 0 0 8px rgba(214, 90, 90, 0.6);
 }
 
 .layout__header h2 {
   margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--text-primary);
 }
 
 .layout__header p {
-  margin: 6px 0 0;
-  color: #6b7280;
+  margin: 0.375rem 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-normal);
 }
 
 .layout__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
 }
 
-.stat-card {
-  text-align: center;
+/* ===== Bento 统计区：主指标（1.3fr）+ 副指标网格（2fr 内 2x2） ===== */
+.bento-stats {
+  display: grid;
+  grid-template-columns: 1.3fr 2fr;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.bento-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+.bento-stat {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-extra-light);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04);
+  transition: box-shadow 0.3s var(--transition-ease-out),
+    border-color 0.3s var(--transition-ease-out);
+}
+
+.bento-stat:hover {
+  box-shadow: 0 12px 32px -12px rgba(59, 130, 196, 0.14);
+  border-color: var(--border-light);
+}
+
+.bento-stat--hero {
+  background:
+    linear-gradient(180deg, rgba(59, 130, 196, 0.04) 0%, transparent 60%),
+    var(--bg-primary);
+  justify-content: space-between;
 }
 
 .stat-label {
-  font-size: 14px;
-  color: #909399;
-  margin-bottom: 4px;
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .stat {
-  font-size: 32px;
+  font-family: var(--font-family-display);
+  font-size: 2rem;
   font-weight: 700;
-  margin: 4px 0 4px;
+  letter-spacing: -0.03em;
+  margin: 0.25rem 0 0.5rem;
+  line-height: 1;
+  color: var(--text-primary);
 }
 
-.stat.primary {
-  color: #409eff;
+.stat--hero {
+  font-size: 3.25rem;
+  color: var(--primary-color);
 }
 
-.stat.warning {
-  color: #e6a23c;
-}
-
-.stat.danger {
-  color: #f56c6c;
-}
-
-.stat.success {
-  color: #67c23a;
-}
+.stat--primary { color: var(--primary-color); }
+.stat--warning { color: var(--warning-color); }
+.stat--danger { color: var(--danger-color); }
+.stat--success { color: var(--success-color); }
 
 .stat-sub {
-  font-size: 12px;
-  color: #c0c4cc;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
+  display: block;
+  margin-top: var(--spacing-xs);
 }
 
 .stat-loading {
   min-height: 44px;
 }
 
-.card-title {
-  font-weight: 600;
-}
-
-.quick-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .stat-trend {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 6px 0;
+  gap: var(--spacing-xs);
+  margin: 0.25rem 0;
 }
 
 .trend-label {
-  font-size: 12px;
-  color: #909399;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
 }
 
+.stat-action {
+  margin-top: auto;
+  align-self: flex-start;
+  padding-top: 0.5rem;
+}
+
+/* ===== 第二行 Bento：系统状态（宽）+ 快捷操作（窄） ===== */
+.bento-grid--bottom {
+  display: grid;
+  grid-template-columns: 1.85fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+.bento-cell {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-extra-light);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04);
+  transition: box-shadow 0.3s var(--transition-ease-out),
+    border-color 0.3s var(--transition-ease-out);
+}
+
+.bento-cell:hover {
+  box-shadow: 0 12px 32px -12px rgba(59, 130, 196, 0.14);
+  border-color: var(--border-light);
+}
+
+.bento-cell__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.125rem;
+}
+
+.bento-cell__head--split {
+  margin-bottom: 1rem;
+}
+
+.bento-cell__title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bento-cell__title {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.bento-cell__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success-color);
+  box-shadow: 0 0 8px rgba(90, 158, 58, 0.6);
+  flex-shrink: 0;
+}
+
+.bento-cell__live-dot--alert {
+  background: var(--danger-color);
+  box-shadow: 0 0 8px rgba(214, 90, 90, 0.6);
+}
+
+.bento-cell__status-text {
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
+}
+
+.card-loading {
+  padding: var(--spacing-lg) 0;
+}
+
+/* 系统组件列表 */
 .component-list {
-  padding: 0 20px 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .component-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-extra-light);
 }
 
 .component-item:last-child {
@@ -487,11 +638,62 @@ onMounted(() => {
 .component-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.625rem;
+}
+
+.component-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger-color);
+  flex-shrink: 0;
+}
+
+.component-dot--healthy {
+  background: var(--success-color);
+  box-shadow: 0 0 8px rgba(90, 158, 58, 0.5);
 }
 
 .component-name {
-  font-size: 14px;
-  color: #606266;
+  font-size: var(--font-size-base);
+  color: var(--text-regular);
+}
+
+.quick-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+/* ===== 响应式：移动端单列回退 ===== */
+@media (max-width: 1024px) {
+  .bento-stats,
+  .bento-grid--bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    padding: var(--spacing-md);
+  }
+
+  .layout__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+
+  .bento-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat {
+    font-size: 1.75rem;
+  }
+
+  .stat--hero {
+    font-size: 2.5rem;
+  }
 }
 </style>

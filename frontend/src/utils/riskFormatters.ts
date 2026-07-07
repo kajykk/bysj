@@ -3,7 +3,32 @@
  *
  * TD-022 修复：从 UserRiskPage.vue 提取的纯函数和常量映射，
  * 便于单元测试和跨组件复用。
+ *
+ * i18n 化：所有用户可见的标签文案通过全局 i18n 实例翻译，
+ * 支持运行时语言切换。
  */
+
+import { translate } from '@/i18n'
+
+/**
+ * 在非组件文件中使用全局 i18n 实例翻译。
+ * 如果 key 不存在则返回 fallback（保持与原 `|| key` 相同的降级行为）。
+ */
+const t = translate
+
+function tr(key: string, fallback: string): string {
+  const translated = t(key)
+  // vue-i18n 对不存在的 key 返回 key 路径本身
+  return translated === key ? fallback : translated
+}
+
+/**
+ * 将后端 snake_case 名转为 camelCase 以匹配 i18n 键段命名规范。
+ * 例如 `academic_pressure` → `academicPressure`，`anxiety_only_fallback` → `anxietyOnlyFallback`。
+ */
+function snakeToCamel(s: string): string {
+  return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+}
 
 /**
  * 风险分数阈值（与后端 RISK_LEVEL_THRESHOLDS 保持一致）。
@@ -20,10 +45,10 @@ export const RISK_SCORE_THRESHOLDS = {
  * P2-D 修复：消除前端魔法数字，集中管理颜色。
  */
 export const RISK_SCORE_COLORS = {
-  low: '#67c23a',      // 0-20: 绿色（低风险）
-  mild: '#e6a23c',     // 21-40: 橙色（轻度）
-  moderate: '#f56c6c', // 41-60: 红色（中度）
-  high: '#c45656',     // 61+: 深红（较高）
+  low: '#5a9e3a',      // 0-20: 绿色（低风险）
+  mild: '#d4923a',     // 21-40: 橙色（轻度）
+  moderate: '#d65a5a', // 41-60: 红色（中度）
+  high: '#a82e28',     // 61+: 深红（较高）
 } as const
 
 /**
@@ -37,45 +62,32 @@ export function getRiskScoreColor(score: number): string {
   return RISK_SCORE_COLORS.high
 }
 
-/** 特征字段中文标签映射 */
-export const featureLabelMap: Record<string, string> = {
-  age: '年龄', gender: '性别', study_year: '年级', cgpa: 'GPA',
-  stress_level: '压力水平', sleep_duration: '睡眠时长', social_support: '社会支持',
-  financial_pressure: '经济压力', family_history: '家族史', academic_pressure: '学业压力',
-  exercise_frequency: '运动频率', anxiety: '焦虑程度', panic_attack: '恐慌发作',
-  treatment_seeking: '寻求治疗', is_student: '是否在校'
+/** 特征字段标签查找（i18n 化，替代原 featureLabelMap 常量） */
+export function featureLabel(key: string): string {
+  return tr(`riskFormatter.features.${snakeToCamel(key)}`, key)
 }
 
-/** 严重程度中文标签映射 */
-export const severityLabelMap: Record<string, string> = {
-  none: '无风险', mild: '轻度', moderate: '中度', high: '较高', critical: '严重'
+/** 严重程度标签查找（i18n 化，替代原 severityLabelMap 常量） */
+export function severityLabel(key: string): string {
+  return tr(`riskFormatter.severity.${key}`, key)
 }
 
-/** 模态中文标签映射 */
-export const modalityLabelMap: Record<string, string> = {
-  structured: '结构化',
-  text: '文本',
-  physiological: '生理',
-  fused: '融合',
-  questionnaire: '问卷'
+/** 模态标签查找（i18n 化，替代原 modalityLabelMap 常量） */
+export function modalityLabel(key: string): string {
+  return tr(`riskFormatter.modality.${key}`, key)
 }
 
 /** 根据数值等级返回严重程度标签 */
 export function severityFromLevel(level: number): string {
-  const map: Record<number, string> = { 0: '无风险', 1: '轻度', 2: '中度', 3: '较高', 4: '严重' }
-  return map[level] || '未知'
+  const keys = ['none', 'mild', 'moderate', 'high', 'critical']
+  const key = keys[level]
+  return key ? tr(`riskFormatter.severity.${key}`, 'Unknown') : tr('riskFormatter.severity.unknown', 'Unknown')
 }
 
 /** 路由族中文标签 */
 export function routeFamilyLabel(family: string | null | undefined): string {
-  if (!family) return '未知路由'
-  switch (family) {
-    case 'structured': return '结构化模型'
-    case 'lite': return '轻量模型 (v1.25)'
-    case 'anxiety_only': return '仅焦虑评估'
-    case 'insufficient': return '信息不足'
-    default: return family
-  }
+  if (!family) return tr('riskFormatter.routeFamily.unknown', 'Unknown route')
+  return tr(`riskFormatter.routeFamily.${snakeToCamel(family)}`, family)
 }
 
 /** 路由族标签颜色类型 */
@@ -95,13 +107,7 @@ export function routeFamilyTagType(
 /** 路由原因中文说明 */
 export function routeReasonLabel(reason: string | null | undefined): string {
   if (!reason) return ''
-  switch (reason) {
-    case 'full_features': return '特征覆盖充足，使用完整结构化模型'
-    case 'lite_fallback': return '结构化特征不足，降级至轻量模型 (GAD-7 + 文本)'
-    case 'anxiety_only_fallback': return '仅 GAD-7 可用，使用焦虑经验映射'
-    case 'insufficient_data': return '数据不足，无法生成风险预测'
-    default: return reason
-  }
+  return tr(`riskFormatter.routeReason.${snakeToCamel(reason)}`, reason)
 }
 
 /** 置信度标签颜色类型 */
@@ -119,23 +125,14 @@ export function confidenceTagType(
 
 /** 置信度中文标签 */
 export function confidenceLabel(band: string | null | undefined): string {
-  if (!band) return '未知置信度'
-  switch (band) {
-    case 'high': return '高置信度'
-    case 'medium': return '中等置信度'
-    case 'low': return '低置信度'
-    default: return band
-  }
+  if (!band) return tr('riskFormatter.confidence.unknown', 'Unknown confidence')
+  return tr(`riskFormatter.confidence.${band}`, band)
 }
 
 /** 因子方向中文标签 */
 export function getFactorDirectionLabel(direction: string | undefined): string {
-  if (!direction) return '未知'
-  if (direction === 'positive') return '增加风险'
-  if (direction === 'negative') return '降低风险'
-  if (direction === 'score_up') return '分数上升'
-  if (direction === 'score_down') return '分数下降'
-  return direction
+  if (!direction) return tr('riskFormatter.factorDirection.unknown', '未知')
+  return tr(`riskFormatter.factorDirection.${snakeToCamel(direction)}`, direction)
 }
 
 /** 因子方向标签颜色类型 */
@@ -150,6 +147,6 @@ export function getFactorDirectionTagType(
 
 /** 数组格式化为文本 */
 export function formatArrayText(value: unknown, separator = ', '): string {
-  if (!Array.isArray(value) || !value.length) return '暂无'
+  if (!Array.isArray(value) || !value.length) return tr('riskFormatter.arrayEmpty', 'N/A')
   return value.map(item => String(item)).join(separator)
 }

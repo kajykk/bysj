@@ -11,7 +11,9 @@ class TestTextExpectedRisk:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_case", TEXT_TEST_CASES, ids=lambda x: x["name"])
-    async def test_text_risk_levels(self, model_engine: ModelEngine, test_case: dict) -> None:
+    async def test_text_risk_levels(
+        self, model_engine: ModelEngine, test_case: dict
+    ) -> None:
         """验证文本模型风险等级在预期范围内。"""
         result = await model_engine.predict_text(test_case["text"])
         actual_level = result.get("risk_level", 0)
@@ -24,7 +26,9 @@ class TestTextExpectedRisk:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_case", TEXT_TEST_CASES, ids=lambda x: x["name"])
-    async def test_text_crisis_detection(self, model_engine: ModelEngine, test_case: dict) -> None:
+    async def test_text_crisis_detection(
+        self, model_engine: ModelEngine, test_case: dict
+    ) -> None:
         """验证危机检测结果。"""
         result = await model_engine.predict_text(test_case["text"])
         actual_crisis = result.get("crisis_detected", False)

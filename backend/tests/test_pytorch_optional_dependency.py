@@ -3,8 +3,6 @@ from __future__ import annotations
 import sys
 from unittest.mock import patch
 
-import pytest
-
 
 class TestPyTorchOptionalDependency:
     """T-INFRA-006: PyTorch 可选依赖策略单元测试"""
@@ -31,9 +29,12 @@ class TestPyTorchOptionalDependency:
                 del sys.modules["app.core.config"]
             with patch(
                 "builtins.__import__",
-                side_effect=lambda name, *args, **kwargs: original_import(name, *args, **kwargs),
+                side_effect=lambda name, *args, **kwargs: original_import(
+                    name, *args, **kwargs
+                ),
             ):
                 from app.core.config import PYTORCH_AVAILABLE
+
                 # This test verifies the module handles ImportError gracefully
                 assert isinstance(PYTORCH_AVAILABLE, bool)
 
@@ -57,7 +58,6 @@ class TestPyTorchOptionalDependency:
 
     def test_model_engine_imports_pytorch_flag(self) -> None:
         """验证 model_engine 正确导入 PYTORCH_AVAILABLE"""
-        from app.core.model_engine import ModelEngine
         from app.core.config import PYTORCH_AVAILABLE
 
         # Verify the flag is accessible in model_engine context

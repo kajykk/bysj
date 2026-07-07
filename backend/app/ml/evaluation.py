@@ -10,7 +10,9 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def compute_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, threshold: float = 0.5) -> dict:
+def compute_confusion_matrix(
+    y_true: np.ndarray, y_pred: np.ndarray, threshold: float = 0.5
+) -> dict:
     """Compute confusion matrix elements.
 
     Args:
@@ -48,13 +50,18 @@ def compute_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, threshold: 
 
     logger.info(
         "Confusion Matrix: TP=%d, FP=%d, TN=%d, FN=%d",
-        tp, fp, tn, fn,
+        tp,
+        fp,
+        tn,
+        fn,
     )
 
     return result
 
 
-def compute_roc_curve(y_true: np.ndarray, y_scores: np.ndarray, n_thresholds: int = 100) -> dict:
+def compute_roc_curve(
+    y_true: np.ndarray, y_scores: np.ndarray, n_thresholds: int = 100
+) -> dict:
     """Compute ROC curve points.
 
     Args:
@@ -129,7 +136,7 @@ def compute_calibration_curve(
     bin_counts = []
 
     for lower, upper in zip(bin_lowers, bin_uppers):
-        in_bin = (y_scores > lower) & (y_scores <= upper)
+        in_bin = (y_scores >= lower) & (y_scores <= upper)
         prop_in_bin = np.mean(in_bin)
 
         if prop_in_bin > 0:
@@ -147,7 +154,8 @@ def compute_calibration_curve(
     ece = 0.0
     total_samples = len(y_true)
     for i in range(n_bins):
-        in_bin = (y_scores > bin_lowers[i]) & (y_scores <= bin_uppers[i])
+        # L-ML-1 修复：与上方 bin 划分保持一致，使用 >= 下界
+        in_bin = (y_scores >= bin_lowers[i]) & (y_scores <= bin_uppers[i])
         bin_weight = np.sum(in_bin) / total_samples
         if bin_weight > 0:
             ece += bin_weight * abs(bin_accuracies[i] - bin_centers[i])

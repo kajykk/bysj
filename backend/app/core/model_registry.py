@@ -48,7 +48,7 @@ MODEL_PATHS: dict[str, str] = {
     "structured_v1.21_scaler_mc": "models/artifacts/structured_v1.21/scaler_multiclass.pkl",
     "structured_v1.21_manifest": "models/artifacts/structured_v1.21/manifest.json",
     "structured_v1.23_external_lr": "models/v1.23_external_lr/model.pkl",
-    "structured_v1.23_external_scaler": "models/v1.23_external_lr/model.pkl",
+    "structured_v1.23_external_scaler": "models/v1.23_external_lr/scaler.pkl",
     "structured_v1.24_adapter": "models/v1.24_adapter/score_adapter.pkl",
     "mmpsy_lite_model": "models/v1.25_mmpsy_lite/mmpsy_lite_model.pkl",
     "mmpsy_lite_scaler": "models/v1.25_mmpsy_lite/mmpsy_lite_scaler.pkl",
@@ -72,7 +72,8 @@ MODEL_REGISTRY: dict[str, ModelMetadata] = {
     model_id: ModelMetadata(
         name=model_id,
         path=path,
-        supports_fusion=model_id.startswith("fusion_") or model_id.startswith("physiological_"),
+        supports_fusion=model_id.startswith("fusion_")
+        or model_id.startswith("physiological_"),
     )
     for model_id, path in MODEL_PATHS.items()
 }
@@ -87,10 +88,18 @@ MODEL_REGISTRY["structured_logistic_regression_v1.20"] = ModelMetadata(
     lifecycle="default",
     feature_schema={
         "features": [
-            "age", "cgpa", "stress_level", "sleep_duration",
-            "social_support", "financial_pressure", "family_history",
-            "academic_pressure", "exercise_frequency", "anxiety",
-            "panic_attack", "treatment_seeking",
+            "age",
+            "cgpa",
+            "stress_level",
+            "sleep_duration",
+            "social_support",
+            "financial_pressure",
+            "family_history",
+            "academic_pressure",
+            "exercise_frequency",
+            "anxiety",
+            "panic_attack",
+            "treatment_seeking",
         ],
         "input_features": 12,
         "model_type": "LogisticRegression",
@@ -116,10 +125,20 @@ MODEL_REGISTRY["structured_v1.21_binary_lr"] = ModelMetadata(
     lifecycle="deprecated",
     feature_schema={
         "features": [
-            "age", "gender", "study_year", "cgpa", "stress_level",
-            "sleep_duration", "social_support", "financial_pressure",
-            "family_history", "academic_pressure", "exercise_frequency",
-            "anxiety", "panic_attack", "treatment_seeking",
+            "age",
+            "gender",
+            "study_year",
+            "cgpa",
+            "stress_level",
+            "sleep_duration",
+            "social_support",
+            "financial_pressure",
+            "family_history",
+            "academic_pressure",
+            "exercise_frequency",
+            "anxiety",
+            "panic_attack",
+            "treatment_seeking",
         ],
         "input_features": 14,
         "model_type": "LogisticRegression",
@@ -164,9 +183,16 @@ MODEL_REGISTRY["structured_v1.21_multiclass_lr"] = ModelMetadata(
     lifecycle="disabled",
     feature_schema={
         "features": [
-            "age", "gender", "study_year", "cgpa",
-            "sleep_duration", "social_support", "financial_pressure",
-            "family_history", "academic_pressure", "exercise_frequency",
+            "age",
+            "gender",
+            "study_year",
+            "cgpa",
+            "sleep_duration",
+            "social_support",
+            "financial_pressure",
+            "family_history",
+            "academic_pressure",
+            "exercise_frequency",
         ],
         "input_features": 10,
         "model_type": "LogisticRegression (Multinomial)",
@@ -231,9 +257,18 @@ MODEL_REGISTRY["structured_v1.23_external_lr"] = ModelMetadata(
     lifecycle="experimental",
     feature_schema={
         "features": [
-            "age", "gender", "cgpa", "stress_level", "sleep_duration",
-            "social_support", "financial_pressure", "family_history",
-            "academic_pressure", "exercise_frequency", "anxiety", "panic_attack",
+            "age",
+            "gender",
+            "cgpa",
+            "stress_level",
+            "sleep_duration",
+            "social_support",
+            "financial_pressure",
+            "family_history",
+            "academic_pressure",
+            "exercise_frequency",
+            "anxiety",
+            "panic_attack",
         ],
         "input_features": 12,
         "model_type": "LogisticRegression",
@@ -284,10 +319,16 @@ MODEL_REGISTRY["mmpsy_lite_model"] = ModelMetadata(
     lifecycle="limited_active",
     feature_schema={
         "features": [
-            "gad7_score", "total_keywords", "unique_categories",
-            "age", "gender", "cgpa",
-            "text_length", "chinese_ratio",
-            "text_quality_flag", "coverage_density",
+            "gad7_score",
+            "total_keywords",
+            "unique_categories",
+            "age",
+            "gender",
+            "cgpa",
+            "text_length",
+            "chinese_ratio",
+            "text_quality_flag",
+            "coverage_density",
         ],
         "input_features": 17,
         "model_type": "CalibratedClassifierCV(LogisticRegression)",
@@ -315,10 +356,19 @@ MODEL_REGISTRY["mmpsy_lite_scaler"] = ModelMetadata(
 
 
 def normalize_model_id(model_id: str) -> str:
-    return model_id
+    return model_id.strip()
 
 
-def register_model(model_id: str, path: str, *, version: str = "v1", enabled: bool = True, supports_fusion: bool = False, feature_schema: dict[str, object] | None = None, artifact_metadata: dict[str, object] | None = None) -> ModelMetadata:
+def register_model(
+    model_id: str,
+    path: str,
+    *,
+    version: str = "v1",
+    enabled: bool = True,
+    supports_fusion: bool = False,
+    feature_schema: dict[str, object] | None = None,
+    artifact_metadata: dict[str, object] | None = None,
+) -> ModelMetadata:
     metadata = ModelMetadata(
         name=model_id,
         path=path,
@@ -349,7 +399,9 @@ def is_model_enabled(model_id: str) -> bool:
     return False if metadata is None else metadata.enabled
 
 
-def get_active_models(lifecycle_filter: frozenset[str] | None = None) -> list[tuple[str, ModelMetadata]]:
+def get_active_models(
+    lifecycle_filter: frozenset[str] | None = None,
+) -> list[tuple[str, ModelMetadata]]:
     allowed = lifecycle_filter if lifecycle_filter is not None else ACTIVE_LIFECYCLES
     return [
         (mid, meta)

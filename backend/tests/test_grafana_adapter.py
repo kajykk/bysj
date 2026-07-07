@@ -12,36 +12,44 @@
 - conftest 提供: client (TestClient), as_role, db_session, seeded_user_id
 - _compute_* 函数通过 monkeypatch mock 避免真实 DB 查询.
 """
+
 from __future__ import annotations
 
 import os
-from unittest.mock import AsyncMock, MagicMock
 
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-ci-only")
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.core.deps import require_sa_or_admin
+from app.main import app
 from app.models.user import User
-
 
 # ============ Fixtures ============
 
 
 @pytest.fixture
-def grafana_admin_client() -> TestClient:
-    """提供 admin 身份覆盖的 TestClient."""
+def grafana_admin_client(client: TestClient) -> TestClient:
+    """提供 admin 身份覆盖的 TestClient.
+
+    复用 conftest.py 的 session-scope client, 避免创建新 TestClient
+    触发 lifespan 重复启动 (model_engine 不支持重复 preload, 第二次
+    lifespan startup 会挂起).
+    """
+
     async def _fake_admin():
         return User(
-            id=0, username="grafana_admin", email="admin@test.com",
-            role="admin", status="active", password_hash="!",
+            id=0,
+            username="grafana_admin",
+            email="admin@test.com",
+            role="admin",
+            status="active",
+            password_hash="!",
         )
 
     app.dependency_overrides[require_sa_or_admin] = _fake_admin
-    with TestClient(app) as c:
-        yield c
+    yield client
     app.dependency_overrides.pop(require_sa_or_admin, None)
 
 
@@ -60,16 +68,35 @@ def mock_v136_compute(monkeypatch):
             "group_by": group_by,
             "bucket": bucket,
             "buckets": [
-                {"timestamp": "2026-06-03T08:00:00Z", "count": 1, "by_severity": {"P0": 1}, "by_status": {"firing": 1}},
-                {"timestamp": "2026-06-03T09:00:00Z", "count": 2, "by_severity": {"P0": 1, "P1": 1}, "by_status": {"firing": 1, "resolved": 1}},
+                {
+                    "timestamp": "2026-06-03T08:00:00Z",
+                    "count": 1,
+                    "by_severity": {"P0": 1},
+                    "by_status": {"firing": 1},
+                },
+                {
+                    "timestamp": "2026-06-03T09:00:00Z",
+                    "count": 2,
+                    "by_severity": {"P0": 1, "P1": 1},
+                    "by_status": {"firing": 1, "resolved": 1},
+                },
             ],
         }
 
     # response_time
     async def _mock_rt(db, start_time, end_time, severity):
         return {
-            "total_fired": 5, "total_acked": 4, "total_pending": 1,
-            "response_time": {"mean": 120, "p50": 100, "p95": 200, "p99": 250, "min": 30, "max": 300},
+            "total_fired": 5,
+            "total_acked": 4,
+            "total_pending": 1,
+            "response_time": {
+                "mean": 120,
+                "p50": 100,
+                "p95": 200,
+                "p99": 250,
+                "min": 30,
+                "max": 300,
+            },
             "by_severity": {"P0": {"mean": 80, "p50": 70, "p95": 150, "p99": 200}},
             "ack_rate": 0.8,
         }
@@ -77,7 +104,9 @@ def mock_v136_compute(monkeypatch):
     # escalation
     async def _mock_esc(db, start_time, end_time, severity):
         return {
-            "total_fired": 10, "total_escalated": 2, "escalation_rate": 0.2,
+            "total_fired": 10,
+            "total_escalated": 2,
+            "escalation_rate": 0.2,
             "by_level": {"P0": 1, "P1": 1},
             "by_severity": {},
             "by_rule": [],
@@ -87,20 +116,47 @@ def mock_v136_compute(monkeypatch):
     async def _mock_ch(db, start_time, end_time, channel):
         return {
             "channels": {
-                "webhook": {"sent": 5, "failed": 0, "total": 5, "success_rate": 1.0, "avg_duration_ms": 30, "max_duration_ms": 50},
-                "slack": {"sent": 3, "failed": 1, "total": 4, "success_rate": 0.75, "avg_duration_ms": 40, "max_duration_ms": 80},
+                "webhook": {
+                    "sent": 5,
+                    "failed": 0,
+                    "total": 5,
+                    "success_rate": 1.0,
+                    "avg_duration_ms": 30,
+                    "max_duration_ms": 50,
+                },
+                "slack": {
+                    "sent": 3,
+                    "failed": 1,
+                    "total": 4,
+                    "success_rate": 0.75,
+                    "avg_duration_ms": 40,
+                    "max_duration_ms": 80,
+                },
             },
-            "total_sent": 8, "total_failed": 1, "total": 9, "overall_success_rate": 0.89,
+            "total_sent": 8,
+            "total_failed": 1,
+            "total": 9,
+            "overall_success_rate": 0.89,
         }
 
     # silence_hit_rate
     async def _mock_sh(db, start_time, end_time):
         return {
-            "total_fired": 10, "total_silenced": 3, "total_processed": 13,
+            "total_fired": 10,
+            "total_silenced": 3,
+            "total_processed": 13,
             "hit_rate": 0.23,
             "by_matcher": [
-                {"silence_name": "weekend", "silenced_count": 2, "by_severity": {"P0": 2}},
-                {"silence_name": "nightly", "silenced_count": 1, "by_severity": {"P1": 1}},
+                {
+                    "silence_name": "weekend",
+                    "silenced_count": 2,
+                    "by_severity": {"P0": 2},
+                },
+                {
+                    "silence_name": "nightly",
+                    "silenced_count": 1,
+                    "by_severity": {"P1": 1},
+                },
             ],
             "by_severity": {},
         }
@@ -108,8 +164,11 @@ def mock_v136_compute(monkeypatch):
     # am_sync
     async def _mock_am(db, start_time, end_time, operation):
         return {
-            "total_success": 8, "total_failed": 1, "total": 9,
-            "success_rate": 0.89, "avg_duration_ms": 100,
+            "total_success": 8,
+            "total_failed": 1,
+            "total": 9,
+            "success_rate": 0.89,
+            "avg_duration_ms": 100,
             "by_operation": [
                 {"operation": "push_silence", "success": 5, "failed": 0},
                 {"operation": "delete_silence", "success": 3, "failed": 1},
@@ -120,10 +179,28 @@ def mock_v136_compute(monkeypatch):
     # lock_stats
     async def _mock_lock(db):
         return {
-            "memory": {"acquired": 10, "skipped": 5, "fallback": 0, "errors": 0, "total": 15, "acquire_rate": 0.67, "fallback_rate": 0.0, "error_rate": 0.0},
+            "memory": {
+                "acquired": 10,
+                "skipped": 5,
+                "fallback": 0,
+                "errors": 0,
+                "total": 15,
+                "acquire_rate": 0.67,
+                "fallback_rate": 0.0,
+                "error_rate": 0.0,
+            },
             "last_flush_at": "2026-06-03T10:00:00Z",
             "recent_flushes": [],
-            "historical_recent": {"recent_flush_count": 5, "total_acquired": 50, "total_skipped": 10, "total_fallback": 0, "total_errors": 0, "total": 60, "fallback_rate": 0.0, "error_rate": 0.0},
+            "historical_recent": {
+                "recent_flush_count": 5,
+                "total_acquired": 50,
+                "total_skipped": 10,
+                "total_fallback": 0,
+                "total_errors": 0,
+                "total": 60,
+                "fallback_rate": 0.0,
+                "error_rate": 0.0,
+            },
         }
 
     monkeypatch.setattr(obs_mod, "_compute_trend", _mock_trend)
@@ -135,8 +212,12 @@ def mock_v136_compute(monkeypatch):
     monkeypatch.setattr(obs_mod, "_compute_lock_stats", _mock_lock)
 
     return {
-        "trend": _mock_trend, "response_time": _mock_rt, "escalation": _mock_esc,
-        "channel_stats": _mock_ch, "silence_hit_rate": _mock_sh, "am_sync": _mock_am,
+        "trend": _mock_trend,
+        "response_time": _mock_rt,
+        "escalation": _mock_esc,
+        "channel_stats": _mock_ch,
+        "silence_hit_rate": _mock_sh,
+        "am_sync": _mock_am,
         "lock_stats": _mock_lock,
     }
 
@@ -179,7 +260,9 @@ def test_query_trend(grafana_admin_client: TestClient, mock_v136_compute) -> Non
     assert "alert_P1" in targets
 
 
-def test_query_response_time(grafana_admin_client: TestClient, mock_v136_compute) -> None:
+def test_query_response_time(
+    grafana_admin_client: TestClient, mock_v136_compute
+) -> None:
     """T-GRAF-008: /query response_time → 包含 mean/p50/p95/p99."""
     resp = grafana_admin_client.post(
         "/api/v1/alerts/observability/grafana/query",
@@ -190,7 +273,12 @@ def test_query_response_time(grafana_admin_client: TestClient, mock_v136_compute
     assert isinstance(data, list)
     targets = {s["target"] for s in data}
     # 必须包含 4 个分位数
-    for tgt in ("response_time_mean", "response_time_p50", "response_time_p95", "response_time_p99"):
+    for tgt in (
+        "response_time_mean",
+        "response_time_p50",
+        "response_time_p95",
+        "response_time_p99",
+    ):
         assert tgt in targets, f"missing {tgt}"
 
 
@@ -210,7 +298,9 @@ def test_query_escalation(grafana_admin_client: TestClient, mock_v136_compute) -
     assert "escalation_rate" in targets
 
 
-def test_query_channel_stats(grafana_admin_client: TestClient, mock_v136_compute) -> None:
+def test_query_channel_stats(
+    grafana_admin_client: TestClient, mock_v136_compute
+) -> None:
     """T-GRAF-008: /query channel_stats → 包含 per-channel 成功率."""
     resp = grafana_admin_client.post(
         "/api/v1/alerts/observability/grafana/query",
@@ -225,7 +315,9 @@ def test_query_channel_stats(grafana_admin_client: TestClient, mock_v136_compute
     assert "overall_success_rate" in targets
 
 
-def test_query_silence_hit_rate(grafana_admin_client: TestClient, mock_v136_compute) -> None:
+def test_query_silence_hit_rate(
+    grafana_admin_client: TestClient, mock_v136_compute
+) -> None:
     """T-GRAF-008: /query silence_hit_rate → 包含 hit_rate 和 by_matcher."""
     resp = grafana_admin_client.post(
         "/api/v1/alerts/observability/grafana/query",
@@ -273,7 +365,9 @@ def test_query_lock_stats(grafana_admin_client: TestClient, mock_v136_compute) -
 # ============ Tests: /query unknown metric (1) ============
 
 
-def test_query_unknown_metric_400(grafana_admin_client: TestClient, mock_v136_compute) -> None:
+def test_query_unknown_metric_400(
+    grafana_admin_client: TestClient, mock_v136_compute
+) -> None:
     """T-GRAF-008: 未知 metric → 400/422.
 
     P1-SEC-023 修复后，metric 字段使用 Literal 类型在 Pydantic schema 层校验，
@@ -289,7 +383,9 @@ def test_query_unknown_metric_400(grafana_admin_client: TestClient, mock_v136_co
 # ============ Tests: dataframe 格式 (2) ============
 
 
-def test_dataframe_trend_format(grafana_admin_client: TestClient, mock_v136_compute) -> None:
+def test_dataframe_trend_format(
+    grafana_admin_client: TestClient, mock_v136_compute
+) -> None:
     """T-GRAF-008: trend dataframe 必须含 target + datapoints, datapoints[1] = epoch_ms."""
     resp = grafana_admin_client.post(
         "/api/v1/alerts/observability/grafana/query",
@@ -306,7 +402,9 @@ def test_dataframe_trend_format(grafana_admin_client: TestClient, mock_v136_comp
             assert dp[1] > 1700000000000  # reasonable epoch ms (post-2023)
 
 
-def test_dataframe_response_time_format(grafana_admin_client: TestClient, mock_v136_compute) -> None:
+def test_dataframe_response_time_format(
+    grafana_admin_client: TestClient, mock_v136_compute
+) -> None:
     """T-GRAF-008: response_time dataframe 是单点 series (stat 类型)."""
     resp = grafana_admin_client.post(
         "/api/v1/alerts/observability/grafana/query",
@@ -323,7 +421,9 @@ def test_dataframe_response_time_format(grafana_admin_client: TestClient, mock_v
 # ============ Tests: /variable 4 types (4) ============
 
 
-def test_variable_rule_returns_top20(grafana_admin_client: TestClient, mock_v136_compute) -> None:
+def test_variable_rule_returns_top20(
+    grafana_admin_client: TestClient, mock_v136_compute
+) -> None:
     """T-GRAF-008: /variable type=rule → 列表 [{text, value}], 最多 20 个."""
     resp = grafana_admin_client.post(
         "/api/v1/alerts/observability/grafana/variable",
@@ -342,7 +442,9 @@ def test_variable_rule_returns_top20(grafana_admin_client: TestClient, mock_v136
     assert result[0]["value"] == "rule-A"
 
 
-def test_variable_matcher_returns_top10(grafana_admin_client: TestClient, mock_v136_compute) -> None:
+def test_variable_matcher_returns_top10(
+    grafana_admin_client: TestClient, mock_v136_compute
+) -> None:
     """T-GRAF-008: /variable type=matcher → 列表, 最多 10 个."""
     resp = grafana_admin_client.post(
         "/api/v1/alerts/observability/grafana/variable",
@@ -369,7 +471,13 @@ def test_variable_operation_returns_all(grafana_admin_client: TestClient) -> Non
     assert isinstance(result, list)
     assert len(result) == 5
     values = {item["value"] for item in result}
-    assert values == {"all", "push_silence", "delete_silence", "expire_silence", "pull_silences"}
+    assert values == {
+        "all",
+        "push_silence",
+        "delete_silence",
+        "expire_silence",
+        "pull_silences",
+    }
 
 
 def test_variable_channel_returns_all(grafana_admin_client: TestClient) -> None:
@@ -388,11 +496,14 @@ def test_variable_channel_returns_all(grafana_admin_client: TestClient) -> None:
 
 # ============ Test count verification ============
 
+
 def test_test_count() -> None:
     """Meta-test: 验证本文件测试数量 == 15 (不含本 meta-test)."""
-    import inspect
     test_funcs = [
-        name for name, obj in globals().items()
+        name
+        for name, obj in globals().items()
         if name.startswith("test_") and callable(obj) and name != "test_test_count"
     ]
-    assert len(test_funcs) == 15, f"expected 15 tests, got {len(test_funcs)}: {test_funcs}"
+    assert (
+        len(test_funcs) == 15
+    ), f"expected 15 tests, got {len(test_funcs)}: {test_funcs}"

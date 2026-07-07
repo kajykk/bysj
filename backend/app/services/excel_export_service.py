@@ -43,14 +43,17 @@ class ExcelExportService:
     def __init__(self) -> None:
         pass
 
-    def export_to_excel(self, data: list[dict[str, Any]], filename: str | None = None) -> ExcelExportResult:
+    def export_to_excel(
+        self, data: list[dict[str, Any]], filename: str | None = None
+    ) -> ExcelExportResult:
         """Backward-compatible Excel export wrapper used by performance tests."""
         return self.export(data=data)
 
     def _check_openpyxl_available(self) -> bool:
         """Check if openpyxl is installed."""
         try:
-            import openpyxl
+            import openpyxl  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -79,7 +82,8 @@ class ExcelExportService:
 
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import Font
+
+            # L-09 修复：移除未使用的 Font 导入
 
             if not data:
                 return ExcelExportResult(
@@ -112,9 +116,11 @@ class ExcelExportService:
 
             # Save to buffer
             buffer = io.BytesIO()
-            wb.save(buffer)
-            excel_bytes = buffer.getvalue()
-            buffer.close()
+            try:
+                wb.save(buffer)
+                excel_bytes = buffer.getvalue()
+            finally:
+                buffer.close()
 
             return ExcelExportResult(
                 success=True,
@@ -152,7 +158,7 @@ class ExcelExportService:
         for row in data:
             match = True
             for col, value in filters.items():
-                if col in row and row[col] != value:
+                if row.get(col) != value:
                     match = False
                     break
             if match:
@@ -160,22 +166,27 @@ class ExcelExportService:
 
         return filtered
 
-    def _format_value(self, value: Any) -> str:
+    def _format_value(self, value: Any) -> Any:
         """Format a value for Excel output.
 
         FE-003 修复：对以 =, +, -, @, \\t, \\r 开头的字符串进行转义，
         防止 Excel 公式注入攻击（CSV/Formula Injection）。
+        M-Svc-2 修复：数字类型保持原样不转字符串，避免 Excel 将数值当作文本处理
+        （数值列保留为数字类型后，Excel 可正确排序、求和、应用公式）。
 
         Args:
             value: Value to format.
 
         Returns:
-            Formatted and sanitized string.
+            Formatted and sanitized value（数字保持原类型，其余为字符串）。
         """
         if value is None:
             return ""
         if isinstance(value, bool):
             return "Yes" if value else "No"
+        # M-Svc-2 修复：int/float 保持原样不转字符串（bool 已在上一步处理）
+        if isinstance(value, (int, float)):
+            return value
         if isinstance(value, (list, dict)):
             import json
 
@@ -248,9 +259,11 @@ class ExcelExportService:
                 row_count += 1
 
             buffer = io.BytesIO()
-            wb.save(buffer)
-            excel_bytes = buffer.getvalue()
-            buffer.close()
+            try:
+                wb.save(buffer)
+                excel_bytes = buffer.getvalue()
+            finally:
+                buffer.close()
 
             return ExcelExportResult(
                 success=True,
@@ -267,7 +280,9 @@ class ExcelExportService:
                 error_message=str(exc),
             )
 
-    def _row_matches_filters(self, row: dict[str, Any], filters: dict[str, Any]) -> bool:
+    def _row_matches_filters(
+        self, row: dict[str, Any], filters: dict[str, Any]
+    ) -> bool:
         """Check if a row matches all filters.
 
         Args:
@@ -278,7 +293,7 @@ class ExcelExportService:
             True if row matches all filters.
         """
         for col, value in filters.items():
-            if col in row and row[col] != value:
+            if row.get(col) != value:
                 return False
         return True
 

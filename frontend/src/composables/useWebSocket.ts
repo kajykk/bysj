@@ -1,4 +1,9 @@
 import { computed, ref } from 'vue'
+import { ElNotification } from 'element-plus'
+import { captureMessage } from '@/plugins/sentry'
+import i18n from '@/i18n'
+
+const t = i18n.global.t.bind(i18n.global)
 
 export interface WsWarningMessage {
   type: 'warning' | 'counselor_warning'
@@ -18,11 +23,23 @@ class WebSocketClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
   private maxReconnectAttempts = 10
-  private listeners: Array<(msg: WsWarningMessage) => void> = []
+  // L-FE-8 修复：listeners 改用 Set 存储，移除监听器从 O(n) filter 降为 O(1) delete
+  private listeners: Set<(msg: WsWarningMessage) => void> = new Set()
   private shouldReconnect = false
   private connectionSeq = 0
   private seenWarningIds = new Set<number>()
   private seenFallbackKeys = new Set<string>()
+
+  // M-47 修复：心跳机制（ping/pong）检测静默断连
+  // 后端 idle timeout 为 300s，客户端每 60s 发送一次 ping 保持连接活跃
+  // 若 pong 在 15s 内未收到，认为连接已死，主动关闭并触发重连
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private pongTimeoutTimer: ReturnType<typeof setTimeout> | null = null
+  private static readonly HEARTBEAT_INTERVAL_MS = 60_000
+  private static readonly PONG_TIMEOUT_MS = 15_000
+  // M-FE-2 修复：连接建立超时定时器，10s 内未建立连接则关闭并重连
+  private connectionTimeoutTimer: ReturnType<typeof setTimeout> | null = null
+  private static readonly CONNECTION_TIMEOUT_MS = 10_000
 
   private _dedupeMessage(msg: WsWarningMessage) {
     const warningId = Number(msg.data.warning_id)
@@ -81,23 +98,55 @@ class WebSocketClient {
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
-    const url = new URL(`${wsProtocol}//${host}/ws/${this.userId}`)
+    // M-FE-1 修复：userId 不再放在 URL 路径中（避免被日志/代理记录），
+    // 改为通过 query parameter 传递
+    const url = new URL(`${wsProtocol}//${host}/ws/`)
+    url.searchParams.set('user_id', String(this.userId))
 
     const socket = new WebSocket(url.toString())
     this.ws = socket
 
+    // M-FE-2 修复：设置 10s 连接建立超时，超时后关闭 socket 触发重连
+    if (this.connectionTimeoutTimer) clearTimeout(this.connectionTimeoutTimer)
+    this.connectionTimeoutTimer = setTimeout(() => {
+      if (seq !== this.connectionSeq) return
+      // 连接超时未建立，主动关闭触发 onclose 重连流程
+      if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
+        this.ws.close(4002, 'connection establishment timeout')
+      }
+    }, WebSocketClient.CONNECTION_TIMEOUT_MS)
+
     socket.onopen = () => {
       if (seq !== this.connectionSeq) return
+      // M-FE-2 修复：连接已建立，清除连接超时定时器
+      if (this.connectionTimeoutTimer) {
+        clearTimeout(this.connectionTimeoutTimer)
+        this.connectionTimeoutTimer = null
+      }
       socket.send(JSON.stringify({ type: 'auth', token: this.authToken }))
       this.reconnectAttempts = 0
+      // M-47 修复：连接成功后启动心跳
+      this._startHeartbeat()
     }
 
     socket.onmessage = (event) => {
       if (seq !== this.connectionSeq) return
       try {
         const msg = JSON.parse(event.data)
+        // M-47 修复：处理 pong 响应，清除超时定时器
+        if (msg.type === 'pong') {
+          this._clearPongTimeout()
+          return
+        }
         if ((msg.type === 'warning' || msg.type === 'counselor_warning') && this._dedupeMessage(msg as WsWarningMessage)) {
-          this.listeners.forEach((cb) => cb(msg as WsWarningMessage))
+          // L-FE-9 修复：单个监听器抛错时捕获，避免影响其他监听器；消息已去重，不从 Set 移除
+          this.listeners.forEach((cb) => {
+            try {
+              cb(msg as WsWarningMessage)
+            } catch {
+              // 监听器内部异常静默处理，不影响后续监听器调用
+            }
+          })
         }
       } catch {
         // ignore non-JSON messages
@@ -107,6 +156,8 @@ class WebSocketClient {
     socket.onclose = () => {
       if (seq !== this.connectionSeq) return
       this.ws = null
+      // M-47 修复：连接关闭时停止心跳
+      this._stopHeartbeat()
       if (this.shouldReconnect) {
         this._scheduleReconnect()
       }
@@ -118,8 +169,55 @@ class WebSocketClient {
     }
   }
 
+  // M-47 修复：心跳机制实现
+  private _startHeartbeat() {
+    this._stopHeartbeat()
+    this.heartbeatTimer = setInterval(() => {
+      if (this.ws?.readyState !== WebSocket.OPEN) return
+      // 发送 ping 并启动 pong 超时等待
+      this.ws.send(JSON.stringify({ type: 'ping' }))
+      this._schedulePongTimeout()
+    }, WebSocketClient.HEARTBEAT_INTERVAL_MS)
+  }
+
+  private _stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+    this._clearPongTimeout()
+  }
+
+  private _schedulePongTimeout() {
+    this._clearPongTimeout()
+    this.pongTimeoutTimer = setTimeout(() => {
+      // pong 超时未收到，认为连接已死，主动关闭触发重连
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.close(4001, 'heartbeat timeout')
+      }
+    }, WebSocketClient.PONG_TIMEOUT_MS)
+  }
+
+  private _clearPongTimeout() {
+    if (this.pongTimeoutTimer) {
+      clearTimeout(this.pongTimeoutTimer)
+      this.pongTimeoutTimer = null
+    }
+  }
+
   private _scheduleReconnect() {
-    if (!this.shouldReconnect || this.reconnectAttempts >= this.maxReconnectAttempts || !this.userId || !this.authToken) return
+    if (!this.shouldReconnect || !this.userId || !this.authToken) return
+    // H-FE-3 修复：达到最大重连次数时提示用户并上报 Sentry
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      ElNotification({
+        title: t('webSocket.disconnectedTitle'),
+        message: t('webSocket.disconnectedMessage'),
+        type: 'warning',
+        duration: 0,
+      })
+      captureMessage('WebSocket 重连失败：已达最大重连次数，实时连接已断开', 'warning')
+      return
+    }
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
     this.reconnectAttempts++
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
@@ -137,6 +235,13 @@ class WebSocketClient {
   disconnect() {
     this.shouldReconnect = false
     this._resetReconnectState()
+    // M-47 修复：断开时停止心跳
+    this._stopHeartbeat()
+    // M-FE-2 修复：断开时清除连接超时定时器
+    if (this.connectionTimeoutTimer) {
+      clearTimeout(this.connectionTimeoutTimer)
+      this.connectionTimeoutTimer = null
+    }
     this.connectionSeq++
     this.ws?.close()
     this.ws = null
@@ -144,14 +249,19 @@ class WebSocketClient {
     this.authToken = ''
     this.seenWarningIds.clear()
     this.seenFallbackKeys.clear()
-    // P1-D-9 修复：清空 listeners 数组，防止未清理的监听器回调残留导致内存泄漏
-    this.listeners = []
+    // M-27 修复：不清空 listeners 数组，避免重连后监听器丢失
+    // 监听器应由注册者通过 onMessage 返回的取消函数负责清理
+    // 如需清空所有监听器，请显式调用 removeAllListeners()
+  }
+
+  removeAllListeners() {
+    this.listeners.clear()
   }
 
   onMessage(cb: (msg: WsWarningMessage) => void) {
-    this.listeners.push(cb)
+    this.listeners.add(cb)
     return () => {
-      this.listeners = this.listeners.filter((l) => l !== cb)
+      this.listeners.delete(cb)
     }
   }
 
@@ -161,6 +271,12 @@ class WebSocketClient {
 }
 
 export const wsClient = new WebSocketClient()
+
+// L-FE-20 修复：供测试调用，重置全局单例状态避免测试间状态污染
+export function resetWsClient() {
+  wsClient.disconnect()
+  wsClient.removeAllListeners()
+}
 
 const unreadWarningCount = ref(0)
 

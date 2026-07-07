@@ -2,12 +2,11 @@
 
 v1.36: 增加 T1.2 - am_sync 记录同步结果到 OperationLog 测试.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from app.monitoring.am_sync import (
     delete_silence,
@@ -15,7 +14,6 @@ from app.monitoring.am_sync import (
     pull_silences,
     push_silence,
 )
-
 
 # ===== push_silence (v1.36: async) =====
 
@@ -29,8 +27,9 @@ async def test_push_silence_no_am_url() -> None:
 
 async def test_push_silence_success() -> None:
     """v1.35: 推送成功应返回 AM 数据."""
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"silenceID": "am-uuid-123"}
@@ -45,9 +44,13 @@ async def test_push_silence_success() -> None:
 
 async def test_push_silence_uses_auth() -> None:
     """v1.35: 应使用配置的 AM 认证."""
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync._get_am_auth", return_value=("user", "pwd")), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch(
+        "app.monitoring.am_sync._get_am_auth", return_value=("user", "pwd")
+    ), patch(
+        "app.monitoring.am_sync._HTTP_SESSION.post"
+    ) as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"silenceID": "x"}
@@ -60,8 +63,9 @@ async def test_push_silence_uses_auth() -> None:
 
 async def test_push_silence_5xx_returns_none() -> None:
     """v1.35: 5xx 应返回 None."""
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 500
         mock_resp.text = "internal error"
@@ -73,8 +77,11 @@ async def test_push_silence_5xx_returns_none() -> None:
 
 async def test_push_silence_network_error() -> None:
     """v1.35: 网络异常应返回 None."""
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post", side_effect=Exception("network")):
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch(
+        "app.monitoring.am_sync._HTTP_SESSION.post", side_effect=Exception("network")
+    ):
         result = await push_silence({"matchers": []})
         assert result is None
 
@@ -98,8 +105,9 @@ async def test_delete_silence_empty_id() -> None:
 
 async def test_delete_silence_success() -> None:
     """v1.35: 删除成功应返回 True."""
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.delete") as mock_delete:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.delete") as mock_delete:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_delete.return_value = mock_resp
@@ -111,8 +119,9 @@ async def test_delete_silence_success() -> None:
 
 async def test_delete_silence_404() -> None:
     """v1.35: 404 应返回 False."""
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.delete") as mock_delete:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.delete") as mock_delete:
         mock_resp = MagicMock()
         mock_resp.status_code = 404
         mock_delete.return_value = mock_resp
@@ -132,8 +141,9 @@ async def test_pull_silences_no_url() -> None:
 
 async def test_pull_silences_success() -> None:
     """v1.35: 拉取成功应返回列表."""
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.get") as mock_get:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.get") as mock_get:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [{"silenceID": "am-1"}, {"silenceID": "am-2"}]
@@ -148,8 +158,9 @@ async def test_pull_silences_success() -> None:
 
 async def test_pull_silences_empty() -> None:
     """v1.35: 无静默应返回空列表."""
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.get") as mock_get:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.get") as mock_get:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = None  # AM 可能返回 null
@@ -185,7 +196,12 @@ def test_local_to_am_format_no_comment() -> None:
     """v1.35: 无 comment 时使用 name."""
     now = datetime.now(timezone.utc)
     result = local_to_am_format(
-        silence_id=1, name="my-silence", matcher={}, starts_at=now, ends_at=now, comment=None,
+        silence_id=1,
+        name="my-silence",
+        matcher={},
+        starts_at=now,
+        ends_at=now,
+        comment=None,
     )
     assert result["comment"] == "my-silence"
 
@@ -194,7 +210,12 @@ def test_local_to_am_format_empty_matcher() -> None:
     """v1.35: 空 matcher 应生成空 matchers 列表."""
     now = datetime.now(timezone.utc)
     result = local_to_am_format(
-        silence_id=1, name="x", matcher={}, starts_at=now, ends_at=now, comment=None,
+        silence_id=1,
+        name="x",
+        matcher={},
+        starts_at=now,
+        ends_at=now,
+        comment=None,
     )
     assert result["matchers"] == []
 
@@ -207,8 +228,9 @@ async def test_am_sync_success_logged() -> None:
     db = MagicMock()
     db.add = MagicMock()
 
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"silenceID": "am-uuid-123"}
@@ -229,8 +251,9 @@ async def test_am_sync_failed_logged() -> None:
     db = MagicMock()
     db.add = MagicMock()
 
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 500
         mock_resp.text = "internal error"
@@ -250,8 +273,9 @@ async def test_am_sync_log_includes_am_silence_id() -> None:
     db = MagicMock()
     db.add = MagicMock()
 
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"silenceID": "am-uuid-xyz"}
@@ -273,8 +297,9 @@ async def test_am_sync_log_failure_does_not_block_sync() -> None:
     db = MagicMock()
     db.add = MagicMock(side_effect=Exception("db unavailable"))
 
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"silenceID": "am-uuid-789"}

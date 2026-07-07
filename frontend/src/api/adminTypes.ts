@@ -56,3 +56,19 @@ export interface ModelFeedbackItem {
   reason: string | null
   created_at: string
 }
+
+export interface CrisisEventItem {
+  id: number
+  user_id: number
+  report_id: number | null
+  trigger_source: string
+  crisis_keywords: string[]
+  crisis_score: number | null
+  input_summary: string | null
+  review_task_id: number | null
+  status: string
+  handled_by: number | null
+  handled_action: string | null
+  created_at: string
+  handled_at: string | null
+}

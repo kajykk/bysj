@@ -4,30 +4,16 @@
 - flush_lock_stats_task: 每分钟将 dedup_lock 内存统计 flush 到 OperationLog
   用于监控多实例去重锁的健康度 (acquired/skipped/fallback/errors).
 """
+
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from app.core.celery_app import celery_app
+from app.core.celery_async import run_async as _run_async
 from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
-
-_event_loop: asyncio.AbstractEventLoop | None = None
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    """v1.36: 复用事件循环 (celery worker 进程级)."""
-    global _event_loop
-    if _event_loop is None or _event_loop.is_closed():
-        _event_loop = asyncio.new_event_loop()
-    return _event_loop
-
-
-def _run_async(coro):
-    loop = _get_loop()
-    return loop.run_until_complete(coro)
 
 
 @celery_app.task(
@@ -53,7 +39,9 @@ def flush_lock_stats_task(self):
         return {"success": success}
     except Exception as exc:
         logger.error(
-            "[observability] flush_lock_stats failed: %s", exc, exc_info=True,
+            "[observability] flush_lock_stats failed: %s",
+            exc,
+            exc_info=True,
         )
         try:
             self.retry(exc=exc)
@@ -69,11 +57,20 @@ async def _flush_lock_stats_impl() -> bool:
     async with AsyncSessionLocal() as db:
         try:
             success = await flush_lock_stats(db)
-            await db.commit()
+            # M-ML-4 修复：flush_lock_stats 返回 False 时不应 commit（避免写入空/无效统计），
+            # 改为 rollback 丢弃本次未生效的变更
+            if success:
+                await db.commit()
+            else:
+                await db.rollback()
+                logger.warning(
+                    "[observability] flush_lock_stats returned False, transaction rolled back"
+                )
             return success
         except Exception as exc:
             await db.rollback()
             logger.error(
-                "[observability] flush_lock_stats transaction failed: %s", exc,
+                "[observability] flush_lock_stats transaction failed: %s",
+                exc,
             )
             return False

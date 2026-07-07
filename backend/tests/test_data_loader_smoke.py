@@ -5,16 +5,15 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 
 from app.ml.data_loader import (
+    REQUIRED_COLUMNS,
+    get_dataset_stats,
     load_depresjon_data,
     load_kaggle_data,
     merge_datasets,
-    get_dataset_stats,
-    REQUIRED_COLUMNS,
 )
 
 

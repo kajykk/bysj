@@ -7,6 +7,9 @@ This module provides opt-in sanitization helpers and a defensive middleware.
 - 保留 `sanitize_html` / `strip_html_tags` 工具函数，供需要富文本转义的字段显式调用
 - 中间件在生产环境对 URL query string 进行可疑脚本模式检查与日志告警
 - 中间件对 JSON body 中**包含 HTML 标签或 JS 事件**的字段进行有针对性的转义
+
+注意: XSSProtectionMiddleware 中间件未被 main.py 注册（实际使用的中间件在 app.core.middlewares 中）。
+本模块仅保留 sanitize_html / strip_html_tags / looks_like_xss 工具函数供其他模块调用。
 """
 
 # DEPRECATED: 此中间件未被使用，功能已迁移到 app.core.middlewares
@@ -25,20 +28,21 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
+from app.core.rate_limit import get_real_client_ip
 
 logger = logging.getLogger(__name__)
 
 # 匹配常见 XSS payload 特征（用于 opt-in 检测）
 _XSS_PATTERNS = re.compile(
     r"(?:"
-    r"<script\b[^>]*>"            # <script>
-    r"|</script\s*>"              # </script>
-    r"|javascript\s*:"            # javascript:
-    r"|on\w+\s*=\s*[\"']"        # onerror=, onclick=, ...
-    r"|<iframe\b"                 # <iframe>
-    r"|<object\b"                 # <object>
-    r"|<embed\b"                  # <embed>
-    r"|<svg\b[^>]*on\w+\s*="     # <svg onload=>
+    r"<script\b[^>]*>"  # <script>
+    r"|</script\s*>"  # </script>
+    r"|javascript\s*:"  # javascript:
+    r"|on\w+\s*=\s*[\"']"  # onerror=, onclick=, ...
+    r"|<iframe\b"  # <iframe>
+    r"|<object\b"  # <object>
+    r"|<embed\b"  # <embed>
+    r"|<svg\b[^>]*on\w+\s*="  # <svg onload=>
     r")",
     re.IGNORECASE,
 )
@@ -91,13 +95,17 @@ class XSSProtectionMiddleware(BaseHTTPMiddleware):
         try:
             parsed = parse_qs(raw_qs, keep_blank_values=True)
         except Exception:
+            # M-L 修复：记录解析失败，便于排查异常请求，但不阻断请求处理
+            logger.debug("XSS middleware: query string parse failed: %r", raw_qs[:200])
             return
         for key, values in parsed.items():
             for value in values:
                 if looks_like_xss(value):
                     logger.warning(
                         "XSS payload detected in query string: key=%s value=%r ip=%s",
-                        key, value[:200], request.client.host if request.client else "unknown",
+                        key,
+                        value[:200],
+                        get_real_client_ip(request),
                     )
 
     async def _check_json_body(self, request: Request) -> None:
@@ -108,6 +116,8 @@ class XSSProtectionMiddleware(BaseHTTPMiddleware):
         try:
             body = await request.json()
         except Exception:
+            # M-L 修复：记录解析失败，便于排查异常请求，但不阻断请求处理
+            logger.debug("XSS middleware: JSON body parse failed")
             return
         if not isinstance(body, (dict, list)):
             return
@@ -115,7 +125,8 @@ class XSSProtectionMiddleware(BaseHTTPMiddleware):
             if looks_like_xss(value):
                 logger.warning(
                     "XSS payload detected in JSON body: path=%s value=%r",
-                    path, value[:200],
+                    path,
+                    value[:200],
                 )
 
     def _iter_strings(self, value: Any, prefix: str = "") -> list[tuple[str, str]]:
@@ -124,7 +135,9 @@ class XSSProtectionMiddleware(BaseHTTPMiddleware):
             results.append((prefix or "<root>", value))
         elif isinstance(value, dict):
             for k, v in value.items():
-                results.extend(self._iter_strings(v, f"{prefix}.{k}" if prefix else str(k)))
+                results.extend(
+                    self._iter_strings(v, f"{prefix}.{k}" if prefix else str(k))
+                )
         elif isinstance(value, list):
             for i, item in enumerate(value):
                 results.extend(self._iter_strings(item, f"{prefix}[{i}]"))

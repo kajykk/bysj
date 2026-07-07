@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 
 class TestCrisisAuditAPI:
     """Tests for crisis audit log API endpoints."""
 
-    def test_crisis_event_recorded_on_text_prediction(self, client: TestClient, as_role):
+    def test_crisis_event_recorded_on_text_prediction(
+        self, client: TestClient, as_role
+    ):
         """TC-CRISIS-HP-001: 检测到危机时自动记录危机事件"""
         as_role("user", 1)
-        
+
         # 发送危机文本
         response = client.post(
             "/api/v1/model/predict/text",

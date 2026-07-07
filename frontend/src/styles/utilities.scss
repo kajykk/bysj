@@ -1,0 +1,327 @@
+/**
+ * 全局工具类系统
+ *
+ * 提供原子化 CSS 工具类，统一各页面的布局、间距、卡片、文字等视觉表现。
+ * 所有工具类基于 variables.scss 中定义的设计令牌，确保主题一致性。
+ */
+
+/* ===== 布局工具类 ===== */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-wrap {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+/* ===== 间距工具类 ===== */
+.gap-xs { gap: var(--spacing-xs); }
+.gap-sm { gap: var(--spacing-sm); }
+.gap-md { gap: var(--spacing-md); }
+.gap-lg { gap: var(--spacing-lg); }
+.gap-xl { gap: var(--spacing-xl); }
+
+.mt-xs { margin-top: var(--spacing-xs); }
+.mt-sm { margin-top: var(--spacing-sm); }
+.mt-md { margin-top: var(--spacing-md); }
+.mt-lg { margin-top: var(--spacing-lg); }
+.mt-xl { margin-top: var(--spacing-xl); }
+
+.mb-xs { margin-bottom: var(--spacing-xs); }
+.mb-sm { margin-bottom: var(--spacing-sm); }
+.mb-md { margin-bottom: var(--spacing-md); }
+.mb-lg { margin-bottom: var(--spacing-lg); }
+.mb-xl { margin-bottom: var(--spacing-xl); }
+
+.page-padding {
+  padding: var(--spacing-lg);
+}
+
+.section-spacing {
+  margin-bottom: var(--spacing-section);
+}
+
+/* ===== 文字工具类 ===== */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-multiline-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.text-multiline-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.text-primary { color: var(--text-primary); }
+.text-regular { color: var(--text-regular); }
+.text-secondary { color: var(--text-secondary); }
+.text-inverse { color: var(--text-inverse); }
+
+.text-xs { font-size: var(--font-size-extra-small); }
+.text-sm { font-size: var(--font-size-small); }
+.text-base { font-size: var(--font-size-base); }
+.text-md { font-size: var(--font-size-medium); }
+.text-lg { font-size: var(--font-size-large); }
+.text-xl { font-size: var(--font-size-extra-large); }
+
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.font-bold { font-weight: var(--font-weight-bold); }
+
+/* ===== 卡片工具类 ===== */
+.stat-card {
+  background: var(--bg-primary);
+  border-radius: var(--radius-large);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-duration) var(--transition-ease-out),
+    transform var(--transition-duration) var(--transition-ease-out);
+  height: 100%;
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.stat-card:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-card);
+}
+
+.card-base {
+  background: var(--bg-primary);
+  border-radius: var(--radius-large);
+  border: 1px solid var(--border-lighter);
+  padding: var(--spacing-lg);
+}
+
+.card-hover {
+  transition: box-shadow var(--transition-duration) var(--transition-ease-out),
+    transform var(--transition-duration) var(--transition-ease-out);
+}
+
+.card-hover:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.card-hover:active {
+  transform: translateY(0);
+}
+
+/* ===== 页面头部工具类 ===== */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.page-title {
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  margin: var(--spacing-xs) 0 0;
+  line-height: var(--line-height-normal);
+}
+
+/* ===== 风险等级色阶工具类 ===== */
+.risk-none { color: var(--risk-none); }
+.risk-mild { color: var(--risk-mild); }
+.risk-moderate { color: var(--risk-moderate); }
+.risk-high { color: var(--risk-high); }
+.risk-critical { color: var(--risk-critical); }
+
+.bg-risk-none { background-color: var(--risk-none); }
+.bg-risk-mild { background-color: var(--risk-mild); }
+.bg-risk-moderate { background-color: var(--risk-moderate); }
+.bg-risk-high { background-color: var(--risk-high); }
+.bg-risk-critical { background-color: var(--risk-critical); }
+
+/* ===== 滚动条美化 ===== */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-base);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===== 响应式工具类 ===== */
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .page-padding {
+    padding: var(--spacing-md);
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+
+  /* ISS-033 修复：移动端 el-dialog 宽度自适应，避免横向溢出 */
+  .el-dialog {
+    width: 90vw !important;
+    margin: 5vh auto !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+/* ===== 焦点可见性 (a11y) ===== */
+:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* ===== 按钮按压反馈 ===== */
+.el-button:active {
+  transform: scale(0.98);
+}
+
+/* ===== 数据数字等宽（表格、分数、日期） ===== */
+.el-table .el-table__cell,
+.stat-value,
+.risk-score-display,
+.count-up-animation {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== 内容区最大宽度约束 ===== */
+.content-container {
+  max-width: var(--layout-content-max-width);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ===== 全局基础排版 ===== */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--text-primary);
+  background-color: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ===== 全局滚动条美化 ===== */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+html::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-base);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===== 全局噪点纹理覆盖 ===== */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+html.dark body::before {
+  mix-blend-mode: screen;
+  opacity: 0.5;
+}
+
+/* ===== 减少动效偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

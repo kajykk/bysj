@@ -15,7 +15,9 @@ def test_counselor_group_member_invalid_422(client: TestClient, as_role) -> None
 
 def test_counselor_consultation_invalid_422(client: TestClient, as_role) -> None:
     as_role("counselor", 2)
-    res = client.post("/api/v1/counselor/users/1/consultations", json={"main_topics": ""})
+    res = client.post(
+        "/api/v1/counselor/users/1/consultations", json={"main_topics": ""}
+    )
     assert res.status_code == 422
 
 
@@ -35,7 +37,13 @@ def test_admin_threshold_invalid_422(client: TestClient, as_role) -> None:
     as_role("admin", 3)
     res = client.post(
         "/api/v1/admin/thresholds",
-        json={"level": 1, "level_name": "L1", "min_score": 20, "max_score": 40, "color": "#f00"},
+        json={
+            "level": 1,
+            "level_name": "L1",
+            "min_score": 20,
+            "max_score": 40,
+            "color": "#f00",
+        },
     )
     assert res.status_code == 422
 
@@ -46,7 +54,9 @@ def test_admin_config_invalid_422(client: TestClient, as_role) -> None:
     assert res.status_code == 422
 
 
-def test_admin_template_list_empty_page_returns_200(client: TestClient, as_role) -> None:
+def test_admin_template_list_empty_page_returns_200(
+    client: TestClient, as_role
+) -> None:
     as_role("admin", 3)
     res = client.get("/api/v1/admin/templates?page=999&page_size=20")
     assert res.status_code == 200

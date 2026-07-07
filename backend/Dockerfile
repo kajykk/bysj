@@ -19,7 +19,7 @@
 # ===============================================================
 # Stage 1: deps — install Python dependencies in a clean layer
 # ===============================================================
-FROM python:3.12-slim AS deps
+FROM python:3.12.10-slim AS deps
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -77,7 +77,7 @@ RUN pip install --no-cache-dir \
 # ===============================================================
 # Stage 2: runtime — minimal image with only the application
 # ===============================================================
-FROM python:3.12-slim AS runtime
+FROM python:3.12.10-slim AS runtime
 
 LABEL maintainer="DWS Team" \
       version="v1.28-final" \

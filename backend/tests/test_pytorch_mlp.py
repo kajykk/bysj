@@ -29,8 +29,8 @@ if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
 from app.ml.pytorch_mlp import (
-    PyTorchMLP,
     TORCH_AVAILABLE,
+    PyTorchMLP,
     _compute_f1,
     evaluate_pytorch_mlp,
     train_pytorch_mlp,
@@ -77,7 +77,9 @@ class TestPyTorchMLP:
         param_count = model.count_parameters()
 
         # < 5,000 params for < 5,000 samples
-        assert param_count < 5000, f"Model has {param_count} parameters, exceeds 5,000 limit"
+        assert (
+            param_count < 5000
+        ), f"Model has {param_count} parameters, exceeds 5,000 limit"
 
         # Expected: 13*32 + 32 + 32*16 + 16 + 16*1 + 1 = 416 + 32 + 512 + 16 + 16 + 1 = 993
         # Plus BatchNorm params: 32*2 + 16*2 = 96
@@ -360,7 +362,16 @@ class TestPyTorchMLP:
         model = PyTorchMLP(input_dim=13, hidden_dims=[32, 16])
         metrics = evaluate_pytorch_mlp(model, X, y)
 
-        required_keys = ["accuracy", "precision", "recall", "f1", "roc_auc", "auprc", "loss", "n_samples"]
+        required_keys = [
+            "accuracy",
+            "precision",
+            "recall",
+            "f1",
+            "roc_auc",
+            "auprc",
+            "loss",
+            "n_samples",
+        ]
         for key in required_keys:
             assert key in metrics
         assert metrics["n_samples"] == 15
@@ -369,8 +380,6 @@ class TestPyTorchMLP:
         """TC-MLP-017: 验证 CPU 设备训练."""
         if not TORCH_AVAILABLE:
             pytest.skip("PyTorch not installed")
-
-        import torch
 
         model = PyTorchMLP(input_dim=13, hidden_dims=[16, 8])
         X = np.random.randn(10, 13).astype(np.float32)
@@ -413,6 +422,7 @@ class TestPyTorchMLP:
     def test_torch_not_available_raises(self) -> None:
         """TC-MLP-019: Verify ImportError when PyTorch not available."""
         from app.ml.pytorch_mlp import TORCH_AVAILABLE
+
         if TORCH_AVAILABLE:
             pytest.skip("PyTorch is installed, cannot test missing import path")
 
@@ -422,6 +432,7 @@ class TestPyTorchMLP:
     def test_load_without_torch_raises(self) -> None:
         """TC-MLP-020: Verify load raises ImportError without PyTorch."""
         from app.ml.pytorch_mlp import TORCH_AVAILABLE
+
         if TORCH_AVAILABLE:
             pytest.skip("PyTorch is installed, cannot test missing import path")
 
@@ -431,6 +442,7 @@ class TestPyTorchMLP:
     def test_train_without_torch_raises(self) -> None:
         """TC-MLP-021: Verify train raises ImportError without PyTorch."""
         from app.ml.pytorch_mlp import TORCH_AVAILABLE
+
         if TORCH_AVAILABLE:
             pytest.skip("PyTorch is installed, cannot test missing import path")
 
@@ -440,6 +452,7 @@ class TestPyTorchMLP:
     def test_evaluate_without_torch_raises(self) -> None:
         """TC-MLP-022: Verify evaluate raises ImportError without PyTorch."""
         from app.ml.pytorch_mlp import TORCH_AVAILABLE
+
         if TORCH_AVAILABLE:
             pytest.skip("PyTorch is installed, cannot test missing import path")
 

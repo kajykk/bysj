@@ -1,3 +1,7 @@
+import i18n from '@/i18n'
+
+const t = i18n.global.t.bind(i18n.global)
+
 export function formatDate(date: string | Date | null | undefined, format = 'YYYY-MM-DD HH:mm:ss'): string {
   if (!date) return '-'
 
@@ -31,12 +35,12 @@ export function formatRelativeTime(date: string | Date | null | undefined): stri
   const hours = Math.floor(minutes / 60)
   const days = Math.floor(hours / 24)
 
-  if (seconds < 60) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 30) return `${days}天前`
-  if (days < 365) return `${Math.floor(days / 30)}个月前`
-  return `${Math.floor(days / 365)}年前`
+  if (seconds < 60) return t('formatUtils.justNow')
+  if (minutes < 60) return t('formatUtils.minutesAgo', { count: minutes })
+  if (hours < 24) return t('formatUtils.hoursAgo', { count: hours })
+  if (days < 30) return t('formatUtils.daysAgo', { count: days })
+  if (days < 365) return t('formatUtils.monthsAgo', { count: Math.floor(days / 30) })
+  return t('formatUtils.yearsAgo', { count: Math.floor(days / 365) })
 }
 
 export function formatNumber(num: number | null | undefined, decimals = 0): string {

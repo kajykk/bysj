@@ -2,6 +2,7 @@
 
 Tests crisis override, review triggers, and physiological validation.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -237,4 +238,7 @@ class TestStructuredPredictionV116:
             assert "data_quality" in payload or "fallback_used" in payload
             # v1.31: 跳过详细 data_quality 内部检查 (依赖模型版本)
             if "data_quality" in payload and payload["data_quality"]:
-                assert "missing_fields" in payload["data_quality"] or "fallback_used" in payload
+                assert (
+                    "missing_fields" in payload["data_quality"]
+                    or "fallback_used" in payload
+                )

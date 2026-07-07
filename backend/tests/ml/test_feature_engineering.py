@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
-import pytest
 
 from app.ml.feature_engineering import (
     ALL_FEATURES,
@@ -114,16 +112,18 @@ class TestEngineerFeatures:
 
     def test_full_pipeline(self):
         """TC-COV-ML-030: Full feature engineering pipeline."""
-        df = pd.DataFrame({
-            "sleep_hours": [7.0],
-            "sleep_quality": [3],
-            "exercise_minutes": [30],
-            "heart_rate": [70],
-            "systolic_bp": [120],
-            "diastolic_bp": [80],
-            "steps": [5000],
-            "depression_label": [0],
-        })
+        df = pd.DataFrame(
+            {
+                "sleep_hours": [7.0],
+                "sleep_quality": [3],
+                "exercise_minutes": [30],
+                "heart_rate": [70],
+                "systolic_bp": [120],
+                "diastolic_bp": [80],
+                "steps": [5000],
+                "depression_label": [0],
+            }
+        )
         result = engineer_features(df)
         for feat in ALL_FEATURES:
             assert feat in result.columns
@@ -134,22 +134,24 @@ class TestGetFeatureMatrix:
 
     def test_extract_features(self):
         """TC-COV-ML-031: Extracts feature matrix."""
-        df = pd.DataFrame({
-            "sleep_hours": [7.0],
-            "sleep_quality": [3],
-            "exercise_minutes": [30],
-            "heart_rate": [70],
-            "systolic_bp": [120],
-            "diastolic_bp": [80],
-            "steps": [5000],
-            "sleep_efficiency": [0.5],
-            "activity_intensity": [166.7],
-            "cardiovascular_risk": [1.5],
-            "hr_sleep_interaction": [210.0],
-            "overall_activity": [150000],
-            "bp_category": [0],
-            "depression_label": [0],
-        })
+        df = pd.DataFrame(
+            {
+                "sleep_hours": [7.0],
+                "sleep_quality": [3],
+                "exercise_minutes": [30],
+                "heart_rate": [70],
+                "systolic_bp": [120],
+                "diastolic_bp": [80],
+                "steps": [5000],
+                "sleep_efficiency": [0.5],
+                "activity_intensity": [166.7],
+                "cardiovascular_risk": [1.5],
+                "hr_sleep_interaction": [210.0],
+                "overall_activity": [150000],
+                "bp_category": [0],
+                "depression_label": [0],
+            }
+        )
         result = get_feature_matrix(df)
         assert list(result.columns) == ALL_FEATURES
 

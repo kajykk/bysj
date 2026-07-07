@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import statistics
 import time
-from typing import Any
 
 import pytest
 
@@ -54,7 +53,9 @@ class TestInferencePerformance:
         avg = statistics.mean(latencies)
         max_lat = max(latencies)
 
-        print(f"\nInputValidator Single - P99: {p99:.2f}ms, Avg: {avg:.2f}ms, Max: {max_lat:.2f}ms")
+        print(
+            f"\nInputValidator Single - P99: {p99:.2f}ms, Avg: {avg:.2f}ms, Max: {max_lat:.2f}ms"
+        )
         assert p99 < 10, f"InputValidator P99 latency {p99:.2f}ms exceeds 10ms baseline"
 
     def test_input_validator_batch_100_latency(self) -> None:
@@ -73,8 +74,12 @@ class TestInferencePerformance:
             assert result.is_valid is True
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        print(f"\nInputValidator Batch 100 - Total: {elapsed_ms:.2f}ms, Avg: {elapsed_ms / 100:.2f}ms/item")
-        assert elapsed_ms < 100, f"Batch 100 validation took {elapsed_ms:.2f}ms, exceeds 100ms baseline"
+        print(
+            f"\nInputValidator Batch 100 - Total: {elapsed_ms:.2f}ms, Avg: {elapsed_ms / 100:.2f}ms/item"
+        )
+        assert (
+            elapsed_ms < 100
+        ), f"Batch 100 validation took {elapsed_ms:.2f}ms, exceeds 100ms baseline"
 
     # ==========================================================================
     # 2. 漂移检测性能测试
@@ -91,7 +96,7 @@ class TestInferencePerformance:
         latencies = []
         for _ in range(50):
             start = time.perf_counter()
-            result = detector.calculate_psi(baseline, current)
+            detector.calculate_psi(baseline, current)
             elapsed_ms = (time.perf_counter() - start) * 1000
             latencies.append(elapsed_ms)
 
@@ -99,7 +104,9 @@ class TestInferencePerformance:
         avg = statistics.mean(latencies)
 
         print(f"\nDrift Detection Single - P99: {p99:.2f}ms, Avg: {avg:.2f}ms")
-        assert p99 < 50, f"Drift detection P99 latency {p99:.2f}ms exceeds 50ms baseline"
+        assert (
+            p99 < 50
+        ), f"Drift detection P99 latency {p99:.2f}ms exceeds 50ms baseline"
 
     def test_drift_detection_batch_latency(self) -> None:
         """验证批量漂移检测性能"""
@@ -114,7 +121,9 @@ class TestInferencePerformance:
             detector.calculate_psi(baseline, current)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        print(f"\nDrift Detection Batch 10 - Total: {elapsed_ms:.2f}ms, Avg: {elapsed_ms / 10:.2f}ms/item")
+        print(
+            f"\nDrift Detection Batch 10 - Total: {elapsed_ms:.2f}ms, Avg: {elapsed_ms / 10:.2f}ms/item"
+        )
         assert elapsed_ms < 500, f"Batch 10 drift detection took {elapsed_ms:.2f}ms"
 
     # ==========================================================================
@@ -139,7 +148,9 @@ class TestInferencePerformance:
 
         print(f"\nMetrics Calculation (1000 samples) - Total: {elapsed_ms:.2f}ms")
         assert metrics.sample_count == 1000
-        assert elapsed_ms < 50, f"Metrics calculation took {elapsed_ms:.2f}ms, exceeds 50ms baseline"
+        assert (
+            elapsed_ms < 50
+        ), f"Metrics calculation took {elapsed_ms:.2f}ms, exceeds 50ms baseline"
 
     def test_metrics_calculation_batch_100(self) -> None:
         """验证批量 100 条指标计算性能"""
@@ -157,7 +168,9 @@ class TestInferencePerformance:
             engine.calculate_metrics(ground_truth, predictions)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        print(f"\nMetrics Calculation Batch 100x100 - Total: {elapsed_ms:.2f}ms, Avg: {elapsed_ms / 100:.2f}ms/item")
+        print(
+            f"\nMetrics Calculation Batch 100x100 - Total: {elapsed_ms:.2f}ms, Avg: {elapsed_ms / 100:.2f}ms/item"
+        )
         assert elapsed_ms < 5000, f"Batch metrics calculation took {elapsed_ms:.2f}ms"
 
     # ==========================================================================
@@ -186,7 +199,7 @@ class TestInferencePerformance:
         latencies = []
         for _ in range(100):
             start = time.perf_counter()
-            score = service._calculate_heuristic_score(features)
+            service._calculate_heuristic_score(features)
             elapsed_ms = (time.perf_counter() - start) * 1000
             latencies.append(elapsed_ms)
 
@@ -194,9 +207,9 @@ class TestInferencePerformance:
         avg = statistics.mean(latencies)
 
         print(f"\nHeuristic Fallback - P99: {p99:.2f}ms, Avg: {avg:.2f}ms")
-        assert p99 < self.FALLBACK_MAX_MS, (
-            f"Fallback P99 latency {p99:.2f}ms exceeds {self.FALLBACK_MAX_MS}ms baseline"
-        )
+        assert (
+            p99 < self.FALLBACK_MAX_MS
+        ), f"Fallback P99 latency {p99:.2f}ms exceeds {self.FALLBACK_MAX_MS}ms baseline"
 
     def test_heuristic_vs_validation_latency_comparison(self) -> None:
         """验证回退延迟显著低于复杂处理延迟"""
@@ -234,10 +247,12 @@ class TestInferencePerformance:
         fallback_p99 = statistics.quantiles(fallback_latencies, n=100)[98]
         validation_p99 = statistics.quantiles(validation_latencies, n=100)[98]
 
-        print(f"\nFallback P99: {fallback_p99:.2f}ms, Validation P99: {validation_p99:.2f}ms")
-        assert fallback_p99 < validation_p99 * 2, (
-            f"Fallback latency ({fallback_p99:.2f}ms) should be less than 2x validation latency ({validation_p99:.2f}ms)"
+        print(
+            f"\nFallback P99: {fallback_p99:.2f}ms, Validation P99: {validation_p99:.2f}ms"
         )
+        assert (
+            fallback_p99 < validation_p99 * 2
+        ), f"Fallback latency ({fallback_p99:.2f}ms) should be less than 2x validation latency ({validation_p99:.2f}ms)"
 
     # ==========================================================================
     # 5. 综合性能基准
@@ -268,7 +283,9 @@ class TestInferencePerformance:
             # 完整管道: 验证 -> 回退预测
             val_result = validator.validate_tabular(features)
             if val_result.is_valid:
-                service._calculate_heuristic_score(val_result.sanitized_input or features)
+                service._calculate_heuristic_score(
+                    val_result.sanitized_input or features
+                )
             elapsed_ms = (time.perf_counter() - start) * 1000
             latencies.append(elapsed_ms)
 
@@ -276,10 +293,12 @@ class TestInferencePerformance:
         p95 = statistics.quantiles(latencies, n=100)[94]
         avg = statistics.mean(latencies)
 
-        print(f"\nOverall Pipeline - P99: {p99:.2f}ms, P95: {p95:.2f}ms, Avg: {avg:.2f}ms")
-        assert p99 < self.SINGLE_INFERENCE_P99_MS, (
-            f"Overall pipeline P99 latency {p99:.2f}ms exceeds {self.SINGLE_INFERENCE_P99_MS}ms baseline"
+        print(
+            f"\nOverall Pipeline - P99: {p99:.2f}ms, P95: {p95:.2f}ms, Avg: {avg:.2f}ms"
         )
+        assert (
+            p99 < self.SINGLE_INFERENCE_P99_MS
+        ), f"Overall pipeline P99 latency {p99:.2f}ms exceeds {self.SINGLE_INFERENCE_P99_MS}ms baseline"
 
     def test_batch_inference_100_latency(self) -> None:
         """验证批量 100 条推理总耗时 < 5s"""
@@ -293,6 +312,7 @@ class TestInferencePerformance:
         service = RiskService(db=MockDB())
 
         import random
+
         random.seed(42)
         batch = [
             {
@@ -310,13 +330,17 @@ class TestInferencePerformance:
         for features in batch:
             val_result = validator.validate_tabular(features)
             if val_result.is_valid:
-                service._calculate_heuristic_score(val_result.sanitized_input or features)
+                service._calculate_heuristic_score(
+                    val_result.sanitized_input or features
+                )
         elapsed_s = time.perf_counter() - start
 
-        print(f"\nBatch Inference 100 - Total: {elapsed_s:.2f}s, Avg: {elapsed_s / 100 * 1000:.2f}ms/item")
-        assert elapsed_s < self.BATCH_INFERENCE_100_MAX_S, (
-            f"Batch 100 inference took {elapsed_s:.2f}s, exceeds {self.BATCH_INFERENCE_100_MAX_S}s baseline"
+        print(
+            f"\nBatch Inference 100 - Total: {elapsed_s:.2f}s, Avg: {elapsed_s / 100 * 1000:.2f}ms/item"
         )
+        assert (
+            elapsed_s < self.BATCH_INFERENCE_100_MAX_S
+        ), f"Batch 100 inference took {elapsed_s:.2f}s, exceeds {self.BATCH_INFERENCE_100_MAX_S}s baseline"
 
     # ==========================================================================
     # 6. 内存使用稳定性测试
@@ -349,7 +373,9 @@ class TestInferencePerformance:
         for _ in range(1000):
             val_result = validator.validate_tabular(features)
             if val_result.is_valid:
-                service._calculate_heuristic_score(val_result.sanitized_input or features)
+                service._calculate_heuristic_score(
+                    val_result.sanitized_input or features
+                )
 
         gc.collect()
         # 如果内存泄漏，后续推理会变慢
@@ -357,8 +383,14 @@ class TestInferencePerformance:
         for _ in range(100):
             val_result = validator.validate_tabular(features)
             if val_result.is_valid:
-                service._calculate_heuristic_score(val_result.sanitized_input or features)
+                service._calculate_heuristic_score(
+                    val_result.sanitized_input or features
+                )
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        print(f"\nMemory Stability - 100 inferences after 1000 warmup: {elapsed_ms:.2f}ms")
-        assert elapsed_ms < 500, f"Memory stability test took {elapsed_ms:.2f}ms, possible memory leak"
+        print(
+            f"\nMemory Stability - 100 inferences after 1000 warmup: {elapsed_ms:.2f}ms"
+        )
+        assert (
+            elapsed_ms < 500
+        ), f"Memory stability test took {elapsed_ms:.2f}ms, possible memory leak"

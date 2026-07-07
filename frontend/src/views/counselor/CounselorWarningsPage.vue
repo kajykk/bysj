@@ -1,312 +1,330 @@
 <template>
   <div class="counselor-warnings-page">
     <ListPageScaffold
-      title="预警处理"
+      :title="t('counselorWarnings.title')"
       :loading="loading"
       :empty="!loading && rows.length === 0"
       :error-message="pageError"
-      empty-text="暂无预警数据"
+      :empty-text="t('counselorWarnings.empty')"
       @retry="fetchData"
     >
-    <template #header-extra>
-      <div
-        v-if="canBatchPermission"
-        class="batch-actions"
-      >
-        <el-select
-          v-model="batchPolicy"
-          style="width: 160px"
-          size="small"
+      <template #header-extra>
+        <div
+          v-if="canBatchPermission"
+          class="batch-actions"
         >
-          <el-option
-            label="全成功才提交"
-            value="atomic"
-          />
-          <el-option
-            label="允许部分成功"
-            value="partial"
-          />
-        </el-select>
-        <el-button
-          v-if="canHandlePermission"
-          type="primary"
-          size="small"
-          :disabled="!canBatchOperate || batchOperating"
-          :loading="batchOperating && batchAction === 'handle'"
-          @click="handleBatch('handle')"
-        >
-          批量处理
-        </el-button>
-        <el-button
-          v-if="canIgnorePermission"
-          size="small"
-          :disabled="!canBatchOperate || batchOperating"
-          :loading="batchOperating && batchAction === 'ignore'"
-          @click="handleBatch('ignore')"
-        >
-          批量忽略
-        </el-button>
-      </div>
-    </template>
-
-    <template #filters>
-      <FilterBar
-        @search="fetchData"
-        @reset="handleReset"
-      >
-        <el-form-item label="仅未处理">
-          <el-switch v-model="filters.onlyUnhandled" />
-        </el-form-item>
-      </FilterBar>
-    </template>
-
-    <PageTable
-      :loading="loading"
-      :data="rows"
-      :total="total"
-      :page="page"
-      :page-size="pageSize"
-      :row-class-name="rowClassName"
-      @selection-change="onSelectionChange"
-      @update:page="onPageChange"
-      @update:page-size="onPageSizeChange"
-    >
-      <el-table-column
-        type="selection"
-        width="52"
-        :selectable="isRowSelectable"
-      />
-      <el-table-column
-        prop="id"
-        label="ID"
-        width="80"
-      />
-      <el-table-column
-        prop="title"
-        label="标题"
-        min-width="180"
-      >
-        <template #default="{ row }">
-          <el-link
-            type="primary"
-            @click="openDetail(row)"
-          >
-            {{ row.title }}
-          </el-link>
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="内容摘要"
-        min-width="220"
-      >
-        <template #default="{ row }">
-          {{ row.content }}
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="风险等级"
-        width="120"
-      >
-        <template #default="{ row }">
-          <el-tag
-            :type="getWarningRiskLevelTagType(row.risk_level)"
+          <el-select
+            v-model="batchPolicy"
+            style="width: 160px"
             size="small"
           >
-            {{ getWarningRiskLevelLabel(row.risk_level) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="状态"
-        width="120"
-      >
-        <template #default="{ row }">
-          <el-tag
-            :type="getWarningStatusTagType(row.status)"
-            size="small"
-          >
-            {{ getWarningStatusLabel(row.status) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="已读状态"
-        width="100"
-      >
-        <template #default="{ row }">
-          <el-tag
-            :type="row.is_read ? 'success' : 'warning'"
-            size="small"
-          >
-            {{ row.is_read ? '已读' : '未读' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column
-        prop="handled_by"
-        label="处理来源"
-        width="120"
-      >
-        <template #default="{ row }">
-          {{ row.handled_by || '—' }}
-        </template>
-      </el-table-column>
-      <el-table-column
-        prop="handled_at"
-        label="处理时间"
-        min-width="180"
-      >
-        <template #default="{ row }">
-          {{ formatWarningDateTime(row.handled_at) }}
-        </template>
-      </el-table-column>
-      <el-table-column
-        prop="created_at"
-        label="创建时间"
-        min-width="180"
-      >
-        <template #default="{ row }">
-          {{ formatWarningDateTime(row.created_at) }}
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="处理备注"
-        min-width="180"
-      >
-        <template #default="{ row }">
-          {{ row.handled_note || '—' }}
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="行内提示"
-        min-width="220"
-      >
-        <template #default="{ row }">
-          <ErrorCell :message="rowErrors[row.id]" />
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="操作"
-        width="220"
-        fixed="right"
-      >
-        <template #default="{ row }">
-          <ActionColumn
+            <el-option
+              :label="t('counselorWarnings.batchPolicyAtomic')"
+              value="atomic"
+            />
+            <el-option
+              :label="t('counselorWarnings.batchPolicyPartial')"
+              value="partial"
+            />
+          </el-select>
+          <el-button
             v-if="canHandlePermission"
-            label="处理"
             type="primary"
-            :loading="isRowActionPending(row.id, 'handle')"
-            :disabled="isActionDisabled(row, 'handle')"
-            :disabled-reason="getDisabledReason(row, 'handle')"
-            confirm-text="确认处理该预警吗？"
+            size="small"
+            :disabled="!canBatchOperate || batchOperating"
+            :loading="batchOperating && batchAction === 'handle'"
+            @click="handleBatch('handle')"
+          >
+            {{ t('counselorWarnings.batchHandleBtn') }}
+          </el-button>
+          <el-button
+            v-if="canIgnorePermission"
+            size="small"
+            :disabled="!canBatchOperate || batchOperating"
+            :loading="batchOperating && batchAction === 'ignore'"
+            @click="handleBatch('ignore')"
+          >
+            {{ t('counselorWarnings.batchIgnoreBtn') }}
+          </el-button>
+        </div>
+      </template>
+
+      <template #filters>
+        <FilterBar
+          @search="fetchData"
+          @reset="handleReset"
+        >
+          <el-form-item :label="t('counselorWarnings.filterOnlyUnhandled')">
+            <el-switch v-model="filters.onlyUnhandled" />
+          </el-form-item>
+        </FilterBar>
+      </template>
+
+      <PageTable
+        :loading="loading"
+        :data="rows"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        :row-class-name="rowClassName"
+        @selection-change="onSelectionChange"
+        @update:page="onPageChange"
+        @update:page-size="onPageSizeChange"
+      >
+        <el-table-column
+          type="selection"
+          width="52"
+          :selectable="isRowSelectable"
+        />
+        <el-table-column
+          prop="id"
+          :label="t('counselorWarnings.colId')"
+          width="80"
+        />
+        <el-table-column
+          prop="title"
+          :label="t('counselorWarnings.colTitle')"
+          min-width="180"
+        >
+          <template #default="{ row }">
+            <el-link
+              type="primary"
+              @click="openDetail(row)"
+            >
+              {{ row.title }}
+            </el-link>
+          </template>
+        </el-table-column>
+        <el-table-column
+          :label="t('counselorWarnings.colContentSummary')"
+          min-width="220"
+        >
+          <template #default="{ row }">
+            {{ row.content }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          :label="t('counselorWarnings.colRiskLevel')"
+          width="120"
+        >
+          <template #default="{ row }">
+            <el-tag
+              :type="getWarningRiskLevelTagType(row.risk_level)"
+              size="small"
+            >
+              {{ getWarningRiskLevelLabel(row.risk_level) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          :label="t('counselorWarnings.colStatus')"
+          width="120"
+        >
+          <template #default="{ row }">
+            <el-tag
+              :type="getWarningStatusTagType(row.status)"
+              size="small"
+            >
+              {{ getWarningStatusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          :label="t('counselorWarnings.colReadStatus')"
+          width="100"
+        >
+          <template #default="{ row }">
+            <el-tag
+              :type="row.is_read ? 'success' : 'warning'"
+              size="small"
+            >
+              {{ row.is_read ? t('warning.read') : t('warning.unread') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="handled_by"
+          :label="t('counselorWarnings.colHandledBy')"
+          width="120"
+        >
+          <template #default="{ row }">
+            {{ row.handled_by || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="handled_at"
+          :label="t('counselorWarnings.colHandledAt')"
+          min-width="180"
+        >
+          <template #default="{ row }">
+            {{ formatWarningDateTime(row.handled_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="created_at"
+          :label="t('counselorWarnings.colCreatedAt')"
+          min-width="180"
+        >
+          <template #default="{ row }">
+            {{ formatWarningDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          :label="t('counselorWarnings.colHandledNote')"
+          min-width="180"
+        >
+          <template #default="{ row }">
+            {{ row.handled_note || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          :label="t('counselorWarnings.colInlineHint')"
+          min-width="220"
+        >
+          <template #default="{ row }">
+            <ErrorCell :message="rowErrors[row.id]" />
+          </template>
+        </el-table-column>
+        <el-table-column
+          :label="t('counselorWarnings.colOperation')"
+          width="280"
+          fixed="right"
+        >
+          <template #default="{ row }">
+            <ActionColumn
+              v-if="canHandlePermission"
+              :label="t('counselorWarnings.actionHandle')"
+              type="primary"
+              :loading="isRowActionPending(row.id, 'handle')"
+              :disabled="isActionDisabled(row, 'handle')"
+              :disabled-reason="getDisabledReason(row, 'handle')"
+              show-audit
+              @action="handleWarning(row, 'handle')"
+            />
+            <ActionColumn
+              v-if="canIgnorePermission"
+              :label="t('counselorWarnings.actionIgnore')"
+              type="info"
+              :loading="isRowActionPending(row.id, 'ignore')"
+              :disabled="isActionDisabled(row, 'ignore')"
+              :disabled-reason="getDisabledReason(row, 'ignore')"
+              show-audit
+              @action="handleWarning(row, 'ignore')"
+            />
+            <!-- ISS-058: 升级按钮 -->
+            <ActionColumn
+              v-if="canEscalatePermission"
+              :label="t('counselorWarnings.actionEscalate')"
+              type="warning"
+              :loading="isRowActionPending(row.id, 'escalate')"
+              :disabled="isActionDisabled(row, 'escalate')"
+              :disabled-reason="getDisabledReason(row, 'escalate')"
+              show-audit
+              @action="escalateWarning(row)"
+            />
+          </template>
+        </el-table-column>
+      </PageTable>
+    </ListPageScaffold>
+
+    <el-drawer
+      v-model="detailVisible"
+      :title="t('counselorWarnings.detailTitle')"
+      size="500px"
+      destroy-on-close
+    >
+      <div
+        v-if="detailRow"
+        class="detail-content"
+      >
+        <el-descriptions
+          :column="1"
+          border
+        >
+          <el-descriptions-item :label="t('counselorWarnings.colId')">
+            {{ detailRow.id }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.colTitle')">
+            {{ detailRow.title }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.detailColContent')">
+            {{ detailRow.content }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.colRiskLevel')">
+            <el-tag
+              :type="getWarningRiskLevelTagType(detailRow.risk_level)"
+              size="small"
+            >
+              {{ getWarningRiskLevelLabel(detailRow.risk_level) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.colStatus')">
+            <el-tag
+              :type="getWarningStatusTagType(detailRow.status)"
+              size="small"
+            >
+              {{ getWarningStatusLabel(detailRow.status) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.colReadStatus')">
+            <el-tag
+              :type="detailRow.is_read ? 'success' : 'warning'"
+              size="small"
+            >
+              {{ detailRow.is_read ? t('warning.read') : t('warning.unread') }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.colHandledBy')">
+            {{ detailRow.handled_by || '—' }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.colHandledAt')">
+            {{ formatWarningDateTime(detailRow.handled_at) }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.colCreatedAt')">
+            {{ formatWarningDateTime(detailRow.created_at) }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('counselorWarnings.colHandledNote')">
+            {{ detailRow.handled_note || '—' }}
+          </el-descriptions-item>
+        </el-descriptions>
+        <div class="detail-actions">
+          <ActionColumn
+            v-if="canHandlePermission && !isHandled(detailRow)"
+            :label="t('counselorWarnings.actionHandle')"
+            type="primary"
+            :disabled="isActionDisabled(detailRow, 'handle')"
+            :disabled-reason="getDisabledReason(detailRow, 'handle')"
             show-audit
-            @action="handleWarning(row, 'handle')"
+            @action="handleWarning(detailRow, 'handle'); detailVisible = false"
           />
           <ActionColumn
-            v-if="canIgnorePermission"
-            label="忽略"
+            v-if="canIgnorePermission && !isHandled(detailRow)"
+            :label="t('counselorWarnings.actionIgnore')"
             type="info"
-            :loading="isRowActionPending(row.id, 'ignore')"
-            :disabled="isActionDisabled(row, 'ignore')"
-            :disabled-reason="getDisabledReason(row, 'ignore')"
-            confirm-text="确认忽略该预警吗？"
+            :disabled="isActionDisabled(detailRow, 'ignore')"
+            :disabled-reason="getDisabledReason(detailRow, 'ignore')"
             show-audit
-            @action="handleWarning(row, 'ignore')"
+            @action="handleWarning(detailRow, 'ignore'); detailVisible = false"
           />
-        </template>
-      </el-table-column>
-    </PageTable>
-  </ListPageScaffold>
-
-  <el-drawer
-    v-model="detailVisible"
-    title="预警详情"
-    size="500px"
-    destroy-on-close
-  >
-    <div
-      v-if="detailRow"
-      class="detail-content"
-    >
-      <el-descriptions
-        :column="1"
-        border
-      >
-        <el-descriptions-item label="ID">
-          {{ detailRow.id }}
-        </el-descriptions-item>
-        <el-descriptions-item label="标题">
-          {{ detailRow.title }}
-        </el-descriptions-item>
-        <el-descriptions-item label="内容">
-          {{ detailRow.content }}
-        </el-descriptions-item>
-        <el-descriptions-item label="风险等级">
-          <el-tag
-            :type="getWarningRiskLevelTagType(detailRow.risk_level)"
-            size="small"
-          >
-            {{ getWarningRiskLevelLabel(detailRow.risk_level) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag
-            :type="getWarningStatusTagType(detailRow.status)"
-            size="small"
-          >
-            {{ getWarningStatusLabel(detailRow.status) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="已读状态">
-          <el-tag
-            :type="detailRow.is_read ? 'success' : 'warning'"
-            size="small"
-          >
-            {{ detailRow.is_read ? '已读' : '未读' }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="处理来源">
-          {{ detailRow.handled_by || '—' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="处理时间">
-          {{ formatWarningDateTime(detailRow.handled_at) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间">
-          {{ formatWarningDateTime(detailRow.created_at) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="处理备注">
-          {{ detailRow.handled_note || '—' }}
-        </el-descriptions-item>
-      </el-descriptions>
-      <div class="detail-actions">
-        <ActionColumn
-          v-if="canHandlePermission && !isHandled(detailRow)"
-          label="处理"
-          type="primary"
-          :disabled="isActionDisabled(detailRow, 'handle')"
-          :disabled-reason="getDisabledReason(detailRow, 'handle')"
-          confirm-text="确认处理该预警吗？"
-          show-audit
-          @action="handleWarning(detailRow, 'handle'); detailVisible = false"
-        />
-        <ActionColumn
-          v-if="canIgnorePermission && !isHandled(detailRow)"
-          label="忽略"
-          type="info"
-          :disabled="isActionDisabled(detailRow, 'ignore')"
-          :disabled-reason="getDisabledReason(detailRow, 'ignore')"
-          confirm-text="确认忽略该预警吗？"
-          show-audit
-          @action="handleWarning(detailRow, 'ignore'); detailVisible = false"
-        />
+          <!-- ISS-058: 详情抽屉升级按钮 -->
+          <ActionColumn
+            v-if="canEscalatePermission && !isHandled(detailRow)"
+            :label="t('counselorWarnings.actionEscalate')"
+            type="warning"
+            :disabled="isActionDisabled(detailRow, 'escalate')"
+            :disabled-reason="getDisabledReason(detailRow, 'escalate')"
+            show-audit
+            @action="escalateWarning(detailRow); detailVisible = false"
+          />
+        </div>
       </div>
-    </div>
-  </el-drawer>
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { counselorApi } from '@/api/counselorApi'
 import type { WarningItem } from '@/api/userTypes'
@@ -318,12 +336,13 @@ import ErrorCell from '@/components/common/ErrorCell.vue'
 import { mockWarnings } from '@/mocks/business'
 import { withMockFallback } from '@/utils/mockFallback'
 import { getErrorDetail } from '@/utils/errorDetail'
-import { hasPermission } from '@/types/permission'
+import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { formatWarningDateTime, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType, isWarningHandled } from '@/utils/warning'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const queryState = useListQueryState('cw')
 
@@ -335,7 +354,7 @@ const pageError = ref('')
 const page = computed(() => queryState.page.value)
 const pageSize = computed(() => queryState.pageSize.value)
 
-const rowActionPending = ref<Record<number, 'handle' | 'ignore' | undefined>>({})
+const rowActionPending = ref<Record<number, 'handle' | 'ignore' | 'escalate' | undefined>>({})
 const rowErrors = ref<Record<number, string>>({})
 const rowHighlightIds = ref<Set<number>>(new Set())
 const selectedRows = ref<WarningItem[]>([])
@@ -352,28 +371,34 @@ const openDetail = (row: WarningItem) => {
 
 const filters = reactive({ onlyUnhandled: queryState.getString('only_unhandled', '1') !== '0' })
 
-const isRowActionPending = (id: number, action: 'handle' | 'ignore') => rowActionPending.value[id] === action
+// ISS-058: 行内动作类型扩展 escalate
+type RowAction = 'handle' | 'ignore' | 'escalate'
+const isRowActionPending = (id: number, action: RowAction) => rowActionPending.value[id] === action
 const isAnyActionPending = (id: number) => !!rowActionPending.value[id]
-const setRowActionPending = (id: number, action?: 'handle' | 'ignore') => { rowActionPending.value = { ...rowActionPending.value, [id]: action } }
+const setRowActionPending = (id: number, action?: RowAction) => { rowActionPending.value = { ...rowActionPending.value, [id]: action } }
 const isHandled = (row: WarningItem) => isWarningHandled(row)
 
 const canBatchPermission = computed(() => hasPermission(auth.role, 'counselor.warning.batch'))
 const canHandlePermission = computed(() => hasPermission(auth.role, 'counselor.warning.handle'))
 const canIgnorePermission = computed(() => hasPermission(auth.role, 'counselor.warning.ignore'))
+// ISS-058: 升级权限复用 handle 权限
+const canEscalatePermission = computed(() => hasPermission(auth.role, 'counselor.warning.handle'))
 const canBatchOperate = computed(() => canBatchPermission.value && selectedRows.value.length > 0)
 
 
 
-const getDisabledReason = (row: WarningItem, action: 'handle' | 'ignore') => {
-  if (action === 'handle' && !canHandlePermission.value) return '无处理权限'
-  if (action === 'ignore' && !canIgnorePermission.value) return '无忽略权限'
-  if (isHandled(row)) return '该条已处理'
-  if (isAnyActionPending(row.id)) return '处理中'
-  if (batchOperating.value) return '批量处理中'
+const getDisabledReason = (row: WarningItem, action: RowAction) => {
+  if (action === 'handle' && !canHandlePermission.value) return t('counselorWarnings.disabledNoHandlePermission')
+  if (action === 'ignore' && !canIgnorePermission.value) return t('counselorWarnings.disabledNoIgnorePermission')
+  // ISS-058: 升级权限校验
+  if (action === 'escalate' && !canEscalatePermission.value) return t('counselorWarnings.disabledNoEscalatePermission')
+  if (isHandled(row)) return t('counselorWarnings.disabledAlreadyHandled')
+  if (isAnyActionPending(row.id)) return t('counselorWarnings.disabledProcessing')
+  if (batchOperating.value) return t('counselorWarnings.disabledBatchProcessing')
   return ''
 }
 
-const isActionDisabled = (row: WarningItem, action: 'handle' | 'ignore') => !!getDisabledReason(row, action)
+const isActionDisabled = (row: WarningItem, action: RowAction) => !!getDisabledReason(row, action)
 const clearRowError = (id: number) => { const next = { ...rowErrors.value }; delete next[id]; rowErrors.value = next }
 const clearTransientRowState = () => {
   rowErrors.value = {}
@@ -415,7 +440,7 @@ const fetchData = async () => {
     selectedRows.value = []
     clearTransientRowState()
   } catch (error) {
-    pageError.value = showHttpFeedback(error, '预警列表加载失败').detail
+    pageError.value = showHttpFeedback(error, t('counselorWarnings.loadFailed')).detail
   } finally {
     loading.value = false
   }
@@ -423,6 +448,18 @@ const fetchData = async () => {
 
 const handleWarning = async (row: WarningItem, action: 'handle' | 'ignore') => {
   if (isActionDisabled(row, action)) return
+  // ISS-059: 执行前弹出备注输入框
+  let note: string | undefined
+  try {
+    const result = await ElMessageBox.prompt(t('counselorWarnings.promptNote'), action === 'handle' ? t('counselorWarnings.promptTitleHandle') : t('counselorWarnings.promptTitleIgnore'), {
+      inputType: 'textarea',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel')
+    })
+    note = result.value || undefined
+  } catch {
+    return
+  }
   const previousStatus = row.status
   const previousIsRead = row.is_read
   const previousHandledAt = row.handled_at
@@ -431,18 +468,60 @@ const handleWarning = async (row: WarningItem, action: 'handle' | 'ignore') => {
   clearRowError(row.id)
   row.status = action === 'handle' ? 'handled' : 'ignored'
   row.is_read = true
+  row.handled_note = note || null
   setRowActionPending(row.id, action)
   try {
-    await counselorApi.handleCounselorWarning(row.id, action)
+    await counselorApi.handleCounselorWarning(row.id, action, note)
     highlightRowFor2s(row.id)
-    ElMessage.success(action === 'handle' ? '预警已处理' : '已忽略该预警')
+    ElMessage.success(action === 'handle' ? t('counselorWarnings.warnHandled') : t('counselorWarnings.warnIgnored'))
   } catch (error) {
     row.status = previousStatus
     row.is_read = previousIsRead
     row.handled_at = previousHandledAt
     row.handled_by = previousHandledBy
     row.handled_note = previousHandledNote
-    setRowError(row.id, getErrorDetail(error, `${action === 'handle' ? '处理' : '忽略'}失败，请稍后重试`))
+    setRowError(row.id, getErrorDetail(error, action === 'handle' ? t('counselorWarnings.errHandleFailed') : t('counselorWarnings.errIgnoreFailed')))
+  } finally {
+    setRowActionPending(row.id, undefined)
+  }
+}
+
+// ISS-058: 升级预警
+const escalateWarning = async (row: WarningItem) => {
+  if (isActionDisabled(row, 'escalate')) return
+  let reason: string
+  try {
+    const result = await ElMessageBox.prompt(t('counselorWarnings.promptEscalateReason'), t('counselorWarnings.promptTitleEscalate'), {
+      inputType: 'textarea',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      inputValidator: (value: string) => !!value.trim() || t('counselorWarnings.errEscalateReasonRequired')
+    })
+    reason = result.value.trim()
+  } catch {
+    return
+  }
+  const previousStatus = row.status
+  const previousIsRead = row.is_read
+  const previousHandledAt = row.handled_at
+  const previousHandledBy = row.handled_by
+  const previousHandledNote = row.handled_note
+  clearRowError(row.id)
+  row.status = 'escalated'
+  row.is_read = true
+  row.handled_note = reason
+  setRowActionPending(row.id, 'escalate')
+  try {
+    await counselorApi.escalateCounselorWarning(row.id, { reason })
+    highlightRowFor2s(row.id)
+    ElMessage.success(t('counselorWarnings.warnEscalated'))
+  } catch (error) {
+    row.status = previousStatus
+    row.is_read = previousIsRead
+    row.handled_at = previousHandledAt
+    row.handled_by = previousHandledBy
+    row.handled_note = previousHandledNote
+    setRowError(row.id, getErrorDetail(error, t('counselorWarnings.errEscalateFailed')))
   } finally {
     setRowActionPending(row.id, undefined)
   }
@@ -451,20 +530,20 @@ const handleWarning = async (row: WarningItem, action: 'handle' | 'ignore') => {
 const handleBatch = async (action: 'handle' | 'ignore') => {
   if (!selectedRows.value.length || batchOperating.value) return
   const validTargets = selectedRows.value.filter((row) => !isHandled(row) && !isAnyActionPending(row.id))
-  if (!validTargets.length) return ElMessage.warning('选中项均不可操作')
-  try { await ElMessageBox.confirm(`确认批量${action === 'handle' ? '处理' : '忽略'} ${validTargets.length} 条预警吗？`, '批量操作确认', { type: 'warning' }) } catch { return }
+  if (!validTargets.length) return ElMessage.warning(t('counselorWarnings.warnNoSelection'))
+  try { await ElMessageBox.confirm(action === 'handle' ? t('counselorWarnings.batchConfirmHandle', { count: validTargets.length }) : t('counselorWarnings.batchConfirmIgnore', { count: validTargets.length }), t('counselorWarnings.batchConfirmTitle'), { type: 'warning' }) } catch { return }
   batchOperating.value = true
   batchAction.value = action
   const snapshot = validTargets.map((row) => ({ row, prevStatus: row.status, prevIsRead: row.is_read, prevHandledAt: row.handled_at, prevHandledBy: row.handled_by, prevHandledNote: row.handled_note }))
-  snapshot.forEach(({ row }) => { clearRowError(row.id); row.status = action === 'handle' ? 'handled' : 'ignored'; row.is_read = true; row.handled_at = new Date().toISOString(); row.handled_by = undefined; row.handled_note = action === 'handle' ? '批量处理' : '批量忽略'; setRowActionPending(row.id, action) })
+  snapshot.forEach(({ row }) => { clearRowError(row.id); row.status = action === 'handle' ? 'handled' : 'ignored'; row.is_read = true; row.handled_at = new Date().toISOString(); row.handled_by = undefined; row.handled_note = action === 'handle' ? t('counselorWarnings.batchHandleNote') : t('counselorWarnings.batchIgnoreNote'); setRowActionPending(row.id, action) })
 
   if (batchPolicy.value === 'atomic') {
     try {
       await Promise.all(snapshot.map(({ row }) => counselorApi.handleCounselorWarning(row.id, action)))
       snapshot.forEach(({ row }) => highlightRowFor2s(row.id))
-      ElMessage.success(`批量操作完成：成功 ${snapshot.length} 条`)
+      ElMessage.success(t('counselorWarnings.batchAtomicSuccess', { count: snapshot.length }))
     } catch (error) {
-      const detail = getErrorDetail(error, `批量${action === 'handle' ? '处理' : '忽略'}失败，已回滚`)
+      const detail = getErrorDetail(error, action === 'handle' ? t('counselorWarnings.batchAtomicFailedHandle') : t('counselorWarnings.batchAtomicFailedIgnore'))
       snapshot.forEach(({ row, prevStatus, prevIsRead, prevHandledAt, prevHandledBy, prevHandledNote }) => { row.status = prevStatus; row.is_read = prevIsRead; row.handled_at = prevHandledAt; row.handled_by = prevHandledBy; row.handled_note = prevHandledNote; setRowError(row.id, detail) })
       ElMessage.warning(detail)
     }
@@ -480,10 +559,10 @@ const handleBatch = async (action: 'handle' | 'ignore') => {
         failCount++
         const { row, prevStatus, prevIsRead, prevHandledAt, prevHandledBy, prevHandledNote } = snapshot[idx]
         row.status = prevStatus; row.is_read = prevIsRead; row.handled_at = prevHandledAt; row.handled_by = prevHandledBy; row.handled_note = prevHandledNote
-        setRowError(row.id, getErrorDetail(result.reason, '操作失败'))
+        setRowError(row.id, getErrorDetail(result.reason, t('counselorWarnings.batchPartialFailure')))
       }
     })
-    ElMessage.success(`批量操作完成：成功 ${successCount} 条${failCount > 0 ? `，失败 ${failCount} 条` : ''}`)
+    ElMessage.success(t('counselorWarnings.batchPartialSummary', { success: successCount, failPart: failCount > 0 ? t('counselorWarnings.batchPartialFailPart', { count: failCount }) : '' }))
   }
 
   snapshot.forEach(({ row }) => setRowActionPending(row.id, undefined))
@@ -507,17 +586,24 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .counselor-warnings-page { width: 100%; }
-.batch-actions { display: flex; gap: 8px; align-items: center; }
-:deep(.row-highlight-success) { --el-table-tr-bg-color: #f0f9eb; }
-:deep(.row-highlight-error) { --el-table-tr-bg-color: #fef0f0; }
+.batch-actions { display: flex; gap: var(--spacing-sm); align-items: center; }
+:deep(.row-highlight-success) { --el-table-tr-bg-color: var(--success-light); }
+:deep(.row-highlight-error) { --el-table-tr-bg-color: var(--danger-light); }
 
 .detail-content {
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .detail-actions {
-  margin-top: 20px;
+  margin-top: var(--spacing-xl);
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-md);
+}
+
+/* 响应式：移动端适配 */
+@media (max-width: 768px) {
+  :deep(.el-drawer) {
+    width: 90% !important;
+  }
 }
 </style>

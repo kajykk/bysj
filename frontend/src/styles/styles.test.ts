@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 describe('CSS Variables', () => {
   it('should have root CSS variables defined', () => {
     const rootStyles = getComputedStyle(document.documentElement)
-    expect(rootStyles.getPropertyValue('--primary-color').trim()).toBe('#409eff')
+    expect(rootStyles.getPropertyValue('--primary-color').trim()).toBe('#3b82c4')
     expect(rootStyles.getPropertyValue('--spacing-base').trim()).toBe('8px')
     expect(rootStyles.getPropertyValue('--font-size-base').trim()).toBe('14px')
   })

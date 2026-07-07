@@ -7,7 +7,7 @@
       :class="{ collapsed: layout.sidebarCollapsed }"
     >
       <div class="logo">
-        <span v-if="!layout.sidebarCollapsed">心理预警平台</span>
+        <span v-if="!layout.sidebarCollapsed">{{ t('layout.appTitle') }}</span>
         <el-icon
           v-else
           :size="20"
@@ -24,7 +24,7 @@
         <el-tooltip
           v-for="item in menus"
           :key="item.path"
-          :content="item.title"
+          :content="t(item.titleKey)"
           :disabled="!layout.sidebarCollapsed"
           placement="right"
         >
@@ -33,14 +33,20 @@
               <component :is="item.icon" />
             </el-icon>
             <template #title>
-              {{ item.title }}
+              {{ t(item.titleKey) }}
             </template>
           </el-menu-item>
         </el-tooltip>
       </el-menu>
       <div
         class="collapse-btn"
+        role="button"
+        tabindex="0"
+        :aria-label="layout.sidebarCollapsed ? t('layout.expand') : t('layout.collapse')"
+        :aria-expanded="!layout.sidebarCollapsed"
         @click="layout.toggleSidebar"
+        @keyup.enter="layout.toggleSidebar"
+        @keyup.space.prevent="layout.toggleSidebar"
       >
         <el-icon>
           <Fold v-if="!layout.sidebarCollapsed" />
@@ -51,13 +57,30 @@
         v-if="!layout.sidebarCollapsed"
         class="version-info"
       >
-        v1.28-final
+        v3.1.0
       </div>
     </el-aside>
+
+    <!-- VIS-015 修复：移动端侧边栏遮罩层，点击关闭侧边栏 -->
+    <div
+      v-if="!layout.sidebarCollapsed"
+      class="sidebar-backdrop"
+      @click="layout.setSidebarCollapsed(true)"
+    />
 
     <el-container>
       <el-header class="layout-header">
         <div class="header-left">
+          <!-- VIS-015 修复：移动端汉堡菜单按钮，用于展开被收起的侧边栏 -->
+          <el-button
+            class="mobile-menu-btn"
+            :aria-label="t('layout.expand')"
+            circle
+            size="small"
+            @click="layout.toggleSidebar"
+          >
+            <el-icon><Menu /></el-icon>
+          </el-button>
           <BreadcrumbNav />
         </div>
         <div class="header-right">
@@ -70,6 +93,7 @@
               size="small"
               :icon="BellIcon"
               circle
+              :aria-label="hasNewWarning ? t('layout.newWarning') : t('layout.noWarning')"
             />
           </el-badge>
           <el-tag>{{ roleLabel }}</el-tag>
@@ -78,7 +102,7 @@
             size="small"
             @click="handleLogout"
           >
-            退出
+            {{ t('layout.logout') }}
           </el-button>
         </div>
       </el-header>
@@ -87,12 +111,14 @@
         class="layout-main"
         tabindex="-1"
       >
-        <router-view v-slot="{ Component }">
+        <router-view v-slot="{ Component: RouteComponent }">
           <transition
             name="fade-slide"
             mode="out-in"
           >
-            <component :is="Component" />
+            <keep-alive :include="cachedComponentNames">
+              <component :is="RouteComponent" />
+            </keep-alive>
           </transition>
         </router-view>
       </el-main>
@@ -104,7 +130,8 @@
 import { computed, onMounted, onUnmounted, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElNotification } from 'element-plus'
-import { Bell, Fold, Expand, HomeFilled, Warning, User, Setting, Document, DataLine, ChatLineRound, Calendar, Reading } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+import { Bell, Fold, Expand, HomeFilled, Warning, User, Setting, Document, DataLine, ChatLineRound, Calendar, Reading, BellFilled, Menu } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
 import { wsClient, useWebSocket } from '@/composables/useWebSocket'
@@ -112,9 +139,30 @@ import BreadcrumbNav from '@/components/common/BreadcrumbNav.vue'
 import SkipLink from '@/components/common/SkipLink.vue'
 
 const BellIcon = Bell
+const { t } = useI18n()
+
+// 性能优化：keep-alive 缓存设置页等不需要实时数据的页面，避免重复渲染
+const cachedComponentNames = ['UserSettingsPage', 'CounselorSettingsPage', 'AdminSettingsPage']
+
+// L-26 修复：高风险等级集合提取为常量，避免每次消息处理时重新创建数组
+const HIGH_RISK_LEVELS = new Set(['high', 'critical', '3', '4'])
+
+// ISS-i18n: 风险等级标签改用 i18n 翻译，支持多语言切换
+const WARNING_LEVEL_KEY_MAP: Record<string, string> = {
+  none: 'warning.riskLevelNone',
+  low: 'warning.riskLevelLow',
+  medium: 'warning.riskLevelMedium',
+  high: 'warning.riskLevelHigh',
+  critical: 'warning.riskLevelCritical',
+  '0': 'warning.riskLevelNone',
+  '1': 'warning.riskLevelLow',
+  '2': 'warning.riskLevelMedium',
+  '3': 'warning.riskLevelHigh',
+  '4': 'warning.riskLevelCritical',
+}
 
 interface MenuItem {
-  title: string
+  titleKey: string
   path: string
   icon?: Component
 }
@@ -127,26 +175,28 @@ const { hasNewWarning, incrementUnread, resetUnread } = useWebSocket()
 
 const roleMenus: Record<string, MenuItem[]> = {
   user: [
-    { title: '用户首页', path: '/user/dashboard', icon: HomeFilled },
-    { title: '风险评估', path: '/user/risk', icon: DataLine },
-    { title: '模型训练入口', path: '/user/model-training', icon: Document },
-    { title: '干预计划', path: '/user/intervention', icon: Calendar },
-    { title: '内容中心', path: '/user/content', icon: Reading },
-    { title: '我的预警', path: '/user/warnings', icon: Warning },
-    { title: '评估记录', path: '/user/assessments', icon: ChatLineRound },
-    { title: '个人设置', path: '/user/settings', icon: Setting }
+    { titleKey: 'nav.user.home', path: '/user/dashboard', icon: HomeFilled },
+    { titleKey: 'nav.user.risk', path: '/user/risk', icon: DataLine },
+    { titleKey: 'nav.user.modelTraining', path: '/user/model-training', icon: Document },
+    { titleKey: 'nav.user.intervention', path: '/user/intervention', icon: Calendar },
+    { titleKey: 'nav.user.content', path: '/user/content', icon: Reading },
+    { titleKey: 'nav.user.warnings', path: '/user/warnings', icon: Warning },
+    { titleKey: 'nav.user.assessments', path: '/user/assessments', icon: ChatLineRound },
+    { titleKey: 'nav.user.settings', path: '/user/settings', icon: Setting }
   ],
   counselor: [
-    { title: '咨询师首页', path: '/counselor/dashboard', icon: HomeFilled },
-    { title: '预警处理', path: '/counselor/warnings', icon: Warning },
-    { title: '用户管理', path: '/counselor/users', icon: User },
-    { title: '个人设置', path: '/counselor/settings', icon: Setting }
+    { titleKey: 'nav.counselor.home', path: '/counselor/dashboard', icon: HomeFilled },
+    { titleKey: 'nav.counselor.warnings', path: '/counselor/warnings', icon: Warning },
+    { titleKey: 'nav.counselor.users', path: '/counselor/users', icon: User },
+    { titleKey: 'nav.counselor.settings', path: '/counselor/settings', icon: Setting }
   ],
   admin: [
-    { title: '管理员首页', path: '/admin/dashboard', icon: HomeFilled },
-    { title: '模板管理', path: '/admin/templates', icon: Document },
-    { title: '系统设置', path: '/admin/settings', icon: Setting },
-    { title: '操作日志', path: '/admin/operation-logs', icon: Reading }
+    { titleKey: 'nav.admin.home', path: '/admin/dashboard', icon: HomeFilled },
+    { titleKey: 'nav.admin.templates', path: '/admin/templates', icon: Document },
+    { titleKey: 'nav.admin.settings', path: '/admin/settings', icon: Setting },
+    { titleKey: 'nav.admin.operationLogs', path: '/admin/operation-logs', icon: Reading },
+    { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: BellFilled },
+    { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell }
   ]
 }
 
@@ -155,9 +205,9 @@ const activePath = computed(() => route.path)
 const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
 
 const roleLabel = computed(() => {
-  if (auth.role === 'admin') return '管理员'
-  if (auth.role === 'counselor') return '咨询师'
-  return '普通用户'
+  if (auth.role === 'admin') return t('role.admin')
+  if (auth.role === 'counselor') return t('role.counselor')
+  return t('role.user')
 })
 
 const goWarnings = () => {
@@ -165,6 +215,18 @@ const goWarnings = () => {
   const path = auth.role === 'counselor' ? '/counselor/warnings' : '/user/warnings'
   router.push(path)
 }
+
+// VIS-015 修复：移动端路由变化时自动收起侧边栏，避免遮挡内容
+const isMobile = () => window.matchMedia('(max-width: 768px)').matches
+
+watch(
+  () => route.path,
+  () => {
+    if (isMobile() && !layout.sidebarCollapsed) {
+      layout.setSidebarCollapsed(true)
+    }
+  }
+)
 
 let removeWsListener: (() => void) | null = null
 
@@ -179,13 +241,14 @@ const bindWebSocket = () => {
   wsClient.rebindSession(userId, auth.token)
   removeWsListener = wsClient.onMessage((msg) => {
     incrementUnread()
-    const levelMap: Record<string, string> = { none: '无', low: '低', medium: '中', high: '高', critical: '严重', '0': '无', '1': '低', '2': '中', '3': '高', '4': '严重' }
     const rawLevel = String(msg.data.risk_level ?? '')
-    const level = levelMap[rawLevel] || rawLevel
-    const isHighRisk = ['high', 'critical', '3', '4'].includes(rawLevel)
+    const levelKey = WARNING_LEVEL_KEY_MAP[rawLevel]
+    const level = levelKey ? t(levelKey) : rawLevel
+    const isHighRisk = HIGH_RISK_LEVELS.has(rawLevel)
+    // M-FE-5 修复：通知文案改用 i18n t() 函数，支持多语言
     ElNotification({
-      title: '风险预警通知',
-      message: `检测到${level}风险等级预警，请及时查看`,
+      title: t('layout.warningNotificationTitle'),
+      message: t('layout.warningNotificationMessage', { level }),
       type: isHighRisk ? 'error' : 'warning',
       duration: 8000,
     })
@@ -194,6 +257,10 @@ const bindWebSocket = () => {
 
 onMounted(() => {
   bindWebSocket()
+  // VIS-015 修复：移动端首次加载时自动收起侧边栏，避免遮挡内容
+  if (isMobile() && !layout.sidebarCollapsed) {
+    layout.setSidebarCollapsed(true)
+  }
 })
 
 watch(
@@ -211,7 +278,7 @@ onUnmounted(() => {
 
 const handleLogout = async () => {
   try {
-    await ElMessageBox.confirm('确认退出登录吗？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm(t('layout.logoutConfirm'), t('layout.logoutConfirmTitle'), { type: 'warning' })
   } catch {
     return
   }
@@ -223,14 +290,37 @@ const handleLogout = async () => {
 
 <style scoped>
 .layout-root {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .layout-aside {
-  border-right: 1px solid #ebeef5;
-  background: #fff;
-  transition: width 0.3s ease;
+  border-right: 1px solid var(--border-lighter);
+  background: var(--bg-primary);
+  transition: width var(--transition-duration) var(--transition-ease-out);
   position: relative;
+  box-shadow: 1px 0 8px rgba(59, 130, 196, 0.04);
+}
+
+.layout-aside :deep(.el-menu) {
+  border-right: none;
+  padding: var(--spacing-sm) var(--spacing-xs);
+}
+
+.layout-aside :deep(.el-menu-item) {
+  border-radius: var(--radius-base);
+  margin-bottom: 2px;
+  transition: background var(--transition-fast) var(--transition-timing),
+    color var(--transition-fast) var(--transition-timing);
+}
+
+.layout-aside :deep(.el-menu-item:hover) {
+  background: var(--primary-surface);
+}
+
+.layout-aside :deep(.el-menu-item.is-active) {
+  background: var(--primary-surface);
+  color: var(--primary-color);
+  font-weight: var(--font-weight-medium);
 }
 
 .layout-aside.collapsed .logo {
@@ -238,14 +328,21 @@ const handleLogout = async () => {
 }
 
 .logo {
-  height: 56px;
+  height: var(--layout-header-height);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  border-bottom: 1px solid #f0f2f5;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--border-extra-light);
   overflow: hidden;
   white-space: nowrap;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .collapse-btn {
@@ -258,13 +355,20 @@ const handleLogout = async () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border-top: 1px solid #ebeef5;
-  background: #fff;
-  transition: background 0.3s;
+  border-top: 1px solid var(--border-lighter);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  transition: background var(--transition-fast) var(--transition-timing),
+    color var(--transition-fast) var(--transition-timing);
 }
 
 .collapse-btn:hover {
-  background: #f5f7fa;
+  background: var(--primary-surface);
+  color: var(--primary-color);
+}
+
+.collapse-btn:active {
+  background: var(--primary-light);
 }
 
 .version-info {
@@ -276,27 +380,44 @@ const handleLogout = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  color: #909399;
-  border-top: 1px solid #ebeef5;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
+  letter-spacing: var(--letter-spacing-wide);
+  border-top: 1px solid var(--border-lighter);
 }
 
 .layout-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #ebeef5;
-  background: #fff;
+  border-bottom: 1px solid var(--border-lighter);
+  background: var(--bg-primary);
+  box-shadow: 0 1px 3px rgba(59, 130, 196, 0.04);
 }
 
 .header-left {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* VIS-015 修复：移动端汉堡菜单按钮 - 桌面端隐藏，移动端显示 */
+.mobile-menu-btn {
+  display: none;
+}
+
+/* VIS-015 修复：侧边栏遮罩层 - 桌面端隐藏，移动端显示 */
+.sidebar-backdrop {
+  display: none;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-small);
+  color: var(--text-regular);
 }
 
 .warning-badge {
@@ -304,6 +425,67 @@ const handleLogout = async () => {
 }
 
 .layout-main {
-  background: #f5f7fa;
+  background: var(--bg-page);
+  position: relative;
+}
+
+.layout-main::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-surface);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.layout-main > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 响应式：移动端侧边栏优化 */
+@media (max-width: 768px) {
+  .layout-aside {
+    position: fixed;
+    z-index: 100;
+    height: 100dvh;
+    transform: translateX(0);
+    transition: transform var(--transition-duration) var(--transition-ease-out);
+  }
+
+  .layout-aside.collapsed {
+    transform: translateX(-100%);
+    width: var(--layout-sidebar-width) !important;
+  }
+
+  /* VIS-015 修复：移动端显示汉堡菜单按钮 */
+  .mobile-menu-btn {
+    display: inline-flex;
+  }
+
+  /* VIS-015 修复：移动端侧边栏打开时显示遮罩层 */
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 99;
+    animation: backdrop-fade-in var(--transition-fast) var(--transition-ease-out);
+  }
+
+  @keyframes backdrop-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* 移动端头部右侧紧凑布局 */
+  /* ISS-107 修复：小屏下隐藏 .header-right 内的 span（用户名），避免与按钮挤压 */
+  .header-right {
+    gap: var(--spacing-sm);
+  }
+
+  .header-right span {
+    display: none;
+  }
 }
 </style>

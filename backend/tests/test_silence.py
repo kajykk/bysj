@@ -1,10 +1,9 @@
 """v1.34: silence 模块测试"""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
-
-import pytest
 
 from app.models.admin import AlertSilence
 from app.monitoring.notifier import AlertPayload
@@ -57,18 +56,27 @@ def test_matcher_single_key() -> None:
 
 def test_matcher_multiple_keys_and() -> None:
     """v1.34: 多键 AND 逻辑."""
-    assert _matcher_matches(
-        {"alertname": "X", "severity": "P1"},
-        {"alertname": "X", "severity": "P1"},
-    ) is True
-    assert _matcher_matches(
-        {"alertname": "X", "severity": "P1"},
-        {"alertname": "X", "severity": "P0"},
-    ) is False
-    assert _matcher_matches(
-        {"alertname": "X", "severity": "P1"},
-        {"alertname": "Y", "severity": "P1"},
-    ) is False
+    assert (
+        _matcher_matches(
+            {"alertname": "X", "severity": "P1"},
+            {"alertname": "X", "severity": "P1"},
+        )
+        is True
+    )
+    assert (
+        _matcher_matches(
+            {"alertname": "X", "severity": "P1"},
+            {"alertname": "X", "severity": "P0"},
+        )
+        is False
+    )
+    assert (
+        _matcher_matches(
+            {"alertname": "X", "severity": "P1"},
+            {"alertname": "Y", "severity": "P1"},
+        )
+        is False
+    )
 
 
 def test_matcher_missing_key_in_labels() -> None:
@@ -126,7 +134,9 @@ async def test_severity_match() -> None:
 
 async def test_combined_match() -> None:
     """v1.34: 组合匹配 (alertname + severity)."""
-    db = _make_db_with_silences([_silence(matcher={"alertname": "X", "severity": "P0"})])
+    db = _make_db_with_silences(
+        [_silence(matcher={"alertname": "X", "severity": "P0"})]
+    )
     silenced, _ = await is_silenced(_alert({"alertname": "X", "severity": "P0"}), db)
     assert silenced is True
     silenced, _ = await is_silenced(_alert({"alertname": "X", "severity": "P1"}), db)

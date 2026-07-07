@@ -4,19 +4,23 @@
       :gutter="16"
       class="top-grid"
     >
-      <el-col :span="18">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="18"
+      >
         <el-card class="hero-card console-card">
           <template #header>
             <div class="header-row">
               <div>
                 <div class="eyebrow">
-                  Training Console
+                  {{ t('userModelTraining.trainingConsoleEyebrow') }}
                 </div>
                 <div class="title">
-                  模型训练控制台
+                  {{ t('userModelTraining.title') }}
                 </div>
                 <div class="subtitle">
-                  从训练、产物、状态到答辩展示，集中管理当前可用模型。
+                  {{ t('userModelTraining.subtitle') }}
                 </div>
               </div>
               <div class="header-status">
@@ -24,13 +28,13 @@
                   type="success"
                   effect="light"
                 >
-                  模型就绪
+                  {{ t('userModelTraining.statusReady') }}
                 </el-tag>
                 <el-tag
                   type="info"
                   effect="plain"
                 >
-                  双模态联动
+                  {{ t('userModelTraining.dualModal') }}
                 </el-tag>
               </div>
             </div>
@@ -43,7 +47,7 @@
             <el-col :span="8">
               <div class="stat-card accent-blue">
                 <div class="stat-label">
-                  结构化模型
+                  {{ t('userModelTraining.statStructured') }}
                 </div>
                 <div class="stat-value">
                   {{ modelStatusSummary.structured }}
@@ -56,7 +60,7 @@
             <el-col :span="8">
               <div class="stat-card accent-green">
                 <div class="stat-label">
-                  文本模型
+                  {{ t('userModelTraining.statText') }}
                 </div>
                 <div class="stat-value">
                   {{ modelStatusSummary.text }}
@@ -69,10 +73,10 @@
             <el-col :span="8">
               <div class="stat-card accent-gold">
                 <div class="stat-label">
-                  训练脚本
+                  {{ t('userModelTraining.statScript') }}
                 </div>
                 <div class="stat-value">
-                  1 Click
+                  {{ t('userModelTraining.statScriptValue') }}
                 </div>
                 <div class="stat-desc">
                   train_ml_oneclick.ps1
@@ -86,7 +90,7 @@
             show-icon
             :closable="false"
             class="console-alert"
-            title="这里用于快速查看训练产物、复制路径、跳转预测页面，并为答辩提供统一展示入口。"
+            :title="t('userModelTraining.consoleAlert')"
           />
 
           <el-card
@@ -96,7 +100,7 @@
           >
             <template #header>
               <div class="header-row">
-                <span class="card-title">当前训练任务</span>
+                <span class="card-title">{{ t('userModelTraining.activeJobTitle') }}</span>
                 <el-tag
                   :type="activeJob.status === 'failed' ? 'danger' : activeJob.status === 'completed' ? 'success' : 'warning'"
                   effect="light"
@@ -114,13 +118,13 @@
               border
               class="job-desc"
             >
-              <el-descriptions-item label="任务 ID">
+              <el-descriptions-item :label="t('userModelTraining.colJobId')">
                 {{ activeJob.job_id || activeJobId || '-' }}
               </el-descriptions-item>
-              <el-descriptions-item label="阶段">
+              <el-descriptions-item :label="t('userModelTraining.colStage')">
                 {{ activeJob.stage || '-' }}
               </el-descriptions-item>
-              <el-descriptions-item label="消息">
+              <el-descriptions-item :label="t('userModelTraining.colMessage')">
                 {{ activeJob.message || '-' }}
               </el-descriptions-item>
             </el-descriptions>
@@ -136,40 +140,87 @@
                 class="action-card"
               >
                 <template #header>
-                  <span class="card-title">训练操作</span>
+                  <span class="card-title">{{ t('userModelTraining.actionTitle') }}</span>
                 </template>
                 <div class="action-list">
                   <el-button
                     type="primary"
                     @click="goToRiskPage"
                   >
-                    前往风险评估页
+                    {{ t('userModelTraining.goToRiskBtn') }}
                   </el-button>
                   <el-button @click="copyModelPaths">
-                    复制模型路径
+                    {{ t('userModelTraining.copyPathsBtn') }}
                   </el-button>
                   <el-button
                     type="success"
                     plain
                     @click="openTrainingScript"
                   >
-                    查看一键训练脚本
+                    {{ t('userModelTraining.viewScriptBtn') }}
                   </el-button>
                   <el-button
                     :loading="statusLoading"
                     @click="refreshStatus"
                   >
-                    刷新模型状态
+                    {{ t('userModelTraining.refreshBtn') }}
                   </el-button>
                   <el-button
+                    v-if="canTrain"
                     type="danger"
                     plain
                     :loading="statusLoading"
                     @click="runTrainingPipeline"
                   >
-                    运行训练流水线
+                    {{ t('userModelTraining.runPipelineBtn') }}
                   </el-button>
                 </div>
+                <!-- ISS-001 修复：训练参数可配置表单（仅 admin 可见） -->
+                <el-form
+                  v-if="canTrain"
+                  :model="trainingForm"
+                  label-width="120px"
+                  class="training-form"
+                  size="small"
+                >
+                  <el-form-item :label="t('userModelTraining.formLabelDataset')">
+                    <el-input
+                      v-model="trainingForm.dataset_name"
+                      placeholder="depression_multimodal_v1"
+                    />
+                  </el-form-item>
+                  <el-form-item :label="t('userModelTraining.formLabelModel')">
+                    <el-input
+                      v-model="trainingForm.model_name"
+                      placeholder="text_bert_classifier"
+                    />
+                  </el-form-item>
+                  <el-form-item :label="t('userModelTraining.formLabelEpochs')">
+                    <el-input-number
+                      v-model="trainingForm.epochs"
+                      :min="1"
+                      :max="100"
+                      :step="1"
+                    />
+                  </el-form-item>
+                  <el-form-item :label="t('userModelTraining.formLabelBatchSize')">
+                    <el-input-number
+                      v-model="trainingForm.batch_size"
+                      :min="1"
+                      :max="256"
+                      :step="1"
+                    />
+                  </el-form-item>
+                  <el-form-item :label="t('userModelTraining.formLabelLearningRate')">
+                    <el-input-number
+                      v-model="trainingForm.learning_rate"
+                      :min="0"
+                      :max="1"
+                      :step="0.00001"
+                      :precision="6"
+                    />
+                  </el-form-item>
+                </el-form>
               </el-card>
             </el-col>
             <el-col :span="12">
@@ -178,23 +229,23 @@
                 class="action-card"
               >
                 <template #header>
-                  <span class="card-title">模型产物</span>
+                  <span class="card-title">{{ t('userModelTraining.artifactsTitle') }}</span>
                 </template>
                 <el-descriptions
                   :column="1"
                   border
                   class="compact-desc"
                 >
-                  <el-descriptions-item label="结构化模型">
+                  <el-descriptions-item :label="t('userModelTraining.artifactStructured')">
                     models/artifacts/depression_tabular/best_model.pkl
                   </el-descriptions-item>
-                  <el-descriptions-item label="文本模型">
+                  <el-descriptions-item :label="t('userModelTraining.artifactText')">
                     models/artifacts/text_depression_classifier/text_model.pkl
                   </el-descriptions-item>
-                  <el-descriptions-item label="文本向量器">
+                  <el-descriptions-item :label="t('userModelTraining.artifactVectorizer')">
                     models/artifacts/text_depression_classifier/text_tfidf.pkl
                   </el-descriptions-item>
-                  <el-descriptions-item label="训练入口">
+                  <el-descriptions-item :label="t('userModelTraining.artifactEntry')">
                     train_ml_oneclick.ps1
                   </el-descriptions-item>
                 </el-descriptions>
@@ -204,25 +255,24 @@
 
           <el-card
             shadow="never"
-            class="action-card log-card"
-            style="margin-top: 16px"
+            class="action-card log-card section-card"
           >
             <template #header>
               <div class="header-row">
-                <span class="card-title">训练日志面板</span>
+                <span class="card-title">{{ t('userModelTraining.logPanelTitle') }}</span>
                 <div class="header-status">
                   <el-tag
                     type="info"
                     effect="light"
                   >
-                    Console Log
+                    {{ t('userModelTraining.consoleLog') }}
                   </el-tag>
                   <el-tag
                     v-if="latestLog"
                     :type="latestLog.level === 'error' ? 'danger' : latestLog.level === 'warning' ? 'warning' : 'success'"
                     effect="dark"
                   >
-                    最近：{{ latestLog.stage }}
+                    {{ t('userModelTraining.latestLog', { stage: latestLog.stage }) }}
                   </el-tag>
                 </div>
               </div>
@@ -247,37 +297,40 @@
         </el-card>
       </el-col>
 
-      <el-col :span="6">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="6"
+      >
         <el-card class="side-card console-side-card">
           <template #header>
-            <span class="card-title">运行说明</span>
+            <span class="card-title">{{ t('userModelTraining.hintTitle') }}</span>
           </template>
           <ul class="hint-list">
-            <li>先执行一键训练脚本，再刷新页面查看最新状态。</li>
-            <li>结构化预测和文本预测已自动读取新模型。</li>
-            <li>答辩时可以直接从这里跳转到风险评估页演示。</li>
+            <li>{{ t('userModelTraining.hint1') }}</li>
+            <li>{{ t('userModelTraining.hint2') }}</li>
+            <li>{{ t('userModelTraining.hint3') }}</li>
           </ul>
         </el-card>
 
         <el-card
-          class="side-card console-side-card"
-          style="margin-top: 16px"
+          class="side-card console-side-card section-card"
         >
           <template #header>
-            <span class="card-title">最近状态</span>
+            <span class="card-title">{{ t('userModelTraining.recentStatusTitle') }}</span>
           </template>
           <div class="status-list">
             <div class="status-item success">
-              后端预测：已切换到新模型路径
+              {{ t('userModelTraining.statusBackend') }}
             </div>
             <div class="status-item success">
-              前端展示：已适配新训练模型
+              {{ t('userModelTraining.statusFrontend') }}
             </div>
             <div class="status-item info">
-              训练入口：已加入侧边菜单
+              {{ t('userModelTraining.statusEntry') }}
             </div>
             <div class="status-item warning">
-              建议：训练后先检查风险页展示效果
+              {{ t('userModelTraining.statusAdvice') }}
             </div>
           </div>
           <el-divider />
@@ -286,24 +339,23 @@
             border
             class="compact-desc"
           >
-            <el-descriptions-item label="模型状态">
-              {{ modelStatus.ready ? '全部就绪' : '部分缺失' }}
+            <el-descriptions-item :label="t('userModelTraining.colModelStatus')">
+              {{ modelStatus.ready ? t('userModelTraining.allReady') : t('userModelTraining.partialMissing') }}
             </el-descriptions-item>
-            <el-descriptions-item label="检测时间">
+            <el-descriptions-item :label="t('userModelTraining.colDetectedAt')">
               {{ modelStatusLoadedAt }}
             </el-descriptions-item>
-            <el-descriptions-item label="模型目录">
+            <el-descriptions-item :label="t('userModelTraining.colModelDir')">
               {{ modelStatus.model_dir }}
             </el-descriptions-item>
           </el-descriptions>
         </el-card>
 
         <el-card
-          class="side-card console-side-card"
-          style="margin-top: 16px"
+          class="side-card console-side-card section-card"
         >
           <template #header>
-            <span class="card-title">快捷入口</span>
+            <span class="card-title">{{ t('userModelTraining.shortcutTitle') }}</span>
           </template>
           <el-space
             direction="vertical"
@@ -311,13 +363,13 @@
             style="width: 100%"
           >
             <el-button @click="goToRiskPage">
-              风险评估面板
+              {{ t('userModelTraining.riskPanelBtn') }}
             </el-button>
             <el-button @click="scrollToArtifacts">
-              模型产物位置
+              {{ t('userModelTraining.artifactsLocationBtn') }}
             </el-button>
             <el-button @click="showModelStatusDetail">
-              查看模型状态详情
+              {{ t('userModelTraining.viewStatusDetailBtn') }}
             </el-button>
           </el-space>
         </el-card>
@@ -328,13 +380,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { modelApi, type ModelStatusResult } from '@/api/modelApi'
+import { useAuthStore } from '@/stores/auth'
 
+const { t } = useI18n()
 const router = useRouter()
+// ISS-041 修复：引入 auth store 判断角色，仅 admin 可运行训练流水线
+const authStore = useAuthStore()
+const canTrain = computed(() => authStore.role === 'admin')
 const statusLoading = ref(false)
-const modelStatusLoadedAt = ref('未加载')
+const modelStatusLoadedAt = ref(t('userModelTraining.notLoaded'))
 const modelStatus = reactive<ModelStatusResult>({
   model_dir: 'models',
   items: [],
@@ -343,11 +401,23 @@ const modelStatus = reactive<ModelStatusResult>({
 const modelStatusSummary = reactive({ structured: '—', text: '—' })
 const latestLog = computed(() => trainingLogRows.value[0])
 const trainingLogRows = ref<Array<{ time: string; stage: string; message: string; level: 'info' | 'warning' | 'success' | 'error' }>>([
-  { time: new Date().toLocaleString(), stage: 'system', message: '训练控制台已初始化，等待模型状态刷新', level: 'info' },
+  { time: new Date().toLocaleString(), stage: 'system', message: t('userModelTraining.initLog'), level: 'info' },
 ])
 const activeJobId = ref('')
 const activeJob = ref<{ job_id?: string; status: string; progress?: number; stage?: string; message: string } | null>(null)
 let jobPollTimer: number | undefined
+// ISS-001 修复：训练参数改为表单可配置，epochs 默认 3（原硬编码 epochs=1 几乎无法收敛）
+const trainingForm = reactive({
+  dataset_name: 'depression_multimodal_v1',
+  model_name: 'text_bert_classifier',
+  epochs: 3,
+  batch_size: 8,
+  learning_rate: 2e-5,
+})
+// ISS-002 修复：轮询改为指数退避（初始 5s，最大 30s），原固定 2s 产生大量无效请求
+const POLL_INITIAL_MS = 5000
+const POLL_MAX_MS = 30000
+let pollCurrentMs = POLL_INITIAL_MS
 
 const pushTrainingLog = (stage: string, message: string, level: 'info' | 'warning' | 'success' | 'error' = 'info') => {
   trainingLogRows.value.unshift({
@@ -361,19 +431,19 @@ const pushTrainingLog = (stage: string, message: string, level: 'info' | 'warnin
 
 const refreshStatus = async () => {
   statusLoading.value = true
-  pushTrainingLog('status', '开始刷新模型状态', 'info')
+  pushTrainingLog('status', t('userModelTraining.logStartRefresh'), 'info')
   try {
     const res = await modelApi.getModelStatus()
     modelStatus.model_dir = res.model_dir
     modelStatus.items = res.items
     modelStatus.ready = res.ready
     modelStatusLoadedAt.value = new Date().toLocaleString()
-    modelStatusSummary.structured = res.items.find(i => i.model_id === 'structured_logistic_regression_quick')?.exists ? 'Ready' : 'Missing'
-    modelStatusSummary.text = res.items.find(i => i.model_id === 'text_depression_model')?.exists && res.items.find(i => i.model_id === 'text_depression_tfidf')?.exists ? 'Ready' : 'Missing'
-    pushTrainingLog('status', `模型状态刷新完成，整体状态：${res.ready ? 'READY' : 'PARTIAL'}`, res.ready ? 'success' : 'warning')
+    modelStatusSummary.structured = res.items.find(i => i.model_id === 'structured_logistic_regression_quick')?.exists ? t('userModelTraining.modelStatusReady') : t('userModelTraining.modelStatusMissing')
+    modelStatusSummary.text = res.items.find(i => i.model_id === 'text_depression_model')?.exists && res.items.find(i => i.model_id === 'text_depression_tfidf')?.exists ? t('userModelTraining.modelStatusReady') : t('userModelTraining.modelStatusMissing')
+    pushTrainingLog('status', t('userModelTraining.logRefreshComplete', { status: res.ready ? 'READY' : 'PARTIAL' }), res.ready ? 'success' : 'warning')
   } catch {
-    ElMessage.warning('模型状态加载失败，已使用本地默认展示')
-    pushTrainingLog('status', '模型状态加载失败，使用本地默认展示', 'warning')
+    ElMessage.warning(t('userModelTraining.loadFailed'))
+    pushTrainingLog('status', t('userModelTraining.logLoadFailed'), 'warning')
   } finally {
     statusLoading.value = false
   }
@@ -381,7 +451,7 @@ const refreshStatus = async () => {
 
 const stopJobPolling = () => {
   if (jobPollTimer) {
-    window.clearInterval(jobPollTimer)
+    window.clearTimeout(jobPollTimer)
     jobPollTimer = undefined
   }
 }
@@ -397,10 +467,10 @@ const syncJobState = async () => {
       stopJobPolling()
       if (job.status === 'completed') {
         await refreshStatus()
-        pushTrainingLog('train', '训练完成并刷新模型状态', 'success')
+        pushTrainingLog('train', t('userModelTraining.logTrainComplete'), 'success')
       }
       if (job.status === 'failed') {
-        ElMessage.error(job.message || '训练任务失败')
+        ElMessage.error(job.message || t('userModelTraining.trainFailed'))
       }
     }
   } catch (error) {
@@ -417,7 +487,7 @@ const loadLatestJob = async () => {
     activeJobId.value = latest.job_id || ''
     activeJob.value = latest
     if (latest.job_id) {
-      pushTrainingLog(latest.stage || 'job', `发现最近训练任务：${latest.job_id}`, 'info')
+      pushTrainingLog(latest.stage || 'job', t('userModelTraining.logFoundJob', { jobId: latest.job_id }), 'info')
       if (latest.status === 'running' || latest.status === 'pending') {
         startJobPolling()
       }
@@ -427,27 +497,49 @@ const loadLatestJob = async () => {
   }
 }
 
+// ISS-002 修复：指数退避轮询，每次轮询后间隔翻倍，上限 30s
 const startJobPolling = () => {
   stopJobPolling()
-  jobPollTimer = window.setInterval(() => {
-    void syncJobState()
-  }, 2000)
+  pollCurrentMs = POLL_INITIAL_MS
+  const scheduleNext = () => {
+    jobPollTimer = window.setTimeout(async () => {
+      await syncJobState()
+      // 仅在任务仍进行中时继续调度
+      if (activeJob.value && (activeJob.value.status === 'running' || activeJob.value.status === 'pending')) {
+        pollCurrentMs = Math.min(pollCurrentMs * 2, POLL_MAX_MS)
+        scheduleNext()
+      }
+    }, pollCurrentMs)
+  }
+  scheduleNext()
 }
 
 const runTrainingPipeline = async () => {
   statusLoading.value = true
-  pushTrainingLog('train', '开始执行训练流水线', 'info')
+  pushTrainingLog('train', t('userModelTraining.logStartPipeline'), 'info')
   try {
-    pushTrainingLog('train', '提交训练任务', 'info')
-    const task = await modelApi.trainModel({ dataset_name: 'depression_multimodal_v1', model_name: 'text_bert_classifier', epochs: 1, batch_size: 8, learning_rate: 2e-5 })
+    pushTrainingLog('train', t('userModelTraining.logSubmitJob'), 'info')
+    const task = await modelApi.trainModel({
+      dataset_name: trainingForm.dataset_name,
+      model_name: trainingForm.model_name,
+      epochs: trainingForm.epochs,
+      batch_size: trainingForm.batch_size,
+      learning_rate: trainingForm.learning_rate,
+    })
     activeJobId.value = task.job_id || ''
     activeJob.value = task
-    pushTrainingLog('train', `任务已创建：${activeJobId.value || 'unknown'}`, 'success')
+    pushTrainingLog('train', t('userModelTraining.logJobCreated', { jobId: activeJobId.value || 'unknown' }), 'success')
     startJobPolling()
     await syncJobState()
-  } catch (error) {
-    pushTrainingLog('train', '训练任务提交失败', 'error')
-    ElMessage.error('训练任务提交失败，请检查后端训练服务')
+  } catch (error: unknown) {
+    pushTrainingLog('train', t('userModelTraining.logSubmitFailed'), 'error')
+    // ISS-041 修复：区分 403 权限错误与其他错误，避免错误归因到"后端服务异常"
+    const status = (error as { response?: { status?: number } })?.response?.status
+    if (status === 403) {
+      ElMessage.error(t('userModelTraining.noPermission'))
+    } else {
+      ElMessage.error(t('userModelTraining.submitFailedBackend'))
+    }
   } finally {
     statusLoading.value = false
   }
@@ -458,7 +550,7 @@ onUnmounted(() => {
 })
 
 const goToRiskPage = () => {
-  pushTrainingLog('nav', '跳转到风险评估页', 'info')
+  pushTrainingLog('nav', t('userModelTraining.logNavToRisk'), 'info')
   router.push('/user/risk')
 }
 
@@ -470,21 +562,21 @@ const copyModelPaths = async () => {
   ].join('\n')
   try {
     await navigator.clipboard.writeText(text)
-    ElMessage.success('模型路径已复制')
-    pushTrainingLog('artifact', '模型路径已复制到剪贴板', 'success')
+    ElMessage.success(t('userModelTraining.pathsCopied'))
+    pushTrainingLog('artifact', t('userModelTraining.logPathsCopied'), 'success')
   } catch {
-    ElMessage.error('复制失败')
-    pushTrainingLog('artifact', '复制模型路径失败', 'error')
+    ElMessage.error(t('userModelTraining.copyFailed'))
+    pushTrainingLog('artifact', t('userModelTraining.logCopyFailed'), 'error')
   }
 }
 
 const openTrainingScript = () => {
-  ElMessage.info('请在项目根目录运行 train_ml_oneclick.ps1')
-  pushTrainingLog('script', '提示打开一键训练脚本', 'info')
+  ElMessage.info(t('userModelTraining.runScriptHint'))
+  pushTrainingLog('script', t('userModelTraining.logOpenScript'), 'info')
 }
 
 const scrollToArtifacts = () => {
-  ElMessage.success('模型产物已在页面中展示，可直接复制路径')
+  ElMessage.success(t('userModelTraining.artifactsShownHint'))
 }
 
 const showModelStatusDetail = () => {
@@ -493,11 +585,13 @@ const showModelStatusDetail = () => {
   const lines = modelStatus.items
     .filter(item => item.lifecycle !== 'deprecated' && item.lifecycle !== 'disabled')
     .map(item => `${item.model_id}: ${item.exists ? 'OK' : 'Missing'} ${item.path}`).join('\n')
-  ElMessageBox.alert(lines || '暂无模型状态', '模型状态详情', {
-    confirmButtonText: '关闭',
+  // ISS-059 备注：Element Plus 2.x 当前 TypeScript 类型仅声明 customClass，
+  // 虽然运行时 class 也能工作，但为了类型安全仍使用 customClass
+  ElMessageBox.alert(lines || t('userModelTraining.noModelStatus'), t('userModelTraining.statusDetailTitle'), {
+    confirmButtonText: t('common.close'),
     customClass: 'model-status-detail-msgbox',
   })
-  pushTrainingLog('status', '打开模型状态详情面板', 'info')
+  pushTrainingLog('status', t('userModelTraining.logOpenStatusDetail'), 'info')
 }
 
 onMounted(() => {
@@ -527,14 +621,16 @@ onMounted(() => {
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #909399;
+  color: var(--text-secondary);
   margin-bottom: 4px;
 }
 
 .title {
-  font-size: 24px;
-  font-weight: 800;
-  color: #1f2937;
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
 }
 
 .subtitle {
@@ -569,9 +665,10 @@ onMounted(() => {
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
-.accent-blue { background: linear-gradient(135deg, #409eff, #6aa9ff); }
-.accent-green { background: linear-gradient(135deg, #67c23a, #88d36e); }
-.accent-gold { background: linear-gradient(135deg, #e6a23c, #f2bb63); }
+/* ISS-011 修复：改用 CSS 变量定义的渐变令牌，避免硬编码 */
+.accent-blue { background: var(--gradient-blue); }
+.accent-green { background: var(--gradient-green); }
+.accent-gold { background: var(--gradient-gold); }
 
 .stat-label {
   font-size: 12px;
@@ -592,6 +689,10 @@ onMounted(() => {
 
 .console-alert {
   margin-bottom: 16px;
+}
+
+.section-card {
+  margin-top: var(--spacing-lg);
 }
 
 .action-grid {
@@ -621,13 +722,13 @@ onMounted(() => {
 }
 
 .timeline-title {
-  font-weight: 600;
-  color: #303133;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
 }
 
 .timeline-text {
   margin-top: 4px;
-  color: #606266;
+  color: var(--text-regular);
   line-height: 1.6;
 }
 
@@ -642,14 +743,14 @@ onMounted(() => {
 }
 
 .card-title {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .hint-list {
   margin: 0;
   padding-left: 18px;
   line-height: 1.8;
-  color: #303133;
+  color: var(--text-primary);
 }
 
 .status-list {
@@ -668,17 +769,17 @@ onMounted(() => {
 }
 
 .status-item.success {
-  background: rgba(103, 194, 58, 0.12);
+  background: var(--success-light);
   color: #2f6b1f;
 }
 
 .status-item.info {
-  background: rgba(64, 158, 255, 0.12);
+  background: var(--info-light);
   color: #205a9d;
 }
 
 .status-item.warning {
-  background: rgba(230, 162, 60, 0.14);
+  background: var(--warning-light);
   color: #8a5a12;
 }
 </style>

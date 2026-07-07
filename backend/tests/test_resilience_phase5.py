@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import math
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
 
 
 class TestResilienceFallback:
@@ -39,7 +37,9 @@ class TestResilienceFallback:
         # 启发式回退模型
         fallback_model = MagicMock()
         fallback_model.predict.return_value = np.array([0, 1, 0])
-        fallback_model.predict_proba.return_value = np.array([[0.8, 0.2], [0.3, 0.7], [0.9, 0.1]])
+        fallback_model.predict_proba.return_value = np.array(
+            [[0.8, 0.2], [0.3, 0.7], [0.9, 0.1]]
+        )
 
         wrapper = UnifiedModelWrapper(primary_model, "test_model")
         wrapper.set_fallback(fallback_model)
@@ -101,8 +101,10 @@ class TestResilienceFallback:
                 fallback_model.predict(X)
 
         # 验证日志中包含回退原因
-        assert any("fallback" in record.message.lower() or "model" in record.message.lower()
-                   for record in caplog.records), "Fallback event should be logged"
+        assert any(
+            "fallback" in record.message.lower() or "model" in record.message.lower()
+            for record in caplog.records
+        ), "Fallback event should be logged"
 
     # ==========================================================================
     # T-RES-002: 依赖缺失回退验证
@@ -185,7 +187,7 @@ class TestResilienceFallback:
         """T-RES-002: 系统在无 PyTorch 环境中正常启动"""
         import importlib
 
-        torch_available = importlib.util.find_spec("torch") is not None
+        importlib.util.find_spec("torch") is not None
 
         # 验证核心服务不依赖 torch
         from app.services.input_validator import InputValidator
@@ -250,10 +252,14 @@ class TestResilienceFallback:
         from app.ml.unified_model_interface import UnifiedModelWrapper
 
         primary_model = MagicMock()
-        primary_model.predict_proba.return_value = np.array([[-0.1, 1.1], [0.5, 0.5], [2.0, -1.0]])
+        primary_model.predict_proba.return_value = np.array(
+            [[-0.1, 1.1], [0.5, 0.5], [2.0, -1.0]]
+        )
 
         fallback_model = MagicMock()
-        fallback_model.predict_proba.return_value = np.array([[0.2, 0.8], [0.5, 0.5], [0.7, 0.3]])
+        fallback_model.predict_proba.return_value = np.array(
+            [[0.2, 0.8], [0.5, 0.5], [0.7, 0.3]]
+        )
 
         wrapper = UnifiedModelWrapper(primary_model, "test_model")
         wrapper.set_fallback(fallback_model)
@@ -289,8 +295,12 @@ class TestResilienceFallback:
                 fallback_model.predict(X)
 
         # 验证日志记录
-        assert any("anomal" in record.message.lower() or "nan" in record.message.lower() or "inf" in record.message.lower()
-                   for record in caplog.records), "Prediction anomaly should be logged"
+        assert any(
+            "anomal" in record.message.lower()
+            or "nan" in record.message.lower()
+            or "inf" in record.message.lower()
+            for record in caplog.records
+        ), "Prediction anomaly should be logged"
 
     # ==========================================================================
     # T-RES-004: 延迟超时回退验证
@@ -318,7 +328,7 @@ class TestResilienceFallback:
 
         start = time.perf_counter()
         try:
-            predictions = wrapper.predict(X)
+            wrapper.predict(X)
             elapsed_ms = (time.perf_counter() - start) * 1000
 
             # 如果延迟超过阈值，应触发回退
@@ -350,7 +360,9 @@ class TestResilienceFallback:
         score = service._calculate_heuristic_score(features)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        assert elapsed_ms < 50, f"Fallback latency {elapsed_ms:.2f}ms exceeds 50ms threshold"
+        assert (
+            elapsed_ms < 50
+        ), f"Fallback latency {elapsed_ms:.2f}ms exceeds 50ms threshold"
         assert 0 <= score <= 100
 
     def test_timeout_alert_triggered(self, caplog) -> None:
@@ -368,8 +380,10 @@ class TestResilienceFallback:
                     "Triggering fallback to heuristic rules."
                 )
 
-        assert any("timeout" in record.message.lower() or "fallback" in record.message.lower()
-                   for record in caplog.records), "Timeout alert should be logged"
+        assert any(
+            "timeout" in record.message.lower() or "fallback" in record.message.lower()
+            for record in caplog.records
+        ), "Timeout alert should be logged"
 
     # ==========================================================================
     # 综合回退验证
@@ -420,14 +434,37 @@ class TestResilienceFallback:
         service = RiskService(db=MockDB())
 
         test_cases = [
-            {"stress_level": 0, "anxiety": 0, "sleep_duration": 8, "financial_pressure": 0, "social_support": 5, "panic_attack": 0},
-            {"stress_level": 10, "anxiety": 10, "sleep_duration": 2, "financial_pressure": 10, "social_support": 1, "panic_attack": 5},
-            {"stress_level": 5, "anxiety": 5, "sleep_duration": 5, "financial_pressure": 5, "social_support": 3, "panic_attack": 2},
+            {
+                "stress_level": 0,
+                "anxiety": 0,
+                "sleep_duration": 8,
+                "financial_pressure": 0,
+                "social_support": 5,
+                "panic_attack": 0,
+            },
+            {
+                "stress_level": 10,
+                "anxiety": 10,
+                "sleep_duration": 2,
+                "financial_pressure": 10,
+                "social_support": 1,
+                "panic_attack": 5,
+            },
+            {
+                "stress_level": 5,
+                "anxiety": 5,
+                "sleep_duration": 5,
+                "financial_pressure": 5,
+                "social_support": 3,
+                "panic_attack": 2,
+            },
         ]
 
         for features in test_cases:
             score = service._calculate_heuristic_score(features)
-            assert 0 <= score <= 100, f"Score {score} out of range for features {features}"
+            assert (
+                0 <= score <= 100
+            ), f"Score {score} out of range for features {features}"
             assert not math.isnan(score)
             assert not math.isinf(score)
 
@@ -437,11 +474,15 @@ class TestResilienceFallback:
 
         primary_model = MagicMock()
         primary_model.predict.return_value = np.array([1, 0, 1])
-        primary_model.predict_proba.return_value = np.array([[0.2, 0.8], [0.7, 0.3], [0.1, 0.9]])
+        primary_model.predict_proba.return_value = np.array(
+            [[0.2, 0.8], [0.7, 0.3], [0.1, 0.9]]
+        )
 
         fallback_model = MagicMock()
         fallback_model.predict.return_value = np.array([0, 1, 0])
-        fallback_model.predict_proba.return_value = np.array([[0.6, 0.4], [0.4, 0.6], [0.8, 0.2]])
+        fallback_model.predict_proba.return_value = np.array(
+            [[0.6, 0.4], [0.4, 0.6], [0.8, 0.2]]
+        )
 
         wrapper = UnifiedModelWrapper(primary_model, "primary")
         wrapper.set_fallback(fallback_model)

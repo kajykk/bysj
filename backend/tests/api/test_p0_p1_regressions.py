@@ -50,7 +50,7 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert login_resp.status_code == 200
     login_body = login_resp.json()["data"]
     access_token = login_body["access_token"]
-    refresh_token = login_body["refresh_token"]
+    refresh_token = client.cookies.get("refresh_token")
 
     refresh_resp = client.post(
         "/api/v1/auth/refresh",
@@ -79,7 +79,9 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert logout_resp.json()["data"]["revoked_count"] >= 1
 
 
-def test_request_reset_is_idempotent_without_user_enumeration(client: TestClient) -> None:
+def test_request_reset_is_idempotent_without_user_enumeration(
+    client: TestClient,
+) -> None:
     resp = client.post(
         "/api/v1/auth/request-reset",
         json={"email": "missing-user@test.com"},
@@ -125,7 +127,7 @@ def test_reset_password_rejects_wrong_token_type(client: TestClient) -> None:
     )
     assert login_resp.status_code == 200
 
-    refresh_token = login_resp.json()["data"]["refresh_token"]
+    refresh_token = client.cookies.get("refresh_token")
 
     reset_resp = client.post(
         "/api/v1/auth/reset-password",
@@ -147,7 +149,9 @@ def test_reset_password_rejects_wrong_token_type(client: TestClient) -> None:
     assert "无效或已过期的重置令牌" in detail
 
 
-def test_risk_service_validates_template_tasks(db_session: AsyncSession, seeded_user_id: int) -> None:
+def test_risk_service_validates_template_tasks(
+    db_session: AsyncSession, seeded_user_id: int
+) -> None:
     async def _run_case() -> None:
         bad_template = InterventionTemplate(
             template_name="BadTemplate",
@@ -166,7 +170,9 @@ def test_risk_service_validates_template_tasks(db_session: AsyncSession, seeded_
     run(_run_case())
 
 
-def test_risk_service_rejects_empty_template_tasks(db_session: AsyncSession, seeded_user_id: int) -> None:
+def test_risk_service_rejects_empty_template_tasks(
+    db_session: AsyncSession, seeded_user_id: int
+) -> None:
     async def _run_case() -> None:
         empty_template = InterventionTemplate(
             template_name="EmptyTemplate",

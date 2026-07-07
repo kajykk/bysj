@@ -8,12 +8,11 @@
 
 合计: 7 测试 (1 meta + 6 功能)
 """
+
 from __future__ import annotations
 
 import json
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -22,12 +21,19 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]  # backend/tests -> bysj
 YAML_CONFIG = ROOT / "infra" / "grafana" / "dashboards" / "v1.37-alerts-overview.yaml"
 TEMPLATES_DIR = ROOT / "infra" / "grafana" / "dashboards" / "templates"
-DASHBOARD_JSON = ROOT / "infra" / "grafana" / "dashboards" / "v1.37-alerts-overview.json"
+DASHBOARD_JSON = (
+    ROOT / "infra" / "grafana" / "dashboards" / "v1.37-alerts-overview.json"
+)
 BUILD_SCRIPT = ROOT / "infra" / "grafana" / "scripts" / "build_dashboard.py"
 
 V137_METRICS = {
-    "trend", "response_time", "escalation", "channel_stats",
-    "silence_hit_rate", "am_sync", "lock_stats",
+    "trend",
+    "response_time",
+    "escalation",
+    "channel_stats",
+    "silence_hit_rate",
+    "am_sync",
+    "lock_stats",
 }
 
 P0_PANEL_IDS = {5, 6, 7, 8, 10, 12, 13, 14, 15, 19, 22, 23, 24}
@@ -74,6 +80,7 @@ def test_yaml_config_loads(yaml_config):
 def test_jinja2_templates_render():
     """T-GRAF-002: 6 个 .json.j2 模板可被 Jinja2 解析."""
     from jinja2 import Environment, FileSystemLoader
+
     env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)))
     types = ["stat", "timeseries", "gauge", "bargauge", "piechart", "table"]
     for t in types:
@@ -94,7 +101,9 @@ def test_panel_metrics_exist_in_v137(dashboard_json):
     for panel in dashboard_json["panels"]:
         for target in panel.get("targets", []):
             metric = target.get("payload", {}).get("metric")
-            assert metric in V137_METRICS, f"panel {panel['id']} uses unknown metric: {metric}"
+            assert (
+                metric in V137_METRICS
+            ), f"panel {panel['id']} uses unknown metric: {metric}"
 
 
 def test_panel_variable_references(dashboard_json):
@@ -115,7 +124,9 @@ def test_p0_panels_have_thresholds(dashboard_json):
     missing = []
     for panel in dashboard_json["panels"]:
         if panel["id"] in P0_PANEL_IDS:
-            thresholds = panel.get("fieldConfig", {}).get("defaults", {}).get("thresholds")
+            thresholds = (
+                panel.get("fieldConfig", {}).get("defaults", {}).get("thresholds")
+            )
             if not thresholds or not thresholds.get("steps"):
                 missing.append(panel["id"])
     assert not missing, f"P0 panels missing thresholds: {missing}"

@@ -13,7 +13,7 @@ export const normalizeHttpErrorInfo = (error: unknown, fallback: string): HttpEr
   const errorMessage = raw?.message ?? (isAxiosError(error) ? error.message : undefined)
   const detail = typeof detailRaw === 'string' && detailRaw.trim()
     ? detailRaw
-    : typeof errorMessage === 'string' && errorMessage.trim() && status === 0
+    : typeof errorMessage === 'string' && errorMessage.trim()
       ? errorMessage
       : fallback
 

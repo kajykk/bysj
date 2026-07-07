@@ -8,9 +8,9 @@ from typing import Callable
 import numpy as np
 
 from app.ml.model import PhysiologicalMLP
-from app.ml.trainer import train_model, evaluate
 from app.ml.scaler import SimpleStandardScaler
 from app.ml.smote import simple_smote
+from app.ml.trainer import evaluate, train_model
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,9 @@ def cross_validate_with_smote(
 
         # Split into train and validation
         val_indices = folds[fold_idx]
-        train_indices = np.concatenate([folds[i] for i in range(n_folds) if i != fold_idx])
+        train_indices = np.concatenate(
+            [folds[i] for i in range(n_folds) if i != fold_idx]
+        )
 
         X_train_fold = X[train_indices]
         y_train_fold = y[train_indices]
@@ -214,7 +216,10 @@ def verify_no_data_leakage(
     overlap = train_set & val_set
 
     if len(overlap) > 0:
-        logger.error("DATA LEAKAGE DETECTED: %d samples overlap between train and val", len(overlap))
+        logger.error(
+            "DATA LEAKAGE DETECTED: %d samples overlap between train and val",
+            len(overlap),
+        )
         return False
 
     logger.info("No data leakage detected between train and validation sets")

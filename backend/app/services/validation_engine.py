@@ -29,7 +29,9 @@ class ValidationMetrics:
     def to_dict(self) -> dict[str, Any]:
         return {
             "accuracy": round(self.accuracy, 4) if self.accuracy is not None else None,
-            "precision": round(self.precision, 4) if self.precision is not None else None,
+            "precision": (
+                round(self.precision, 4) if self.precision is not None else None
+            ),
             "recall": round(self.recall, 4) if self.recall is not None else None,
             "f1": round(self.f1, 4) if self.f1 is not None else None,
             "auc": round(self.auc, 4) if self.auc is not None else None,
@@ -76,7 +78,9 @@ class ValidationEngine:
     def __init__(self) -> None:
         self._small_metrics_result = ValidationMetrics()
 
-    def load_dataset(self, dataset_path: Path) -> tuple[list[dict[str, Any]], list[Any]]:
+    def load_dataset(
+        self, dataset_path: Path
+    ) -> tuple[list[dict[str, Any]], list[Any]]:
         """Load validation dataset from CSV or JSON.
 
         Args:
@@ -160,8 +164,9 @@ class ValidationEngine:
         if probabilities is None and len(ground_truth) <= 32:
             # CRIT-002 修复：移除 pytest.skip()，生产代码不应调用测试框架。
             # 对小数据集直接使用轻量级指标计算路径。
+            # 传入已有 metrics 对象以保留 sample_count
             return self._calculate_small_classification_metrics(
-                ground_truth, predictions, ValidationMetrics()
+                ground_truth, predictions, metrics
             )
 
         try:
@@ -179,7 +184,11 @@ class ValidationEngine:
                 metrics.precision = float(tp / (tp + fp)) if (tp + fp) else 0.0
                 metrics.recall = float(tp / (tp + fn)) if (tp + fn) else 0.0
                 denom = metrics.precision + metrics.recall
-                metrics.f1 = float(2 * metrics.precision * metrics.recall / denom) if denom else 0.0
+                metrics.f1 = (
+                    float(2 * metrics.precision * metrics.recall / denom)
+                    if denom
+                    else 0.0
+                )
 
                 if probabilities is not None and len(probabilities) == len(y_true):
                     try:
@@ -238,8 +247,18 @@ class ValidationEngine:
         other_label_present = False
 
         for true_value, pred_value in zip(ground_truth, predictions):
-            y_true = int(true_value)
-            y_pred = int(pred_value)
+            # H-Svc-16 修复：标签可能为非数字字符串（如 "negative"/"positive"），int() 会抛 ValueError
+            try:
+                y_true = int(true_value)
+                y_pred = int(pred_value)
+            except (ValueError, TypeError):
+                logger.debug(
+                    "Skipping non-numeric label sample: true=%s pred=%s",
+                    true_value,
+                    pred_value,
+                )
+                total -= 1
+                continue
             for label in (y_true, y_pred):
                 if label == 0:
                     label_zero_present = True
@@ -259,12 +278,18 @@ class ValidationEngine:
             elif y_true == 1 and y_pred == 0:
                 fn += 1
 
+        # H-Svc-16 修复：更新有效样本数，所有样本被跳过时 total 可能为 0，避免除零
+        metrics.sample_count = total
+        if total <= 0:
+            return metrics
         metrics.accuracy = correct / total
         if not other_label_present and (label_zero_present or label_one_present):
             metrics.precision = tp / (tp + fp) if (tp + fp) else 0.0
             metrics.recall = tp / (tp + fn) if (tp + fn) else 0.0
             denom = metrics.precision + metrics.recall
-            metrics.f1 = 2 * metrics.precision * metrics.recall / denom if denom else 0.0
+            metrics.f1 = (
+                2 * metrics.precision * metrics.recall / denom if denom else 0.0
+            )
         else:
             metrics.precision = metrics.accuracy
             metrics.recall = metrics.accuracy
@@ -288,7 +313,15 @@ class ValidationEngine:
             Dictionary of metric differences.
         """
         delta = {}
-        for metric_name in ["accuracy", "precision", "recall", "f1", "auc", "mae", "rmse"]:
+        for metric_name in [
+            "accuracy",
+            "precision",
+            "recall",
+            "f1",
+            "auc",
+            "mae",
+            "rmse",
+        ]:
             current_val = getattr(current, metric_name)
             baseline_val = getattr(baseline, metric_name)
             if current_val is not None and baseline_val is not None:
@@ -334,15 +367,16 @@ class ValidationEngine:
 
             # M22 修复：使用 asyncio.gather 并发推理，替代循环内逐条 await
             # model_engine.predict_structured 内部使用 asyncio.to_thread 释放 GIL，并发安全
+            # P1-F2 修复：原代码 `return_exceptions=True` + `raise r` 自相矛盾——
+            # return_exceptions=True 会把异常包装为返回值，循环内 `raise r` 又重新抛出，
+            # 等同于 fail-fast 但多了包装开销。改为默认行为（return_exceptions=False），
+            # 首个异常直接由 gather 抛出，被外层 except 捕获并记录日志。
             tasks = [model_engine.predict_structured(feat) for feat in features]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks)
 
             predictions: list[int] = []
             probabilities: list[float] = []
             for r in results:
-                if isinstance(r, Exception):
-                    # 单个样本推理失败，向上抛出以触发外层 except 记录日志
-                    raise r
                 predictions.append(int(r.get("prediction", 0)))
                 probabilities.append(float(r.get("probability", 0.5)))
             return predictions, probabilities
@@ -373,7 +407,9 @@ class ValidationEngine:
         Returns:
             ValidationResult with metrics and comparison.
         """
-        result = ValidationResult(model_version=model_version, metrics=ValidationMetrics())
+        result = ValidationResult(
+            model_version=model_version, metrics=ValidationMetrics()
+        )
 
         try:
             features, ground_truth = self.load_dataset(dataset_path)
@@ -394,22 +430,64 @@ class ValidationEngine:
 
         predictions, probabilities = inference_result
 
-        result.metrics = self.calculate_metrics(ground_truth, predictions, probabilities)
+        result.metrics = self.calculate_metrics(
+            ground_truth, predictions, probabilities
+        )
         result.predictions = [
             {"index": i, "ground_truth": gt, "prediction": pred, "probability": prob}
-            for i, (gt, pred, prob) in enumerate(zip(ground_truth, predictions, probabilities))
+            for i, (gt, pred, prob) in enumerate(
+                zip(ground_truth, predictions, probabilities)
+            )
         ]
 
         # Compare with baseline if provided
         if baseline_version:
-            baseline_result = await self.validate_model(
+            # H-7 修复：改为非递归实现，避免 baseline 推理失败时产生递归错误链或栈溢出
+            baseline_metrics = await self._compute_baseline_metrics(
                 baseline_version,
                 baseline_dataset_path or dataset_path,
             )
-            result.baseline_metrics = baseline_result.metrics
-            result.delta = self.compute_delta(result.metrics, baseline_result.metrics)
+            if baseline_metrics is not None:
+                result.baseline_metrics = baseline_metrics
+                result.delta = self.compute_delta(result.metrics, baseline_metrics)
+            else:
+                result.errors.append(
+                    f"Baseline metrics unavailable for version '{baseline_version}': "
+                    "delta computation skipped."
+                )
 
         return result
+
+    async def _compute_baseline_metrics(
+        self,
+        baseline_version: str,
+        dataset_path: Path,
+    ) -> ValidationMetrics | None:
+        """H-7 修复：非递归计算 baseline 指标，避免递归错误链。
+
+        与 validate_model 的区别：不再次递归比较 baseline 的 baseline，
+        仅加载 dataset → 推理 → 计算指标。失败时返回 None。
+        """
+        try:
+            features, ground_truth = self.load_dataset(dataset_path)
+        except Exception as exc:
+            logger.error(
+                "ValidationEngine: 加载 baseline dataset 失败 (version=%s): %s",
+                baseline_version,
+                exc,
+            )
+            return None
+
+        inference_result = await self._run_model_inference(baseline_version, features)
+        if inference_result is None:
+            logger.error(
+                "ValidationEngine: baseline 推理不可用 (version=%s)",
+                baseline_version,
+            )
+            return None
+
+        predictions, probabilities = inference_result
+        return self.calculate_metrics(ground_truth, predictions, probabilities)
 
 
 # Global engine instance

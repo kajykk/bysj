@@ -13,7 +13,7 @@ describe('CounselorUsersPage - 4.3.1 用户列表增强', () => {
   })
 
   it('头像颜色应根据用户名哈希生成', () => {
-    const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#9254de', '#ff85c0']
+    const colors = ['#3b82c4', '#5a9e3a', '#d4923a', '#d65a5a', '#7a8290', '#9254de', '#ff85c0']
     const getAvatarColor = (username: string) => {
       let hash = 0
       for (let i = 0; i < username.length; i++) {

@@ -5,18 +5,15 @@ TC-COV-DEPS-001 ~ TC-COV-DEPS-014
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import MagicMock, patch
-
 import pytest
 from fastapi import HTTPException, Request
 
 from app.core.deps import (
-    ROLE_HIERARCHY,
     PERMISSION_MATRIX,
+    ROLE_HIERARCHY,
     _role_for_request,
-    require_role,
     require_permission,
+    require_role,
 )
 from app.models.user import User
 

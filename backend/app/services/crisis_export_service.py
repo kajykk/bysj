@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,50 +63,65 @@ class CrisisExportService:
             (csv_content, filename) 元组
         """
         # 查询数据
-        start_dt = datetime.combine(start_date, time.min)
-        end_dt = datetime.combine(end_date, time.max)
+        # M-4 修复：使用 aware UTC datetime，避免与 aware 列比较时抛 TypeError 或时区偏移
+        start_dt = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
+        end_dt = datetime.combine(end_date, time.max, tzinfo=timezone.utc)
 
+        # M-Svc-1 修复：使用 yield_per(1000) 流式读取，避免大数据量全量加载到内存
+        # H-Cov-1 修复：async session 下 yield_per 需要 stream() 而非 execute()，否则抛 AsyncMethodRequired
         stmt = (
             select(CrisisEvent)
             .where(CrisisEvent.created_at >= start_dt)
             .where(CrisisEvent.created_at <= end_dt)
             .order_by(CrisisEvent.created_at.desc())
+            .execution_options(yield_per=1000)
         )
-        result = await self.db.execute(stmt)
-        events = result.scalars().all()
+        result = await self.db.stream(stmt)
 
         # 生成 CSV
         output = io.StringIO()
         writer = csv.writer(output)
 
         # 写入表头
-        writer.writerow([
-            "id", "user_id", "trigger_source", "crisis_score",
-            "status", "created_at", "handled_by", "handled_action",
-        ])
+        writer.writerow(
+            [
+                "id",
+                "user_id",
+                "trigger_source",
+                "crisis_score",
+                "status",
+                "created_at",
+                "handled_by",
+                "handled_action",
+            ]
+        )
 
-        # 写入数据（脱敏 + P1-SEC-029 CSV 注入防护）
-        for event in events:
-            writer.writerow([
-                _sanitize_csv_cell(event.id),
-                _sanitize_csv_cell(self._mask_user_id(event.user_id)),
-                _sanitize_csv_cell(event.trigger_source),
-                _sanitize_csv_cell(event.crisis_score),
-                _sanitize_csv_cell(event.status),
-                _sanitize_csv_cell(
-                    event.created_at.isoformat() if event.created_at else ""
-                ),
-                _sanitize_csv_cell(
-                    self._mask_user_id(event.handled_by) if event.handled_by else ""
-                ),
-                _sanitize_csv_cell(event.handled_action or ""),
-            ])
+        # 写入数据（脱敏 + P1-SEC-029 CSV 注入防护）- M-Svc-1 修复：流式遍历，避免 .all() 全量加载
+        event_count = 0
+        async for event in result.scalars():
+            writer.writerow(
+                [
+                    _sanitize_csv_cell(event.id),
+                    _sanitize_csv_cell(self._mask_user_id(event.user_id)),
+                    _sanitize_csv_cell(event.trigger_source),
+                    _sanitize_csv_cell(event.crisis_score),
+                    _sanitize_csv_cell(event.status),
+                    _sanitize_csv_cell(
+                        event.created_at.isoformat() if event.created_at else ""
+                    ),
+                    _sanitize_csv_cell(
+                        self._mask_user_id(event.handled_by) if event.handled_by else ""
+                    ),
+                    _sanitize_csv_cell(event.handled_action or ""),
+                ]
+            )
+            event_count += 1
 
         csv_content = output.getvalue()
         output.close()
 
         filename = f"crisis_events_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
-        logger.info("Exported %d crisis events to %s", len(events), filename)
+        logger.info("Exported %d crisis events to %s", event_count, filename)
         return csv_content, filename
 
     @staticmethod

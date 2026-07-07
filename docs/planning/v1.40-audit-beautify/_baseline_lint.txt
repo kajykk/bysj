@@ -1,0 +1,779 @@
+﻿
+> depression-warning-system-frontend@3.1.0 lint
+> eslint . --ext .vue,.ts,.tsx,.js,.jsx
+
+
+E:\code\bysj\frontend\e2e\role-admin.spec.ts
+  8:10  error  'expectTableVisible' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\e2e\role-counselor.spec.ts
+  8:10  error  'expectTableVisible' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\e2e\role-user.spec.ts
+  8:10  error  'expectTableVisible' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\e2e\seed.spec.ts
+  18:23  error  Unexpected empty object pattern  no-empty-pattern
+
+E:\code\bysj\frontend\playwright.config.ts
+  10:7  error  'backendDir' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\api\adminApi.test.ts
+   31:7   error    Unnecessary semicolon                     no-extra-semi
+   31:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   39:7   error    Unnecessary semicolon                     no-extra-semi
+   39:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:7   error    Unnecessary semicolon                     no-extra-semi
+   47:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:7   error    Unnecessary semicolon                     no-extra-semi
+   54:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:7   error    Unnecessary semicolon                     no-extra-semi
+   70:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:7   error    Unnecessary semicolon                     no-extra-semi
+  104:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  118:7   error    Unnecessary semicolon                     no-extra-semi
+  118:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:7   error    Unnecessary semicolon                     no-extra-semi
+  127:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:7   error    Unnecessary semicolon                     no-extra-semi
+  133:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:7   error    Unnecessary semicolon                     no-extra-semi
+  140:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  161:7   error    Unnecessary semicolon                     no-extra-semi
+  161:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  177:7   error    Unnecessary semicolon                     no-extra-semi
+  177:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:7   error    Unnecessary semicolon                     no-extra-semi
+  183:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  190:7   error    Unnecessary semicolon                     no-extra-semi
+  190:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  205:7   error    Unnecessary semicolon                     no-extra-semi
+  205:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  215:7   error    Unnecessary semicolon                     no-extra-semi
+  215:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  224:7   error    Unnecessary semicolon                     no-extra-semi
+  224:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  232:7   error    Unnecessary semicolon                     no-extra-semi
+  232:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  240:7   error    Unnecessary semicolon                     no-extra-semi
+  240:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  247:7   error    Unnecessary semicolon                     no-extra-semi
+  247:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  262:7   error    Unnecessary semicolon                     no-extra-semi
+  262:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  284:7   error    Unnecessary semicolon                     no-extra-semi
+  284:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  305:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  312:7   error    Unnecessary semicolon                     no-extra-semi
+  312:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  319:7   error    Unnecessary semicolon                     no-extra-semi
+  319:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  326:7   error    Unnecessary semicolon                     no-extra-semi
+  326:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  333:7   error    Unnecessary semicolon                     no-extra-semi
+  333:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  347:7   error    Unnecessary semicolon                     no-extra-semi
+  347:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  367:7   error    Unnecessary semicolon                     no-extra-semi
+  367:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  375:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  386:7   error    Unnecessary semicolon                     no-extra-semi
+  386:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\auth.test.ts
+   31:7   error    Unnecessary semicolon                     no-extra-semi
+   31:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   32:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   41:7   error    Unnecessary semicolon                     no-extra-semi
+   41:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   42:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   48:7   error    Unnecessary semicolon                     no-extra-semi
+   48:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   57:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:7   error    Unnecessary semicolon                     no-extra-semi
+   76:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   94:7   error    Unnecessary semicolon                     no-extra-semi
+   94:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:7   error    Unnecessary semicolon                     no-extra-semi
+  103:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  111:7   error    Unnecessary semicolon                     no-extra-semi
+  111:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  117:7   error    Unnecessary semicolon                     no-extra-semi
+  117:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:7   error    Unnecessary semicolon                     no-extra-semi
+  124:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:7   error    Unnecessary semicolon                     no-extra-semi
+  132:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  141:7   error    Unnecessary semicolon                     no-extra-semi
+  141:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:7   error    Unnecessary semicolon                     no-extra-semi
+  149:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:7   error    Unnecessary semicolon                     no-extra-semi
+  154:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:7   error    Unnecessary semicolon                     no-extra-semi
+  162:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  178:7   error    Unnecessary semicolon                     no-extra-semi
+  178:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  188:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  196:7   error    Unnecessary semicolon                     no-extra-semi
+  196:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:7   error    Unnecessary semicolon                     no-extra-semi
+  202:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  208:7   error    Unnecessary semicolon                     no-extra-semi
+  208:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\base.test.ts
+  1:32  error  'vi' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\api\counselorApi.test.ts
+   31:7   error    Unnecessary semicolon                     no-extra-semi
+   31:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   39:7   error    Unnecessary semicolon                     no-extra-semi
+   39:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:7   error    Unnecessary semicolon                     no-extra-semi
+   47:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:7   error    Unnecessary semicolon                     no-extra-semi
+   54:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   64:7   error    Unnecessary semicolon                     no-extra-semi
+   64:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   73:7   error    Unnecessary semicolon                     no-extra-semi
+   73:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   80:7   error    Unnecessary semicolon                     no-extra-semi
+   80:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   88:7   error    Unnecessary semicolon                     no-extra-semi
+   88:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:7   error    Unnecessary semicolon                     no-extra-semi
+   96:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:7   error    Unnecessary semicolon                     no-extra-semi
+  103:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:7   error    Unnecessary semicolon                     no-extra-semi
+  109:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:7   error    Unnecessary semicolon                     no-extra-semi
+  116:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:7   error    Unnecessary semicolon                     no-extra-semi
+  124:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:7   error    Unnecessary semicolon                     no-extra-semi
+  132:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:7   error    Unnecessary semicolon                     no-extra-semi
+  139:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:7   error    Unnecessary semicolon                     no-extra-semi
+  145:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  151:7   error    Unnecessary semicolon                     no-extra-semi
+  151:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:7   error    Unnecessary semicolon                     no-extra-semi
+  158:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:7   error    Unnecessary semicolon                     no-extra-semi
+  164:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:7   error    Unnecessary semicolon                     no-extra-semi
+  171:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  179:7   error    Unnecessary semicolon                     no-extra-semi
+  179:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  186:7   error    Unnecessary semicolon                     no-extra-semi
+  186:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  196:7   error    Unnecessary semicolon                     no-extra-semi
+  196:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  206:7   error    Unnecessary semicolon                     no-extra-semi
+  206:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  213:7   error    Unnecessary semicolon                     no-extra-semi
+  213:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  219:7   error    Unnecessary semicolon                     no-extra-semi
+  219:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  226:7   error    Unnecessary semicolon                     no-extra-semi
+  226:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  235:7   error    Unnecessary semicolon                     no-extra-semi
+  235:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  243:7   error    Unnecessary semicolon                     no-extra-semi
+  243:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  252:7   error    Unnecessary semicolon                     no-extra-semi
+  252:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  260:7   error    Unnecessary semicolon                     no-extra-semi
+  260:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:7   error    Unnecessary semicolon                     no-extra-semi
+  266:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:7   error    Unnecessary semicolon                     no-extra-semi
+  273:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  279:7   error    Unnecessary semicolon                     no-extra-semi
+  279:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  286:7   error    Unnecessary semicolon                     no-extra-semi
+  286:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  292:7   error    Unnecessary semicolon                     no-extra-semi
+  292:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  299:7   error    Unnecessary semicolon                     no-extra-semi
+  299:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  307:7   error    Unnecessary semicolon                     no-extra-semi
+  307:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  315:7   error    Unnecessary semicolon                     no-extra-semi
+  315:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  322:7   error    Unnecessary semicolon                     no-extra-semi
+  322:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  328:7   error    Unnecessary semicolon                     no-extra-semi
+  328:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  335:7   error    Unnecessary semicolon                     no-extra-semi
+  335:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  341:7   error    Unnecessary semicolon                     no-extra-semi
+  341:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  348:7   error    Unnecessary semicolon                     no-extra-semi
+  348:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  354:7   error    Unnecessary semicolon                     no-extra-semi
+  354:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  361:7   error    Unnecessary semicolon                     no-extra-semi
+  361:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  367:7   error    Unnecessary semicolon                     no-extra-semi
+  367:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\counselorApi.ts
+  5:97   error  'UserRiskHistoryItem' is defined but never used   @typescript-eslint/no-unused-vars
+  5:118  error  'UserAssessmentItem' is defined but never used    @typescript-eslint/no-unused-vars
+  5:138  error  'UserInterventionItem' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\api\gdprApi.test.ts
+  32:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:7   error    Unnecessary semicolon                     no-extra-semi
+  40:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:7   error    Unnecessary semicolon                     no-extra-semi
+  45:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  62:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  70:7   error    Unnecessary semicolon                     no-extra-semi
+  70:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:7   error    Unnecessary semicolon                     no-extra-semi
+  76:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  81:7   error    Unnecessary semicolon                     no-extra-semi
+  81:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\request.interceptors.test.ts
+   40:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   49:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   55:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   55:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   56:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   56:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  161:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  190:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  197:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  254:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  257:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  259:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  394:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  395:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  397:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  402:87  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  406:87  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  419:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  421:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  427:78  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  428:78  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  435:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  437:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  443:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  444:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  451:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  452:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  454:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  460:93  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  463:93  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  473:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  475:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  481:98  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  482:98  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  489:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  491:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  496:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  499:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  505:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  507:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  513:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  514:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  522:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  523:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  525:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  535:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  541:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  550:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  551:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  553:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  563:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  569:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  578:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  580:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  587:88  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  588:88  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  594:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  595:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  597:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  606:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  612:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  621:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  622:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  624:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  634:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  640:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  649:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  650:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  652:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  662:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  668:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  677:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  679:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  686:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  687:88  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\request.test.ts
+  27:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\request.ts
+  282:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  311:3   error    Unnecessary semicolon                     no-extra-semi
+  311:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  312:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\userBindingApi.test.ts
+  40:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  47:7   error    Unnecessary semicolon                     no-extra-semi
+  47:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:7   error    Unnecessary semicolon                     no-extra-semi
+  53:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  69:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:7   error    Unnecessary semicolon                     no-extra-semi
+  77:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  82:7   error    Unnecessary semicolon                     no-extra-semi
+  82:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  90:7   error    Unnecessary semicolon                     no-extra-semi
+  90:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  97:7   error    Unnecessary semicolon                     no-extra-semi
+  97:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\userContentApi.test.ts
+   31:7   error    Unnecessary semicolon                     no-extra-semi
+   31:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   51:7   error    Unnecessary semicolon                     no-extra-semi
+   51:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:7   error    Unnecessary semicolon                     no-extra-semi
+   65:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:7   error    Unnecessary semicolon                     no-extra-semi
+   72:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:7   error    Unnecessary semicolon                     no-extra-semi
+   78:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   84:7   error    Unnecessary semicolon                     no-extra-semi
+   84:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:7   error    Unnecessary semicolon                     no-extra-semi
+   91:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   97:7   error    Unnecessary semicolon                     no-extra-semi
+   97:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:7   error    Unnecessary semicolon                     no-extra-semi
+  104:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:7   error    Unnecessary semicolon                     no-extra-semi
+  112:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:7   error    Unnecessary semicolon                     no-extra-semi
+  120:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:7   error    Unnecessary semicolon                     no-extra-semi
+  127:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:7   error    Unnecessary semicolon                     no-extra-semi
+  135:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  143:7   error    Unnecessary semicolon                     no-extra-semi
+  143:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:7   error    Unnecessary semicolon                     no-extra-semi
+  150:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:7   error    Unnecessary semicolon                     no-extra-semi
+  158:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  166:7   error    Unnecessary semicolon                     no-extra-semi
+  166:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  173:7   error    Unnecessary semicolon                     no-extra-semi
+  173:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:7   error    Unnecessary semicolon                     no-extra-semi
+  183:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  192:7   error    Unnecessary semicolon                     no-extra-semi
+  192:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\userFileApi.test.ts
+   32:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   41:7   error    Unnecessary semicolon                     no-extra-semi
+   41:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   50:7   error    Unnecessary semicolon                     no-extra-semi
+   50:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   57:7   error    Unnecessary semicolon                     no-extra-semi
+   57:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:7   error    Unnecessary semicolon                     no-extra-semi
+   66:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:7   error    Unnecessary semicolon                     no-extra-semi
+   75:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   84:7   error    Unnecessary semicolon                     no-extra-semi
+   84:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   94:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:7   error    Unnecessary semicolon                     no-extra-semi
+  116:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\userInterventionApi.test.ts
+   31:7   error    Unnecessary semicolon                     no-extra-semi
+   31:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   37:7   error    Unnecessary semicolon                     no-extra-semi
+   37:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   44:7   error    Unnecessary semicolon                     no-extra-semi
+   44:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   52:7   error    Unnecessary semicolon                     no-extra-semi
+   52:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   60:7   error    Unnecessary semicolon                     no-extra-semi
+   60:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   67:7   error    Unnecessary semicolon                     no-extra-semi
+   67:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:7   error    Unnecessary semicolon                     no-extra-semi
+   75:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   83:7   error    Unnecessary semicolon                     no-extra-semi
+   83:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:7   error    Unnecessary semicolon                     no-extra-semi
+   90:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:7   error    Unnecessary semicolon                     no-extra-semi
+  104:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:7   error    Unnecessary semicolon                     no-extra-semi
+  114:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:7   error    Unnecessary semicolon                     no-extra-semi
+  121:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  130:7   error    Unnecessary semicolon                     no-extra-semi
+  130:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:7   error    Unnecessary semicolon                     no-extra-semi
+  139:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  146:7   error    Unnecessary semicolon                     no-extra-semi
+  146:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:7   error    Unnecessary semicolon                     no-extra-semi
+  155:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:7   error    Unnecessary semicolon                     no-extra-semi
+  164:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:7   error    Unnecessary semicolon                     no-extra-semi
+  171:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  185:7   error    Unnecessary semicolon                     no-extra-semi
+  185:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  195:7   error    Unnecessary semicolon                     no-extra-semi
+  195:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\userRiskApi.test.ts
+   40:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:7   error    Unnecessary semicolon                     no-extra-semi
+   47:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:7   error    Unnecessary semicolon                     no-extra-semi
+   54:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   60:7   error    Unnecessary semicolon                     no-extra-semi
+   60:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:7   error    Unnecessary semicolon                     no-extra-semi
+   66:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:7   error    Unnecessary semicolon                     no-extra-semi
+   96:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:7   error    Unnecessary semicolon                     no-extra-semi
+  105:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:7   error    Unnecessary semicolon                     no-extra-semi
+  133:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  144:7   error    Unnecessary semicolon                     no-extra-semi
+  144:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:7   error    Unnecessary semicolon                     no-extra-semi
+  155:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:7   error    Unnecessary semicolon                     no-extra-semi
+  164:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:7   error    Unnecessary semicolon                     no-extra-semi
+  174:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  180:7   error    Unnecessary semicolon                     no-extra-semi
+  180:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  194:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:7   error    Unnecessary semicolon                     no-extra-semi
+  202:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  208:7   error    Unnecessary semicolon                     no-extra-semi
+  208:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  215:7   error    Unnecessary semicolon                     no-extra-semi
+  215:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  221:7   error    Unnecessary semicolon                     no-extra-semi
+  221:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  227:7   error    Unnecessary semicolon                     no-extra-semi
+  227:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\userWarningsApi.test.ts
+   31:7   error    Unnecessary semicolon                     no-extra-semi
+   31:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   39:7   error    Unnecessary semicolon                     no-extra-semi
+   39:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:7   error    Unnecessary semicolon                     no-extra-semi
+   47:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   55:7   error    Unnecessary semicolon                     no-extra-semi
+   55:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:7   error    Unnecessary semicolon                     no-extra-semi
+   62:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   68:7   error    Unnecessary semicolon                     no-extra-semi
+   68:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:7   error    Unnecessary semicolon                     no-extra-semi
+   75:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   95:7   error    Unnecessary semicolon                     no-extra-semi
+   95:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:7   error    Unnecessary semicolon                     no-extra-semi
+  109:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:7   error    Unnecessary semicolon                     no-extra-semi
+  116:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:7   error    Unnecessary semicolon                     no-extra-semi
+  124:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:7   error    Unnecessary semicolon                     no-extra-semi
+  132:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:7   error    Unnecessary semicolon                     no-extra-semi
+  139:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:7   error    Unnecessary semicolon                     no-extra-semi
+  150:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  157:7   error    Unnecessary semicolon                     no-extra-semi
+  157:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  173:7   error    Unnecessary semicolon                     no-extra-semi
+  173:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  184:7   error    Unnecessary semicolon                     no-extra-semi
+  184:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  198:7   error    Unnecessary semicolon                     no-extra-semi
+  198:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  213:7   error    Unnecessary semicolon                     no-extra-semi
+  213:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:7   error    Unnecessary semicolon                     no-extra-semi
+  222:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  229:7   error    Unnecessary semicolon                     no-extra-semi
+  229:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\api\userWarningsApi.ts
+  5:15  error  'AssessmentRecordItem' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\components\charts\BaseChart.test.ts
+  4:10  error  'nextTick' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\components\common\ActionColumn.vue
+  53:5  warning  Prop 'disabledReason' requires default value to be set  vue/require-default-prop
+  54:5  warning  Prop 'confirmText' requires default value to be set     vue/require-default-prop
+
+E:\code\bysj\frontend\src\components\common\AuthBrandPanel.vue
+  48:54  warning  'aria-hidden' should be on a new line  vue/max-attributes-per-line
+
+E:\code\bysj\frontend\src\components\common\BreadcrumbNav.vue
+  2:47  warning  'class' should be on a new line  vue/max-attributes-per-line
+
+E:\code\bysj\frontend\src\components\common\ErrorPage.vue
+  115:3  warning  Prop 'title' requires default value to be set        vue/require-default-prop
+  116:3  warning  Prop 'description' requires default value to be set  vue/require-default-prop
+
+E:\code\bysj\frontend\src\components\common\LazyImage.test.ts
+  228:13  error  'loadedState' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  242:13  error  'errorState' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  277:13  error  'supportsIO' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  290:13  error  'supportsIO' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\components\common\LazyImage.vue
+  115:50  error    'supportsWebP' is defined but never used        @typescript-eslint/no-unused-vars
+  120:3   warning  Prop 'width' requires default value to be set   vue/require-default-prop
+  121:3   warning  Prop 'height' requires default value to be set  vue/require-default-prop
+
+E:\code\bysj\frontend\src\components\common\PageTable.vue
+  31:15  error  'computed' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\components\common\SkeletonScreen.vue
+  27:7  error  'props' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\components\common\SkipLink.vue
+  2:27  warning  'class' should be on a new line  vue/max-attributes-per-line
+
+E:\code\bysj\frontend\src\components\common\StatefulContainer.vue
+  93:3  warning  Prop 'errorMessage' requires default value to be set  vue/require-default-prop
+  94:3  warning  Prop 'errorCode' requires default value to be set     vue/require-default-prop
+
+E:\code\bysj\frontend\src\components\common\VirtualList.vue
+  100:23  error  'index' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\composables\useBreakpoint.test.ts
+  1:32  error  'vi' is defined but never used          @typescript-eslint/no-unused-vars
+  1:36  error  'beforeEach' is defined but never used  @typescript-eslint/no-unused-vars
+  1:48  error  'afterEach' is defined but never used   @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\composables\useListQueryState.test.ts
+  1:32  error  'vi' is defined but never used          @typescript-eslint/no-unused-vars
+  1:36  error  'beforeEach' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\composables\usePerformanceMonitor.test.ts
+  225:24  error  'callback' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\composables\useTheme.test.ts
+  118:13  error  'listeners' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\composables\useTheme.ts
+  1:31  error  'watch' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\composables\useWebSocket.test.ts
+  49:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\config\routeAccess.ts
+  1:15  error  'PermissionKey' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\layouts\MainLayout.vue
+  114:32  warning  Variable 'Component' is already declared in the upper scope  vue/no-template-shadow
+
+E:\code\bysj\frontend\src\plugins\sentry.test.ts
+   74:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   86:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   92:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   97:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  172:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  193:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  203:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\router\index.test.ts
+   75:8   warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  129:70  error    'role' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  251:23  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  251:34  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  256:23  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  256:34  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  261:23  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  261:34  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  670:59  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  673:61  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  690:68  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  691:68  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  698:62  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  704:61  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  713:59  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  723:59  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  733:59  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+  741:62  warning  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\router\lazyLoad.test.ts
+  1:32  error  'vi' is defined but never used              @typescript-eslint/no-unused-vars
+  2:15  error  'RouteRecordRaw' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\stores\loading.ts
+  6:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\utils\authStorage.ts
+  101:18  error  '_email' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\utils\debounce.ts
+   6:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   6:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  17:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  17:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\utils\errorPolicy.ts
+  14:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\utils\exportUtils.test.ts
+   87:7  error  'removeChildSpy' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  107:9  error  Unnecessary semicolon                                no-extra-semi
+
+E:\code\bysj\frontend\src\utils\passwordValidation.ts
+  6:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\utils\riskFormatters.ts
+  18:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\views\admin\AdminCrisisEventsPage.vue
+  287:57  warning  Expected 1 line break after opening tag (`<el-button>`), but no line breaks found    vue/singleline-html-element-content-newline
+  287:81  warning  Expected 1 line break before closing tag (`</el-button>`), but no line breaks found  vue/singleline-html-element-content-newline
+  329:59  warning  Expected 1 line break after opening tag (`<el-button>`), but no line breaks found    vue/singleline-html-element-content-newline
+  329:83  warning  Expected 1 line break before closing tag (`</el-button>`), but no line breaks found  vue/singleline-html-element-content-newline
+  372:56  warning  Expected 1 line break after opening tag (`<el-button>`), but no line breaks found    vue/singleline-html-element-content-newline
+  372:80  warning  Expected 1 line break before closing tag (`</el-button>`), but no line breaks found  vue/singleline-html-element-content-newline
+
+E:\code\bysj\frontend\src\views\admin\AdminDashboard.vue
+    6:57  warning  'aria-hidden' should be on a new line                                         vue/max-attributes-per-line
+  125:43  warning  Expected 1 line break after opening tag (`<h3>`), but no line breaks found    vue/singleline-html-element-content-newline
+  125:86  warning  Expected 1 line break before closing tag (`</h3>`), but no line breaks found  vue/singleline-html-element-content-newline
+  177:41  warning  Expected 1 line break after opening tag (`<h3>`), but no line breaks found    vue/singleline-html-element-content-newline
+  177:79  warning  Expected 1 line break before closing tag (`</h3>`), but no line breaks found  vue/singleline-html-element-content-newline
+
+E:\code\bysj\frontend\src\views\admin\AdminSettingsPage.vue
+  620:21  error  'ElMessageBox' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\views\common\ForbiddenPage.vue
+   9:35  warning  '@click' should be on a new line                                                     vue/max-attributes-per-line
+   9:51  warning  Expected 1 line break after opening tag (`<el-button>`), but no line breaks found    vue/singleline-html-element-content-newline
+   9:55  warning  Expected 1 line break before closing tag (`</el-button>`), but no line breaks found  vue/singleline-html-element-content-newline
+  10:36  warning  Expected 1 line break after opening tag (`<el-button>`), but no line breaks found    vue/singleline-html-element-content-newline
+  10:41  warning  Expected 1 line break before closing tag (`</el-button>`), but no line breaks found  vue/singleline-html-element-content-newline
+
+E:\code\bysj\frontend\src\views\counselor\CounselorDashboard.vue
+    6:57  warning  'aria-hidden' should be on a new line                                              vue/max-attributes-per-line
+   60:31  warning  Expected 1 line break after opening tag (`<p>`), but no line breaks found          vue/singleline-html-element-content-newline
+   60:68  warning  Expected 1 line break before closing tag (`</p>`), but no line breaks found        vue/singleline-html-element-content-newline
+   90:59  warning  Expected 1 line break after opening tag (`<el-icon>`), but no line breaks found    vue/singleline-html-element-content-newline
+   90:67  warning  Expected 1 line break before closing tag (`</el-icon>`), but no line breaks found  vue/singleline-html-element-content-newline
+  137:59  warning  Expected 1 line break after opening tag (`<el-icon>`), but no line breaks found    vue/singleline-html-element-content-newline
+  137:75  warning  Expected 1 line break before closing tag (`</el-icon>`), but no line breaks found  vue/singleline-html-element-content-newline
+  187:55  warning  Expected 1 line break after opening tag (`<el-icon>`), but no line breaks found    vue/singleline-html-element-content-newline
+  187:69  warning  Expected 1 line break before closing tag (`</el-icon>`), but no line breaks found  vue/singleline-html-element-content-newline
+
+E:\code\bysj\frontend\src\views\user\UserContentPage.vue
+  318:11  warning  'v-html' directive can lead to XSS attack  vue/no-v-html
+
+E:\code\bysj\frontend\src\views\user\UserDashboard.vue
+    6:57  warning  'aria-hidden' should be on a new line                                         vue/max-attributes-per-line
+   28:60  warning  'aria-hidden' should be on a new line                                         vue/max-attributes-per-line
+   29:43  warning  Expected 1 line break after opening tag (`<h3>`), but no line breaks found    vue/singleline-html-element-content-newline
+   29:83  warning  Expected 1 line break before closing tag (`</h3>`), but no line breaks found  vue/singleline-html-element-content-newline
+  105:43  warning  Expected 1 line break after opening tag (`<h3>`), but no line breaks found    vue/singleline-html-element-content-newline
+  105:89  warning  Expected 1 line break before closing tag (`</h3>`), but no line breaks found  vue/singleline-html-element-content-newline
+  173:43  warning  Expected 1 line break after opening tag (`<h3>`), but no line breaks found    vue/singleline-html-element-content-newline
+  173:89  warning  Expected 1 line break before closing tag (`</h3>`), but no line breaks found  vue/singleline-html-element-content-newline
+  248:41  warning  Expected 1 line break after opening tag (`<h3>`), but no line breaks found    vue/singleline-html-element-content-newline
+  248:80  warning  Expected 1 line break before closing tag (`</h3>`), but no line breaks found  vue/singleline-html-element-content-newline
+  311:43  warning  Expected 1 line break after opening tag (`<h3>`), but no line breaks found    vue/singleline-html-element-content-newline
+  311:87  warning  Expected 1 line break before closing tag (`</h3>`), but no line breaks found  vue/singleline-html-element-content-newline
+
+E:\code\bysj\frontend\src\views\user\UserModelTrainingPage.vue
+  452:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+E:\code\bysj\frontend\src\views\user\UserRiskPage.vue
+  342:22  error  Unsafe usage of ReturnStatement  no-unsafe-finally
+
+E:\code\bysj\frontend\src\views\user\UserSettingsPage.vue
+  297:48   warning  Expected 1 line break after opening tag (`<div>`), but no line breaks found          vue/singleline-html-element-content-newline
+  297:88   warning  Expected 1 line break before closing tag (`</div>`), but no line breaks found        vue/singleline-html-element-content-newline
+  298:47   warning  Expected 1 line break after opening tag (`<div>`), but no line breaks found          vue/singleline-html-element-content-newline
+  298:86   warning  Expected 1 line break before closing tag (`</div>`), but no line breaks found        vue/singleline-html-element-content-newline
+  314:66   warning  Expected 1 line break after opening tag (`<div>`), but no line breaks found          vue/singleline-html-element-content-newline
+  314:109  warning  Expected 1 line break before closing tag (`</div>`), but no line breaks found        vue/singleline-html-element-content-newline
+  315:47   warning  Expected 1 line break after opening tag (`<div>`), but no line breaks found          vue/singleline-html-element-content-newline
+  315:89   warning  Expected 1 line break before closing tag (`</div>`), but no line breaks found        vue/singleline-html-element-content-newline
+  369:57   warning  Expected 1 line break after opening tag (`<el-button>`), but no line breaks found    vue/singleline-html-element-content-newline
+  369:98   warning  Expected 1 line break before closing tag (`</el-button>`), but no line breaks found  vue/singleline-html-element-content-newline
+
+E:\code\bysj\frontend\src\views\user\components\RiskReportTab.test.ts
+  3:10  error  'nextTick' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\views\user\components\StructuredAssessTab.test.ts
+  2:17  error  'flushPromises' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\views\user\components\StructuredAssessTab.vue
+  413:3  error  'formatSliderValue' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\bysj\frontend\src\views\user\components\structured-steps\AcademicStep.vue
+   9:20  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  24:20  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  39:20  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+
+E:\code\bysj\frontend\src\views\user\components\structured-steps\BasicInfoStep.vue
+   7:32  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  21:18  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  31:18  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  50:18  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+
+E:\code\bysj\frontend\src\views\user\components\structured-steps\LifestyleStep.vue
+   9:20  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  24:20  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  39:20  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+
+E:\code\bysj\frontend\src\views\user\components\structured-steps\MentalHealthStep.vue
+   9:20  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  24:20  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  38:18  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  56:18  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+  74:18  error  Unexpected mutation of "form" prop  vue/no-mutating-props
+
+✖ 635 problems (245 errors, 390 warnings)
+  192 errors and 50 warnings potentially fixable with the `--fix` option.
+

@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test'
 test.describe.configure({ mode: 'serial' })
 
 import { attachReportLinks, createHarnessReport, normalizeHarnessResult, writeHarnessReport } from '@/harness/report'
-import { expectTableVisible, loginAsRole, ROLE_FLOW_CONFIG } from './shared'
+import { loginAsRole, ROLE_FLOW_CONFIG } from './shared'
 
 const reportPath = fileURLToPath(new URL('../playwright-report/role-user-report.json', import.meta.url))
 const backendReportHref = '../backend/test-artifacts/harness-report.md'

@@ -16,47 +16,94 @@ class CrisisDetector:
 
     CRISIS_KEYWORDS: dict[str, list[str]] = {
         "suicide": [
-            "自杀", "不想活", "结束生命", "想死", "活着没意义",
-            "死了算了", "不想活了", "了结", "轻生", "活不下去",
-            "离开这个世界", "结束自己", "自我了断",
+            "自杀",
+            "不想活",
+            "结束生命",
+            "想死",
+            "活着没意义",
+            "死了算了",
+            "不想活了",
+            "了结",
+            "轻生",
+            "活不下去",
+            "离开这个世界",
+            "结束自己",
+            "自我了断",
         ],
         "self_harm": [
-            "伤害自己", "割腕", "跳楼", "遗书", "自残",
-            "把自己弄伤", "想流血", "想从楼上", "用刀划",
-            "割自己", "想疼",
+            "伤害自己",
+            "割腕",
+            "跳楼",
+            "遗书",
+            "自残",
+            "把自己弄伤",
+            "想流血",
+            "想从楼上",
+            "用刀划",
+            "割自己",
+            "想疼",
         ],
         "despair": [
-            "没救了", "撑不下去了", "一切都完了", "绝望",
-            "没有希望", "放弃一切", "彻底崩溃", "撑不住了",
-            "没意义", "没人需要我", "没有希望",
+            "没救了",
+            "撑不下去了",
+            "一切都完了",
+            "绝望",
+            "没有希望",
+            "放弃一切",
+            "彻底崩溃",
+            "撑不住了",
+            "没意义",
+            "没人需要我",
+            "没有希望",
         ],
         "internet_slang": [
-            "emo到不想活", "破防到想死", "想一了百了",
-            "不想活了真的", "活着好累",
+            "emo到不想活",
+            "破防到想死",
+            "想一了百了",
+            "不想活了真的",
+            "活着好累",
         ],
         "planning": [
-            "已经准备好了", "今晚就结束", "留下遗书",
-            "准备好了结", "计划好了", "准备好了",
+            "已经准备好了",
+            "今晚就结束",
+            "留下遗书",
+            "准备好了结",
+            "计划好了",
+            "准备好了",
         ],
         "help_seeking": [
-            "救救我", "我控制不住自己", "我怕我会伤害自己",
-            "谁能帮帮我", "我需要帮助", "我快撑不住了",
+            "救救我",
+            "我控制不住自己",
+            "我怕我会伤害自己",
+            "谁能帮帮我",
+            "我需要帮助",
+            "我快撑不住了",
         ],
     }
 
     # 口语化过滤：排除明显非真实的宣泄表达
     CASUAL_EXPRESSIONS: list[str] = [
-        "累死了", "烦死了", "饿死了", "笑死了",
-        "困死了", "忙死了", "气死了", "热死了",
-        "社死了", "尴尬死了", "冻死了", "无聊死了",
+        "累死了",
+        "烦死了",
+        "饿死了",
+        "笑死了",
+        "困死了",
+        "忙死了",
+        "气死了",
+        "热死了",
+        "社死了",
+        "尴尬死了",
+        "冻死了",
+        "无聊死了",
     ]
 
     def __init__(self) -> None:
         """初始化危机检测器，编译正则表达式。"""
-        self._compiled_patterns: dict[str, list[re.Pattern]] = {}
+        # L-修复：同时保存原始关键词，避免从 pattern.pattern 反推时丢失信息
+        self._compiled_patterns: dict[str, list[tuple[re.Pattern, str]]] = {}
         for category, keywords in self.CRISIS_KEYWORDS.items():
             self._compiled_patterns[category] = [
-                re.compile(re.escape(kw), re.IGNORECASE) for kw in keywords
+                (re.compile(re.escape(kw), re.IGNORECASE), kw) for kw in keywords
             ]
         self._casual_patterns = [
             re.compile(re.escape(expr), re.IGNORECASE)
@@ -95,9 +142,9 @@ class CrisisDetector:
         max_severity = 0
 
         for category, patterns in self._compiled_patterns.items():
-            for pattern in patterns:
+            for pattern, keyword in patterns:
                 if pattern.search(text):
-                    keyword = pattern.pattern.replace("\\", "")
+                    # L-修复：直接使用保存的原始关键词，避免 replace("\\", "") 反推丢失信息
                     matched_keywords.append(keyword)
                     if detected_category is None:
                         detected_category = category
@@ -132,15 +179,17 @@ class CrisisDetector:
     def _is_casual_expression(self, text: str) -> bool:
         """判断文本是否仅为口语化宣泄，非真实危机表达。
 
-        只有当文本很短（<15字）且只包含口语化表达、不含危机关键词时，
+        只有当文本很短（<30字）且只包含口语化表达、不含危机关键词时，
         才认为是 casual。
         """
-        if len(text) >= 15:
+        # M-Core-5 修复：原阈值 15 字过低，正常口语化表达（>15字）被误判为非危机；
+        # 提升到 30 字，避免较长的口语化宣泄被漏判为 casual 而掩盖真实危机。
+        if len(text) >= 30:
             return False
 
         # 先检查是否包含危机关键词
         for patterns in self._compiled_patterns.values():
-            for pattern in patterns:
+            for pattern, _keyword in patterns:
                 if pattern.search(text):
                     return False
 

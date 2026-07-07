@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,13 +8,37 @@ from app.core.database import get_db
 from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.response import ok
+from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
-from app.schemas.intervention import TaskCompleteRequest, TaskFeedbackRequest, TaskStatusUpdateRequest
+from app.schemas.intervention import (
+    TaskCompleteRequest,
+    TaskFeedbackRequest,
+    TaskStatusUpdateRequest,
+)
 from app.services.intervention_service import InterventionService
 
 router = APIRouter(prefix="/user/intervention", tags=["user-intervention"])
 
+
+def _log_intervention_op(
+    db: AsyncSession,
+    user: User,
+    action_type: str,
+    task_id: int,
+    detail: dict | None = None,
+) -> None:
+    """M-API-17 修复：为干预任务状态变更记录 OperationLog 审计日志."""
+    db.add(
+        OperationLog(
+            operator_id=user.id,
+            operator_role=user.role,
+            action_type=action_type,
+            target_type="intervention_task",
+            target_id=task_id,
+            detail=json.dumps(detail or {}, ensure_ascii=False)[:5000],
+        )
+    )
 
 
 @router.get("/active", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
@@ -22,7 +47,7 @@ async def get_active_intervention(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = InterventionService(db)
-    data = await service.get_active(current_user.id)
+    data = await service.get_active(current_user.id, create_missing=False)
     if "plan" in data:
         data["plan"].setdefault("dominant_modality", None)
     for task in data.get("tasks", []):
@@ -44,7 +69,11 @@ async def get_intervention_history(
     return ok(data)
 
 
-@router.put("/tasks/{task_id}/complete", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.put(
+    "/tasks/{task_id}/complete",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def complete_task(
     task_id: int,
     payload: TaskCompleteRequest,
@@ -52,15 +81,24 @@ async def complete_task(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = InterventionService(db)
-    success, reason = await service.complete_task(current_user.id, task_id, payload.scheduled_date)
+    success, reason = await service.complete_task(
+        current_user.id, task_id, payload.scheduled_date
+    )
     if not success and reason is None:
         raise HTTPException(status_code=404, detail="任务不存在")
     if not success:
         raise HTTPException(status_code=409, detail=reason)
+    # M-API-17 修复：记录状态变更审计日志
+    _log_intervention_op(db, current_user, "intervention_task_complete", task_id)
+    await db.commit()
     return ok({"message": "任务已完成"})
 
 
-@router.put("/tasks/{task_id}/feedback", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.put(
+    "/tasks/{task_id}/feedback",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def feedback_task(
     task_id: int,
     payload: TaskFeedbackRequest,
@@ -79,10 +117,23 @@ async def feedback_task(
         raise HTTPException(status_code=404, detail="任务不存在")
     if not success:
         raise HTTPException(status_code=409, detail=reason)
+    # M-API-17 修复：记录状态变更审计日志
+    _log_intervention_op(
+        db,
+        current_user,
+        "intervention_task_feedback",
+        task_id,
+        {"feedback_score": payload.feedback_score},
+    )
+    await db.commit()
     return ok({"message": "反馈已提交"})
 
 
-@router.put("/tasks/{task_id}/missed", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.put(
+    "/tasks/{task_id}/missed",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def mark_task_missed(
     task_id: int,
     payload: TaskStatusUpdateRequest,
@@ -90,15 +141,24 @@ async def mark_task_missed(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = InterventionService(db)
-    success, reason = await service.mark_task_missed(current_user.id, task_id, payload.scheduled_date, payload.note)
+    success, reason = await service.mark_task_missed(
+        current_user.id, task_id, payload.scheduled_date, payload.note
+    )
     if not success and reason is None:
         raise HTTPException(status_code=404, detail="任务不存在")
     if not success:
         raise HTTPException(status_code=409, detail=reason)
+    # L-API-11 修复：补全 mark_task_missed 缺失的 OperationLog 审计日志
+    _log_intervention_op(db, current_user, "intervention_task_missed", task_id)
+    await db.commit()
     return ok({"message": "任务已标记为未完成"})
 
 
-@router.put("/tasks/{task_id}/skip", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.put(
+    "/tasks/{task_id}/skip",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def skip_task(
     task_id: int,
     payload: TaskStatusUpdateRequest,
@@ -106,15 +166,24 @@ async def skip_task(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = InterventionService(db)
-    success, reason = await service.skip_task(current_user.id, task_id, payload.scheduled_date, payload.note)
+    success, reason = await service.skip_task(
+        current_user.id, task_id, payload.scheduled_date, payload.note
+    )
     if not success and reason is None:
         raise HTTPException(status_code=404, detail="任务不存在")
     if not success:
         raise HTTPException(status_code=409, detail=reason)
+    # M-API-17 修复：记录状态变更审计日志
+    _log_intervention_op(db, current_user, "intervention_task_skip", task_id)
+    await db.commit()
     return ok({"message": "任务已跳过"})
 
 
-@router.put("/tasks/{task_id}/postpone", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.put(
+    "/tasks/{task_id}/postpone",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def postpone_task(
     task_id: int,
     payload: TaskStatusUpdateRequest,
@@ -136,4 +205,13 @@ async def postpone_task(
         raise HTTPException(status_code=404, detail="任务不存在")
     if not success:
         raise HTTPException(status_code=409, detail=reason)
+    # M-API-17 修复：记录状态变更审计日志
+    _log_intervention_op(
+        db,
+        current_user,
+        "intervention_task_postpone",
+        task_id,
+        {"postpone_to": str(payload.postpone_to)},
+    )
+    await db.commit()
     return ok({"message": "任务已延期"})

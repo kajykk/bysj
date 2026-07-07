@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 
-import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,10 +77,15 @@ class TestCanaryRecordModel:
 
     def test_indexes_exist(self) -> None:
         """验证复合索引存在"""
-        table_args = CanaryRecord.__table_args__
-        assert len(table_args) == 2
+        from sqlalchemy import Index as SAIndex
 
-        idx_names = [arg.name for arg in table_args]
+        table_args = CanaryRecord.__table_args__
+        # Phase 1 P1-D-8 新增了 CheckConstraint，__table_args__ 现在包含 Index + CheckConstraint
+        # 只过滤 Index 类型，验证复合索引存在
+        indexes = [arg for arg in table_args if isinstance(arg, SAIndex)]
+        assert len(indexes) == 2
+
+        idx_names = [arg.name for arg in indexes]
         assert "ix_canary_records_status_started_at" in idx_names
         assert "ix_canary_records_version_created_at" in idx_names
 
@@ -119,9 +123,15 @@ class TestCanaryRecordModel:
     async def _async_test_query_by_status(self, db_session: AsyncSession) -> None:
         """异步辅助：按 status 查询"""
         records = [
-            CanaryRecord(version="v1.5.0", status=CanaryStatus.RUNNING, traffic_percent=5),
-            CanaryRecord(version="v1.5.0", status=CanaryStatus.RUNNING, traffic_percent=25),
-            CanaryRecord(version="v1.4.0", status=CanaryStatus.ROLLED_BACK, traffic_percent=0),
+            CanaryRecord(
+                version="v1.5.0", status=CanaryStatus.RUNNING, traffic_percent=5
+            ),
+            CanaryRecord(
+                version="v1.5.0", status=CanaryStatus.RUNNING, traffic_percent=25
+            ),
+            CanaryRecord(
+                version="v1.4.0", status=CanaryStatus.ROLLED_BACK, traffic_percent=0
+            ),
         ]
         db_session.add_all(records)
         await db_session.commit()
@@ -187,6 +197,7 @@ class TestCanaryRecordModel:
 
     def test_table_exists_in_db(self, db_connection) -> None:
         """验证表在数据库中真实存在"""
+
         def check_table(sync_conn):
             inspector = inspect(sync_conn)
             tables = inspector.get_table_names()
@@ -196,6 +207,7 @@ class TestCanaryRecordModel:
 
     def test_table_columns_exist(self, db_connection) -> None:
         """验证所有字段在数据库中存在"""
+
         def check_columns(sync_conn):
             inspector = inspect(sync_conn)
             columns = {col["name"] for col in inspector.get_columns("canary_records")}
@@ -217,11 +229,13 @@ class TestCanaryRecordModel:
 
     def test_foreign_key_constraint(self, db_connection) -> None:
         """验证外键约束存在"""
+
         def check_fk(sync_conn):
             inspector = inspect(sync_conn)
             fks = inspector.get_foreign_keys("canary_records")
             fk_found = any(
-                fk["referred_table"] == "users" and "triggered_by" in fk["constrained_columns"]
+                fk["referred_table"] == "users"
+                and "triggered_by" in fk["constrained_columns"]
                 for fk in fks
             )
             assert fk_found, "Foreign key to users.id not found"

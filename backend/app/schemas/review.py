@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ReviewStatus(str, Enum):
@@ -63,6 +64,23 @@ class ReviewTaskResponse(BaseModel):
     updated_at: datetime
     resolved_at: datetime | None = None
 
+    # P0-D3 修复：模型中 review_triggers 存储为 Text(JSON 字符串)，Schema 期望 list[str]。
+    # from_attributes=True 时 Pydantic 无法自动转换 str -> list[str]，需手动解析。
+    @field_validator("review_triggers", mode="before")
+    @classmethod
+    def _parse_review_triggers(cls, v: Any) -> list[str]:
+        if v is None or v == "":
+            return []
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else []
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return []
+
 
 class ReviewTaskListResponse(BaseModel):
     items: list[ReviewTaskResponse]
@@ -117,6 +135,23 @@ class CrisisEventResponse(BaseModel):
     created_at: datetime
     handled_at: datetime | None = None
 
+    # P0-D3 修复：模型中 crisis_keywords 存储为 Text(JSON 字符串)，Schema 期望 list[str]。
+    # from_attributes=True 时 Pydantic 无法自动转换 str -> list[str]，需手动解析。
+    @field_validator("crisis_keywords", mode="before")
+    @classmethod
+    def _parse_crisis_keywords(cls, v: Any) -> list[str]:
+        if v is None or v == "":
+            return []
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else []
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return []
+
 
 class CrisisEventFilter(BaseModel):
     status: str | None = None
@@ -130,10 +165,38 @@ class CrisisEventFilter(BaseModel):
 class ReviewResolveRequest(BaseModel):
     """复核任务处理请求体."""
 
-    resolution_note: str = Field(..., description="处理说明")
+    resolution_note: str = Field(
+        ..., max_length=2000, description="处理说明"
+    )  # L-19 修复：限制最大长度，防止超长文本
 
 
 class ReviewEscalateRequest(BaseModel):
     """复核任务升级请求体."""
 
-    reason: str = Field(..., description="升级原因")
+    reason: str = Field(
+        ..., max_length=2000, description="升级原因"
+    )  # L-19 修复：限制最大长度
+
+
+# ISS-072 修复：危机事件状态流转请求体（处理/升级/关闭）
+class CrisisHandleRequest(BaseModel):
+    """危机事件处理请求体.
+
+    action 取自 _ALLOWED_CRISIS_ACTIONS 白名单：
+    escalate / notify_counselor / emergency_contact / resolved
+    """
+
+    action: str = Field(..., description="处理动作（白名单校验）")
+    note: str | None = Field(default=None, max_length=2000, description="处理备注")
+
+
+class CrisisEscalateRequest(BaseModel):
+    """危机事件升级请求体."""
+
+    reason: str = Field(..., max_length=2000, description="升级原因")
+
+
+class CrisisCloseRequest(BaseModel):
+    """危机事件关闭请求体."""
+
+    note: str | None = Field(default=None, max_length=2000, description="关闭备注")

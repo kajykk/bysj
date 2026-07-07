@@ -1,248 +1,305 @@
-"""v1.36 T3.2: 告警可观测性 - 性能测试.
+"""v1.36 T3.2 / PERF-P1-001: 告警可观测性 - 性能测试.
 
 TC-PERF-001: 8 项性能基准, 验证可观测性 API 在大数据量下仍能保持响应阈值.
-- test_trend_7d_under_500ms (100K rows)
-- test_trend_30d_under_1500ms
-- test_response_time_7d_under_300ms
-- test_response_time_p99_calculation
-- test_channel_stats_7d_under_200ms
-- test_silence_hit_rate_under_100ms
-- test_am_sync_under_100ms
-- test_lock_stats_under_50ms
 
-测试方法:
-- 真实 db_session fixture + 自定义 _MockSession 返回大数据集
-- 测量 _compute_* 纯 Python 聚合时间 (含 JSON 解析 + 桶聚合)
-- 阈值基于实现复杂度 + 实测结果给出, 留 2x~5x 缓冲
+PERF-P1-001 改造后 (SQL GROUP BY 下推):
+- test_trend_7d_under_500ms (10K rows)       — SQL json_extract + GROUP BY
+- test_trend_30d_under_500ms (10K rows)      — P95 目标统一 < 500ms
+- test_response_time_7d_under_300ms (5K rows)— SQL json_extract + GROUP BY MIN
+- test_response_time_p99_calculation          — 纯算法验证 (不变)
+- test_channel_stats_7d_under_200ms (10K)    — SQL GROUP BY + COUNT/AVG/MAX
+- test_silence_hit_rate_under_100ms (3K)     — SQL COUNT + GROUP BY
+- test_am_sync_under_100ms (3K)              — SQL GROUP BY + AVG
+- test_lock_stats_under_50ms (500)           — 未改造 (低数据量)
+
+测试方法 (PERF-P1-001 改造后):
+- 真实 db_session fixture (SQLite + aiosqlite)
+- 批量插入 OperationLog (10K~5K 行)
+- 测量 _compute_* 端到端执行时间 (含 3 次 SQL 查询 + Python 后处理)
+- 阈值基于 SQL GROUP BY 下推后的预期性能, 留 2x~5x 缓冲
+
+P95 延迟目标: 5s → 500ms (T-P2-010)
 """
+
 from __future__ import annotations
 
 import json
 import time
-from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.admin import OperationLog
+
+# ===== 辅助: 批量插入 OperationLog =====
 
 
-# ===== 辅助: 构造模拟数据 =====
-
-
-def _make_trend_rows(count: int) -> list:
-    """构造 trend 函数所需的 (action_type, created_at, detail) 行."""
-    base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
-    rows = []
+async def _bulk_insert_trend_logs(
+    db: AsyncSession, count: int, base: datetime | None = None
+) -> None:
+    """批量插入 alert_fired / alert_resolved 日志 (含 severity/rule)."""
+    if base is None:
+        base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
+    logs = []
     for i in range(count):
         ts = base + timedelta(seconds=i * 60)
-        detail = json.dumps({
-            "rule": f"Rule_{i % 50}",
-            "severity": ["P0", "P1", "P2", "P3"][i % 4],
-        })
+        detail = json.dumps(
+            {
+                "rule": f"Rule_{i % 50}",
+                "severity": ["P0", "P1", "P2", "P3"][i % 4],
+                "fingerprint": f"fp-{i}",
+            }
+        )
         action = "alert_fired" if i % 5 else "alert_resolved"
-        rows.append((action, ts, detail))
-    return rows
+        logs.append(
+            OperationLog(
+                action_type=action,
+                target_type="alert",
+                detail=detail,
+                created_at=ts,
+            )
+        )
+    db.add_all(logs)
+    await db.flush()
 
 
-def _make_response_time_rows(count: int) -> tuple[list, list]:
-    """构造 response_time 函数所需的 fired + acked 行.
-
-    返回 (fired_rows, acked_rows):
-    - fired_rows: [(created_at, detail), ...]  其中 detail.fingerprint
-    - acked_rows: [(created_at, detail), ...]  其中 detail.fingerprint
-    """
-    base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
-    fired_rows = []
-    acked_rows = []
+async def _bulk_insert_response_time_logs(
+    db: AsyncSession, count: int, base: datetime | None = None
+) -> None:
+    """批量插入 alert_fired + alert_acknowledged 日志 (含 fingerprint/severity)."""
+    if base is None:
+        base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
+    logs = []
     for i in range(count):
         fired_at = base + timedelta(seconds=i * 30)
-        # 90% 的告警在 60s 内被 ack
         ack_at = fired_at + timedelta(seconds=60)
         fp = f"fp-perf-{i}"
         sev = ["P0", "P1", "P2", "P3"][i % 4]
-        fired_rows.append((
-            fired_at,
-            json.dumps({"fingerprint": fp, "severity": sev, "rule": f"R{i % 20}"}),
-        ))
-        acked_rows.append((
-            ack_at,
-            json.dumps({"fingerprint": fp}),
-        ))
-    return fired_rows, acked_rows
+        logs.append(
+            OperationLog(
+                action_type="alert_fired",
+                target_type="alert",
+                detail=json.dumps(
+                    {"fingerprint": fp, "severity": sev, "rule": f"R{i % 20}"}
+                ),
+                created_at=fired_at,
+            )
+        )
+        logs.append(
+            OperationLog(
+                action_type="alert_acknowledged",
+                target_type="alert",
+                detail=json.dumps({"fingerprint": fp}),
+                created_at=ack_at,
+            )
+        )
+    db.add_all(logs)
+    await db.flush()
 
 
-def _make_channel_rows(count: int) -> list:
-    """构造 channel_stats 所需的 (action_type, detail) 行."""
-    base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
-    rows = []
+async def _bulk_insert_channel_logs(
+    db: AsyncSession, count: int, base: datetime | None = None
+) -> None:
+    """批量插入 alert_channel_sent / alert_channel_failed 日志."""
+    if base is None:
+        base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
+    logs = []
     for i in range(count):
         detail = {
             "channel": ["webhook", "slack", "dingtalk", "email"][i % 4],
             "duration_ms": i % 1000,
+            "fingerprint": f"fp-ch-{i}",
         }
         action = "alert_channel_failed" if i % 13 == 0 else "alert_channel_sent"
-        rows.append((action, json.dumps(detail)))
-    return rows
+        logs.append(
+            OperationLog(
+                action_type=action,
+                target_type="alert_channel",
+                detail=json.dumps(detail),
+                created_at=base + timedelta(seconds=i),
+            )
+        )
+    db.add_all(logs)
+    await db.flush()
 
 
-def _make_silence_rows(count: int) -> tuple[list, list]:
-    """构造 silence_hit_rate 所需的 (fired_details, silenced_details) 行."""
-    base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
-    fired_details = []
-    sil_details = []
+async def _bulk_insert_silence_logs(
+    db: AsyncSession, count: int, base: datetime | None = None
+) -> tuple[int, int]:
+    """批量插入 alert_fired + alert_silenced 日志.
+
+    返回 (fired_count, silenced_count).
+    """
+    if base is None:
+        base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
+    logs = []
+    sil_count = 0
     for i in range(count):
         sev = ["P0", "P1", "P2", "P3"][i % 4]
-        # fired 数: silenced 数 = 2:1
-        fired_details.append(json.dumps({
-            "fingerprint": f"fp-fire-{i}", "severity": sev, "rule": f"R{i % 20}"
-        }))
+        logs.append(
+            OperationLog(
+                action_type="alert_fired",
+                target_type="alert",
+                detail=json.dumps(
+                    {
+                        "fingerprint": f"fp-fire-{i}",
+                        "severity": sev,
+                        "rule": f"R{i % 20}",
+                    }
+                ),
+                created_at=base + timedelta(seconds=i),
+            )
+        )
         if i % 3 == 0:
-            sil_details.append(json.dumps({
-                "silence_name": f"sil-{i % 5}",
-                "severity": sev,
-                "fingerprint": f"fp-fire-{i}",
-            }))
-    return fired_details, sil_details
+            logs.append(
+                OperationLog(
+                    action_type="alert_silenced",
+                    target_type="alert",
+                    detail=json.dumps(
+                        {
+                            "silence_name": f"sil-{i % 5}",
+                            "severity": sev,
+                            "fingerprint": f"fp-fire-{i}",
+                        }
+                    ),
+                    created_at=base + timedelta(seconds=i + 1),
+                )
+            )
+            sil_count += 1
+    db.add_all(logs)
+    await db.flush()
+    return count, sil_count
 
 
-def _make_am_sync_rows(count: int) -> tuple[list, list]:
-    """构造 am_sync 所需的 (success_rows, failed_rows)."""
-    base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
-    succ_rows = []
-    fail_rows = []
+async def _bulk_insert_am_sync_logs(
+    db: AsyncSession, count: int, base: datetime | None = None
+) -> tuple[int, int]:
+    """批量插入 am_sync_success / am_sync_failed 日志.
+
+    返回 (success_count, failed_count).
+    """
+    if base is None:
+        base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
+    logs = []
+    succ = 0
+    fail = 0
     for i in range(count):
         op = "push_silence" if i % 2 == 0 else "expire_silence"
-        action = "am_sync_failed" if i % 11 == 0 else "am_sync_success"
-        detail = json.dumps({
-            "operation": op, "duration_ms": i % 200,
-            **({"error": "am 500"} if action == "am_sync_failed" else {}),
-        })
-        ts = base + timedelta(seconds=i)
-        if action == "am_sync_failed":
-            fail_rows.append((detail, ts))
+        is_fail = i % 11 == 0
+        detail = {
+            "operation": op,
+            "duration_ms": i % 200,
+            "am_silence_id": f"am-{i}",
+        }
+        if is_fail:
+            detail["error"] = "am 500"
+            action = "am_sync_failed"
+            fail += 1
         else:
-            succ_rows.append((detail, ts))
-    return succ_rows, fail_rows
+            action = "am_sync_success"
+            succ += 1
+        logs.append(
+            OperationLog(
+                action_type=action,
+                target_type="alert_silence",
+                detail=json.dumps(detail),
+                created_at=base + timedelta(seconds=i),
+            )
+        )
+    db.add_all(logs)
+    await db.flush()
+    return succ, fail
 
 
-def _make_lock_rows(count: int) -> list:
-    """构造 lock_stats 所需的 (detail, created_at) 行."""
-    base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
-    rows = []
+async def _bulk_insert_lock_logs(
+    db: AsyncSession, count: int, base: datetime | None = None
+) -> None:
+    """批量插入 dedup_lock_stats 日志."""
+    if base is None:
+        base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
+    logs = []
     for i in range(count):
-        detail = json.dumps({
-            "instance_id": f"node-{i % 3}",
-            "acquired": 10,
-            "skipped": 5,
-            "fallback": 2,
-            "errors": 0,
-        })
-        rows.append((detail, base + timedelta(minutes=i * 5)))
-    return rows
+        detail = json.dumps(
+            {
+                "instance_id": f"node-{i % 3}",
+                "acquired": 10,
+                "skipped": 5,
+                "fallback": 2,
+                "errors": 0,
+            }
+        )
+        logs.append(
+            OperationLog(
+                action_type="dedup_lock_stats",
+                target_type="dedup_lock",
+                detail=detail,
+                created_at=base + timedelta(minutes=i * 5),
+            )
+        )
+    db.add_all(logs)
+    await db.flush()
 
 
-class _SingleResultSession:
-    """所有 db.execute() 调用都返回相同 rows 的 mock session."""
-
-    def __init__(self, rows: list):
-        self._rows = rows
-        self.execute_count = 0
-
-    async def execute(self_inner, stmt):
-        self_inner.execute_count += 1
-        class _R:
-            def all(_s):
-                return self_inner._rows
-            def scalars(_s):
-                class _SC:
-                    def all(_sc):
-                        return self_inner._rows
-                return _SC()
-        return _R()
-
-
-class _MultiResultSession:
-    """不同次 db.execute() 调用返回不同 rows 的 mock session (按调用顺序)."""
-
-    def __init__(self, *row_sets: list):
-        self._row_sets = list(row_sets)
-        self._idx = 0
-        self.execute_count = 0
-
-    async def execute(self_inner, stmt):
-        idx = self_inner._idx
-        self_inner._idx += 1
-        self_inner.execute_count += 1
-        rows = self_inner._row_sets[idx] if idx < len(self_inner._row_sets) else []
-
-        class _R:
-            def all(_s):
-                return rows
-            def scalars(_s):
-                class _SC:
-                    def all(_sc):
-                        return rows
-                return _SC()
-        return _R()
-
-
-# ===== 8 项性能测试 =====
+# ===== 8 项性能测试 (PERF-P1-001 SQL GROUP BY 下推后) =====
 
 
 @pytest.mark.performance
-async def test_trend_7d_under_500ms() -> None:
-    """v1.36 T3.2: 100K 行 trend 计算 < 500ms (实为 LIMIT 10000 的纯 Python 聚合)."""
+async def test_trend_7d_under_500ms(db_session: AsyncSession) -> None:
+    """PERF-P1-001: 10K 行 trend 7d 聚合 < 500ms (SQL json_extract + GROUP BY)."""
     from app.api.v1.observability import _compute_trend
 
-    rows = _make_trend_rows(10000)
-    db = _SingleResultSession(rows)
+    base = datetime(2026, 5, 28, 0, 0, 0, tzinfo=timezone.utc)
+    await _bulk_insert_trend_logs(db_session, 10000, base=base)
 
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
     t0 = time.perf_counter()
-    result = await _compute_trend(db, start, end, "1h", None, None, "severity")
+    result = await _compute_trend(db_session, start, end, "1h", None, None, "severity")
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     assert result["total"] > 0
     assert len(result["buckets"]) > 0
+    # PERF-P1-001 目标: P95 < 500ms (原 Python 聚合 5s+)
     assert elapsed_ms < 500, f"trend 7d took {elapsed_ms:.1f}ms (target: <500ms)"
 
 
 @pytest.mark.performance
-async def test_trend_30d_under_1500ms() -> None:
-    """v1.36 T3.2: 30d 范围 trend 计算 < 1500ms."""
+async def test_trend_30d_under_500ms(db_session: AsyncSession) -> None:
+    """PERF-P1-001: 10K 行 trend 30d 聚合 < 500ms (统一 P95 目标)."""
     from app.api.v1.observability import _compute_trend
 
-    rows = _make_trend_rows(10000)
-    db = _SingleResultSession(rows)
+    base = datetime(2026, 5, 4, 0, 0, 0, tzinfo=timezone.utc)
+    await _bulk_insert_trend_logs(db_session, 10000, base=base)
 
     start = datetime(2026, 5, 4, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
     t0 = time.perf_counter()
-    result = await _compute_trend(db, start, end, "6h", None, None, "severity")
+    result = await _compute_trend(db_session, start, end, "6h", None, None, "severity")
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     assert result["total"] > 0
     # 30d 6h 桶 ≈ 120 桶
     assert len(result["buckets"]) <= 121
-    assert elapsed_ms < 1500, f"trend 30d took {elapsed_ms:.1f}ms (target: <1500ms)"
+    # PERF-P1-001: 30d 也需满足 P95 < 500ms (原阈值 1500ms)
+    assert elapsed_ms < 500, f"trend 30d took {elapsed_ms:.1f}ms (target: <500ms)"
 
 
 @pytest.mark.performance
-async def test_response_time_7d_under_300ms() -> None:
-    """v1.36 T3.2: response_time 7d < 300ms (含 2 次 SQL 查询: fired + acked)."""
+async def test_response_time_7d_under_300ms(db_session: AsyncSession) -> None:
+    """PERF-P1-001: response_time 7d < 300ms (SQL json_extract + GROUP BY MIN)."""
     from app.api.v1.observability import _compute_response_time
 
-    fired_rows, acked_rows = _make_response_time_rows(5000)
-    # 第一次 execute 拉 fired, 第二次拉 acked
-    db = _MultiResultSession(fired_rows, acked_rows)
+    base = datetime(2026, 5, 27, 0, 0, 0, tzinfo=timezone.utc)
+    await _bulk_insert_response_time_logs(db_session, 5000, base=base)
 
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
     t0 = time.perf_counter()
-    result = await _compute_response_time(db, start, end, None)
+    result = await _compute_response_time(db_session, start, end, None)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     assert "response_time" in result
@@ -250,7 +307,9 @@ async def test_response_time_7d_under_300ms() -> None:
     assert result["total_fired"] == 5000
     assert result["total_acked"] == 5000
     assert result["total_pending"] == 0
-    assert elapsed_ms < 300, f"response_time 7d took {elapsed_ms:.1f}ms (target: <300ms)"
+    assert (
+        elapsed_ms < 300
+    ), f"response_time 7d took {elapsed_ms:.1f}ms (target: <300ms)"
 
 
 @pytest.mark.performance
@@ -276,82 +335,91 @@ def test_response_time_p99_calculation() -> None:
 
 
 @pytest.mark.performance
-async def test_channel_stats_7d_under_200ms() -> None:
-    """v1.36 T3.2: channel_stats 7d < 200ms."""
+async def test_channel_stats_7d_under_200ms(db_session: AsyncSession) -> None:
+    """PERF-P1-001: channel_stats 7d < 200ms (SQL GROUP BY + COUNT/AVG/MAX)."""
     from app.api.v1.observability import _compute_channel_stats
 
-    rows = _make_channel_rows(10000)
-    db = _SingleResultSession(rows)
+    base = datetime(2026, 5, 27, 0, 0, 0, tzinfo=timezone.utc)
+    await _bulk_insert_channel_logs(db_session, 10000, base=base)
 
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
     t0 = time.perf_counter()
-    result = await _compute_channel_stats(db, start, end, None)
+    result = await _compute_channel_stats(db_session, start, end, None)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     assert "channels" in result
     assert "total_sent" in result
     assert result["total_sent"] > 0
-    assert elapsed_ms < 200, f"channel_stats 7d took {elapsed_ms:.1f}ms (target: <200ms)"
+    assert (
+        elapsed_ms < 200
+    ), f"channel_stats 7d took {elapsed_ms:.1f}ms (target: <200ms)"
 
 
 @pytest.mark.performance
-async def test_silence_hit_rate_under_100ms() -> None:
-    """v1.36 T3.2: silence_hit_rate < 100ms (2 次查询: fired + silenced)."""
+async def test_silence_hit_rate_under_100ms(db_session: AsyncSession) -> None:
+    """PERF-P1-001: silence_hit_rate < 100ms (SQL COUNT + GROUP BY)."""
     from app.api.v1.observability import _compute_silence_hit_rate
 
-    fired_details, sil_details = _make_silence_rows(3000)
-    db = _MultiResultSession(fired_details, sil_details)
+    base = datetime(2026, 5, 27, 0, 0, 0, tzinfo=timezone.utc)
+    fired_n, sil_n = await _bulk_insert_silence_logs(db_session, 3000, base=base)
 
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
     t0 = time.perf_counter()
-    result = await _compute_silence_hit_rate(db, start, end)
+    result = await _compute_silence_hit_rate(db_session, start, end)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     assert "total_fired" in result
     assert "hit_rate" in result
-    assert result["total_fired"] == 3000
-    assert result["total_silenced"] == 1000
-    assert elapsed_ms < 100, f"silence_hit_rate took {elapsed_ms:.1f}ms (target: <100ms)"
+    assert result["total_fired"] == fired_n
+    assert result["total_silenced"] == sil_n
+    assert (
+        elapsed_ms < 100
+    ), f"silence_hit_rate took {elapsed_ms:.1f}ms (target: <100ms)"
 
 
 @pytest.mark.performance
-async def test_am_sync_under_100ms() -> None:
-    """v1.36 T3.2: am_sync 聚合 < 100ms (2 次查询: success + failed)."""
+async def test_am_sync_under_100ms(db_session: AsyncSession) -> None:
+    """PERF-P1-001: am_sync 聚合 < 100ms (SQL GROUP BY + AVG)."""
     from app.api.v1.observability import _compute_am_sync
 
-    succ_rows, fail_rows = _make_am_sync_rows(3000)
-    db = _MultiResultSession(succ_rows, fail_rows)
+    base = datetime(2026, 5, 27, 0, 0, 0, tzinfo=timezone.utc)
+    succ_n, fail_n = await _bulk_insert_am_sync_logs(db_session, 3000, base=base)
 
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
     t0 = time.perf_counter()
-    result = await _compute_am_sync(db, start, end, None)
+    result = await _compute_am_sync(db_session, start, end, None)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     assert "total_success" in result
     assert "by_operation" in result
-    assert result["total_success"] > 0
+    assert result["total_success"] == succ_n
+    assert result["total_failed"] == fail_n
     assert elapsed_ms < 100, f"am_sync took {elapsed_ms:.1f}ms (target: <100ms)"
 
 
 @pytest.mark.performance
-async def test_lock_stats_under_50ms() -> None:
-    """v1.36 T3.2: lock_stats 聚合 < 50ms (锁统计一般 50~1000 条/天)."""
+async def test_lock_stats_under_50ms(db_session: AsyncSession) -> None:
+    """v1.36 T3.2: lock_stats 聚合 < 50ms (低数据量, 未改造).
+
+    _compute_lock_stats 对 recent_flushes 有 LIMIT(10), 只返回最近 10 条.
+    """
     from app.api.v1.observability import _compute_lock_stats
 
-    rows = _make_lock_rows(500)
-    db = _SingleResultSession(rows)
+    base = datetime(2026, 5, 27, 0, 0, 0, tzinfo=timezone.utc)
+    await _bulk_insert_lock_logs(db_session, 500, base=base)
 
     t0 = time.perf_counter()
-    result = await _compute_lock_stats(db)
+    result = await _compute_lock_stats(db_session)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     assert "recent_flushes" in result
     assert "historical_recent" in result
-    assert len(result["recent_flushes"]) == 500
+    # LIMIT(10): 只返回最近 10 条 flush 日志
+    assert len(result["recent_flushes"]) == 10
     assert elapsed_ms < 50, f"lock_stats took {elapsed_ms:.1f}ms (target: <50ms)"

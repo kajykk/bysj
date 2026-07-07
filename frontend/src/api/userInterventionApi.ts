@@ -21,5 +21,7 @@ export const userInterventionApi = {
   completeInterventionTask: (taskId: number, scheduledDate?: string) => requestData<{ message: string }>(request.put(`/user/intervention/tasks/${taskId}/complete`, { scheduled_date: scheduledDate })),
   feedbackInterventionTask: (taskId: number, payload: { scheduled_date?: string; feedback_score?: number; feedback_note?: string }) => requestData<{ message: string }>(request.put(`/user/intervention/tasks/${taskId}/feedback`, payload)),
   skipInterventionTask: (taskId: number, payload: { scheduled_date?: string; note?: string }) => requestData<{ message: string }>(request.put(`/user/intervention/tasks/${taskId}/skip`, payload)),
+  // 功能完整性修复：补充 missed 状态标记方法，对应后端 PUT /user/intervention/tasks/{task_id}/missed
+  markInterventionTaskMissed: (taskId: number, payload: { scheduled_date?: string; note?: string }) => requestData<{ message: string }>(request.put(`/user/intervention/tasks/${taskId}/missed`, payload)),
   postponeInterventionTask: (taskId: number, payload: { scheduled_date?: string; postpone_to: string; note?: string }) => requestData<{ message: string }>(request.put(`/user/intervention/tasks/${taskId}/postpone`, payload)),
 }

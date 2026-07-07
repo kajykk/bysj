@@ -20,8 +20,12 @@ class UserRiskReportRequest(BaseModel):
     # P1-SEC-030 修复：限制 user_name 长度，防止生成超长文件名
     user_name: str = Field(..., min_length=1, max_length=100, description="User name")
     risk_level: str = Field(..., description="Current risk level")
-    risk_trend: list[RiskTrendItem] = Field(default_factory=list, description="Risk trend data")
-    recommendations: list[str] = Field(default_factory=list, description="Recommendations")
+    risk_trend: list[RiskTrendItem] = Field(
+        default_factory=list, description="Risk trend data"
+    )
+    recommendations: list[str] = Field(
+        default_factory=list, description="Recommendations"
+    )
 
 
 class BatchExportDataItem(BaseModel):
@@ -33,8 +37,13 @@ class BatchExportDataItem(BaseModel):
 class BatchExportRequest(BaseModel):
     """Request to export data to Excel."""
 
-    data: list[BatchExportDataItem] = Field(..., min_length=1, description="Data to export")
-    columns: list[str] | None = Field(default=None, description="Columns to include")
+    # ISS-015 修复：添加 max_length 限制，防止超大批量导出导致 OOM
+    data: list[BatchExportDataItem] = Field(
+        ..., min_length=1, max_length=10000, description="Data to export"
+    )
+    columns: list[str] | None = Field(
+        default=None, max_length=200, description="Columns to include"
+    )
     filters: dict[str, Any] | None = Field(default=None, description="Filters to apply")
     # P1-SEC-030 修复：限制 filename 长度，防止生成超长文件名
     filename: str | None = Field(

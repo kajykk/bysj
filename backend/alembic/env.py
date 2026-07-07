@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 from logging.config import fileConfig
+from urllib.parse import urlparse, urlunparse
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -18,6 +20,36 @@ config.set_main_option("sqlalchemy.url", sync_db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# ISS-049 修复：对数据库 URL 做脱敏处理，防止含凭据的 URL 被日志记录
+# 仅用于日志显示，不影响实际连接（实际 URL 已通过 config.set_main_option 设置）
+logger = logging.getLogger("alembic.env")
+
+
+def _mask_db_url(url: str) -> str:
+    """脱敏数据库 URL，将 password 部分替换为 ***，仅用于日志显示.
+
+    示例:
+        postgresql://user:secret@host:5432/db
+        → postgresql://user:***@host:5432/db
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.password is None:
+            return url
+        # 重建 URL，将 password 替换为 ***
+        masked_netloc = parsed.hostname or ""
+        if parsed.port:
+            masked_netloc = f"{masked_netloc}:{parsed.port}"
+        if parsed.username:
+            masked_netloc = f"{parsed.username}:***@{masked_netloc}"
+        return urlunparse(parsed._replace(netloc=masked_netloc))
+    except Exception:
+        # 解析失败时返回占位符，避免泄露原始 URL
+        return "<unparseable-db-url>"
+
+
+logger.info("Alembic using database URL: %s", _mask_db_url(sync_db_url))
 
 target_metadata = Base.metadata
 

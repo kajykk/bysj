@@ -1,6 +1,6 @@
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s var(--transition-ease-out, ease);
 }
 
 .fade-enter-from,
@@ -10,55 +10,60 @@
 
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s var(--transition-ease-out, ease),
+    transform 0.3s var(--transition-ease-out, ease);
 }
 
 .fade-slide-enter-from {
   opacity: 0;
-  transform: translateX(20px);
+  transform: translateX(16px);
 }
 
 .fade-slide-leave-to {
   opacity: 0;
-  transform: translateX(-20px);
+  transform: translateX(-16px);
 }
 
 .fade-scale-enter-active,
 .fade-scale-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s var(--transition-ease-out, ease),
+    transform 0.3s var(--transition-ease-out, ease);
 }
 
 .fade-scale-enter-from,
 .fade-scale-leave-to {
   opacity: 0;
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s var(--transition-ease-out, ease),
+    transform 0.3s var(--transition-ease-out, ease);
 }
 
 .slide-up-enter-from,
 .slide-up-leave-to {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(16px);
 }
 
 .slide-down-enter-active,
 .slide-down-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s var(--transition-ease-out, ease),
+    transform 0.3s var(--transition-ease-out, ease);
 }
 
 .slide-down-enter-from,
 .slide-down-leave-to {
   opacity: 0;
-  transform: translateY(-20px);
+  transform: translateY(-16px);
 }
 
 .list-enter-active,
 .list-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s var(--transition-ease-out, ease),
+    transform 0.3s var(--transition-ease-out, ease);
 }
 
 .list-enter-from,
@@ -68,8 +73,31 @@
 }
 
 .list-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.3s var(--transition-ease-out, ease);
 }
+
+/* ===== 错位入场动画 ===== */
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-item {
+  animation: stagger-in 0.4s var(--transition-ease-out, ease) both;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 60ms; }
+.stagger-item:nth-child(3) { animation-delay: 120ms; }
+.stagger-item:nth-child(4) { animation-delay: 180ms; }
+.stagger-item:nth-child(5) { animation-delay: 240ms; }
+.stagger-item:nth-child(6) { animation-delay: 300ms; }
 
 .skeleton-loading {
   background: linear-gradient(
@@ -103,7 +131,7 @@
 }
 
 .count-up-animation {
-  animation: count-up 0.5s ease-out;
+  animation: count-up 0.5s var(--transition-ease-out, ease);
 }
 
 @keyframes pulse {
@@ -117,4 +145,146 @@
 
 .pulse-animation {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ===== design-taste-frontend-v1：Bento 永动微交互库 =====
+   所有永动动画均基于 transform/opacity，60fps 友好。
+   遵循规则：永动组件需隔离，避免触发父级重渲染。 */
+
+/* 呼吸状态点（Live Status 指示器） */
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.55;
+  }
+}
+
+.breathe-dot {
+  animation: breathe 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 呼吸光环（扩散波纹） */
+@keyframes breathe-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.breathe-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  animation: breathe-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 浮动（用于装饰元素/插画） */
+@keyframes float-soft {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.float-soft {
+  animation: float-soft 6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 金属光泽扫光（Bento 卡片 hover 高亮） */
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-20deg);
+  }
+}
+
+.shimmer-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-sweep::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.18),
+    transparent
+  );
+  transform: translateX(-120%) skewX(-20deg);
+  pointer-events: none;
+}
+
+.shimmer-sweep:hover::before {
+  animation: shimmer-sweep 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 错位入场：Bento 卡片阶梯式入场（最多 8 项） */
+@keyframes bento-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bento-item {
+  animation: bento-in 0.5s var(--transition-ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+.bento-item:nth-child(1) { animation-delay: 0ms; }
+.bento-item:nth-child(2) { animation-delay: 70ms; }
+.bento-item:nth-child(3) { animation-delay: 140ms; }
+.bento-item:nth-child(4) { animation-delay: 210ms; }
+.bento-item:nth-child(5) { animation-delay: 280ms; }
+.bento-item:nth-child(6) { animation-delay: 350ms; }
+.bento-item:nth-child(7) { animation-delay: 420ms; }
+.bento-item:nth-child(8) { animation-delay: 490ms; }
+
+/* 磁吸按钮：按压回弹（tactile feedback，规则 5） */
+.magnetic-press {
+  transition: transform 0.18s var(--transition-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.magnetic-press:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+/* 数字滚动等宽（Cockpit Mode 数字必须等宽） */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* 减少动效偏好：尊重用户系统设置 */
+@media (prefers-reduced-motion: reduce) {
+  .breathe-dot,
+  .breathe-ring::after,
+  .float-soft,
+  .bento-item,
+  .shimmer-sweep::before {
+    animation: none !important;
+  }
 }

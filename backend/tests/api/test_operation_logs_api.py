@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
 
 
-def test_admin_can_query_operation_logs(client: TestClient, as_role, seed_admin_data: None) -> None:
+def test_admin_can_query_operation_logs(
+    client: TestClient, as_role, seed_admin_data: None
+) -> None:
     as_role("admin", 3)
 
     client.post(

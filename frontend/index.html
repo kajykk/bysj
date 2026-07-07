@@ -3,19 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#409eff" />
+    <meta name="theme-color" content="#3b82c4" />
     <meta name="description" content="抑郁症动态预警与干预系统 - 基于多模态数据的智能风险评估平台" />
-    <!-- CSP-修复：静态 CSP meta 标签，保护引导阶段（nginx 响应头作为主要防护，此为补充） -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://sentry.io https://*.sentry.io" />
+    <meta name="application-name" content="心理预警平台" />
+    <meta name="author" content="心理预警平台团队" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="心理预警平台" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- 高端字体：Geist（Sans）+ Geist Mono（数字/代码），替代默认 system-ui。
+         design-taste-frontend-v1 规则：禁用 Inter，强制使用 Geist/Outfit/Cabinet Grotesk/Satoshi。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <!-- M-FE-19 修复：移除静态 CSP meta 标签，避免与 nginx header 重复。
+         开发环境由 csp.ts 的 applyCspMetaTag() 动态添加 meta（支持 Vite HMR），
+         生产环境由 nginx CSP 响应头统一控制（见 nginx.conf）。 -->
     <title>抑郁症动态预警与干预系统</title>
     <style>
       /* 首屏加载优化：内联关键 CSS */
       html, body { margin: 0; padding: 0; height: 100%; }
       #app { min-height: 100vh; }
       .loading-skeleton {
-        background: linear-gradient(90deg, #f0f2f5 25%, #e4e7ed 50%, #f0f2f5 75%);
+        background: linear-gradient(90deg, #eef2f6 25%, #e8ecf0 50%, #eef2f6 75%);
         background-size: 200% 100%;
         animation: skeleton-loading 1.5s infinite;
       }
@@ -26,15 +40,14 @@
       @media (prefers-reduced-motion: reduce) {
         .loading-skeleton {
           animation: none;
-          background: #f0f2f5;
+          background: #eef2f6;
         }
       }
     </style>
   </head>
   <body>
     <div id="app">
-      <!-- 首屏加载占位 -->
-      <div class="loading-skeleton" style="position: fixed; top: 0; left: 0; right: 0; height: 4px; z-index: 9999;"></div>
+      <!-- L-FE-12 修复：移除无实际内容的 4px 顶部 skeleton 条，改由 Vue 应用挂载后渲染真实 loading -->
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

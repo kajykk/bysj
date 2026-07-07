@@ -10,12 +10,16 @@ def test_harness_suite_collects_results() -> None:
             HarnessScenario(
                 name="pass",
                 kind="unit",
-                execute=lambda _: {"assertions": [HarnessAssertion(name="truthy", passed=True)]},
+                execute=lambda _: {
+                    "assertions": [HarnessAssertion(name="truthy", passed=True)]
+                },
             ),
             HarnessScenario(
                 name="fail",
                 kind="integration",
-                execute=lambda _: {"assertions": [HarnessAssertion(name="falsey", passed=False)]},
+                execute=lambda _: {
+                    "assertions": [HarnessAssertion(name="falsey", passed=False)]
+                },
             ),
         ]
     )
@@ -29,7 +33,9 @@ def test_harness_suite_collects_results() -> None:
 
 
 def test_harness_reporter_writes_outputs(tmp_path) -> None:
-    suite = HarnessSuite([HarnessScenario(name="pass", kind="unit", execute=lambda _: None)])
+    suite = HarnessSuite(
+        [HarnessScenario(name="pass", kind="unit", execute=lambda _: None)]
+    )
     run = suite.run({"expected_pass": True})
     reporter = HarnessReporter(output_dir=tmp_path)
 

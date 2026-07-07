@@ -7,9 +7,9 @@ import pandas as pd
 import pytest
 
 from app.ml.data_cleaner import (
+    DataCleaner,
     clean_dataset,
     clip_extreme_values,
-    DataCleaner,
     drop_high_missing_samples,
     handle_all_nan_columns,
     handle_missing_values,
@@ -64,24 +64,28 @@ class TestDropHighMissingSamples:
         Row 3: 0/3 missing (0%)  -> keep
         Expected: 2 rows kept.
         """
-        df = pd.DataFrame({
-            "a": [1.0, np.nan, np.nan, 4.0],
-            "b": [1.0, np.nan, np.nan, 4.0],
-            "c": [1.0, 2.0, np.nan, 4.0],
-            "source": ["x", "x", "x", "x"],
-            "depression_label": [0, 0, 0, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "a": [1.0, np.nan, np.nan, 4.0],
+                "b": [1.0, np.nan, np.nan, 4.0],
+                "c": [1.0, 2.0, np.nan, 4.0],
+                "source": ["x", "x", "x", "x"],
+                "depression_label": [0, 0, 0, 1],
+            }
+        )
         result = drop_high_missing_samples(df)
         assert len(result) == 2
 
     def test_no_drop_needed(self):
         """TC-COV-ML-006: No high-missing samples returns all."""
-        df = pd.DataFrame({
-            "a": [1.0, 2.0, 3.0],
-            "b": [4.0, 5.0, 6.0],
-            "source": ["x", "x", "x"],
-            "depression_label": [0, 0, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "a": [1.0, 2.0, 3.0],
+                "b": [4.0, 5.0, 6.0],
+                "source": ["x", "x", "x"],
+                "depression_label": [0, 0, 1],
+            }
+        )
         result = drop_high_missing_samples(df)
         assert len(result) == 3
 
@@ -113,20 +117,24 @@ class TestWinsorizeFeatures:
 
     def test_winsorize(self):
         """TC-COV-ML-010: Winsorizes numeric features."""
-        df = pd.DataFrame({
-            "a": [1.0, 2.0, 3.0, 100.0],
-            "source": ["x", "x", "x", "x"],
-            "depression_label": [0, 0, 0, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "a": [1.0, 2.0, 3.0, 100.0],
+                "source": ["x", "x", "x", "x"],
+                "depression_label": [0, 0, 0, 1],
+            }
+        )
         result = winsorize_features(df)
         assert result["a"].max() < 100.0
 
     def test_no_numeric(self):
         """TC-COV-ML-011: No numeric features returns unchanged."""
-        df = pd.DataFrame({
-            "source": ["x", "y", "z"],
-            "depression_label": [0, 0, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "source": ["x", "y", "z"],
+                "depression_label": [0, 0, 1],
+            }
+        )
         result = winsorize_features(df)
         assert len(result) == 3
 
@@ -136,13 +144,15 @@ class TestCleanDataset:
 
     def test_full_pipeline(self):
         """TC-COV-ML-012: Full cleaning pipeline runs."""
-        df = pd.DataFrame({
-            "sleep_hours": [7.0, 8.0, np.nan, 6.0],
-            "heart_rate": [60, 80, 70, 300],
-            "steps": [5000, 8000, 6000, 10000],
-            "source": ["x", "x", "x", "x"],
-            "depression_label": [0, 0, 0, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "sleep_hours": [7.0, 8.0, np.nan, 6.0],
+                "heart_rate": [60, 80, 70, 300],
+                "steps": [5000, 8000, 6000, 10000],
+                "source": ["x", "x", "x", "x"],
+                "depression_label": [0, 0, 0, 1],
+            }
+        )
         result = clean_dataset(df)
         assert len(result) <= 4
         assert result["heart_rate"].max() <= 200
@@ -163,9 +173,7 @@ class TestDeprecationWarnings:
 
     def test_winsorize_features_emits_deprecation_warning(self):
         """winsorize_features 应发出 DeprecationWarning."""
-        df = pd.DataFrame(
-            {"a": [1.0, 2.0, 3.0, 4.0], "depression_label": [0, 0, 0, 1]}
-        )
+        df = pd.DataFrame({"a": [1.0, 2.0, 3.0, 4.0], "depression_label": [0, 0, 0, 1]})
         with pytest.warns(DeprecationWarning, match="数据泄漏风险"):
             winsorize_features(df)
 
@@ -206,7 +214,7 @@ class TestDataCleanerLeakagePrevention:
 
         cleaner = DataCleaner(missing_threshold=0.3)
         # 仅在训练集上 fit
-        train_clean = cleaner.fit_transform(train_df)
+        cleaner.fit_transform(train_df)
         # 用训练集统计量 transform 测试集
         test_clean = cleaner.transform(test_df)
 

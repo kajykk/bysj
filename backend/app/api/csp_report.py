@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.rate_limit import limiter
 
@@ -18,22 +18,29 @@ _MAX_CSP_REPORT_SIZE = 64 * 1024
 
 
 class CSPReportBody(BaseModel):
-    """CSP report body schema (CSP Level 3)."""
+    """CSP report body schema (CSP Level 3).
 
-    blocked_url: str | None = Field(None, alias="blocked-url")
-    blocked_uri: str | None = Field(None, alias="blockedURI")
-    document_url: str | None = Field(None, alias="document-url")
-    document_uri: str | None = Field(None, alias="documentURI")
-    effective_directive: str | None = Field(None, alias="effective-directive")
-    original_policy: str | None = Field(None, alias="original-policy")
-    referrer: str | None = None
-    script_sample: str | None = Field(None, alias="script-sample")
+    M-API-11 修复：对所有字符串字段添加 max_length 限制，防止超大字段导致日志膨胀或 DoS。
+    """
+
+    blocked_url: str | None = Field(None, alias="blocked-url", max_length=2048)
+    blocked_uri: str | None = Field(None, alias="blockedURI", max_length=2048)
+    document_url: str | None = Field(None, alias="document-url", max_length=2048)
+    document_uri: str | None = Field(None, alias="documentURI", max_length=2048)
+    effective_directive: str | None = Field(
+        None, alias="effective-directive", max_length=128
+    )
+    original_policy: str | None = Field(None, alias="original-policy", max_length=8192)
+    referrer: str | None = Field(None, max_length=2048)
+    script_sample: str | None = Field(None, alias="script-sample", max_length=4096)
     status_code: int | None = Field(None, alias="status-code")
-    violated_directive: str | None = Field(None, alias="violated-directive")
-    source_file: str | None = Field(None, alias="source-file")
+    violated_directive: str | None = Field(
+        None, alias="violated-directive", max_length=128
+    )
+    source_file: str | None = Field(None, alias="source-file", max_length=2048)
     line_number: int | None = Field(None, alias="line-number")
     column_number: int | None = Field(None, alias="column-number")
-    disposition: str | None = None
+    disposition: str | None = Field(None, max_length=64)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -52,7 +59,8 @@ class CSPReportPayload(BaseModel):
     status_code=204,
     response_class=Response,
 )
-@limiter.limit("60/minute")
+# M-API-11 修复：CSP report 端点无需鉴权（浏览器无法携带 token），通过限流防止滥用
+@limiter.limit("30/minute")
 async def receive_csp_report(request: Request) -> Response:
     """Receive and log Content Security Policy violation reports.
 
@@ -70,22 +78,41 @@ async def receive_csp_report(request: Request) -> Response:
     Raises:
         HTTPException: 413 if payload too large, 400 if invalid
     """
+    # L-API-9 修复：校验 Content-Type，仅允许 CSP 报告标准类型，防止滥用
+    content_type = request.headers.get("content-type", "")
+    # 去掉 charset 等参数后比较，如 "application/json; charset=utf-8" -> "application/json"
+    normalized_ct = content_type.split(";")[0].strip().lower()
+    if normalized_ct not in (
+        "application/json",
+        "application/csp-report",
+        "application/reports+json",
+    ):
+        logger.warning("CSP report rejected: invalid Content-Type (%r)", content_type)
+        raise HTTPException(status_code=415, detail="Unsupported Content-Type")
+
     # Check payload size
     content_length = request.headers.get("content-length")
     if content_length:
         try:
             content_length_value = int(content_length)
         except (ValueError, TypeError):
-            logger.warning("CSP report rejected: invalid Content-Length header (%r)", content_length)
+            logger.warning(
+                "CSP report rejected: invalid Content-Length header (%r)",
+                content_length,
+            )
             raise HTTPException(status_code=400, detail="Invalid Content-Length header")
         if content_length_value > _MAX_CSP_REPORT_SIZE:
-            logger.warning("CSP report rejected: payload too large (%s bytes)", content_length)
+            logger.warning(
+                "CSP report rejected: payload too large (%s bytes)", content_length
+            )
             raise HTTPException(status_code=413, detail="Payload too large")
 
     # Read body
     body_bytes = await request.body()
     if len(body_bytes) > _MAX_CSP_REPORT_SIZE:
-        logger.warning("CSP report rejected: payload too large (%d bytes)", len(body_bytes))
+        logger.warning(
+            "CSP report rejected: payload too large (%d bytes)", len(body_bytes)
+        )
         raise HTTPException(status_code=413, detail="Payload too large")
 
     if not body_bytes:

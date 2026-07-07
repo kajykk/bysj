@@ -11,6 +11,7 @@
 2. Admin User JWT → 200 (经 get_current_user 验证)
 3. User JWT (非 admin) → 403 (权限拒绝)
 """
+
 from __future__ import annotations
 
 import os
@@ -22,10 +23,8 @@ os.environ.setdefault("OMP_NUM_THREADS", "1")
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.core.deps import require_sa_or_admin
-from app.models.user import User
-
+from app.main import app
 
 # ============ Fixtures ============
 
@@ -36,16 +35,15 @@ def sa_token_env(monkeypatch):
     monkeypatch.setenv("GRAFANA_SERVICE_TOKEN", "test-sa-secret-xyz789")
     # Reload settings to pick up env var
     import importlib
+
     import app.core.config as cfg_mod
+
     importlib.reload(cfg_mod)
     return "test-sa-secret-xyz789"
 
 
-@pytest.fixture
-def client(as_role):
-    """提供干净的 TestClient, 不预设 admin override."""
-    with TestClient(app) as c:
-        yield c
+# 注: 不再覆盖 client fixture, 使用 conftest.py 的 session-scope client.
+# 早期为 function-scope TestClient, 但重复 lifespan startup 会导致挂起.
 
 
 # ============ Test 1: SA token 鉴权成功 ============
@@ -114,7 +112,12 @@ def test_auth_with_user_jwt_403(client: TestClient, as_role, sa_token_env: str) 
 def test_test_count() -> None:
     """Meta-test: 验证本文件测试数量 == 3 (不含本 meta-test)."""
     test_funcs = [
-        name for name, dir in [(n, globals()) for n in globals()]
-        if name.startswith("test_") and callable(dir[name]) and name != "test_test_count"
+        name
+        for name, dir in [(n, globals()) for n in globals()]
+        if name.startswith("test_")
+        and callable(dir[name])
+        and name != "test_test_count"
     ]
-    assert len(test_funcs) == 3, f"expected 3 tests, got {len(test_funcs)}: {test_funcs}"
+    assert (
+        len(test_funcs) == 3
+    ), f"expected 3 tests, got {len(test_funcs)}: {test_funcs}"

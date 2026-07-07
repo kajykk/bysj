@@ -6,10 +6,12 @@
 - /health 端点可访问
 - 响应包含 instance_id + cached + generated_at 元信息
 """
+
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -17,6 +19,7 @@ import pytest
 def test_observability_router_importable() -> None:
     """v1.36 T2.1: observability 路由可正常导入."""
     from app.api.v1.observability import router
+
     assert router is not None
     assert router.prefix == "/alerts/observability"
 
@@ -24,6 +27,7 @@ def test_observability_router_importable() -> None:
 def test_observability_registered_in_api_router() -> None:
     """v1.36 T2.1: observability 路由已注册到主 APIRouter."""
     from app.api.v1 import api_router
+
     # 收集所有已注册的路由
     all_routes = []
     for r in api_router.routes:
@@ -40,6 +44,7 @@ def test_observability_helpers_export() -> None:
         cached_or_compute,
         with_instance_meta,
     )
+
     assert callable(cached_or_compute)
     assert callable(with_instance_meta)
 
@@ -47,6 +52,7 @@ def test_observability_helpers_export() -> None:
 def test_observability_health_via_test_client() -> None:
     """v1.36 T2.1: /health 端点可访问 (admin 鉴权 + 响应体)."""
     from fastapi.testclient import TestClient
+
     from app.main import app
 
     client = TestClient(app)
@@ -60,8 +66,10 @@ def test_observability_health_via_test_client() -> None:
 
 def test_observability_health_with_admin(monkeypatch) -> None:
     """v1.36 T2.1: admin 鉴权通过时返回 instance_id + cached + generated_at."""
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import MagicMock
+
     from fastapi.testclient import TestClient
+
     from app.main import app
     from app.models.user import User
 
@@ -105,6 +113,7 @@ def test_observability_health_with_admin(monkeypatch) -> None:
 def test_cached_or_compute_cache_hit(monkeypatch) -> None:
     """v1.36 T2.1: cache hit 时直接返回缓存, 不调用 compute_fn."""
     import asyncio
+
     from app.api.v1.observability import cached_or_compute
 
     # 模拟 cache hit
@@ -177,49 +186,72 @@ def test_with_instance_meta_extra() -> None:
     assert payload["cached"] is False
 
 
+# ===== 集成测试辅助函数 =====
+
+
+async def _insert_oplog(
+    db_session,
+    action_type: str,
+    target_type: str,
+    detail_dict: dict,
+    created_at: datetime | None = None,
+) -> None:
+    """写入一条 OperationLog 测试数据 (基于真实 SQLite DB 的集成测试用)."""
+    from app.models.admin import OperationLog
+
+    if created_at is None:
+        created_at = datetime.now(timezone.utc)
+    db_session.add(
+        OperationLog(
+            action_type=action_type,
+            target_type=target_type,
+            detail=json.dumps(detail_dict),
+            created_at=created_at,
+        )
+    )
+
+
 # ===== v1.36: T2.2 告警趋势 (TC-OBS-001) =====
 
 
-def _mock_alert_row(action_type: str, created_at, severity: str, rule: str) -> tuple:
-    """构造一个 mock OperationLog 行."""
-    detail = json.dumps({
-        "severity": severity,
-        "rule": rule,
-        "fingerprint": "fp-1",
-        "labels": {"env": "prod"},
-    })
-    return (action_type, created_at, detail)
-
-
-async def test_trend_basic_24h(monkeypatch) -> None:
+async def test_trend_basic_24h(db_session) -> None:
     """v1.36 T2.2: 24h 默认窗口, 返回 buckets + total + 聚合."""
     from app.api.v1.observability import _compute_trend
-    from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
-    rows = [
-        _mock_alert_row("alert_fired", now - timedelta(hours=2), "P0", "HighErrorRate"),
-        _mock_alert_row("alert_fired", now - timedelta(hours=1), "P1", "HighLatency"),
-        _mock_alert_row("alert_resolved", now - timedelta(minutes=30), "P0", "HighErrorRate"),
-    ]
+    start = now - timedelta(hours=24)
+    # 写入 3 条告警日志: 2 fired (P0/P1) + 1 resolved (P0)
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P0", "rule": "HighErrorRate", "fingerprint": "fp-1"},
+        now - timedelta(hours=2),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P1", "rule": "HighLatency", "fingerprint": "fp-2"},
+        now - timedelta(hours=1),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_resolved",
+        "alert",
+        {"severity": "P0", "rule": "HighErrorRate", "fingerprint": "fp-1"},
+        now - timedelta(minutes=30),
+    )
+    await db_session.commit()
 
-    class _MockResult:
-        def all(self_inner):
-            return rows
-
-    class _MockSession:
-        async def execute(self_inner, stmt):
-            return _MockResult()
-
-    db = _MockSession()
     data = await _compute_trend(
-        db,
-        start_time=now - timedelta(hours=24),
-        end_time=now,
-        bucket="1h",
-        severity=None,
-        status=None,
-        group_by="severity",
+        db_session,
+        start,
+        now,
+        "1h",
+        None,
+        None,
+        "severity",
     )
     assert data["total"] == 3
     assert data["by_severity"]["P0"] == 2
@@ -229,92 +261,125 @@ async def test_trend_basic_24h(monkeypatch) -> None:
     assert len(data["buckets"]) >= 1
 
 
-async def test_trend_with_severity_filter(monkeypatch) -> None:
+async def test_trend_with_severity_filter(db_session) -> None:
     """v1.36 T2.2: severity 过滤只保留匹配项."""
     from app.api.v1.observability import _compute_trend
-    from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
-    rows = [
-        _mock_alert_row("alert_fired", now, "P0", "rule-A"),
-        _mock_alert_row("alert_fired", now, "P1", "rule-B"),
-        _mock_alert_row("alert_fired", now, "P0", "rule-C"),
-    ]
+    start = now - timedelta(hours=24)
+    # 3 个 fired: P0, P1, P0
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P0", "rule": "rule-A", "fingerprint": "fp-1"},
+        now,
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P1", "rule": "rule-B", "fingerprint": "fp-2"},
+        now,
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P0", "rule": "rule-C", "fingerprint": "fp-3"},
+        now,
+    )
+    await db_session.commit()
 
-    class _MockResult:
-        def all(self_inner):
-            return rows
-
-    class _MockSession:
-        async def execute(self_inner, stmt):
-            return _MockResult()
-
-    db = _MockSession()
     data = await _compute_trend(
-        db, None, None, "1h", severity="P0", status=None, group_by="severity"
+        db_session, start, now, "1h", severity="P0", status=None, group_by="severity"
     )
     assert data["total"] == 2
     assert "P1" not in data["by_severity"]
     assert data["by_severity"]["P0"] == 2
 
 
-async def test_trend_with_status_filter(monkeypatch) -> None:
+async def test_trend_with_status_filter(db_session) -> None:
     """v1.36 T2.2: status 过滤只保留匹配项."""
     from app.api.v1.observability import _compute_trend
-    from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
-    rows = [
-        _mock_alert_row("alert_fired", now, "P0", "rule-A"),
-        _mock_alert_row("alert_resolved", now, "P0", "rule-A"),
-    ]
+    start = now - timedelta(hours=24)
+    # 1 fired + 1 resolved
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P0", "rule": "rule-A", "fingerprint": "fp-1"},
+        now,
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_resolved",
+        "alert",
+        {"severity": "P0", "rule": "rule-A", "fingerprint": "fp-1"},
+        now,
+    )
+    await db_session.commit()
 
-    class _MockResult:
-        def all(self_inner):
-            return rows
-
-    class _MockSession:
-        async def execute(self_inner, stmt):
-            return _MockResult()
-
-    db = _MockSession()
     # status=firing
     data_firing = await _compute_trend(
-        db, None, None, "1h", severity=None, status="firing", group_by="severity"
+        db_session,
+        start,
+        now,
+        "1h",
+        severity=None,
+        status="firing",
+        group_by="severity",
     )
     assert data_firing["total"] == 1
     assert data_firing["by_status"]["firing"] == 1
     # status=resolved
     data_resolved = await _compute_trend(
-        db, None, None, "1h", severity=None, status="resolved", group_by="severity"
+        db_session,
+        start,
+        now,
+        "1h",
+        severity=None,
+        status="resolved",
+        group_by="severity",
     )
     assert data_resolved["total"] == 1
     assert data_resolved["by_status"]["resolved"] == 1
 
 
-async def test_trend_group_by_rule(monkeypatch) -> None:
+async def test_trend_group_by_rule(db_session) -> None:
     """v1.36 T2.2: group_by=rule 时 by_rule 包含全部规则, 取 Top-20."""
     from app.api.v1.observability import _compute_trend
-    from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
-    rows = [
-        _mock_alert_row("alert_fired", now, "P0", "rule-A"),
-        _mock_alert_row("alert_fired", now, "P0", "rule-A"),
-        _mock_alert_row("alert_fired", now, "P1", "rule-B"),
-    ]
+    start = now - timedelta(hours=24)
+    # 3 个 fired: 2 rule-A + 1 rule-B
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P0", "rule": "rule-A", "fingerprint": "fp-1"},
+        now,
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P0", "rule": "rule-A", "fingerprint": "fp-2"},
+        now,
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"severity": "P1", "rule": "rule-B", "fingerprint": "fp-3"},
+        now,
+    )
+    await db_session.commit()
 
-    class _MockResult:
-        def all(self_inner):
-            return rows
-
-    class _MockSession:
-        async def execute(self_inner, stmt):
-            return _MockResult()
-
-    db = _MockSession()
     data = await _compute_trend(
-        db, None, None, "1h", severity=None, status=None, group_by="rule"
+        db_session, start, now, "1h", severity=None, status=None, group_by="rule"
     )
     assert data["by_rule"]["rule-A"] == 2
     assert data["by_rule"]["rule-B"] == 1
@@ -324,6 +389,7 @@ async def test_trend_group_by_rule(monkeypatch) -> None:
 async def test_trend_admin_required() -> None:
     """v1.36 T2.2: 未鉴权应返回 401/403."""
     from fastapi.testclient import TestClient
+
     from app.main import app
 
     client = TestClient(app)
@@ -339,7 +405,15 @@ async def test_trend_cached_5min(monkeypatch) -> None:
 
     async def _track_compute(*args, **kwargs):
         compute_called.append(True)
-        return {"buckets": [], "total": 0, "by_severity": {}, "by_status": {}, "by_rule": {}, "group_by": "severity", "bucket": "1h"}
+        return {
+            "buckets": [],
+            "total": 0,
+            "by_severity": {},
+            "by_status": {},
+            "by_rule": {},
+            "group_by": "severity",
+            "bucket": "1h",
+        }
 
     # 模拟 cache hit (第二次调用)
     call_count = [0]
@@ -348,7 +422,15 @@ async def test_trend_cached_5min(monkeypatch) -> None:
         call_count[0] += 1
         if call_count[0] == 1:
             return None  # 第一次 miss
-        return {"buckets": [], "total": 5, "by_severity": {"P0": 5}, "by_status": {"firing": 5}, "by_rule": {"X": 5}, "group_by": "severity", "bucket": "1h"}
+        return {
+            "buckets": [],
+            "total": 5,
+            "by_severity": {"P0": 5},
+            "by_status": {"firing": 5},
+            "by_rule": {"X": 5},
+            "group_by": "severity",
+            "bucket": "1h",
+        }
 
     async def _fake_set(key, value, ttl):
         return True
@@ -376,11 +458,12 @@ async def test_trend_cached_5min(monkeypatch) -> None:
 
 async def test_trend_response_includes_instance_id(monkeypatch) -> None:
     """v1.36 T2.2: 响应包含 instance_id / cached / generated_at / params."""
-    from app.api.v1 import observability as obs_mod
     from fastapi.testclient import TestClient
+
+    from app.api.v1 import observability as obs_mod
+    from app.core import deps as deps_mod
     from app.main import app
     from app.models.user import User
-    from app.core import deps as deps_mod
 
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
@@ -408,7 +491,15 @@ async def test_trend_response_includes_instance_id(monkeypatch) -> None:
     monkeypatch.setattr(obs_mod, "cache_set", _fake_set)
 
     async def _fake_compute(*args, **kwargs):
-        return {"buckets": [], "total": 0, "by_severity": {}, "by_status": {}, "by_rule": {}, "group_by": "severity", "bucket": "1h"}
+        return {
+            "buckets": [],
+            "total": 0,
+            "by_severity": {},
+            "by_status": {},
+            "by_rule": {},
+            "group_by": "severity",
+            "bucket": "1h",
+        }
 
     monkeypatch.setattr(obs_mod, "_compute_trend", _fake_compute)
 
@@ -452,64 +543,61 @@ def test_percentile_empty() -> None:
     assert _percentile([], 95) == 0.0
 
 
-def _mock_fired_row(created_at, fp: str, severity: str = "P0", rule: str = "rule-A") -> tuple:
-    """构造 mock alert_fired 行."""
-    detail = json.dumps({
-        "fingerprint": fp,
-        "severity": severity,
-        "rule": rule,
-        "labels": {"env": "prod"},
-    })
-    return (created_at, detail)
+# (response_time mock helpers removed - tests now use real SQLite DB)
 
 
-def _mock_acked_row(created_at, fp: str) -> tuple:
-    """构造 mock alert_acknowledged 行."""
-    detail = json.dumps({"fingerprint": fp, "comment": "ack"})
-    return (created_at, detail)
-
-
-class _MockResponseTimeDB:
-    """模拟 _compute_response_time 用的 db session.
-
-    fired_rows 和 acked_rows 可独立配置.
-    """
-
-    def __init__(self, fired_rows, acked_rows):
-        self.fired_rows = fired_rows
-        self.acked_rows = acked_rows
-        self.call_count = 0
-
-    async def execute(self, stmt):
-        self.call_count += 1
-        # 第一次调用取 fired, 第二次取 acked
-        rows = self.fired_rows if self.call_count == 1 else self.acked_rows
-
-        class _Result:
-            def all(self_inner):
-                return rows
-
-        return _Result()
-
-
-async def test_response_time_basic(monkeypatch) -> None:
+async def test_response_time_basic(db_session) -> None:
     """v1.36 T2.3: 基础响应时长 (3 个 fired, 全部 ack)."""
     from app.api.v1.observability import _compute_response_time
-    from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
-    fired = [
-        _mock_fired_row(now - timedelta(minutes=10), "fp-1", "P0"),
-        _mock_fired_row(now - timedelta(minutes=5), "fp-2", "P1"),
-        _mock_fired_row(now - timedelta(minutes=1), "fp-3", "P0"),
-    ]
-    acked = [
-        _mock_acked_row(now - timedelta(minutes=5), "fp-1"),   # delta=300s
-        _mock_acked_row(now - timedelta(minutes=2), "fp-2"),   # delta=180s
-        _mock_acked_row(now - timedelta(minutes=0, seconds=30), "fp-3"),  # delta=30s
-    ]
-    db = _MockResponseTimeDB(fired, acked)
-    data = await _compute_response_time(db, None, None, None)
+    start = now - timedelta(hours=24)
+    # 3 个 fired + 3 个 acked (fingerprint 匹配)
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"fingerprint": "fp-1", "severity": "P0", "rule": "r-A"},
+        now - timedelta(minutes=10),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"fingerprint": "fp-2", "severity": "P1", "rule": "r-A"},
+        now - timedelta(minutes=5),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"fingerprint": "fp-3", "severity": "P0", "rule": "r-A"},
+        now - timedelta(minutes=1),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_acknowledged",
+        "alert",
+        {"fingerprint": "fp-1", "comment": "ack"},
+        now - timedelta(minutes=5),
+    )  # delta=300s
+    await _insert_oplog(
+        db_session,
+        "alert_acknowledged",
+        "alert",
+        {"fingerprint": "fp-2", "comment": "ack"},
+        now - timedelta(minutes=2),
+    )  # delta=180s
+    await _insert_oplog(
+        db_session,
+        "alert_acknowledged",
+        "alert",
+        {"fingerprint": "fp-3", "comment": "ack"},
+        now - timedelta(seconds=30),
+    )  # delta=30s
+    await db_session.commit()
+
+    data = await _compute_response_time(db_session, start, now, None)
     assert data["total_fired"] == 3
     assert data["total_acked"] == 3
     assert data["total_pending"] == 0
@@ -519,77 +607,123 @@ async def test_response_time_basic(monkeypatch) -> None:
     assert data["ack_rate"] == 1.0
 
 
-async def test_response_time_percentiles(monkeypatch) -> None:
+async def test_response_time_percentiles(db_session) -> None:
     """v1.36 T2.3: p50/p95/p99 分位计算正确性."""
     from app.api.v1.observability import _compute_response_time
-    from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
-    # 10 个 fired -> 10 个 ack, 响应时间 [1s, 2s, ..., 10s]
-    fired = [
-        _mock_fired_row(now - timedelta(seconds=20), f"fp-{i}", "P0")
-        for i in range(1, 11)
-    ]
-    # 每次响应时间 = i 秒: ack_at = now - 20s + i
-    acked = [
-        _mock_acked_row(now - timedelta(seconds=20 - i), f"fp-{i}")
-        for i in range(1, 11)
-    ]
-    db = _MockResponseTimeDB(fired, acked)
-    data = await _compute_response_time(db, None, None, None)
-    # 注意: 索引从 1 开始, 但有 fp-1..fp-10
-    # 响应时间: fp-1=1s, fp-2=2s, ..., fp-10=10s
+    start = now - timedelta(hours=24)
+    # 10 个 fired (fired_at = now - 20s) + 10 个 acked (ack_at = now - 20s + i)
+    # 响应时间 = i 秒 (fp-i -> i seconds)
+    for i in range(1, 11):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"fingerprint": f"fp-{i}", "severity": "P0", "rule": "r-A"},
+            now - timedelta(seconds=20),
+        )
+    for i in range(1, 11):
+        await _insert_oplog(
+            db_session,
+            "alert_acknowledged",
+            "alert",
+            {"fingerprint": f"fp-{i}", "comment": "ack"},
+            now - timedelta(seconds=20 - i),
+        )
+    await db_session.commit()
+
+    data = await _compute_response_time(db_session, start, now, None)
     assert data["total_acked"] == 10
     assert data["response_time"]["min"] == 1.0
     assert data["response_time"]["max"] == 10.0
-    # p50 应在中间 (5-6 之间)
     assert 5.0 <= data["response_time"]["p50"] <= 6.0
-    # p95 应在 9-10 之间
     assert 9.0 <= data["response_time"]["p95"] <= 10.0
-    # p99 应在 9.9-10 之间
     assert 9.5 <= data["response_time"]["p99"] <= 10.0
 
 
-async def test_response_time_pending_alerts(monkeypatch) -> None:
+async def test_response_time_pending_alerts(db_session) -> None:
     """v1.36 T2.3: pending 告警 (fired 但未 ack) 计入 total_pending."""
     from app.api.v1.observability import _compute_response_time
-    from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
-    fired = [
-        _mock_fired_row(now - timedelta(minutes=10), "fp-1", "P0"),
-        _mock_fired_row(now - timedelta(minutes=5), "fp-2", "P1"),
-        _mock_fired_row(now - timedelta(minutes=1), "fp-3", "P0"),
-    ]
-    # 只 ack 了 fp-1
-    acked = [
-        _mock_acked_row(now - timedelta(minutes=8), "fp-1"),
-    ]
-    db = _MockResponseTimeDB(fired, acked)
-    data = await _compute_response_time(db, None, None, None)
+    start = now - timedelta(hours=24)
+    # 3 个 fired, 只 ack 了 fp-1
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"fingerprint": "fp-1", "severity": "P0", "rule": "r-A"},
+        now - timedelta(minutes=10),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"fingerprint": "fp-2", "severity": "P1", "rule": "r-A"},
+        now - timedelta(minutes=5),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"fingerprint": "fp-3", "severity": "P0", "rule": "r-A"},
+        now - timedelta(minutes=1),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_acknowledged",
+        "alert",
+        {"fingerprint": "fp-1", "comment": "ack"},
+        now - timedelta(minutes=8),
+    )
+    await db_session.commit()
+
+    data = await _compute_response_time(db_session, start, now, None)
     assert data["total_fired"] == 3
     assert data["total_acked"] == 1
     assert data["total_pending"] == 2
-    # ack_rate = 1/3 ≈ 0.333
     assert abs(data["ack_rate"] - 1 / 3) < 0.01
 
 
-async def test_response_time_severity_breakdown(monkeypatch) -> None:
+async def test_response_time_severity_breakdown(db_session) -> None:
     """v1.36 T2.3: 按 severity 拆分响应时长 (by_severity)."""
     from app.api.v1.observability import _compute_response_time
-    from datetime import datetime, timezone, timedelta
 
     now = datetime.now(timezone.utc)
-    fired = [
-        _mock_fired_row(now - timedelta(seconds=20), "fp-1", "P0"),
-        _mock_fired_row(now - timedelta(seconds=20), "fp-2", "P1"),
-    ]
-    acked = [
-        _mock_acked_row(now - timedelta(seconds=18), "fp-1"),  # delta=2s P0
-        _mock_acked_row(now - timedelta(seconds=10), "fp-2"),  # delta=10s P1
-    ]
-    db = _MockResponseTimeDB(fired, acked)
-    data = await _compute_response_time(db, None, None, None)
+    start = now - timedelta(hours=24)
+    # 2 个 fired (P0/P1) + 2 个 acked
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"fingerprint": "fp-1", "severity": "P0", "rule": "r-A"},
+        now - timedelta(seconds=20),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_fired",
+        "alert",
+        {"fingerprint": "fp-2", "severity": "P1", "rule": "r-A"},
+        now - timedelta(seconds=20),
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_acknowledged",
+        "alert",
+        {"fingerprint": "fp-1", "comment": "ack"},
+        now - timedelta(seconds=18),
+    )  # delta=2s P0
+    await _insert_oplog(
+        db_session,
+        "alert_acknowledged",
+        "alert",
+        {"fingerprint": "fp-2", "comment": "ack"},
+        now - timedelta(seconds=10),
+    )  # delta=10s P1
+    await db_session.commit()
+
+    data = await _compute_response_time(db_session, start, now, None)
     assert "by_severity" in data
     assert "P0" in data["by_severity"]
     assert "P1" in data["by_severity"]
@@ -602,6 +736,7 @@ async def test_response_time_severity_breakdown(monkeypatch) -> None:
 async def test_response_time_admin_required() -> None:
     """v1.36 T2.3: 未鉴权应返回 401/403."""
     from fastapi.testclient import TestClient
+
     from app.main import app
 
     client = TestClient(app)
@@ -611,11 +746,12 @@ async def test_response_time_admin_required() -> None:
 
 async def test_response_time_response_includes_instance_id(monkeypatch) -> None:
     """v1.36 T2.3: 响应包含 instance_id / cached / generated_at / params."""
-    from app.api.v1 import observability as obs_mod
     from fastapi.testclient import TestClient
+
+    from app.api.v1 import observability as obs_mod
+    from app.core import deps as deps_mod
     from app.main import app
     from app.models.user import User
-    from app.core import deps as deps_mod
 
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
@@ -643,9 +779,19 @@ async def test_response_time_response_includes_instance_id(monkeypatch) -> None:
 
     async def _fake_compute(*args, **kwargs):
         return {
-            "total_fired": 0, "total_acked": 0, "total_pending": 0,
-            "response_time": {"mean": 0, "p50": 0, "p95": 0, "p99": 0, "max": 0, "min": 0},
-            "by_severity": {}, "ack_rate": 0.0,
+            "total_fired": 0,
+            "total_acked": 0,
+            "total_pending": 0,
+            "response_time": {
+                "mean": 0,
+                "p50": 0,
+                "p95": 0,
+                "p99": 0,
+                "max": 0,
+                "min": 0,
+            },
+            "by_severity": {},
+            "ack_rate": 0.0,
         }
 
     monkeypatch.setattr(obs_mod, "_compute_response_time", _fake_compute)
@@ -666,115 +812,162 @@ async def test_response_time_response_includes_instance_id(monkeypatch) -> None:
 # ===== v1.36: T2.4 升级率 (TC-OBS-003) =====
 
 
-def _mock_fired_detail(rule: str, severity: str) -> str:
-    """构造 alert_fired detail JSON."""
-    return json.dumps({
-        "fingerprint": f"fp-{rule}",
-        "rule": rule,
-        "severity": severity,
-        "labels": {"env": "prod"},
-    })
+# (escalation mock helpers removed - tests now use real SQLite DB)
 
 
-def _mock_escalated_detail(
-    rule: str, severity: str, to_level: str = "P0"
-) -> str:
-    """构造 alert_escalated detail JSON."""
-    return json.dumps({
-        "fingerprint": f"fp-{rule}",
-        "rule": rule,
-        "severity": severity,
-        "from_level": severity,
-        "to_level": to_level,
-        "reason": "auto-escalate",
-    })
-
-
-class _MockEscalationDB:
-    """模拟 _compute_escalation 用的 db session.
-
-    fired_details 和 esc_details 可独立配置.
-    """
-
-    def __init__(self, fired_details, esc_details):
-        self.fired_details = fired_details
-        self.esc_details = esc_details
-        self.call_count = 0
-
-    async def execute(self, stmt):
-        self.call_count += 1
-        details = self.fired_details if self.call_count == 1 else self.esc_details
-
-        class _Result:
-            def scalars(self_inner):
-                class _Scalars:
-                    def all(self_inner2):
-                        return details
-                return _Scalars()
-
-        return _Result()
-
-
-async def test_escalation_rate_basic(monkeypatch) -> None:
+async def test_escalation_rate_basic(db_session) -> None:
     """v1.36 T2.4: 基础升级率 = escalated / fired."""
     from app.api.v1.observability import _compute_escalation
 
-    # 10 个 fired, 3 个 escalated
-    fired = [
-        _mock_fired_detail("rule-A", "P1") for _ in range(7)
-    ] + [
-        _mock_fired_detail("rule-B", "P2") for _ in range(3)
-    ]
-    esc = [
-        _mock_escalated_detail("rule-A", "P1", "P0"),
-        _mock_escalated_detail("rule-A", "P1", "P0"),
-        _mock_escalated_detail("rule-B", "P2", "P1"),
-    ]
-    db = _MockEscalationDB(fired, esc)
-    data = await _compute_escalation(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # 10 个 fired: 7 rule-A/P1 + 3 rule-B/P2
+    for _ in range(7):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"rule": "rule-A", "severity": "P1", "fingerprint": "fp-A"},
+            now,
+        )
+    for _ in range(3):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"rule": "rule-B", "severity": "P2", "fingerprint": "fp-B"},
+            now,
+        )
+    # 3 个 escalated: 2 rule-A/P1->P0 + 1 rule-B/P2->P1
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_escalated",
+            "alert",
+            {
+                "rule": "rule-A",
+                "severity": "P1",
+                "to_level": "P0",
+                "fingerprint": "fp-A",
+            },
+            now,
+        )
+    await _insert_oplog(
+        db_session,
+        "alert_escalated",
+        "alert",
+        {"rule": "rule-B", "severity": "P2", "to_level": "P1", "fingerprint": "fp-B"},
+        now,
+    )
+    await db_session.commit()
+
+    data = await _compute_escalation(db_session, start, now, None)
     assert data["total_fired"] == 10
     assert data["total_escalated"] == 3
     assert abs(data["escalation_rate"] - 0.3) < 0.001
 
 
-async def test_escalation_by_level(monkeypatch) -> None:
+async def test_escalation_by_level(db_session) -> None:
     """v1.36 T2.4: by_level 统计每个升级目标级别."""
     from app.api.v1.observability import _compute_escalation
 
-    fired = [_mock_fired_detail("rule-A", "P2") for _ in range(10)]
-    esc = [
-        _mock_escalated_detail("rule-A", "P2", "P0"),  # 升级到 P0
-        _mock_escalated_detail("rule-A", "P2", "P0"),
-        _mock_escalated_detail("rule-A", "P2", "P1"),  # 升级到 P1
-    ]
-    db = _MockEscalationDB(fired, esc)
-    data = await _compute_escalation(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # 10 个 fired (rule-A/P2)
+    for _ in range(10):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"rule": "rule-A", "severity": "P2", "fingerprint": "fp-A"},
+            now,
+        )
+    # 3 个 escalated: 2 -> P0, 1 -> P1
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_escalated",
+            "alert",
+            {
+                "rule": "rule-A",
+                "severity": "P2",
+                "to_level": "P0",
+                "fingerprint": "fp-A",
+            },
+            now,
+        )
+    await _insert_oplog(
+        db_session,
+        "alert_escalated",
+        "alert",
+        {"rule": "rule-A", "severity": "P2", "to_level": "P1", "fingerprint": "fp-A"},
+        now,
+    )
+    await db_session.commit()
+
+    data = await _compute_escalation(db_session, start, now, None)
     assert "by_level" in data
     assert data["by_level"]["P0"] == 2
     assert data["by_level"]["P1"] == 1
 
 
-async def test_escalation_by_rule(monkeypatch) -> None:
+async def test_escalation_by_rule(db_session) -> None:
     """v1.36 T2.4: by_rule 包含每个规则的 fired / escalated / rate (Top-20)."""
     from app.api.v1.observability import _compute_escalation
 
-    fired = [
-        _mock_fired_detail("rule-A", "P1") for _ in range(5)
-    ] + [
-        _mock_fired_detail("rule-B", "P2") for _ in range(10)
-    ] + [
-        _mock_fired_detail("rule-C", "P3") for _ in range(3)
-    ]
-    esc = [
-        _mock_escalated_detail("rule-A", "P1", "P0"),
-        _mock_escalated_detail("rule-B", "P2", "P1"),
-        _mock_escalated_detail("rule-B", "P2", "P1"),
-    ]
-    db = _MockEscalationDB(fired, esc)
-    data = await _compute_escalation(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # fired: 5 rule-A/P1 + 10 rule-B/P2 + 3 rule-C/P3
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"rule": "rule-A", "severity": "P1", "fingerprint": "fp-A"},
+            now,
+        )
+    for _ in range(10):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"rule": "rule-B", "severity": "P2", "fingerprint": "fp-B"},
+            now,
+        )
+    for _ in range(3):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"rule": "rule-C", "severity": "P3", "fingerprint": "fp-C"},
+            now,
+        )
+    # escalated: 1 rule-A + 2 rule-B
+    await _insert_oplog(
+        db_session,
+        "alert_escalated",
+        "alert",
+        {"rule": "rule-A", "severity": "P1", "to_level": "P0", "fingerprint": "fp-A"},
+        now,
+    )
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_escalated",
+            "alert",
+            {
+                "rule": "rule-B",
+                "severity": "P2",
+                "to_level": "P1",
+                "fingerprint": "fp-B",
+            },
+            now,
+        )
+    await db_session.commit()
+
+    data = await _compute_escalation(db_session, start, now, None)
     assert "by_rule" in data
     assert len(data["by_rule"]) <= 20
-    # 找到每个规则的数据
     rule_map = {r["rule"]: r for r in data["by_rule"]}
     assert rule_map["rule-A"]["fired"] == 5
     assert rule_map["rule-A"]["escalated"] == 1
@@ -787,29 +980,54 @@ async def test_escalation_by_rule(monkeypatch) -> None:
     assert data["by_rule"][0]["escalated"] >= data["by_rule"][-1]["escalated"]
 
 
-async def test_escalation_by_severity(monkeypatch) -> None:
+async def test_escalation_by_severity(db_session) -> None:
     """v1.36 T2.4: by_severity 拆分升级率 (含 severity 过滤)."""
     from app.api.v1.observability import _compute_escalation
 
-    fired = [
-        _mock_fired_detail("rule-A", "P1") for _ in range(5)
-    ] + [
-        _mock_fired_detail("rule-B", "P2") for _ in range(5)
-    ]
-    esc = [
-        _mock_escalated_detail("rule-A", "P1", "P0"),
-        _mock_escalated_detail("rule-B", "P2", "P1"),
-    ]
-    db = _MockEscalationDB(fired, esc)
-    data = await _compute_escalation(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # fired: 5 rule-A/P1 + 5 rule-B/P2
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"rule": "rule-A", "severity": "P1", "fingerprint": "fp-A"},
+            now,
+        )
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"rule": "rule-B", "severity": "P2", "fingerprint": "fp-B"},
+            now,
+        )
+    # escalated: 1 rule-A/P1->P0 + 1 rule-B/P2->P1
+    await _insert_oplog(
+        db_session,
+        "alert_escalated",
+        "alert",
+        {"rule": "rule-A", "severity": "P1", "to_level": "P0", "fingerprint": "fp-A"},
+        now,
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_escalated",
+        "alert",
+        {"rule": "rule-B", "severity": "P2", "to_level": "P1", "fingerprint": "fp-B"},
+        now,
+    )
+    await db_session.commit()
+
+    data = await _compute_escalation(db_session, start, now, None)
     assert "by_severity" in data
     assert "P1" in data["by_severity"]
     assert "P2" in data["by_severity"]
     assert data["by_severity"]["P1"]["fired"] == 5
     assert data["by_severity"]["P1"]["escalated"] == 1
-    # severity 过滤: 只看 P1 (新建一个 mock 实例避免 call_count 错乱)
-    db2 = _MockEscalationDB(fired, esc)
-    data_p1 = await _compute_escalation(db2, None, None, "P1")
+    # severity 过滤: 只看 P1
+    data_p1 = await _compute_escalation(db_session, start, now, "P1")
     assert data_p1["total_fired"] == 5
     assert data_p1["total_escalated"] == 1
 
@@ -817,6 +1035,7 @@ async def test_escalation_by_severity(monkeypatch) -> None:
 async def test_escalation_admin_required() -> None:
     """v1.36 T2.4: 未鉴权应返回 401/403."""
     from fastapi.testclient import TestClient
+
     from app.main import app
 
     client = TestClient(app)
@@ -826,11 +1045,12 @@ async def test_escalation_admin_required() -> None:
 
 async def test_escalation_response_includes_instance_id(monkeypatch) -> None:
     """v1.36 T2.4: 响应包含 instance_id / cached / generated_at / params."""
-    from app.api.v1 import observability as obs_mod
     from fastapi.testclient import TestClient
+
+    from app.api.v1 import observability as obs_mod
+    from app.core import deps as deps_mod
     from app.main import app
     from app.models.user import User
-    from app.core import deps as deps_mod
 
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
@@ -858,8 +1078,12 @@ async def test_escalation_response_includes_instance_id(monkeypatch) -> None:
 
     async def _fake_compute(*args, **kwargs):
         return {
-            "total_fired": 0, "total_escalated": 0, "escalation_rate": 0.0,
-            "by_level": {}, "by_severity": {}, "by_rule": [],
+            "total_fired": 0,
+            "total_escalated": 0,
+            "escalation_rate": 0.0,
+            "by_level": {},
+            "by_severity": {},
+            "by_rule": [],
         }
 
     monkeypatch.setattr(obs_mod, "_compute_escalation", _fake_compute)
@@ -881,43 +1105,47 @@ async def test_escalation_response_includes_instance_id(monkeypatch) -> None:
 # ===== v1.36: T2.5 通道成功率 (TC-OBS-004) =====
 
 
-def _mock_channel_detail(channel: str, duration_ms: int = 100) -> str:
-    """构造 alert_channel_* detail JSON."""
-    return json.dumps({
-        "channel": channel,
-        "duration_ms": duration_ms,
-        "rule": "rule-X",
-        "severity": "P1",
-        "fingerprint": "fp-1",
-    })
+# (channel_stats mock helpers removed - tests now use real SQLite DB)
 
 
-class _MockChannelStatsDB:
-    """模拟 _compute_channel_stats 用的 db session."""
-
-    def __init__(self, rows):
-        self.rows = rows
-
-    async def execute(self, stmt):
-        class _Result:
-            def all(self_inner):
-                return self.rows
-        return _Result()
-
-
-async def test_channel_stats_basic(monkeypatch) -> None:
+async def test_channel_stats_basic(db_session) -> None:
     """v1.36 T2.5: 基础通道成功率 (1 通道, 8 sent / 2 failed = 80%)."""
     from app.api.v1.observability import _compute_channel_stats
 
-    rows = [
-        ("alert_channel_sent", _mock_channel_detail("webhook", 50))
-        for _ in range(8)
-    ] + [
-        ("alert_channel_failed", _mock_channel_detail("webhook", 100))
-        for _ in range(2)
-    ]
-    db = _MockChannelStatsDB(rows)
-    data = await _compute_channel_stats(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # 8 sent + 2 failed, 全部 webhook 通道
+    for _ in range(8):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_sent",
+            "alert_channel",
+            {
+                "channel": "webhook",
+                "duration_ms": 50,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_failed",
+            "alert_channel",
+            {
+                "channel": "webhook",
+                "duration_ms": 100,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    await db_session.commit()
+
+    data = await _compute_channel_stats(db_session, start, now, None)
     assert "channels" in data
     assert "webhook" in data["channels"]
     ch = data["channels"]["webhook"]
@@ -931,16 +1159,29 @@ async def test_channel_stats_basic(monkeypatch) -> None:
     assert data["overall_success_rate"] == pytest.approx(0.8)
 
 
-async def test_channel_stats_zero_failures(monkeypatch) -> None:
+async def test_channel_stats_zero_failures(db_session) -> None:
     """v1.36 T2.5: 100% 成功率 (零失败) -> success_rate=1.0."""
     from app.api.v1.observability import _compute_channel_stats
 
-    rows = [
-        ("alert_channel_sent", _mock_channel_detail("slack", 30))
-        for _ in range(5)
-    ]
-    db = _MockChannelStatsDB(rows)
-    data = await _compute_channel_stats(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_sent",
+            "alert_channel",
+            {
+                "channel": "slack",
+                "duration_ms": 30,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    await db_session.commit()
+
+    data = await _compute_channel_stats(db_session, start, now, None)
     ch = data["channels"]["slack"]
     assert ch["sent"] == 5
     assert ch["failed"] == 0
@@ -948,25 +1189,103 @@ async def test_channel_stats_zero_failures(monkeypatch) -> None:
     assert data["overall_success_rate"] == 1.0
 
 
-async def test_channel_stats_multiple_channels(monkeypatch) -> None:
+async def test_channel_stats_multiple_channels(db_session) -> None:
     """v1.36 T2.5: 多通道分别统计 (webhook/slack/dingtalk/email)."""
     from app.api.v1.observability import _compute_channel_stats
 
-    rows = [
-        ("alert_channel_sent", _mock_channel_detail("webhook", 50)) for _ in range(10)
-    ] + [
-        ("alert_channel_failed", _mock_channel_detail("webhook", 100)) for _ in range(2)
-    ] + [
-        ("alert_channel_sent", _mock_channel_detail("slack", 30)) for _ in range(5)
-    ] + [
-        ("alert_channel_sent", _mock_channel_detail("dingtalk", 40)) for _ in range(8)
-    ] + [
-        ("alert_channel_failed", _mock_channel_detail("email", 200)) for _ in range(3)
-    ] + [
-        ("alert_channel_sent", _mock_channel_detail("email", 200)) for _ in range(2)
-    ]
-    db = _MockChannelStatsDB(rows)
-    data = await _compute_channel_stats(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # webhook: 10 sent + 2 failed
+    for _ in range(10):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_sent",
+            "alert_channel",
+            {
+                "channel": "webhook",
+                "duration_ms": 50,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_failed",
+            "alert_channel",
+            {
+                "channel": "webhook",
+                "duration_ms": 100,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    # slack: 5 sent
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_sent",
+            "alert_channel",
+            {
+                "channel": "slack",
+                "duration_ms": 30,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    # dingtalk: 8 sent
+    for _ in range(8):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_sent",
+            "alert_channel",
+            {
+                "channel": "dingtalk",
+                "duration_ms": 40,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    # email: 2 sent + 3 failed
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_sent",
+            "alert_channel",
+            {
+                "channel": "email",
+                "duration_ms": 200,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    for _ in range(3):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_failed",
+            "alert_channel",
+            {
+                "channel": "email",
+                "duration_ms": 200,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    await db_session.commit()
+
+    data = await _compute_channel_stats(db_session, start, now, None)
     # 4 个通道都应出现
     assert set(data["channels"].keys()) == {"webhook", "slack", "dingtalk", "email"}
     # 各自的 sent / failed
@@ -981,22 +1300,35 @@ async def test_channel_stats_multiple_channels(monkeypatch) -> None:
     # success_rate: email = 2/5 = 0.4
     assert data["channels"]["email"]["success_rate"] == pytest.approx(0.4)
     # 通道过滤
-    data_webhook = await _compute_channel_stats(db, None, None, "webhook")
+    data_webhook = await _compute_channel_stats(db_session, start, now, "webhook")
     assert "webhook" in data_webhook["channels"]
     assert "slack" not in data_webhook["channels"]
 
 
-async def test_channel_stats_duration_tracking(monkeypatch) -> None:
+async def test_channel_stats_duration_tracking(db_session) -> None:
     """v1.36 T2.5: avg_duration_ms / max_duration_ms 统计正确."""
     from app.api.v1.observability import _compute_channel_stats
 
-    rows = [
-        ("alert_channel_sent", _mock_channel_detail("webhook", 50)),
-        ("alert_channel_sent", _mock_channel_detail("webhook", 100)),
-        ("alert_channel_sent", _mock_channel_detail("webhook", 200)),
-    ]
-    db = _MockChannelStatsDB(rows)
-    data = await _compute_channel_stats(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # 3 条 sent, duration 分别为 50 / 100 / 200
+    for dur in (50, 100, 200):
+        await _insert_oplog(
+            db_session,
+            "alert_channel_sent",
+            "alert_channel",
+            {
+                "channel": "webhook",
+                "duration_ms": dur,
+                "rule": "rule-X",
+                "severity": "P1",
+                "fingerprint": "fp-1",
+            },
+            now,
+        )
+    await db_session.commit()
+
+    data = await _compute_channel_stats(db_session, start, now, None)
     ch = data["channels"]["webhook"]
     # avg = (50+100+200)/3 = 116
     assert ch["avg_duration_ms"] == 116
@@ -1006,6 +1338,7 @@ async def test_channel_stats_duration_tracking(monkeypatch) -> None:
 async def test_channel_stats_admin_required() -> None:
     """v1.36 T2.5: 未鉴权应返回 401/403."""
     from fastapi.testclient import TestClient
+
     from app.main import app
 
     client = TestClient(app)
@@ -1015,11 +1348,12 @@ async def test_channel_stats_admin_required() -> None:
 
 async def test_channel_stats_response_includes_instance_id(monkeypatch) -> None:
     """v1.36 T2.5: 响应包含 instance_id / cached / generated_at / params."""
-    from app.api.v1 import observability as obs_mod
     from fastapi.testclient import TestClient
+
+    from app.api.v1 import observability as obs_mod
+    from app.core import deps as deps_mod
     from app.main import app
     from app.models.user import User
-    from app.core import deps as deps_mod
 
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
@@ -1047,8 +1381,11 @@ async def test_channel_stats_response_includes_instance_id(monkeypatch) -> None:
 
     async def _fake_compute(*args, **kwargs):
         return {
-            "channels": {}, "total_sent": 0, "total_failed": 0,
-            "total": 0, "overall_success_rate": 0.0,
+            "channels": {},
+            "total_sent": 0,
+            "total_failed": 0,
+            "total": 0,
+            "overall_success_rate": 0.0,
         }
 
     monkeypatch.setattr(obs_mod, "_compute_channel_stats", _fake_compute)
@@ -1070,85 +1407,96 @@ async def test_channel_stats_response_includes_instance_id(monkeypatch) -> None:
 # ===== v1.36: T2.6 静默命中率 (TC-OBS-005) =====
 
 
-def _mock_fired_alert_detail(severity: str = "P0") -> str:
-    """构造 alert_fired detail JSON."""
-    return json.dumps({
-        "fingerprint": f"fp-fired-{severity}",
-        "rule": "rule-A",
-        "severity": severity,
-    })
+# (silence_hit_rate mock helpers removed - tests now use real SQLite DB)
 
 
-def _mock_silenced_detail(
-    silence_name: str = "weekend-maintenance",
-    severity: str = "P1",
-) -> str:
-    """构造 alert_silenced detail JSON."""
-    return json.dumps({
-        "fingerprint": f"fp-sil-{silence_name}-{severity}",
-        "rule": "rule-A",
-        "severity": severity,
-        "silence_name": silence_name,
-        "silenced_by": 1,
-    })
-
-
-class _MockSilenceHitRateDB:
-    """模拟 _compute_silence_hit_rate 用的 db session.
-
-    fired_details 和 sil_details 可独立配置.
-    """
-
-    def __init__(self, fired_details, sil_details):
-        self.fired_details = fired_details
-        self.sil_details = sil_details
-        self.call_count = 0
-
-    async def execute(self, stmt):
-        self.call_count += 1
-        details = self.fired_details if self.call_count == 1 else self.sil_details
-
-        class _Result:
-            def scalars(self_inner):
-                class _Scalars:
-                    def all(self_inner2):
-                        return details
-                return _Scalars()
-
-        return _Result()
-
-
-async def test_silence_hit_rate_basic(monkeypatch) -> None:
+async def test_silence_hit_rate_basic(db_session) -> None:
     """v1.36 T2.6: 基础命中率 = silenced / (fired + silenced)."""
     from app.api.v1.observability import _compute_silence_hit_rate
 
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
     # 7 fired, 3 silenced -> hit_rate = 3/10 = 0.3
-    fired = [_mock_fired_alert_detail("P0") for _ in range(7)]
-    sil = [
-        _mock_silenced_detail("weekend", "P0"),
-        _mock_silenced_detail("weekend", "P1"),
-        _mock_silenced_detail("nightly", "P2"),
-    ]
-    db = _MockSilenceHitRateDB(fired, sil)
-    data = await _compute_silence_hit_rate(db, None, None)
+    for _ in range(7):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"severity": "P0", "rule": "rule-A", "fingerprint": "fp-fired"},
+            now,
+        )
+    await _insert_oplog(
+        db_session,
+        "alert_silenced",
+        "alert",
+        {"silence_name": "weekend", "severity": "P0", "fingerprint": "fp-1"},
+        now,
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_silenced",
+        "alert",
+        {"silence_name": "weekend", "severity": "P1", "fingerprint": "fp-2"},
+        now,
+    )
+    await _insert_oplog(
+        db_session,
+        "alert_silenced",
+        "alert",
+        {"silence_name": "nightly", "severity": "P2", "fingerprint": "fp-3"},
+        now,
+    )
+    await db_session.commit()
+
+    data = await _compute_silence_hit_rate(db_session, start, now)
     assert data["total_fired"] == 7
     assert data["total_silenced"] == 3
     assert data["total_processed"] == 10
     assert abs(data["hit_rate"] - 0.3) < 0.001
 
 
-async def test_silence_hit_rate_by_matcher(monkeypatch) -> None:
+async def test_silence_hit_rate_by_matcher(db_session) -> None:
     """v1.36 T2.6: by_matcher 按 silence_name 拆分 (Top-20)."""
     from app.api.v1.observability import _compute_silence_hit_rate
 
-    fired = [_mock_fired_alert_detail("P0") for _ in range(10)]
-    sil = (
-        [_mock_silenced_detail("weekend", "P0") for _ in range(5)]
-        + [_mock_silenced_detail("nightly", "P1") for _ in range(3)]
-        + [_mock_silenced_detail("deploy", "P2") for _ in range(2)]
-    )
-    db = _MockSilenceHitRateDB(fired, sil)
-    data = await _compute_silence_hit_rate(db, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    for _ in range(10):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"severity": "P0", "rule": "rule-A", "fingerprint": "fp-fired"},
+            now,
+        )
+    # silenced: weekend/P0 x5 + nightly/P1 x3 + deploy/P2 x2
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "alert_silenced",
+            "alert",
+            {"silence_name": "weekend", "severity": "P0", "fingerprint": "fp-w"},
+            now,
+        )
+    for _ in range(3):
+        await _insert_oplog(
+            db_session,
+            "alert_silenced",
+            "alert",
+            {"silence_name": "nightly", "severity": "P1", "fingerprint": "fp-n"},
+            now,
+        )
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_silenced",
+            "alert",
+            {"silence_name": "deploy", "severity": "P2", "fingerprint": "fp-d"},
+            now,
+        )
+    await db_session.commit()
+
+    data = await _compute_silence_hit_rate(db_session, start, now)
     assert "by_matcher" in data
     assert len(data["by_matcher"]) == 3
     # 按 silenced_count 降序
@@ -1163,18 +1511,48 @@ async def test_silence_hit_rate_by_matcher(monkeypatch) -> None:
     assert data["by_matcher"][1]["by_severity"]["P1"] == 3
 
 
-async def test_silence_hit_rate_by_severity(monkeypatch) -> None:
+async def test_silence_hit_rate_by_severity(db_session) -> None:
     """v1.36 T2.6: by_severity 拆分 silenced 分布."""
     from app.api.v1.observability import _compute_silence_hit_rate
 
-    fired = [_mock_fired_alert_detail("P0") for _ in range(5)]
-    sil = (
-        [_mock_silenced_detail("weekend", "P0") for _ in range(4)]
-        + [_mock_silenced_detail("nightly", "P1") for _ in range(2)]
-        + [_mock_silenced_detail("deploy", "P2") for _ in range(2)]
-    )
-    db = _MockSilenceHitRateDB(fired, sil)
-    data = await _compute_silence_hit_rate(db, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "alert_fired",
+            "alert",
+            {"severity": "P0", "rule": "rule-A", "fingerprint": "fp-fired"},
+            now,
+        )
+    # silenced: weekend/P0 x4 + nightly/P1 x2 + deploy/P2 x2
+    for _ in range(4):
+        await _insert_oplog(
+            db_session,
+            "alert_silenced",
+            "alert",
+            {"silence_name": "weekend", "severity": "P0", "fingerprint": "fp-w"},
+            now,
+        )
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_silenced",
+            "alert",
+            {"silence_name": "nightly", "severity": "P1", "fingerprint": "fp-n"},
+            now,
+        )
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "alert_silenced",
+            "alert",
+            {"silence_name": "deploy", "severity": "P2", "fingerprint": "fp-d"},
+            now,
+        )
+    await db_session.commit()
+
+    data = await _compute_silence_hit_rate(db_session, start, now)
     assert "by_severity" in data
     assert data["by_severity"]["P0"]["silenced"] == 4
     assert data["by_severity"]["P1"]["silenced"] == 2
@@ -1183,12 +1561,14 @@ async def test_silence_hit_rate_by_severity(monkeypatch) -> None:
     assert abs(data["by_severity"]["P0"]["ratio"] - 0.5) < 0.001
 
 
-async def test_silence_hit_rate_empty(monkeypatch) -> None:
+async def test_silence_hit_rate_empty(db_session) -> None:
     """v1.36 T2.6: 零数据时 hit_rate=0.0, 不抛异常."""
     from app.api.v1.observability import _compute_silence_hit_rate
 
-    db = _MockSilenceHitRateDB([], [])
-    data = await _compute_silence_hit_rate(db, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # 不写入任何数据
+    data = await _compute_silence_hit_rate(db_session, start, now)
     assert data["total_fired"] == 0
     assert data["total_silenced"] == 0
     assert data["hit_rate"] == 0.0
@@ -1199,6 +1579,7 @@ async def test_silence_hit_rate_empty(monkeypatch) -> None:
 async def test_silence_hit_rate_admin_required() -> None:
     """v1.36 T2.6: 未鉴权应返回 401/403."""
     from fastapi.testclient import TestClient
+
     from app.main import app
 
     client = TestClient(app)
@@ -1208,11 +1589,12 @@ async def test_silence_hit_rate_admin_required() -> None:
 
 async def test_silence_hit_rate_response_includes_instance_id(monkeypatch) -> None:
     """v1.36 T2.6: 响应包含 instance_id / cached / generated_at / params."""
-    from app.api.v1 import observability as obs_mod
     from fastapi.testclient import TestClient
+
+    from app.api.v1 import observability as obs_mod
+    from app.core import deps as deps_mod
     from app.main import app
     from app.models.user import User
-    from app.core import deps as deps_mod
 
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
@@ -1240,8 +1622,12 @@ async def test_silence_hit_rate_response_includes_instance_id(monkeypatch) -> No
 
     async def _fake_compute(*args, **kwargs):
         return {
-            "total_fired": 0, "total_silenced": 0, "total_processed": 0,
-            "hit_rate": 0.0, "by_matcher": [], "by_severity": {},
+            "total_fired": 0,
+            "total_silenced": 0,
+            "total_processed": 0,
+            "hit_rate": 0.0,
+            "by_matcher": [],
+            "by_severity": {},
         }
 
     monkeypatch.setattr(obs_mod, "_compute_silence_hit_rate", _fake_compute)
@@ -1263,92 +1649,102 @@ async def test_silence_hit_rate_response_includes_instance_id(monkeypatch) -> No
 # ===== v1.36: T2.7 AM 同步可观测 (TC-OBS-006) =====
 
 
-def _mock_am_sync_success(
-    operation: str = "push_silence",
-    duration_ms: int = 100,
-) -> str:
-    """构造 am_sync_success detail JSON."""
-    return json.dumps({
-        "operation": operation,
-        "duration_ms": duration_ms,
-        "am_silence_id": "am-silence-1",
-    })
+# (am_sync mock helpers removed - tests now use real SQLite DB)
 
 
-def _mock_am_sync_failed(
-    operation: str = "push_silence",
-    error: str = "AM timeout",
-    duration_ms: int = 2000,
-) -> str:
-    """构造 am_sync_failed detail JSON."""
-    return json.dumps({
-        "operation": operation,
-        "duration_ms": duration_ms,
-        "error": error,
-        "am_silence_id": "am-silence-2",
-    })
-
-
-class _MockAmSyncDB:
-    """模拟 _compute_am_sync 用的 db session.
-
-    succ_rows 和 fail_rows 可独立配置.
-    """
-
-    def __init__(self, succ_rows, fail_rows):
-        self.succ_rows = succ_rows
-        self.fail_rows = fail_rows
-        self.call_count = 0
-
-    async def execute(self, stmt):
-        self.call_count += 1
-        rows = self.succ_rows if self.call_count == 1 else self.fail_rows
-
-        class _Result:
-            def all(self_inner):
-                return rows
-        return _Result()
-
-
-async def test_am_sync_stats_basic(monkeypatch) -> None:
+async def test_am_sync_stats_basic(db_session) -> None:
     """v1.36 T2.7: 基础同步统计 (success / failed / success_rate)."""
     from app.api.v1.observability import _compute_am_sync
 
-    # 8 success, 2 failed -> success_rate = 0.8
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
-    succ = [
-        (_mock_am_sync_success("push_silence", 100), now)
-        for _ in range(8)
-    ]
-    fail = [
-        (_mock_am_sync_failed("push_silence", "timeout", 2000), now)
-        for _ in range(2)
-    ]
-    db = _MockAmSyncDB(succ, fail)
-    data = await _compute_am_sync(db, None, None, None)
+    start = now - timedelta(hours=24)
+    # 8 success + 2 failed, 全部 push_silence
+    for _ in range(8):
+        await _insert_oplog(
+            db_session,
+            "am_sync_success",
+            "alert_silence",
+            {
+                "operation": "push_silence",
+                "duration_ms": 100,
+                "am_silence_id": "am-silence-1",
+            },
+            now,
+        )
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "am_sync_failed",
+            "alert_silence",
+            {
+                "operation": "push_silence",
+                "duration_ms": 2000,
+                "error": "timeout",
+                "am_silence_id": "am-silence-2",
+            },
+            now,
+        )
+    await db_session.commit()
+
+    data = await _compute_am_sync(db_session, start, now, None)
     assert data["total_success"] == 8
     assert data["total_failed"] == 2
     assert data["total"] == 10
     assert abs(data["success_rate"] - 0.8) < 0.001
 
 
-async def test_am_sync_by_operation(monkeypatch) -> None:
+async def test_am_sync_by_operation(db_session) -> None:
     """v1.36 T2.7: by_operation 按 push_silence / delete_silence / pull_silences 拆分."""
     from app.api.v1.observability import _compute_am_sync
 
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
-    succ = (
-        [(_mock_am_sync_success("push_silence", 100), now) for _ in range(5)]
-        + [(_mock_am_sync_success("delete_silence", 50), now) for _ in range(3)]
+    start = now - timedelta(hours=24)
+    # success: 5 push_silence + 3 delete_silence
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "am_sync_success",
+            "alert_silence",
+            {"operation": "push_silence", "duration_ms": 100, "am_silence_id": "am-1"},
+            now,
+        )
+    for _ in range(3):
+        await _insert_oplog(
+            db_session,
+            "am_sync_success",
+            "alert_silence",
+            {"operation": "delete_silence", "duration_ms": 50, "am_silence_id": "am-2"},
+            now,
+        )
+    # failed: 2 push_silence + 1 pull_silences
+    for _ in range(2):
+        await _insert_oplog(
+            db_session,
+            "am_sync_failed",
+            "alert_silence",
+            {
+                "operation": "push_silence",
+                "duration_ms": 2000,
+                "error": "err1",
+                "am_silence_id": "am-3",
+            },
+            now,
+        )
+    await _insert_oplog(
+        db_session,
+        "am_sync_failed",
+        "alert_silence",
+        {
+            "operation": "pull_silences",
+            "duration_ms": 3000,
+            "error": "err2",
+            "am_silence_id": "am-4",
+        },
+        now,
     )
-    fail = (
-        [(_mock_am_sync_failed("push_silence", "err1", 2000), now) for _ in range(2)]
-        + [(_mock_am_sync_failed("pull_silences", "err2", 3000), now) for _ in range(1)]
-    )
-    db = _MockAmSyncDB(succ, fail)
-    data = await _compute_am_sync(db, None, None, None)
+    await db_session.commit()
+
+    data = await _compute_am_sync(db_session, start, now, None)
     assert "by_operation" in data
     assert len(data["by_operation"]) == 3
     op_map = {op["operation"]: op for op in data["by_operation"]}
@@ -1360,19 +1756,29 @@ async def test_am_sync_by_operation(monkeypatch) -> None:
     assert op_map["push_silence"]["avg_duration_ms"] > 0
 
 
-async def test_am_sync_recent_failures(monkeypatch) -> None:
+async def test_am_sync_recent_failures(db_session) -> None:
     """v1.36 T2.7: recent_failures 包含错误详情, 限制 10 条."""
     from app.api.v1.observability import _compute_am_sync
 
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
-    # 12 条失败
-    fail = [
-        (_mock_am_sync_failed("push_silence", f"error-{i}", 1000 + i), now)
-        for i in range(12)
-    ]
-    db = _MockAmSyncDB([], fail)
-    data = await _compute_am_sync(db, None, None, None)
+    start = now - timedelta(hours=24)
+    # 12 条失败, 每条用递增时间戳保证可排序
+    for i in range(12):
+        await _insert_oplog(
+            db_session,
+            "am_sync_failed",
+            "alert_silence",
+            {
+                "operation": "push_silence",
+                "duration_ms": 1000 + i,
+                "error": f"error-{i}",
+                "am_silence_id": f"am-{i}",
+            },
+            now - timedelta(minutes=12 - i),
+        )
+    await db_session.commit()
+
+    data = await _compute_am_sync(db_session, start, now, None)
     assert "recent_failures" in data
     # 仅保留最近 10 条
     assert len(data["recent_failures"]) == 10
@@ -1383,22 +1789,46 @@ async def test_am_sync_recent_failures(monkeypatch) -> None:
     assert "duration_ms" in rf
 
 
-async def test_am_sync_operation_filter(monkeypatch) -> None:
+async def test_am_sync_operation_filter(db_session) -> None:
     """v1.36 T2.7: operation 过滤只保留指定操作."""
     from app.api.v1.observability import _compute_am_sync
 
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
-    succ = (
-        [(_mock_am_sync_success("push_silence", 100), now) for _ in range(3)]
-        + [(_mock_am_sync_success("delete_silence", 50), now) for _ in range(5)]
+    start = now - timedelta(hours=24)
+    # success: 3 push_silence + 5 delete_silence
+    for _ in range(3):
+        await _insert_oplog(
+            db_session,
+            "am_sync_success",
+            "alert_silence",
+            {"operation": "push_silence", "duration_ms": 100, "am_silence_id": "am-1"},
+            now,
+        )
+    for _ in range(5):
+        await _insert_oplog(
+            db_session,
+            "am_sync_success",
+            "alert_silence",
+            {"operation": "delete_silence", "duration_ms": 50, "am_silence_id": "am-2"},
+            now,
+        )
+    # failed: 1 push_silence
+    await _insert_oplog(
+        db_session,
+        "am_sync_failed",
+        "alert_silence",
+        {
+            "operation": "push_silence",
+            "duration_ms": 2000,
+            "error": "err",
+            "am_silence_id": "am-3",
+        },
+        now,
     )
-    fail = [
-        (_mock_am_sync_failed("push_silence", "err", 2000), now)
-    ]
-    db = _MockAmSyncDB(succ, fail)
+    await db_session.commit()
+
     # 仅看 push_silence
-    data = await _compute_am_sync(db, None, None, "push_silence")
+    data = await _compute_am_sync(db_session, start, now, "push_silence")
     assert data["total_success"] == 3
     assert data["total_failed"] == 1
     # by_operation 仅含 push_silence
@@ -1406,12 +1836,14 @@ async def test_am_sync_operation_filter(monkeypatch) -> None:
     assert data["by_operation"][0]["operation"] == "push_silence"
 
 
-async def test_am_sync_empty(monkeypatch) -> None:
+async def test_am_sync_empty(db_session) -> None:
     """v1.36 T2.7: 零数据时不抛异常, success_rate=0.0."""
     from app.api.v1.observability import _compute_am_sync
 
-    db = _MockAmSyncDB([], [])
-    data = await _compute_am_sync(db, None, None, None)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=24)
+    # 不写入任何数据
+    data = await _compute_am_sync(db_session, start, now, None)
     assert data["total_success"] == 0
     assert data["total_failed"] == 0
     assert data["success_rate"] == 0.0
@@ -1422,6 +1854,7 @@ async def test_am_sync_empty(monkeypatch) -> None:
 async def test_am_sync_admin_required() -> None:
     """v1.36 T2.7: 未鉴权应返回 401/403."""
     from fastapi.testclient import TestClient
+
     from app.main import app
 
     client = TestClient(app)
@@ -1431,11 +1864,12 @@ async def test_am_sync_admin_required() -> None:
 
 async def test_am_sync_response_includes_instance_id(monkeypatch) -> None:
     """v1.36 T2.7: 响应包含 instance_id / cached / generated_at / params."""
-    from app.api.v1 import observability as obs_mod
     from fastapi.testclient import TestClient
+
+    from app.api.v1 import observability as obs_mod
+    from app.core import deps as deps_mod
     from app.main import app
     from app.models.user import User
-    from app.core import deps as deps_mod
 
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
@@ -1463,9 +1897,13 @@ async def test_am_sync_response_includes_instance_id(monkeypatch) -> None:
 
     async def _fake_compute(*args, **kwargs):
         return {
-            "total_success": 0, "total_failed": 0, "total": 0,
-            "success_rate": 0.0, "avg_duration_ms": 0,
-            "by_operation": [], "recent_failures": [],
+            "total_success": 0,
+            "total_failed": 0,
+            "total": 0,
+            "success_rate": 0.0,
+            "avg_duration_ms": 0,
+            "by_operation": [],
+            "recent_failures": [],
         }
 
     monkeypatch.setattr(obs_mod, "_compute_am_sync", _fake_compute)
@@ -1495,13 +1933,15 @@ def _mock_lock_flush_detail(
     instance_id: str = "host-1-1234",
 ) -> str:
     """构造 dedup_lock_stats detail JSON."""
-    return json.dumps({
-        "instance_id": instance_id,
-        "acquired": acquired,
-        "skipped": skipped,
-        "fallback": fallback,
-        "errors": errors,
-    })
+    return json.dumps(
+        {
+            "instance_id": instance_id,
+            "acquired": acquired,
+            "skipped": skipped,
+            "fallback": fallback,
+            "errors": errors,
+        }
+    )
 
 
 class _MockLockStatsDB:
@@ -1514,6 +1954,7 @@ class _MockLockStatsDB:
         class _Result:
             def all(self_inner):
                 return self.flush_rows
+
         return _Result()
 
 
@@ -1524,7 +1965,8 @@ async def test_lock_stats_basic(monkeypatch) -> None:
 
     # 模拟内存统计
     monkeypatch.setattr(
-        dedup_lock, "_stats",
+        dedup_lock,
+        "_stats",
         {"acquired": 10, "skipped": 5, "fallback": 2, "errors": 1},
     )
     monkeypatch.setattr(dedup_lock, "_last_flush_at", "2026-06-03T10:00:00Z")
@@ -1550,12 +1992,14 @@ async def test_lock_stats_basic(monkeypatch) -> None:
 
 async def test_lock_stats_recent_flushes(monkeypatch) -> None:
     """v1.36 T2.8: recent_flushes 包含最近 10 条 flush 详情."""
+    from datetime import datetime, timedelta, timezone
+
     from app.api.v1.observability import _compute_lock_stats
     from app.monitoring import dedup_lock
-    from datetime import datetime, timezone, timedelta
 
     monkeypatch.setattr(
-        dedup_lock, "_stats",
+        dedup_lock,
+        "_stats",
         {"acquired": 0, "skipped": 0, "fallback": 0, "errors": 0},
     )
     monkeypatch.setattr(dedup_lock, "_last_flush_at", None)
@@ -1586,7 +2030,8 @@ async def test_lock_stats_historical_aggregation(monkeypatch) -> None:
     from app.monitoring import dedup_lock
 
     monkeypatch.setattr(
-        dedup_lock, "_stats",
+        dedup_lock,
+        "_stats",
         {"acquired": 0, "skipped": 0, "fallback": 0, "errors": 0},
     )
     monkeypatch.setattr(dedup_lock, "_last_flush_at", None)
@@ -1618,7 +2063,8 @@ async def test_lock_stats_empty(monkeypatch) -> None:
     from app.monitoring import dedup_lock
 
     monkeypatch.setattr(
-        dedup_lock, "_stats",
+        dedup_lock,
+        "_stats",
         {"acquired": 0, "skipped": 0, "fallback": 0, "errors": 0},
     )
     monkeypatch.setattr(dedup_lock, "_last_flush_at", None)
@@ -1635,6 +2081,7 @@ async def test_lock_stats_empty(monkeypatch) -> None:
 async def test_lock_stats_admin_required() -> None:
     """v1.36 T2.8: 未鉴权应返回 401/403."""
     from fastapi.testclient import TestClient
+
     from app.main import app
 
     client = TestClient(app)
@@ -1644,11 +2091,12 @@ async def test_lock_stats_admin_required() -> None:
 
 async def test_lock_stats_response_includes_instance_id(monkeypatch) -> None:
     """v1.36 T2.8: 响应包含 instance_id / cached / generated_at."""
-    from app.api.v1 import observability as obs_mod
     from fastapi.testclient import TestClient
+
+    from app.api.v1 import observability as obs_mod
+    from app.core import deps as deps_mod
     from app.main import app
     from app.models.user import User
-    from app.core import deps as deps_mod
 
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
@@ -1677,16 +2125,26 @@ async def test_lock_stats_response_includes_instance_id(monkeypatch) -> None:
     async def _fake_compute(*args, **kwargs):
         return {
             "memory": {
-                "acquired": 0, "skipped": 0, "fallback": 0, "errors": 0,
-                "total": 0, "acquire_rate": 0.0,
-                "fallback_rate": 0.0, "error_rate": 0.0,
+                "acquired": 0,
+                "skipped": 0,
+                "fallback": 0,
+                "errors": 0,
+                "total": 0,
+                "acquire_rate": 0.0,
+                "fallback_rate": 0.0,
+                "error_rate": 0.0,
             },
             "last_flush_at": None,
             "recent_flushes": [],
             "historical_recent": {
-                "recent_flush_count": 0, "total_acquired": 0,
-                "total_skipped": 0, "total_fallback": 0, "total_errors": 0,
-                "total": 0, "fallback_rate": 0.0, "error_rate": 0.0,
+                "recent_flush_count": 0,
+                "total_acquired": 0,
+                "total_skipped": 0,
+                "total_fallback": 0,
+                "total_errors": 0,
+                "total": 0,
+                "fallback_rate": 0.0,
+                "error_rate": 0.0,
             },
         }
 

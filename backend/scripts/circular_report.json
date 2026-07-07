@@ -1,0 +1,997 @@
+{
+  "project_root": "E:\\code\\bysj\\backend\\app",
+  "startup_cycle_count": 0,
+  "runtime_cycle_count": 27,
+  "startup_cycles": [],
+  "runtime_cycles": [
+    {
+      "path": [
+        "app.ml.data_cleaner",
+        "app.ml.model_loader",
+        "app.ml.data_cleaner"
+      ],
+      "edges": [
+        {
+          "source": "app.ml.data_cleaner",
+          "target": "app.ml.model_loader",
+          "is_top_level": false,
+          "line": 148,
+          "source_file": "E:\\code\\bysj\\backend\\app\\ml\\data_cleaner.py"
+        },
+        {
+          "source": "app.ml.model_loader",
+          "target": "app.ml.data_cleaner",
+          "is_top_level": false,
+          "line": 292,
+          "source_file": "E:\\code\\bysj\\backend\\app\\ml\\model_loader.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.ml.model",
+        "app.ml.model_loader",
+        "app.ml.model"
+      ],
+      "edges": [
+        {
+          "source": "app.ml.model",
+          "target": "app.ml.model_loader",
+          "is_top_level": false,
+          "line": 264,
+          "source_file": "E:\\code\\bysj\\backend\\app\\ml\\model.py"
+        },
+        {
+          "source": "app.ml.model_loader",
+          "target": "app.ml.model",
+          "is_top_level": true,
+          "line": 10,
+          "source_file": "E:\\code\\bysj\\backend\\app\\ml\\model_loader.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.ml.model_loader",
+        "app.ml.scaler",
+        "app.ml.model_loader"
+      ],
+      "edges": [
+        {
+          "source": "app.ml.model_loader",
+          "target": "app.ml.scaler",
+          "is_top_level": true,
+          "line": 11,
+          "source_file": "E:\\code\\bysj\\backend\\app\\ml\\model_loader.py"
+        },
+        {
+          "source": "app.ml.scaler",
+          "target": "app.ml.model_loader",
+          "is_top_level": false,
+          "line": 87,
+          "source_file": "E:\\code\\bysj\\backend\\app\\ml\\scaler.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1.uploads",
+        "app.main",
+        "app.api.v1.uploads"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1.uploads",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 110,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\uploads.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1.uploads",
+          "is_top_level": true,
+          "line": 11,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1.uploads",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1.uploads"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1.uploads",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 33,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\uploads.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1.uploads",
+          "is_top_level": true,
+          "line": 11,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.admin",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.admin",
+          "is_top_level": true,
+          "line": 4,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.admin",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 10,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\admin.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.admin_metrics",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.admin_metrics",
+          "is_top_level": true,
+          "line": 5,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.admin_metrics",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 17,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\admin_metrics.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.alerts",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.alerts",
+          "is_top_level": true,
+          "line": 6,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.alerts",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 24,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\alerts.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.observability",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.observability",
+          "is_top_level": true,
+          "line": 7,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.observability",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 38,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\observability.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.silences",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.silences",
+          "is_top_level": true,
+          "line": 8,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.silences",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 24,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\silences.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.grafana_adapter",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.grafana_adapter",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.grafana_adapter",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 27,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\grafana_adapter.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.auth",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.auth",
+          "is_top_level": true,
+          "line": 10,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.auth",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 14,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\auth.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.canary",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.canary",
+          "is_top_level": true,
+          "line": 11,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.canary",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\canary.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.counselor",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.counselor",
+          "is_top_level": true,
+          "line": 12,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.counselor",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 8,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\counselor.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.gdpr",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.gdpr",
+          "is_top_level": true,
+          "line": 13,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.gdpr",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 19,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\gdpr.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.model_predict",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.model_predict",
+          "is_top_level": true,
+          "line": 15,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.model_predict",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 8,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\model_predict.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.monitoring",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.monitoring",
+          "is_top_level": true,
+          "line": 16,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.monitoring",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 13,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\monitoring.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.reports",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.reports",
+          "is_top_level": true,
+          "line": 17,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.reports",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 14,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\reports.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.review",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.review",
+          "is_top_level": true,
+          "line": 18,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.review",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 10,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\review.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.user_content",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.user_content",
+          "is_top_level": true,
+          "line": 19,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.user_content",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 7,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\user_content.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.user_data",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.user_data",
+          "is_top_level": true,
+          "line": 20,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.user_data",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 10,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\user_data.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.user_intervention",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.user_intervention",
+          "is_top_level": true,
+          "line": 21,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.user_intervention",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 8,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\user_intervention.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.user_risk",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.user_risk",
+          "is_top_level": true,
+          "line": 22,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.user_risk",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 10,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\user_risk.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.user_upload",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.user_upload",
+          "is_top_level": true,
+          "line": 23,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.user_upload",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 14,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\user_upload.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.user_warning",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.user_warning",
+          "is_top_level": true,
+          "line": 24,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.user_warning",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 7,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\user_warning.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.validation",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.validation",
+          "is_top_level": true,
+          "line": 25,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.validation",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 16,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\validation.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    },
+    {
+      "path": [
+        "app.api.v1",
+        "app.api.v1.grafana_adapter",
+        "app.api.v1.observability",
+        "app.core.deps",
+        "app.main",
+        "app.api.v1"
+      ],
+      "edges": [
+        {
+          "source": "app.api.v1",
+          "target": "app.api.v1.grafana_adapter",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\__init__.py"
+        },
+        {
+          "source": "app.api.v1.grafana_adapter",
+          "target": "app.api.v1.observability",
+          "is_top_level": false,
+          "line": 355,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\grafana_adapter.py"
+        },
+        {
+          "source": "app.api.v1.observability",
+          "target": "app.core.deps",
+          "is_top_level": true,
+          "line": 38,
+          "source_file": "E:\\code\\bysj\\backend\\app\\api\\v1\\observability.py"
+        },
+        {
+          "source": "app.core.deps",
+          "target": "app.main",
+          "is_top_level": false,
+          "line": 166,
+          "source_file": "E:\\code\\bysj\\backend\\app\\core\\deps.py"
+        },
+        {
+          "source": "app.main",
+          "target": "app.api.v1",
+          "is_top_level": true,
+          "line": 9,
+          "source_file": "E:\\code\\bysj\\backend\\app\\main.py"
+        }
+      ]
+    }
+  ]
+}

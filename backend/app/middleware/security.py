@@ -61,11 +61,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Permissions-Policy
         response.headers["Permissions-Policy"] = (
-            "geolocation=(), "
-            "microphone=(), "
-            "camera=(), "
-            "payment=(), "
-            "usb=()"
+            "geolocation=(), " "microphone=(), " "camera=(), " "payment=(), " "usb=()"
         )
 
         # X-DNS-Prefetch-Control

@@ -35,7 +35,11 @@ async def list_warnings(
     return ok(data)
 
 
-@router.put("/warnings/{warning_id}/read", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.put(
+    "/warnings/{warning_id}/read",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def mark_warning_read(
     warning_id: int,
     current_user: Annotated[User, Depends(require_role("user"))],
@@ -48,7 +52,9 @@ async def mark_warning_read(
     return ok({"message": "已标记为已读"})
 
 
-@router.put("/warnings/read-all", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.put(
+    "/warnings/read-all", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
+)
 async def mark_all_warning_read(
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -58,7 +64,9 @@ async def mark_all_warning_read(
     return ok({"message": "全部标记为已读", "count": count})
 
 
-@router.get("/warning-settings", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.get(
+    "/warning-settings", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
+)
 async def get_warning_setting(
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -69,13 +77,21 @@ async def get_warning_setting(
         {
             "notify_channels": setting.notify_channels,
             "threshold_level": setting.threshold_level,
-            "quiet_hours_start": setting.quiet_hours_start.isoformat() if setting.quiet_hours_start else None,
-            "quiet_hours_end": setting.quiet_hours_end.isoformat() if setting.quiet_hours_end else None,
+            "quiet_hours_start": (
+                setting.quiet_hours_start.isoformat()
+                if setting.quiet_hours_start
+                else None
+            ),
+            "quiet_hours_end": (
+                setting.quiet_hours_end.isoformat() if setting.quiet_hours_end else None
+            ),
         }
     )
 
 
-@router.put("/warning-settings", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.put(
+    "/warning-settings", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
+)
 async def update_warning_setting(
     payload: WarningSettingsUpdateRequest,
     current_user: Annotated[User, Depends(require_role("user"))],

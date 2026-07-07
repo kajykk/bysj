@@ -9,16 +9,12 @@ Tests the system's ability to gracefully degrade when:
 
 from __future__ import annotations
 
-import json
-import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from app.core.fallback_hierarchy import FallbackExhaustedError, FallbackHierarchy
 from app.core.model_engine import ModelEngine
-from app.services.input_validator import InputValidator
 
 pytestmark = pytest.mark.degradation
 
@@ -32,14 +28,17 @@ class TestModelDegradation:
         engine = ModelEngine()
 
         # Mock model path to non-existent file
-        with patch("app.core.model_engine.MODEL_PATHS", {
-            "structured_logistic_regression_quick": Path("/nonexistent/model.pkl")
-        }):
-            result = await engine.predict_structured({
-                "sleep_hours": 5.0,
-                "exercise_minutes": 10.0,
-                "heart_rate_avg": 85.0,
-            })
+        with patch(
+            "app.core.model_engine.MODEL_PATHS",
+            {"structured_logistic_regression_quick": Path("/nonexistent/model.pkl")},
+        ):
+            result = await engine.predict_structured(
+                {
+                    "sleep_hours": 5.0,
+                    "exercise_minutes": 10.0,
+                    "heart_rate_avg": 85.0,
+                }
+            )
 
         # Should still return a result via heuristic fallback
         assert "risk_score" in result

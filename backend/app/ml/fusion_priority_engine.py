@@ -38,7 +38,9 @@ class FusionPriorityEngine:
         # 规则 2: 多模型一致高风险时提升等级
         high_risk_count = 0
         for result in [structured_result, text_result, physio_result]:
-            if result and (result.get("risk_level") or 0) >= 3:
+            # L-24 修复：显式 None 检查，避免 0/0.0 等 falsy 值被误判
+            _risk_level = result.get("risk_level") if result else None
+            if _risk_level is not None and _risk_level >= 3:
                 high_risk_count += 1
         if high_risk_count >= 2 and base_risk_level < 3:
             base_risk_level = 3  # high
@@ -53,7 +55,9 @@ class FusionPriorityEngine:
         scores = []
         for result in [structured_result, text_result, physio_result]:
             if result:
-                scores.append(result.get("risk_score") or 0)
+                # L-24 修复：显式 None 检查，避免 0.0 风险分数被替换为 0
+                _score = result.get("risk_score")
+                scores.append(_score if _score is not None else 0.0)
         if scores:
             score_range = max(scores) - min(scores)
             if score_range > 40:
@@ -67,8 +71,8 @@ class FusionPriorityEngine:
             ("physiological", physio_result),
         ]:
             if result:
-                confidence = result.get("confidence") or 1.0
-                risk_level = result.get("risk_level") or 0
+                confidence = result.get("confidence", 1.0)
+                risk_level = result.get("risk_level", 0)
                 if confidence < 0.5 and risk_level >= 3:
                     review_required = True
                     review_triggers.append(f"low_confidence_high_risk_{modality}")

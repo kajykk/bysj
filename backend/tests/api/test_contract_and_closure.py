@@ -6,10 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.admin import OperationLog
 from app.models.counselor import ConsultationRecord
-from app.models.risk import WarningNotification
 
 
-def test_user_warning_contract_unified_fields(client: TestClient, as_role, seed_counselor_data: None) -> None:
+def test_user_warning_contract_unified_fields(
+    client: TestClient, as_role, seed_counselor_data: None
+) -> None:
     as_role("user", 1)
     res = client.get("/api/v1/user/warnings?page=1&page_size=10")
     assert res.status_code == 200
@@ -32,17 +33,27 @@ def test_counselor_handle_warning_logs_unified_action_type(
     list_res = client.get("/api/v1/counselor/warnings?page=1&page_size=10")
     warning_id = list_res.json()["data"]["items"][0]["id"]
 
-    res = client.put(f"/api/v1/counselor/warnings/{warning_id}/handle", json={"action": "ignore", "note": "not needed"})
+    res = client.put(
+        f"/api/v1/counselor/warnings/{warning_id}/handle",
+        json={"action": "ignore", "note": "not needed"},
+    )
     assert res.status_code == 200
 
     async def _query() -> list[OperationLog]:
         rows = (
-            await db_session.execute(
-                select(OperationLog)
-                .where(OperationLog.target_type == "warning_notification", OperationLog.target_id == warning_id)
-                .order_by(OperationLog.id.desc())
+            (
+                await db_session.execute(
+                    select(OperationLog)
+                    .where(
+                        OperationLog.target_type == "warning_notification",
+                        OperationLog.target_id == warning_id,
+                    )
+                    .order_by(OperationLog.id.desc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return rows
 
     rows = asyncio.run(_query())
@@ -77,7 +88,11 @@ def test_consultation_list_contains_warning_link_fields(
 
     create = client.post(
         "/api/v1/counselor/users/1/consultations",
-        json={"warning_id": warning_id, "main_topics": "sleep", "next_plan": "follow up"},
+        json={
+            "warning_id": warning_id,
+            "main_topics": "sleep",
+            "next_plan": "follow up",
+        },
     )
     assert create.status_code == 200
 
@@ -90,7 +105,11 @@ def test_consultation_list_contains_warning_link_fields(
 
     async def _query_record() -> ConsultationRecord | None:
         return (
-            await db_session.execute(select(ConsultationRecord).where(ConsultationRecord.id == create.json()["data"]["record_id"]))
+            await db_session.execute(
+                select(ConsultationRecord).where(
+                    ConsultationRecord.id == create.json()["data"]["record_id"]
+                )
+            )
         ).scalar_one_or_none()
 
     record = asyncio.run(_query_record())

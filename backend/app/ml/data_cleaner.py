@@ -54,8 +54,12 @@ class DataCleaner:
         Returns:
             self（支持链式调用）。
         """
-        feature_cols = [c for c in train_df.columns if c not in ("source", "depression_label")]
-        numeric_cols = [c for c in feature_cols if pd.api.types.is_numeric_dtype(train_df[c])]
+        feature_cols = [
+            c for c in train_df.columns if c not in ("source", "depression_label")
+        ]
+        numeric_cols = [
+            c for c in feature_cols if pd.api.types.is_numeric_dtype(train_df[c])
+        ]
 
         # 计算中位数（仅训练集）
         self._medians = {}
@@ -70,7 +74,9 @@ class DataCleaner:
             low_val = float(train_df[col].quantile(WINSOR_LOW))
             high_val = float(train_df[col].quantile(WINSOR_HIGH))
             self._winsor_bounds[col] = (low_val, high_val)
-            logger.info("Fitted winsor bounds for %s: [%.2f, %.2f]", col, low_val, high_val)
+            logger.info(
+                "Fitted winsor bounds for %s: [%.2f, %.2f]", col, low_val, high_val
+            )
 
         self._fitted = True
         return self
@@ -85,7 +91,9 @@ class DataCleaner:
             清洗后的 DataFrame。
         """
         if not self._fitted:
-            raise RuntimeError("DataCleaner must be fitted before transform. Call fit() first.")
+            raise RuntimeError(
+                "DataCleaner must be fitted before transform. Call fit() first."
+            )
 
         df_clean = df.copy()
 
@@ -97,7 +105,12 @@ class DataCleaner:
             if col in df_clean.columns and df_clean[col].isnull().sum() > 0:
                 fill_count = df_clean[col].isnull().sum()
                 df_clean[col] = df_clean[col].fillna(median_val)
-                logger.info("Filled %d missing values in %s with train median %.2f", fill_count, col, median_val)
+                logger.info(
+                    "Filled %d missing values in %s with train median %.2f",
+                    fill_count,
+                    col,
+                    median_val,
+                )
 
         # 3. 裁剪极端值（使用固定生理阈值，无泄漏风险）
         df_clean = clip_extreme_values(df_clean)
@@ -105,10 +118,18 @@ class DataCleaner:
         # 4. 使用训练集 Winsorization 边界
         for col, (low_val, high_val) in self._winsor_bounds.items():
             if col in df_clean.columns:
-                before_count = ((df_clean[col] < low_val) | (df_clean[col] > high_val)).sum()
+                before_count = (
+                    (df_clean[col] < low_val) | (df_clean[col] > high_val)
+                ).sum()
                 if before_count > 0:
                     df_clean[col] = df_clean[col].clip(lower=low_val, upper=high_val)
-                    logger.info("Winsorized %d values in %s to train bounds [%.2f, %.2f]", before_count, col, low_val, high_val)
+                    logger.info(
+                        "Winsorized %d values in %s to train bounds [%.2f, %.2f]",
+                        before_count,
+                        col,
+                        low_val,
+                        high_val,
+                    )
 
         return df_clean
 
@@ -144,6 +165,11 @@ class DataCleaner:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        # C-ML-2 修复：生成 .sha256 侧车校验文件，与 load_cleaner 的 require_checksum=True 对齐
+        # 治理循环依赖：改从 app.utils.checksum 导入，避免反向依赖 model_loader 形成环。
+        from app.utils.checksum import write_sha256_sidecar
+
+        write_sha256_sidecar(path)
         logger.info("Saved DataCleaner stats to %s", path)
 
     def load(self, path: str | Path) -> DataCleaner:
@@ -203,7 +229,17 @@ class DataCleaner:
                 low, high = self._winsor_bounds[col]
                 cleaned[col] = max(low, min(high, cleaned[col]))
 
-        return cleaned
+        # M-ML-8 修复：按训练时的特征顺序重排列输出，避免输入字典顺序与训练时不一致
+        # 导致特征错位（_winsor_bounds 的键顺序即训练时 numeric_cols 的顺序，已序列化保存）
+        ordered: dict[str, float | int] = {}
+        for col in self._winsor_bounds:
+            if col in cleaned:
+                ordered[col] = cleaned[col]
+        # 追加训练时 winsor_bounds 未覆盖的额外字段，保持向后兼容
+        for col, val in cleaned.items():
+            if col not in ordered:
+                ordered[col] = val
+        return ordered
 
 
 def handle_all_nan_columns(df: DataFrame) -> tuple[DataFrame, list[str]]:
@@ -259,8 +295,12 @@ def handle_missing_values(df: DataFrame) -> DataFrame:
         if df_clean[col].isnull().sum() > 0:
             median_val = df_clean[col].median()
             df_clean[col] = df_clean[col].fillna(median_val)
-            logger.info("Filled %d missing values in %s with median %.2f",
-                       df[col].isnull().sum(), col, median_val)
+            logger.info(
+                "Filled %d missing values in %s with median %.2f",
+                df[col].isnull().sum(),
+                col,
+                median_val,
+            )
 
     return df_clean
 
@@ -283,7 +323,11 @@ def drop_high_missing_samples(df: DataFrame, threshold: float = 0.3) -> DataFram
 
     if dropped_count > 0:
         df_clean = df[~to_drop].copy()
-        logger.info("Dropped %d samples with >%.0f%% missing values", dropped_count, threshold * 100)
+        logger.info(
+            "Dropped %d samples with >%.0f%% missing values",
+            dropped_count,
+            threshold * 100,
+        )
     else:
         df_clean = df.copy()
         logger.info("No samples with >%.0f%% missing values found", threshold * 100)
@@ -307,8 +351,13 @@ def clip_extreme_values(df: DataFrame) -> DataFrame:
             before_count = ((df_clean[col] < low) | (df_clean[col] > high)).sum()
             df_clean[col] = df_clean[col].clip(lower=low, upper=high)
             if before_count > 0:
-                logger.info("Clipped %d extreme values in %s to [%.0f, %.0f]",
-                           before_count, col, low, high)
+                logger.info(
+                    "Clipped %d extreme values in %s to [%.0f, %.0f]",
+                    before_count,
+                    col,
+                    low,
+                    high,
+                )
 
     return df_clean
 
@@ -343,12 +392,19 @@ def winsorize_features(df: DataFrame) -> DataFrame:
             low_val = df_clean[col].quantile(WINSOR_LOW)
             high_val = df_clean[col].quantile(WINSOR_HIGH)
 
-            before_count = ((df_clean[col] < low_val) | (df_clean[col] > high_val)).sum()
+            before_count = (
+                (df_clean[col] < low_val) | (df_clean[col] > high_val)
+            ).sum()
             df_clean[col] = df_clean[col].clip(lower=low_val, upper=high_val)
 
             if before_count > 0:
-                logger.info("Winsorized %d values in %s to [%.2f, %.2f]",
-                           before_count, col, low_val, high_val)
+                logger.info(
+                    "Winsorized %d values in %s to [%.2f, %.2f]",
+                    before_count,
+                    col,
+                    low_val,
+                    high_val,
+                )
 
     return df_clean
 

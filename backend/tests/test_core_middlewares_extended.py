@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
+from unittest.mock import patch
+
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from unittest.mock import patch
 
 from app.core.middlewares import request_id_middleware, security_headers_middleware
 from app.core.request_id import REQUEST_ID_HEADER

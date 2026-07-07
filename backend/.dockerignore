@@ -1,0 +1,66 @@
+# P2-2: Backend .dockerignore - 减小构建上下文, 加速镜像构建
+# 排除生产镜像不需要的文件
+
+# ── 版本控制 ──
+.git
+.gitignore
+.github
+
+# ── 测试与开发 ──
+# 测试代码本身不打包进生产镜像 (镜像仅运行应用代码)
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+test_app.db
+*.db-journal
+
+# ── Python 缓存 ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# ── 虚拟环境 ──
+.venv/
+venv/
+env/
+
+# ── IDE 配置 ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── 日志与临时文件 ──
+logs/
+*.log
+tmp/
+
+# ── 开发文档 (生产镜像不需要) ──
+docs/
+*.md
+!README.md
+
+# ── Locust 压测脚本 ──
+load_tests/
+
+# ── 构建产物 ──
+build/
+dist/
+*.egg-info/
+
+# ── 环境配置 (敏感, 必须通过环境变量注入) ──
+.env
+.env.local
+.env.*.local
+.pii_key
+
+# ── Docker 自身文件 (避免循环) ──
+Dockerfile
+Dockerfile.test
+.dockerignore

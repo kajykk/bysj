@@ -25,7 +25,7 @@ backend_root = Path(__file__).resolve().parents[1]
 if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
-from app.ml.model_monitor import DEFAULT_MONITOR_CONFIG, ModelHealth, ModelMonitor, MonitoringRecord
+from app.ml.model_monitor import DEFAULT_MONITOR_CONFIG, ModelMonitor
 
 
 class TestModelMonitor:

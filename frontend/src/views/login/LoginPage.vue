@@ -1,200 +1,236 @@
 <template>
-  <div class="auth-page">
-    <div class="auth-page__bg" />
+  <div class="auth-shell">
+    <!-- 左侧品牌面板：非对称分屏（规则 3：DESIGN_VARIANCE>4 禁止居中 Hero） -->
+    <AuthBrandPanel
+      :headline="[t('auth.brandLoginHeadline1'), t('auth.brandLoginHeadline2')]"
+      :lede="t('auth.brandLoginLede')"
+      :signals="brandSignals"
+    />
 
-    <el-card
-      class="auth-card"
-      shadow="hover"
-    >
-      <template #header>
-        <div class="auth-card__header">
+    <!-- 右侧表单面板 -->
+    <main class="auth-form-panel">
+      <div class="auth-form-card">
+        <div class="auth-form-card__head">
           <div>
-            <h2>心理健康预警系统</h2>
-            <p>欢迎使用，请先登录或注册账号</p>
+            <p class="auth-form-card__eyebrow">
+              {{ isLogin ? t('auth.welcomeBack') : t('auth.createAccount') }}
+            </p>
+            <h2 class="auth-form-card__title">
+              {{ isLogin ? t('auth.loginTitle') : t('auth.joinMindwatch') }}
+            </h2>
           </div>
           <el-tag
             :type="isLogin ? 'primary' : 'success'"
             effect="light"
+            round
           >
-            {{ isLogin ? '登录' : '注册' }}
+            {{ isLogin ? t('auth.loginTag') : t('auth.registerTag') }}
           </el-tag>
         </div>
-      </template>
 
-      <el-tabs
-        v-model="activeTab"
-        class="auth-tabs"
-        stretch
-        @tab-change="clearActiveFormValidation"
-      >
-        <el-tab-pane
-          name="login"
-          label="登录"
-        />
-        <el-tab-pane
-          name="register"
-          label="注册"
-        />
-      </el-tabs>
-
-      <el-form
-        v-if="isLogin"
-        ref="loginFormRef"
-        :model="loginForm"
-        :rules="loginRules"
-        label-position="top"
-        @submit.prevent
-      >
-        <el-form-item
-          label="用户名"
-          prop="username"
+        <el-tabs
+          v-model="activeTab"
+          class="auth-tabs"
+          stretch
+          @tab-change="clearActiveFormValidation"
         >
-          <el-input
-            v-model="loginForm.username"
-            placeholder="请输入用户名"
-            clearable
-            @keyup.enter="focusPassword"
+          <el-tab-pane
+            name="login"
+            :label="t('auth.loginTab')"
           />
-        </el-form-item>
-        <el-form-item
-          label="密码"
-          prop="password"
-        >
-          <el-input
-            v-model="loginForm.password"
-            type="password"
-            show-password
-            placeholder="请输入密码"
-            @keyup.enter="handleLogin"
+          <el-tab-pane
+            name="register"
+            :label="t('auth.registerTab')"
           />
-        </el-form-item>
+        </el-tabs>
 
-        <div class="login-extra-actions">
-          <el-checkbox
-            v-model="rememberMe"
-            size="small"
+        <el-form
+          v-if="isLogin"
+          ref="loginFormRef"
+          :model="loginForm"
+          :rules="loginRules"
+          label-position="top"
+          class="auth-form"
+          @submit.prevent
+        >
+          <el-form-item
+            :label="t('auth.fieldUsername')"
+            prop="username"
+            class="auth-field"
           >
-            记住我
-          </el-checkbox>
+            <el-input
+              v-model="loginForm.username"
+              :placeholder="t('auth.placeholderUsername')"
+              clearable
+              size="large"
+              @keyup.enter="focusPassword"
+            />
+          </el-form-item>
+          <el-form-item
+            :label="t('auth.fieldPassword')"
+            prop="password"
+            class="auth-field"
+          >
+            <el-input
+              v-model="loginForm.password"
+              type="password"
+              show-password
+              :placeholder="t('auth.placeholderPassword')"
+              size="large"
+              @keyup.enter="handleLogin"
+            />
+          </el-form-item>
+
+          <div class="login-extra-actions">
+            <el-checkbox
+              v-model="rememberMe"
+              size="small"
+            >
+              {{ t('auth.rememberMe') }}
+            </el-checkbox>
+            <el-button
+              link
+              type="primary"
+              @click="goResetPassword"
+            >
+              {{ t('auth.forgotPassword') }}
+            </el-button>
+          </div>
+
           <el-button
-            link
             type="primary"
-            @click="goResetPassword"
+            :loading="loading"
+            class="submit-btn magnetic-press"
+            @click="handleLogin"
           >
-            忘记密码？
+            {{ t('auth.loginBtn') }}
           </el-button>
-        </div>
+        </el-form>
 
-        <el-button
-          type="primary"
-          :loading="loading"
-          class="submit-btn"
-          @click="handleLogin"
+        <el-form
+          v-else
+          ref="registerFormRef"
+          :model="registerForm"
+          :rules="registerRules"
+          label-position="top"
+          class="auth-form"
+          @submit.prevent
         >
-          登录
-        </el-button>
-      </el-form>
+          <el-form-item
+            :label="t('auth.fieldUsername')"
+            prop="username"
+            class="auth-field"
+          >
+            <el-input
+              v-model="registerForm.username"
+              :placeholder="t('auth.placeholderRegisterUsername')"
+              clearable
+              size="large"
+            />
+          </el-form-item>
+          <el-form-item
+            :label="t('auth.fieldNickname')"
+            prop="nickname"
+            class="auth-field"
+          >
+            <el-input
+              v-model="registerForm.nickname"
+              :placeholder="t('auth.placeholderNickname')"
+              clearable
+              size="large"
+            />
+          </el-form-item>
+          <el-form-item
+            :label="t('auth.fieldEmail')"
+            prop="email"
+            class="auth-field"
+          >
+            <el-input
+              v-model="registerForm.email"
+              :placeholder="t('auth.placeholderEmail')"
+              clearable
+              size="large"
+            />
+          </el-form-item>
+          <el-form-item
+            :label="t('auth.fieldRole')"
+            prop="role"
+            class="auth-field"
+          >
+            <el-radio-group v-model="registerForm.role">
+              <el-radio value="user">
+                {{ t('auth.roleUser') }}
+              </el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item
+            :label="t('auth.fieldPassword')"
+            prop="password"
+            class="auth-field"
+          >
+            <el-input
+              v-model="registerForm.password"
+              type="password"
+              show-password
+              :placeholder="t('auth.placeholderRegisterPassword')"
+              size="large"
+            />
+          </el-form-item>
+          <el-form-item
+            :label="t('auth.fieldConfirmPassword')"
+            prop="confirmPassword"
+            class="auth-field"
+          >
+            <el-input
+              v-model="registerForm.confirmPassword"
+              type="password"
+              show-password
+              :placeholder="t('auth.placeholderConfirmPassword')"
+              size="large"
+            />
+          </el-form-item>
 
-      <el-form
-        v-else
-        ref="registerFormRef"
-        :model="registerForm"
-        :rules="registerRules"
-        label-position="top"
-        @submit.prevent
-      >
-        <el-form-item
-          label="用户名"
-          prop="username"
-        >
-          <el-input
-            v-model="registerForm.username"
-            placeholder="3~20位字母数字下划线"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item
-          label="昵称"
-          prop="nickname"
-        >
-          <el-input
-            v-model="registerForm.nickname"
-            placeholder="可选"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item
-          label="邮箱"
-          prop="email"
-        >
-          <el-input
-            v-model="registerForm.email"
-            placeholder="请输入邮箱"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item
-          label="角色"
-          prop="role"
-        >
-          <el-radio-group v-model="registerForm.role">
-            <el-radio value="user">
-              普通用户
-            </el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item
-          label="密码"
-          prop="password"
-        >
-          <el-input
-            v-model="registerForm.password"
-            type="password"
-            show-password
-            placeholder="至少8位，含字母和数字"
-          />
-        </el-form-item>
-        <el-form-item
-          label="确认密码"
-          prop="confirmPassword"
-        >
-          <el-input
-            v-model="registerForm.confirmPassword"
-            type="password"
-            show-password
-            placeholder="请再次输入密码"
-          />
-        </el-form-item>
-
-        <el-button
-          type="success"
-          :loading="loading"
-          class="submit-btn"
-          @click="handleRegister"
-        >
-          注册
-        </el-button>
-      </el-form>
-    </el-card>
+          <el-button
+            type="success"
+            :loading="loading"
+            class="submit-btn magnetic-press"
+            @click="handleRegister"
+          >
+            {{ t('auth.registerBtn') }}
+          </el-button>
+        </el-form>
+      </div>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorDetail } from '@/utils/errorDetail'
 import { validatePasswordBytes } from '@/utils/passwordValidation'
-import type { UserInfo } from '@/api/auth'
+import type { UserInfo } from '@/types/auth'
+import AuthBrandPanel, { type BrandSignal } from '@/components/common/AuthBrandPanel.vue'
 
+const { t } = useI18n()
 const loading = ref(false)
 const activeTab = ref<'login' | 'register'>('login')
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const isLogin = computed(() => activeTab.value === 'login')
+
+// 品牌面板信号列表：左侧“Live Status”永动指示器（规则 9-C：The Live Status）
+const brandSignals: BrandSignal[] = [
+  { key: 'multimodal', label: t('auth.signalMultimodal'), live: true },
+  { key: 'realtime', label: t('auth.signalRealtime'), live: true },
+  { key: 'intervention', label: t('auth.signalIntervention'), live: false },
+]
 
 const clearActiveFormValidation = () => {
   // 切换登录/注册页签时清除当前表单校验态，避免错误提示遗留到另一个流程。
@@ -223,33 +259,33 @@ const registerForm = reactive({
 })
 
 const loginRules: FormRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  username: [{ required: true, message: t('auth.ruleRequiredUsername'), trigger: 'blur' }],
+  password: [{ required: true, message: t('auth.ruleRequiredPassword'), trigger: 'blur' }]
 }
 
 const registerRules: FormRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度需为3~20', trigger: 'blur' },
-    { pattern: /^\w+$/, message: '用户名仅支持字母数字下划线', trigger: 'blur' }
+    { required: true, message: t('auth.ruleRequiredUsername'), trigger: 'blur' },
+    { min: 3, max: 20, message: t('auth.ruleUsernameLength'), trigger: 'blur' },
+    { pattern: /^\w+$/, message: t('auth.ruleUsernamePattern'), trigger: 'blur' }
   ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: ['blur', 'change'] }
+    { required: true, message: t('auth.ruleRequiredEmail'), trigger: 'blur' },
+    { type: 'email', message: t('auth.ruleEmailFormat'), trigger: ['blur', 'change'] }
   ],
-  role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+  role: [{ required: true, message: t('auth.ruleRequiredRole'), trigger: 'change' }],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 8, message: '密码至少8位', trigger: 'blur' },
-    { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/, message: '密码需包含字母和数字', trigger: 'blur' },
+    { required: true, message: t('auth.ruleRequiredPassword'), trigger: 'blur' },
+    { min: 8, message: t('auth.rulePasswordMin'), trigger: 'blur' },
+    { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/, message: t('auth.rulePasswordPattern'), trigger: 'blur' },
     { validator: validatePasswordBytes, trigger: 'blur' }
   ],
   confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
+    { required: true, message: t('auth.ruleRequiredConfirmPassword'), trigger: 'blur' },
     {
       validator: (_rule, value, callback) => {
         if (value !== registerForm.password) {
-          callback(new Error('两次输入密码不一致'))
+          callback(new Error(t('auth.rulePasswordMismatch')))
           return
         }
         callback()
@@ -263,6 +299,20 @@ const resolveRoleHome = (role: UserInfo['role'] | '') => {
   if (role === 'admin') return '/admin/dashboard'
   if (role === 'counselor') return '/counselor/dashboard'
   return '/user/dashboard'
+}
+
+// R-002 修复：登录成功后恢复原始 URL（含 query/hash），避免复杂页面恢复体验丢失。
+// 安全策略：仅允许同源相对路径，拒绝外部 URL（//host、https://、http://）和 /login 自身（避免循环）。
+const resolveRedirectTarget = (role: UserInfo['role'] | ''): string => {
+  const raw = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+  if (!raw) return resolveRoleHome(role)
+  // 拒绝外部 URL 与协议相对 URL（防止开放重定向）
+  if (/^(https?:)?\/\//i.test(raw)) return resolveRoleHome(role)
+  // 拒绝登录页自身（避免循环跳转）
+  if (raw === '/login' || raw.startsWith('/login?') || raw.startsWith('/login#')) {
+    return resolveRoleHome(role)
+  }
+  return raw
 }
 
 const goResetPassword = async () => {
@@ -286,10 +336,11 @@ const handleLogin = async () => {
     } else {
       localStorage.removeItem('dws_remember_username')
     }
-    ElMessage.success('登录成功')
-    await router.push(resolveRoleHome(data.user.role))
+    ElMessage.success(t('auth.loginSuccess'))
+    // R-002 修复：优先恢复 redirect 指定的原始 URL，使用 replace 避免登录页留在历史记录。
+    await router.replace(resolveRedirectTarget(data.user.role))
   } catch (error) {
-    ElMessage.error(getErrorDetail(error, '登录失败，请检查账号密码'))
+    ElMessage.error(getErrorDetail(error, t('auth.loginFailed')))
   } finally {
     loading.value = false
   }
@@ -308,14 +359,14 @@ const handleRegister = async () => {
       role: registerForm.role,
       password: registerForm.password
     })
-    ElMessage.success('注册成功，请使用新账号登录')
+    ElMessage.success(t('auth.registerSuccess'))
     activeTab.value = 'login'
     loginForm.username = registerForm.username
     loginForm.password = ''
     registerFormRef.value.resetFields()
     loginFormRef.value?.clearValidate()
   } catch (error) {
-    ElMessage.error(getErrorDetail(error, '注册失败，请稍后重试'))
+    ElMessage.error(getErrorDetail(error, t('auth.registerFailed')))
   } finally {
     loading.value = false
   }
@@ -323,59 +374,125 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-.auth-page {
-  position: relative;
-  min-height: 100vh;
+/* ===== 非对称分屏容器（规则 3：DESIGN_VARIANCE=8 禁止居中 Hero） ===== */
+.auth-shell {
   display: grid;
-  place-items: center;
-  padding: 16px;
-  background: linear-gradient(140deg, #f3f7ff 0%, #f6fff7 60%, #f7f7ff 100%);
+  grid-template-columns: 1.1fr 1fr;
+  min-height: 100dvh;
+  background: var(--bg-page);
 }
 
-.auth-page__bg {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle at 20% 20%, rgba(64, 158, 255, 0.16), transparent 30%),
-    radial-gradient(circle at 80% 80%, rgba(103, 194, 58, 0.12), transparent 30%);
-  pointer-events: none;
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 480px;
-  z-index: 1;
-}
-
-.auth-card__header {
+/* ===== 右侧表单面板 ===== */
+.auth-form-panel {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  background: var(--bg-primary);
 }
 
-.auth-card__header h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
+.auth-form-card {
+  width: 100%;
+  max-width: 440px;
+  animation: auth-card-in 0.55s var(--transition-ease-out);
 }
 
-.auth-card__header p {
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.auth-form-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-form-card__eyebrow {
+  margin: 0 0 0.375rem;
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.auth-form-card__title {
   margin: 0;
-  font-size: 13px;
-  color: #606266;
+  font-family: var(--font-family-display);
+  font-size: 1.625rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--text-primary);
 }
 
 .auth-tabs {
-  margin-bottom: 16px;
+  margin-bottom: 1.25rem;
+}
+
+/* 表单字段阶梯式入场（规则 4：Staggered Orchestration） */
+.auth-form :deep(.auth-field) {
+  animation: field-in 0.45s var(--transition-ease-out) both;
+}
+
+.auth-form :deep(.auth-field:nth-child(1)) { animation-delay: 80ms; }
+.auth-form :deep(.auth-field:nth-child(2)) { animation-delay: 140ms; }
+.auth-form :deep(.auth-field:nth-child(3)) { animation-delay: 200ms; }
+.auth-form :deep(.auth-field:nth-child(4)) { animation-delay: 260ms; }
+.auth-form :deep(.auth-field:nth-child(5)) { animation-delay: 320ms; }
+.auth-form :deep(.auth-field:nth-child(6)) { animation-delay: 380ms; }
+
+@keyframes field-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .submit-btn {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 0.5rem;
+  height: 46px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
+  border-radius: 10px;
 }
 
 .login-extra-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--spacing-md);
+}
+
+/* ===== 响应式：移动端隐藏品牌面板，单列表单 ===== */
+/* ISS-085 修复：断点统一为 768px，与全局 useBreakpoint (isMobile < 768px) 保持一致 */
+@media (max-width: 768px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand {
+    display: none;
+  }
+
+  .auth-form-panel {
+    min-height: 100dvh;
+    padding: 2rem 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-form-card {
+    max-width: 100%;
+  }
 }
 </style>

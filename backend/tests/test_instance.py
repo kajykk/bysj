@@ -1,10 +1,9 @@
 """v1.36: instance 工具单元测试."""
+
 from __future__ import annotations
 
 import os
 from unittest.mock import patch
-
-import pytest
 
 
 class TestGetInstanceId:

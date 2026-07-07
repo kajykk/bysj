@@ -48,12 +48,15 @@ def init_sentry(
         integrations=[
             FastApiIntegration(
                 transaction_style="endpoint",
-                failed_request_status_codes={403, *range(500, 599)},
+                # M-Core-13 修复：range(500, 599) 遗漏 599，改为 range(500, 600) 覆盖全部 5xx
+                failed_request_status_codes={403, *range(500, 600)},
             ),
             SqlalchemyIntegration(),
         ],
     )
-    logger.info("Sentry SDK initialized (env=%s, traces=%s)", environment, traces_sample_rate)
+    logger.info(
+        "Sentry SDK initialized (env=%s, traces=%s)", environment, traces_sample_rate
+    )
 
 
 def capture_exception(error: Exception, **context: Any) -> None:
@@ -65,6 +68,7 @@ def capture_exception(error: Exception, **context: Any) -> None:
     """
     try:
         import sentry_sdk
+
         # v1.32: 使用新 API (configure_scope 已弃用), 直接通过 sentry_sdk.scope
         with sentry_sdk.new_scope() as scope:
             for key, value in context.items():
@@ -83,6 +87,7 @@ def capture_message(message: str, level: str = "info") -> None:
     """
     try:
         import sentry_sdk
+
         sentry_sdk.capture_message(message, level=level)
     except Exception:
         logger.warning("sentry_sdk not available, message not captured")

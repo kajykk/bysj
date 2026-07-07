@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi import Request
-from starlette.datastructures import Headers
 
-from app.core.risk_thresholds import (
-    get_threshold_by_modality,
-    get_fusion_threshold,
-    should_fallback,
-    RISK_LEVEL_THRESHOLDS,
-    MODALITY_RISK_THRESHOLDS,
-)
+from app.core.request_id import REQUEST_ID_HEADER, get_or_create_request_id
 from app.core.response import ok
-from app.core.request_id import get_or_create_request_id, REQUEST_ID_HEADER
+from app.core.risk_thresholds import (
+    MODALITY_RISK_THRESHOLDS,
+    RISK_LEVEL_THRESHOLDS,
+    get_fusion_threshold,
+    get_threshold_by_modality,
+    should_fallback,
+)
 
 
 class TestRiskThresholds:
@@ -70,7 +68,8 @@ class TestRiskThresholds:
     def test_get_fusion_threshold_below_mild(self):
         """TC-COV-RISK-010: Fusion threshold below mild."""
         result = get_fusion_threshold(10.0)
-        assert result == 22  # returns mild as minimum
+        # M-Core-11: score 低于 mild 阈值时返回 0（最低级别），不再强制返回 mild
+        assert result == 0
 
     def test_should_fallback_no_availability(self):
         """TC-COV-RISK-011: Should fallback when not available."""

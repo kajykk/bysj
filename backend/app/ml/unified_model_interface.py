@@ -138,7 +138,11 @@ class UnifiedModelWrapper:
             fallback_model: Fallback model instance.
         """
         self._fallback_models.append(fallback_model)
-        logger.info("Fallback model set for %s (total: %d)", self.model_type, len(self._fallback_models))
+        logger.info(
+            "Fallback model set for %s (total: %d)",
+            self.model_type,
+            len(self._fallback_models),
+        )
 
     def _try_predict(self, model: Any, X: np.ndarray) -> np.ndarray:
         """Try to predict with a model.
@@ -179,7 +183,8 @@ class UnifiedModelWrapper:
         rows = len(X) if hasattr(X, "__len__") else 1
         logger.warning(
             "[ML-007] 启发式回退：所有模型预测失败，返回保守默认值（prediction=1, "
-            "rows=%d）。请检查模型可用性。", rows,
+            "rows=%d）。请检查模型可用性。",
+            rows,
         )
         return np.ones(rows, dtype=int)
 
@@ -196,7 +201,8 @@ class UnifiedModelWrapper:
         rows = len(X) if hasattr(X, "__len__") else 1
         logger.warning(
             "[ML-007] 启发式回退：所有模型概率预测失败，返回保守默认值（probability=0.5, "
-            "rows=%d）。请检查模型可用性。", rows,
+            "rows=%d）。请检查模型可用性。",
+            rows,
         )
         # 返回 shape=(rows, 2) 的概率矩阵，P(class=1)=0.5
         return np.full((rows, 2), 0.5, dtype=float)
@@ -259,14 +265,20 @@ class UnifiedModelWrapper:
             for i, fallback in enumerate(self._fallback_models):
                 try:
                     logger.info("Falling back to fallback model %d", i + 1)
-                    if hasattr(fallback, 'predict_proba'):
+                    if hasattr(fallback, "predict_proba"):
                         return self._validate_probabilities(fallback.predict_proba(X))
                 except Exception as fallback_exc:
-                    logger.warning("Fallback model %d predict_proba failed: %s", i + 1, fallback_exc)
+                    logger.warning(
+                        "Fallback model %d predict_proba failed: %s",
+                        i + 1,
+                        fallback_exc,
+                    )
 
             # ML-007 修复：与 predict() 保持一致，当配置了回退链时使用启发式概率回退
             if self._fallback_models:
-                logger.warning("All configured models failed for predict_proba, using heuristic fallback")
+                logger.warning(
+                    "All configured models failed for predict_proba, using heuristic fallback"
+                )
                 return self._heuristic_probabilities(X)
             raise RuntimeError("All models in fallback chain failed for predict_proba")
 

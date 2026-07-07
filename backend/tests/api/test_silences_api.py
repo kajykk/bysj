@@ -1,7 +1,8 @@
 """v1.34: 静默规则 API 测试"""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -9,7 +10,7 @@ from fastapi.testclient import TestClient
 def test_create_silence_requires_admin(client: TestClient, as_role) -> None:
     """v1.34: 创建静默规则应要求 admin."""
     as_role("user", 1)
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     res = client.post(
         "/api/v1/alerts/silences",
         json={
@@ -25,7 +26,7 @@ def test_create_silence_requires_admin(client: TestClient, as_role) -> None:
 def test_create_silence_success(client: TestClient, as_role) -> None:
     """v1.34: admin 创建静默规则."""
     as_role("admin", 3)
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     res = client.post(
         "/api/v1/alerts/silences",
         json={
@@ -51,7 +52,7 @@ def test_create_silence_validates_time_range(client: TestClient, as_role) -> Non
     返回 422 (Unprocessable Entity) 而非 400。两种状态码均表示输入校验失败。
     """
     as_role("admin", 3)
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     res = client.post(
         "/api/v1/alerts/silences",
         json={
@@ -84,7 +85,7 @@ def test_list_active_silences(client: TestClient, as_role) -> None:
     data = res.json()["data"]
     assert "items" in data
     # 所有 item 应是当前生效
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     for item in data["items"]:
         starts = datetime.fromisoformat(item["starts_at"].replace("Z", "+00:00"))
         ends = datetime.fromisoformat(item["ends_at"].replace("Z", "+00:00"))
@@ -95,12 +96,12 @@ def test_delete_silence_soft_delete(client: TestClient, as_role) -> None:
     """v1.34: 删除静默规则是软删除 (is_active=False)."""
     as_role("admin", 3)
     # 创建
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     create_res = client.post(
         "/api/v1/alerts/silences",
         json={
             "name": "to-delete",
-            "matcher": {},
+            "matcher": {"alertname": "test"},
             "starts_at": now.isoformat(),
             "ends_at": (now + timedelta(hours=1)).isoformat(),
         },

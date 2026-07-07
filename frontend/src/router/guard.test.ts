@@ -11,8 +11,9 @@ describe('resolveRoleHome', () => {
     expect(resolveRoleHome('counselor')).toBe('/counselor/dashboard')
   })
 
-  it('returns user home for unknown roles', () => {
-    expect(resolveRoleHome('guest')).toBe('/user/dashboard')
+  it('returns /403 for unknown roles', () => {
+    // L-FE-6 修复：未知角色不默认跳转用户首页，返回 /403 拒绝访问
+    expect(resolveRoleHome('guest')).toBe('/403')
   })
 })
 
@@ -30,8 +31,8 @@ describe('resolveGuardResult', () => {
     expect(resolveGuardResult('/user/dashboard', { role: 'user' }, { isLoggedIn: false, role: '' })).toBe('/login')
   })
 
-  it('redirects mismatched roles to role home', () => {
-    expect(resolveGuardResult('/admin/dashboard', { role: 'admin' }, { isLoggedIn: true, role: 'user' })).toBe('/user/dashboard')
+  it('redirects mismatched roles to forbidden page', () => {
+    expect(resolveGuardResult('/admin/dashboard', { role: 'admin' }, { isLoggedIn: true, role: 'user' })).toBe('/forbidden')
   })
 
   it('allows valid authorized access', () => {

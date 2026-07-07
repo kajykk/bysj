@@ -70,7 +70,9 @@ class TestDataSplit:
         assert len(train_set & test_set) == 0, "Train and test overlap"
         assert len(val_set & test_set) == 0, "Val and test overlap"
 
-    def test_class_distribution(self, sample_data: tuple[np.ndarray, np.ndarray]) -> None:
+    def test_class_distribution(
+        self, sample_data: tuple[np.ndarray, np.ndarray]
+    ) -> None:
         """TC-DATA-028: 验证类别分布保持."""
         X, y = sample_data
         X_train, X_val, X_test, y_train, y_val, y_test = stratified_split(X, y)
@@ -126,7 +128,9 @@ class TestDataSplit:
         with pytest.raises(ValueError, match="Ratios must sum to 1.0"):
             stratified_split(X, y, train_ratio=0.5, val_ratio=0.3, test_ratio=0.3)
 
-    def test_different_random_states(self, sample_data: tuple[np.ndarray, np.ndarray]) -> None:
+    def test_different_random_states(
+        self, sample_data: tuple[np.ndarray, np.ndarray]
+    ) -> None:
         """TC-DATA-032: 验证不同随机种子产生不同划分."""
         X, y = sample_data
 

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from pandas import DataFrame
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,9 @@ def stratified_split(
         ValueError: If ratios don't sum to 1.0.
     """
     if not np.isclose(train_ratio + val_ratio + test_ratio, 1.0):
-        raise ValueError(f"Ratios must sum to 1.0, got {train_ratio + val_ratio + test_ratio}")
+        raise ValueError(
+            f"Ratios must sum to 1.0, got {train_ratio + val_ratio + test_ratio}"
+        )
 
     rng = np.random.RandomState(random_state)
     n_samples = len(y)
@@ -74,6 +76,28 @@ def stratified_split(
     y_train = y[train_indices]
     y_val = y[val_indices]
     y_test = y[test_indices]
+
+    # M-ML-3 修复：小类样本数过少时划分后可能在 val/test 中出现 0 样本的类别，
+    # 导致评估指标（如 F1）计算异常。检查每类样本数，若为 0 则从 train 复制一个样本。
+    for cls in classes:
+        if np.sum(y_val == cls) == 0:
+            train_cls_idx = np.where(y_train == cls)[0]
+            if len(train_cls_idx) > 0:
+                copy_idx = train_cls_idx[0]
+                X_val = np.vstack([X_val, X_train[copy_idx : copy_idx + 1]])
+                y_val = np.append(y_val, y_train[copy_idx : copy_idx + 1])
+                logger.warning(
+                    "Class %s has 0 samples in val, copied 1 sample from train", cls
+                )
+        if np.sum(y_test == cls) == 0:
+            train_cls_idx = np.where(y_train == cls)[0]
+            if len(train_cls_idx) > 0:
+                copy_idx = train_cls_idx[0]
+                X_test = np.vstack([X_test, X_train[copy_idx : copy_idx + 1]])
+                y_test = np.append(y_test, y_train[copy_idx : copy_idx + 1])
+                logger.warning(
+                    "Class %s has 0 samples in test, copied 1 sample from train", cls
+                )
 
     # M28: guard against empty splits (would cause ZeroDivisionError in logging
     # and downstream training failures)
@@ -137,16 +161,22 @@ def verify_split_integrity(
         True if splits are valid.
     """
     total = len(y_train) + len(y_val) + len(y_test)
-    assert total == len(y), f"Total samples mismatch: {total} != {len(y)}"
+    if total != len(y):
+        raise ValueError(f"Total samples mismatch: {total} != {len(y)}")
 
     # Check no overlap
-    train_set = set(map(tuple, X_train))
-    val_set = set(map(tuple, X_val))
-    test_set = set(map(tuple, X_test))
+    # M-ML-9 修复：浮点 NaN 满足 NaN != NaN，set(map(tuple, X)) 对含 NaN 的行比较失效
+    # （相同行因 NaN 被判为不同，无法检测重叠）。先将 NaN 替换为 0 再比较。
+    train_set = set(map(tuple, np.nan_to_num(X_train, nan=0.0)))
+    val_set = set(map(tuple, np.nan_to_num(X_val, nan=0.0)))
+    test_set = set(map(tuple, np.nan_to_num(X_test, nan=0.0)))
 
-    assert len(train_set & val_set) == 0, "Train and val overlap"
-    assert len(train_set & test_set) == 0, "Train and test overlap"
-    assert len(val_set & test_set) == 0, "Val and test overlap"
+    if len(train_set & val_set) > 0:
+        raise ValueError("Train and val overlap")
+    if len(train_set & test_set) > 0:
+        raise ValueError("Train and test overlap")
+    if len(val_set & test_set) > 0:
+        raise ValueError("Val and test overlap")
 
     logger.info("Split integrity verified: no overlaps, total samples match")
     return True

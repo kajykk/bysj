@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -96,15 +95,29 @@ class TestMonitoringLogModel:
     async def _async_test_query_by_event_type(self, db_session: AsyncSession) -> None:
         """异步辅助：按 event_type 查询"""
         logs = [
-            MonitoringLog(event_type=MonitoringEventType.INFERENCE, model_version="v1.5.0", latency_ms=100.0),
-            MonitoringLog(event_type=MonitoringEventType.INFERENCE, model_version="v1.5.0", latency_ms=120.0),
-            MonitoringLog(event_type=MonitoringEventType.FALLBACK, model_version="v1.4.0", latency_ms=200.0),
+            MonitoringLog(
+                event_type=MonitoringEventType.INFERENCE,
+                model_version="v1.5.0",
+                latency_ms=100.0,
+            ),
+            MonitoringLog(
+                event_type=MonitoringEventType.INFERENCE,
+                model_version="v1.5.0",
+                latency_ms=120.0,
+            ),
+            MonitoringLog(
+                event_type=MonitoringEventType.FALLBACK,
+                model_version="v1.4.0",
+                latency_ms=200.0,
+            ),
         ]
         db_session.add_all(logs)
         await db_session.commit()
 
         result = await db_session.execute(
-            select(MonitoringLog).where(MonitoringLog.event_type == MonitoringEventType.INFERENCE)
+            select(MonitoringLog).where(
+                MonitoringLog.event_type == MonitoringEventType.INFERENCE
+            )
         )
         inference_logs = result.scalars().all()
         assert len(inference_logs) == 2
@@ -113,12 +126,20 @@ class TestMonitoringLogModel:
         """验证按 event_type 查询"""
         run(self._async_test_query_by_event_type(db_session))
 
-    async def _async_test_query_by_model_version(self, db_session: AsyncSession) -> None:
+    async def _async_test_query_by_model_version(
+        self, db_session: AsyncSession
+    ) -> None:
         """异步辅助：按 model_version 查询"""
         logs = [
-            MonitoringLog(event_type=MonitoringEventType.INFERENCE, model_version="v1.5.0"),
-            MonitoringLog(event_type=MonitoringEventType.INFERENCE, model_version="v1.4.0"),
-            MonitoringLog(event_type=MonitoringEventType.DRIFT_ALERT, model_version="v1.5.0"),
+            MonitoringLog(
+                event_type=MonitoringEventType.INFERENCE, model_version="v1.5.0"
+            ),
+            MonitoringLog(
+                event_type=MonitoringEventType.INFERENCE, model_version="v1.4.0"
+            ),
+            MonitoringLog(
+                event_type=MonitoringEventType.DRIFT_ALERT, model_version="v1.5.0"
+            ),
         ]
         db_session.add_all(logs)
         await db_session.commit()
@@ -158,6 +179,7 @@ class TestMonitoringLogModel:
 
     def test_table_exists_in_db(self, db_connection) -> None:
         """验证表在数据库中真实存在"""
+
         def check_table(sync_conn):
             inspector = inspect(sync_conn)
             tables = inspector.get_table_names()
@@ -167,6 +189,7 @@ class TestMonitoringLogModel:
 
     def test_table_columns_exist(self, db_connection) -> None:
         """验证所有字段在数据库中存在"""
+
         def check_columns(sync_conn):
             inspector = inspect(sync_conn)
             columns = {col["name"] for col in inspector.get_columns("monitoring_logs")}
@@ -187,11 +210,13 @@ class TestMonitoringLogModel:
 
     def test_foreign_key_constraint(self, db_connection) -> None:
         """验证外键约束存在"""
+
         def check_fk(sync_conn):
             inspector = inspect(sync_conn)
             fks = inspector.get_foreign_keys("monitoring_logs")
             fk_found = any(
-                fk["referred_table"] == "users" and "user_id" in fk["constrained_columns"]
+                fk["referred_table"] == "users"
+                and "user_id" in fk["constrained_columns"]
                 for fk in fks
             )
             assert fk_found, "Foreign key to users.id not found"

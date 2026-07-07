@@ -10,8 +10,12 @@ class ValidationRunRequest(BaseModel):
 
     model_version: str = Field(..., description="Model version to validate")
     dataset_path: str = Field(..., description="Path to validation dataset")
-    baseline_version: str | None = Field(default=None, description="Baseline model version for comparison")
-    baseline_dataset_path: str | None = Field(default=None, description="Path to baseline dataset")
+    baseline_version: str | None = Field(
+        default=None, description="Baseline model version for comparison"
+    )
+    baseline_dataset_path: str | None = Field(
+        default=None, description="Path to baseline dataset"
+    )
 
 
 class ValidationStatusResponse(BaseModel):

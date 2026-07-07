@@ -9,22 +9,34 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from app.ml.model import relu, relu_derivative, sigmoid, he_init, PhysiologicalMLP
-from app.ml.scaler import SimpleStandardScaler, ensure_artifacts_dir
-from app.ml.model_loader import check_model_exists
+from app.ml.loss import binary_cross_entropy_loss, compute_class_weights, focal_loss
+from app.ml.model import PhysiologicalMLP, he_init, relu, relu_derivative, sigmoid
+from app.ml.model_loader import (
+    load_all_artifacts,
+    load_metrics,
+    load_model,
+    write_sha256_sidecar,
+)
+from app.ml.scaler import (
+    SimpleStandardScaler,
+    ensure_artifacts_dir,
+    fit_scaler,
+    load_feature_names,
+    load_scaler,
+    save_feature_names,
+    save_scaler,
+    scale_features,
+)
 from app.ml.trainer import (
-    sgd_optimizer,
+    EarlyStopping,
+    compute_auprc,
     compute_metrics,
     compute_roc_auc,
-    compute_auprc,
-    EarlyStopping,
-    train_epoch,
     evaluate,
+    sgd_optimizer,
+    train_epoch,
     train_model,
 )
-from app.ml.loss import binary_cross_entropy_loss, focal_loss, compute_class_weights
-from app.ml.scaler import fit_scaler, save_scaler, load_scaler, save_feature_names, load_feature_names, scale_features
-from app.ml.model_loader import load_model, load_all_artifacts, load_metrics
 
 
 class TestActivationFunctions:
@@ -96,7 +108,9 @@ class TestPhysiologicalMLP:
 
     def test_init_custom(self):
         """TC-COV-ML-011: Custom initialization."""
-        model = PhysiologicalMLP(input_dim=5, hidden_dims=[10, 5], dropout_rate=0.2, use_batch_norm=False)
+        model = PhysiologicalMLP(
+            input_dim=5, hidden_dims=[10, 5], dropout_rate=0.2, use_batch_norm=False
+        )
         assert model.input_dim == 5
         assert model.hidden_dims == [10, 5]
         assert model.dropout_rate == 0.2
@@ -241,6 +255,7 @@ class TestModelLoader:
         """TC-COV-ML-027: check_model_exists when no artifacts."""
         with tempfile.TemporaryDirectory() as tmpdir:
             from app.ml import model_loader as ml
+
             orig_dir = ml.ARTIFACTS_DIR
             try:
                 ml.ARTIFACTS_DIR = Path(tmpdir) / "artifacts"
@@ -259,6 +274,7 @@ class TestModelLoader:
         """TC-COV-ML-028: ensure_artifacts_dir creates directory."""
         ensure_artifacts_dir()
         from app.ml.scaler import ARTIFACTS_DIR
+
         assert ARTIFACTS_DIR.exists()
 
     def test_forward_with_batch_norm(self):
@@ -384,7 +400,7 @@ class TestTrainer:
         model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=False)
         es(0.5, model)
         assert es(0.5, model) is False  # No improvement
-        assert es(0.5, model) is True   # Patience exceeded
+        assert es(0.5, model) is True  # Patience exceeded
         assert es.early_stop is True
 
     def test_early_stopping_restore_weights(self):
@@ -403,7 +419,15 @@ class TestTrainer:
         model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=False)
         X_train = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
         y_train = np.array([[0], [1], [0]])
-        loss, metrics = train_epoch(model, X_train, y_train, batch_size=2, learning_rate=0.01, weight_decay=0.0, loss_fn=binary_cross_entropy_loss)
+        loss, metrics = train_epoch(
+            model,
+            X_train,
+            y_train,
+            batch_size=2,
+            learning_rate=0.01,
+            weight_decay=0.0,
+            loss_fn=binary_cross_entropy_loss,
+        )
         assert isinstance(loss, float)
         assert "accuracy" in metrics
 
@@ -423,7 +447,9 @@ class TestTrainer:
         y_train = np.random.randint(0, 2, size=(20, 1)).astype(np.float32)
         X_val = np.random.randn(10, 3).astype(np.float32)
         y_val = np.random.randint(0, 2, size=(10, 1)).astype(np.float32)
-        history = train_model(model, X_train, y_train, X_val, y_val, epochs=5, batch_size=5, patience=2)
+        history = train_model(
+            model, X_train, y_train, X_val, y_val, epochs=5, batch_size=5, patience=2
+        )
         assert "train_loss" in history
         assert "val_loss" in history
         assert "best_epoch" in history
@@ -473,6 +499,7 @@ class TestScalerFunctions:
     def test_fit_scaler(self):
         """TC-COV-SCALER-001: fit_scaler returns fitted scaler."""
         import pandas as pd
+
         X = pd.DataFrame([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], columns=["a", "b"])
         scaler = fit_scaler(X)
         assert scaler.mean_ is not None
@@ -519,6 +546,7 @@ class TestScalerFunctions:
     def test_scale_features_with_scaler(self):
         """TC-COV-SCALER-006: scale_features with provided scaler."""
         import pandas as pd
+
         X = pd.DataFrame([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], columns=["a", "b"])
         scaler = fit_scaler(X)
         X_scaled = scale_features(X, scaler)
@@ -528,6 +556,7 @@ class TestScalerFunctions:
     def test_scale_features_without_scaler(self):
         """TC-COV-SCALER-007: scale_features without scaler fits new one."""
         import pandas as pd
+
         X = pd.DataFrame([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], columns=["a", "b"])
         X_scaled = scale_features(X)
         assert isinstance(X_scaled, np.ndarray)
@@ -568,6 +597,8 @@ class TestModelLoaderFunctions:
             metrics_data = {"accuracy": 0.95, "f1": 0.94}
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(metrics_data, f)
+            # Phase 1 C-ML-2: load_metrics 强制要求 .sha256 校验文件
+            write_sha256_sidecar(path)
             loaded = load_metrics(path)
             assert loaded == metrics_data
 
@@ -589,12 +620,17 @@ class TestModelLoaderFunctions:
             feature_names = ["feat1", "feat2"]
             with open(feature_path, "w", encoding="utf-8") as f:
                 json.dump(feature_names, f)
+            # Phase 1 C-ML-2: feature_names 文件需 .sha256 校验
+            write_sha256_sidecar(feature_path)
 
             metrics_data = {"accuracy": 0.95}
             with open(metrics_path, "w", encoding="utf-8") as f:
                 json.dump(metrics_data, f)
+            # Phase 1 C-ML-2: metrics 文件需 .sha256 校验
+            write_sha256_sidecar(metrics_path)
 
             from app.ml import model_loader as ml
+
             orig_model_path = ml.MODEL_PATH
             orig_scaler_path = ml.SCALER_PATH
             orig_feature_path = ml.FEATURE_NAMES_PATH
@@ -604,7 +640,9 @@ class TestModelLoaderFunctions:
                 ml.SCALER_PATH = scaler_path
                 ml.FEATURE_NAMES_PATH = feature_path
                 ml.METRICS_PATH = metrics_path
-                loaded_model, loaded_scaler, loaded_features, loaded_metrics = load_all_artifacts()
+                loaded_model, loaded_scaler, loaded_features, loaded_metrics = (
+                    load_all_artifacts()
+                )
                 assert loaded_model.input_dim == 2
                 assert loaded_scaler.n_features_in_ == 2
                 assert loaded_features == feature_names
@@ -619,6 +657,7 @@ class TestModelLoaderFunctions:
         """TC-COV-LOADER-006: load_all_artifacts raises FileNotFoundError."""
         with tempfile.TemporaryDirectory() as tmpdir:
             from app.ml import model_loader as ml
+
             orig_model_path = ml.MODEL_PATH
             orig_scaler_path = ml.SCALER_PATH
             orig_feature_path = ml.FEATURE_NAMES_PATH
@@ -664,7 +703,9 @@ class TestModelCoverageExtras:
 
     def test_dropout_zero_rate(self):
         """TC-COV-ML-036: Dropout with zero rate."""
-        model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], dropout_rate=0.0, use_batch_norm=False)
+        model = PhysiologicalMLP(
+            input_dim=3, hidden_dims=[4], dropout_rate=0.0, use_batch_norm=False
+        )
         X = np.array([[1.0, 2.0, 3.0]])
         output, caches = model.forward(X)
         assert output.shape == (1, 1)
@@ -736,8 +777,7 @@ class TestTrainerCoverageExtras:
         X_val = np.random.randn(10, 2).astype(np.float32)
         y_val = np.random.randint(0, 2, size=(10, 1)).astype(np.float32)
         history = train_model(
-            model, X_train, y_train, X_val, y_val,
-            epochs=10, batch_size=5, patience=5
+            model, X_train, y_train, X_val, y_val, epochs=10, batch_size=5, patience=5
         )
         assert "overfitting_detected" in history
         assert "overfitting_epoch" in history

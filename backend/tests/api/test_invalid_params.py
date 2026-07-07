@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
 
 
-def test_postpone_missing_postpone_to_returns_400(client: TestClient, as_role, seed_intervention_for_user: int) -> None:
+def test_postpone_missing_postpone_to_returns_400(
+    client: TestClient, as_role, seed_intervention_for_user: int
+) -> None:
     as_role("user", 1)
     task_id = seed_intervention_for_user
     res = client.put(
@@ -11,7 +13,9 @@ def test_postpone_missing_postpone_to_returns_400(client: TestClient, as_role, s
     assert res.status_code == 400
 
 
-def test_postpone_invalid_date_returns_422(client: TestClient, as_role, seed_intervention_for_user: int) -> None:
+def test_postpone_invalid_date_returns_422(
+    client: TestClient, as_role, seed_intervention_for_user: int
+) -> None:
     as_role("user", 1)
     task_id = seed_intervention_for_user
     res = client.put(
@@ -27,7 +31,9 @@ def test_risk_export_invalid_format_returns_422(client: TestClient, as_role) -> 
     assert res.status_code == 422
 
 
-def test_admin_templates_invalid_pagination_returns_422(client: TestClient, as_role) -> None:
+def test_admin_templates_invalid_pagination_returns_422(
+    client: TestClient, as_role
+) -> None:
     as_role("admin", 3)
     res = client.get("/api/v1/admin/templates?page=0&page_size=20")
     assert res.status_code == 422

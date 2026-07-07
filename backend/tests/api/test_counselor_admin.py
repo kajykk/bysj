@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.core.pii_crypto import compute_blind_index
 from app.core.states import BindingStatus
 from app.models.admin import OperationLog
 from app.models.counselor import ClientGroup, ClientGroupMember
@@ -12,7 +13,9 @@ def test_counselor_warning_pagination_and_handle(
     seed_counselor_data: None,
 ) -> None:
     as_role("counselor", 2)
-    list_res = client.get("/api/v1/counselor/warnings?page=1&page_size=10&only_unhandled=true")
+    list_res = client.get(
+        "/api/v1/counselor/warnings?page=1&page_size=10&only_unhandled=true"
+    )
     assert list_res.status_code == 200
     data = list_res.json()["data"]
     assert data["page"] == 1
@@ -20,19 +23,49 @@ def test_counselor_warning_pagination_and_handle(
     assert data["total"] >= 1
 
     warning_id = data["items"][0]["id"]
-    handle_res = client.put(f"/api/v1/counselor/warnings/{warning_id}/handle", json={"action": "handle", "note": "done"})
+    handle_res = client.put(
+        f"/api/v1/counselor/warnings/{warning_id}/handle",
+        json={"action": "handle", "note": "done"},
+    )
     assert handle_res.status_code == 200
 
 
-def test_add_group_member_is_idempotent(client: TestClient, as_role, db_session) -> None:
+def test_add_group_member_is_idempotent(
+    client: TestClient, as_role, db_session
+) -> None:
     async def _seed() -> int:
         db_session.add_all(
             [
-                User(id=1, username="user1", email="u1@test.com", password_hash="x", role="user", status="active"),
-                User(id=2, username="counselor", email="c@test.com", password_hash="x", role="counselor", status="active"),
+                User(
+                    id=1,
+                    username="user1",
+                    email="u1@test.com",
+                    email_hash=compute_blind_index("u1@test.com", "email"),
+                    password_hash="x",
+                    role="user",
+                    status="active",
+                ),
+                User(
+                    id=2,
+                    username="counselor",
+                    email="c@test.com",
+                    email_hash=compute_blind_index("c@test.com", "email"),
+                    password_hash="x",
+                    role="counselor",
+                    status="active",
+                ),
+                # M9 修复：add_group_member 现在要求用户与咨询师有活跃绑定关系
+                UserCounselorBinding(
+                    user_id=1,
+                    counselor_id=2,
+                    bind_code="B123",
+                    status=BindingStatus.ACTIVE,
+                ),
             ]
         )
-        group = ClientGroup(counselor_id=2, group_name="A组", description="desc", color_tag="#409EFF")
+        group = ClientGroup(
+            counselor_id=2, group_name="A组", description="desc", color_tag="#409EFF"
+        )
         db_session.add(group)
         await db_session.flush()
         db_session.add(ClientGroupMember(group_id=group.id, user_id=1))
@@ -44,24 +77,55 @@ def test_add_group_member_is_idempotent(client: TestClient, as_role, db_session)
     group_id = run(_seed())
 
     as_role("counselor", 2)
-    res = client.post(f"/api/v1/counselor/groups/{group_id}/members", json={"user_id": 1})
+    res = client.post(
+        f"/api/v1/counselor/groups/{group_id}/members", json={"user_id": 1}
+    )
     assert res.status_code == 200
-    res2 = client.post(f"/api/v1/counselor/groups/{group_id}/members", json={"user_id": 1})
+    res2 = client.post(
+        f"/api/v1/counselor/groups/{group_id}/members", json={"user_id": 1}
+    )
     assert res2.status_code == 200
 
     async def _check() -> tuple[int, int]:
-        member_count = (await db_session.execute(ClientGroupMember.__table__.count())).scalar_one()
-        log_count = (await db_session.execute(OperationLog.__table__.count())).scalar_one()
+        member_count = (
+            await db_session.execute(ClientGroupMember.__table__.count())
+        ).scalar_one()
+        log_count = (
+            await db_session.execute(OperationLog.__table__.count())
+        ).scalar_one()
         return member_count, log_count
 
 
-def test_counselor_binding_fsm_and_logs(client: TestClient, as_role, db_session) -> None:
+def test_counselor_binding_fsm_and_logs(
+    client: TestClient, as_role, db_session
+) -> None:
     async def _seed() -> str:
         db_session.add_all(
             [
-                User(id=1, username="user1", email="u1@test.com", password_hash="x", role="user", status="active"),
-                User(id=2, username="counselor", email="c@test.com", password_hash="x", role="counselor", status="active"),
-                UserCounselorBinding(user_id=2, counselor_id=2, bind_code="B123", status=BindingStatus.PLACEHOLDER),
+                User(
+                    id=1,
+                    username="user1",
+                    email="u1@test.com",
+                    email_hash=compute_blind_index("u1@test.com", "email"),
+                    password_hash="x",
+                    role="user",
+                    status="active",
+                ),
+                User(
+                    id=2,
+                    username="counselor",
+                    email="c@test.com",
+                    email_hash=compute_blind_index("c@test.com", "email"),
+                    password_hash="x",
+                    role="counselor",
+                    status="active",
+                ),
+                UserCounselorBinding(
+                    user_id=2,
+                    counselor_id=2,
+                    bind_code="B123",
+                    status=BindingStatus.PLACEHOLDER,
+                ),
             ]
         )
         await db_session.commit()
@@ -94,9 +158,27 @@ def test_counselor_bind_code_reuses_latest_placeholder_when_duplicates_exist(
     async def _seed() -> None:
         db_session.add_all(
             [
-                User(id=2, username="counselor", email="c@test.com", password_hash="x", role="counselor", status="active"),
-                UserCounselorBinding(user_id=2, counselor_id=2, bind_code="OLD1", status=BindingStatus.PLACEHOLDER),
-                UserCounselorBinding(user_id=999, counselor_id=2, bind_code="OLD2", status=BindingStatus.PLACEHOLDER),
+                User(
+                    id=2,
+                    username="counselor",
+                    email="c@test.com",
+                    email_hash=compute_blind_index("c@test.com", "email"),
+                    password_hash="x",
+                    role="counselor",
+                    status="active",
+                ),
+                UserCounselorBinding(
+                    user_id=2,
+                    counselor_id=2,
+                    bind_code="OLD1",
+                    status=BindingStatus.PLACEHOLDER,
+                ),
+                UserCounselorBinding(
+                    user_id=999,
+                    counselor_id=2,
+                    bind_code="OLD2",
+                    status=BindingStatus.PLACEHOLDER,
+                ),
             ]
         )
         await db_session.commit()
@@ -137,7 +219,9 @@ def test_admin_template_and_feedback_pagination(
     assert fb_data["page_size"] == 10
 
 
-def test_role_permission_403(client: TestClient, as_role, seed_admin_data: None) -> None:
+def test_role_permission_403(
+    client: TestClient, as_role, seed_admin_data: None
+) -> None:
     as_role("user", 1)
     res = client.get("/api/v1/admin/templates")
     assert res.status_code == 403

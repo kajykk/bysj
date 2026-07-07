@@ -12,9 +12,8 @@ v1.30 变更:
     而 ws.receive_json() 在收到 close 消息时抛 WebSocketDisconnect。
     本文件统一用 pytest.raises(WebSocketDisconnect) 验证关闭。
 """
-from __future__ import annotations
 
-import json
+from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
@@ -90,7 +89,9 @@ class TestWebSocketConnection:
         assert exc_info.value.code == 4001
         assert "URL参数" in exc_info.value.reason
 
-    def test_ws_rejects_wrong_message_type(self, client: TestClient, seeded_user_id: int):
+    def test_ws_rejects_wrong_message_type(
+        self, client: TestClient, seeded_user_id: int
+    ):
         """测试错误的消息类型被拒绝"""
         token = create_access_token({"sub": str(seeded_user_id), "role": "user"})
         with pytest.raises(WebSocketDisconnect) as exc_info:

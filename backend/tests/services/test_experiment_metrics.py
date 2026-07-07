@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.services.experiment_metrics import ExperimentMetrics
 
 
@@ -91,7 +89,9 @@ class TestExperimentMetrics:
         y_pred = [0, 1, 1, 1]
         y_score = [0.1, 0.6, 0.8, 0.9]
         metrics = ExperimentMetrics.metrics(y_true, y_pred, y_score)
-        result = ExperimentMetrics.eval_history(y_true, y_pred, y_score, "test", metrics)
+        result = ExperimentMetrics.eval_history(
+            y_true, y_pred, y_score, "test", metrics
+        )
         assert len(result) == 1
         assert result[0]["split"] == "test"
         assert result[0]["sample_count"] == 4

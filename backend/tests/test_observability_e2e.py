@@ -13,26 +13,24 @@ TC-INT-001:
 - mock 外部服务 (webhook/AM/Redis) 但写入真实 DB
 - 验证 API 端点能查回到我们刚写入的数据
 """
+
 from __future__ import annotations
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from sqlalchemy import select
 
+from app.core.cache import clear_memory_cache
 from app.models.admin import OperationLog
 from app.monitoring import dedup_lock as dedup_lock_mod
 from app.monitoring.dedup_lock import flush_lock_stats, reset_stats, try_acquire_lock
 from app.monitoring.notifier import AlertPayload, CompositeNotifier
 
-
 # ===== test_e2e_alert_to_channel_stats =====
 
 
-async def test_e2e_alert_to_channel_stats(
-    db_session, client, as_role
-) -> None:
+async def test_e2e_alert_to_channel_stats(db_session, client, as_role) -> None:
     """v1.36 T3.1: 触发告警 → webhook 通道发送 → OperationLog 写入 → channel-stats API 查到."""
     # 1. 设为 admin 角色, 调 API 时可鉴权通过
     as_role("admin", 3)
@@ -47,9 +45,10 @@ async def test_e2e_alert_to_channel_stats(
         fingerprint="fp-e2e-channel-1",
     )
 
-    # 3. mock requests.post 让 webhook 通道发送成功
-    with patch("app.monitoring.notifier.requests.post") as mock_post, \
-         patch("app.monitoring.notifier.time.sleep"):  # 跳过指数退避
+    # 3. mock _HTTP_SESSION.post 让 webhook 通道发送成功
+    with patch("app.monitoring.notifier._HTTP_SESSION.post") as mock_post, patch(
+        "app.monitoring.notifier.time.sleep"
+    ):  # 跳过指数退避
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_post.return_value = mock_resp
@@ -145,9 +144,7 @@ async def test_e2e_alert_channel_failure_to_channel_stats(
 # ===== test_e2e_silence_to_am_sync =====
 
 
-async def test_e2e_silence_to_am_sync(
-    db_session, client, as_role
-) -> None:
+async def test_e2e_silence_to_am_sync(db_session, client, as_role) -> None:
     """v1.36 T3.1: 推送静默到 AM → am_sync 写 OperationLog → am-sync API 查到."""
     from app.monitoring.am_sync import push_silence
 
@@ -162,8 +159,9 @@ async def test_e2e_silence_to_am_sync(
     }
 
     # mock AM 端点, 返回 200 + silenceID
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"silenceID": "am-uuid-e2e-1"}
@@ -204,9 +202,7 @@ async def test_e2e_silence_to_am_sync(
     assert op_map["push_silence"]["failed"] == 0
 
 
-async def test_e2e_am_sync_failure_to_am_sync_api(
-    db_session, client, as_role
-) -> None:
+async def test_e2e_am_sync_failure_to_am_sync_api(db_session, client, as_role) -> None:
     """v1.36 T3.1: AM 推送失败 → am_sync_failed → am-sync API success_rate 下降."""
     from app.monitoring.am_sync import push_silence
 
@@ -220,8 +216,9 @@ async def test_e2e_am_sync_failure_to_am_sync_api(
         "comment": "fail test",
     }
 
-    with patch("app.monitoring.am_sync._get_am_url", return_value="http://am:9093"), \
-         patch("app.monitoring.am_sync.requests.post") as mock_post:
+    with patch(
+        "app.monitoring.am_sync._get_am_url", return_value="http://am:9093"
+    ), patch("app.monitoring.am_sync._HTTP_SESSION.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 500
         mock_resp.text = "am unavailable"
@@ -233,9 +230,7 @@ async def test_e2e_am_sync_failure_to_am_sync_api(
     assert result is None  # 失败返回 None
 
     # 验证 DB 写入 am_sync_failed
-    log_stmt = select(OperationLog).where(
-        OperationLog.action_type == "am_sync_failed"
-    )
+    log_stmt = select(OperationLog).where(OperationLog.action_type == "am_sync_failed")
     logs = (await db_session.execute(log_stmt)).scalars().all()
     assert len(logs) == 1
     detail = json.loads(logs[0].detail)
@@ -260,9 +255,7 @@ async def test_e2e_am_sync_failure_to_am_sync_api(
 # ===== test_e2e_lock_fallback_to_stats =====
 
 
-async def test_e2e_lock_fallback_to_stats(
-    db_session, client, as_role
-) -> None:
+async def test_e2e_lock_fallback_to_stats(db_session, client, as_role) -> None:
     """v1.36 T3.1: 锁降级 (无 redis) → flush 任务 → lock-stats API 查到."""
     as_role("admin", 3)
 
@@ -323,9 +316,7 @@ async def test_e2e_lock_fallback_to_stats(
     assert data["last_flush_at"] is not None
 
 
-async def test_e2e_lock_mixed_paths_to_stats(
-    db_session, client, as_role
-) -> None:
+async def test_e2e_lock_mixed_paths_to_stats(db_session, client, as_role) -> None:
     """v1.36 T3.1: 锁混合路径 (acquired + skipped + fallback) → flush → lock-stats 全部反映."""
     as_role("admin", 3)
     reset_stats()
@@ -360,15 +351,28 @@ async def test_e2e_lock_mixed_paths_to_stats(
     await db_session.commit()
     assert success is True
 
+    # 4.1 清除内存缓存, 避免前序测试 (test_e2e_lock_fallback_to_stats) 写入的
+    # lock-stats 缓存导致本次 API 调用返回旧数据
+    clear_memory_cache()
+
     # 5. 调 lock-stats API
     resp = client.get("/api/v1/alerts/observability/lock-stats")
     assert resp.status_code == 200
     body = resp.json()
     data = body["data"]
-    rf = data["recent_flushes"][0]
-    assert rf["acquired"] == 1
-    assert rf["skipped"] == 1
-    assert rf["fallback"] == 1
+    # 从 recent_flushes 中查找当前测试的记录 (acquired=1, skipped=1, fallback=1)
+    rf = next(
+        (
+            r
+            for r in data["recent_flushes"]
+            if r["acquired"] == 1 and r["skipped"] == 1 and r["fallback"] == 1
+        ),
+        None,
+    )
+    assert rf is not None, (
+        f"未找到 acquired=1, skipped=1, fallback=1 的 flush 记录, "
+        f"recent_flushes={data['recent_flushes']}"
+    )
     # 比例: 1/3 each
     assert abs(rf["fallback"] / 3 - 1 / 3) < 0.001
 

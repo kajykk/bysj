@@ -4,7 +4,6 @@ import io
 import logging
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -80,7 +79,8 @@ class PDFReportService:
     def _check_reportlab_available(self) -> bool:
         """Check if ReportLab is installed."""
         try:
-            import reportlab
+            import reportlab  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -117,82 +117,92 @@ class PDFReportService:
             )
 
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(
-                buffer,
-                pagesize=A4,
-                rightMargin=72,
-                leftMargin=72,
-                topMargin=72,
-                bottomMargin=18,
-            )
+            try:
+                doc = SimpleDocTemplate(
+                    buffer,
+                    pagesize=A4,
+                    rightMargin=72,
+                    leftMargin=72,
+                    topMargin=72,
+                    bottomMargin=18,
+                )
 
-            styles = getSampleStyleSheet()
-            story = []
+                styles = getSampleStyleSheet()
+                story = []
 
-            # Title
-            title_style = styles["Heading1"]
-            story.append(Paragraph(report_data.title, title_style))
-            story.append(Spacer(1, 0.2 * inch))
-
-            # Subtitle
-            if report_data.subtitle:
-                story.append(Paragraph(report_data.subtitle, styles["Heading2"]))
-                story.append(Spacer(1, 0.1 * inch))
-
-            # Generated at
-            if report_data.generated_at:
-                story.append(Paragraph(f"Generated: {report_data.generated_at}", styles["Normal"]))
+                # Title
+                title_style = styles["Heading1"]
+                story.append(Paragraph(report_data.title, title_style))
                 story.append(Spacer(1, 0.2 * inch))
 
-            # User info
-            if report_data.user_info:
-                user_text = " | ".join(f"{k}: {v}" for k, v in report_data.user_info.items())
-                story.append(Paragraph(user_text, styles["Normal"]))
-                story.append(Spacer(1, 0.2 * inch))
+                # Subtitle
+                if report_data.subtitle:
+                    story.append(Paragraph(report_data.subtitle, styles["Heading2"]))
+                    story.append(Spacer(1, 0.1 * inch))
 
-            # Sections
-            for section in report_data.sections:
-                section_title = section.get("title", "")
-                section_content = section.get("content", "")
-                if section_title:
-                    story.append(Paragraph(section_title, styles["Heading2"]))
-                if section_content:
-                    story.append(Paragraph(section_content, styles["Normal"]))
-                story.append(Spacer(1, 0.1 * inch))
-
-            # Tables
-            for table_data in report_data.tables:
-                headers = table_data.get("headers", [])
-                rows = table_data.get("rows", [])
-                if headers and rows:
-                    data = [headers] + rows
-                    table = Table(data)
-                    table.setStyle(
-                        TableStyle([
-                            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-                            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                            ("FONTSIZE", (0, 0), (-1, 0), 12),
-                            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-                            ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
-                            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                        ])
+                # Generated at
+                if report_data.generated_at:
+                    story.append(
+                        Paragraph(
+                            f"Generated: {report_data.generated_at}", styles["Normal"]
+                        )
                     )
-                    story.append(table)
                     story.append(Spacer(1, 0.2 * inch))
 
-            # Recommendations
-            if report_data.recommendations:
-                story.append(Paragraph("Recommendations", styles["Heading2"]))
-                for rec in report_data.recommendations:
-                    story.append(Paragraph(f"• {rec}", styles["Normal"]))
-                story.append(Spacer(1, 0.2 * inch))
+                # User info
+                if report_data.user_info:
+                    user_text = " | ".join(
+                        f"{k}: {v}" for k, v in report_data.user_info.items()
+                    )
+                    story.append(Paragraph(user_text, styles["Normal"]))
+                    story.append(Spacer(1, 0.2 * inch))
 
-            doc.build(story)
+                # Sections
+                for section in report_data.sections:
+                    section_title = section.get("title", "")
+                    section_content = section.get("content", "")
+                    if section_title:
+                        story.append(Paragraph(section_title, styles["Heading2"]))
+                    if section_content:
+                        story.append(Paragraph(section_content, styles["Normal"]))
+                    story.append(Spacer(1, 0.1 * inch))
 
-            pdf_bytes = buffer.getvalue()
-            buffer.close()
+                # Tables
+                for table_data in report_data.tables:
+                    headers = table_data.get("headers", [])
+                    rows = table_data.get("rows", [])
+                    if headers and rows:
+                        data = [headers] + rows
+                        table = Table(data)
+                        table.setStyle(
+                            TableStyle(
+                                [
+                                    ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                                    ("FONTSIZE", (0, 0), (-1, 0), 12),
+                                    ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                                    ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                                    ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                                ]
+                            )
+                        )
+                        story.append(table)
+                        story.append(Spacer(1, 0.2 * inch))
+
+                # Recommendations
+                if report_data.recommendations:
+                    story.append(Paragraph("Recommendations", styles["Heading2"]))
+                    for rec in report_data.recommendations:
+                        story.append(Paragraph(f"• {rec}", styles["Normal"]))
+                    story.append(Spacer(1, 0.2 * inch))
+
+                doc.build(story)
+
+                pdf_bytes = buffer.getvalue()
+            finally:
+                buffer.close()
 
             generation_time_ms = (time.time() - start_time) * 1000
 
@@ -249,8 +259,15 @@ class PDFReportService:
 
     def _estimate_page_count(self, pdf_bytes: bytes) -> int:
         """Estimate page count from PDF content."""
-        # Count /Type /Page occurrences
-        count = pdf_bytes.count(b"/Type /Page") + pdf_bytes.count(b"/Type/Page")
+        # M-20 修复：使用正则精确匹配 /Type /Page（不匹配 /Type /Pages 复数形式）
+        # b"/Type /Page" 是 b"/Type /Pages" 的前缀，直接 count 会误匹配
+        # M-Svc-15 修复：原正则 (?![sS]) 仅排除 /Pages，但 /PageLabel /PageMode 等仍会误匹配，
+        # 导致页数高估。改为 (?![a-zA-Z]) 排除所有以 /Page 开头的其他类型。
+        # 已知限制：此为启发式估算，若 PDF 结构异常（如某页对象多次声明 /Type /Page）
+        # 可能仍有偏差；精确页数应解析 PDF 交叉引用表（xref table）。
+        import re
+
+        count = len(re.findall(rb"/Type\s*/Page(?![a-zA-Z])", pdf_bytes))
         return max(1, count)
 
     def should_use_async(self, data_row_count: int) -> bool:
@@ -280,9 +297,13 @@ class PDFReportService:
 
         if isinstance(user_name, dict):
             user_data = user_name
-            display_name = str(user_data.get("user_name") or user_data.get("user_id") or "Unknown")
+            display_name = str(
+                user_data.get("user_name") or user_data.get("user_id") or "Unknown"
+            )
             risk_level_value = str(user_data.get("risk_level", "Unknown"))
-            trend_items = user_data.get("trend_data") or user_data.get("risk_trend") or []
+            trend_items = (
+                user_data.get("trend_data") or user_data.get("risk_trend") or []
+            )
             recommendations_value = user_data.get("recommendations") or []
         else:
             display_name = user_name
@@ -308,7 +329,11 @@ class PDFReportService:
                 {
                     "headers": ["Date", "Risk Score", "Level"],
                     "rows": [
-                        [item.get("date", ""), str(item.get("score", "")), item.get("level", "")]
+                        [
+                            item.get("date", ""),
+                            str(item.get("score", "")),
+                            item.get("level", ""),
+                        ]
                         for item in trend_items[-10:]
                     ],
                 },

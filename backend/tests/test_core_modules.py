@@ -2,38 +2,34 @@
 
 from __future__ import annotations
 
-import pytest
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.exceptions import RequestValidationError
-from fastapi.testclient import TestClient
+from fastapi import FastAPI
 
-from app.core.response import ok
 from app.core.contracts import (
-    RISK_LEVEL_MAP,
-    WARNING_ACTION_HANDLE,
-    WARNING_ACTION_IGNORE,
     ACTION_TYPE_WARNING_HANDLE,
     ACTION_TYPE_WARNING_IGNORE,
+    WARNING_ACTION_HANDLE,
+    WARNING_ACTION_IGNORE,
     normalize_risk_level,
     resolve_warning_status,
 )
-from app.core.risk_thresholds import (
-    RISK_LEVEL_THRESHOLDS,
-    MODALITY_RISK_THRESHOLDS,
-    RISK_LEVEL_LABELS,
-    get_threshold_by_modality,
-    get_fusion_threshold,
-    should_fallback,
-)
-from app.core.states import BindingStatus
-from app.core.request_id import get_or_create_request_id, REQUEST_ID_HEADER
 from app.core.exceptions import (
     AppException,
     ModelException,
-    ValidationException,
     ServiceException,
+    ValidationException,
     install_exception_handlers,
 )
+from app.core.request_id import get_or_create_request_id
+from app.core.response import ok
+from app.core.risk_thresholds import (
+    MODALITY_RISK_THRESHOLDS,
+    RISK_LEVEL_LABELS,
+    RISK_LEVEL_THRESHOLDS,
+    get_fusion_threshold,
+    get_threshold_by_modality,
+    should_fallback,
+)
+from app.core.states import BindingStatus
 
 
 class TestResponse:
@@ -78,9 +74,13 @@ class TestContracts:
         assert normalize_risk_level(4) == "critical"
 
     def test_normalize_risk_level_invalid(self):
-        """TC-COV-CORE-007: normalize_risk_level with invalid level returns critical."""
-        assert normalize_risk_level(999) == "critical"
-        assert normalize_risk_level(-1) == "critical"
+        """TC-COV-CORE-007: normalize_risk_level with invalid level returns unknown.
+
+        P1-F7 修复：原逻辑返回 'critical' 会触发虚假紧急告警，
+        现改为返回 'unknown' 让调用方显式处理异常情况。
+        """
+        assert normalize_risk_level(999) == "unknown"
+        assert normalize_risk_level(-1) == "unknown"
 
     def test_resolve_warning_status_pending(self):
         """TC-COV-CORE-008: resolve_warning_status for unhandled warning."""
@@ -110,6 +110,7 @@ class TestRiskThresholds:
     def test_get_threshold_by_modality_structured(self):
         """TC-COV-CORE-012: get_threshold_by_modality for structured (v1.31: 使用 modality-specific)."""
         from app.core.risk_thresholds import MODALITY_RISK_THRESHOLDS
+
         result = get_threshold_by_modality("structured")
         # v1.31: 返回 modality 特定阈值 (25, 45, 65, 85)
         assert result == MODALITY_RISK_THRESHOLDS["structured"]
@@ -186,7 +187,6 @@ class TestRequestId:
 
     def test_get_or_create_request_id_from_header(self):
         """TC-COV-CORE-024: Get request ID from header."""
-        from starlette.datastructures import Headers
         from starlette.requests import Request as StarletteRequest
 
         scope = {

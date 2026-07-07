@@ -7,7 +7,9 @@ class TemplateTaskItem(BaseModel):
     task_name: str = Field(min_length=1, max_length=200)
     task_type: str = Field(min_length=1, max_length=50)
     description: str | None = Field(default=None, max_length=500)
-    schedule: str | None = Field(default=None, pattern="^(daily|weekly|monthly|once|manual)$")
+    schedule: str | None = Field(
+        default=None, pattern="^(daily|weekly|monthly|once|manual)$"
+    )
     duration_minutes: int | None = Field(default=None, ge=1, le=1440)
     sort_order: int | None = Field(default=None, ge=0)
 
@@ -35,7 +37,7 @@ class TemplateUpsertRequest(BaseModel):
 
 
 class ThresholdUpsertRequest(BaseModel):
-    level: int = Field(ge=0, le=10)
+    level: int = Field(ge=0, le=4)  # L-20 修复：系统风险等级仅 0-4，原 le=10 超出范围
     level_name: str = Field(min_length=1, max_length=20)
     min_score: float = Field(ge=0, le=100)
     max_score: float = Field(ge=0, le=100)
@@ -60,7 +62,9 @@ class ConfigUpsertRequest(BaseModel):
     def validate_config_value(self) -> "ConfigUpsertRequest":
         allowed_scalar_types = (str, int, float, bool)
 
-        def validate_value(value: object, path: str = "config_value", depth: int = 0) -> None:
+        def validate_value(
+            value: object, path: str = "config_value", depth: int = 0
+        ) -> None:
             if depth > 3:
                 raise ValueError(f"{path} nesting is too deep")
             if isinstance(value, dict):
@@ -80,7 +84,9 @@ class ConfigUpsertRequest(BaseModel):
             if value is None:
                 return
             if not isinstance(value, allowed_scalar_types):
-                raise ValueError(f"{path} contains unsupported type: {type(value).__name__}")
+                raise ValueError(
+                    f"{path} contains unsupported type: {type(value).__name__}"
+                )
             if isinstance(value, str) and len(value) > 5000:
                 raise ValueError(f"{path} string value is too long")
 
@@ -96,7 +102,9 @@ class ModelRegistryRequest(BaseModel):
     model_type: str = Field(default="unknown", max_length=50)
     file_path: str = Field(default="", max_length=500)
     version: str = Field(default="1.0.0", max_length=20)
-    status: str = Field(default="inactive", max_length=20, pattern="^(inactive|active|archived)$")
+    status: str = Field(
+        default="inactive", max_length=20, pattern="^(inactive|active|archived)$"
+    )
     accuracy: float | None = Field(default=None, ge=0, le=1)
     f1_score: float | None = Field(default=None, ge=0, le=1)
     latency_ms: float | None = Field(default=None, ge=0)
@@ -109,7 +117,9 @@ class ModelUpdateRequest(BaseModel):
     model_type: str | None = Field(default=None, max_length=50)
     file_path: str | None = Field(default=None, max_length=500)
     version: str | None = Field(default=None, max_length=20)
-    status: str | None = Field(default=None, max_length=20, pattern="^(inactive|active|archived)$")
+    status: str | None = Field(
+        default=None, max_length=20, pattern="^(inactive|active|archived)$"
+    )
     accuracy: float | None = Field(default=None, ge=0, le=1)
     f1_score: float | None = Field(default=None, ge=0, le=1)
     latency_ms: float | None = Field(default=None, ge=0)

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from app.core.model_compatibility import (
     MODEL_COMPATIBILITY_REGISTRY,
     TARGET_SKLEARN_VERSION,
@@ -43,8 +41,7 @@ class TestModelCompatibilityRegistry:
     def test_sklearn_models_have_version(self) -> None:
         """验证 sklearn 模型有版本要求"""
         sklearn_models = [
-            k for k, v in MODEL_COMPATIBILITY_REGISTRY.items()
-            if v.format == "joblib"
+            k for k, v in MODEL_COMPATIBILITY_REGISTRY.items() if v.format == "joblib"
         ]
         for model_id in sklearn_models:
             info = MODEL_COMPATIBILITY_REGISTRY[model_id]
@@ -54,8 +51,7 @@ class TestModelCompatibilityRegistry:
     def test_keras_models_have_tensorflow_version(self) -> None:
         """验证 keras 模型有 tensorflow 版本要求"""
         keras_models = [
-            k for k, v in MODEL_COMPATIBILITY_REGISTRY.items()
-            if v.format == "keras"
+            k for k, v in MODEL_COMPATIBILITY_REGISTRY.items() if v.format == "keras"
         ]
         for model_id in keras_models:
             info = MODEL_COMPATIBILITY_REGISTRY[model_id]
@@ -64,7 +60,8 @@ class TestModelCompatibilityRegistry:
     def test_transformers_models_have_torch_and_transformers_version(self) -> None:
         """验证 transformers 模型有 torch 和 transformers 版本要求"""
         transformers_models = [
-            k for k, v in MODEL_COMPATIBILITY_REGISTRY.items()
+            k
+            for k, v in MODEL_COMPATIBILITY_REGISTRY.items()
             if v.format == "transformers"
         ]
         for model_id in transformers_models:
@@ -75,8 +72,7 @@ class TestModelCompatibilityRegistry:
     def test_json_models_have_no_sklearn_version(self) -> None:
         """验证 json 格式模型没有 sklearn 版本要求"""
         json_models = [
-            k for k, v in MODEL_COMPATIBILITY_REGISTRY.items()
-            if v.format == "json"
+            k for k, v in MODEL_COMPATIBILITY_REGISTRY.items() if v.format == "json"
         ]
         for model_id in json_models:
             info = MODEL_COMPATIBILITY_REGISTRY[model_id]
@@ -122,5 +118,6 @@ class TestModelCompatibilityRegistry:
 
     def test_target_version_constant(self) -> None:
         """验证目标版本常量"""
-        assert TARGET_SKLEARN_VERSION == "1.3.2"
+        # Phase 2 更新：目标 sklearn 版本从 1.3.2 升级到 1.5.0
+        assert TARGET_SKLEARN_VERSION == "1.5.0"
         assert isinstance(TARGET_SKLEARN_VERSION, str)

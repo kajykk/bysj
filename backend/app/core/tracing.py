@@ -11,19 +11,21 @@
 - 线程安全 (使用 contextvars)
 - 与 Sentry trace_id 格式兼容 (16 字节 hex)
 """
+
 from __future__ import annotations
 
 import logging
 import re
 import secrets
-import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Iterator
 
 # W3C traceparent 格式: 00-{32 hex}-{16 hex}-{2 hex}
-_TRACEPARENT_PATTERN = re.compile(r"^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$")
+_TRACEPARENT_PATTERN = re.compile(
+    r"^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$"
+)
 _TRACE_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 _SPAN_ID_PATTERN = re.compile(r"^[0-9a-f]{16}$")
 
@@ -80,8 +82,15 @@ class TraceContext:
 
 
 # 当前 trace context (线程/协程安全)
-_current_trace: ContextVar[TraceContext | None] = ContextVar("current_trace", default=None)
-_lock = threading.Lock()
+_current_trace: ContextVar[TraceContext | None] = ContextVar(
+    "current_trace", default=None
+)
+
+# ISS-100 修复：request_id 的 ContextVar，供日志 Filter 注入。
+# 原 request_id 仅存储在 request.state，无法被日志 Filter 访问。
+_current_request_id: ContextVar[str | None] = ContextVar(
+    "current_request_id", default=None
+)
 
 
 def _generate_trace_id() -> str:
@@ -147,6 +156,17 @@ def get_current_trace() -> TraceContext | None:
 def set_current_trace(tc: TraceContext | None) -> None:
     """设置当前 trace context."""
     _current_trace.set(tc)
+
+
+# ISS-100 修复：request_id ContextVar 的 setter/getter，供中间件和日志 Filter 使用。
+def set_current_request_id(request_id: str | None) -> None:
+    """设置当前请求的 request_id（供日志 Filter 注入）."""
+    _current_request_id.set(request_id)
+
+
+def get_current_request_id() -> str | None:
+    """获取当前请求的 request_id."""
+    return _current_request_id.get()
 
 
 @contextmanager
@@ -219,6 +239,9 @@ def extract_or_new_trace(traceparent_header: str | None) -> TraceContext:
 class TraceLogFilter:
     """v1.33: 自动注入 trace_id / span_id 到日志记录.
 
+    ISS-100 修复：同时注入 request_id（来自 _current_request_id ContextVar），
+    使日志格式串中的 %(request_id)s 占位符可生效。
+
     Usage:
         import logging
         handler = logging.StreamHandler()
@@ -234,4 +257,6 @@ class TraceLogFilter:
         else:
             record.trace_id = "-"
             record.span_id = "-"
+        # ISS-100：注入 request_id，未设置时显示 "-"
+        record.request_id = _current_request_id.get() or "-"
         return True

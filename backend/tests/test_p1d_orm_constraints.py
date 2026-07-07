@@ -7,6 +7,7 @@
 - review_tasks 评分范围 + 枚举约束
 - canary_records 流量百分比 + 枚举约束
 """
+
 from __future__ import annotations
 
 import pytest

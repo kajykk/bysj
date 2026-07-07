@@ -6,9 +6,9 @@
 3. 校验 variable 引用 ($severity 等)
 4. 校验 panel 排版无重叠
 """
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]  # backend/tests/simulations -> bysj root
@@ -16,50 +16,313 @@ ROOT = Path(__file__).resolve().parents[2]  # backend/tests/simulations -> bysj 
 
 # === Mock v1.37 /metrics 端点返回的 7 metric ===
 V137_METRICS = {
-    "trend", "response_time", "escalation", "channel_stats",
-    "silence_hit_rate", "am_sync", "lock_stats",
+    "trend",
+    "response_time",
+    "escalation",
+    "channel_stats",
+    "silence_hit_rate",
+    "am_sync",
+    "lock_stats",
 }
 
 
 # === 24 panel 设计定义 (来自 01-requirements.md §3.2) ===
 PANEL_DESIGN: list[dict] = [
     # Row 1: 告警趋势 (y=0, h=8)
-    {"id": 1, "row": 1, "title": "Alert P0 (Trend)", "metric": "trend", "type": "timeseries", "x": 0, "y": 0, "w": 6, "h": 8, "params": {"group_by": "severity", "severity": "P0"}},
-    {"id": 2, "row": 1, "title": "Alert P1 (Trend)", "metric": "trend", "type": "timeseries", "x": 6, "y": 0, "w": 6, "h": 8, "params": {"group_by": "severity", "severity": "P1"}},
-    {"id": 3, "row": 1, "title": "Alert P2/P3 (Trend)", "metric": "trend", "type": "timeseries", "x": 12, "y": 0, "w": 6, "h": 8, "params": {"group_by": "severity", "severity": "P2"}},
-    {"id": 4, "row": 1, "title": "Alert Total (Stat)", "metric": "trend", "type": "stat", "x": 18, "y": 0, "w": 6, "h": 8, "params": {"group_by": "status"}},
-
+    {
+        "id": 1,
+        "row": 1,
+        "title": "Alert P0 (Trend)",
+        "metric": "trend",
+        "type": "timeseries",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 8,
+        "params": {"group_by": "severity", "severity": "P0"},
+    },
+    {
+        "id": 2,
+        "row": 1,
+        "title": "Alert P1 (Trend)",
+        "metric": "trend",
+        "type": "timeseries",
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 8,
+        "params": {"group_by": "severity", "severity": "P1"},
+    },
+    {
+        "id": 3,
+        "row": 1,
+        "title": "Alert P2/P3 (Trend)",
+        "metric": "trend",
+        "type": "timeseries",
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 8,
+        "params": {"group_by": "severity", "severity": "P2"},
+    },
+    {
+        "id": 4,
+        "row": 1,
+        "title": "Alert Total (Stat)",
+        "metric": "trend",
+        "type": "stat",
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 8,
+        "params": {"group_by": "status"},
+    },
     # Row 2: 响应时长 (y=8, h=8)
-    {"id": 5, "row": 2, "title": "Response Time p99 (Stat)", "metric": "response_time", "type": "stat", "x": 0, "y": 8, "w": 6, "h": 8, "params": {}},
-    {"id": 6, "row": 2, "title": "Response Time p95 (Stat)", "metric": "response_time", "type": "stat", "x": 6, "y": 8, "w": 6, "h": 8, "params": {}},
-    {"id": 7, "row": 2, "title": "Response Time Mean (Stat)", "metric": "response_time", "type": "stat", "x": 12, "y": 8, "w": 6, "h": 8, "params": {}},
-    {"id": 8, "row": 2, "title": "Ack Rate (Gauge)", "metric": "response_time", "type": "gauge", "x": 18, "y": 8, "w": 6, "h": 8, "params": {}},
-
+    {
+        "id": 5,
+        "row": 2,
+        "title": "Response Time p99 (Stat)",
+        "metric": "response_time",
+        "type": "stat",
+        "x": 0,
+        "y": 8,
+        "w": 6,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 6,
+        "row": 2,
+        "title": "Response Time p95 (Stat)",
+        "metric": "response_time",
+        "type": "stat",
+        "x": 6,
+        "y": 8,
+        "w": 6,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 7,
+        "row": 2,
+        "title": "Response Time Mean (Stat)",
+        "metric": "response_time",
+        "type": "stat",
+        "x": 12,
+        "y": 8,
+        "w": 6,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 8,
+        "row": 2,
+        "title": "Ack Rate (Gauge)",
+        "metric": "response_time",
+        "type": "gauge",
+        "x": 18,
+        "y": 8,
+        "w": 6,
+        "h": 8,
+        "params": {},
+    },
     # Row 3: 升级率 (y=16, h=8)
-    {"id": 9, "row": 3, "title": "Escalation Distribution (Pie)", "metric": "escalation", "type": "piechart", "x": 0, "y": 16, "w": 8, "h": 8, "params": {}},
-    {"id": 10, "row": 3, "title": "Escalation Rate (Stat)", "metric": "escalation", "type": "stat", "x": 8, "y": 16, "w": 8, "h": 8, "params": {}},
-    {"id": 11, "row": 3, "title": "Escalation by Level (BarGauge)", "metric": "escalation", "type": "bargauge", "x": 16, "y": 16, "w": 8, "h": 8, "params": {}},
-
+    {
+        "id": 9,
+        "row": 3,
+        "title": "Escalation Distribution (Pie)",
+        "metric": "escalation",
+        "type": "piechart",
+        "x": 0,
+        "y": 16,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 10,
+        "row": 3,
+        "title": "Escalation Rate (Stat)",
+        "metric": "escalation",
+        "type": "stat",
+        "x": 8,
+        "y": 16,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 11,
+        "row": 3,
+        "title": "Escalation by Level (BarGauge)",
+        "metric": "escalation",
+        "type": "bargauge",
+        "x": 16,
+        "y": 16,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
     # Row 4: 通道成功率 (y=24, h=8)
-    {"id": 12, "row": 4, "title": "Overall Success Rate (Stat)", "metric": "channel_stats", "type": "stat", "x": 0, "y": 24, "w": 6, "h": 8, "params": {}},
-    {"id": 13, "row": 4, "title": "Webhook Success (BarGauge)", "metric": "channel_stats", "type": "bargauge", "x": 6, "y": 24, "w": 6, "h": 8, "params": {"channel": "webhook"}},
-    {"id": 14, "row": 4, "title": "Slack Success (BarGauge)", "metric": "channel_stats", "type": "bargauge", "x": 12, "y": 24, "w": 6, "h": 8, "params": {"channel": "slack"}},
-    {"id": 15, "row": 4, "title": "DingTalk+Email (BarGauge)", "metric": "channel_stats", "type": "bargauge", "x": 18, "y": 24, "w": 6, "h": 8, "params": {"channel": "dingtalk"}},
-
+    {
+        "id": 12,
+        "row": 4,
+        "title": "Overall Success Rate (Stat)",
+        "metric": "channel_stats",
+        "type": "stat",
+        "x": 0,
+        "y": 24,
+        "w": 6,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 13,
+        "row": 4,
+        "title": "Webhook Success (BarGauge)",
+        "metric": "channel_stats",
+        "type": "bargauge",
+        "x": 6,
+        "y": 24,
+        "w": 6,
+        "h": 8,
+        "params": {"channel": "webhook"},
+    },
+    {
+        "id": 14,
+        "row": 4,
+        "title": "Slack Success (BarGauge)",
+        "metric": "channel_stats",
+        "type": "bargauge",
+        "x": 12,
+        "y": 24,
+        "w": 6,
+        "h": 8,
+        "params": {"channel": "slack"},
+    },
+    {
+        "id": 15,
+        "row": 4,
+        "title": "DingTalk+Email (BarGauge)",
+        "metric": "channel_stats",
+        "type": "bargauge",
+        "x": 18,
+        "y": 24,
+        "w": 6,
+        "h": 8,
+        "params": {"channel": "dingtalk"},
+    },
     # Row 5: 静默命中率 (y=32, h=8)
-    {"id": 16, "row": 5, "title": "Silence Hit Rate (Stat)", "metric": "silence_hit_rate", "type": "stat", "x": 0, "y": 32, "w": 8, "h": 8, "params": {}},
-    {"id": 17, "row": 5, "title": "Total Silenced (Stat)", "metric": "silence_hit_rate", "type": "stat", "x": 8, "y": 32, "w": 8, "h": 8, "params": {}},
-    {"id": 18, "row": 5, "title": "Top Matchers (BarGauge)", "metric": "silence_hit_rate", "type": "bargauge", "x": 16, "y": 32, "w": 8, "h": 8, "params": {}},
-
+    {
+        "id": 16,
+        "row": 5,
+        "title": "Silence Hit Rate (Stat)",
+        "metric": "silence_hit_rate",
+        "type": "stat",
+        "x": 0,
+        "y": 32,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 17,
+        "row": 5,
+        "title": "Total Silenced (Stat)",
+        "metric": "silence_hit_rate",
+        "type": "stat",
+        "x": 8,
+        "y": 32,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 18,
+        "row": 5,
+        "title": "Top Matchers (BarGauge)",
+        "metric": "silence_hit_rate",
+        "type": "bargauge",
+        "x": 16,
+        "y": 32,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
     # Row 6: AM 同步 (y=40, h=8)
-    {"id": 19, "row": 6, "title": "AM Sync Success Rate (Gauge)", "metric": "am_sync", "type": "gauge", "x": 0, "y": 40, "w": 8, "h": 8, "params": {}},
-    {"id": 20, "row": 6, "title": "AM Sync Total (Stat)", "metric": "am_sync", "type": "stat", "x": 8, "y": 40, "w": 8, "h": 8, "params": {}},
-    {"id": 21, "row": 6, "title": "AM Sync by Operation (Table)", "metric": "am_sync", "type": "table", "x": 16, "y": 40, "w": 8, "h": 8, "params": {}},
-
+    {
+        "id": 19,
+        "row": 6,
+        "title": "AM Sync Success Rate (Gauge)",
+        "metric": "am_sync",
+        "type": "gauge",
+        "x": 0,
+        "y": 40,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 20,
+        "row": 6,
+        "title": "AM Sync Total (Stat)",
+        "metric": "am_sync",
+        "type": "stat",
+        "x": 8,
+        "y": 40,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 21,
+        "row": 6,
+        "title": "AM Sync by Operation (Table)",
+        "metric": "am_sync",
+        "type": "table",
+        "x": 16,
+        "y": 40,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
     # Row 7: 锁统计 (y=48, h=8)
-    {"id": 22, "row": 7, "title": "Lock Acquire Rate (Gauge)", "metric": "lock_stats", "type": "gauge", "x": 0, "y": 48, "w": 8, "h": 8, "params": {}},
-    {"id": 23, "row": 7, "title": "Lock Fallback Rate (Stat)", "metric": "lock_stats", "type": "stat", "x": 8, "y": 48, "w": 8, "h": 8, "params": {}},
-    {"id": 24, "row": 7, "title": "Lock Error Rate (Stat)", "metric": "lock_stats", "type": "stat", "x": 16, "y": 48, "w": 8, "h": 8, "params": {}},
+    {
+        "id": 22,
+        "row": 7,
+        "title": "Lock Acquire Rate (Gauge)",
+        "metric": "lock_stats",
+        "type": "gauge",
+        "x": 0,
+        "y": 48,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 23,
+        "row": 7,
+        "title": "Lock Fallback Rate (Stat)",
+        "metric": "lock_stats",
+        "type": "stat",
+        "x": 8,
+        "y": 48,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
+    {
+        "id": 24,
+        "row": 7,
+        "title": "Lock Error Rate (Stat)",
+        "metric": "lock_stats",
+        "type": "stat",
+        "x": 16,
+        "y": 48,
+        "w": 8,
+        "h": 8,
+        "params": {},
+    },
 ]
 
 
@@ -96,7 +359,9 @@ def validate_grid_layout() -> bool:
         for i, (a, b) in enumerate(xs):
             for j, (c, d) in enumerate(xs):
                 if i < j and not (b <= c or d <= a):
-                    print(f"  FAIL: row {row} panels {i} and {j} overlap: {a}-{b} vs {c}-{d}")
+                    print(
+                        f"  FAIL: row {row} panels {i} and {j} overlap: {a}-{b} vs {c}-{d}"
+                    )
                     return False
         print(f"  Row {row}: {len(panels)} panels, total_w={total_w}, OK")
         assert total_w <= 24, f"row {row} overflow: {total_w}"
@@ -130,8 +395,12 @@ def simulate_user_flows() -> bool:
 
     # 场景 1: SRE 故障定位 (3 秒判断)
     print("  场景 1: SRE 故障定位")
-    critical_panels = [p for p in PANEL_DESIGN if p["id"] in (12, 19, 22)]  # channel/AM/lock
-    print(f"    critical panels (3 sec 判断): {[(p['id'], p['title']) for p in critical_panels]}")
+    critical_panels = [
+        p for p in PANEL_DESIGN if p["id"] in (12, 19, 22)
+    ]  # channel/AM/lock
+    print(
+        f"    critical panels (3 sec 判断): {[(p['id'], p['title']) for p in critical_panels]}"
+    )
 
     # 场景 2: PM 周报截图
     print("  场景 2: PM 周报截图")
@@ -141,7 +410,9 @@ def simulate_user_flows() -> bool:
     # 场景 3: 变量切换 (severity=P0)
     print("  场景 3: severity=P0 变量切换")
     severity_panels = [p for p in PANEL_DESIGN if "severity" in p["params"]]
-    print(f"    panels affected by $severity: {[(p['id'], p['title']) for p in severity_panels]}")
+    print(
+        f"    panels affected by $severity: {[(p['id'], p['title']) for p in severity_panels]}"
+    )
     return True
 
 

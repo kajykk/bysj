@@ -1,0 +1,55 @@
+# P2-2: Frontend .dockerignore - 减小构建上下文, 加速镜像构建
+
+# ── 版本控制 ──
+.git
+.gitignore
+.github
+
+# ── Node 依赖 (容器内重新 npm ci 安装) ──
+node_modules/
+
+# ── 构建产物 (容器内重新 npm run build) ──
+dist/
+build/
+
+# ── 测试与开发 ──
+tests/
+e2e/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+coverage/
+.nyc_output/
+
+# ── 缓存 ──
+.cache/
+.parcel-cache/
+.eslintcache
+.vite/
+
+# ── IDE 配置 ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── 日志与临时文件 ──
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── 开发文档 (生产镜像不需要) ──
+*.md
+!README.md
+
+# ── 环境配置 (敏感) ──
+.env
+.env.local
+.env.*.local
+
+# ── Docker 自身文件 ──
+Dockerfile
+.dockerignore

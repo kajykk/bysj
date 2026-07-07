@@ -6,9 +6,9 @@ import logging
 
 import numpy as np
 
-from app.ml.model import PhysiologicalMLP
-from app.ml.trainer import train_model, evaluate
 from app.ml.loss import binary_cross_entropy_loss
+from app.ml.model import PhysiologicalMLP
+from app.ml.trainer import evaluate, train_model
 
 logger = logging.getLogger(__name__)
 
@@ -234,16 +234,17 @@ def nested_cv_score(
 ) -> dict:
     """嵌套交叉验证评估（P1-ML-027 修复）.
 
-    实现真正的嵌套 CV，避免超参数选择偏差：
+    实现嵌套 CV，避免超参数选择偏差：
     - 外层循环：将数据划分为 train/test，用于无偏性能评估
-    - 内层循环：在 train 上进行 K-fold CV 选择最佳超参数
+    - 内层循环：在 train 上使用 80/20 hold-out 划分进行超参数选择
+      （注：inner_folds 参数当前保留但未使用，内层使用单次 hold-out 而非 K-fold CV）
     - 用最佳超参数在完整 train 上重新训练，在 test 上评估
 
     Args:
         X: 完整特征矩阵.
         y: 完整标签向量.
         outer_folds: 外层 CV 折数.
-        inner_folds: 内层 CV 折数.
+        inner_folds: 内层 CV 折数（当前保留未用，内层使用 80/20 hold-out）.
         param_grid: 超参数搜索空间.
         epochs: 每次训练的 epoch 数.
         patience: 早停 patience.
@@ -252,6 +253,11 @@ def nested_cv_score(
     Returns:
         包含 outer_scores、mean_score、std_score 和 best_params_per_fold 的字典.
     """
+    if inner_folds != 3:
+        logger.warning(
+            "inner_folds=%d 已设置但当前实现使用 80/20 hold-out，该参数将被忽略",
+            inner_folds,
+        )
     rng = np.random.RandomState(random_state)
     n_samples = len(y)
     indices = np.arange(n_samples)
@@ -287,7 +293,9 @@ def nested_cv_score(
         # 内层：在 train 上进行 grid_search 选择超参数
         # 将 train 再划分为 train_inner/val_inner 用于 grid_search
         inner_split = int(len(X_train_outer) * 0.8)
-        inner_shuffle = np.random.RandomState(random_state + outer_idx).permutation(len(X_train_outer))
+        inner_shuffle = np.random.RandomState(random_state + outer_idx).permutation(
+            len(X_train_outer)
+        )
         X_train_inner = X_train_outer[inner_shuffle[:inner_split]]
         y_train_inner = y_train_outer[inner_shuffle[:inner_split]]
         X_val_inner = X_train_outer[inner_shuffle[inner_split:]]
@@ -314,12 +322,27 @@ def nested_cv_score(
             random_state=random_state + outer_idx,
         )
 
-        history = train_model(
+        # C-2 修复：从外层训练集再切出一个验证子集用于早停，测试集只在最终评估时使用一次。
+        # 原实现将 X_test_outer 作为 train_model 的验证集传入，触发 EarlyStopping 基于
+        # 测试集表现选择权重，导致嵌套 CV 的无偏性被破坏、报告的 F1 存在乐观偏差。
+        es_split = int(len(X_train_outer) * 0.85)
+        rng_es = np.random.RandomState(random_state + outer_idx + 100)
+        es_perm = rng_es.permutation(len(X_train_outer))
+        X_tr_es, X_val_es = (
+            X_train_outer[es_perm[:es_split]],
+            X_train_outer[es_perm[es_split:]],
+        )
+        y_tr_es, y_val_es = (
+            y_train_outer[es_perm[:es_split]],
+            y_train_outer[es_perm[es_split:]],
+        )
+
+        _history = train_model(
             model,
-            X_train_outer,
-            y_train_outer,
-            X_test_outer,
-            y_test_outer,
+            X_tr_es,
+            y_tr_es,
+            X_val_es,
+            y_val_es,
             epochs=epochs,
             batch_size=best_params["batch_size"],
             learning_rate=best_params["learning_rate"],
@@ -329,8 +352,10 @@ def nested_cv_score(
             random_state=random_state + outer_idx,
         )
 
-        # 在外层 test 上评估（无偏估计）
-        test_loss, test_metrics = evaluate(model, X_test_outer, y_test_outer, binary_cross_entropy_loss)
+        # 在外层 test 上评估（无偏估计，仅使用一次）
+        test_loss, test_metrics = evaluate(
+            model, X_test_outer, y_test_outer, binary_cross_entropy_loss
+        )
         outer_scores.append(test_metrics["f1"])
 
         logger.info(

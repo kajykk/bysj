@@ -8,7 +8,13 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.monitoring import CanaryRecord, CanaryStatus, DriftAlert, MonitoringLog, MonitoringEventType
+from app.models.monitoring import (
+    CanaryRecord,
+    CanaryStatus,
+    DriftAlert,
+    MonitoringEventType,
+    MonitoringLog,
+)
 from app.services.canary_manager import canary_manager
 
 logger = logging.getLogger(__name__)
@@ -50,7 +56,9 @@ class AutoRollbackService:
         Returns:
             RollbackCheckResult with decision and metrics.
         """
-        result = await db_session.execute(select(CanaryRecord).where(CanaryRecord.id == canary_id))
+        result = await db_session.execute(
+            select(CanaryRecord).where(CanaryRecord.id == canary_id)
+        )
         canary = result.scalar_one_or_none()
 
         if not canary:
@@ -73,7 +81,10 @@ class AutoRollbackService:
         metrics: dict[str, Any] = {}
 
         # Calculate fallback rate (last hour)
-        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+        # M-14 修复：MonitoringLog.created_at 为 naive DateTime 列，比较时需用 naive UTC
+        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+            hours=1
+        )
         fallback_stmt = select(func.count()).where(
             MonitoringLog.event_type == MonitoringEventType.FALLBACK,
             MonitoringLog.created_at >= one_hour_ago,
@@ -167,31 +178,36 @@ class AutoRollbackService:
 
         Returns:
             True if rollback was successful.
+
+        C-Svc-1 修复：原实现在 begin_nested() savepoint 内调用 commit()，
+        会提交最外层事务而非仅释放 savepoint，破坏 check_all_canaries 中
+        每个 canary 的事务隔离；同时失败时调用 rollback() 也会回滚整个
+        外层事务，影响其他 canary 的处理。改为：
+        - 使用 flush() 仅将更改刷入 DB，事务提交交给 savepoint 释放或外层调用方
+        - 不在此处捕获异常，让异常向上传播以触发 savepoint 自动回滚
         """
-        try:
-            await canary_manager.rollback_canary(db_session, canary_id, reason)
+        await canary_manager.rollback_canary(db_session, canary_id, reason)
 
-            # Record rollback event
-            log = MonitoringLog(
-                event_type=MonitoringEventType.CANARY_SWITCH,
-                response_summary={
-                    "canary_id": canary_id,
-                    "action": "rollback",
-                    "reason": reason,
-                    "triggered_by": triggered_by,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-            )
-            db_session.add(log)
-            await db_session.commit()
+        # Record rollback event
+        log = MonitoringLog(
+            event_type=MonitoringEventType.CANARY_SWITCH,
+            response_summary={
+                "canary_id": canary_id,
+                "action": "rollback",
+                "reason": reason,
+                "triggered_by": triggered_by,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        db_session.add(log)
+        await db_session.flush()
 
-            logger.warning("Canary %d auto-rollback executed: %s", canary_id, reason)
-            return True
-        except Exception:
-            logger.exception("Failed to execute rollback for canary %d", canary_id)
-            return False
+        logger.warning("Canary %d auto-rollback executed: %s", canary_id, reason)
+        return True
 
-    async def check_all_canaries(self, db_session: AsyncSession) -> list[RollbackCheckResult]:
+    async def check_all_canaries(
+        self, db_session: AsyncSession
+    ) -> list[RollbackCheckResult]:
         """Check all running canaries and return results.
 
         Args:
@@ -207,16 +223,35 @@ class AutoRollbackService:
 
         results: list[RollbackCheckResult] = []
         for canary in canaries:
-            check_result = await self.check_canary_health(db_session, canary.id)
-            results.append(check_result)
+            # M-22 修复：每个 canary 的检查和回滚使用 savepoint 隔离
+            # 避免单个 canary 失败回滚整个事务，影响后续 canary 的查询
+            try:
+                async with db_session.begin_nested():
+                    check_result = await self.check_canary_health(db_session, canary.id)
 
-            if check_result.should_rollback:
-                await self.execute_rollback(
-                    db_session,
-                    canary.id,
-                    check_result.reason,
-                    triggered_by="auto",
+                if check_result.should_rollback:
+                    # execute_rollback 内部会 commit，使用独立 savepoint 隔离
+                    try:
+                        async with db_session.begin_nested():
+                            await self.execute_rollback(
+                                db_session,
+                                canary.id,
+                                check_result.reason,
+                                triggered_by="auto",
+                            )
+                    except Exception:
+                        logger.exception(
+                            "Rollback savepoint failed for canary %d", canary.id
+                        )
+            except Exception:
+                logger.exception("Check/rollback failed for canary %d", canary.id)
+                check_result = RollbackCheckResult(
+                    should_rollback=False,
+                    reason="check_error",
+                    metrics={},
+                    canary_id=canary.id,
                 )
+            results.append(check_result)
 
         return results
 

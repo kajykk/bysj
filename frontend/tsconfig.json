@@ -15,7 +15,8 @@
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@common/*": ["../common/*"]
     }
   },
   "files": [],

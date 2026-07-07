@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 
 from celery import Celery
 from celery.schedules import crontab
@@ -68,6 +67,27 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.observability.flush_lock_stats_task",
         "schedule": 60.0,  # Every 60 seconds
     },
+    # RES-P1-005: TRAINING_JOBS 字典 LRU 清理 - 每 6 小时
+    "cleanup-training-jobs": {
+        "task": "app.tasks.scheduler.cleanup_training_jobs_task",
+        "schedule": crontab(hour="*/6", minute=15),
+    },
+    # RES-P1-006: uploads/ 目录清理过期文件 - 每日 03:30
+    "cleanup-uploads-dir": {
+        "task": "app.tasks.scheduler.cleanup_uploads_dir_task",
+        "schedule": crontab(hour=3, minute=30),
+    },
+    # RES-P1-007: experiment artifact 清理旧产物 - 每周一 04:00
+    "cleanup-experiment-artifacts": {
+        "task": "app.tasks.scheduler.cleanup_experiment_artifacts_task",
+        "schedule": crontab(day_of_week=1, hour=4, minute=0),
+    },
+    # SEC-P1-005: 异常访问检测 - 每 5 分钟扫描 OperationLog
+    # 关联 alert_rules.py AR-303~AR-306 + services/anomaly_detection_service.py
+    "detect-anomaly-access": {
+        "task": "app.tasks.anomaly_detection.detect_anomaly_access_task",
+        "schedule": 300.0,  # Every 300 seconds (5 minutes)
+    },
 }
 
 celery_app.autodiscover_tasks(["app.tasks"])
@@ -76,8 +96,16 @@ celery_app.autodiscover_tasks(["app.tasks"])
 # P1-D-7: DLQ - 任务失败信号处理器
 # 当任务超过最大重试次数后, 记录完整的失败上下文到日志, 便于后续排查
 @task_failure.connect
-def on_task_failure(sender=None, task_id=None, exception=None,
-                    args=None, kwargs=None, traceback=None, einfo=None, **extra):
+def on_task_failure(
+    sender=None,
+    task_id=None,
+    exception=None,
+    args=None,
+    kwargs=None,
+    traceback=None,
+    einfo=None,
+    **extra,
+):
     """P1-D-7: DLQ 信号处理器 - 记录任务失败完整上下文.
 
     当任务抛出异常 (包括重试耗尽后) 时触发, 记录:
@@ -88,6 +116,9 @@ def on_task_failure(sender=None, task_id=None, exception=None,
     - traceback: 堆栈信息
 
     这些日志可被日志收集系统 (如 ELK/Loki) 捕获, 作为 DLQ 的替代方案.
+
+    STAB-P1-018 修复: 同时递增 celery_task_failures_total Prometheus 指标,
+    配合 alert_rules.py AR-204 规则实现告警.
     """
     task_name = getattr(sender, "name", str(sender)) if sender else "unknown"
     # 脱敏: 避免在日志中泄露敏感参数 (如密码)
@@ -103,6 +134,14 @@ def on_task_failure(sender=None, task_id=None, exception=None,
         safe_kwargs,
         exc_info=exception,
     )
+
+    # STAB-P1-018: 递增 Prometheus 失败计数指标, 触发 AR-204 告警
+    try:
+        from app.core.metrics import celery_task_failures_total
+
+        celery_task_failures_total.inc(task_name=task_name)
+    except Exception as exc:
+        logger.debug("celery_task_failures_total inc failed: %s", exc)
 
 
 def _sanitize_task_args(args) -> str:
@@ -120,8 +159,21 @@ def _sanitize_task_args(args) -> str:
 
 
 # 敏感键集合 (小写匹配): 密码/令牌/密钥/PII 等
+# L-12 修复：补充 jwt/bearer/credit_card 等常见敏感关键词，避免在 DLQ 日志中泄露
 _SENSITIVE_KEYS = {
-    "password", "token", "secret", "email", "phone", "ssn", "api_key", "authorization",
+    "password",
+    "token",
+    "secret",
+    "email",
+    "phone",
+    "ssn",
+    "api_key",
+    "authorization",
+    "jwt",
+    "bearer",
+    "credit_card",
+    "credit_card_number",
+    "cvv",
 }
 
 
@@ -129,10 +181,16 @@ def _mask_sensitive(value):
     """递归遍历参数, 对敏感键的值替换为 ***MASKED***."""
     if isinstance(value, dict):
         return {
-            k: ("***MASKED***" if isinstance(k, str) and k.lower() in _SENSITIVE_KEYS else _mask_sensitive(v))
+            k: (
+                "***MASKED***"
+                if isinstance(k, str) and k.lower() in _SENSITIVE_KEYS
+                else _mask_sensitive(v)
+            )
             for k, v in value.items()
         }
     if isinstance(value, (list, tuple)):
         masked = [_mask_sensitive(item) for item in value]
-        return type(value)(masked) if isinstance(value, tuple) else masked
+        # L-Core-2 修复：tuple 子类（如 namedtuple）的 type(value)(masked) 可能失败，
+        # 因为 namedtuple 构造函数接受位置参数而非可迭代对象。统一返回 tuple。
+        return tuple(masked) if isinstance(value, tuple) else masked
     return value

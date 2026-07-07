@@ -4,7 +4,6 @@ import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -62,9 +61,7 @@ def compute_activity_intensity(df: DataFrame) -> DataFrame:
     df = df.copy()
     # When exercise_minutes is 0, return steps as the intensity measure
     df["activity_intensity"] = np.where(
-        df["exercise_minutes"] == 0,
-        df["steps"],
-        df["steps"] / df["exercise_minutes"]
+        df["exercise_minutes"] == 0, df["steps"], df["steps"] / df["exercise_minutes"]
     )
     df["activity_intensity"] = df["activity_intensity"].clip(lower=0, upper=10000)
     return df

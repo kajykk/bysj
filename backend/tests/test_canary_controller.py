@@ -76,10 +76,16 @@ class TestCanaryController:
         ratio = new_model_count / total
         assert 0.45 <= ratio <= 0.55, f"Ratio {ratio} not within expected range"
 
-    def test_new_model_routing(self, old_model: MagicMock, new_model: MagicMock) -> None:
+    def test_new_model_routing(
+        self, old_model: MagicMock, new_model: MagicMock
+    ) -> None:
         """TC-CAN-003: 验证新模型路由."""
-        config = CanaryConfig(new_model_traffic_percentage=100.0, enable_parallel_execution=False)
-        controller = CanaryController(config=config, old_model=old_model, new_model=new_model)
+        config = CanaryConfig(
+            new_model_traffic_percentage=100.0, enable_parallel_execution=False
+        )
+        controller = CanaryController(
+            config=config, old_model=old_model, new_model=new_model
+        )
 
         X = np.random.randn(3, 10)
         result = controller.predict(X, user_id="test_user")
@@ -87,10 +93,16 @@ class TestCanaryController:
         assert result["model_used"] == "new"
         new_model.predict.assert_called_once()
 
-    def test_old_model_routing(self, old_model: MagicMock, new_model: MagicMock) -> None:
+    def test_old_model_routing(
+        self, old_model: MagicMock, new_model: MagicMock
+    ) -> None:
         """TC-CAN-004: 验证旧模型路由."""
-        config = CanaryConfig(new_model_traffic_percentage=0.0, enable_parallel_execution=False)
-        controller = CanaryController(config=config, old_model=old_model, new_model=new_model)
+        config = CanaryConfig(
+            new_model_traffic_percentage=0.0, enable_parallel_execution=False
+        )
+        controller = CanaryController(
+            config=config, old_model=old_model, new_model=new_model
+        )
 
         X = np.random.randn(3, 10)
         result = controller.predict(X, user_id="test_user")
@@ -98,13 +110,17 @@ class TestCanaryController:
         assert result["model_used"] == "old"
         old_model.predict.assert_called_once()
 
-    def test_parallel_execution(self, old_model: MagicMock, new_model: MagicMock) -> None:
+    def test_parallel_execution(
+        self, old_model: MagicMock, new_model: MagicMock
+    ) -> None:
         """TC-CAN-005: 验证并行执行."""
         config = CanaryConfig(
             new_model_traffic_percentage=50.0,
             enable_parallel_execution=True,
         )
-        controller = CanaryController(config=config, old_model=old_model, new_model=new_model)
+        controller = CanaryController(
+            config=config, old_model=old_model, new_model=new_model
+        )
 
         X = np.random.randn(3, 10)
         controller.predict(X, user_id="test_user")
@@ -113,13 +129,17 @@ class TestCanaryController:
         assert old_model.predict.called
         assert new_model.predict.called
 
-    def test_comparison_logging(self, old_model: MagicMock, new_model: MagicMock) -> None:
+    def test_comparison_logging(
+        self, old_model: MagicMock, new_model: MagicMock
+    ) -> None:
         """TC-CAN-006: 验证对比日志."""
         config = CanaryConfig(
             new_model_traffic_percentage=50.0,
             enable_parallel_execution=True,
         )
-        controller = CanaryController(config=config, old_model=old_model, new_model=new_model)
+        controller = CanaryController(
+            config=config, old_model=old_model, new_model=new_model
+        )
 
         X = np.random.randn(3, 10)
         controller.predict(X, user_id="test_user")
@@ -130,17 +150,23 @@ class TestCanaryController:
         assert "total_comparisons" in summary
         assert summary["total_comparisons"] > 0
 
-    def test_traffic_adjustment(self, old_model: MagicMock, new_model: MagicMock) -> None:
+    def test_traffic_adjustment(
+        self, old_model: MagicMock, new_model: MagicMock
+    ) -> None:
         """TC-CAN-007: 验证流量调整."""
         config = CanaryConfig(new_model_traffic_percentage=10.0)
-        controller = CanaryController(config=config, old_model=old_model, new_model=new_model)
+        controller = CanaryController(
+            config=config, old_model=old_model, new_model=new_model
+        )
 
         assert controller.config.new_model_traffic_percentage == 10.0
 
         controller.adjust_traffic(50.0)
         assert controller.config.new_model_traffic_percentage == 50.0
 
-    def test_promote_and_rollback(self, old_model: MagicMock, new_model: MagicMock) -> None:
+    def test_promote_and_rollback(
+        self, old_model: MagicMock, new_model: MagicMock
+    ) -> None:
         """TC-CAN-008: 验证升级和回滚."""
         controller = CanaryController(
             config=CanaryConfig(new_model_traffic_percentage=10.0),
@@ -156,7 +182,9 @@ class TestCanaryController:
         controller.rollback()
         assert controller.config.new_model_traffic_percentage == 0.0
 
-    def test_state_save_load(self, old_model: MagicMock, new_model: MagicMock, tmp_path: Path) -> None:
+    def test_state_save_load(
+        self, old_model: MagicMock, new_model: MagicMock, tmp_path: Path
+    ) -> None:
         """TC-CAN-009: 验证状态保存与加载."""
         controller = CanaryController(
             config=CanaryConfig(new_model_traffic_percentage=25.0),
@@ -180,7 +208,9 @@ class TestCanaryController:
         assert loaded_controller.new_model_requests == controller.new_model_requests
         assert loaded_controller.old_model_requests == controller.old_model_requests
 
-    def test_comparison_summary(self, old_model: MagicMock, new_model: MagicMock) -> None:
+    def test_comparison_summary(
+        self, old_model: MagicMock, new_model: MagicMock
+    ) -> None:
         """TC-CAN-010: 验证对比摘要."""
         controller = CanaryController(
             config=CanaryConfig(new_model_traffic_percentage=50.0),
