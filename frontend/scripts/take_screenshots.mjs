@@ -1,4 +1,4 @@
-// 截图脚本 - 使用项目已安装的 Playwright
+// 截图脚本 - 真实后端登录 + 真实数据（无 mock）
 import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
@@ -8,95 +8,74 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const BASE_URL = 'http://127.0.0.1:5173';
+const API_BASE = 'http://127.0.0.1:8000';
 const OUT_DIR = path.join(__dirname, '..', 'public', 'screenshots');
 
-// 用户和咨询师 token 注入
-const USER_AUTH = {
-  token: 'demo-user-token-for-screenshots',
-  user: {
-    id: 1,
-    username: 'demo_user',
-    role: 'user',
-    nickname: '演示用户',
-  }
-};
-
-const COUNSELOR_AUTH = {
-  token: 'demo-counselor-token-for-screenshots',
-  user: {
-    id: 2,
-    username: 'demo_counselor',
-    role: 'counselor',
-    nickname: '演示咨询师',
-  }
-};
-
-const ADMIN_AUTH = {
-  token: 'demo-admin-token-for-screenshots',
-  user: {
-    id: 3,
-    username: 'demo_admin',
-    role: 'admin',
-    nickname: '演示管理员',
-  }
-};
+// 真实账号（来自 backend/.env E2E 密码 + seed 数据）
+const USER_CREDENTIALS = { username: 'user_moderate', password: 'E2E@User123' };
+const ADMIN_CREDENTIALS = { username: 'admin', password: 'E2E@Admin123' };
 
 // 5 张核心截图配置
 const SCREENSHOTS = [
-  { name: '01-user-dashboard',     role: 'user',      auth: USER_AUTH,      url: '/user/dashboard',   desc: '用户仪表盘' },
-  { name: '02-risk-assessment',     role: 'user',      auth: USER_AUTH,      url: '/user/risk',        desc: '多模态风险评估' },
-  { name: '03-real-time-warning',   role: 'user',      auth: USER_AUTH,      url: '/user/warnings',    desc: '实时预警监控' },
-  { name: '04-model-management',    role: 'admin',     auth: ADMIN_AUTH,     url: '/admin/dashboard',  desc: '模型治理中心' },
-  { name: '05-report-center',       role: 'user',      auth: USER_AUTH,      url: '/user/assessments', desc: '报告中心' },
+  { name: '01-user-dashboard',     url: '/user/dashboard',      desc: '用户仪表盘',         creds: USER_CREDENTIALS },
+  { name: '02-risk-assessment',     url: '/user/risk',           desc: '多模态风险评估',     creds: USER_CREDENTIALS },
+  { name: '03-real-time-warning',   url: '/user/warnings',       desc: '实时预警监控',       creds: USER_CREDENTIALS },
+  { name: '04-model-training',      url: '/user/model-training', desc: 'ML 训练与实验中心',  creds: USER_CREDENTIALS },
+  { name: '05-report-center',       url: '/user/assessments',    desc: '评估报告中心',       creds: USER_CREDENTIALS },
 ];
 
 async function ensureDir(p) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
 }
 
-async function setAuth(context, auth) {
-  // 在 context 级别注入：每次导航前自动执行
-  await context.addInitScript((auth) => {
-    try {
-      // ISS-008: token 存 sessionStorage
-      window.sessionStorage.setItem('token', auth.token);
-      // user 存 localStorage
-      window.localStorage.setItem('user', JSON.stringify(auth.user));
-    } catch (e) {
-      console.error('Failed to set auth', e);
-    }
-  }, auth);
+// 通过真实 API 登录，获取 JWT token 和 user 信息
+async function login(creds) {
+  const resp = await fetch(`${API_BASE}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(creds),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Login failed for ${creds.username}: ${resp.status} ${text}`);
+  }
+  const json = await resp.json();
+  return {
+    token: json.data.access_token,
+    user: json.data.user,
+  };
 }
 
 async function takeScreenshot(browser, shot) {
   console.log(`\n📸 ${shot.name}: ${shot.desc} (${shot.url})`);
 
+  // 1. 真实登录
+  console.log(`   Logging in as ${shot.creds.username}...`);
+  const auth = await login(shot.creds);
+  console.log(`   ✅ Token obtained (user: ${auth.user.username}, role: ${auth.user.role})`);
+
+  // 2. 创建浏览器上下文
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
-    deviceScaleFactor: 2, // retina 高清
+    deviceScaleFactor: 2,
     locale: 'zh-CN',
     timezoneId: 'Asia/Shanghai',
   });
 
-  // 注入 token（在 context 级别，每次页面加载前都执行）
-  await setAuth(context, shot.auth);
+  // 3. 注入真实 token（每次导航前自动执行）
+  await context.addInitScript((auth) => {
+    try {
+      window.sessionStorage.setItem('token', auth.token);
+      window.localStorage.setItem('user', JSON.stringify(auth.user));
+    } catch (e) {
+      console.error('Failed to set auth', e);
+    }
+  }, auth);
 
   const page = await context.newPage();
 
-  // 拦截后端 API 请求，统统返回 mock 数据（避免 500 错误）
-  await page.route('**/api/**', async (route) => {
-    const url = route.request().url();
-    const method = route.request().method();
-    // 根据路径返回合理的 mock 数据
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(mockResponse(url, method)),
-    });
-  });
-
-  // 先访问 / 触发 SPA 加载（让 init script 注入 sessionStorage）
-  console.log(`   Step 1: Visit / to inject auth...`);
+  // 4. 先访问 / 让 SPA 加载 + auth 注入
+  console.log(`   Step 1: Visit / to bootstrap SPA + inject auth...`);
   try {
     await page.goto(`${BASE_URL}/`, {
       waitUntil: 'load',
@@ -106,19 +85,9 @@ async function takeScreenshot(browser, shot) {
     console.log(`   ⚠️  Initial navigation warning: ${e.message}`);
   }
 
-  // 等待 auth 注入生效 & 首次渲染
   await page.waitForTimeout(1500);
 
-  // 验证 auth 已注入
-  const hasAuth = await page.evaluate(() => {
-    return {
-      token: !!window.sessionStorage.getItem('token'),
-      user: !!window.localStorage.getItem('user')
-    };
-  });
-  console.log(`   Auth state:`, hasAuth);
-
-  // 现在导航到目标页面，使用 load 事件等待完整加载
+  // 5. 导航到目标页面
   console.log(`   Step 2: Navigate to ${shot.url}...`);
   try {
     await page.goto(`${BASE_URL}${shot.url}`, {
@@ -129,56 +98,35 @@ async function takeScreenshot(browser, shot) {
     console.log(`   ⚠️  Navigation warning: ${e.message}`);
   }
 
-  // 等待 .layout-root 元素出现（页面已挂载）
-  console.log(`   Step 3: Wait for layout to render...`);
+  // 6. 等待页面内容渲染
+  console.log(`   Step 3: Wait for content to render...`);
   try {
-    await page.waitForSelector('.layout-root, .el-empty, .el-skeleton', {
-      timeout: 15000,
-    });
+    await page.waitForSelector('.layout-root', { timeout: 15000 });
+    console.log(`   ✅ Layout found`);
   } catch (e) {
-    console.log(`   ⚠️  Layout selector not found, continuing anyway: ${e.message}`);
+    console.log(`   ⚠️  Layout not found, continuing...`);
   }
 
-  // 再等待内容稳定
-  await page.waitForTimeout(3000);
+  // 等待数据加载完成（skeleton 消失或内容出现）
+  await page.waitForTimeout(5000);
 
-  // 强制关闭任何 v-loading 全屏遮罩
+  // 7. 清除可能残留的 loading 遮罩
   await page.evaluate(() => {
-    try {
-      document.querySelectorAll('.el-loading-mask, .el-overlay').forEach(el => {
-        el.remove();
-      });
-      document.querySelectorAll('.el-loading-spinner, [v-loading]').forEach(el => {
-        const mask = el.closest('.el-loading-mask');
-        if (mask) mask.remove();
-      });
-      document.querySelectorAll('.el-loading-parent--relative').forEach(el => {
-        el.classList.remove('el-loading-parent--relative');
-        el.classList.remove('el-loading-parent--hidden');
-      });
-    } catch (e) {
-      console.error('Failed to clear loading', e);
-    }
+    document.querySelectorAll('.el-loading-mask, .el-overlay').forEach(el => el.remove());
   });
 
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(500);
 
-  // 调试：打印当前页面状态
-  const pageInfo = await page.evaluate(() => {
-    return {
-      url: window.location.href,
-      title: document.title,
-      bodyText: document.body.innerText.substring(0, 200),
-      bodyHtml: document.body.innerHTML.length,
-      hasLayout: !!document.querySelector('.layout-root'),
-      hasMain: !!document.querySelector('.layout-main'),
-      hasLoading: !!document.querySelector('.el-loading-mask'),
-      elLoadingParent: document.querySelectorAll('.el-loading-parent--relative').length
-    };
-  });
+  // 8. 调试日志
+  const pageInfo = await page.evaluate(() => ({
+    url: window.location.href,
+    bodyTextLen: document.body.innerText.length,
+    hasLayout: !!document.querySelector('.layout-root'),
+    hasMain: !!document.querySelector('.layout-main'),
+  }));
   console.log(`   Page info:`, pageInfo);
 
-  // 截图
+  // 9. 截图
   const outPath = path.join(OUT_DIR, `${shot.name}.png`);
   await page.screenshot({ path: outPath, fullPage: false });
   console.log(`   ✅ Saved: ${outPath}`);
@@ -186,68 +134,16 @@ async function takeScreenshot(browser, shot) {
   await context.close();
 }
 
-function mockResponse(url, method) {
-  // 简单的 mock 响应，避免前端因缺数据崩溃
-  if (url.includes('/auth/me') || url.includes('/auth/profile')) {
-    return {
-      id: 1,
-      username: 'demo_user',
-      role: 'user',
-      nickname: '演示用户',
-    };
-  }
-  if (url.includes('/warnings')) {
-    return {
-      items: Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1,
-        title: `预警 #${i + 1}`,
-        content: '检测到近期情绪波动，请关注',
-        risk_level: (i % 3) + 1,
-        is_read: i > 2,
-        status: ['pending', 'handled', 'ignored'][i % 3],
-        created_at: new Date(Date.now() - i * 86400000).toISOString(),
-        handled_at: i > 2 ? new Date(Date.now() - i * 86400000 + 3600000).toISOString() : null,
-      })),
-      total: 8,
-      page: 1,
-      page_size: 10,
-    };
-  }
-  if (url.includes('/assessments')) {
-    return {
-      items: Array.from({ length: 5 }, (_, i) => ({
-        id: i + 1,
-        risk_score: 0.3 + i * 0.15,
-        risk_level: ['low', 'medium', 'high'][i % 3],
-        created_at: new Date(Date.now() - i * 7 * 86400000).toISOString(),
-        summary: '综合评估结果',
-      })),
-      total: 5,
-      page: 1,
-      page_size: 10,
-    };
-  }
-  if (url.includes('/risk')) {
-    return {
-      risk_score: 0.45,
-      risk_level: 'medium',
-      modalities: { structured: 0.4, text: 0.5, physio: 0.3 },
-      recommendations: ['建议每周复评', '关注睡眠质量', '保持运动习惯'],
-    };
-  }
-  // 通用空响应
-  return { items: [], total: 0, page: 1, page_size: 10 };
-}
-
 async function main() {
   await ensureDir(OUT_DIR);
 
   console.log(`📁 Output directory: ${OUT_DIR}`);
-  console.log(`🌐 Base URL: ${BASE_URL}`);
+  console.log(`🌐 Frontend: ${BASE_URL}`);
+  console.log(`🔌 Backend:  ${API_BASE}`);
 
   const browser = await chromium.launch({
     headless: true,
-    channel: 'msedge',  // 使用系统已安装的 Edge
+    channel: 'msedge',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
 
