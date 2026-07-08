@@ -1,5 +1,5 @@
 ---
-description: Orchestrates the 8-week DWS improvement lifecycle across phases 0-6. Use when the user says 启动改进项目, 继续改进, 查看进度, 确认阶段, 派发任务, 提交验收, 关闭任务, 标记阻塞, 解除阻塞, or asks to manage DWS improvement work. Maintains STATE.md/backlog/metrics, enforces P0→P1→P2 priority, regression tests, horizontal checks, gate checks, and dispatches existing skills by work package.
+description: Orchestrates the 8-week DWS improvement lifecycle across phases 0-6. Use when the user says 启动改进项目, 继续改进, 查看进度, 确认阶段, 派发任务, 提交验收, 关闭任务, 验收退回, 标记阻塞, 解除阻塞, or asks to manage DWS improvement work. Maintains STATE.md/backlog/metrics, enforces P0→P1→P2 priority, regression tests, horizontal checks, gate checks, and dispatches existing skills by work package.
 ---
 
 # dws-improvement-orchestrator
@@ -17,7 +17,7 @@ Top-level state-machine orchestrator for the DWS 8-week improvement project (per
 | WP→技能映射、fallback、blocking | `dispatch-registry.md` |
 | 阶段门禁 M0-M6（自动+人工）、豁免规则 | `gate-checks.md` |
 | 任务字段、状态迁移表、阶段枚举 | `state-schema.md` |
-| 初始化运行时工件 | `templates/STATE.template.md` 等 6 个模板 |
+| 初始化运行时工件 | templates/ (STATE / backlog / acceptance-criteria / metrics / phase-report / decision-record) |
 
 ## 阶段状态枚举
 
@@ -25,7 +25,7 @@ Top-level state-machine orchestrator for the DWS 8-week improvement project (per
 
 规则: 同一时间只能有一个当前阶段；阶段内可有多个任务并行；跨阶段任务默认不允许派发，除非 `decisions.md` 豁免。
 
-## 操作命令（9 个）
+## 操作命令（10 个）
 
 | 命令 | 动作 |
 |---|---|
@@ -36,6 +36,7 @@ Top-level state-machine orchestrator for the DWS 8-week improvement project (per
 | `派发任务` | 按 `dispatch-registry.md` 派发 |
 | `提交验收` | 置 Pending Review，必须附回归用例 |
 | `关闭任务` | 验收通过置 Closed，更新 metrics |
+| `验收退回` | 退回 Pending Review 任务到 Fixing，记录退回原因 |
 | `标记阻塞` | 记录阻塞原因/依赖任务/解除条件，跳过 |
 | `解除阻塞` | 依赖满足后恢复状态，重新入队 |
 
@@ -50,6 +51,60 @@ Top-level state-machine orchestrator for the DWS 8-week improvement project (per
   - P0/P1/P2 X/Y:
   - Blocked tasks:
   - Next recommended action:
+  ```
+- **`启动改进项目` 最小输出格式**:
+  ```
+  - STATE.md / backlog.md path:
+  - Current phase: PHASE_0_INIT
+  - Next action: 派发任务
+  ```
+- **`继续改进` 最小输出格式**:
+  ```
+  - Current phase:
+  - Ready tasks (count):
+  - Next action:
+  ```
+- **`确认阶段` 最小输出格式**:
+  ```
+  - Gate checks: pass/fail per item
+  - Transition: advanced / rejected (reason)
+  - Next action:
+  ```
+- **`派发任务` 最小输出格式**:
+  ```
+  - Task ID / Assigned WP:
+  - Skill invoked:
+  - Status: dispatched / manual-mode
+  ```
+- **`提交验收` 最小输出格式**:
+  ```
+  - Task ID:
+  - Status: → Pending Review
+  - Regression evidence:
+  ```
+- **`关闭任务` 最小输出格式**:
+  ```
+  - Task ID:
+  - Status: Closed
+  - Remaining open tasks:
+  ```
+- **`验收退回` 最小输出格式**:
+  ```
+  - Task ID:
+  - Reason:
+  - New status: Fixing
+  ```
+- **`标记阻塞` 最小输出格式**:
+  ```
+  - Task ID:
+  - Blocker reason:
+  - Blocking: true/false
+  ```
+- **`解除阻塞` 最小输出格式**:
+  ```
+  - Task ID:
+  - New status: Confirmed/Fixing
+  - Next action:
   ```
 
 ## 工作流
