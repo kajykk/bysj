@@ -43,7 +43,8 @@ export default {
       content: 'Content Center',
       warnings: 'My Warnings',
       assessments: 'Assessment Records',
-      settings: 'Settings'
+      settings: 'Settings',
+      reports: 'Reports',
     },
     counselor: {
       home: 'Counselor Home',
@@ -60,7 +61,11 @@ export default {
       operationLogs: 'Operation Logs',
       alerts: 'Alert Management',
       silences: 'Silence Rules',
-      crisisEvents: 'Crisis Events'
+      crisisEvents: 'Crisis Events',
+      reports: 'Reports',
+      observability: 'Observability',
+      monitoring: 'Monitoring',
+      canary: 'Canary'
     }
   },
   layout: {

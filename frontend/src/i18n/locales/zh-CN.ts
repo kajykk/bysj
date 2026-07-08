@@ -43,7 +43,8 @@ export default {
       content: '内容中心',
       warnings: '我的预警',
       assessments: '评估记录',
-      settings: '个人设置'
+      settings: '个人设置',
+      reports: '报告中心',
     },
     counselor: {
       home: '咨询师首页',
@@ -60,7 +61,11 @@ export default {
       operationLogs: '操作日志',
       alerts: '告警管理',
       silences: '静默规则',
-      crisisEvents: '危机事件'
+      crisisEvents: '危机事件',
+      reports: '报告中心',
+      observability: '可观测性',
+      monitoring: '系统监控',
+      canary: '金丝雀管理'
     }
   },
   layout: {
