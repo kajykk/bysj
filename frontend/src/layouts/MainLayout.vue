@@ -131,7 +131,7 @@ import { computed, onMounted, onUnmounted, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { Bell, Fold, Expand, HomeFilled, Warning, User, Setting, Document, DataLine, ChatLineRound, Calendar, Reading, BellFilled, Menu } from '@element-plus/icons-vue'
+import { Bell, Fold, Expand, HomeFilled, Warning, User, Setting, Document, DataLine, ChatLineRound, Calendar, Reading, BellFilled, Monitor, Promotion, Menu } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
 import { wsClient, useWebSocket } from '@/composables/useWebSocket'
@@ -182,12 +182,14 @@ const roleMenus: Record<string, MenuItem[]> = {
     { titleKey: 'nav.user.content', path: '/user/content', icon: Reading },
     { titleKey: 'nav.user.warnings', path: '/user/warnings', icon: Warning },
     { titleKey: 'nav.user.assessments', path: '/user/assessments', icon: ChatLineRound },
-    { titleKey: 'nav.user.settings', path: '/user/settings', icon: Setting }
+    { titleKey: 'nav.user.settings', path: '/user/settings', icon: Setting },
+    { titleKey: 'nav.user.reports', path: '/user/reports', icon: Document }
   ],
   counselor: [
     { titleKey: 'nav.counselor.home', path: '/counselor/dashboard', icon: HomeFilled },
     { titleKey: 'nav.counselor.warnings', path: '/counselor/warnings', icon: Warning },
     { titleKey: 'nav.counselor.users', path: '/counselor/users', icon: User },
+    { titleKey: 'nav.counselor.reviews', path: '/counselor/reviews', icon: ChatLineRound },
     { titleKey: 'nav.counselor.settings', path: '/counselor/settings', icon: Setting }
   ],
   admin: [
@@ -196,7 +198,12 @@ const roleMenus: Record<string, MenuItem[]> = {
     { titleKey: 'nav.admin.settings', path: '/admin/settings', icon: Setting },
     { titleKey: 'nav.admin.operationLogs', path: '/admin/operation-logs', icon: Reading },
     { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: BellFilled },
-    { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell }
+    { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell },
+    { titleKey: 'nav.admin.crisisEvents', path: '/admin/crisis-events', icon: Warning },
+    { titleKey: 'nav.admin.reports', path: '/admin/reports', icon: Document },
+    { titleKey: 'nav.admin.observability', path: '/admin/observability', icon: DataLine },
+    { titleKey: 'nav.admin.monitoring', path: '/admin/monitoring', icon: Monitor },
+    { titleKey: 'nav.admin.canary', path: '/admin/canary', icon: Promotion }
   ]
 }
 
