@@ -159,6 +159,36 @@ const routes = [
         component: () => import('@/views/admin/AdminSilencesPage.vue'),
         meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminSilences, title: 'nav.admin.silences' }
       },
+      {
+        path: 'user/reports',
+        alias: '/user/reports',
+        component: () => import('@/views/user/UserReportsPage.vue'),
+        meta: { role: 'user', permissions: ROUTE_PERMISSIONS.userReports, title: 'nav.user.reports' }
+      },
+      {
+        path: 'admin/reports',
+        alias: '/admin/reports',
+        component: () => import('@/views/admin/AdminReportsPage.vue'),
+        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminReports, title: 'nav.admin.reports' }
+      },
+      {
+        path: 'admin/observability',
+        alias: '/admin/observability',
+        component: () => import('@/views/admin/AdminObservabilityPage.vue'),
+        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminObservability, title: 'nav.admin.observability' }
+      },
+      {
+        path: 'admin/monitoring',
+        alias: '/admin/monitoring',
+        component: () => import('@/views/admin/AdminMonitoringPage.vue'),
+        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminMonitoring, title: 'nav.admin.monitoring' }
+      },
+      {
+        path: 'admin/canary',
+        alias: '/admin/canary',
+        component: () => import('@/views/admin/AdminCanaryPage.vue'),
+        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminCanary, title: 'nav.admin.canary' }
+      },
       // Common routes
       { path: 'forbidden', alias: '/403', component: () => import('@/views/common/ForbiddenPage.vue') }
     ]
