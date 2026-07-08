@@ -26,7 +26,9 @@ export default {
     selectedCount: '{count} selected',
     exportSuccess: 'Export successful',
     exportFailed: 'Export failed',
-    exportPdf: 'Export PDF'
+    exportPdf: 'Export PDF',
+    download: 'Download',
+    export: 'Export'
   },
   nav: {
     dashboard: 'Dashboard',
@@ -162,6 +164,16 @@ export default {
     completedAt: 'Completed At',
     fileSize: 'File Size',
     actions: 'Actions'
+  },
+  reports: {
+    templates: 'Report Templates',
+    generatePdf: 'Generate PDF',
+    syncGenerate: 'Sync Generate',
+    asyncGenerate: 'Async Generate',
+    pdfReady: 'PDF Ready',
+    pdfGenerating: 'PDF Generating',
+    jobList: 'Job List',
+    batchExcel: 'Batch Excel'
   },
   error: {
     goHome: 'Go Home',

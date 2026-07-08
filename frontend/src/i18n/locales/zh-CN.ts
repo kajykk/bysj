@@ -26,7 +26,9 @@ export default {
     selectedCount: '已选 {count} 项',
     exportSuccess: '导出成功',
     exportFailed: '导出失败',
-    exportPdf: '导出 PDF'
+    exportPdf: '导出 PDF',
+    download: '下载',
+    export: '导出'
   },
   nav: {
     dashboard: '仪表盘',
@@ -162,6 +164,16 @@ export default {
     completedAt: '完成时间',
     fileSize: '文件大小',
     actions: '操作'
+  },
+  reports: {
+    templates: '报告模板',
+    generatePdf: '生成 PDF',
+    syncGenerate: '同步生成',
+    asyncGenerate: '异步生成',
+    pdfReady: 'PDF 已就绪',
+    pdfGenerating: 'PDF 生成中',
+    jobList: '任务列表',
+    batchExcel: '批量 Excel'
   },
   error: {
     goHome: '返回首页',
