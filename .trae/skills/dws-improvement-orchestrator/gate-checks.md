@@ -9,9 +9,9 @@
 | PHASE_0_INIT → PHASE_1_SECURITY (M0) | backlog/acceptance-criteria/STATE.md exist; test-account field non-empty | 产品负责人确认范围冻结 |
 | PHASE_1_SECURITY → PHASE_2_UX (M1) | P0 open count==0; `reports/crisis-chain-report.md` exists and pass rate==100% | 心理专家确认危机提示文案 |
 | PHASE_2_UX → PHASE_3_WORKBENCH (M2) | P1 fix rate ≥85% (auto-computed) | 产品+测试确认核心流程可用 |
-| PHASE_3_WORKBENCH → PHASE_4_DATA_PILOT (M3) | three-role key-path E2E passes | 产品确认体验达标 |
+| PHASE_3_WORKBENCH → PHASE_4_DATA_PILOT (M3) | three-role key-path E2E passes (see reports/e2e-report.md or phase-3 E2E run record) | 产品确认体验达标 |
 | PHASE_4_DATA_PILOT → PHASE_5_VERIFICATION (M4) | 7 files under `pilot/` exist: `event-tracking.md`, `interview-guide.md`, `questionnaire.md`, `privacy-notice.md`, `pilot-plan.md`, `deployment-guide.md`, `rollback-plan.md`; event coverage==100% | 心理专家审核问卷/访谈提纲 |
-| PHASE_5_VERIFICATION → PHASE_6_DELIVERY (M5) | E2E/performance/security/a11y reports exist and meet targets | 测试负责人签字 |
+| PHASE_5_VERIFICATION → PHASE_6_DELIVERY (M5) | E2E/performance/security/a11y reports exist and meet targets (targets per acceptance-criteria.md) | 测试负责人签字 |
 | PHASE_6_DELIVERY → CLOSED (M6) | pilot-version tag / deployment handbook / retrospective report exist | 干系人确认交付 |
 
 The orchestrator does not pretend to judge material quality; manual items must be explicitly confirmed before advancing.
