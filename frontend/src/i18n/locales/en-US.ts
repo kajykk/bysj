@@ -23,7 +23,10 @@ export default {
     errorCode: 'Error code: {code}',
     query: 'Search',
     // ISS-087 fix: PageTable selected count display
-    selectedCount: '{count} selected'
+    selectedCount: '{count} selected',
+    exportSuccess: 'Export successful',
+    exportFailed: 'Export failed',
+    exportPdf: 'Export PDF'
   },
   nav: {
     dashboard: 'Dashboard',
@@ -94,7 +97,10 @@ export default {
     username: 'Username',
     password: 'Password',
     email: 'Email',
-    phone: 'Phone'
+    phone: 'Phone',
+    riskScore: 'Risk Score',
+    riskLevel: 'Risk Level',
+    trend: 'Trend'
   },
   theme: {
     light: 'Light',
