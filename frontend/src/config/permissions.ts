@@ -16,7 +16,12 @@ export const PAGE_PERMISSIONS = {
   adminSettings: ['admin.settings.manage'],
   adminOperationLogs: ['admin.operation_log.view'],
   adminAlerts: ['admin.alerts.view'],
-  adminSilences: ['admin.silences.manage']
+  adminSilences: ['admin.silences.manage'],
+  userReports: ['user.export.risk'],
+  adminReports: ['admin.predict.audit'],
+  adminObservability: ['admin.alerts.view'],
+  adminMonitoring: ['admin.predict.audit'],
+  adminCanary: ['admin.predict.audit']
 } as const satisfies Record<string, readonly PermissionKey[]>
 
 export const OPERATION_PERMISSIONS = {
@@ -34,9 +39,9 @@ export const OPERATION_PERMISSIONS = {
 } as const satisfies Record<string, readonly PermissionKey[]>
 
 export const ROLE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
-  user: [...PAGE_PERMISSIONS.userDashboard, ...PAGE_PERMISSIONS.userContent, ...PAGE_PERMISSIONS.userIntervention, ...PAGE_PERMISSIONS.userWarnings, ...PAGE_PERMISSIONS.userAssessments, ...OPERATION_PERMISSIONS.userWarnings, ...OPERATION_PERMISSIONS.userAssessments, 'user.predict.use', 'user.export.risk'],
+  user: [...PAGE_PERMISSIONS.userDashboard, ...PAGE_PERMISSIONS.userContent, ...PAGE_PERMISSIONS.userIntervention, ...PAGE_PERMISSIONS.userWarnings, ...PAGE_PERMISSIONS.userAssessments, ...OPERATION_PERMISSIONS.userWarnings, ...OPERATION_PERMISSIONS.userAssessments, 'user.predict.use', 'user.export.risk', ...PAGE_PERMISSIONS.userReports],
   counselor: [...PAGE_PERMISSIONS.counselorDashboard, ...PAGE_PERMISSIONS.counselorWarnings, ...PAGE_PERMISSIONS.counselorUsers, ...PAGE_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.counselorSettings, ...OPERATION_PERMISSIONS.counselorWarnings, ...OPERATION_PERMISSIONS.counselorUsers, ...OPERATION_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.counselorSettings, 'counselor.predict.use'],
-  admin: [...PAGE_PERMISSIONS.adminDashboard, ...PAGE_PERMISSIONS.adminTemplates, ...PAGE_PERMISSIONS.adminSettings, ...PAGE_PERMISSIONS.adminOperationLogs, ...PAGE_PERMISSIONS.adminAlerts, ...PAGE_PERMISSIONS.adminSilences, ...PAGE_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.adminTemplates, ...OPERATION_PERMISSIONS.adminSettings, ...OPERATION_PERMISSIONS.adminOperationLogs, ...OPERATION_PERMISSIONS.adminAlerts, ...OPERATION_PERMISSIONS.adminSilences, ...OPERATION_PERMISSIONS.counselorReviews, 'admin.predict.audit']
+  admin: [...PAGE_PERMISSIONS.adminDashboard, ...PAGE_PERMISSIONS.adminTemplates, ...PAGE_PERMISSIONS.adminSettings, ...PAGE_PERMISSIONS.adminOperationLogs, ...PAGE_PERMISSIONS.adminAlerts, ...PAGE_PERMISSIONS.adminSilences, ...PAGE_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.adminTemplates, ...OPERATION_PERMISSIONS.adminSettings, ...OPERATION_PERMISSIONS.adminOperationLogs, ...OPERATION_PERMISSIONS.adminAlerts, ...OPERATION_PERMISSIONS.adminSilences, ...OPERATION_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.userReports, ...PAGE_PERMISSIONS.adminReports, ...PAGE_PERMISSIONS.adminObservability, ...PAGE_PERMISSIONS.adminMonitoring, ...PAGE_PERMISSIONS.adminCanary, 'admin.predict.audit']
 }
 
 /**
