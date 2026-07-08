@@ -23,7 +23,10 @@ export default {
     errorCode: '错误码: {code}',
     query: '查询',
     // ISS-087 修复：PageTable 选中行数显示
-    selectedCount: '已选 {count} 项'
+    selectedCount: '已选 {count} 项',
+    exportSuccess: '导出成功',
+    exportFailed: '导出失败',
+    exportPdf: '导出 PDF'
   },
   nav: {
     dashboard: '仪表盘',
@@ -94,7 +97,10 @@ export default {
     username: '用户名',
     password: '密码',
     email: '邮箱',
-    phone: '电话'
+    phone: '电话',
+    riskScore: '风险分数',
+    riskLevel: '风险等级',
+    trend: '趋势'
   },
   theme: {
     light: '浅色',
