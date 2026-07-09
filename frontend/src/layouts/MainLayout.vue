@@ -42,7 +42,10 @@
             :disabled="!layout.sidebarCollapsed"
             placement="right"
           >
-            <el-menu-item :index="item.path">
+            <el-menu-item
+              :index="item.path"
+              :data-tour="item.tourTarget"
+            >
               <el-icon v-if="item.icon">
                 <component :is="item.icon" />
               </el-icon>
