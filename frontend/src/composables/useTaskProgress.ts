@@ -36,9 +36,13 @@ function ensureSubscribed() {
     taskProgressMap.value.set(msg.data.job_id, item)
     // 触发响应式更新 (Map.set 不会触发 ref 更新)
     taskProgressMap.value = new Map(taskProgressMap.value)
+    // 有新任务时启动清理定时器
+    ensureCleanupTimer()
   })
+}
 
-  // 定期清理过期的已完成/失败任务
+function ensureCleanupTimer() {
+  if (cleanupTimer) return
   cleanupTimer = setInterval(() => {
     const now = Date.now()
     let changed = false
@@ -53,6 +57,13 @@ function ensureSubscribed() {
     }
     if (changed) {
       taskProgressMap.value = new Map(taskProgressMap.value)
+    }
+    // 无任务时自动停止定时器，避免空转
+    if (taskProgressMap.value.size === 0) {
+      if (cleanupTimer) {
+        clearInterval(cleanupTimer)
+        cleanupTimer = null
+      }
     }
   }, CLEANUP_INTERVAL_MS)
 }
