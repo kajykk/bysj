@@ -16,7 +16,7 @@
 | Start Date | 2026-06-29 |
 | Owner | audit-beautify-orchestrator |
 | Current Phase | Phase 5 / Fix & Regression (Delta Audit 2026-07-10) |
-| Last Updated | 2026-07-10 (增量审查完成 + ISS-151 P0 已修复关闭：MainLayout data-tour 属性补回) |
+| Last Updated | 2026-07-10 (增量审查 14 项全部修复关闭：ISS-151~164) |
 
 ---
 
@@ -64,11 +64,11 @@
 | 级别 | 总数 | 新建 | 已确认 | 修复中 | 待复核 | 已关闭 | 暂缓 | 拒绝 |
 | :--- | ---: | ---: | -----: | -----: | -----: | -----: | ---: | ---: |
 | P0 阻塞 | 3 | 0 | 0 | 0 | 0 | 3 | 0 | 0 |
-| P1 高 | 44 | 6 | 0 | 0 | 0 | 38 | 0 | 0 |
-| P2 中 | 72 | 5 | 0 | 0 | 0 | 67 | 0 | 0 |
-| P3 低 | 33 | 33 | 0 | 0 | 0 | 0 | 0 | 0 |
+| P1 高 | 44 | 0 | 0 | 0 | 0 | 44 | 0 | 0 |
+| P2 中 | 72 | 0 | 0 | 0 | 0 | 72 | 0 | 0 |
+| P3 低 | 33 | 31 | 0 | 0 | 0 | 2 | 0 | 0 |
 | P4 建议 | 12 | 12 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **合计** | **164** | **56** | **0** | **0** | **0** | **108** | **0** | **0** |
+| **合计** | **164** | **43** | **0** | **0** | **0** | **121** | **0** | **0** |
 
 ### Phase 2 关键成果
 - **ISS-001 Bandit High 已定位**：`backend/app/services/canary_manager.py:59` 的 `hashlib.md5()`，新建 ISS-012 作为修复工单
@@ -118,11 +118,14 @@
 - **审查动因**：feat/frontend-api-alignment 合并 + 并行进程改进（WCAG/字体优化/HelpCenter/OnboardingTour/TaskProgressNotification）引入大量新代码
 - **审查方法**：4 个并行子代理静态审查 + 主代理补充验证（直接阅读 15+ 关键文件）
 - **发现 14 项新问题**（ISS-151 ~ ISS-164）：1 P0 + 6 P1 + 5 P2 + 2 P3
-- **⚠️ P0 阻塞问题**：ISS-151 — MainLayout.vue L29-43 存在未解决的 git 合并冲突标记（`<<<<<<< Updated stream` / `=======` / `>>>>>>> Stashed changes`），模板渲染行为未定义
-- **P1 高优问题（6 项）**：ISS-152（5 新页面 30+ 处硬编码 UI 字符串未走 i18n）/ ISS-153（useOnboarding 引导步骤全量硬编码中文）/ ISS-154（HelpCenter 弹窗移动端溢出）/ ISS-155（AdminObservability 四列布局无响应式）/ ISS-156（UserReports severity 未处理 critical/severe）/ ISS-157（useTaskProgress WebSocket 内存泄漏）
-- **视觉类增量发现 7 项**：已同步至 `07-visual-beautification.md`（2 响应式 + 2 视觉 + 2 UX + 1 A11Y）
+- **✅ 14 项全部修复关闭**（commit 6d2b5f5 + 617c648 + 5b3076e）：
+  - P0: ISS-151（MainLayout data-tour 属性补回）
+  - P1: ISS-152（5 新页面 i18n 迁移，~50 locale keys 新增）/ ISS-153（useOnboarding i18n）/ ISS-154（HelpCenter 弹窗响应式）/ ISS-155（AdminObservability 响应式栅格）/ ISS-156（severity 逻辑修复）/ ISS-157（useTaskProgress 内存泄漏修复）
+  - P2: ISS-158（AdminMonitoringPage 键盘可访问性 + JSON 格式化）/ ISS-159（spacing-lg 去重 16→24px）/ ISS-160（canary 分组修正）/ ISS-161（AdminCanaryPage 按钮 loading 状态）/ ISS-162（轮询间隔 2s→5s）
+  - P3: ISS-163（骨架屏颜色令牌化）/ ISS-164（OnboardingTour defineExpose 修复）
+- **视觉类增量发现 7 项**：已同步至 `07-visual-beautification.md`（2 响应式 + 2 视觉 + 2 UX + 1 A11Y），全部 7 项已关闭
 - **横向排查完成**：ISS-154 与已关闭 ISS-033/081 同类（弹窗固定宽度）/ ISS-162 与已关闭 ISS-002 同类（轮询间隔过短）
-- **状态说明**：新发现问题已记录至事实清单，未触发阶段回退（仍在 Phase 5 内进行增量静态审查）
+- **验证结果**：vue-tsc 0 errors / vitest 1111 passed (4 skipped) / 78 test files passed
 
 ### 问题级别定义（计划五.1）
 - **P0 阻塞**: 系统不可用、数据泄露、核心流程完全失败 — 当天修复
@@ -189,26 +192,26 @@
 ## 🎨 美化问题统计 (Visual Beautification Statistics)
 
 > 数字必须严格来自 `07-visual-beautification.md` 的实际计数。
-> 含 2026-07-10 增量审查发现 7 项（Delta Audit）。
+> 含 2026-07-10 增量审查发现 7 项（Delta Audit），全部 7 项已关闭。
 
 | 分类 | 总数 | 待处理 | 修复中 | 已关闭 |
 | :--- | ---: | -----: | -----: | -----: |
-| 色彩 | 19 | 19 | 0 | 0 |
+| 色彩 | 19 | 18 | 0 | 1 |
 | 字体 | 1 | 1 | 0 | 0 |
-| 间距 | 6 | 6 | 0 | 0 |
+| 间距 | 6 | 5 | 0 | 1 |
 | 圆角 | 1 | 1 | 0 | 0 |
 | 阴影 | 1 | 1 | 0 | 0 |
 | 图标 | 1 | 1 | 0 | 0 |
 | 表格 | 2 | 2 | 0 | 0 |
 | 表单 | 2 | 2 | 0 | 0 |
 | 图表 | 5 | 5 | 0 | 0 |
-| 弹窗 | 2 | 2 | 0 | 0 |
+| 弹窗 | 2 | 1 | 0 | 1 |
 | 空状态 | 1 | 1 | 0 | 0 |
 | 加载态 | 0 | 0 | 0 | 0 |
-| 响应式 | 12 | 12 | 0 | 0 |
-| 可访问性 | 13 | 13 | 0 | 0 |
-| 交互 | 2 | 2 | 0 | 0 |
-| **合计** | **67** | **67** | **0** | **0** |
+| 响应式 | 12 | 11 | 0 | 1 |
+| 可访问性 | 13 | 12 | 0 | 1 |
+| 交互 | 2 | 0 | 0 | 2 |
+| **合计** | **67** | **61** | **0** | **6** |
 
 ---
 
@@ -242,9 +245,9 @@
 
 ### Phase 5 → Phase 6 闭环条件
 - [x] 所有 P0 已关闭（原 4 个 P0 + 增量 ISS-151 全部修复，ISS-151 data-tour 属性已补回）
-- [ ] 所有 P1 已关闭（原 25 个 P1 已修复；2026-07-10 增量审查发现 6 个新 P1：ISS-152~ISS-157 待修复）
-- [ ] P2 已关闭或有明确延期说明（原 67 个 P2 已修复；增量审查发现 5 个新 P2：ISS-158~ISS-162 待修复）
-- [ ] 前端 `typecheck/lint/test/build` 通过（typecheck 已通过，其余待执行）
+- [x] 所有 P1 已关闭（原 25 个 P1 + 增量 ISS-152~ISS-157 全部修复关闭）
+- [x] P2 已关闭或有明确延期说明（原 67 个 P2 + 增量 ISS-158~ISS-162 全部修复关闭）
+- [ ] 前端 `typecheck/lint/test/build` 通过（typecheck + vitest 1111 passed 已通过，lint/build 待执行）
 - [ ] 后端 `pytest/ruff/black --check/bandit` 无阻塞
 - [ ] 核心业务链路通过手工回归
 - [ ] 角色权限与越权测试通过
