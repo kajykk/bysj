@@ -15,8 +15,8 @@
 | Source Plan | `uploads/计划.md` |
 | Start Date | 2026-06-29 |
 | Owner | audit-beautify-orchestrator |
-| Current Phase | Phase 5 / Fix & Regression (Delta Audit 2026-07-10) |
-| Last Updated | 2026-07-10 (增量审查 14 项全部修复关闭：ISS-151~164) |
+| Current Phase | Phase 6 / Final Acceptance (Phase 5 闭环完成) |
+| Last Updated | 2026-07-10 (Phase 5→6 闭环条件全部达成：API 回归 37/37 通过) |
 
 ---
 
@@ -28,8 +28,8 @@
 | Phase 2 | 静态审查 (Static Review) | ✅ 完成 | 2026-06-29 | 4 子代理并行审查 + 33 新发现问题（ISS-008~ISS-040） |
 | Phase 3 | 功能走查 (Functional Walkthrough) | ✅ 完成 | 2026-06-29 | 4 子代理并行 × 6 角色 × 8 模块，54 新发现问题（ISS-041~ISS-094，含 3 P0） |
 | Phase 4 | 专项审查 (Special Reviews) | ✅ 完成 | 2026-06-29 | 4 子代理并行 × 10 项专项，66 新发现问题（29 ISS + 37 VIS，含 1 P0） |
-| Phase 5 | 修复与回归 (Fix & Regression) | 🔄 进行中 | — | P0 → P4 |
-| Phase 6 | 最终验收与交付 (Final Acceptance) | ⏳ 待定 | — | 12 项交付物 |
+| Phase 5 | 修复与回归 (Fix & Regression) | ✅ 完成 | 2026-07-10 | P0→P3 全部关闭 + 7/7 闭环条件达成 |
+| Phase 6 | 最终验收与交付 (Final Acceptance) | 🔄 进行中 | — | 12 项交付物 |
 
 ### 状态图例
 - ⏳ 待定 (Pending)
@@ -126,6 +126,11 @@
 - **视觉类增量发现 7 项**：已同步至 `07-visual-beautification.md`（2 响应式 + 2 视觉 + 2 UX + 1 A11Y），全部 7 项已关闭
 - **横向排查完成**：ISS-154 与已关闭 ISS-033/081 同类（弹窗固定宽度）/ ISS-162 与已关闭 ISS-002 同类（轮询间隔过短）
 - **验证结果**：vue-tsc 0 errors / vitest 1111 passed (4 skipped) / 78 test files passed
+- **手工回归验证**（2026-07-10，启动完整系统 Redis+Backend+Frontend）：
+  - 后端健康检查 `GET /health` 返回 `status=ok, db=ok, redis=ok`
+  - API 回归测试 37/37 通过：3 角色登录（admin/dr_wang/user_moderate）+ 各角色业务流 + 跨角色权限隔离
+  - 跨角色越权测试 4/4 通过：User→Admin (403) / User→Counselor (403) / Counselor→Admin (403) / Admin→User (200)
+  - 闭环条件 7/7 全部达成，Phase 5 正式关闭
 
 ### 问题级别定义（计划五.1）
 - **P0 阻塞**: 系统不可用、数据泄露、核心流程完全失败 — 当天修复
@@ -249,8 +254,8 @@
 - [x] P2 已关闭或有明确延期说明（原 67 个 P2 + 增量 ISS-158~ISS-162 全部修复关闭）
 - [x] 前端 `typecheck/lint/test/build` 通过（vue-tsc 0 error + eslint 0 error/0 warning + vitest 1111 passed + vite build 成功）
 - [x] 后端 `pytest/ruff/black --check/bandit` 无阻塞（ruff app/ ✅ + black 170 files ✅ + bandit 0 High ✅ + pytest unit+service 860 passed）
-- [ ] 核心业务链路通过手工回归
-- [ ] 角色权限与越权测试通过
+- [x] 核心业务链路通过手工回归（API 回归测试 37/37 通过：3 角色登录 + 业务流验证 + 权限隔离）
+- [x] 角色权限与越权测试通过（跨角色访问全部返回 403，管理员可访问用户端点）
 
 ### Phase 6 完成条件（计划十二）
 - [ ] 移动端、平板、桌面主要页面可用
