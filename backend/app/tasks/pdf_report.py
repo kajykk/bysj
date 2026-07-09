@@ -23,6 +23,7 @@ from time import time
 from typing import Any
 
 from app.core.celery_app import celery_app
+from app.core.celery_async import run_async as _run_async
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -135,6 +136,67 @@ def update_job_in_redis(job_id: str, **updates: Any) -> None:
     save_job_to_redis(job_id, job)
 
 
+def _notify_progress(
+    job_id: str,
+    status: str,
+    progress: int,
+    error: str | None = None,
+    job_type: str = "pdf",
+    extra_updates: dict[str, Any] | None = None,
+) -> None:
+    """更新 Redis 任务状态并推送 WebSocket 进度通知.
+
+    从 Redis job_data 中读取 created_by 作为 user_id,
+    通过 _run_async 调用异步 notify_task_progress 函数.
+    WebSocket 推送失败不影响任务执行 (仅记录 debug 日志).
+
+    Args:
+        job_id: 任务 ID
+        status: 任务状态 (queued | running | completed | failed)
+        progress: 进度百分比 0-100
+        error: 失败时的错误信息
+        job_type: 任务类型 (pdf | excel | training)
+        extra_updates: 额外需要写入 Redis 的字段 (如 file_size, page_count)
+    """
+    updates: dict[str, Any] = {"status": status, "progress": progress}
+    if error is not None:
+        updates["error"] = error
+    if status == "running":
+        updates["started_at"] = time()
+    if status in ("completed", "failed"):
+        updates["completed_at"] = time()
+    if extra_updates:
+        updates.update(extra_updates)
+    update_job_in_redis(job_id, **updates)
+
+    # 推送 WebSocket 进度通知
+    job = get_job_from_redis(job_id)
+    if job is None:
+        return
+    user_id = job.get("created_by")
+    if not user_id:
+        return
+    try:
+        from app.core.ws import notify_task_progress
+
+        _run_async(
+            notify_task_progress(
+                user_id=user_id,
+                job_id=job_id,
+                status=status,
+                progress=progress,
+                job_type=job_type,
+                error=error,
+            )
+        )
+    except Exception:
+        logger.debug(
+            "[pdf_task] failed to notify WebSocket progress for job %s",
+            job_id,
+            exc_info=True,
+        )
+
+
 def save_pdf_bytes_to_redis(job_id: str, pdf_bytes: bytes) -> None:
     """将 PDF 字节存入 Redis 二进制 key (带 TTL 自动清理)."""
     try:
@@ -224,17 +286,19 @@ def generate_pdf_report(
     # risk_trend 是 list[dict]，递归清洗其中的字符串字段
     risk_trend = _sanitize_param(risk_trend) or []
 
-    update_job_in_redis(
-        job_id,
-        status="running",
-        started_at=time(),
-        progress=10,
-    )
+    # I1 改进：使用 _notify_progress 统一更新状态 + 推送 WebSocket 进度
+    # 进度阶段：10(开始) → 30(参数准备) → 50(调用生成器) → 70(生成完成) → 90(存储字节) → 100(完成)
+    _notify_progress(job_id, status="running", progress=10)
 
     try:
         from app.services.pdf_report_service import pdf_report_service
 
+        # 进度 30%: 参数已清洗，准备调用 PDF 生成器
+        _notify_progress(job_id, status="running", progress=30)
+
         # 调用同步生成函数 (ReportLab 是同步阻塞库)
+        # 进度 50%: 正在生成 PDF
+        _notify_progress(job_id, status="running", progress=50)
         result = pdf_report_service.generate_user_risk_report(
             user_name=user_name,
             risk_level=risk_level,
@@ -242,11 +306,13 @@ def generate_pdf_report(
             recommendations=recommendations or [],
         )
 
+        # 进度 70%: PDF 生成调用返回
+        _notify_progress(job_id, status="running", progress=70)
+
         if not result.success:
-            update_job_in_redis(
+            _notify_progress(
                 job_id,
                 status="failed",
-                completed_at=time(),
                 progress=100,
                 error=result.error_message or "PDF generation failed",
             )
@@ -258,15 +324,19 @@ def generate_pdf_report(
             }
 
         # PDF 字节存入 Redis 二进制 key (带 TTL)
+        # 进度 90%: 正在存储 PDF 字节
+        _notify_progress(job_id, status="running", progress=90)
         save_pdf_bytes_to_redis(job_id, result.pdf_bytes)
 
-        update_job_in_redis(
+        # 进度 100%: 任务完成
+        _notify_progress(
             job_id,
             status="completed",
-            completed_at=time(),
             progress=100,
-            file_size=result.file_size,
-            page_count=result.page_count,
+            extra_updates={
+                "file_size": result.file_size,
+                "page_count": result.page_count,
+            },
         )
 
         logger.info(
@@ -284,10 +354,9 @@ def generate_pdf_report(
 
     except Exception as exc:
         logger.exception("[pdf_task] job %s failed: %s", job_id, exc)
-        update_job_in_redis(
+        _notify_progress(
             job_id,
             status="failed",
-            completed_at=time(),
             progress=100,
             error=str(exc),
         )

@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { wsClient, useWebSocket, resetWsClient, type WsWarningMessage } from './useWebSocket'
+import { wsClient, useWebSocket, resetWsClient, type WsWarningMessage, type WsTaskProgressMessage } from './useWebSocket'
 
 // mock element-plus 的 ElNotification
 vi.mock('element-plus', () => ({
@@ -966,6 +966,182 @@ describe('wsClient', () => {
       const socket = sockets[0]
       socket.readyState = 3 // CLOSED
       expect(wsClient.isConnected).toBe(false)
+    })
+  })
+
+  // ===== I1 改进：任务进度消息处理测试 =====
+  describe('onTaskProgress - I1 改进', () => {
+    it('收到 task_progress 消息应调用已注册的进度监听器', () => {
+      const handler = vi.fn()
+      wsClient.onTaskProgress(handler)
+      wsClient.connect(12, 'access-1')
+      const socket = sockets[0]
+      socket.readyState = 1
+      socket.onopen?.({} as Event)
+
+      const msg: WsTaskProgressMessage = {
+        type: 'task_progress',
+        data: {
+          job_id: 'job-123',
+          job_type: 'pdf',
+          status: 'running',
+          progress: 50,
+          error: null,
+          created_at: '2026-07-10T10:00:00Z',
+        },
+      }
+
+      socket.onmessage?.({ data: JSON.stringify(msg) } as MessageEvent)
+
+      expect(handler).toHaveBeenCalledTimes(1)
+      expect(handler).toHaveBeenCalledWith(msg)
+    })
+
+    it('同一任务的多次进度更新应全部触发监听器 (不做去重)', () => {
+      const handler = vi.fn()
+      wsClient.onTaskProgress(handler)
+      wsClient.connect(12, 'access-1')
+      const socket = sockets[0]
+      socket.readyState = 1
+      socket.onopen?.({} as Event)
+
+      const baseMsg = {
+        type: 'task_progress' as const,
+        data: {
+          job_id: 'job-456',
+          job_type: 'pdf' as const,
+          error: null,
+          created_at: '2026-07-10T10:00:00Z',
+        },
+      }
+
+      // 发送 5 次进度更新 (10, 30, 50, 70, 100)
+      ;[10, 30, 50, 70, 100].forEach((progress) => {
+        socket.onmessage?.({
+          data: JSON.stringify({
+            ...baseMsg,
+            data: {
+              ...baseMsg.data,
+              status: progress < 100 ? 'running' : 'completed',
+              progress,
+            },
+          }),
+        } as MessageEvent)
+      })
+
+      expect(handler).toHaveBeenCalledTimes(5)
+    })
+
+    it('onTaskProgress 返回的取消函数应能正确移除监听器', () => {
+      const handler = vi.fn()
+      const unsubscribe = wsClient.onTaskProgress(handler)
+      wsClient.connect(12, 'access-1')
+      const socket = sockets[0]
+      socket.readyState = 1
+      socket.onopen?.({} as Event)
+
+      const msg: WsTaskProgressMessage = {
+        type: 'task_progress',
+        data: {
+          job_id: 'job-789',
+          job_type: 'excel',
+          status: 'completed',
+          progress: 100,
+          error: null,
+          created_at: '2026-07-10T10:00:00Z',
+        },
+      }
+
+      socket.onmessage?.({ data: JSON.stringify(msg) } as MessageEvent)
+      expect(handler).toHaveBeenCalledTimes(1)
+
+      unsubscribe()
+      socket.onmessage?.({ data: JSON.stringify({ ...msg, data: { ...msg.data, job_id: 'job-790' } }) } as MessageEvent)
+      expect(handler).toHaveBeenCalledTimes(1)
+    })
+
+    it('task_progress 消息不应触发 warning 监听器', () => {
+      const warningHandler = vi.fn()
+      const progressHandler = vi.fn()
+      wsClient.onMessage(warningHandler)
+      wsClient.onTaskProgress(progressHandler)
+      wsClient.connect(12, 'access-1')
+      const socket = sockets[0]
+      socket.readyState = 1
+      socket.onopen?.({} as Event)
+
+      const msg: WsTaskProgressMessage = {
+        type: 'task_progress',
+        data: {
+          job_id: 'job-isolation',
+          job_type: 'pdf',
+          status: 'running',
+          progress: 30,
+          error: null,
+          created_at: '2026-07-10T10:00:00Z',
+        },
+      }
+
+      socket.onmessage?.({ data: JSON.stringify(msg) } as MessageEvent)
+
+      expect(progressHandler).toHaveBeenCalledTimes(1)
+      expect(warningHandler).not.toHaveBeenCalled()
+    })
+
+    it('单个进度监听器抛错不应影响其他监听器', () => {
+      const handler1 = vi.fn(() => {
+        throw new Error('progress listener error')
+      })
+      const handler2 = vi.fn()
+      wsClient.onTaskProgress(handler1)
+      wsClient.onTaskProgress(handler2)
+      wsClient.connect(12, 'access-1')
+      const socket = sockets[0]
+      socket.readyState = 1
+      socket.onopen?.({} as Event)
+
+      const msg: WsTaskProgressMessage = {
+        type: 'task_progress',
+        data: {
+          job_id: 'job-error',
+          job_type: 'training',
+          status: 'running',
+          progress: 60,
+          error: null,
+          created_at: '2026-07-10T10:00:00Z',
+        },
+      }
+
+      socket.onmessage?.({ data: JSON.stringify(msg) } as MessageEvent)
+
+      expect(handler1).toHaveBeenCalledTimes(1)
+      expect(handler2).toHaveBeenCalledTimes(1)
+    })
+
+    it('removeAllListeners 应清空进度监听器', () => {
+      const handler = vi.fn()
+      wsClient.onTaskProgress(handler)
+      wsClient.connect(12, 'access-1')
+      const socket = sockets[0]
+      socket.readyState = 1
+      socket.onopen?.({} as Event)
+
+      wsClient.removeAllListeners()
+
+      const msg: WsTaskProgressMessage = {
+        type: 'task_progress',
+        data: {
+          job_id: 'job-clear',
+          job_type: 'pdf',
+          status: 'completed',
+          progress: 100,
+          error: null,
+          created_at: '2026-07-10T10:00:00Z',
+        },
+      }
+
+      socket.onmessage?.({ data: JSON.stringify(msg) } as MessageEvent)
+      expect(handler).not.toHaveBeenCalled()
     })
   })
 })

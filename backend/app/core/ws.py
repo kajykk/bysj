@@ -439,3 +439,37 @@ async def notify_counselor(
             },
         },
     )
+
+
+async def notify_task_progress(
+    user_id: int,
+    job_id: str,
+    status: str,
+    progress: int,
+    job_type: str = "pdf",
+    error: str | None = None,
+) -> None:
+    """推送异步任务进度到用户的所有 WebSocket 连接.
+
+    Args:
+        user_id: 接收进度的用户 ID
+        job_id: 任务 ID (前端用于关联轮询/订阅)
+        status: 任务状态 (queued | running | completed | failed)
+        progress: 进度百分比 0-100
+        job_type: 任务类型 (pdf | excel | training), 默认 pdf
+        error: 失败时的错误信息
+    """
+    await ws_manager.send_to_user(
+        user_id,
+        {
+            "type": "task_progress",
+            "data": {
+                "job_id": job_id,
+                "job_type": job_type,
+                "status": status,
+                "progress": progress,
+                "error": error,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        },
+    )
