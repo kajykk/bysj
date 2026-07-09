@@ -123,6 +123,11 @@ export default {
     requestCount: '请求数',
     driftAlerts: '漂移告警',
     recentAlerts: '近期告警',
+    totalRequests: '总请求数',
+    fallbackCount: '回退次数',
+    engines: '引擎数',
+    requestDetails: '请求详情列表',
+    requestDetail: '请求详情',
     alertLevel: {
       critical: '严重',
       high: '高',
