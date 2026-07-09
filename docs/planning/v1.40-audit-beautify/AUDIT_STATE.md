@@ -247,7 +247,7 @@
 - [x] 所有 P0 已关闭（原 4 个 P0 + 增量 ISS-151 全部修复，ISS-151 data-tour 属性已补回）
 - [x] 所有 P1 已关闭（原 25 个 P1 + 增量 ISS-152~ISS-157 全部修复关闭）
 - [x] P2 已关闭或有明确延期说明（原 67 个 P2 + 增量 ISS-158~ISS-162 全部修复关闭）
-- [ ] 前端 `typecheck/lint/test/build` 通过（typecheck + vitest 1111 passed 已通过，lint/build 待执行）
+- [x] 前端 `typecheck/lint/test/build` 通过（vue-tsc 0 error + eslint 0 error/0 warning + vitest 1111 passed + vite build 成功）
 - [ ] 后端 `pytest/ruff/black --check/bandit` 无阻塞
 - [ ] 核心业务链路通过手工回归
 - [ ] 角色权限与越权测试通过

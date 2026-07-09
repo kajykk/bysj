@@ -74,34 +74,107 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
 </script>
 
 <template>
-  <div v-loading="loading" class="monitoring-page">
+  <div
+    v-loading="loading"
+    class="monitoring-page"
+  >
     <div class="toolbar">
-      <el-button @click="loadAll">{{ t('common.refresh') }}</el-button>
-      <el-switch v-model="autoRefresh" @change="toggleAutoRefresh" :active-text="t('common.autoRefresh')" />
+      <el-button @click="loadAll">
+        {{ t('common.refresh') }}
+      </el-button>
+      <el-switch
+        v-model="autoRefresh"
+        :active-text="t('common.autoRefresh')"
+        @change="toggleAutoRefresh"
+      />
     </div>
     <el-row :gutter="12">
-      <el-col :span="6"><el-card><template #header>{{ t('monitoring.totalRequests') }}</template>{{ summary?.total_requests }}</el-card></el-col>
-      <el-col :span="6"><el-card><template #header>{{ t('monitoring.fallbackCount') }}</template>{{ fallbackStats?.count }}</el-card></el-col>
-      <el-col :span="6"><el-card><template #header>{{ t('monitoring.driftAlerts') }}</template>{{ driftAlerts?.items?.length }}</el-card></el-col>
-      <el-col :span="6"><el-card><template #header>{{ t('monitoring.engines') }}</template>{{ engineSnapshot?.engines?.length }}</el-card></el-col>
+      <el-col :span="6">
+        <el-card>
+          <template #header>
+            {{ t('monitoring.totalRequests') }}
+          </template>{{ summary?.total_requests }}
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card>
+          <template #header>
+            {{ t('monitoring.fallbackCount') }}
+          </template>{{ fallbackStats?.count }}
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card>
+          <template #header>
+            {{ t('monitoring.driftAlerts') }}
+          </template>{{ driftAlerts?.items?.length }}
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card>
+          <template #header>
+            {{ t('monitoring.engines') }}
+          </template>{{ engineSnapshot?.engines?.length }}
+        </el-card>
+      </el-col>
     </el-row>
-    <el-card><template #header>{{ t('monitoring.modelSuccessRate') }}</template><BaseChart :option="successOption" height="280px" /></el-card>
     <el-card>
-      <template #header>{{ t('monitoring.requestDetails') }}</template>
-      <el-table :data="details?.items || []" stripe @row-click="(row: RequestDetailItem) => showDetail(row.log_id)">
-        <el-table-column prop="log_id" :label="t('monitoring.logId')" width="180" />
+      <template #header>
+        {{ t('monitoring.modelSuccessRate') }}
+      </template><BaseChart
+        :option="successOption"
+        height="280px"
+      />
+    </el-card>
+    <el-card>
+      <template #header>
+        {{ t('monitoring.requestDetails') }}
+      </template>
+      <el-table
+        :data="details?.items || []"
+        stripe
+        @row-click="(row: RequestDetailItem) => showDetail(row.log_id)"
+      >
+        <el-table-column
+          prop="log_id"
+          :label="t('monitoring.logId')"
+          width="180"
+        />
         <el-table-column :label="t('monitoring.input')">
-          <template #default="{ row }">{{ maskSensitive((row as Record<string, unknown>).input) }}</template>
-        </el-table-column>
-        <el-table-column :label="t('common.actions')" width="100" align="center">
           <template #default="{ row }">
-            <el-button size="small" link type="primary" @click.stop="showDetail(row.log_id)">{{ t('monitoring.requestDetail') }}</el-button>
+            {{ maskSensitive((row as Record<string, unknown>).input) }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          :label="t('common.actions')"
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <el-button
+              size="small"
+              link
+              type="primary"
+              @click.stop="showDetail(row.log_id)"
+            >
+              {{ t('monitoring.requestDetail') }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-pagination :total="details?.total || 0" :page-size="page.limit" :current-page="Math.floor(page.offset / page.limit) + 1" layout="prev, pager, next" @current-change="onPageChange" />
+      <el-pagination
+        :total="details?.total || 0"
+        :page-size="page.limit"
+        :current-page="Math.floor(page.offset / page.limit) + 1"
+        layout="prev, pager, next"
+        @current-change="onPageChange"
+      />
     </el-card>
-    <el-dialog v-model="detailVisible" :title="t('monitoring.requestDetail')" width="60%">
+    <el-dialog
+      v-model="detailVisible"
+      :title="t('monitoring.requestDetail')"
+      width="60%"
+    >
       <pre class="json-detail">{{ JSON.stringify(detailRow, null, 2) }}</pre>
     </el-dialog>
   </div>
