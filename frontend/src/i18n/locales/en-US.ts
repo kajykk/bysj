@@ -1895,6 +1895,25 @@ export default {
     disconnectedTitle: 'Connection Lost',
     disconnectedMessage: 'Real-time connection lost, please refresh the page to resume real-time alert notifications'
   },
+  taskProgress: {
+    pdfTitle: 'PDF Report Generation',
+    excelTitle: 'Excel Export',
+    trainingTitle: 'Model Training',
+    defaultTitle: 'Task Processing',
+    running: 'Processing...',
+    completed: 'Completed',
+    failed: 'Failed',
+    queued: 'Queued...',
+    downloadReady: 'Ready to download',
+    retryAvailable: 'Retry available'
+  },
+  onboarding: {
+    help: 'Onboarding Guide',
+    finish: 'Finish',
+    next: 'Next',
+    prev: 'Previous',
+    skip: 'Skip'
+  },
   serviceWorker: {
     updateAvailableTitle: 'Update Available',
     updateAvailableMessage: 'A new version is available, click to update now'

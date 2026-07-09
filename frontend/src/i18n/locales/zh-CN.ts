@@ -1895,6 +1895,25 @@ export default {
     disconnectedTitle: '连接已断开',
     disconnectedMessage: '实时连接已断开，请刷新页面以恢复实时告警推送'
   },
+  taskProgress: {
+    pdfTitle: 'PDF 报告生成',
+    excelTitle: 'Excel 导出',
+    trainingTitle: '模型训练',
+    defaultTitle: '任务处理',
+    running: '正在处理...',
+    completed: '处理完成',
+    failed: '处理失败',
+    queued: '等待中...',
+    downloadReady: '下载已就绪',
+    retryAvailable: '可重试'
+  },
+  onboarding: {
+    help: '新手引导',
+    finish: '完成',
+    next: '下一步',
+    prev: '上一步',
+    skip: '跳过'
+  },
   serviceWorker: {
     updateAvailableTitle: '更新可用',
     updateAvailableMessage: '新版本可用，点击立即更新'
