@@ -162,7 +162,8 @@ export default {
     silenceHitRate: '静默命中率',
     trend: '趋势',
     amSync: 'AlertManager 同步',
-    lockStats: '锁统计'
+    lockStats: '锁统计',
+    channelStats: '渠道统计'
   },
   report: {
     title: '报告中心',

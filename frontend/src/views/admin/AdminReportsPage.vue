@@ -1,10 +1,11 @@
 <!-- frontend/src/views/admin/AdminReportsPage.vue -->
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { reportsApi, type ReportTemplate, type PdfJobItem, type UserRiskReportRequest } from '@/api/reportsApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
+import { isTerminalStatus, validateBatchExcelInput } from './utils/reportsUtils'
 
 const { t } = useI18n()
 const templates = ref<ReportTemplate[]>([])
@@ -17,9 +18,15 @@ const excelInput = ref('[]')
 const excelCols = ref<string[]>([])
 const excelFilename = ref('batch-export.xlsx')
 
-function isTerminalStatus(status: string): boolean {
-  return status === 'completed' || status === 'failed'
-}
+const recommendationsText = computed({
+  get: () => pdfForm.value.recommendations.join(', '),
+  set: (val: string) => { pdfForm.value.recommendations = val.split(',').map((s) => s.trim()).filter(Boolean) },
+})
+
+const excelColsText = computed({
+  get: () => excelCols.value.join(','),
+  set: (val: string) => { excelCols.value = val.split(',').map((s) => s.trim()).filter(Boolean) },
+})
 
 function triggerBlobDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -93,14 +100,6 @@ async function downloadJob(jobId: string) {
   } catch (e) { showHttpFeedback(e, t('common.exportFailed')) }
 }
 
-function validateBatchExcelInput(raw: string): { ok: boolean; data?: unknown[]; error?: string } {
-  let parsed: unknown
-  try { parsed = JSON.parse(raw) } catch { return { ok: false, error: 'JSON 解析失败' } }
-  if (!Array.isArray(parsed)) return { ok: false, error: 'data 必须为数组' }
-  if (parsed.length > 1000) return { ok: false, error: 'data 最多 1000 行' }
-  return { ok: true, data: parsed as unknown[] }
-}
-
 async function exportExcel() {
   const v = validateBatchExcelInput(excelInput.value)
   if (!v.ok) { ElMessage.warning(v.error || ''); return }
@@ -139,7 +138,7 @@ onUnmounted(stopPolling)
         <el-form-item label="risk_level"><el-input-number v-model="pdfForm.risk_level" :min="0" :max="4" /></el-form-item>
         <el-form-item label="risk_trend"><el-input v-model="pdfForm.risk_trend" /></el-form-item>
         <el-form-item label="recommendations">
-          <el-input v-model="(pdfForm.recommendations as unknown as string)" type="textarea" placeholder="逗号分隔" />
+          <el-input v-model="recommendationsText" type="textarea" placeholder="逗号分隔" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="generating" @click="generateSync">{{ t('reports.syncGenerate') }}</el-button>
@@ -170,7 +169,7 @@ onUnmounted(stopPolling)
     <el-card class="excel-card">
       <template #header>{{ t('reports.batchExcel') }}</template>
       <el-input v-model="excelInput" type="textarea" :rows="6" placeholder='[{"col":"val"}]' />
-      <el-input v-model="(excelCols as unknown as string)" placeholder="col1,col2（逗号分隔，最多 50 列）" style="margin-top: 8px" />
+      <el-input v-model="excelColsText" placeholder="col1,col2（逗号分隔，最多 50 列）" style="margin-top: 8px" />
       <el-input v-model="excelFilename" placeholder="filename.xlsx" style="margin-top: 8px" />
       <el-button type="primary" style="margin-top: 8px" @click="exportExcel">{{ t('common.export') }}</el-button>
     </el-card>

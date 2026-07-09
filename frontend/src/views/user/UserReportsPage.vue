@@ -17,12 +17,6 @@ const days = ref(30)
 const loading = ref(false)
 const exporting = ref(false)
 
-function parseFilename(disposition: string | undefined, fallback: string): string {
-  if (!disposition) return fallback
-  const m = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i)
-  return m ? decodeURIComponent(m[1]) : fallback
-}
-
 function triggerBlobDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

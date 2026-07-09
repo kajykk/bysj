@@ -3,10 +3,8 @@
 import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { observabilityApi, type ObservabilityEnvelope, type ObservabilityTimeRange } from '@/api/observabilityApi'
-import { showHttpFeedback } from '@/utils/httpFeedback'
 
 const { t } = useI18n()
-const MAX_RANGE_DAYS = 30
 
 interface BlockState<T> { loading: boolean; data: ObservabilityEnvelope<T> | null; error: string | null; cached: boolean }
 
@@ -120,12 +118,21 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
         </el-card>
       </el-col>
       <el-col :span="6">
+        <el-card v-loading="channelStats.loading">
+          <template #header>{{ t('observability.channelStats') }}</template>
+          <div v-if="channelStats.error" class="err">{{ channelStats.error }}</div>
+          <div v-else>{{ channelStats.data?.data?.channels?.length }} channels</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
         <el-card v-loading="amSync.loading">
           <template #header>{{ t('observability.amSync') }}</template>
           <div v-if="amSync.error" class="err">{{ amSync.error }}</div>
           <div v-else>{{ amSync.data?.data?.last_sync }}</div>
         </el-card>
       </el-col>
+    </el-row>
+    <el-row :gutter="12" style="margin-top: 12px">
       <el-col :span="6">
         <el-card v-loading="lockStats.loading">
           <template #header>{{ t('observability.lockStats') }}</template>

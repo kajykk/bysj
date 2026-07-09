@@ -6,6 +6,7 @@ import { monitoringApi, type MonitoringSummary, type RequestDetailsList, type Re
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import BaseChart from '@/components/charts/BaseChart.vue'
 import type { EChartsCoreOption } from '@/utils/echarts'
+import { maskSensitive } from './utils/monitoringUtils'
 
 const { t } = useI18n()
 
@@ -21,12 +22,6 @@ const page = reactive({ limit: 20, offset: 0 })
 const autoRefresh = ref(false)
 const refreshTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const loading = ref(false)
-
-function maskSensitive(text: unknown, maxLen = 80): string {
-  if (text == null) return ''
-  const s = String(text)
-  return s.length <= maxLen ? s : s.slice(0, maxLen) + '…'
-}
 
 const successOption = computed<EChartsCoreOption>(() => ({
   tooltip: { trigger: 'axis' },

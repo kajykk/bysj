@@ -162,7 +162,8 @@ export default {
     silenceHitRate: 'Silence Hit Rate',
     trend: 'Trend',
     amSync: 'AlertManager Sync',
-    lockStats: 'Lock Stats'
+    lockStats: 'Lock Stats',
+    channelStats: 'Channel Stats'
   },
   report: {
     title: 'Report Center',

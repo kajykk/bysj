@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { canaryApi, type CanaryDeployment, type CanaryCreateRequest } from '@/api/canaryApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
+import { availableActions } from './utils/canaryUtils'
 
 const { t } = useI18n()
 const deployments = ref<CanaryDeployment[]>([])
@@ -14,14 +15,6 @@ const createVisible = ref(false)
 const createForm = ref<CanaryCreateRequest>({ version: '', traffic_percent: 1 })
 const trafficVisible = ref(false)
 const trafficTarget = ref<{ id: number; percent: number } | null>(null)
-
-function availableActions(status: string): string[] {
-  switch (status) {
-    case 'running': return ['adjust', 'pause', 'rollback', 'complete']
-    case 'paused': return ['adjust', 'resume', 'rollback']
-    default: return []
-  }
-}
 
 const runningCount = computed(() => deployments.value.filter((d) => d.status === 'running').length)
 const pausedCount = computed(() => deployments.value.filter((d) => d.status === 'paused').length)
