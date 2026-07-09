@@ -20,7 +20,7 @@ Object.defineProperty(navigator, 'sendBeacon', {
 })
 
 const rootVariables: Record<string, string> = {
-  '--primary-color': '#3b82c4',
+  '--primary-color': '#2e6fa8',
   '--spacing-base': '8px',
   '--font-size-base': '14px',
   '--breakpoint-mobile': '768px',

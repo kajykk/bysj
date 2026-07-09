@@ -9,21 +9,21 @@
   --text-tertiary: #8a929e;
   --border-color: #dce1e7;
   --border-light: #e8ecf0;
-  --primary-color: #3b82c4;
+  --primary-color: #2e6fa8;
   --primary-light: #e8f1f8;
   --success-color: #5a9e3a;
   --warning-color: #d4923a;
   --danger-color: #d65a5a;
   --info-color: #7a8290;
 
-  /* ===== Element Plus 主题覆盖 ===== */
-  --el-color-primary: #3b82c4;
-  --el-color-primary-light-3: #6ba3d4;
-  --el-color-primary-light-5: #9ac4e3;
-  --el-color-primary-light-7: #c5dcef;
-  --el-color-primary-light-8: #dae6f4;
+  /* ===== Element Plus 主题覆盖（I6 修复：主色 #3b82c4→#2e6fa8 提升对比度至 4.5:1+） ===== */
+  --el-color-primary: #2e6fa8;
+  --el-color-primary-light-3: #6d9ac2;
+  --el-color-primary-light-5: #97b7d4;
+  --el-color-primary-light-7: #c0d4e5;
+  --el-color-primary-light-8: #d5e2ed;
   --el-color-primary-light-9: #e8f1f8;
-  --el-color-primary-dark-2: #2e6fa8;
+  --el-color-primary-dark-2: #255986;
 
   --el-color-success: #5a9e3a;
   --el-color-success-light-3: #84b86a;
@@ -59,7 +59,7 @@
 
   --el-text-color-primary: #2c3340;
   --el-text-color-regular: #5a6470;
-  --el-text-color-secondary: #7a8290;
+  --el-text-color-secondary: #6a727f;
   --el-text-color-placeholder: #a8abb2;
   --el-text-color-disabled: #c0c4cc;
 
@@ -76,10 +76,10 @@
   --el-fill-color-lighter: #f7f9fb;
   --el-fill-color-blank: #ffffff;
 
-  --el-box-shadow: 0 2px 12px 0 rgba(59, 130, 196, 0.08);
-  --el-box-shadow-light: 0 1px 3px rgba(59, 130, 196, 0.04);
-  --el-box-shadow-lighter: 0 2px 8px rgba(59, 130, 196, 0.06);
-  --el-box-shadow-dark: 0 8px 24px rgba(59, 130, 196, 0.12);
+  --el-box-shadow: 0 2px 12px 0 rgba(46, 111, 168, 0.08);
+  --el-box-shadow-light: 0 1px 3px rgba(46, 111, 168, 0.04);
+  --el-box-shadow-lighter: 0 2px 8px rgba(46, 111, 168, 0.06);
+  --el-box-shadow-dark: 0 8px 24px rgba(46, 111, 168, 0.12);
 }
 
 // 深色主题

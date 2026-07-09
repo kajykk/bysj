@@ -1914,6 +1914,32 @@ export default {
     prev: 'Previous',
     skip: 'Skip'
   },
+  help: {
+    buttonLabel: 'Help Center',
+    onboarding: 'Onboarding Guide',
+    faqLabel: 'FAQ',
+    contactSupport: 'Contact Support',
+    faqTitle: 'Frequently Asked Questions',
+    contactTitle: 'Contact Technical Support',
+    emailLabel: 'Email',
+    phoneLabel: 'Phone',
+    hoursLabel: 'Service Hours',
+    hoursValue: 'Weekdays 9:00 - 18:00',
+    faq: {
+      q1: 'How do I reset my password?',
+      a1: 'Click the "Forgot Password?" link on the login page, enter your registered email, and the system will send a password reset link to your inbox. The reset link is valid for 30 minutes.',
+      q2: 'How is my risk level calculated?',
+      a2: 'Risk levels are assessed through multimodal data fusion, combining physiological signals, psychological scales, and behavioral data, computed in real time by a machine learning model. Levels are: None, Low, Medium, High, Critical.',
+      q3: 'How do I export my assessment report?',
+      a3: 'Go to the "Reports" page, select the report to export, and click "Export PDF". The system generates the report in the background, and a progress notification in the bottom-right corner will prompt you when download is ready.',
+      q4: 'Is my data secure?',
+      a4: 'The system uses end-to-end encrypted transmission. Sensitive fields (such as ID numbers and phone numbers) are encrypted at rest in the database. Only you and authorized counselors can view your data, and all access is logged for audit.',
+      q5: 'How do I contact a counselor?',
+      a5: 'If you are flagged as medium-to-high risk, the system automatically assigns a counselor. You can view the assigned counselor on the "Warnings" page and communicate via the built-in messaging system.',
+      q6: 'Which browsers are supported?',
+      a6: 'We recommend Chrome 90+, Edge 90+, Firefox 90+, or Safari 15+. IE is not supported. Mobile supports modern browsers on iOS 14+ and Android 10+.'
+    }
+  },
   serviceWorker: {
     updateAvailableTitle: 'Update Available',
     updateAvailableMessage: 'A new version is available, click to update now'

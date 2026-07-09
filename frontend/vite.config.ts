@@ -20,7 +20,7 @@ export default defineConfig(({ command }) => ({
         name: '抑郁症动态预警与干预系统',
         short_name: '抑郁预警系统',
         description: '基于多模态数据的智能风险评估平台',
-        theme_color: '#409eff',
+        theme_color: '#2e6fa8',
         background_color: '#ffffff',
         display: 'standalone',
         scope: '/',
