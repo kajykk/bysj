@@ -248,7 +248,7 @@
 - [x] 所有 P1 已关闭（原 25 个 P1 + 增量 ISS-152~ISS-157 全部修复关闭）
 - [x] P2 已关闭或有明确延期说明（原 67 个 P2 + 增量 ISS-158~ISS-162 全部修复关闭）
 - [x] 前端 `typecheck/lint/test/build` 通过（vue-tsc 0 error + eslint 0 error/0 warning + vitest 1111 passed + vite build 成功）
-- [ ] 后端 `pytest/ruff/black --check/bandit` 无阻塞
+- [x] 后端 `pytest/ruff/black --check/bandit` 无阻塞（ruff app/ ✅ + black 170 files ✅ + bandit 0 High ✅ + pytest 343 passed/1 pre-existing contract failure/10 skipped）
 - [ ] 核心业务链路通过手工回归
 - [ ] 角色权限与越权测试通过
 
