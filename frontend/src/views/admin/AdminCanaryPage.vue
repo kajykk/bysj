@@ -95,44 +95,143 @@ onMounted(loadAll)
 </script>
 
 <template>
-  <div v-loading="loading" class="canary-page">
+  <div
+    v-loading="loading"
+    class="canary-page"
+  >
     <div class="toolbar">
       <span>{{ t('canary.running') }}: {{ runningCount }}</span>
       <span>{{ t('canary.paused') }}: {{ pausedCount }}</span>
-      <el-button type="primary" @click="createVisible = true">{{ t('canary.newDeployment') }}</el-button>
-      <el-button @click="loadAll">{{ t('common.refresh') }}</el-button>
+      <el-button
+        type="primary"
+        @click="createVisible = true"
+      >
+        {{ t('canary.newDeployment') }}
+      </el-button>
+      <el-button @click="loadAll">
+        {{ t('common.refresh') }}
+      </el-button>
     </div>
-    <el-table :data="deployments" stripe>
-      <el-table-column prop="version" :label="t('canary.version')" />
-      <el-table-column prop="traffic_percent" :label="t('canary.trafficPercent')" />
-      <el-table-column prop="status" :label="t('canary.status')" />
-      <el-table-column prop="started_at" :label="t('canary.startedAt')" />
+    <el-table
+      :data="deployments"
+      stripe
+    >
+      <el-table-column
+        prop="version"
+        :label="t('canary.version')"
+      />
+      <el-table-column
+        prop="traffic_percent"
+        :label="t('canary.trafficPercent')"
+      />
+      <el-table-column
+        prop="status"
+        :label="t('canary.status')"
+      />
+      <el-table-column
+        prop="started_at"
+        :label="t('canary.startedAt')"
+      />
       <el-table-column :label="t('common.actions')">
         <template #default="{ row }">
-          <el-button v-if="availableActions(row.status).includes('adjust')" size="small" @click="openTrafficDialog(row)">{{ t('canary.adjustTraffic') }}</el-button>
-          <el-button v-if="availableActions(row.status).includes('pause')" size="small" :loading="actionLoading[`pause-${row.id}`]" @click="pauseDeployment(row)">{{ t('canary.pause') }}</el-button>
-          <el-button v-if="availableActions(row.status).includes('resume')" size="small" :loading="actionLoading[`resume-${row.id}`]" @click="resumeDeployment(row)">{{ t('canary.resume') }}</el-button>
-          <el-button v-if="availableActions(row.status).includes('complete')" size="small" type="success" :loading="actionLoading[`complete-${row.id}`]" @click="completeDeployment(row)">{{ t('canary.complete') }}</el-button>
-          <el-button v-if="availableActions(row.status).includes('rollback')" size="small" type="danger" :loading="actionLoading[`rollback-${row.id}`]" @click="rollbackDeployment(row)">{{ t('canary.rollback') }}</el-button>
+          <el-button
+            v-if="availableActions(row.status).includes('adjust')"
+            size="small"
+            @click="openTrafficDialog(row)"
+          >
+            {{ t('canary.adjustTraffic') }}
+          </el-button>
+          <el-button
+            v-if="availableActions(row.status).includes('pause')"
+            size="small"
+            :loading="actionLoading[`pause-${row.id}`]"
+            @click="pauseDeployment(row)"
+          >
+            {{ t('canary.pause') }}
+          </el-button>
+          <el-button
+            v-if="availableActions(row.status).includes('resume')"
+            size="small"
+            :loading="actionLoading[`resume-${row.id}`]"
+            @click="resumeDeployment(row)"
+          >
+            {{ t('canary.resume') }}
+          </el-button>
+          <el-button
+            v-if="availableActions(row.status).includes('complete')"
+            size="small"
+            type="success"
+            :loading="actionLoading[`complete-${row.id}`]"
+            @click="completeDeployment(row)"
+          >
+            {{ t('canary.complete') }}
+          </el-button>
+          <el-button
+            v-if="availableActions(row.status).includes('rollback')"
+            size="small"
+            type="danger"
+            :loading="actionLoading[`rollback-${row.id}`]"
+            @click="rollbackDeployment(row)"
+          >
+            {{ t('canary.rollback') }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="createVisible" :title="t('canary.newDeployment')" width="40%">
+    <el-dialog
+      v-model="createVisible"
+      :title="t('canary.newDeployment')"
+      width="40%"
+    >
       <el-form label-width="120px">
-        <el-form-item :label="t('canary.version')"><el-input v-model="createForm.version" /></el-form-item>
+        <el-form-item :label="t('canary.version')">
+          <el-input v-model="createForm.version" />
+        </el-form-item>
         <el-form-item :label="t('canary.trafficPercent')">
           <el-select v-model="createForm.traffic_percent">
-            <el-option v-for="p in percentages" :key="p" :label="p + '%'" :value="p" />
+            <el-option
+              v-for="p in percentages"
+              :key="p"
+              :label="p + '%'"
+              :value="p"
+            />
           </el-select>
         </el-form-item>
       </el-form>
-      <template #footer><el-button @click="createVisible = false">{{ t('common.cancel') }}</el-button><el-button type="primary" @click="createDeployment">{{ t('common.confirm') }}</el-button></template>
+      <template #footer>
+        <el-button @click="createVisible = false">
+          {{ t('common.cancel') }}
+        </el-button><el-button
+          type="primary"
+          @click="createDeployment"
+        >
+          {{ t('common.confirm') }}
+        </el-button>
+      </template>
     </el-dialog>
 
-    <el-dialog v-model="trafficVisible" :title="t('canary.adjustTraffic')" width="30%">
-      <el-slider v-model="trafficTarget.percent" :min="1" :max="100" :marks="Object.fromEntries(percentages.map((p) => [p, p + '%']))" />
-      <template #footer><el-button @click="trafficVisible = false">{{ t('common.cancel') }}</el-button><el-button type="primary" @click="updateTraffic">{{ t('common.confirm') }}</el-button></template>
+    <el-dialog
+      v-model="trafficVisible"
+      :title="t('canary.adjustTraffic')"
+      width="30%"
+    >
+      <el-slider
+        v-model="trafficTarget.percent"
+        :min="1"
+        :max="100"
+        :marks="Object.fromEntries(percentages.map((p) => [p, p + '%']))"
+      />
+      <template #footer>
+        <el-button @click="trafficVisible = false">
+          {{ t('common.cancel') }}
+        </el-button><el-button
+          type="primary"
+          @click="updateTraffic"
+        >
+          {{ t('common.confirm') }}
+        </el-button>
+      </template>
     </el-dialog>
   </div>
 </template>

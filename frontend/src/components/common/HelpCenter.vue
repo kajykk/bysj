@@ -49,7 +49,9 @@
         <template #title>
           <span class="faq-question">{{ item.q }}</span>
         </template>
-        <p class="faq-answer">{{ item.a }}</p>
+        <p class="faq-answer">
+          {{ item.a }}
+        </p>
       </el-collapse-item>
     </el-collapse>
   </el-dialog>
@@ -66,22 +68,34 @@
       <div class="contact-item">
         <el-icon><Message /></el-icon>
         <div>
-          <p class="contact-label">{{ t('help.emailLabel') }}</p>
-          <p class="contact-value">support@dws.local</p>
+          <p class="contact-label">
+            {{ t('help.emailLabel') }}
+          </p>
+          <p class="contact-value">
+            support@dws.local
+          </p>
         </div>
       </div>
       <div class="contact-item">
         <el-icon><Phone /></el-icon>
         <div>
-          <p class="contact-label">{{ t('help.phoneLabel') }}</p>
-          <p class="contact-value">400-000-0000</p>
+          <p class="contact-label">
+            {{ t('help.phoneLabel') }}
+          </p>
+          <p class="contact-value">
+            400-000-0000
+          </p>
         </div>
       </div>
       <div class="contact-item">
         <el-icon><Clock /></el-icon>
         <div>
-          <p class="contact-label">{{ t('help.hoursLabel') }}</p>
-          <p class="contact-value">{{ t('help.hoursValue') }}</p>
+          <p class="contact-label">
+            {{ t('help.hoursLabel') }}
+          </p>
+          <p class="contact-value">
+            {{ t('help.hoursValue') }}
+          </p>
         </div>
       </div>
     </div>
@@ -96,10 +110,22 @@
   >
     <el-form label-position="top">
       <el-form-item :label="t('help.feedbackCategoryLabel')">
-        <el-select v-model="feedbackCategory" style="width: 100%">
-          <el-option :label="t('help.feedbackCategoryBug')" value="bug" />
-          <el-option :label="t('help.feedbackCategoryFeature')" value="feature" />
-          <el-option :label="t('help.feedbackCategoryOther')" value="other" />
+        <el-select
+          v-model="feedbackCategory"
+          style="width: 100%"
+        >
+          <el-option
+            :label="t('help.feedbackCategoryBug')"
+            value="bug"
+          />
+          <el-option
+            :label="t('help.feedbackCategoryFeature')"
+            value="feature"
+          />
+          <el-option
+            :label="t('help.feedbackCategoryOther')"
+            value="other"
+          />
         </el-select>
       </el-form-item>
       <el-form-item :label="t('help.feedbackMessageLabel')">
@@ -121,7 +147,10 @@
         <el-icon><Link /></el-icon>
         {{ t('help.githubIssues') }}
       </el-link>
-      <el-button type="primary" @click="submitFeedback">
+      <el-button
+        type="primary"
+        @click="submitFeedback"
+      >
         {{ t('help.feedbackSubmit') }}
       </el-button>
     </div>

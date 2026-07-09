@@ -1,7 +1,7 @@
 <!-- frontend/src/views/admin/AdminReportsPage.vue -->
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { reportsApi, type ReportTemplate, type PdfJobItem, type UserRiskReportRequest } from '@/api/reportsApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
@@ -119,60 +119,160 @@ onUnmounted(stopPolling)
 <template>
   <div class="admin-reports-page">
     <el-card class="templates-card">
-      <template #header>{{ t('reports.templates') }}</template>
+      <template #header>
+        {{ t('reports.templates') }}
+      </template>
       <el-row :gutter="12">
-        <el-col v-for="tp in templates" :key="tp.name" :span="6">
+        <el-col
+          v-for="tp in templates"
+          :key="tp.name"
+          :span="6"
+        >
           <el-card shadow="hover">
             <h4>{{ tp.name }}</h4>
             <p>{{ tp.description }}</p>
-            <el-tag size="small">{{ tp.format }}</el-tag>
+            <el-tag size="small">
+              {{ tp.format }}
+            </el-tag>
           </el-card>
         </el-col>
       </el-row>
     </el-card>
 
     <el-card class="pdf-card">
-      <template #header>{{ t('reports.generatePdf') }}</template>
-      <el-form :model="pdfForm" label-width="120px">
-        <el-form-item :label="t('reports.userId')"><el-input-number v-model="pdfForm.user_id" :min="1" /></el-form-item>
-        <el-form-item :label="t('reports.userName')"><el-input v-model="pdfForm.user_name" /></el-form-item>
-        <el-form-item :label="t('reports.riskLevel')"><el-input-number v-model="pdfForm.risk_level" :min="0" :max="4" /></el-form-item>
-        <el-form-item :label="t('reports.riskTrend')"><el-input v-model="pdfForm.risk_trend" /></el-form-item>
+      <template #header>
+        {{ t('reports.generatePdf') }}
+      </template>
+      <el-form
+        :model="pdfForm"
+        label-width="120px"
+      >
+        <el-form-item :label="t('reports.userId')">
+          <el-input-number
+            v-model="pdfForm.user_id"
+            :min="1"
+          />
+        </el-form-item>
+        <el-form-item :label="t('reports.userName')">
+          <el-input v-model="pdfForm.user_name" />
+        </el-form-item>
+        <el-form-item :label="t('reports.riskLevel')">
+          <el-input-number
+            v-model="pdfForm.risk_level"
+            :min="0"
+            :max="4"
+          />
+        </el-form-item>
+        <el-form-item :label="t('reports.riskTrend')">
+          <el-input v-model="pdfForm.risk_trend" />
+        </el-form-item>
         <el-form-item :label="t('reports.recommendations')">
-          <el-input v-model="recommendationsText" type="textarea" :placeholder="t('reports.commaSeparated')" />
+          <el-input
+            v-model="recommendationsText"
+            type="textarea"
+            :placeholder="t('reports.commaSeparated')"
+          />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="generating" @click="generateSync">{{ t('reports.syncGenerate') }}</el-button>
-          <el-button :loading="generating" @click="generateAsync">{{ t('reports.asyncGenerate') }}</el-button>
+          <el-button
+            type="primary"
+            :loading="generating"
+            @click="generateSync"
+          >
+            {{ t('reports.syncGenerate') }}
+          </el-button>
+          <el-button
+            :loading="generating"
+            @click="generateAsync"
+          >
+            {{ t('reports.asyncGenerate') }}
+          </el-button>
         </el-form-item>
       </el-form>
-      <el-progress v-if="currentJob" :percentage="currentJob.progress" :status="currentJob.status === 'failed' ? 'exception' : 'success'" />
-      <el-button v-if="currentJob?.status === 'completed'" type="success" @click="downloadJob(currentJob.job_id)">{{ t('common.download') }}</el-button>
+      <el-progress
+        v-if="currentJob"
+        :percentage="currentJob.progress"
+        :status="currentJob.status === 'failed' ? 'exception' : 'success'"
+      />
+      <el-button
+        v-if="currentJob?.status === 'completed'"
+        type="success"
+        @click="downloadJob(currentJob.job_id)"
+      >
+        {{ t('common.download') }}
+      </el-button>
     </el-card>
 
     <el-card class="jobs-card">
-      <template #header>{{ t('reports.jobList') }}</template>
-      <el-table :data="jobs" stripe>
-        <el-table-column prop="job_id" :label="t('reports.jobId')" />
-        <el-table-column prop="status" :label="t('reports.status')" />
-        <el-table-column prop="progress" :label="t('reports.progress')">
-          <template #default="{ row }"><el-progress :percentage="row.progress" /></template>
+      <template #header>
+        {{ t('reports.jobList') }}
+      </template>
+      <el-table
+        :data="jobs"
+        stripe
+      >
+        <el-table-column
+          prop="job_id"
+          :label="t('reports.jobId')"
+        />
+        <el-table-column
+          prop="status"
+          :label="t('reports.status')"
+        />
+        <el-table-column
+          prop="progress"
+          :label="t('reports.progress')"
+        >
+          <template #default="{ row }">
+            <el-progress :percentage="row.progress" />
+          </template>
         </el-table-column>
-        <el-table-column prop="created_at" :label="t('reports.createdAt')" />
+        <el-table-column
+          prop="created_at"
+          :label="t('reports.createdAt')"
+        />
         <el-table-column :label="t('common.actions')">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'completed'" size="small" type="success" @click="downloadJob(row.job_id)">{{ t('common.download') }}</el-button>
+            <el-button
+              v-if="row.status === 'completed'"
+              size="small"
+              type="success"
+              @click="downloadJob(row.job_id)"
+            >
+              {{ t('common.download') }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
     <el-card class="excel-card">
-      <template #header>{{ t('reports.batchExcel') }}</template>
-      <el-input v-model="excelInput" type="textarea" :rows="6" :placeholder="t('reports.placeholderJson')" />
-      <el-input v-model="excelColsText" :placeholder="t('reports.excelColsPlaceholder')" style="margin-top: 8px" />
-      <el-input v-model="excelFilename" :placeholder="t('reports.excelFilenamePlaceholder')" style="margin-top: 8px" />
-      <el-button type="primary" style="margin-top: 8px" @click="exportExcel">{{ t('common.export') }}</el-button>
+      <template #header>
+        {{ t('reports.batchExcel') }}
+      </template>
+      <el-input
+        v-model="excelInput"
+        type="textarea"
+        :rows="6"
+        :placeholder="t('reports.placeholderJson')"
+      />
+      <el-input
+        v-model="excelColsText"
+        :placeholder="t('reports.excelColsPlaceholder')"
+        style="margin-top: 8px"
+      />
+      <el-input
+        v-model="excelFilename"
+        :placeholder="t('reports.excelFilenamePlaceholder')"
+        style="margin-top: 8px"
+      />
+      <el-button
+        type="primary"
+        style="margin-top: 8px"
+        @click="exportExcel"
+      >
+        {{ t('common.export') }}
+      </el-button>
     </el-card>
   </div>
 </template>

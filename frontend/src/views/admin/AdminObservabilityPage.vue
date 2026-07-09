@@ -74,70 +74,199 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
 <template>
   <div class="observability-page">
     <div class="toolbar">
-      <el-date-picker v-model="range.start_time" type="date" :placeholder="t('observability.startDate')" />
-      <el-date-picker v-model="range.end_time" type="date" :placeholder="t('observability.endDate')" />
-      <el-button @click="loadAll">{{ t('common.refresh') }}</el-button>
-      <el-switch v-model="autoRefresh" @change="toggleAutoRefresh" :active-text="t('common.autoRefresh')" />
+      <el-date-picker
+        v-model="range.start_time"
+        type="date"
+        :placeholder="t('observability.startDate')"
+      />
+      <el-date-picker
+        v-model="range.end_time"
+        type="date"
+        :placeholder="t('observability.endDate')"
+      />
+      <el-button @click="loadAll">
+        {{ t('common.refresh') }}
+      </el-button>
+      <el-switch
+        v-model="autoRefresh"
+        :active-text="t('common.autoRefresh')"
+        @change="toggleAutoRefresh"
+      />
     </div>
     <el-row :gutter="12">
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
         <el-card v-loading="health.loading">
-          <template #header>{{ t('observability.health') }}<el-tag v-if="health.cached" size="small">{{ t('observability.cached') }}</el-tag></template>
-          <div v-if="health.error" class="err">{{ health.error }}</div>
-          <div v-else>{{ health.data?.data?.status }}</div>
+          <template #header>
+            {{ t('observability.health') }}<el-tag
+              v-if="health.cached"
+              size="small"
+            >
+              {{ t('observability.cached') }}
+            </el-tag>
+          </template>
+          <div
+            v-if="health.error"
+            class="err"
+          >
+            {{ health.error }}
+          </div>
+          <div v-else>
+            {{ health.data?.data?.status }}
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
         <el-card v-loading="responseTime.loading">
-          <template #header>{{ t('observability.responseTime') }}</template>
-          <div v-if="responseTime.error" class="err">{{ responseTime.error }}</div>
-          <div v-else>{{ responseTime.data?.data?.avg_ms }} ms</div>
+          <template #header>
+            {{ t('observability.responseTime') }}
+          </template>
+          <div
+            v-if="responseTime.error"
+            class="err"
+          >
+            {{ responseTime.error }}
+          </div>
+          <div v-else>
+            {{ responseTime.data?.data?.avg_ms }} ms
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
         <el-card v-loading="escalation.loading">
-          <template #header>{{ t('observability.escalation') }}</template>
-          <div v-if="escalation.error" class="err">{{ escalation.error }}</div>
-          <div v-else>{{ escalation.data?.data?.escalation_rate }}</div>
+          <template #header>
+            {{ t('observability.escalation') }}
+          </template>
+          <div
+            v-if="escalation.error"
+            class="err"
+          >
+            {{ escalation.error }}
+          </div>
+          <div v-else>
+            {{ escalation.data?.data?.escalation_rate }}
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
         <el-card v-loading="silenceHit.loading">
-          <template #header>{{ t('observability.silenceHitRate') }}</template>
-          <div v-if="silenceHit.error" class="err">{{ silenceHit.error }}</div>
-          <div v-else>{{ silenceHit.data?.data?.hit_rate }}</div>
+          <template #header>
+            {{ t('observability.silenceHitRate') }}
+          </template>
+          <div
+            v-if="silenceHit.error"
+            class="err"
+          >
+            {{ silenceHit.error }}
+          </div>
+          <div v-else>
+            {{ silenceHit.data?.data?.hit_rate }}
+          </div>
         </el-card>
       </el-col>
     </el-row>
-    <el-row :gutter="12" class="row-gap">
-      <el-col :xs="24" :sm="24" :md="12">
+    <el-row
+      :gutter="12"
+      class="row-gap"
+    >
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="12"
+      >
         <el-card v-loading="trend.loading">
-          <template #header>{{ t('observability.trend') }}</template>
-          <div v-if="trend.error" class="err">{{ trend.error }}</div>
-          <div v-else>{{ trend.data?.data?.points?.length }} {{ t('observability.points') }}</div>
+          <template #header>
+            {{ t('observability.trend') }}
+          </template>
+          <div
+            v-if="trend.error"
+            class="err"
+          >
+            {{ trend.error }}
+          </div>
+          <div v-else>
+            {{ trend.data?.data?.points?.length }} {{ t('observability.points') }}
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
         <el-card v-loading="channelStats.loading">
-          <template #header>{{ t('observability.channelStats') }}</template>
-          <div v-if="channelStats.error" class="err">{{ channelStats.error }}</div>
-          <div v-else>{{ channelStats.data?.data?.channels?.length }} {{ t('observability.channels') }}</div>
+          <template #header>
+            {{ t('observability.channelStats') }}
+          </template>
+          <div
+            v-if="channelStats.error"
+            class="err"
+          >
+            {{ channelStats.error }}
+          </div>
+          <div v-else>
+            {{ channelStats.data?.data?.channels?.length }} {{ t('observability.channels') }}
+          </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
         <el-card v-loading="amSync.loading">
-          <template #header>{{ t('observability.amSync') }}</template>
-          <div v-if="amSync.error" class="err">{{ amSync.error }}</div>
-          <div v-else>{{ amSync.data?.data?.last_sync }}</div>
+          <template #header>
+            {{ t('observability.amSync') }}
+          </template>
+          <div
+            v-if="amSync.error"
+            class="err"
+          >
+            {{ amSync.error }}
+          </div>
+          <div v-else>
+            {{ amSync.data?.data?.last_sync }}
+          </div>
         </el-card>
       </el-col>
     </el-row>
-    <el-row :gutter="12" class="row-gap">
-      <el-col :xs="24" :sm="12" :md="6">
+    <el-row
+      :gutter="12"
+      class="row-gap"
+    >
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
         <el-card v-loading="lockStats.loading">
-          <template #header>{{ t('observability.lockStats') }}</template>
-          <div v-if="lockStats.error" class="err">{{ lockStats.error }}</div>
-          <div v-else>{{ lockStats.data?.data?.active_locks }}</div>
+          <template #header>
+            {{ t('observability.lockStats') }}
+          </template>
+          <div
+            v-if="lockStats.error"
+            class="err"
+          >
+            {{ lockStats.error }}
+          </div>
+          <div v-else>
+            {{ lockStats.data?.data?.active_locks }}
+          </div>
         </el-card>
       </el-col>
     </el-row>
