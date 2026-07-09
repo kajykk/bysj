@@ -197,29 +197,29 @@
 
 | 编号 | 级别 | 模块 | 前/后/全栈 | 标题 | 发现日期 | 状态 |
 |------|------|------|------------|------|----------|------|
-| ISS-152 | P1 | 前端/新页面 | 前端 | 5 个新页面大量硬编码 UI 字符串未走 i18n（AdminReportsPage/AdminCanaryPage/AdminObservabilityPage/AdminMonitoringPage/UserReportsPage 共 30+ 处） | 2026-07-10 | 新建 |
-| ISS-153 | P1 | 前端/composable | 前端 | useOnboarding.ts L102-189 所有引导步骤标题/描述硬编码中文 | 2026-07-10 | 新建 |
-| ISS-154 | P1 | 前端/HelpCenter | 前端 | HelpCenter.vue L35,57 el-dialog width="600px"/"440px" 移动端溢出（与已关闭 ISS-033/081 同类） | 2026-07-10 | 新建 |
-| ISS-155 | P1 | 前端/Observability | 前端 | AdminObservabilityPage.vue L83-143 el-col :span="6" 四列布局无响应式断点，移动端挤压 | 2026-07-10 | 新建 |
-| ISS-156 | P1 | 前端/UserReports | 前端 | UserReportsPage.vue L84 severity 仅检查 'high'，未处理 'critical'/'severe'，危急风险显示为 warning 色 | 2026-07-10 | 新建 |
-| ISS-157 | P1 | 前端/composable | 前端 | useTaskProgress.ts L15-16 WebSocket 监听器 + 清理定时器在生产环境中永不取消订阅（内存泄漏） | 2026-07-10 | 新建 |
+| ISS-152 | P1 | 前端/新页面 | 前端 | 5 个新页面大量硬编码 UI 字符串未走 i18n（AdminReportsPage/AdminCanaryPage/AdminObservabilityPage/AdminMonitoringPage/UserReportsPage 共 30+ 处） | 2026-07-10 | 已关闭 |
+| ISS-153 | P1 | 前端/composable | 前端 | useOnboarding.ts L102-189 所有引导步骤标题/描述硬编码中文 | 2026-07-10 | 已关闭 |
+| ISS-154 | P1 | 前端/HelpCenter | 前端 | HelpCenter.vue L35,57 el-dialog width="600px"/"440px" 移动端溢出（与已关闭 ISS-033/081 同类） | 2026-07-10 | 已关闭 |
+| ISS-155 | P1 | 前端/Observability | 前端 | AdminObservabilityPage.vue L83-143 el-col :span="6" 四列布局无响应式断点，移动端挤压 | 2026-07-10 | 已关闭 |
+| ISS-156 | P1 | 前端/UserReports | 前端 | UserReportsPage.vue L84 severity 仅检查 'high'，未处理 'critical'/'severe'，危急风险显示为 warning 色 | 2026-07-10 | 已关闭 |
+| ISS-157 | P1 | 前端/composable | 前端 | useTaskProgress.ts L15-16 WebSocket 监听器 + 清理定时器在生产环境中永不取消订阅（内存泄漏） | 2026-07-10 | 已关闭 |
 
 ### P2 中优先级（5 项）
 
 | 编号 | 级别 | 模块 | 标题 | 发现日期 | 状态 |
 |------|------|------|------|----------|------|
-| ISS-158 | P2 | 前端/Monitoring | AdminMonitoringPage.vue L91 row-click 无键盘可访问性；L100 原始 JSON 显示不友好 | 2026-07-10 | 新建 |
-| ISS-159 | P2 | 前端/样式 | variables.scss L70 --spacing-lg=16px 与 --spacing-md 重复（应为 24px） | 2026-07-10 | 新建 |
-| ISS-160 | P2 | 前端/MainLayout | MainLayout.vue L258 canary 分组到 "settings" 语义不正确 | 2026-07-10 | 新建 |
-| ISS-161 | P2 | 前端/Canary | AdminCanaryPage.vue L60-68 操作按钮无 loading 状态（重复点击风险） | 2026-07-10 | 新建 |
-| ISS-162 | P2 | 前端/Reports | AdminReportsPage.vue L72 PDF 作业轮询间隔 2s 过短（与已关闭 ISS-002 同类） | 2026-07-10 | 新建 |
+| ISS-158 | P2 | 前端/Monitoring | AdminMonitoringPage.vue L91 row-click 无键盘可访问性；L100 原始 JSON 显示不友好 | 2026-07-10 | 已关闭 |
+| ISS-159 | P2 | 前端/样式 | variables.scss L70 --spacing-lg=16px 与 --spacing-md 重复（应为 24px） | 2026-07-10 | 已关闭 |
+| ISS-160 | P2 | 前端/MainLayout | MainLayout.vue L258 canary 分组到 "settings" 语义不正确 | 2026-07-10 | 已关闭 |
+| ISS-161 | P2 | 前端/Canary | AdminCanaryPage.vue L60-68 操作按钮无 loading 状态（重复点击风险） | 2026-07-10 | 已关闭 |
+| ISS-162 | P2 | 前端/Reports | AdminReportsPage.vue L72 PDF 作业轮询间隔 2s 过短（与已关闭 ISS-002 同类） | 2026-07-10 | 已关闭 |
 
 ### P3 低优先级（2 项）
 
 | 编号 | 级别 | 模块 | 标题 | 发现日期 | 状态 |
 |------|------|------|------|----------|------|
-| ISS-163 | P3 | 前端/index.html | L41-42,53 骨架屏 loading 颜色硬编码 hex 未走令牌 | 2026-07-10 | 新建 |
-| ISS-164 | P3 | 前端/OnboardingTour | OnboardingTour.vue L35-37 defineExpose 创建新 useOnboarding 实例（冗余调用） | 2026-07-10 | 新建 |
+| ISS-163 | P3 | 前端/index.html | L41-42,53 骨架屏 loading 颜色硬编码 hex 未走令牌 | 2026-07-10 | 已关闭 |
+| ISS-164 | P3 | 前端/OnboardingTour | OnboardingTour.vue L35-37 defineExpose 创建新 useOnboarding 实例（冗余调用） | 2026-07-10 | 已关闭 |
 
 ---
 
@@ -232,13 +232,13 @@
 | 级别 | 总数 | 新建 | 已确认 | 修复中 | 待复核 | 已关闭 | 暂缓 | 拒绝 |
 |------|------|------|--------|--------|--------|--------|------|------|
 | P0 | 3 | 0 | 0 | 0 | 0 | 3 | 0 | 0 |
-| P1 | 44 | 6 | 0 | 0 | 0 | 38 | 0 | 0 |
-| P2 | 72 | 5 | 0 | 0 | 0 | 67 | 0 | 0 |
-| P3 | 33 | 33 | 0 | 0 | 0 | 0 | 0 | 0 |
+| P1 | 44 | 0 | 0 | 0 | 0 | 44 | 0 | 0 |
+| P2 | 72 | 0 | 0 | 0 | 0 | 72 | 0 | 0 |
+| P3 | 33 | 31 | 0 | 0 | 0 | 2 | 0 | 0 |
 | P4 | 12 | 12 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **合计** | **164** | **56** | **0** | **0** | **0** | **108** | **0** | **0** |
+| **合计** | **164** | **43** | **0** | **0** | **0** | **121** | **0** | **0** |
 
-> **说明**：原 P0/P1/P2 共 107 项已全部修复关闭；2026-07-10 增量审查发现 14 项新问题（ISS-151~ISS-164），其中 ISS-151 (P0) 已修复关闭。剩余 P1(6)/P2(5)/P3(2)/P4(0) 共 13 项待处理。P3(31)/P4(12) 共 43 项为低优先级建议，保持"新建"状态待后续迭代。
+> **说明**：原 P0/P1/P2 共 107 项已全部修复关闭；2026-07-10 增量审查发现 14 项新问题（ISS-151~ISS-164），全部 14 项已修复关闭（ISS-151 P0 + ISS-152~157 P1 + ISS-158~162 P2 + ISS-163/164 P3）。P3(31)/P4(12) 共 43 项为低优先级建议，保持"新建"状态待后续迭代。
 > **P2 修复明细**：67 项中实际代码修复 42 项、已存在无需修改 12 项、TODO 标注 13 项（架构性改进，已记录待后续迭代）。
 
 ---

@@ -156,58 +156,59 @@
 
 > 审查范围：feat/frontend-api-alignment 合并 + 并行进程改进 + WCAG/字体优化以来的前端新增/变更代码
 > 关联问题编号：ISS-152 ~ ISS-164（详见 `05-audit-issues.md`）
+> 修复状态：7 项全部已关闭（✅）
 
 ### 响应式问题（Delta）
 
-| 编号 | 分类 | 文件#行号 | 问题 | 修复建议 |
-|------|------|-----------|------|----------|
-| VIS-D-P1-13 | 弹窗 | HelpCenter.vue L35, L57 | el-dialog width="600px"/"440px" 移动端溢出（375px 屏幕横向滚动） | 改为 :width="isMobile ? '90vw' : '600px'" |
-| VIS-D-P1-14 | 布局 | AdminObservabilityPage.vue L83-143 | el-col :span="6" 四列布局无响应式断点，移动端严重挤压 | 加 :xs="24" :sm="12" :md="6" 响应式断点 |
+| 编号 | 分类 | 文件#行号 | 问题 | 修复建议 | 状态 |
+|------|------|-----------|------|----------|------|
+| VIS-D-P1-13 | 弹窗 | HelpCenter.vue L35, L57 | el-dialog width="600px"/"440px" 移动端溢出（375px 屏幕横向滚动） | 改为 :width="isMobile ? '90vw' : '600px'" | ✅ 已关闭 (ISS-154) |
+| VIS-D-P1-14 | 布局 | AdminObservabilityPage.vue L83-143 | el-col :span="6" 四列布局无响应式断点，移动端严重挤压 | 加 :xs="24" :sm="12" :md="6" 响应式断点 | ✅ 已关闭 (ISS-155) |
 
 ### 视觉一致性问题（Delta）
 
-| 编号 | 分类 | 文件#行号 | 问题 | 修复建议 |
-|------|------|-----------|------|----------|
-| VIS-D-P2-13 | 间距 | variables.scss L70 | --spacing-lg=16px 与 --spacing-md=16px 重复（应为 24px，符合 4/8/12/16/24/32 规范） | 改为 --spacing-lg: 24px |
-| VIS-D-P3-05 | 色彩 | index.html L41-42, L53 | 骨架屏 loading 颜色硬编码 #eef2f6/#e8ecf0 未走令牌 | 改用 var(--skeleton-bg) 或 CSS 变量 |
+| 编号 | 分类 | 文件#行号 | 问题 | 修复建议 | 状态 |
+|------|------|-----------|------|----------|------|
+| VIS-D-P2-13 | 间距 | variables.scss L70 | --spacing-lg=16px 与 --spacing-md=16px 重复（应为 24px，符合 4/8/12/16/24/32 规范） | 改为 --spacing-lg: 24px | ✅ 已关闭 (ISS-159) |
+| VIS-D-P3-05 | 色彩 | index.html L41-42, L53 | 骨架屏 loading 颜色硬编码 #eef2f6/#e8ecf0 未走令牌 | 改用 var(--skeleton-bg) 或 CSS 变量 | ✅ 已关闭 (ISS-163) |
 
 ### UX 问题（Delta）
 
-| 编号 | 分类 | 文件#行号 | 问题 | 修复建议 |
-|------|------|-----------|------|----------|
-| UX-D-P2-16 | 交互 | AdminCanaryPage.vue L60-68 | 金丝雀部署操作按钮（创建/完成/回滚）无 loading 状态，重复点击风险 | 加 :loading="submitting" 状态 |
-| UX-D-P2-17 | 交互 | AdminMonitoringPage.vue L100 | 详情展示用 `<pre>{{ JSON.stringify(detailRow, null, 2) }}</pre>` 原始 JSON 不友好 | 改用 el-descriptions 或格式化展示 |
+| 编号 | 分类 | 文件#行号 | 问题 | 修复建议 | 状态 |
+|------|------|-----------|------|----------|------|
+| UX-D-P2-16 | 交互 | AdminCanaryPage.vue L60-68 | 金丝雀部署操作按钮（创建/完成/回滚）无 loading 状态，重复点击风险 | 加 :loading="submitting" 状态 | ✅ 已关闭 (ISS-161) |
+| UX-D-P2-17 | 交互 | AdminMonitoringPage.vue L100 | 详情展示用 `<pre>{{ JSON.stringify(detailRow, null, 2) }}</pre>` 原始 JSON 不友好 | 改用 el-descriptions 或格式化展示 | ✅ 已关闭 (ISS-158) |
 
 ### 可访问性问题（Delta）
 
-| 编号 | 分类 | 文件#行号 | 问题 | 修复建议 |
-|------|------|-----------|------|----------|
-| A11Y-D-P2-10 | 键盘 | AdminMonitoringPage.vue L91 | @row-click 无键盘可访问性（无 @keyup.enter） | 加 tabindex 和 @keyup.enter 处理 |
+| 编号 | 分类 | 文件#行号 | 问题 | 修复建议 | 状态 |
+|------|------|-----------|------|----------|------|
+| A11Y-D-P2-10 | 键盘 | AdminMonitoringPage.vue L91 | @row-click 无键盘可访问性（无 @keyup.enter） | 加 tabindex 和 @keyup.enter 处理 | ✅ 已关闭 (ISS-158) |
 
 ---
 
 ## 📊 美化问题统计 (Visual Beautification Statistics)
 
-> 含 2026-07-10 增量审查发现 7 项（Delta Audit）
+> 含 2026-07-10 增量审查发现 7 项（Delta Audit），全部 7 项已关闭
 
 | 分类 | 总数 | 待处理 | 修复中 | 已关闭 |
 |------|------|--------|--------|--------|
-| 色彩 | 19 | 19 | 0 | 0 |
+| 色彩 | 19 | 18 | 0 | 1 |
 | 字体 | 1 | 1 | 0 | 0 |
-| 间距 | 6 | 6 | 0 | 0 |
+| 间距 | 6 | 5 | 0 | 1 |
 | 圆角 | 1 | 1 | 0 | 0 |
 | 阴影 | 1 | 1 | 0 | 0 |
 | 图标 | 1 | 1 | 0 | 0 |
 | 表格 | 2 | 2 | 0 | 0 |
 | 表单 | 2 | 2 | 0 | 0 |
 | 图表 | 5 | 5 | 0 | 0 |
-| 弹窗 | 2 | 2 | 0 | 0 |
+| 弹窗 | 2 | 1 | 0 | 1 |
 | 空状态 | 1 | 1 | 0 | 0 |
 | 加载态 | 0 | 0 | 0 | 0 |
-| 响应式 | 12 | 12 | 0 | 0 |
-| 可访问性 | 13 | 13 | 0 | 0 |
-| 交互 | 2 | 2 | 0 | 0 |
-| **合计** | **67** | **67** | **0** | **0** |
+| 响应式 | 12 | 11 | 0 | 1 |
+| 可访问性 | 13 | 12 | 0 | 1 |
+| 交互 | 2 | 0 | 0 | 2 |
+| **合计** | **67** | **61** | **0** | **6** |
 
 ---
 
