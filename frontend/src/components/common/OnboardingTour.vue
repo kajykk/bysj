@@ -29,10 +29,9 @@ const {
   onTourComplete,
   onTourCancel,
   steps,
+  tryStartOnboarding,
+  restartTour,
 } = useOnboarding(props.role)
 
-defineExpose({
-  tryStartOnboarding: () => useOnboarding(props.role).tryStartOnboarding(),
-  restartTour: () => useOnboarding(props.role).restartTour(),
-})
+defineExpose({ tryStartOnboarding, restartTour })
 </script>

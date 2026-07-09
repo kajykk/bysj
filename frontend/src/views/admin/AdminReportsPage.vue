@@ -69,7 +69,8 @@ async function pollJobStatus(jobId: string) {
 
 function startPolling(jobId: string) {
   stopPolling()
-  pollingTimer.value = setInterval(() => pollJobStatus(jobId), 2000)
+  // ISS-162 修复：轮询间隔由 2s 调整为 5s，避免过短间隔造成不必要的服务端负载
+  pollingTimer.value = setInterval(() => pollJobStatus(jobId), 5000)
 }
 
 async function generateSync() {
@@ -103,7 +104,7 @@ async function downloadJob(jobId: string) {
 async function exportExcel() {
   const v = validateBatchExcelInput(excelInput.value)
   if (!v.ok) { ElMessage.warning(v.error || ''); return }
-  if (excelCols.value.length > 50) { ElMessage.warning('columns 最多 50 列'); return }
+  if (excelCols.value.length > 50) { ElMessage.warning(t('reports.columnsLimit')); return }
   try {
     const blob = await reportsApi.batchExportExcel({ data: v.data as Record<string, unknown>[], columns: excelCols.value, filename: excelFilename.value })
     triggerBlobDownload(blob, excelFilename.value)
@@ -133,12 +134,12 @@ onUnmounted(stopPolling)
     <el-card class="pdf-card">
       <template #header>{{ t('reports.generatePdf') }}</template>
       <el-form :model="pdfForm" label-width="120px">
-        <el-form-item label="user_id"><el-input-number v-model="pdfForm.user_id" :min="1" /></el-form-item>
-        <el-form-item label="user_name"><el-input v-model="pdfForm.user_name" /></el-form-item>
-        <el-form-item label="risk_level"><el-input-number v-model="pdfForm.risk_level" :min="0" :max="4" /></el-form-item>
-        <el-form-item label="risk_trend"><el-input v-model="pdfForm.risk_trend" /></el-form-item>
-        <el-form-item label="recommendations">
-          <el-input v-model="recommendationsText" type="textarea" placeholder="逗号分隔" />
+        <el-form-item :label="t('reports.userId')"><el-input-number v-model="pdfForm.user_id" :min="1" /></el-form-item>
+        <el-form-item :label="t('reports.userName')"><el-input v-model="pdfForm.user_name" /></el-form-item>
+        <el-form-item :label="t('reports.riskLevel')"><el-input-number v-model="pdfForm.risk_level" :min="0" :max="4" /></el-form-item>
+        <el-form-item :label="t('reports.riskTrend')"><el-input v-model="pdfForm.risk_trend" /></el-form-item>
+        <el-form-item :label="t('reports.recommendations')">
+          <el-input v-model="recommendationsText" type="textarea" :placeholder="t('reports.commaSeparated')" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="generating" @click="generateSync">{{ t('reports.syncGenerate') }}</el-button>
@@ -152,13 +153,13 @@ onUnmounted(stopPolling)
     <el-card class="jobs-card">
       <template #header>{{ t('reports.jobList') }}</template>
       <el-table :data="jobs" stripe>
-        <el-table-column prop="job_id" label="job_id" />
-        <el-table-column prop="status" label="status" />
-        <el-table-column prop="progress" label="progress">
+        <el-table-column prop="job_id" :label="t('reports.jobId')" />
+        <el-table-column prop="status" :label="t('reports.status')" />
+        <el-table-column prop="progress" :label="t('reports.progress')">
           <template #default="{ row }"><el-progress :percentage="row.progress" /></template>
         </el-table-column>
-        <el-table-column prop="created_at" label="created_at" />
-        <el-table-column label="操作">
+        <el-table-column prop="created_at" :label="t('reports.createdAt')" />
+        <el-table-column :label="t('common.actions')">
           <template #default="{ row }">
             <el-button v-if="row.status === 'completed'" size="small" type="success" @click="downloadJob(row.job_id)">{{ t('common.download') }}</el-button>
           </template>
@@ -168,9 +169,9 @@ onUnmounted(stopPolling)
 
     <el-card class="excel-card">
       <template #header>{{ t('reports.batchExcel') }}</template>
-      <el-input v-model="excelInput" type="textarea" :rows="6" placeholder='[{"col":"val"}]' />
-      <el-input v-model="excelColsText" placeholder="col1,col2（逗号分隔，最多 50 列）" style="margin-top: 8px" />
-      <el-input v-model="excelFilename" placeholder="filename.xlsx" style="margin-top: 8px" />
+      <el-input v-model="excelInput" type="textarea" :rows="6" :placeholder="t('reports.placeholderJson')" />
+      <el-input v-model="excelColsText" :placeholder="t('reports.excelColsPlaceholder')" style="margin-top: 8px" />
+      <el-input v-model="excelFilename" :placeholder="t('reports.excelFilenamePlaceholder')" style="margin-top: 8px" />
       <el-button type="primary" style="margin-top: 8px" @click="exportExcel">{{ t('common.export') }}</el-button>
     </el-card>
   </div>

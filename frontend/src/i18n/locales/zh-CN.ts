@@ -36,7 +36,15 @@ export default {
     createFailed: '创建失败',
     updateSuccess: '更新成功',
     updateFailed: '更新失败',
-    failed: '操作失败'
+    failed: '操作失败',
+    status: '状态',
+    createdAt: '创建时间',
+    csv: 'CSV',
+    json: 'JSON',
+    days7: '7天',
+    days30: '30天',
+    days90: '90天',
+    days365: '365天'
   },
   nav: {
     sectionDaily: '日常工作',
@@ -156,7 +164,9 @@ export default {
       hour6: '6小时',
       hour24: '24小时',
       day7: '7天'
-    }
+    },
+    logId: '日志ID',
+    input: '输入'
   },
   observability: {
     health: '健康状态',
@@ -166,7 +176,12 @@ export default {
     trend: '趋势',
     amSync: 'AlertManager 同步',
     lockStats: '锁统计',
-    channelStats: '渠道统计'
+    channelStats: '渠道统计',
+    startDate: '开始日期',
+    endDate: '结束日期',
+    cached: '缓存',
+    points: '数据点',
+    channels: '渠道'
   },
   report: {
     title: '报告中心',
@@ -199,7 +214,21 @@ export default {
     pdfReady: 'PDF 已就绪',
     pdfGenerating: 'PDF 生成中',
     jobList: '任务列表',
-    batchExcel: '批量 Excel'
+    batchExcel: '批量 Excel',
+    userId: '用户ID',
+    userName: '用户名',
+    riskLevel: '风险等级',
+    riskTrend: '风险趋势',
+    recommendations: '建议',
+    commaSeparated: '逗号分隔',
+    jobId: '任务ID',
+    status: '状态',
+    progress: '进度',
+    createdAt: '创建时间',
+    columnsLimit: '列数最多 50 列',
+    excelColsPlaceholder: 'col1,col2（逗号分隔，最多 50 列）',
+    excelFilenamePlaceholder: 'filename.xlsx',
+    placeholderJson: '[{"col":"val"}]'
   },
   canary: {
     running: '运行中',
@@ -212,7 +241,18 @@ export default {
     rollback: '回滚',
     confirmComplete: '确认完成部署 {v}？',
     rollbackReason: '请输入回滚原因',
-    reasonRequired: '原因必填（1-500 字）'
+    reasonRequired: '原因必填（1-500 字）',
+    versionRequired: '版本号必填',
+    trafficRangeInvalid: '范围 1-100',
+    version: '版本',
+    trafficPercent: '流量百分比',
+    status: '状态',
+    startedAt: '开始时间'
+  },
+  userReports: {
+    eyebrow: '风险评估报告',
+    title: '我的风险报告',
+    lede: '查看您的风险评估概览和趋势数据',
   },
   error: {
     goHome: '返回首页',
@@ -1941,7 +1981,41 @@ export default {
     finish: '完成',
     next: '下一步',
     prev: '上一步',
-    skip: '跳过'
+    skip: '跳过',
+    steps: {
+      user: {
+        navMenuTitle: '导航菜单',
+        navMenuDesc: '这里是你的主要导航菜单，可以在这里访问所有功能页面。',
+        warningBadgeTitle: '告警通知',
+        warningBadgeDesc: '当有新的风险告警时，这里会显示红点提示，点击可查看详情。',
+        dashboardTitle: '仪表盘',
+        dashboardDesc: '仪表盘展示你的风险评估概览和趋势数据，建议定期查看。',
+        riskAssessTitle: '风险评估',
+        riskAssessDesc: '在这里进行心理健康风险评估，系统会根据你的回答生成个性化报告。',
+        warningsTitle: '告警中心',
+        warningsDesc: '查看你的历史告警记录和干预建议。',
+      },
+      counselor: {
+        navMenuTitle: '咨询师导航',
+        navMenuDesc: '在这里管理你负责的用户、查看告警和审核评估。',
+        warningBadgeTitle: '告警通知',
+        warningBadgeDesc: '当你的用户出现高风险时，这里会实时推送告警通知。',
+        warningMgmtTitle: '告警管理',
+        warningMgmtDesc: '查看和处理所有用户告警，及时跟进高风险用户。',
+        userMgmtTitle: '用户管理',
+        userMgmtDesc: '查看你负责的用户列表和他们的风险评估历史。',
+      },
+      admin: {
+        navMenuTitle: '管理员导航',
+        navMenuDesc: '在这里管理系统配置、模板、告警和可观测性。',
+        warningBadgeTitle: '告警通知',
+        warningBadgeDesc: '系统级告警会在这里实时推送，请及时关注。',
+        dashboardTitle: '系统仪表盘',
+        dashboardDesc: '查看系统整体运行状态、用户统计和风险分布。',
+        observabilityTitle: '可观测性',
+        observabilityDesc: '监控系统指标、日志和链路追踪数据。',
+      },
+    },
   },
   help: {
     buttonLabel: '帮助中心',

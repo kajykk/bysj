@@ -15,6 +15,7 @@ const createVisible = ref(false)
 const createForm = ref<CanaryCreateRequest>({ version: '', traffic_percent: 1 })
 const trafficVisible = ref(false)
 const trafficTarget = ref<{ id: number; percent: number } | null>(null)
+const actionLoading = ref<Record<string, boolean>>({})
 
 const runningCount = computed(() => deployments.value.filter((d) => d.status === 'running').length)
 const pausedCount = computed(() => deployments.value.filter((d) => d.status === 'paused').length)
@@ -30,7 +31,7 @@ async function loadAll() {
 }
 
 async function createDeployment() {
-  if (!createForm.value.version.trim()) { ElMessage.warning('version 必填'); return }
+  if (!createForm.value.version.trim()) { ElMessage.warning(t('canary.versionRequired')); return }
   try {
     await canaryApi.createCanaryDeployment(createForm.value)
     ElMessage.success(t('common.createSuccess'))
@@ -48,7 +49,7 @@ function openTrafficDialog(d: CanaryDeployment) {
 async function updateTraffic() {
   if (!trafficTarget.value) return
   const p = trafficTarget.value.percent
-  if (p < 1 || p > 100) { ElMessage.warning('范围 1-100'); return }
+  if (p < 1 || p > 100) { ElMessage.warning(t('canary.trafficRangeInvalid')); return }
   try {
     await canaryApi.updateCanaryTraffic(trafficTarget.value.id, { traffic_percent: p })
     ElMessage.success(t('common.updateSuccess'))
@@ -58,28 +59,36 @@ async function updateTraffic() {
 }
 
 async function pauseDeployment(d: CanaryDeployment) {
+  actionLoading.value[`pause-${d.id}`] = true
   try { await canaryApi.pauseCanary(d.id); ElMessage.success(t('common.success')); await loadAll() }
   catch (e) { showHttpFeedback(e, t('common.failed')) }
+  finally { actionLoading.value[`pause-${d.id}`] = false }
 }
 
 async function resumeDeployment(d: CanaryDeployment) {
+  actionLoading.value[`resume-${d.id}`] = true
   try { await canaryApi.resumeCanary(d.id); ElMessage.success(t('common.success')); await loadAll() }
   catch (e) { showHttpFeedback(e, t('common.failed')) }
+  finally { actionLoading.value[`resume-${d.id}`] = false }
 }
 
 async function completeDeployment(d: CanaryDeployment) {
   try {
     await ElMessageBox.confirm(t('canary.confirmComplete', { v: d.version }), t('common.confirm'), { type: 'warning' })
+    actionLoading.value[`complete-${d.id}`] = true
     await canaryApi.completeCanary(d.id); ElMessage.success(t('common.success')); await loadAll()
   } catch (e) { if (e !== 'cancel') showHttpFeedback(e, t('common.failed')) }
+  finally { actionLoading.value[`complete-${d.id}`] = false }
 }
 
 async function rollbackDeployment(d: CanaryDeployment) {
   try {
     const { value } = await ElMessageBox.prompt(t('canary.rollbackReason'), t('canary.rollback'), { type: 'error', inputType: 'textarea', inputValidator: (v) => (v && v.trim().length >= 1 && v.length <= 500) || t('canary.reasonRequired') })
+    actionLoading.value[`rollback-${d.id}`] = true
     await canaryApi.rollbackCanary(d.id, { reason: value })
     ElMessage.success(t('common.success')); await loadAll()
   } catch (e) { if (e !== 'cancel') showHttpFeedback(e, t('common.failed')) }
+  finally { actionLoading.value[`rollback-${d.id}`] = false }
 }
 
 onMounted(loadAll)
@@ -94,25 +103,25 @@ onMounted(loadAll)
       <el-button @click="loadAll">{{ t('common.refresh') }}</el-button>
     </div>
     <el-table :data="deployments" stripe>
-      <el-table-column prop="version" label="version" />
-      <el-table-column prop="traffic_percent" label="traffic %" />
-      <el-table-column prop="status" label="status" />
-      <el-table-column prop="started_at" label="started_at" />
+      <el-table-column prop="version" :label="t('canary.version')" />
+      <el-table-column prop="traffic_percent" :label="t('canary.trafficPercent')" />
+      <el-table-column prop="status" :label="t('canary.status')" />
+      <el-table-column prop="started_at" :label="t('canary.startedAt')" />
       <el-table-column :label="t('common.actions')">
         <template #default="{ row }">
           <el-button v-if="availableActions(row.status).includes('adjust')" size="small" @click="openTrafficDialog(row)">{{ t('canary.adjustTraffic') }}</el-button>
-          <el-button v-if="availableActions(row.status).includes('pause')" size="small" @click="pauseDeployment(row)">{{ t('canary.pause') }}</el-button>
-          <el-button v-if="availableActions(row.status).includes('resume')" size="small" @click="resumeDeployment(row)">{{ t('canary.resume') }}</el-button>
-          <el-button v-if="availableActions(row.status).includes('complete')" size="small" type="success" @click="completeDeployment(row)">{{ t('canary.complete') }}</el-button>
-          <el-button v-if="availableActions(row.status).includes('rollback')" size="small" type="danger" @click="rollbackDeployment(row)">{{ t('canary.rollback') }}</el-button>
+          <el-button v-if="availableActions(row.status).includes('pause')" size="small" :loading="actionLoading[`pause-${row.id}`]" @click="pauseDeployment(row)">{{ t('canary.pause') }}</el-button>
+          <el-button v-if="availableActions(row.status).includes('resume')" size="small" :loading="actionLoading[`resume-${row.id}`]" @click="resumeDeployment(row)">{{ t('canary.resume') }}</el-button>
+          <el-button v-if="availableActions(row.status).includes('complete')" size="small" type="success" :loading="actionLoading[`complete-${row.id}`]" @click="completeDeployment(row)">{{ t('canary.complete') }}</el-button>
+          <el-button v-if="availableActions(row.status).includes('rollback')" size="small" type="danger" :loading="actionLoading[`rollback-${row.id}`]" @click="rollbackDeployment(row)">{{ t('canary.rollback') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <el-dialog v-model="createVisible" :title="t('canary.newDeployment')" width="40%">
       <el-form label-width="120px">
-        <el-form-item label="version"><el-input v-model="createForm.version" /></el-form-item>
-        <el-form-item label="traffic %">
+        <el-form-item :label="t('canary.version')"><el-input v-model="createForm.version" /></el-form-item>
+        <el-form-item :label="t('canary.trafficPercent')">
           <el-select v-model="createForm.traffic_percent">
             <el-option v-for="p in percentages" :key="p" :label="p + '%'" :value="p" />
           </el-select>

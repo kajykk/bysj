@@ -114,16 +114,16 @@ onMounted(loadData)
             @change="loadData"
           >
             <el-radio-button :value="7">
-              7d
+              {{ t('common.days7') }}
             </el-radio-button>
             <el-radio-button :value="30">
-              30d
+              {{ t('common.days30') }}
             </el-radio-button>
             <el-radio-button :value="90">
-              90d
+              {{ t('common.days90') }}
             </el-radio-button>
             <el-radio-button :value="365">
-              365d
+              {{ t('common.days365') }}
             </el-radio-button>
           </el-radio-group>
         </div>
@@ -146,13 +146,13 @@ onMounted(loadData)
         :loading="exporting"
         @click="doExport('csv')"
       >
-        CSV
+        {{ t('common.csv') }}
       </el-button>
       <el-button
         :loading="exporting"
         @click="doExport('json')"
       >
-        JSON
+        {{ t('common.json') }}
       </el-button>
     </el-card>
   </div>
