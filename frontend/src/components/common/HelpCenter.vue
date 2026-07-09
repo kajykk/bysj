@@ -24,6 +24,10 @@
           <el-icon><Message /></el-icon>
           {{ t('help.contactSupport') }}
         </el-dropdown-item>
+        <el-dropdown-item command="feedback">
+          <el-icon><EditPen /></el-icon>
+          {{ t('help.feedbackLabel') }}
+        </el-dropdown-item>
       </el-dropdown-menu>
     </template>
   </el-dropdown>
@@ -82,12 +86,53 @@
       </div>
     </div>
   </el-dialog>
+
+  <!-- 反馈弹窗 -->
+  <el-dialog
+    v-model="feedbackVisible"
+    :title="t('help.feedbackTitle')"
+    width="480px"
+    append-to-body
+  >
+    <el-form label-position="top">
+      <el-form-item :label="t('help.feedbackCategoryLabel')">
+        <el-select v-model="feedbackCategory" style="width: 100%">
+          <el-option :label="t('help.feedbackCategoryBug')" value="bug" />
+          <el-option :label="t('help.feedbackCategoryFeature')" value="feature" />
+          <el-option :label="t('help.feedbackCategoryOther')" value="other" />
+        </el-select>
+      </el-form-item>
+      <el-form-item :label="t('help.feedbackMessageLabel')">
+        <el-input
+          v-model="feedbackMessage"
+          type="textarea"
+          :rows="4"
+          :placeholder="t('help.feedbackMessagePlaceholder')"
+        />
+      </el-form-item>
+    </el-form>
+    <div class="feedback-footer">
+      <el-link
+        :href="githubIssuesUrl"
+        target="_blank"
+        type="primary"
+        :underline="false"
+      >
+        <el-icon><Link /></el-icon>
+        {{ t('help.githubIssues') }}
+      </el-link>
+      <el-button type="primary" @click="submitFeedback">
+        {{ t('help.feedbackSubmit') }}
+      </el-button>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { QuestionFilled, Guide, Document, Message, Phone, Clock } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { QuestionFilled, Guide, Document, Message, Phone, Clock, EditPen, Link } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
 
@@ -97,7 +142,13 @@ const props = defineProps<{
 
 const faqVisible = ref(false)
 const contactVisible = ref(false)
+const feedbackVisible = ref(false)
 const activeFaqItems = ref<string[]>(['0'])
+const feedbackCategory = ref<'bug' | 'feature' | 'other'>('bug')
+const feedbackMessage = ref('')
+
+const GITHUB_ISSUES_URL = 'https://github.com/kajykk/bysj/issues'
+const githubIssuesUrl = GITHUB_ISSUES_URL
 
 const faqList = computed(() => [
   { q: t('help.faq.q1'), a: t('help.faq.a1') },
@@ -115,11 +166,27 @@ const handleCommand = (command: string) => {
     faqVisible.value = true
   } else if (command === 'contact') {
     contactVisible.value = true
+  } else if (command === 'feedback') {
+    feedbackVisible.value = true
   }
 }
 
 const closeFaq = () => { faqVisible.value = false }
 const closeContact = () => { contactVisible.value = false }
+
+const submitFeedback = () => {
+  if (!feedbackMessage.value.trim()) {
+    ElMessage.warning(t('help.feedbackEmpty'))
+    return
+  }
+  const categoryLabel = t(`help.feedbackCategory${feedbackCategory.value.charAt(0).toUpperCase()}${feedbackCategory.value.slice(1)}`)
+  const title = encodeURIComponent(`[${categoryLabel}] ${feedbackMessage.value.slice(0, 50)}`)
+  const body = encodeURIComponent(feedbackMessage.value)
+  window.open(`${GITHUB_ISSUES_URL}/new?title=${title}&body=${body}`, '_blank')
+  feedbackVisible.value = false
+  feedbackMessage.value = ''
+  ElMessage.success(t('help.feedbackSubmitted'))
+}
 </script>
 
 <style scoped>
@@ -163,5 +230,12 @@ const closeContact = () => { contactVisible.value = false }
   font-size: var(--font-size-base);
   color: var(--text-primary);
   font-weight: var(--font-weight-medium);
+}
+
+.feedback-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-md);
 }
 </style>
