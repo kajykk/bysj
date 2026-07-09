@@ -1,5 +1,25 @@
 <template>
   <div class="risk-page">
+    <div class="risk-page__summary">
+      <p class="risk-page__eyebrow">
+        {{ t('userRisk.pageEyebrow') }}
+      </p>
+      <h2>{{ t('userRisk.pageTitle') }}</h2>
+      <p>{{ t('userRisk.pageLede') }}</p>
+      <div class="risk-page__actions">
+        <el-button
+          type="primary"
+          @click="activeTab = 'structured'"
+        >
+          {{ t('userRisk.quickStartStructured') }}
+        </el-button>
+        <el-button
+          @click="activeTab = 'report'"
+        >
+          {{ t('userRisk.quickViewReport') }}
+        </el-button>
+      </div>
+    </div>
     <el-tabs
       v-model="activeTab"
       type="border-card"
@@ -303,6 +323,7 @@ import { PhoneFilled } from '@element-plus/icons-vue'
 import { modelApi, type FusionPredictResult, type RiskTrend } from '@/api/modelApi'
 import type { RiskReport } from '@/api/userRiskApi'
 import { userApi } from '@/api/userApi'
+import { reportsApi } from '@/api/reportsApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { hasPermission } from '@/config/permissions'
@@ -335,7 +356,7 @@ const loadReport = async () => {
   reportLoading.value = true
   reportError.value = ''
   try {
-    report.value = await modelApi.getRiskReport()
+    report.value = await userApi.getRiskReport()
   } catch (error) {
     reportError.value = normalizeHttpError(error, t('userRisk.reportLoadFailed')).detail
   } finally {
@@ -343,10 +364,9 @@ const loadReport = async () => {
       reportLoading.value = false
     }
   }
-  // 趋势数据单独获取，失败时使用空趋势占位，不影响报告主流程
   if (isUnmounted) return
   try {
-    const trendResult = await modelApi.getRiskTrend(30)
+    const trendResult = await userApi.getRiskTrend(30)
     if (isUnmounted) return
     reportTrendData.value = trendResult
   } catch (error) {
@@ -356,9 +376,12 @@ const loadReport = async () => {
 
 const handleExport = async (format: 'json' | 'csv' | 'pdf') => {
   try {
-    const response = await userApi.exportRiskData(format, 90)
-    const mimeType = format === 'pdf' ? 'application/pdf' : format === 'csv' ? 'text/csv' : 'application/json'
-    const blob = new Blob([response.data], { type: mimeType })
+    const blob =
+      format === 'pdf'
+        ? await reportsApi.exportUserRiskPdf(90)
+        : format === 'csv'
+          ? await reportsApi.exportUserRiskCsv(90)
+          : new Blob([JSON.stringify(await reportsApi.exportUserRiskJson(90), null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -470,6 +493,40 @@ onUnmounted(() => {
 <style scoped>
 .risk-page {
   padding: 0;
+}
+
+.risk-page__summary {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-extra-light);
+  border-radius: 1rem;
+  background: var(--bg-primary);
+}
+
+.risk-page__eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.risk-page__summary h2 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.risk-page__summary p:last-child {
+  margin: 0.4rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.risk-page__actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .card-title {

@@ -18,6 +18,9 @@
             <h2 class="auth-form-card__title">
               {{ isLogin ? t('auth.loginTitle') : t('auth.joinMindwatch') }}
             </h2>
+            <p class="auth-form-card__lede">
+              {{ isLogin ? t('auth.brandLoginLede') : t('auth.brandLoginLede') }}
+            </p>
           </div>
           <el-tag
             :type="isLogin ? 'primary' : 'success'"
@@ -433,6 +436,13 @@ const handleRegister = async () => {
   letter-spacing: -0.025em;
   line-height: 1.15;
   color: var(--text-primary);
+}
+
+.auth-form-card__lede {
+  margin: 0.625rem 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.6;
 }
 
 .auth-tabs {

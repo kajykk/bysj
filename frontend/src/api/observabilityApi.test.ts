@@ -14,7 +14,7 @@ describe('api/observabilityApi', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('getHealth 调 /alerts/observability/health 并保留 envelope', async () => {
-    ;(request.get as any).mockResolvedValueOnce({ data: { data: { status: 'ok' }, instance_id: 'i1', cached: true, generated_at: 't' } })
+    (request.get as any).mockResolvedValueOnce({ data: { data: { status: 'ok' }, instance_id: 'i1', cached: true, generated_at: 't' } })
     const res = await observabilityApi.getHealth()
     expect(request.get).toHaveBeenCalledWith('/alerts/observability/health', { params: undefined })
     expect(res.data).toEqual({ status: 'ok' })
@@ -23,7 +23,7 @@ describe('api/observabilityApi', () => {
   })
 
   it('getTrend 传 bucket/severity/time range', async () => {
-    ;(request.get as any).mockResolvedValueOnce({ data: { data: { points: [] }, instance_id: 'i', cached: false, generated_at: 't' } })
+    (request.get as any).mockResolvedValueOnce({ data: { data: { points: [] }, instance_id: 'i', cached: false, generated_at: 't' } })
     await observabilityApi.getTrend({ start_time: '2026-07-01', end_time: '2026-07-08', bucket: 'day', severity: 'high' })
     expect(request.get).toHaveBeenCalledWith('/alerts/observability/trend', { params: { start_time: '2026-07-01', end_time: '2026-07-08', bucket: 'day', severity: 'high' } })
   })
@@ -40,14 +40,14 @@ describe('api/observabilityApi', () => {
       ['getLockStats', '/alerts/observability/lock-stats'],
     ]
     for (const [fn, path] of endpoints) {
-      ;(request.get as any).mockResolvedValueOnce({ data: { data: {}, instance_id: 'i', cached: false, generated_at: 't' } })
+      (request.get as any).mockResolvedValueOnce({ data: { data: {}, instance_id: 'i', cached: false, generated_at: 't' } })
       await (observabilityApi as any)[fn]()
       expect(request.get).toHaveBeenCalledWith(path, { params: undefined })
     }
   })
 
   it('错误透传', async () => {
-    ;(request.get as any).mockRejectedValueOnce(new Error('500'))
+    (request.get as any).mockRejectedValueOnce(new Error('500'))
     await expect(observabilityApi.getHealth()).rejects.toThrow('500')
   })
 })

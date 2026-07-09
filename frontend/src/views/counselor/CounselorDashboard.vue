@@ -10,7 +10,7 @@
           {{ t('counselorDashboard.eyebrow') }}
         </p>
         <h2>{{ t('counselorDashboard.title') }}</h2>
-        <p>{{ t('counselorDashboard.welcome', { name: auth.user?.nickname || auth.user?.username || t('counselorDashboard.defaultCounselorName') }) }}</p>
+        <p>{{ t('counselorDashboard.lede') }}</p>
       </div>
       <div class="layout__actions">
         <el-tag type="success">

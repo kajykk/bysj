@@ -371,7 +371,29 @@ const loadActive = async () => {
   activeLoading.value = true
   activeError.value = ''
   try {
-    activeData.value = await userApi.getActiveIntervention()
+    const data = await userApi.getActiveIntervention()
+    activeData.value = {
+      plan: {
+        id: data.plan.id,
+        plan_name: data.plan.plan_name,
+        risk_level: data.plan.risk_level,
+        start_date: data.plan.start_date,
+        progress: data.plan.progress,
+        dominant_modality: data.plan.dominant_modality ?? null,
+      },
+      tasks: data.tasks.map((task) => ({
+        id: task.id,
+        task_name: task.task_name,
+        task_type: task.task_type,
+        description: task.description,
+        schedule: task.schedule,
+        duration_minutes: task.duration_minutes,
+        today_status: task.today_status,
+        feedback_score: task.feedback_score,
+        feedback_note: task.feedback_note,
+        modality_based_actions: task.modality_based_actions ?? [],
+      })),
+    }
   } catch (error) {
     activeError.value = normalizeHttpError(error, t('userIntervention.loadFailed')).detail
   } finally {
@@ -515,7 +537,16 @@ const loadHistory = async () => {
   historyError.value = ''
   try {
     const data = await userApi.getInterventionHistory({ page: historyPage.value, page_size: historyPageSize.value })
-    historyRows.value = data.items
+    historyRows.value = data.items.map((item) => ({
+      plan_id: item.plan_id,
+      plan_name: item.plan_name,
+      status: item.status,
+      start_date: item.start_date,
+      end_date: item.end_date,
+      completion_rate: item.completion_rate,
+      risk_change: item.risk_change,
+      dominant_modality: item.dominant_modality ?? null,
+    }))
     historyTotal.value = data.total
   } catch (error) {
     historyError.value = normalizeHttpError(error, t('userIntervention.historyLoadFailed')).detail
