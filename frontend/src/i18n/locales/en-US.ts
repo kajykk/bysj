@@ -30,7 +30,13 @@ export default {
     download: 'Download',
     export: 'Export',
     refresh: 'Refresh Data',
-    autoRefresh: 'Auto Refresh'
+    autoRefresh: 'Auto Refresh',
+    actions: 'Actions',
+    createSuccess: 'Created successfully',
+    createFailed: 'Creation failed',
+    updateSuccess: 'Updated successfully',
+    updateFailed: 'Update failed',
+    failed: 'Operation failed'
   },
   nav: {
     dashboard: 'Dashboard',
@@ -190,6 +196,19 @@ export default {
     pdfGenerating: 'PDF Generating',
     jobList: 'Job List',
     batchExcel: 'Batch Excel'
+  },
+  canary: {
+    running: 'Running',
+    paused: 'Paused',
+    newDeployment: 'New Deployment',
+    adjustTraffic: 'Adjust Traffic',
+    pause: 'Pause',
+    resume: 'Resume',
+    complete: 'Complete',
+    rollback: 'Rollback',
+    confirmComplete: 'Confirm complete deployment {v}?',
+    rollbackReason: 'Please enter rollback reason',
+    reasonRequired: 'Reason is required (1-500 chars)'
   },
   error: {
     goHome: 'Go Home',

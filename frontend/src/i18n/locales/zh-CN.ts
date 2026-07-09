@@ -30,7 +30,13 @@ export default {
     download: '下载',
     export: '导出',
     refresh: '刷新数据',
-    autoRefresh: '自动刷新'
+    autoRefresh: '自动刷新',
+    actions: '操作',
+    createSuccess: '创建成功',
+    createFailed: '创建失败',
+    updateSuccess: '更新成功',
+    updateFailed: '更新失败',
+    failed: '操作失败'
   },
   nav: {
     dashboard: '仪表盘',
@@ -190,6 +196,19 @@ export default {
     pdfGenerating: 'PDF 生成中',
     jobList: '任务列表',
     batchExcel: '批量 Excel'
+  },
+  canary: {
+    running: '运行中',
+    paused: '已暂停',
+    newDeployment: '新建部署',
+    adjustTraffic: '调整流量',
+    pause: '暂停',
+    resume: '恢复',
+    complete: '完成',
+    rollback: '回滚',
+    confirmComplete: '确认完成部署 {v}？',
+    rollbackReason: '请输入回滚原因',
+    reasonRequired: '原因必填（1-500 字）'
   },
   error: {
     goHome: '返回首页',
