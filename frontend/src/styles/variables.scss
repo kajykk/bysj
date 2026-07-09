@@ -1,11 +1,26 @@
 :root {
-  /* ===== 品牌主色 ===== */
-  --primary-color: #3b82c4;
-  --primary-hover: #4a9bd6;
-  --primary-active: #2e6fa8;
+  /* ===== 品牌主色（I6 修复：调整主色对比度满足 WCAG AA 4.5:1） =====
+     原 #3b82c4 在白底对比度仅 4.05、在 --primary-light 上仅 3.54，不达标。
+     新主色 #2e6fa8 在白底对比度 5.36、在 --primary-light 上 4.68，均满足 4.5:1。 */
+  --primary-color: #2e6fa8;
+  --primary-hover: #327ab0;
+  --primary-active: #255986;
   --primary-light: #e8f1f8;
   --primary-lighter: #f3f8fc;
-  --primary-surface: rgba(59, 130, 196, 0.08);
+  --primary-surface: rgba(46, 111, 168, 0.08);
+
+  /* ===== 主色 tints/shades 色阶（ISS-104 修复：补充 50-900 渐变阶梯，支持图表多系列与视觉层次） =====
+     基于 #2e6fa8 与白/黑按比例混合，500 为主色基准 */
+  --primary-50: #eaf0f6;
+  --primary-100: #d5e2ed;
+  --primary-200: #abc5dc;
+  --primary-300: #82a9cb;
+  --primary-400: #588cb9;
+  --primary-500: #2e6fa8;
+  --primary-600: #255986;
+  --primary-700: #1c4365;
+  --primary-800: #122c43;
+  --primary-900: #091622;
 
   /* ===== 语义色 ===== */
   --success-color: #5a9e3a;
@@ -24,10 +39,10 @@
   --risk-high: #d65a5a;
   --risk-critical: #a82e28;
 
-  /* ===== 文字色阶 ===== */
+  /* ===== 文字色阶（ISS-099 修复：--text-secondary 由 #7a8290 调深为 #6a727f，对比度 3.88→4.80） ===== */
   --text-primary: #2c3340;
   --text-regular: #5a6470;
-  --text-secondary: #7a8290;
+  --text-secondary: #6a727f;
   --text-placeholder: #a8abb2;
   --text-disabled: #c0c4cc;
   --text-inverse: #ffffff;
@@ -71,13 +86,13 @@
   --radius-xl-legacy: 12px;
   --radius-circle: 50%;
 
-  /* ===== 阴影系统（着色阴影，匹配主色色相） ===== */
-  --shadow-base: 0 2px 12px 0 rgba(59, 130, 196, 0.08);
-  --shadow-light: 0 1px 3px rgba(59, 130, 196, 0.04);
-  --shadow-card: 0 2px 8px rgba(59, 130, 196, 0.06);
-  --shadow-card-hover: 0 8px 24px rgba(59, 130, 196, 0.12);
-  --shadow-dropdown: 0 4px 16px rgba(59, 130, 196, 0.08);
-  --shadow-modal: 0 16px 48px rgba(59, 130, 196, 0.16);
+  /* ===== 阴影系统（着色阴影，匹配主色色相；I6 同步主色相） ===== */
+  --shadow-base: 0 2px 12px 0 rgba(46, 111, 168, 0.08);
+  --shadow-light: 0 1px 3px rgba(46, 111, 168, 0.04);
+  --shadow-card: 0 2px 8px rgba(46, 111, 168, 0.06);
+  --shadow-card-hover: 0 8px 24px rgba(46, 111, 168, 0.12);
+  --shadow-dropdown: 0 4px 16px rgba(46, 111, 168, 0.08);
+  --shadow-modal: 0 16px 48px rgba(46, 111, 168, 0.16);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
   /* ===== 表格行高亮 ===== */
@@ -122,24 +137,24 @@
   --layout-header-height: 56px;
   --layout-content-max-width: 1400px;
 
-  /* ===== 品牌渐变（去除 AI 紫蓝渐变，使用克制的同色系） ===== */
-  --gradient-primary: linear-gradient(135deg, #3b82c4 0%, #4a9bd6 100%);
-  --gradient-surface: linear-gradient(180deg, rgba(59, 130, 196, 0.04) 0%, transparent 100%);
+  /* ===== 品牌渐变（去除 AI 紫蓝渐变，使用克制的同色系；I6 同步主色相） ===== */
+  --gradient-primary: linear-gradient(135deg, #2e6fa8 0%, #327ab0 100%);
+  --gradient-surface: linear-gradient(180deg, rgba(46, 111, 168, 0.04) 0%, transparent 100%);
   --gradient-success: linear-gradient(135deg, #5a9e3a 0%, #7ab558 100%);
   --gradient-danger: linear-gradient(135deg, #d65a5a 0%, #e07878 100%);
   /* ISS-011 修复：补充统计卡片使用的渐变令牌，避免组件内硬编码 */
-  --gradient-blue: linear-gradient(135deg, #3b82c4, #5ba0d8);
+  --gradient-blue: linear-gradient(135deg, #2e6fa8, #327ab0);
   --gradient-green: linear-gradient(135deg, #5a9e3a, #7ab558);
   --gradient-gold: linear-gradient(135deg, #d4923a, #e4b46a);
 
-  /* ===== 图表色板（ISS-076~078 修复：统一 ECharts 配色，消除组件内硬编码 hex） ===== */
-  --chart-color-primary: #3b82c4;
+  /* ===== 图表色板（ISS-076~078 修复：统一 ECharts 配色，消除组件内硬编码 hex；I6 同步主色相） ===== */
+  --chart-color-primary: #2e6fa8;
   --chart-color-success: #5a9e3a;
   --chart-color-danger: #d65a5a;
   --chart-color-warning: #d4923a;
   --chart-color-info: #7a8290;
-  --chart-color-primary-area: rgba(59, 130, 196, 0.25);
-  --chart-color-primary-area-end: rgba(59, 130, 196, 0.04);
+  --chart-color-primary-area: rgba(46, 111, 168, 0.25);
+  --chart-color-primary-area-end: rgba(46, 111, 168, 0.04);
 
   /* ===== 表单令牌（ISS-080 修复：统一主要表单 label-width，默认 100px） ===== */
   /* 注意：未全局强制覆盖 .el-form-item__label，避免影响布局密集型小表单；
@@ -147,12 +162,11 @@
   --form-label-width: 100px;
   --form-label-width-compact: 80px;
 
-  /* ISS-099 TODO：部分次级文字色（如 --text-secondary #7a8290 与白底对比度约 4.0）在小字号下
-     可能未达 WCAG AA 标准（4.5:1），后续可调整为更深的 #6a727f 提升可读性 */
+  /* ISS-099 已修复：--text-secondary 由 #7a8290 调深为 #6a727f，白底对比度 3.88→4.80，满足 WCAG AA 4.5:1 */
   /* ISS-103 TODO：字体规范已建立完整令牌（display→extra-small 七档），后续应全局审计
-     .vue 文件中残留的硬编码 px 字号（如 0.9375rem / 0.75rem 等），统一改用 var(--font-size-*) */
-  /* ISS-104 TODO：色板目前以单一主色 + 语义色为主，后续可补充 tints/shades 渐变阶梯
-     （如 --primary-50/100/.../900），支持更丰富的视觉层次与图表多系列区分 */
+     .vue 文件中残留的硬编码 px/rem 字号（当前 21 文件 57 处），统一改用 var(--font-size-*)。
+     此任务范围较大，作为独立重构任务处理，避免引入视觉回归 */
+  /* ISS-104 已修复：补充 --primary-50/100/.../900 tints/shades 色阶，支持图表多系列与视觉层次 */
 }
 
 $primary-color: var(--primary-color);

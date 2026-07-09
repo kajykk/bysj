@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#3b82c4" />
+    <meta name="theme-color" content="#2e6fa8" />
     <meta name="description" content="抑郁症动态预警与干预系统 - 基于多模态数据的智能风险评估平台" />
     <meta name="application-name" content="心理预警平台" />
     <meta name="author" content="心理预警平台团队" />
@@ -13,13 +13,22 @@
     <meta name="apple-mobile-web-app-title" content="心理预警平台" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <!-- 高端字体：Geist（Sans）+ Geist Mono（数字/代码），替代默认 system-ui。
-         design-taste-frontend-v1 规则：禁用 Inter，强制使用 Geist/Outfit/Cabinet Grotesk/Satoshi。 -->
+         design-taste-frontend-v1 规则：禁用 Inter，强制使用 Geist/Outfit/Cabinet Grotesk/Satoshi。
+         性能优化：使用 preload + onload 异步加载字体，避免渲染阻塞（原方案阻塞 930ms） -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+      />
+    </noscript>
     <!-- M-FE-19 修复：移除静态 CSP meta 标签，避免与 nginx header 重复。
          开发环境由 csp.ts 的 applyCspMetaTag() 动态添加 meta（支持 Vite HMR），
          生产环境由 nginx CSP 响应头统一控制（见 nginx.conf）。 -->

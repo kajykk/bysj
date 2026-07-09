@@ -99,13 +99,7 @@
               :aria-label="hasNewWarning ? t('layout.newWarning') : t('layout.noWarning')"
             />
           </el-badge>
-          <el-button
-            size="small"
-            :icon="QuestionFilled"
-            circle
-            :aria-label="t('onboarding.help')"
-            @click="restartOnboarding"
-          />
+          <HelpCenter :on-restart-onboarding="restartOnboarding" />
           <el-tag>{{ roleLabel }}</el-tag>
           <span>{{ auth.user?.nickname || auth.user?.username }}</span>
           <el-button
@@ -145,7 +139,7 @@ import { computed, onMounted, onUnmounted, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { Bell, Fold, Expand, HomeFilled, Warning, User, Setting, Document, DataLine, ChatLineRound, Calendar, Reading, BellFilled, Monitor, Promotion, Menu, QuestionFilled } from '@element-plus/icons-vue'
+import { Bell, Fold, Expand, HomeFilled, Warning, User, Setting, Document, DataLine, ChatLineRound, Calendar, Reading, BellFilled, Monitor, Promotion, Menu } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
 import { wsClient, useWebSocket } from '@/composables/useWebSocket'
@@ -154,6 +148,7 @@ import BreadcrumbNav from '@/components/common/BreadcrumbNav.vue'
 import SkipLink from '@/components/common/SkipLink.vue'
 import TaskProgressNotification from '@/components/common/TaskProgressNotification.vue'
 import OnboardingTour from '@/components/common/OnboardingTour.vue'
+import HelpCenter from '@/components/common/HelpCenter.vue'
 
 const BellIcon = Bell
 const { t } = useI18n()
@@ -335,7 +330,7 @@ const handleLogout = async () => {
   background: var(--bg-primary);
   transition: width var(--transition-duration) var(--transition-ease-out);
   position: relative;
-  box-shadow: 1px 0 8px rgba(59, 130, 196, 0.04);
+  box-shadow: 1px 0 8px rgba(46, 111, 168, 0.04);
 }
 
 .layout-aside :deep(.el-menu) {
@@ -429,7 +424,7 @@ const handleLogout = async () => {
   justify-content: space-between;
   border-bottom: 1px solid var(--border-lighter);
   background: var(--bg-primary);
-  box-shadow: 0 1px 3px rgba(59, 130, 196, 0.04);
+  box-shadow: 0 1px 3px rgba(46, 111, 168, 0.04);
 }
 
 .header-left {
