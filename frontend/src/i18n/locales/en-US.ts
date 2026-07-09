@@ -28,7 +28,9 @@ export default {
     exportFailed: 'Export failed',
     exportPdf: 'Export PDF',
     download: 'Download',
-    export: 'Export'
+    export: 'Export',
+    refresh: 'Refresh Data',
+    autoRefresh: 'Auto Refresh'
   },
   nav: {
     dashboard: 'Dashboard',
@@ -141,6 +143,15 @@ export default {
       hour24: '24 Hours',
       day7: '7 Days'
     }
+  },
+  observability: {
+    health: 'Health Status',
+    responseTime: 'Response Time',
+    escalation: 'Escalation Rate',
+    silenceHitRate: 'Silence Hit Rate',
+    trend: 'Trend',
+    amSync: 'AlertManager Sync',
+    lockStats: 'Lock Stats'
   },
   report: {
     title: 'Report Center',
