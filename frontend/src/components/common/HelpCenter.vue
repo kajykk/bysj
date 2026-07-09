@@ -36,7 +36,7 @@
   <el-dialog
     v-model="faqVisible"
     :title="t('help.faqTitle')"
-    width="600px"
+    :width="isMobile ? '90vw' : '600px'"
     :before-close="closeFaq"
     append-to-body
   >
@@ -58,7 +58,7 @@
   <el-dialog
     v-model="contactVisible"
     :title="t('help.contactTitle')"
-    width="440px"
+    :width="isMobile ? '90vw' : '440px'"
     :before-close="closeContact"
     append-to-body
   >
@@ -91,7 +91,7 @@
   <el-dialog
     v-model="feedbackVisible"
     :title="t('help.feedbackTitle')"
-    width="480px"
+    :width="isMobile ? '90vw' : '480px'"
     append-to-body
   >
     <el-form label-position="top">
@@ -129,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { QuestionFilled, Guide, Document, Message, Phone, Clock, EditPen, Link } from '@element-plus/icons-vue'
@@ -139,6 +139,11 @@ const { t } = useI18n()
 const props = defineProps<{
   onRestartOnboarding: () => void
 }>()
+
+const isMobile = ref(false)
+const checkMobile = () => { isMobile.value = window.matchMedia('(max-width: 768px)').matches }
+onMounted(() => { checkMobile(); window.addEventListener('resize', checkMobile) })
+onUnmounted(() => { window.removeEventListener('resize', checkMobile) })
 
 const faqVisible = ref(false)
 const contactVisible = ref(false)

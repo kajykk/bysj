@@ -95,7 +95,7 @@ onMounted(loadData)
     >
       <div class="summary-row">
         <el-tag
-          :type="report.severity === 'high' ? 'danger' : 'warning'"
+          :type="['high', 'critical', 'severe'].includes(report.severity) ? 'danger' : 'warning'"
           size="large"
         >
           {{ t('user.riskLevel') }} {{ report.risk_level }}
