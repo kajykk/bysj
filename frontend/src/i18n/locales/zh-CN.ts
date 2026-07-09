@@ -28,7 +28,9 @@ export default {
     exportFailed: '导出失败',
     exportPdf: '导出 PDF',
     download: '下载',
-    export: '导出'
+    export: '导出',
+    refresh: '刷新数据',
+    autoRefresh: '自动刷新'
   },
   nav: {
     dashboard: '仪表盘',
@@ -141,6 +143,15 @@ export default {
       hour24: '24小时',
       day7: '7天'
     }
+  },
+  observability: {
+    health: '健康状态',
+    responseTime: '响应时间',
+    escalation: '升级率',
+    silenceHitRate: '静默命中率',
+    trend: '趋势',
+    amSync: 'AlertManager 同步',
+    lockStats: '锁统计'
   },
   report: {
     title: '报告中心',
