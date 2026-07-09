@@ -23,7 +23,20 @@ export default {
     errorCode: '错误码: {code}',
     query: '查询',
     // ISS-087 修复：PageTable 选中行数显示
-    selectedCount: '已选 {count} 项'
+    selectedCount: '已选 {count} 项',
+    exportSuccess: '导出成功',
+    exportFailed: '导出失败',
+    exportPdf: '导出 PDF',
+    download: '下载',
+    export: '导出',
+    refresh: '刷新数据',
+    autoRefresh: '自动刷新',
+    actions: '操作',
+    createSuccess: '创建成功',
+    createFailed: '创建失败',
+    updateSuccess: '更新成功',
+    updateFailed: '更新失败',
+    failed: '操作失败'
   },
   nav: {
     dashboard: '仪表盘',
@@ -43,7 +56,8 @@ export default {
       content: '内容中心',
       warnings: '我的预警',
       assessments: '评估记录',
-      settings: '个人设置'
+      settings: '个人设置',
+      reports: '报告中心',
     },
     counselor: {
       home: '咨询师首页',
@@ -60,7 +74,11 @@ export default {
       operationLogs: '操作日志',
       alerts: '告警管理',
       silences: '静默规则',
-      crisisEvents: '危机事件'
+      crisisEvents: '危机事件',
+      reports: '报告中心',
+      observability: '可观测性',
+      monitoring: '系统监控',
+      canary: '金丝雀管理'
     }
   },
   layout: {
@@ -89,7 +107,10 @@ export default {
     username: '用户名',
     password: '密码',
     email: '邮箱',
-    phone: '电话'
+    phone: '电话',
+    riskScore: '风险分数',
+    riskLevel: '风险等级',
+    trend: '趋势'
   },
   theme: {
     light: '浅色',
@@ -108,6 +129,11 @@ export default {
     requestCount: '请求数',
     driftAlerts: '漂移告警',
     recentAlerts: '近期告警',
+    totalRequests: '总请求数',
+    fallbackCount: '回退次数',
+    engines: '引擎数',
+    requestDetails: '请求详情列表',
+    requestDetail: '请求详情',
     alertLevel: {
       critical: '严重',
       high: '高',
@@ -128,6 +154,16 @@ export default {
       hour24: '24小时',
       day7: '7天'
     }
+  },
+  observability: {
+    health: '健康状态',
+    responseTime: '响应时间',
+    escalation: '升级率',
+    silenceHitRate: '静默命中率',
+    trend: '趋势',
+    amSync: 'AlertManager 同步',
+    lockStats: '锁统计',
+    channelStats: '渠道统计'
   },
   report: {
     title: '报告中心',
@@ -151,6 +187,29 @@ export default {
     completedAt: '完成时间',
     fileSize: '文件大小',
     actions: '操作'
+  },
+  reports: {
+    templates: '报告模板',
+    generatePdf: '生成 PDF',
+    syncGenerate: '同步生成',
+    asyncGenerate: '异步生成',
+    pdfReady: 'PDF 已就绪',
+    pdfGenerating: 'PDF 生成中',
+    jobList: '任务列表',
+    batchExcel: '批量 Excel'
+  },
+  canary: {
+    running: '运行中',
+    paused: '已暂停',
+    newDeployment: '新建部署',
+    adjustTraffic: '调整流量',
+    pause: '暂停',
+    resume: '恢复',
+    complete: '完成',
+    rollback: '回滚',
+    confirmComplete: '确认完成部署 {v}？',
+    rollbackReason: '请输入回滚原因',
+    reasonRequired: '原因必填（1-500 字）'
   },
   error: {
     goHome: '返回首页',
@@ -1835,6 +1894,25 @@ export default {
   webSocket: {
     disconnectedTitle: '连接已断开',
     disconnectedMessage: '实时连接已断开，请刷新页面以恢复实时告警推送'
+  },
+  taskProgress: {
+    pdfTitle: 'PDF 报告生成',
+    excelTitle: 'Excel 导出',
+    trainingTitle: '模型训练',
+    defaultTitle: '任务处理',
+    running: '正在处理...',
+    completed: '处理完成',
+    failed: '处理失败',
+    queued: '等待中...',
+    downloadReady: '下载已就绪',
+    retryAvailable: '可重试'
+  },
+  onboarding: {
+    help: '新手引导',
+    finish: '完成',
+    next: '下一步',
+    prev: '上一步',
+    skip: '跳过'
   },
   serviceWorker: {
     updateAvailableTitle: '更新可用',

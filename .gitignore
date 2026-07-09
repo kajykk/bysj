@@ -7,6 +7,9 @@ __pycache__/
 .venv/
 venv/
 
+# CatBoost training artifacts (auto-generated during fit)
+catboost_info/
+
 # FastAPI/Alembic
 alembic.ini
 
@@ -90,6 +93,7 @@ outputs/
 # Test artifacts
 frontend/playwright-report/
 frontend/test-results/
+frontend/lighthouse-report.report.*
 
 # SQLite databases
 *.db

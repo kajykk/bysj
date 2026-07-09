@@ -23,7 +23,20 @@ export default {
     errorCode: 'Error code: {code}',
     query: 'Search',
     // ISS-087 fix: PageTable selected count display
-    selectedCount: '{count} selected'
+    selectedCount: '{count} selected',
+    exportSuccess: 'Export successful',
+    exportFailed: 'Export failed',
+    exportPdf: 'Export PDF',
+    download: 'Download',
+    export: 'Export',
+    refresh: 'Refresh Data',
+    autoRefresh: 'Auto Refresh',
+    actions: 'Actions',
+    createSuccess: 'Created successfully',
+    createFailed: 'Creation failed',
+    updateSuccess: 'Updated successfully',
+    updateFailed: 'Update failed',
+    failed: 'Operation failed'
   },
   nav: {
     dashboard: 'Dashboard',
@@ -43,7 +56,8 @@ export default {
       content: 'Content Center',
       warnings: 'My Warnings',
       assessments: 'Assessment Records',
-      settings: 'Settings'
+      settings: 'Settings',
+      reports: 'Reports',
     },
     counselor: {
       home: 'Counselor Home',
@@ -60,7 +74,11 @@ export default {
       operationLogs: 'Operation Logs',
       alerts: 'Alert Management',
       silences: 'Silence Rules',
-      crisisEvents: 'Crisis Events'
+      crisisEvents: 'Crisis Events',
+      reports: 'Reports',
+      observability: 'Observability',
+      monitoring: 'Monitoring',
+      canary: 'Canary'
     }
   },
   layout: {
@@ -89,7 +107,10 @@ export default {
     username: 'Username',
     password: 'Password',
     email: 'Email',
-    phone: 'Phone'
+    phone: 'Phone',
+    riskScore: 'Risk Score',
+    riskLevel: 'Risk Level',
+    trend: 'Trend'
   },
   theme: {
     light: 'Light',
@@ -108,6 +129,11 @@ export default {
     requestCount: 'Request Count',
     driftAlerts: 'Drift Alerts',
     recentAlerts: 'Recent Alerts',
+    totalRequests: 'Total Requests',
+    fallbackCount: 'Fallback Count',
+    engines: 'Engines',
+    requestDetails: 'Request Details',
+    requestDetail: 'Request Detail',
     alertLevel: {
       critical: 'Critical',
       high: 'High',
@@ -128,6 +154,16 @@ export default {
       hour24: '24 Hours',
       day7: '7 Days'
     }
+  },
+  observability: {
+    health: 'Health Status',
+    responseTime: 'Response Time',
+    escalation: 'Escalation Rate',
+    silenceHitRate: 'Silence Hit Rate',
+    trend: 'Trend',
+    amSync: 'AlertManager Sync',
+    lockStats: 'Lock Stats',
+    channelStats: 'Channel Stats'
   },
   report: {
     title: 'Report Center',
@@ -151,6 +187,29 @@ export default {
     completedAt: 'Completed At',
     fileSize: 'File Size',
     actions: 'Actions'
+  },
+  reports: {
+    templates: 'Report Templates',
+    generatePdf: 'Generate PDF',
+    syncGenerate: 'Sync Generate',
+    asyncGenerate: 'Async Generate',
+    pdfReady: 'PDF Ready',
+    pdfGenerating: 'PDF Generating',
+    jobList: 'Job List',
+    batchExcel: 'Batch Excel'
+  },
+  canary: {
+    running: 'Running',
+    paused: 'Paused',
+    newDeployment: 'New Deployment',
+    adjustTraffic: 'Adjust Traffic',
+    pause: 'Pause',
+    resume: 'Resume',
+    complete: 'Complete',
+    rollback: 'Rollback',
+    confirmComplete: 'Confirm complete deployment {v}?',
+    rollbackReason: 'Please enter rollback reason',
+    reasonRequired: 'Reason is required (1-500 chars)'
   },
   error: {
     goHome: 'Go Home',
@@ -1835,6 +1894,25 @@ export default {
   webSocket: {
     disconnectedTitle: 'Connection Lost',
     disconnectedMessage: 'Real-time connection lost, please refresh the page to resume real-time alert notifications'
+  },
+  taskProgress: {
+    pdfTitle: 'PDF Report Generation',
+    excelTitle: 'Excel Export',
+    trainingTitle: 'Model Training',
+    defaultTitle: 'Task Processing',
+    running: 'Processing...',
+    completed: 'Completed',
+    failed: 'Failed',
+    queued: 'Queued...',
+    downloadReady: 'Ready to download',
+    retryAvailable: 'Retry available'
+  },
+  onboarding: {
+    help: 'Onboarding Guide',
+    finish: 'Finish',
+    next: 'Next',
+    prev: 'Previous',
+    skip: 'Skip'
   },
   serviceWorker: {
     updateAvailableTitle: 'Update Available',
