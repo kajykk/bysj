@@ -36,7 +36,15 @@ export default {
     createFailed: 'Creation failed',
     updateSuccess: 'Updated successfully',
     updateFailed: 'Update failed',
-    failed: 'Operation failed'
+    failed: 'Operation failed',
+    status: 'Status',
+    createdAt: 'Created At',
+    csv: 'CSV',
+    json: 'JSON',
+    days7: '7d',
+    days30: '30d',
+    days90: '90d',
+    days365: '365d'
   },
   nav: {
     sectionDaily: 'Daily Work',
@@ -156,7 +164,9 @@ export default {
       hour6: '6 Hours',
       hour24: '24 Hours',
       day7: '7 Days'
-    }
+    },
+    logId: 'Log ID',
+    input: 'Input'
   },
   observability: {
     health: 'Health Status',
@@ -166,7 +176,12 @@ export default {
     trend: 'Trend',
     amSync: 'AlertManager Sync',
     lockStats: 'Lock Stats',
-    channelStats: 'Channel Stats'
+    channelStats: 'Channel Stats',
+    startDate: 'Start Date',
+    endDate: 'End Date',
+    cached: 'Cached',
+    points: 'points',
+    channels: 'channels'
   },
   report: {
     title: 'Report Center',
@@ -199,7 +214,21 @@ export default {
     pdfReady: 'PDF Ready',
     pdfGenerating: 'PDF Generating',
     jobList: 'Job List',
-    batchExcel: 'Batch Excel'
+    batchExcel: 'Batch Excel',
+    userId: 'User ID',
+    userName: 'User Name',
+    riskLevel: 'Risk Level',
+    riskTrend: 'Risk Trend',
+    recommendations: 'Recommendations',
+    commaSeparated: 'Comma separated',
+    jobId: 'Job ID',
+    status: 'Status',
+    progress: 'Progress',
+    createdAt: 'Created At',
+    columnsLimit: 'Maximum 50 columns',
+    excelColsPlaceholder: 'col1,col2 (comma separated, max 50 columns)',
+    excelFilenamePlaceholder: 'filename.xlsx',
+    placeholderJson: '[{"col":"val"}]'
   },
   canary: {
     running: 'Running',
@@ -212,7 +241,18 @@ export default {
     rollback: 'Rollback',
     confirmComplete: 'Confirm complete deployment {v}?',
     rollbackReason: 'Please enter rollback reason',
-    reasonRequired: 'Reason is required (1-500 chars)'
+    reasonRequired: 'Reason is required (1-500 chars)',
+    versionRequired: 'Version is required',
+    trafficRangeInvalid: 'Range 1-100',
+    version: 'Version',
+    trafficPercent: 'Traffic %',
+    status: 'Status',
+    startedAt: 'Started At'
+  },
+  userReports: {
+    eyebrow: 'Risk Assessment Reports',
+    title: 'My Risk Reports',
+    lede: 'View your risk assessment overview and trend data',
   },
   error: {
     goHome: 'Go Home',
@@ -1941,7 +1981,41 @@ export default {
     finish: 'Finish',
     next: 'Next',
     prev: 'Previous',
-    skip: 'Skip'
+    skip: 'Skip',
+    steps: {
+      user: {
+        navMenuTitle: 'Navigation Menu',
+        navMenuDesc: 'This is your main navigation menu where you can access all feature pages.',
+        warningBadgeTitle: 'Alert Notifications',
+        warningBadgeDesc: 'When there are new risk alerts, a red dot will appear here. Click to view details.',
+        dashboardTitle: 'Dashboard',
+        dashboardDesc: 'The dashboard shows your risk assessment overview and trend data. Check regularly.',
+        riskAssessTitle: 'Risk Assessment',
+        riskAssessDesc: 'Perform mental health risk assessments here. The system generates personalized reports based on your responses.',
+        warningsTitle: 'Alert Center',
+        warningsDesc: 'View your historical alert records and intervention suggestions.',
+      },
+      counselor: {
+        navMenuTitle: 'Counselor Navigation',
+        navMenuDesc: 'Manage your assigned users, view alerts, and review assessments here.',
+        warningBadgeTitle: 'Alert Notifications',
+        warningBadgeDesc: 'Real-time alerts will be pushed here when your users show high risk.',
+        warningMgmtTitle: 'Alert Management',
+        warningMgmtDesc: 'View and handle all user alerts, follow up with high-risk users promptly.',
+        userMgmtTitle: 'User Management',
+        userMgmtDesc: 'View your assigned user list and their risk assessment history.',
+      },
+      admin: {
+        navMenuTitle: 'Admin Navigation',
+        navMenuDesc: 'Manage system configuration, templates, alerts, and observability here.',
+        warningBadgeTitle: 'Alert Notifications',
+        warningBadgeDesc: 'System-level alerts will be pushed here in real-time. Please pay attention.',
+        dashboardTitle: 'System Dashboard',
+        dashboardDesc: 'View overall system status, user statistics, and risk distribution.',
+        observabilityTitle: 'Observability',
+        observabilityDesc: 'Monitor system metrics, logs, and tracing data.',
+      },
+    },
   },
   help: {
     buttonLabel: 'Help Center',

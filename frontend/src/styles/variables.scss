@@ -63,11 +63,12 @@
 
   /* ===== 间距系统 (8px 基准，符合 4/8/12/16/24/32/48 规范) ===== */
   /* ISS-024 修复：--spacing-md 由 12px 调整为 16px，符合计划规范 */
+  /* ISS-159 修复：--spacing-lg 由 16px 调整为 24px，避免与 --spacing-md 重复 */
   --spacing-base: 8px;
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
-  --spacing-lg: 16px;
+  --spacing-lg: 24px;
   --spacing-xl: 24px;
   --spacing-2xl: 32px;
   --spacing-section: 24px;

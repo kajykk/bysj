@@ -89,15 +89,20 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
     <el-card>
       <template #header>{{ t('monitoring.requestDetails') }}</template>
       <el-table :data="details?.items || []" stripe @row-click="(row: RequestDetailItem) => showDetail(row.log_id)">
-        <el-table-column prop="log_id" label="log_id" width="180" />
-        <el-table-column label="input">
+        <el-table-column prop="log_id" :label="t('monitoring.logId')" width="180" />
+        <el-table-column :label="t('monitoring.input')">
           <template #default="{ row }">{{ maskSensitive((row as Record<string, unknown>).input) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('common.actions')" width="100" align="center">
+          <template #default="{ row }">
+            <el-button size="small" link type="primary" @click.stop="showDetail(row.log_id)">{{ t('monitoring.requestDetail') }}</el-button>
+          </template>
         </el-table-column>
       </el-table>
       <el-pagination :total="details?.total || 0" :page-size="page.limit" :current-page="Math.floor(page.offset / page.limit) + 1" layout="prev, pager, next" @current-change="onPageChange" />
     </el-card>
     <el-dialog v-model="detailVisible" :title="t('monitoring.requestDetail')" width="60%">
-      <pre>{{ JSON.stringify(detailRow, null, 2) }}</pre>
+      <pre class="json-detail">{{ JSON.stringify(detailRow, null, 2) }}</pre>
     </el-dialog>
   </div>
 </template>
@@ -105,4 +110,17 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
 <style scoped>
 .monitoring-page { display: flex; flex-direction: column; gap: 12px; }
 .toolbar { display: flex; gap: 8px; align-items: center; }
+.json-detail {
+  margin: 0;
+  padding: var(--spacing-md);
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--bg-page);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-family: 'Geist Mono', 'Cascadia Code', Consolas, monospace;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-regular);
+}
 </style>

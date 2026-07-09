@@ -1,4 +1,5 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const ONBOARDING_STORAGE_KEY = 'dws:onboarding:completed'
 const ONBOARDING_VERSION = 'v1'
@@ -43,8 +44,12 @@ function clearOnboardingCompleted(role: string): void {
 }
 
 export function useOnboarding(role: string) {
+  const { t } = useI18n()
+
+  const steps = computed(() => getSteps(role, t))
+
   function startTour() {
-    if (!getSteps(role).length) return
+    if (!steps.value.length) return
     currentStep.value = 0
     isOpen.value = true
   }
@@ -78,111 +83,111 @@ export function useOnboarding(role: string) {
     restartTour,
     onTourComplete,
     onTourCancel,
-    steps: getSteps(role),
+    steps,
   }
 }
 
-function getSteps(role: string): OnboardingStep[] {
+function getSteps(role: string, t: (key: string) => string): OnboardingStep[] {
   switch (role) {
     case 'user':
-      return getUserSteps()
+      return getUserSteps(t)
     case 'counselor':
-      return getCounselorSteps()
+      return getCounselorSteps(t)
     case 'admin':
-      return getAdminSteps()
+      return getAdminSteps(t)
     default:
       return []
   }
 }
 
-function getUserSteps(): OnboardingStep[] {
+function getUserSteps(t: (key: string) => string): OnboardingStep[] {
   return [
     {
       target: '.layout-aside',
-      title: '导航菜单',
-      description: '这里是你的主要导航菜单，可以在这里访问所有功能页面。',
+      title: t('onboarding.steps.user.navMenuTitle'),
+      description: t('onboarding.steps.user.navMenuDesc'),
       placement: 'right',
     },
     {
       target: '.warning-badge',
-      title: '告警通知',
-      description: '当有新的风险告警时，这里会显示红点提示，点击可查看详情。',
+      title: t('onboarding.steps.user.warningBadgeTitle'),
+      description: t('onboarding.steps.user.warningBadgeDesc'),
       placement: 'bottom',
     },
     {
       target: '[data-tour="user-dashboard"]',
-      title: '仪表盘',
-      description: '仪表盘展示你的风险评估概览和趋势数据，建议定期查看。',
+      title: t('onboarding.steps.user.dashboardTitle'),
+      description: t('onboarding.steps.user.dashboardDesc'),
       placement: 'right',
     },
     {
       target: '[data-tour="user-risk"]',
-      title: '风险评估',
-      description: '在这里进行心理健康风险评估，系统会根据你的回答生成个性化报告。',
+      title: t('onboarding.steps.user.riskAssessTitle'),
+      description: t('onboarding.steps.user.riskAssessDesc'),
       placement: 'right',
     },
     {
       target: '[data-tour="user-warnings"]',
-      title: '告警中心',
-      description: '查看你的历史告警记录和干预建议。',
+      title: t('onboarding.steps.user.warningsTitle'),
+      description: t('onboarding.steps.user.warningsDesc'),
       placement: 'right',
     },
   ]
 }
 
-function getCounselorSteps(): OnboardingStep[] {
+function getCounselorSteps(t: (key: string) => string): OnboardingStep[] {
   return [
     {
       target: '.layout-aside',
-      title: '咨询师导航',
-      description: '在这里管理你负责的用户、查看告警和审核评估。',
+      title: t('onboarding.steps.counselor.navMenuTitle'),
+      description: t('onboarding.steps.counselor.navMenuDesc'),
       placement: 'right',
     },
     {
       target: '.warning-badge',
-      title: '告警通知',
-      description: '当你的用户出现高风险时，这里会实时推送告警通知。',
+      title: t('onboarding.steps.counselor.warningBadgeTitle'),
+      description: t('onboarding.steps.counselor.warningBadgeDesc'),
       placement: 'bottom',
     },
     {
       target: '[data-tour="counselor-warnings"]',
-      title: '告警管理',
-      description: '查看和处理所有用户告警，及时跟进高风险用户。',
+      title: t('onboarding.steps.counselor.warningMgmtTitle'),
+      description: t('onboarding.steps.counselor.warningMgmtDesc'),
       placement: 'right',
     },
     {
       target: '[data-tour="counselor-users"]',
-      title: '用户管理',
-      description: '查看你负责的用户列表和他们的风险评估历史。',
+      title: t('onboarding.steps.counselor.userMgmtTitle'),
+      description: t('onboarding.steps.counselor.userMgmtDesc'),
       placement: 'right',
     },
   ]
 }
 
-function getAdminSteps(): OnboardingStep[] {
+function getAdminSteps(t: (key: string) => string): OnboardingStep[] {
   return [
     {
       target: '.layout-aside',
-      title: '管理员导航',
-      description: '在这里管理系统配置、模板、告警和可观测性。',
+      title: t('onboarding.steps.admin.navMenuTitle'),
+      description: t('onboarding.steps.admin.navMenuDesc'),
       placement: 'right',
     },
     {
       target: '.warning-badge',
-      title: '告警通知',
-      description: '系统级告警会在这里实时推送，请及时关注。',
+      title: t('onboarding.steps.admin.warningBadgeTitle'),
+      description: t('onboarding.steps.admin.warningBadgeDesc'),
       placement: 'bottom',
     },
     {
       target: '[data-tour="admin-dashboard"]',
-      title: '系统仪表盘',
-      description: '查看系统整体运行状态、用户统计和风险分布。',
+      title: t('onboarding.steps.admin.dashboardTitle'),
+      description: t('onboarding.steps.admin.dashboardDesc'),
       placement: 'right',
     },
     {
       target: '[data-tour="admin-observability"]',
-      title: '可观测性',
-      description: '监控系统指标、日志和链路追踪数据。',
+      title: t('onboarding.steps.admin.observabilityTitle'),
+      description: t('onboarding.steps.admin.observabilityDesc'),
       placement: 'right',
     },
   ]

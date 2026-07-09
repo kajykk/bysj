@@ -247,8 +247,8 @@ const groupedMenus = computed<MenuSection[]>(() => {
   const items = menus.value
   if (!items.length) return []
   const dashboard = items.find((item) => item.path.endsWith('/dashboard'))
-  const daily = items.filter((item) => /risk|warning|users|intervention|content|template|assessment|report|monitoring|observability/.test(item.path))
-  const settings = items.filter((item) => item.path.includes('settings') || item.path.includes('operation-logs') || item.path.includes('canary'))
+  const daily = items.filter((item) => /risk|warning|users|intervention|content|template|assessment|report|monitoring|observability|canary/.test(item.path))
+  const settings = items.filter((item) => item.path.includes('settings') || item.path.includes('operation-logs'))
   const remainder = items.filter((item) => !daily.includes(item) && !settings.includes(item) && item !== dashboard)
   return [
     { key: 'daily', labelKey: 'nav.sectionDaily', first: dashboard, items: dashboard ? [dashboard, ...daily.filter((item) => item !== dashboard)] : daily },

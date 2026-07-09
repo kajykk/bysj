@@ -35,10 +35,15 @@
     <title>抑郁症动态预警与干预系统</title>
     <style>
       /* 首屏加载优化：内联关键 CSS */
+      /* ISS-163 修复：骨架屏颜色令牌化（此处无法引用 variables.scss，定义为局部变量并保持同步） */
+      :root {
+        --skeleton-base: #eef2f6;
+        --skeleton-accent: #e8ecf0;
+      }
       html, body { margin: 0; padding: 0; height: 100%; }
       #app { min-height: 100vh; }
       .loading-skeleton {
-        background: linear-gradient(90deg, #eef2f6 25%, #e8ecf0 50%, #eef2f6 75%);
+        background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-accent) 50%, var(--skeleton-base) 75%);
         background-size: 200% 100%;
         animation: skeleton-loading 1.5s infinite;
       }
@@ -49,7 +54,7 @@
       @media (prefers-reduced-motion: reduce) {
         .loading-skeleton {
           animation: none;
-          background: #eef2f6;
+          background: var(--skeleton-base);
         }
       }
     </style>
