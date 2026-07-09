@@ -41,7 +41,7 @@ export const ROLE_FLOW_CONFIG: Record<RoleName, RoleFlowConfig> = {
     detailHeading: '咨询记录'
   },
   user: {
-    username: 'user_normal',
+    username: 'user_moderate',
     password: 'E2E@User123',
     dashboardUrl: /\/user\/dashboard/,
     dashboardHeading: '用户仪表盘',

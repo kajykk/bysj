@@ -16,6 +16,18 @@ export interface WsWarningMessage {
   }
 }
 
+export interface WsTaskProgressMessage {
+  type: 'task_progress'
+  data: {
+    job_id: string
+    job_type: 'pdf' | 'excel' | 'training'
+    status: 'queued' | 'running' | 'completed' | 'failed'
+    progress: number
+    error: string | null
+    created_at: string
+  }
+}
+
 class WebSocketClient {
   private ws: WebSocket | null = null
   private userId: number | null = null
@@ -25,6 +37,8 @@ class WebSocketClient {
   private maxReconnectAttempts = 10
   // L-FE-8 修复：listeners 改用 Set 存储，移除监听器从 O(n) filter 降为 O(1) delete
   private listeners: Set<(msg: WsWarningMessage) => void> = new Set()
+  // I1 改进：任务进度监听器，独立于 warning 监听器，避免去重逻辑干扰
+  private taskProgressListeners: Set<(msg: WsTaskProgressMessage) => void> = new Set()
   private shouldReconnect = false
   private connectionSeq = 0
   private seenWarningIds = new Set<number>()
@@ -136,6 +150,18 @@ class WebSocketClient {
         // M-47 修复：处理 pong 响应，清除超时定时器
         if (msg.type === 'pong') {
           this._clearPongTimeout()
+          return
+        }
+        if (msg.type === 'task_progress') {
+          // I1 改进：任务进度消息直接分发给进度监听器，不做去重
+          // (同一任务的多次进度更新 progress 值不同，去重会丢失中间进度)
+          this.taskProgressListeners.forEach((cb) => {
+            try {
+              cb(msg as WsTaskProgressMessage)
+            } catch {
+              // 监听器内部异常静默处理，不影响后续监听器调用
+            }
+          })
           return
         }
         if ((msg.type === 'warning' || msg.type === 'counselor_warning') && this._dedupeMessage(msg as WsWarningMessage)) {
@@ -256,12 +282,21 @@ class WebSocketClient {
 
   removeAllListeners() {
     this.listeners.clear()
+    this.taskProgressListeners.clear()
   }
 
   onMessage(cb: (msg: WsWarningMessage) => void) {
     this.listeners.add(cb)
     return () => {
       this.listeners.delete(cb)
+    }
+  }
+
+  // I1 改进：订阅任务进度消息
+  onTaskProgress(cb: (msg: WsTaskProgressMessage) => void) {
+    this.taskProgressListeners.add(cb)
+    return () => {
+      this.taskProgressListeners.delete(cb)
     }
   }
 

@@ -28,7 +28,10 @@
           :disabled="!layout.sidebarCollapsed"
           placement="right"
         >
-          <el-menu-item :index="item.path">
+          <el-menu-item
+            :index="item.path"
+            :data-tour="item.tourTarget"
+          >
             <el-icon v-if="item.icon">
               <component :is="item.icon" />
             </el-icon>
@@ -96,6 +99,13 @@
               :aria-label="hasNewWarning ? t('layout.newWarning') : t('layout.noWarning')"
             />
           </el-badge>
+          <el-button
+            size="small"
+            :icon="QuestionFilled"
+            circle
+            :aria-label="t('onboarding.help')"
+            @click="restartOnboarding"
+          />
           <el-tag>{{ roleLabel }}</el-tag>
           <span>{{ auth.user?.nickname || auth.user?.username }}</span>
           <el-button
@@ -124,6 +134,10 @@
       </el-main>
     </el-container>
   </el-container>
+  <!-- I1 改进：异步任务进度反馈浮层 -->
+  <TaskProgressNotification />
+  <!-- I2 改进：新手引导系统 -->
+  <OnboardingTour :role="auth.role" />
 </template>
 
 <script setup lang="ts">
@@ -131,12 +145,15 @@ import { computed, onMounted, onUnmounted, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { Bell, Fold, Expand, HomeFilled, Warning, User, Setting, Document, DataLine, ChatLineRound, Calendar, Reading, BellFilled, Menu } from '@element-plus/icons-vue'
+import { Bell, Fold, Expand, HomeFilled, Warning, User, Setting, Document, DataLine, ChatLineRound, Calendar, Reading, BellFilled, Monitor, Promotion, Menu, QuestionFilled } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLayoutStore } from '@/stores/layout'
 import { wsClient, useWebSocket } from '@/composables/useWebSocket'
+import { useOnboarding } from '@/composables/useOnboarding'
 import BreadcrumbNav from '@/components/common/BreadcrumbNav.vue'
 import SkipLink from '@/components/common/SkipLink.vue'
+import TaskProgressNotification from '@/components/common/TaskProgressNotification.vue'
+import OnboardingTour from '@/components/common/OnboardingTour.vue'
 
 const BellIcon = Bell
 const { t } = useI18n()
@@ -165,6 +182,7 @@ interface MenuItem {
   titleKey: string
   path: string
   icon?: Component
+  tourTarget?: string
 }
 
 const route = useRoute()
@@ -175,34 +193,44 @@ const { hasNewWarning, incrementUnread, resetUnread } = useWebSocket()
 
 const roleMenus: Record<string, MenuItem[]> = {
   user: [
-    { titleKey: 'nav.user.home', path: '/user/dashboard', icon: HomeFilled },
-    { titleKey: 'nav.user.risk', path: '/user/risk', icon: DataLine },
+    { titleKey: 'nav.user.home', path: '/user/dashboard', icon: HomeFilled, tourTarget: 'user-dashboard' },
+    { titleKey: 'nav.user.risk', path: '/user/risk', icon: DataLine, tourTarget: 'user-risk' },
     { titleKey: 'nav.user.modelTraining', path: '/user/model-training', icon: Document },
     { titleKey: 'nav.user.intervention', path: '/user/intervention', icon: Calendar },
     { titleKey: 'nav.user.content', path: '/user/content', icon: Reading },
-    { titleKey: 'nav.user.warnings', path: '/user/warnings', icon: Warning },
+    { titleKey: 'nav.user.warnings', path: '/user/warnings', icon: Warning, tourTarget: 'user-warnings' },
     { titleKey: 'nav.user.assessments', path: '/user/assessments', icon: ChatLineRound },
-    { titleKey: 'nav.user.settings', path: '/user/settings', icon: Setting }
+    { titleKey: 'nav.user.settings', path: '/user/settings', icon: Setting },
+    { titleKey: 'nav.user.reports', path: '/user/reports', icon: Document }
   ],
   counselor: [
     { titleKey: 'nav.counselor.home', path: '/counselor/dashboard', icon: HomeFilled },
-    { titleKey: 'nav.counselor.warnings', path: '/counselor/warnings', icon: Warning },
-    { titleKey: 'nav.counselor.users', path: '/counselor/users', icon: User },
+    { titleKey: 'nav.counselor.warnings', path: '/counselor/warnings', icon: Warning, tourTarget: 'counselor-warnings' },
+    { titleKey: 'nav.counselor.users', path: '/counselor/users', icon: User, tourTarget: 'counselor-users' },
+    { titleKey: 'nav.counselor.reviews', path: '/counselor/reviews', icon: ChatLineRound },
     { titleKey: 'nav.counselor.settings', path: '/counselor/settings', icon: Setting }
   ],
   admin: [
-    { titleKey: 'nav.admin.home', path: '/admin/dashboard', icon: HomeFilled },
+    { titleKey: 'nav.admin.home', path: '/admin/dashboard', icon: HomeFilled, tourTarget: 'admin-dashboard' },
     { titleKey: 'nav.admin.templates', path: '/admin/templates', icon: Document },
     { titleKey: 'nav.admin.settings', path: '/admin/settings', icon: Setting },
     { titleKey: 'nav.admin.operationLogs', path: '/admin/operation-logs', icon: Reading },
     { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: BellFilled },
-    { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell }
+    { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell },
+    { titleKey: 'nav.admin.crisisEvents', path: '/admin/crisis-events', icon: Warning },
+    { titleKey: 'nav.admin.reports', path: '/admin/reports', icon: Document },
+    { titleKey: 'nav.admin.observability', path: '/admin/observability', icon: DataLine, tourTarget: 'admin-observability' },
+    { titleKey: 'nav.admin.monitoring', path: '/admin/monitoring', icon: Monitor },
+    { titleKey: 'nav.admin.canary', path: '/admin/canary', icon: Promotion }
   ]
 }
 
 const menus = computed(() => roleMenus[auth.role] || [])
 const activePath = computed(() => route.path)
 const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
+
+// I2 改进：新手引导系统
+const { tryStartOnboarding, restartTour } = useOnboarding(auth.role)
 
 const roleLabel = computed(() => {
   if (auth.role === 'admin') return t('role.admin')
@@ -214,6 +242,11 @@ const goWarnings = () => {
   resetUnread()
   const path = auth.role === 'counselor' ? '/counselor/warnings' : '/user/warnings'
   router.push(path)
+}
+
+// I2 改进：重启新手引导
+const restartOnboarding = () => {
+  restartTour()
 }
 
 // VIS-015 修复：移动端路由变化时自动收起侧边栏，避免遮挡内容
@@ -261,6 +294,10 @@ onMounted(() => {
   if (isMobile() && !layout.sidebarCollapsed) {
     layout.setSidebarCollapsed(true)
   }
+  // I2 改进：首次登录自动启动新手引导 (延迟 500ms 等 DOM 渲染完成)
+  setTimeout(() => {
+    tryStartOnboarding()
+  }, 500)
 })
 
 watch(
