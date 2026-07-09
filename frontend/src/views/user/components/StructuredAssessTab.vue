@@ -746,7 +746,7 @@ onUnmounted(() => {
 }
 
 .experimental-ref {
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   color: #7a8290;
   line-height: 1.7;
   padding: 8px 10px;
@@ -772,7 +772,7 @@ onUnmounted(() => {
 }
 
 .routing-reason {
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   color: #5a6470;
   flex: 1;
   min-width: 0;

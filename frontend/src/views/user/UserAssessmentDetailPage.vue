@@ -137,6 +137,6 @@ pre {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
 }
 </style>

@@ -506,7 +506,7 @@ onUnmounted(() => {
 .risk-page__eyebrow {
   margin: 0 0 0.35rem;
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -564,12 +564,12 @@ onUnmounted(() => {
 }
 
 .hotline-name {
-  font-size: 13px;
+  font-size: var(--font-size-small);
   color: #606266;
 }
 
 .hotline-number {
-  font-size: 18px;
+  font-size: var(--font-size-large);
   font-weight: 600;
   color: #f56c6c;
   margin-top: 4px;

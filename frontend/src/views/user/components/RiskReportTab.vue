@@ -441,13 +441,13 @@ onUnmounted(() => {
 }
 
 .score-num {
-  font-size: 28px;
+  font-size: var(--font-size-display);
   font-weight: 700;
   display: block;
 }
 
 .score-label {
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   color: #7a8290;
 }
 
@@ -460,7 +460,7 @@ onUnmounted(() => {
 }
 
 .trend-text {
-  font-size: 13px;
+  font-size: var(--font-size-small);
   color: #5a6470;
   display: inline-flex;
   align-items: center;
@@ -491,7 +491,7 @@ onUnmounted(() => {
   border-radius: 50%;
   background: linear-gradient(135deg, #3b82c4, #4a9bd6);
   color: #fff;
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -501,7 +501,7 @@ onUnmounted(() => {
 }
 
 .advice-text {
-  font-size: 13px;
+  font-size: var(--font-size-small);
   color: #2c3340;
   line-height: 1.6;
   flex: 1;
@@ -519,6 +519,6 @@ onUnmounted(() => {
 
 .text-muted {
   color: #7a8290;
-  font-size: 13px;
+  font-size: var(--font-size-small);
 }
 </style>

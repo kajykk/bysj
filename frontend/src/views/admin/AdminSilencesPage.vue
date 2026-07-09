@@ -571,7 +571,7 @@ onMounted(fetchData)
 }
 
 .hint {
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   color: var(--text-secondary);
   line-height: 1.4;
   margin-top: 4px;

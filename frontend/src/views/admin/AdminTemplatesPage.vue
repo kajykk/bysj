@@ -520,7 +520,7 @@ onMounted(loadData)
   border-radius: var(--radius-circle);
   background: var(--primary-color);
   color: var(--text-inverse);
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   display: flex;
   align-items: center;
   justify-content: center;

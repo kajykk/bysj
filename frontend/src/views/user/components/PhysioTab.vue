@@ -378,6 +378,6 @@ onUnmounted(() => {
 .field-hint {
   margin-left: 12px;
   color: #909399;
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
 }
 </style>

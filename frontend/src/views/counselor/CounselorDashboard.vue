@@ -338,7 +338,7 @@ onMounted(() => {
   gap: 0.5rem;
   margin: 0 0 0.375rem;
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -355,7 +355,7 @@ onMounted(() => {
 .layout__header h2 {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: 1.875rem;
+  font-size: var(--font-size-stat);
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;
@@ -393,7 +393,7 @@ onMounted(() => {
 /* ===== 统计数字 ===== */
 .stat {
   font-family: var(--font-family-display);
-  font-size: 2rem;
+  font-size: var(--font-size-stat);
   font-weight: 700;
   letter-spacing: -0.03em;
   margin: 0.25rem 0 0.5rem;
@@ -412,7 +412,7 @@ onMounted(() => {
 .stat--primary { color: var(--primary-color); }
 
 .stat-unit {
-  font-size: 0.875rem;
+  font-size: var(--font-size-base);
   font-weight: 500;
   color: var(--text-secondary);
   letter-spacing: 0;
@@ -430,7 +430,7 @@ onMounted(() => {
 
 /* 图标 */
 .stat-icon {
-  font-size: 18px;
+  font-size: var(--font-size-large);
 }
 
 .stat-icon--primary { color: var(--primary-color); }
@@ -438,7 +438,7 @@ onMounted(() => {
 
 /* 绑定码 */
 .bind-code {
-  font-size: 1.75rem;
+  font-size: var(--font-size-stat);
   letter-spacing: 0.15em;
   font-family: var(--font-family-mono);
 }
@@ -478,7 +478,7 @@ onMounted(() => {
   }
 
   .stat {
-    font-size: 1.75rem;
+    font-size: var(--font-size-stat);
   }
 
   .stat--hero {

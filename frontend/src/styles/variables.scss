@@ -113,12 +113,15 @@
     'Microsoft YaHei', '微软雅黑', 'Segoe UI', Roboto, sans-serif;
   --font-family-mono: 'Geist Mono', 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
   --font-size-display: 28px;
+  --font-size-stat: 30px;
+  --font-size-heading: 24px;
   --font-size-extra-large: 20px;
   --font-size-large: 18px;
   --font-size-medium: 16px;
   --font-size-base: 14px;
   --font-size-small: 13px;
   --font-size-extra-small: 12px;
+  --font-size-micro: 11px;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -163,9 +166,7 @@
   --form-label-width-compact: 80px;
 
   /* ISS-099 已修复：--text-secondary 由 #7a8290 调深为 #6a727f，白底对比度 3.88→4.80，满足 WCAG AA 4.5:1 */
-  /* ISS-103 TODO：字体规范已建立完整令牌（display→extra-small 七档），后续应全局审计
-     .vue 文件中残留的硬编码 px/rem 字号（当前 21 文件 57 处），统一改用 var(--font-size-*)。
-     此任务范围较大，作为独立重构任务处理，避免引入视觉回归 */
+  /* ISS-103 已修复：字体令牌扩展至十档（micro→stat），.vue 文件 57 处硬编码 px/rem 字号已全部令牌化 */
   /* ISS-104 已修复：补充 --primary-50/100/.../900 tints/shades 色阶，支持图表多系列与视觉层次 */
 }
 

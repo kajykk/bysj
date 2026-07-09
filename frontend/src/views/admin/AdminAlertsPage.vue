@@ -363,7 +363,7 @@ onMounted(fetchData)
 <style scoped>
 .mono-cell {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   color: var(--text-secondary);
 }
 </style>

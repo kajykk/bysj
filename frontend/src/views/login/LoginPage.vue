@@ -422,7 +422,7 @@ const handleRegister = async () => {
 .auth-form-card__eyebrow {
   margin: 0 0 0.375rem;
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -431,7 +431,7 @@ const handleRegister = async () => {
 .auth-form-card__title {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: 1.625rem;
+  font-size: var(--font-size-display);
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;
