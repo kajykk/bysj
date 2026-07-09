@@ -123,6 +123,11 @@ export default {
     requestCount: 'Request Count',
     driftAlerts: 'Drift Alerts',
     recentAlerts: 'Recent Alerts',
+    totalRequests: 'Total Requests',
+    fallbackCount: 'Fallback Count',
+    engines: 'Engines',
+    requestDetails: 'Request Details',
+    requestDetail: 'Request Detail',
     alertLevel: {
       critical: 'Critical',
       high: 'High',
