@@ -313,7 +313,7 @@ onMounted(() => {
 }
 
 .bind-code-text {
-  font-size: 28px;
+  font-size: var(--font-size-display);
   font-weight: var(--font-weight-bold);
   letter-spacing: 4px;
   color: var(--primary-color);

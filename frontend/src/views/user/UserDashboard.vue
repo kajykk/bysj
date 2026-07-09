@@ -760,7 +760,7 @@ const renderTrendChart = () => {
             <span>${scoreLabel}<strong>${score}${scoreUnit}</strong></span>
           </div>
           <div style="margin-bottom:4px;padding-left:16px;">${levelLabel}<span style="color:${chartDanger};font-weight:500;">${level}</span></div>
-          <div style="padding-left:16px;color:${chartTextSecondary};font-size:12px;">${trendLabel}${trend}</div>
+          <div style="padding-left:16px;color:${chartTextSecondary};font-size:var(--font-size-extra-small);">${trendLabel}${trend}</div>
         </div>`
       }
     },
@@ -827,7 +827,7 @@ onUnmounted(() => {
   gap: 0.5rem;
   margin: 0 0 0.375rem;
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -844,7 +844,7 @@ onUnmounted(() => {
 .layout__header h2 {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: 1.875rem;
+  font-size: var(--font-size-stat);
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;
@@ -876,7 +876,7 @@ onUnmounted(() => {
 
 .next-step-card__label {
   margin: 0 0 0.35rem;
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -967,7 +967,7 @@ onUnmounted(() => {
 .bento-cell__title {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-base);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
@@ -989,7 +989,7 @@ onUnmounted(() => {
 
 .warning-count {
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   font-weight: 600;
   color: var(--danger-color);
   background: var(--danger-light);

@@ -109,7 +109,7 @@ const { t } = useI18n()
 }
 
 .slider-value-label {
-  font-size: 13px;
+  font-size: var(--font-size-small);
   color: #5a6470;
   font-weight: 500;
   min-width: 60px;

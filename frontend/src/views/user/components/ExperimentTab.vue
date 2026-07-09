@@ -368,7 +368,7 @@ const compareModels = async () => {
 }
 
 .template-path {
-  font-size: 13px;
+  font-size: var(--font-size-small);
   color: #5a6470;
   margin-bottom: 12px;
 }
@@ -394,7 +394,7 @@ const compareModels = async () => {
 }
 
 .progress-label {
-  font-size: 13px;
+  font-size: var(--font-size-small);
   color: #5a6470;
   margin-bottom: 8px;
   display: block;

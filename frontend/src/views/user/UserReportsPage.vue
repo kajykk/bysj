@@ -169,13 +169,13 @@ onMounted(loadData)
 .page-summary__eyebrow {
   margin: 0 0 0.35rem;
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .page-summary h2 { margin: 0; }
 .page-summary p:last-child { margin: 0.4rem 0 0; color: var(--text-secondary); line-height: 1.6; }
 .summary-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.score { font-size: 28px; font-weight: 700; }
+.score { font-size: var(--font-size-display); font-weight: 700; }
 @media (max-width: 768px) { .summary-row { gap: 12px; } }
 </style>

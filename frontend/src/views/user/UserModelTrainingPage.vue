@@ -618,7 +618,7 @@ onMounted(() => {
 }
 
 .eyebrow {
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -636,7 +636,7 @@ onMounted(() => {
 .subtitle {
   margin-top: 6px;
   color: #6b7280;
-  font-size: 13px;
+  font-size: var(--font-size-small);
 }
 
 .header-row {
@@ -671,19 +671,19 @@ onMounted(() => {
 .accent-gold { background: var(--gradient-gold); }
 
 .stat-label {
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   opacity: 0.9;
 }
 
 .stat-value {
   margin-top: 8px;
-  font-size: 24px;
+  font-size: var(--font-size-heading);
   font-weight: 800;
 }
 
 .stat-desc {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--font-size-extra-small);
   opacity: 0.95;
 }
 
@@ -762,7 +762,7 @@ onMounted(() => {
 .status-item {
   border-radius: 12px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: var(--font-size-small);
   line-height: 1.5;
   background: #f8fafc;
   color: #334155;

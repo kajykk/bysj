@@ -426,7 +426,7 @@ onMounted(() => {
   gap: 0.5rem;
   margin: 0 0 0.375rem;
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -443,7 +443,7 @@ onMounted(() => {
 .layout__header h2 {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: 1.875rem;
+  font-size: var(--font-size-stat);
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;
@@ -474,7 +474,7 @@ onMounted(() => {
 
 .executive-summary h3 {
   margin: 0 0 0.35rem;
-  font-size: 0.95rem;
+  font-size: var(--font-size-base);
   color: var(--text-primary);
 }
 
@@ -524,7 +524,7 @@ onMounted(() => {
 
 .stat-label {
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
   letter-spacing: 0.06em;
@@ -533,7 +533,7 @@ onMounted(() => {
 
 .stat {
   font-family: var(--font-family-display);
-  font-size: 2rem;
+  font-size: var(--font-size-stat);
   font-weight: 700;
   letter-spacing: -0.03em;
   margin: 0.25rem 0 0.5rem;
@@ -626,7 +626,7 @@ onMounted(() => {
 .bento-cell__title {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-base);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
@@ -728,7 +728,7 @@ onMounted(() => {
   }
 
   .stat {
-    font-size: 1.75rem;
+    font-size: var(--font-size-stat);
   }
 
   .stat--hero {
