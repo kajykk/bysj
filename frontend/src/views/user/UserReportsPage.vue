@@ -78,10 +78,26 @@ onMounted(loadData)
 </script>
 
 <template>
-  <div v-loading="loading" class="user-reports-page">
-    <el-card v-if="report" class="summary-card">
+  <div
+    v-loading="loading"
+    class="user-reports-page"
+  >
+    <div class="page-summary">
+      <p class="page-summary__eyebrow">
+        {{ t('userReports.eyebrow') }}
+      </p>
+      <h2>{{ t('userReports.title') }}</h2>
+      <p>{{ t('userReports.lede') }}</p>
+    </div>
+    <el-card
+      v-if="report"
+      class="summary-card"
+    >
       <div class="summary-row">
-        <el-tag :type="report.severity === 'high' ? 'danger' : 'warning'" size="large">
+        <el-tag
+          :type="report.severity === 'high' ? 'danger' : 'warning'"
+          size="large"
+        >
           {{ t('user.riskLevel') }} {{ report.risk_level }}
         </el-tag>
         <span class="score">{{ report.risk_score.toFixed(1) }}</span>
@@ -92,27 +108,74 @@ onMounted(loadData)
     <el-card class="trend-card">
       <template #header>
         <div class="card-header">
-          <el-radio-group v-model="days" size="small" @change="loadData">
-            <el-radio-button :value="7">7d</el-radio-button>
-            <el-radio-button :value="30">30d</el-radio-button>
-            <el-radio-button :value="90">90d</el-radio-button>
-            <el-radio-button :value="365">365d</el-radio-button>
+          <el-radio-group
+            v-model="days"
+            size="small"
+            @change="loadData"
+          >
+            <el-radio-button :value="7">
+              7d
+            </el-radio-button>
+            <el-radio-button :value="30">
+              30d
+            </el-radio-button>
+            <el-radio-button :value="90">
+              90d
+            </el-radio-button>
+            <el-radio-button :value="365">
+              365d
+            </el-radio-button>
           </el-radio-group>
         </div>
       </template>
-      <BaseChart :option="trendOption" height="320px" />
+      <BaseChart
+        :option="trendOption"
+        height="320px"
+      />
     </el-card>
 
     <el-card class="export-card">
-      <el-button type="primary" :loading="exporting" @click="doExport('pdf')">{{ t('common.exportPdf') }}</el-button>
-      <el-button :loading="exporting" @click="doExport('csv')">CSV</el-button>
-      <el-button :loading="exporting" @click="doExport('json')">JSON</el-button>
+      <el-button
+        type="primary"
+        :loading="exporting"
+        @click="doExport('pdf')"
+      >
+        {{ t('common.exportPdf') }}
+      </el-button>
+      <el-button
+        :loading="exporting"
+        @click="doExport('csv')"
+      >
+        CSV
+      </el-button>
+      <el-button
+        :loading="exporting"
+        @click="doExport('json')"
+      >
+        JSON
+      </el-button>
     </el-card>
   </div>
 </template>
 
 <style scoped>
 .user-reports-page { display: flex; flex-direction: column; gap: 16px; }
-.summary-row { display: flex; align-items: center; gap: 16px; }
+.page-summary {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-extra-light);
+  border-radius: 1rem;
+  background: var(--bg-primary);
+}
+.page-summary__eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.page-summary h2 { margin: 0; }
+.page-summary p:last-child { margin: 0.4rem 0 0; color: var(--text-secondary); line-height: 1.6; }
+.summary-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .score { font-size: 28px; font-weight: 700; }
+@media (max-width: 768px) { .summary-row { gap: 12px; } }
 </style>

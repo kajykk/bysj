@@ -9,8 +9,8 @@
           />
           {{ t('userDashboard.eyebrow') }}
         </p>
-        <h2>{{ t('userDashboard.title') }}</h2>
-        <p>{{ t('userDashboard.welcome', { name: auth.user?.nickname || auth.user?.username || t('userDashboard.defaultUserName') }) }}</p>
+        <h2>{{ t('userDashboard.productHeadline') }}</h2>
+        <p>{{ t('userDashboard.productSubheadline') }}</p>
       </div>
       <div class="layout__actions">
         <el-tag type="primary">
@@ -19,6 +19,32 @@
         <el-button @click="handleLogout">
           {{ t('userDashboard.btnLogout') }}
         </el-button>
+      </div>
+      <div class="next-step-card">
+        <p class="next-step-card__label">
+          {{ nextAction.label }}
+        </p>
+        <p class="next-step-card__title">
+          {{ nextAction.title }}
+        </p>
+        <p class="next-step-card__desc">
+          {{ nextAction.description }}
+        </p>
+        <div class="next-step-card__actions">
+          <el-button
+            type="primary"
+            @click="nextAction.action()"
+          >
+            {{ nextAction.primaryText }}
+          </el-button>
+          <el-button
+            link
+            type="primary"
+            @click="router.push(nextAction.secondaryPath)"
+          >
+            {{ nextAction.secondaryText }}
+          </el-button>
+        </div>
       </div>
     </div>
 
@@ -373,6 +399,14 @@
               </el-tag>
               <span class="warning-title">{{ w.title }}</span>
               <span class="warning-time tabular-nums">{{ formatDate(w.created_at, 'MM/DD HH:mm') }}</span>
+              <el-button
+                link
+                type="primary"
+                class="warning-action"
+                @click="router.push('/user/warnings')"
+              >
+                {{ t('userDashboard.btnViewDetail') }}
+              </el-button>
             </li>
           </ul>
           <el-button
@@ -475,6 +509,62 @@ const assessmentLoading = ref(true)
 const assessmentError = ref('')
 
 const completedTasks = computed(() => activeIntervention.value.tasks.filter((task) => task.today_status === 'completed').length)
+
+const nextAction = computed(() => {
+  if (warningError.value || riskError.value || interventionError.value || trendError.value || assessmentError.value) {
+    return {
+      label: t('userDashboard.nextActionLabelFallback'),
+      title: t('userDashboard.nextActionTitleFallback'),
+      description: t('userDashboard.nextActionDescFallback'),
+      primaryText: t('userDashboard.btnReload'),
+      secondaryText: t('userDashboard.btnViewAll'),
+      secondaryPath: '/user/warnings',
+      action: () => loadDashboard(),
+    }
+  }
+  if (!latestAssessment.value) {
+    return {
+      label: t('userDashboard.nextActionLabelAssessment'),
+      title: t('userDashboard.nextActionTitleAssessment'),
+      description: t('userDashboard.nextActionDescAssessment'),
+      primaryText: t('userDashboard.btnStartAssessment'),
+      secondaryText: t('userDashboard.btnViewAll'),
+      secondaryPath: '/user/reports',
+      action: () => router.push('/user/risk'),
+    }
+  }
+  if (riskReport.value.risk_score >= 70 || activeIntervention.value.plan.id) {
+    return {
+      label: t('userDashboard.nextActionLabelIntervention'),
+      title: t('userDashboard.nextActionTitleIntervention'),
+      description: t('userDashboard.nextActionDescIntervention'),
+      primaryText: t('userDashboard.btnViewDetail'),
+      secondaryText: t('userDashboard.btnViewAll'),
+      secondaryPath: '/user/warnings',
+      action: () => router.push('/user/intervention'),
+    }
+  }
+  if (unreadWarnings.value.length > 0) {
+    return {
+      label: t('userDashboard.nextActionLabelWarnings'),
+      title: t('userDashboard.nextActionTitleWarnings'),
+      description: t('userDashboard.nextActionDescWarnings'),
+      primaryText: t('userDashboard.btnViewAll'),
+      secondaryText: t('userDashboard.btnStartAssessment'),
+      secondaryPath: '/user/risk',
+      action: () => router.push('/user/warnings'),
+    }
+  }
+  return {
+    label: t('userDashboard.nextActionLabelReview'),
+    title: t('userDashboard.nextActionTitleReview'),
+    description: t('userDashboard.nextActionDescReview'),
+    primaryText: t('userDashboard.btnViewAll'),
+    secondaryText: t('userDashboard.btnStartAssessment'),
+    secondaryPath: '/user/risk',
+    action: () => router.push('/user/reports'),
+  }
+})
 
 const riskColor = computed(() => getRiskScoreColor(riskReport.value.risk_score))
 
@@ -775,6 +865,43 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.next-step-card {
+  margin-top: var(--spacing-md);
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border-extra-light);
+  border-radius: 1rem;
+  background: var(--bg-primary);
+  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04);
+}
+
+.next-step-card__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.next-step-card__title {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.next-step-card__desc {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.6;
+}
+
+.next-step-card__actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
 /* ===== Bento 网格（非对称：2fr 1fr，规则 6：DESIGN_VARIANCE=8） ===== */
 .bento-grid--top {
   display: grid;
@@ -961,6 +1088,11 @@ onUnmounted(() => {
   padding: 0.625rem 0;
   border-bottom: 1px solid var(--border-extra-light);
   transition: background var(--transition-fast) var(--transition-timing);
+  flex-wrap: wrap;
+}
+
+.warning-action {
+  margin-left: auto;
 }
 
 .warning-item:last-child {

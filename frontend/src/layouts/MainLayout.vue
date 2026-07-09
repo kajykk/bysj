@@ -21,25 +21,37 @@
         :collapse="layout.sidebarCollapsed"
         :collapse-transition="false"
       >
-        <el-tooltip
-          v-for="item in menus"
-          :key="item.path"
-          :content="t(item.titleKey)"
-          :disabled="!layout.sidebarCollapsed"
-          placement="right"
+        <template
+          v-for="section in groupedMenus"
+          :key="section.key"
         >
           <el-menu-item
-            :index="item.path"
-            :data-tour="item.tourTarget"
+            v-if="!layout.sidebarCollapsed"
+            :index="section.first?.path || '/'"
+            class="menu-section-label"
+            disabled
           >
-            <el-icon v-if="item.icon">
-              <component :is="item.icon" />
-            </el-icon>
             <template #title>
-              {{ t(item.titleKey) }}
+              {{ t(section.labelKey) }}
             </template>
           </el-menu-item>
-        </el-tooltip>
+          <el-tooltip
+            v-for="item in section.items"
+            :key="item.path"
+            :content="t(item.titleKey)"
+            :disabled="!layout.sidebarCollapsed"
+            placement="right"
+          >
+            <el-menu-item :index="item.path">
+              <el-icon v-if="item.icon">
+                <component :is="item.icon" />
+              </el-icon>
+              <template #title>
+                {{ t(item.titleKey) }}
+              </template>
+            </el-menu-item>
+          </el-tooltip>
+        </template>
       </el-menu>
       <div
         class="collapse-btn"
@@ -180,6 +192,13 @@ interface MenuItem {
   tourTarget?: string
 }
 
+interface MenuSection {
+  key: string
+  labelKey: string
+  first?: MenuItem
+  items: MenuItem[]
+}
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -221,6 +240,19 @@ const roleMenus: Record<string, MenuItem[]> = {
 }
 
 const menus = computed(() => roleMenus[auth.role] || [])
+const groupedMenus = computed<MenuSection[]>(() => {
+  const items = menus.value
+  if (!items.length) return []
+  const dashboard = items.find((item) => item.path.endsWith('/dashboard'))
+  const daily = items.filter((item) => /risk|warning|users|intervention|content|template|assessment|report|monitoring|observability/.test(item.path))
+  const settings = items.filter((item) => item.path.includes('settings') || item.path.includes('operation-logs') || item.path.includes('canary'))
+  const remainder = items.filter((item) => !daily.includes(item) && !settings.includes(item) && item !== dashboard)
+  return [
+    { key: 'daily', labelKey: 'nav.sectionDaily', first: dashboard, items: dashboard ? [dashboard, ...daily.filter((item) => item !== dashboard)] : daily },
+    { key: 'review', labelKey: 'nav.sectionReview', items: remainder.filter((item) => item.path.includes('reports') || item.path.includes('reviews') || item.path.includes('assessments')) },
+    { key: 'settings', labelKey: 'nav.sectionSettings', items: settings },
+  ].filter((section) => section.items.length > 0)
+})
 const activePath = computed(() => route.path)
 const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
 
@@ -353,6 +385,23 @@ const handleLogout = async () => {
   background: var(--primary-surface);
   color: var(--primary-color);
   font-weight: var(--font-weight-medium);
+}
+
+.menu-section-label {
+  font-size: var(--font-size-extra-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-placeholder);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wider);
+  cursor: default;
+  pointer-events: none;
+  padding: var(--spacing-md) var(--spacing-sm) var(--spacing-xs);
+  height: auto;
+  line-height: var(--line-height-tight);
+}
+
+.menu-section-label:hover {
+  background: transparent;
 }
 
 .layout-aside.collapsed .logo {
