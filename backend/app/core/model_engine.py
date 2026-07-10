@@ -23,6 +23,7 @@ from app.core.crisis_detector import CrisisDetector
 # 此处通过别名导入保持内部 _ 前缀命名约定, 同时 re-export 供外部
 # `from app.core.model_engine import LITE_FEATURE_ORDER` 继续可用 (向后兼容)
 from app.core.feature_maps import DEFAULTS as _DEFAULTS
+from app.core.feature_maps import LITE_FEATURE_ORDER
 from app.core.feature_maps import STR_TO_NUM as _STR_TO_NUM
 from app.core.model_engine_fallback import FallbackMixin
 from app.core.model_engine_predict import PredictMixin

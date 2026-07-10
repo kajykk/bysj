@@ -43,14 +43,23 @@ def _scan_endpoints(module_path: str) -> list[dict]:
         if m:
             route = line
             method = m.group(1).upper()
-            # 提取路径
+            # 提取路径: 在 @router 行及后续行中搜索引号包裹的路径
+            path = ""
             path_match = re.search(r'["\']([^"\']+)["\']', line)
-            path = path_match.group(1) if path_match else ""
+            if not path_match:
+                # 多行装饰器: 路径可能在后续 1-3 行
+                for k in range(i + 1, min(i + 4, len(lines))):
+                    path_match = re.search(r'["\']([^"\']+)["\']', lines[k])
+                    if path_match:
+                        break
+            if path_match:
+                path = path_match.group(1)
+
             limiter_value: str | None = None
             has_limiter = False
             # 向下查找 @limiter.limit 装饰器和函数定义
             j = i + 1
-            while j < len(lines) and j < i + 5:
+            while j < len(lines) and j < i + 10:
                 next_line = lines[j].strip()
                 if next_line.startswith("@limiter.limit("):
                     has_limiter = True
@@ -69,7 +78,7 @@ def _scan_endpoints(module_path: str) -> list[dict]:
 
             # 查找函数名
             func_name = None
-            for k in range(i + 1, min(i + 10, len(lines))):
+            for k in range(i + 1, min(i + 15, len(lines))):
                 def_line = lines[k].strip()
                 match = re.match(r"(?:async\s+)?def\s+(\w+)\s*\(", def_line)
                 if match:
