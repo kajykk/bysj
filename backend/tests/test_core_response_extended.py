@@ -11,7 +11,13 @@ class TestOkResponse:
     def test_ok_default(self):
         """TC-COV-057: ok() returns default success response."""
         result = ok()
-        assert result == {"code": 200, "message": "success", "data": None}
+        # STAB-P1-001: 统一响应体含 error: None
+        assert result == {
+            "code": 200,
+            "message": "success",
+            "data": None,
+            "error": None,
+        }
 
     def test_ok_with_data(self):
         """TC-COV-058: ok() includes data when provided."""
@@ -32,4 +38,9 @@ class TestOkResponse:
     def test_ok_full_custom(self):
         """TC-COV-061: ok() supports full customization."""
         result = ok(data={"id": 1}, message="Created", code=201)
-        assert result == {"code": 201, "message": "Created", "data": {"id": 1}}
+        assert result == {
+            "code": 201,
+            "message": "Created",
+            "data": {"id": 1},
+            "error": None,
+        }
