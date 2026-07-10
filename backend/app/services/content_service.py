@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -202,7 +202,10 @@ class ContentService:
             content_id=content_id,
             completed=completed,
             # ISS-043 修复：统一 naive UTC，与 DB DateTime 列保持一致
-            completed_at=datetime.utcnow() if completed else None,
+            # utcnow() 已弃用 (Python 3.12+)，改用 timezone-aware 再去除 tzinfo
+            completed_at=(
+                datetime.now(timezone.utc).replace(tzinfo=None) if completed else None
+            ),
         )
         self.db.add(log)
         await self.db.commit()
