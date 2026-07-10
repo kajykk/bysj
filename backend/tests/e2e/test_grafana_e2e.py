@@ -202,18 +202,32 @@ def test_dashboard_24_panels_screenshots() -> None:
 # ============ Setup helpers (optional) ============
 
 
-def pytest_configure(config):
-    """Pytest 启动时等待服务就绪."""
-    print(f"Waiting for services: Grafana={GRAFANA_URL}, Backend={BACKEND_URL}")
+def _services_available() -> bool:
+    """快速探测 (5s 超时) Grafana + Backend 是否可用.
+
+    避免 pytest_configure 中 60s+60s 轮询导致 CI 卡住.
+    """
     try:
-        _wait_for_service(f"{GRAFANA_URL}/api/health", timeout=60)
-        print("✓ Grafana ready")
-    except RuntimeError as e:
-        pytest.skip(f"Grafana not ready: {e}")
-    try:
+        _wait_for_service(f"{GRAFANA_URL}/api/health", timeout=5)
         _wait_for_service(
-            f"{BACKEND_URL}/api/v1/alerts/observability/grafana/health", timeout=60
+            f"{BACKEND_URL}/api/v1/alerts/observability/grafana/health", timeout=5
         )
-        print("✓ Backend ready")
-    except RuntimeError as e:
-        pytest.skip(f"Backend not ready: {e}")
+        return True
+    except RuntimeError:
+        return False
+
+
+# 服务未运行时跳过全部 e2e 测试 (避免 CI 卡在 120s 轮询)
+pytestmark = pytest.mark.skipif(
+    not _services_available(),
+    reason="Grafana/Backend 服务未运行 (需 docker compose up -d backend grafana)",
+)
+
+
+def pytest_configure(config):
+    """Pytest 启动时打印服务状态 (不阻塞)."""
+    print(f"Checking services: Grafana={GRAFANA_URL}, Backend={BACKEND_URL}")
+    if _services_available():
+        print("✓ Grafana + Backend ready")
+    else:
+        print("⚠ Grafana/Backend not ready — e2e tests will be skipped")

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,7 +79,7 @@ class ReviewService:
             existing_task.crisis_override = data.crisis_override
             existing_task.priority = data.priority.value
             # ISS-041 修复：统一 naive UTC，避免 aware/naive datetime 混用
-            existing_task.updated_at = datetime.utcnow()
+            existing_task.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await self.db.commit()
             await self.db.refresh(existing_task)
             return existing_task
@@ -113,7 +113,7 @@ class ReviewService:
                     "priority": task.priority,
                     "crisis_override": bool(task.crisis_override),
                     # ISS-041 修复：统一 naive UTC
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 },
             )
         except Exception:
@@ -181,7 +181,7 @@ class ReviewService:
         task.assigned_to = counselor_id
         task.status = "in_review"
         # ISS-041 修复：统一 naive UTC
-        task.updated_at = datetime.utcnow()
+        task.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(task)
         return task
@@ -214,8 +214,8 @@ class ReviewService:
         task.resolution_note = resolution_note
         task.status = "resolved"
         # ISS-041 修复：统一 naive UTC
-        task.resolved_at = datetime.utcnow()
-        task.updated_at = datetime.utcnow()
+        task.resolved_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        task.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(task)
         return task
@@ -251,7 +251,7 @@ class ReviewService:
         task.resolution_note = reason
         task.status = "escalated"
         # ISS-041 修复：统一 naive UTC
-        task.updated_at = datetime.utcnow()
+        task.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         # 记录升级审计日志，detail 中明确 escalate_by（避免与 resolved_by 混淆）
         self.db.add(
             OperationLog(
@@ -434,7 +434,7 @@ class CrisisEventService:
         event.handled_action = action
         event.status = "reviewed"
         # ISS-041 修复：统一 naive UTC
-        event.handled_at = datetime.utcnow()
+        event.handled_at = datetime.now(timezone.utc).replace(tzinfo=None)
         async with self.db.begin_nested():
             await self.db.flush()
             await self._write_crisis_audit_log(
@@ -471,7 +471,7 @@ class CrisisEventService:
         event.handled_action = "escalate"
         event.status = "escalated"
         # ISS-041 修复：统一 naive UTC
-        event.handled_at = datetime.utcnow()
+        event.handled_at = datetime.now(timezone.utc).replace(tzinfo=None)
         async with self.db.begin_nested():
             await self.db.flush()
             await self._write_crisis_audit_log(
@@ -508,7 +508,7 @@ class CrisisEventService:
         event.handled_action = "resolved"
         event.status = "resolved"
         # ISS-041 修复：统一 naive UTC
-        event.handled_at = datetime.utcnow()
+        event.handled_at = datetime.now(timezone.utc).replace(tzinfo=None)
         async with self.db.begin_nested():
             await self.db.flush()
             await self._write_crisis_audit_log(
