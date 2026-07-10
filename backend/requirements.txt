@@ -7,6 +7,7 @@ alembic>=1.13.1
 pydantic>=2.7.0
 pydantic-settings>=2.2.1
 PyJWT[crypto]>=2.13.0
+cryptography>=42.0.0  # pii_crypto.py 显式依赖 Fernet/HKDF, 不依赖 PyJWT 传递依赖
 bcrypt>=4.0.0,<5.0.0
 python-multipart>=0.0.9
 redis>=5.0.4
