@@ -45,7 +45,7 @@ def export_openapi_schema(output_path: Path | None = None) -> Path:
         encoding="utf-8",
     )
 
-    print(f"✅ OpenAPI schema exported to: {output_path}")
+    print(f"OpenAPI schema exported to: {output_path}")
     print(f"   Title: {openapi_schema.get('info', {}).get('title', 'N/A')}")
     print(f"   Version: {openapi_schema.get('info', {}).get('version', 'N/A')}")
     print(f"   Paths: {len(openapi_schema.get('paths', {}))}")
