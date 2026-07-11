@@ -18,7 +18,6 @@ export default defineConfig({
     baseURL: frontendUrl,
     trace: 'on-first-retry',
     headless: true,
-    channel: 'msedge',
     launchOptions: {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
     },
