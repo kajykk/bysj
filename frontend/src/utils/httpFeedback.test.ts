@@ -1,17 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { showHttpFeedback } from './httpFeedback'
 
-vi.mock('element-plus', () => ({
-  ElMessage: {
+// 使用 vi.hoisted 创建共享 mock，确保 element-plus 和子路径 mock 指向同一实例
+const { ElMessageMock } = vi.hoisted(() => ({
+  ElMessageMock: {
     warning: vi.fn(),
-    error: vi.fn()
-  }
+    error: vi.fn(),
+  },
+}))
+
+vi.mock('element-plus', () => ({
+  ElMessage: ElMessageMock,
 }))
 vi.mock('element-plus/es/components/message/index', () => ({
-  ElMessage: {
-    warning: vi.fn(),
-    error: vi.fn()
-  }
+  ElMessage: ElMessageMock,
 }))
 
 describe('showHttpFeedback', () => {
