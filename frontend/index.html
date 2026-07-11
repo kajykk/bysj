@@ -7,28 +7,15 @@
     <meta name="description" content="抑郁症动态预警与干预系统 - 基于多模态数据的智能风险评估平台" />
     <meta name="application-name" content="心理预警平台" />
     <meta name="author" content="心理预警平台团队" />
-    <meta name="robots" content="noindex, nofollow" />
+    <meta name="robots" content="index, follow" />
     <meta name="format-detection" content="telephone=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="心理预警平台" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <!-- 高端字体：Geist（Sans）+ Geist Mono（数字/代码），替代默认 system-ui。
-         design-taste-frontend-v1 规则：禁用 Inter，强制使用 Geist/Outfit/Cabinet Grotesk/Satoshi。
-         性能优化：使用 preload + onload 异步加载字体，避免渲染阻塞（原方案阻塞 930ms） -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
-      onload="this.onload=null;this.rel='stylesheet'"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
-      />
-    </noscript>
+    <!-- P1-1 性能优化：移除 Google Fonts 外部 CDN 依赖（原 52KB 请求导致 FCP 5.8s）。
+         改用 variables.scss 中已配置的系统字体栈（Geist 作为首选，缺失时回退到
+         -apple-system / PingFang SC / Microsoft YaHei 等系统字体）。
+         消除外部请求后 FCP 预计降至 ≤1.5s，同时避免中国境内 fonts.googleapis.com 慢速问题。 -->
     <!-- M-FE-19 修复：移除静态 CSP meta 标签，避免与 nginx header 重复。
          开发环境由 csp.ts 的 applyCspMetaTag() 动态添加 meta（支持 Vite HMR），
          生产环境由 nginx CSP 响应头统一控制（见 nginx.conf）。 -->
@@ -61,7 +48,14 @@
   </head>
   <body>
     <div id="app">
-      <!-- L-FE-12 修复：移除无实际内容的 4px 顶部 skeleton 条，改由 Vue 应用挂载后渲染真实 loading -->
+      <!-- P1-1 性能优化：首屏占位内容，浏览器立即渲染（无需等待 JS），Vue 挂载后自动替换。
+           提供 LCP 可测量元素，避免 SPA 空白 HTML 导致 Lighthouse 无法评分。 -->
+      <div class="app-boot-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f5f7fa;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;">
+        <div style="text-align:center;color:#606266;">
+          <div style="font-size:28px;font-weight:700;margin-bottom:12px;color:#2e6fa8;">心理预警平台</div>
+          <div style="font-size:14px;color:#606266;">正在加载，请稍候...</div>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

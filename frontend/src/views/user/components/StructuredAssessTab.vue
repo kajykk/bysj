@@ -392,6 +392,7 @@ import { modelApi, type ModelPredictResponse } from '@/api/modelApi'
 import type { StructuredCollectResult } from '@/api/userRiskApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
+import { useAnalytics } from '@/composables/useAnalytics'
 import { sanitizeCellForExcel } from '@/utils/exportUtils'
 import {
   severityLabel,
@@ -425,6 +426,8 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const auth = useAuthStore()
+// P1-5 埋点与隐私：评估流程追踪（不采集问卷内容）
+const { track } = useAnalytics()
 let isUnmounted = false
 
 // ISS-058 修复：匿名用户（id=0 或未登录）使用会话级随机 ID，避免共享 localStorage 导致历史相互覆盖
@@ -632,6 +635,9 @@ const submitStructured = async () => {
     return
   }
 
+  // P1-5 埋点与隐私：记录开始评估事件（不采集问卷内容）
+  track('assessment_start', { assessment_type: 'structured' })
+
   structuredSubmitting.value = true
   try {
     const dataPayload = buildStructuredFeatures()
@@ -648,6 +654,12 @@ const submitStructured = async () => {
       data_payload: dataPayload
     })
     structuredResult.value = result
+
+    // P1-5 埋点与隐私：记录完成评估事件（仅采集风险等级，不采集评估内容）
+    track('assessment_complete', {
+      assessment_type: 'structured',
+      risk_level: typeof result?.risk_level === 'number' ? result.risk_level : undefined,
+    })
 
     predictionHistory.value.unshift({
       ...result,

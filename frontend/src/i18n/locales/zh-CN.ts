@@ -36,19 +36,12 @@ export default {
     createFailed: '创建失败',
     updateSuccess: '更新成功',
     updateFailed: '更新失败',
-    failed: '操作失败',
-    status: '状态',
-    createdAt: '创建时间',
-    csv: 'CSV',
-    json: 'JSON',
-    days7: '7天',
-    days30: '30天',
-    days90: '90天',
-    days365: '365天'
+    failed: '操作失败'
   },
   nav: {
     sectionDaily: '日常工作',
     sectionReview: '历史复盘',
+    sectionOps: '运维监控',
     sectionSettings: '系统设置',
     dashboard: '仪表盘',
     riskAssessment: '风险评估',
@@ -164,9 +157,7 @@ export default {
       hour6: '6小时',
       hour24: '24小时',
       day7: '7天'
-    },
-    logId: '日志ID',
-    input: '输入'
+    }
   },
   observability: {
     health: '健康状态',
@@ -175,13 +166,7 @@ export default {
     silenceHitRate: '静默命中率',
     trend: '趋势',
     amSync: 'AlertManager 同步',
-    lockStats: '锁统计',
-    channelStats: '渠道统计',
-    startDate: '开始日期',
-    endDate: '结束日期',
-    cached: '缓存',
-    points: '数据点',
-    channels: '渠道'
+    lockStats: '锁统计'
   },
   report: {
     title: '报告中心',
@@ -214,21 +199,7 @@ export default {
     pdfReady: 'PDF 已就绪',
     pdfGenerating: 'PDF 生成中',
     jobList: '任务列表',
-    batchExcel: '批量 Excel',
-    userId: '用户ID',
-    userName: '用户名',
-    riskLevel: '风险等级',
-    riskTrend: '风险趋势',
-    recommendations: '建议',
-    commaSeparated: '逗号分隔',
-    jobId: '任务ID',
-    status: '状态',
-    progress: '进度',
-    createdAt: '创建时间',
-    columnsLimit: '列数最多 50 列',
-    excelColsPlaceholder: 'col1,col2（逗号分隔，最多 50 列）',
-    excelFilenamePlaceholder: 'filename.xlsx',
-    placeholderJson: '[{"col":"val"}]'
+    batchExcel: '批量 Excel'
   },
   canary: {
     running: '运行中',
@@ -241,18 +212,20 @@ export default {
     rollback: '回滚',
     confirmComplete: '确认完成部署 {v}？',
     rollbackReason: '请输入回滚原因',
-    reasonRequired: '原因必填（1-500 字）',
-    versionRequired: '版本号必填',
-    trafficRangeInvalid: '范围 1-100',
-    version: '版本',
-    trafficPercent: '流量百分比',
-    status: '状态',
-    startedAt: '开始时间'
+    reasonRequired: '原因必填（1-500 字）'
   },
-  userReports: {
-    eyebrow: '风险评估报告',
-    title: '我的风险报告',
-    lede: '查看您的风险评估概览和趋势数据',
+  taskProgress: {
+    defaultTitle: '任务进度',
+    pdfTitle: 'PDF 报告生成',
+    excelTitle: 'Excel 导出',
+    trainingTitle: '模型训练',
+    queued: '排队中',
+    running: '进行中',
+    completed: '已完成',
+    failed: '失败',
+    download: '下载',
+    dismiss: '关闭',
+    downloadFailed: '下载失败'
   },
   error: {
     goHome: '返回首页',
@@ -420,6 +393,21 @@ export default {
       admin: '管理员',
       counselor: '咨询师',
       user: '普通用户'
+    },
+    // P1-5 埋点与隐私闭环：分析同意管理
+    analytics: {
+      title: '使用分析与改进',
+      description: '我们采集匿名化的使用事件（如评估开始/完成、预警处理、帮助使用），用于改进产品体验。我们绝不会采集问卷正文、评估文本或任何敏感健康内容。',
+      consentLabel: '同意采集使用分析事件',
+      consentDesc: '同意后，系统将记录上述匿名化事件。您可随时撤回同意，撤回后不再采集新事件。',
+      retentionLabel: '数据保留期限',
+      retentionValue: '90 天（到期自动删除）',
+      eventTypesLabel: '采集的事件类型',
+      eventTypes: '进入评估、开始评估、完成评估、放弃评估、预警处理、帮助使用、任务失败',
+      consentGranted: '已同意采集分析事件',
+      consentWithdrawn: '已撤回分析事件采集',
+      updateFailed: '更新同意状态失败',
+      privacyNote: '您的选择不影响系统核心功能的使用。'
     }
   },
   passwordValidation: {
@@ -693,6 +681,10 @@ export default {
     statStructured: '结构化模型',
     statText: '文本模型',
     statScript: '训练脚本',
+    // P1-2 角色简化：学生看到的通用描述（不暴露文件名/脚本名）
+    statStructuredDesc: '已就绪',
+    statTextDesc: '已就绪',
+    statScriptDesc: '系统内置',
     consoleAlert: '这里用于快速查看训练产物、复制路径、跳转预测页面，并为答辩提供统一展示入口。',
     activeJobTitle: '当前训练任务',
     colJobId: '任务 ID',
@@ -768,9 +760,9 @@ export default {
     modelStatusMissing: '缺失'
   },
   auth: {
-    brandLoginHeadline1: '让评估、预警与干预',
-    brandLoginHeadline2: '在一个平台里闭环',
-    brandLoginLede: '面向机构的心理风险识别、预警与干预协同平台，帮助用户、咨询师与管理员更快完成闭环处置。',
+    brandLoginHeadline1: '读懂情绪的',
+    brandLoginHeadline2: '微小信号',
+    brandLoginLede: '基于多模态数据的心理健康动态预警与干预平台，每一次评估都在为更早一步的关怀累积证据。',
     brandResetHeadline1: '重新设定',
     brandResetHeadline2: '安全凭证',
     brandResetLede: '为你的账号设置新密码。建议使用包含字母与数字的强口令，并妥善保管。',
@@ -952,13 +944,9 @@ export default {
   adminDashboard: {
     eyebrow: '控制台',
     title: '管理员工作台',
-    lede: '聚合机构运行、模板配置、告警处理与可观测性信号，帮助你快速判断系统健康与运营重点。',
-    executiveSummaryTitle: '运营摘要',
-    executiveSummaryBody: '当前共有 {users} 名注册用户、{warnings} 条今日预警与 {templates} 个活跃模板，建议优先处理告警与模板更新。',
     welcome: '欢迎，{name}',
     welcomeFallback: '管理员',
     tagAdmin: '管理员端',
-    btnLogout: '退出登录',
     statLabelUsers: '注册用户',
     statSubUsers: '咨询师 {count} 人',
     statLabelWarnings: '今日预警',
@@ -1085,9 +1073,6 @@ export default {
   counselorDashboard: {
     eyebrow: '咨询台',
     title: '咨询师工作台',
-    lede: '聚焦未处理预警、绑定用户和跟进队列，让咨询师优先处理最需要关注的来访者。',
-    queueSummaryTitle: '处理队列摘要',
-    queueSummaryBody: '当前有 {warnings} 条未处理预警和 {users} 位绑定用户，建议先处理高风险队列。',
     welcome: '欢迎，{name}',
     defaultCounselorName: '咨询师',
     tagCounselor: '咨询师端',
@@ -1310,10 +1295,7 @@ export default {
     eyebrow: '工作台',
     title: '用户仪表盘',
     welcome: '欢迎回来，{name}',
-    productHeadline: '让风险评估、预警干预、复评闭环在一个平台中完成',
-    productSubheadline: '面向用户、咨询师与管理员的机构级心理健康管理工作台',
-    primaryCta: '立即进入工作台',
-    secondaryCta: '查看核心流程',
+    defaultUserName: '同学',
     nextActionLabelFallback: '下一步',
     nextActionTitleFallback: '先刷新当前工作状态',
     nextActionDescFallback: '当前页面存在加载异常，请先重试，以便恢复任务链路。',
@@ -1329,7 +1311,6 @@ export default {
     nextActionLabelReview: '复盘',
     nextActionTitleReview: '查看历史报告',
     nextActionDescReview: '回顾评估与趋势，确认状态变化并准备下一次复评。',
-    defaultUserName: '同学',
     tagUserEnd: '用户端',
     btnLogout: '退出登录',
     riskStatusTitle: '风险状态',
@@ -1920,6 +1901,10 @@ export default {
     labelValLoss: '验证损失',
     labelValAccuracy: '验证准确率',
     labelModelStatus: '模型状态',
+    // P1-2 角色简化：学生看到的面向行动可解释摘要
+    studentSummaryReady: '模型评估完成，结果可靠',
+    studentSummaryPartial: '模型评估尚未完成，结果仅供参考',
+    studentSummaryDesc: '系统已自动完成多模态风险评估，您可在风险评估页查看详细结果。',
     trainLogViewerTitle: '训练日志查看器',
     evalLogViewerTitle: '概览日志查看器',
     filterLogPlaceholder: '过滤日志...',
@@ -1964,97 +1949,6 @@ export default {
     disconnectedTitle: '连接已断开',
     disconnectedMessage: '实时连接已断开，请刷新页面以恢复实时告警推送'
   },
-  taskProgress: {
-    pdfTitle: 'PDF 报告生成',
-    excelTitle: 'Excel 导出',
-    trainingTitle: '模型训练',
-    defaultTitle: '任务处理',
-    running: '正在处理...',
-    completed: '处理完成',
-    failed: '处理失败',
-    queued: '等待中...',
-    downloadReady: '下载已就绪',
-    retryAvailable: '可重试'
-  },
-  onboarding: {
-    help: '新手引导',
-    finish: '完成',
-    next: '下一步',
-    prev: '上一步',
-    skip: '跳过',
-    steps: {
-      user: {
-        navMenuTitle: '导航菜单',
-        navMenuDesc: '这里是你的主要导航菜单，可以在这里访问所有功能页面。',
-        warningBadgeTitle: '告警通知',
-        warningBadgeDesc: '当有新的风险告警时，这里会显示红点提示，点击可查看详情。',
-        dashboardTitle: '仪表盘',
-        dashboardDesc: '仪表盘展示你的风险评估概览和趋势数据，建议定期查看。',
-        riskAssessTitle: '风险评估',
-        riskAssessDesc: '在这里进行心理健康风险评估，系统会根据你的回答生成个性化报告。',
-        warningsTitle: '告警中心',
-        warningsDesc: '查看你的历史告警记录和干预建议。',
-      },
-      counselor: {
-        navMenuTitle: '咨询师导航',
-        navMenuDesc: '在这里管理你负责的用户、查看告警和审核评估。',
-        warningBadgeTitle: '告警通知',
-        warningBadgeDesc: '当你的用户出现高风险时，这里会实时推送告警通知。',
-        warningMgmtTitle: '告警管理',
-        warningMgmtDesc: '查看和处理所有用户告警，及时跟进高风险用户。',
-        userMgmtTitle: '用户管理',
-        userMgmtDesc: '查看你负责的用户列表和他们的风险评估历史。',
-      },
-      admin: {
-        navMenuTitle: '管理员导航',
-        navMenuDesc: '在这里管理系统配置、模板、告警和可观测性。',
-        warningBadgeTitle: '告警通知',
-        warningBadgeDesc: '系统级告警会在这里实时推送，请及时关注。',
-        dashboardTitle: '系统仪表盘',
-        dashboardDesc: '查看系统整体运行状态、用户统计和风险分布。',
-        observabilityTitle: '可观测性',
-        observabilityDesc: '监控系统指标、日志和链路追踪数据。',
-      },
-    },
-  },
-  help: {
-    buttonLabel: '帮助中心',
-    onboarding: '新手引导',
-    faqLabel: '常见问题',
-    contactSupport: '联系支持',
-    faqTitle: '常见问题 (FAQ)',
-    contactTitle: '联系技术支持',
-    emailLabel: '邮箱',
-    phoneLabel: '电话',
-    hoursLabel: '服务时间',
-    hoursValue: '工作日 9:00 - 18:00',
-    feedbackLabel: '提交反馈',
-    feedbackTitle: '意见反馈',
-    feedbackCategoryLabel: '反馈类型',
-    feedbackCategoryBug: '问题报告',
-    feedbackCategoryFeature: '功能建议',
-    feedbackCategoryOther: '其他反馈',
-    feedbackMessageLabel: '反馈内容',
-    feedbackMessagePlaceholder: '请描述您遇到的问题或建议…',
-    feedbackSubmit: '提交到 GitHub',
-    feedbackEmpty: '请输入反馈内容',
-    feedbackSubmitted: '已为您打开 GitHub Issues 页面，请在浏览器中完成提交',
-    githubIssues: 'GitHub Issues',
-    faq: {
-      q1: '如何重置密码？',
-      a1: '在登录页面点击"忘记密码？"链接，输入注册邮箱后，系统将发送密码重置链接到您的邮箱。请注意重置链接有效期为 30 分钟。',
-      q2: '我的风险等级是如何计算的？',
-      a2: '风险等级基于多模态数据融合评估，综合生理信号、心理量表和行为数据，由机器学习模型实时计算。等级分为：无风险、低、中、高、危机五档。',
-      q3: '如何导出我的评估报告？',
-      a3: '前往"报告"页面，选择需要导出的报告，点击"导出 PDF"按钮。系统会在后台生成报告，生成完成后右下角进度通知将提示下载。',
-      q4: '我的数据安全吗？',
-      a4: '系统采用端到端加密传输，敏感字段（如身份证、手机号）在数据库中加密存储。仅您和被授权的心理咨询师可查看您的数据，所有访问均记录审计日志。',
-      q5: '如何联系心理咨询师？',
-      a5: '如果您被标记为中高风险，系统会自动分配心理咨询师。您可在"预警"页面查看分配的咨询师信息，并通过系统内置消息与咨询师沟通。',
-      q6: '系统支持哪些浏览器？',
-      a6: '推荐使用 Chrome 90+、Edge 90+、Firefox 90+ 或 Safari 15+。不支持 IE 浏览器。移动端支持 iOS 14+ 和 Android 10+ 的现代浏览器。'
-    }
-  },
   serviceWorker: {
     updateAvailableTitle: '更新可用',
     updateAvailableMessage: '新版本可用，点击立即更新'
@@ -2069,5 +1963,72 @@ export default {
     daysAgo: '{count}天前',
     monthsAgo: '{count}个月前',
     yearsAgo: '{count}年前'
+  },
+  // P1-3 统一帮助体系：按角色差异化的帮助中心/FAQ/联系支持/反馈
+  help: {
+    buttonLabel: '帮助中心',
+    onboarding: '重新查看引导',
+    faqLabel: '常见问题',
+    contactSupport: '联系支持',
+    feedbackLabel: '提交反馈',
+    faqTitle: '常见问题解答',
+    contactTitle: '联系支持团队',
+    emailLabel: '邮箱',
+    phoneLabel: '电话',
+    hoursLabel: '服务时间',
+    hoursValue: '周一至周五 9:00-18:00',
+    feedbackTitle: '提交反馈',
+    feedbackCategoryLabel: '反馈类型',
+    feedbackCategoryBug: '问题报告',
+    feedbackCategoryFeature: '功能建议',
+    feedbackCategoryOther: '其他',
+    feedbackMessageLabel: '反馈内容',
+    feedbackMessagePlaceholder: '请描述您遇到的问题或建议...',
+    githubIssues: '在 GitHub 上提交 Issue',
+    feedbackSubmit: '提交',
+    feedbackEmpty: '请输入反馈内容',
+    feedbackSubmitted: '反馈已提交，感谢您的支持！',
+    // 通用 FAQ
+    faq: {
+      q1: '如何重置密码？',
+      a1: '在登录页面点击"忘记密码"，通过邮箱接收重置令牌即可重置密码。',
+      q2: '系统支持哪些浏览器？',
+      a2: '推荐使用 Chrome 90+、Edge 90+、Firefox 88+ 或 Safari 14+。',
+      q3: '数据会被保存多久？',
+      a3: '您的评估数据将根据隐私政策安全保存，仅授权人员可访问。',
+      q4: '如何修改个人信息？',
+      a4: '在侧边栏点击"设置"页面即可修改昵称、邮箱等个人信息。',
+      q5: '忘记用户名怎么办？',
+      a5: '请联系支持团队，通过邮箱验证后可找回用户名。',
+      q6: '系统是否支持移动端？',
+      a6: '系统已适配移动端，可在手机浏览器上正常使用。'
+    },
+    // 学生角色专属 FAQ
+    faqUser: {
+      q1: '如何进行风险评估？',
+      a1: '在侧边栏点击"风险评估"，完成结构化问卷和文本评估即可。',
+      q2: '评估结果会通知咨询师吗？',
+      a2: '高风险评估结果会自动通知您绑定的咨询师，以便及时获得帮助。',
+      q3: '我可以查看历史评估记录吗？',
+      a3: '可以，在"评估记录"页面可查看所有历史评估结果。'
+    },
+    // 咨询师角色专属 FAQ
+    faqCounselor: {
+      q1: '如何查看学生的风险评估？',
+      a1: '在"预警管理"页面可查看所有学生的风险评估结果和预警等级。',
+      q2: '如何处理高危预警？',
+      a2: '在预警详情页面点击"处理"按钮，记录干预措施并更新状态。',
+      q3: '如何查看学生评估历史？',
+      a3: '点击学生姓名进入详情页，可查看完整的评估历史和趋势图。'
+    },
+    // 管理员角色专属 FAQ
+    faqAdmin: {
+      q1: '如何配置预警阈值？',
+      a1: '在"系统设置"页面的"预警配置"部分可调整各等级的风险阈值。',
+      q2: '如何查看系统运行状态？',
+      a2: '在"可观测性"页面可查看系统健康度、API 延迟和错误率等指标。',
+      q3: '如何管理用户角色？',
+      a3: '目前用户角色在注册时确定，如需变更请联系系统开发团队。'
+    }
   }
 }

@@ -52,8 +52,9 @@
                 <div class="stat-value">
                   {{ modelStatusSummary.structured }}
                 </div>
+                <!-- P1-2 角色简化：文件名仅 admin 可见，学生看到通用描述 -->
                 <div class="stat-desc">
-                  best_model.pkl
+                  {{ canTrain ? 'best_model.pkl' : t('userModelTraining.statStructuredDesc') }}
                 </div>
               </div>
             </el-col>
@@ -66,7 +67,7 @@
                   {{ modelStatusSummary.text }}
                 </div>
                 <div class="stat-desc">
-                  text_model.pkl + tfidf.pkl
+                  {{ canTrain ? 'text_model.pkl + tfidf.pkl' : t('userModelTraining.statTextDesc') }}
                 </div>
               </div>
             </el-col>
@@ -79,7 +80,7 @@
                   {{ t('userModelTraining.statScriptValue') }}
                 </div>
                 <div class="stat-desc">
-                  train_ml_oneclick.ps1
+                  {{ canTrain ? 'train_ml_oneclick.ps1' : t('userModelTraining.statScriptDesc') }}
                 </div>
               </div>
             </el-col>
@@ -149,10 +150,15 @@
                   >
                     {{ t('userModelTraining.goToRiskBtn') }}
                   </el-button>
-                  <el-button @click="copyModelPaths">
+                  <!-- P1-2 角色简化：复制路径/查看脚本仅 admin 可见 -->
+                  <el-button
+                    v-if="canTrain"
+                    @click="copyModelPaths"
+                  >
                     {{ t('userModelTraining.copyPathsBtn') }}
                   </el-button>
                   <el-button
+                    v-if="canTrain"
                     type="success"
                     plain
                     @click="openTrainingScript"
@@ -231,7 +237,9 @@
                 <template #header>
                   <span class="card-title">{{ t('userModelTraining.artifactsTitle') }}</span>
                 </template>
+                <!-- P1-2 角色简化：Artifacts 文件路径仅 admin 可见，学生看到状态摘要 -->
                 <el-descriptions
+                  v-if="canTrain"
                   :column="1"
                   border
                   class="compact-desc"
@@ -247,6 +255,19 @@
                   </el-descriptions-item>
                   <el-descriptions-item :label="t('userModelTraining.artifactEntry')">
                     train_ml_oneclick.ps1
+                  </el-descriptions-item>
+                </el-descriptions>
+                <el-descriptions
+                  v-else
+                  :column="1"
+                  border
+                  class="compact-desc"
+                >
+                  <el-descriptions-item :label="t('userModelTraining.artifactStructured')">
+                    {{ modelStatusSummary.structured }}
+                  </el-descriptions-item>
+                  <el-descriptions-item :label="t('userModelTraining.artifactText')">
+                    {{ modelStatusSummary.text }}
                   </el-descriptions-item>
                 </el-descriptions>
               </el-card>
@@ -345,7 +366,11 @@
             <el-descriptions-item :label="t('userModelTraining.colDetectedAt')">
               {{ modelStatusLoadedAt }}
             </el-descriptions-item>
-            <el-descriptions-item :label="t('userModelTraining.colModelDir')">
+            <!-- P1-2 角色简化：模型目录路径仅 admin 可见 -->
+            <el-descriptions-item
+              v-if="canTrain"
+              :label="t('userModelTraining.colModelDir')"
+            >
               {{ modelStatus.model_dir }}
             </el-descriptions-item>
           </el-descriptions>
@@ -582,9 +607,12 @@ const scrollToArtifacts = () => {
 const showModelStatusDetail = () => {
   // P1-FE-005 修复：移除 dangerouslyUseHTMLString，改为纯文本显示，避免 XSS 风险
   // 使用 \n 换行，配合 customClass 与 CSS white-space: pre-line 实现换行渲染
-  const lines = modelStatus.items
+  // P1-2 角色简化：非 admin 用户不显示 model_id 和 path，仅显示状态摘要
+  const validItems = modelStatus.items
     .filter(item => item.lifecycle !== 'deprecated' && item.lifecycle !== 'disabled')
-    .map(item => `${item.model_id}: ${item.exists ? 'OK' : 'Missing'} ${item.path}`).join('\n')
+  const lines = canTrain.value
+    ? validItems.map(item => `${item.model_id}: ${item.exists ? 'OK' : 'Missing'} ${item.path}`).join('\n')
+    : validItems.map(item => `${item.exists ? '✓' : '✗'} ${item.exists ? t('userModelTraining.modelStatusReady') : t('userModelTraining.modelStatusMissing')}`).join('\n')
   // ISS-059 备注：Element Plus 2.x 当前 TypeScript 类型仅声明 customClass，
   // 虽然运行时 class 也能工作，但为了类型安全仍使用 customClass
   ElMessageBox.alert(lines || t('userModelTraining.noModelStatus'), t('userModelTraining.statusDetailTitle'), {

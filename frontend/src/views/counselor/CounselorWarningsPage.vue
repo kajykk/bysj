@@ -339,11 +339,14 @@ import { getErrorDetail } from '@/utils/errorDetail'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { useListQueryState } from '@/composables/useListQueryState'
+import { useAnalytics } from '@/composables/useAnalytics'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { formatWarningDateTime, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType, isWarningHandled } from '@/utils/warning'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+// P1-5 埋点与隐私：预警处理追踪（不采集预警内容）
+const { track } = useAnalytics()
 const queryState = useListQueryState('cw')
 
 const loading = ref(false)
@@ -460,6 +463,8 @@ const handleWarning = async (row: WarningItem, action: 'handle' | 'ignore') => {
   } catch {
     return
   }
+  // P1-5 埋点与隐私：记录预警处理事件（仅采集预警 ID，不采集备注内容）
+  track('warning_handle', { warning_id: row.id })
   const previousStatus = row.status
   const previousIsRead = row.is_read
   const previousHandledAt = row.handled_at

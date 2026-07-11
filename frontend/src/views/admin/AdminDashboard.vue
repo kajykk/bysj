@@ -10,14 +10,14 @@
           {{ t('adminDashboard.eyebrow') }}
         </p>
         <h2>{{ t('adminDashboard.title') }}</h2>
-        <p>{{ t('adminDashboard.lede') }}</p>
+        <p>{{ t('adminDashboard.welcome', { name: auth.user?.nickname || auth.user?.username || t('adminDashboard.welcomeFallback') }) }}</p>
       </div>
       <div class="layout__actions">
         <el-tag type="danger">
           {{ t('adminDashboard.tagAdmin') }}
         </el-tag>
         <el-button @click="handleLogout">
-          {{ t('adminDashboard.btnLogout') }}
+          {{ t('user.logout') }}
         </el-button>
       </div>
     </div>
@@ -114,11 +114,6 @@
         </section>
       </div>
     </div>
-
-    <section class="executive-summary">
-      <h3>{{ executiveSummary.title }}</h3>
-      <p>{{ executiveSummary.body }}</p>
-    </section>
 
     <!-- 第二行：系统状态（宽，Live Status）+ 快捷操作（窄） -->
     <div class="bento-grid bento-grid--bottom">
@@ -219,7 +214,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { adminApi } from '@/api/adminApi'
@@ -338,15 +333,6 @@ const COMPONENT_NAME_KEYS: Record<string, string> = {
   storage: 'adminDashboard.componentStorage',
 }
 
-const executiveSummary = computed(() => ({
-  title: t('adminDashboard.executiveSummaryTitle'),
-  body: t('adminDashboard.executiveSummaryBody', {
-    users: stats.total_users,
-    warnings: stats.today_warnings,
-    templates: stats.active_templates,
-  }),
-}))
-
 const componentStatus = ref<{ key: string; healthy: boolean }[]>(
   Object.keys(COMPONENT_NAME_KEYS).map((key) => ({ key, healthy: true }))
 )
@@ -357,7 +343,7 @@ const loadStats = async () => {
     const data = await adminApi.getAdminStats()
     Object.assign(stats, data)
   } catch {
-    ElMessage.warning(t('adminDashboard.loadStatsFailed'))
+    // keep defaults
   } finally {
     statsLoading.value = false
   }
@@ -378,7 +364,6 @@ const checkHealth = async () => {
   } catch {
     systemHealthy.value = false
     componentStatus.value = componentStatus.value.map((comp) => ({ ...comp, healthy: false }))
-    ElMessage.warning(t('adminDashboard.loadHealthFailed'))
   } finally {
     healthLoading.value = false
   }
@@ -390,11 +375,7 @@ const handleLogout = async () => {
   } catch {
     return
   }
-  try {
-    await auth.logout()
-  } catch {
-    ElMessage.warning(t('adminDashboard.logoutFailed'))
-  }
+  await auth.logout()
   await router.push('/login')
 }
 
@@ -426,7 +407,7 @@ onMounted(() => {
   gap: 0.5rem;
   margin: 0 0 0.375rem;
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-extra-small);
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -443,7 +424,7 @@ onMounted(() => {
 .layout__header h2 {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: var(--font-size-stat);
+  font-size: 1.875rem;
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;
@@ -462,26 +443,6 @@ onMounted(() => {
   align-items: center;
   gap: var(--spacing-sm);
   flex-shrink: 0;
-}
-
-.executive-summary {
-  margin: -0.5rem 0 1rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--border-extra-light);
-  border-radius: 1rem;
-  background: var(--bg-primary);
-}
-
-.executive-summary h3 {
-  margin: 0 0 0.35rem;
-  font-size: var(--font-size-base);
-  color: var(--text-primary);
-}
-
-.executive-summary p {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.6;
 }
 
 /* ===== Bento 统计区：主指标（1.3fr）+ 副指标网格（2fr 内 2x2） ===== */
@@ -524,7 +485,7 @@ onMounted(() => {
 
 .stat-label {
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-extra-small);
+  font-size: 0.75rem;
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
   letter-spacing: 0.06em;
@@ -533,7 +494,7 @@ onMounted(() => {
 
 .stat {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-stat);
+  font-size: 2rem;
   font-weight: 700;
   letter-spacing: -0.03em;
   margin: 0.25rem 0 0.5rem;
@@ -626,7 +587,7 @@ onMounted(() => {
 .bento-cell__title {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: var(--font-size-base);
+  font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
@@ -728,7 +689,7 @@ onMounted(() => {
   }
 
   .stat {
-    font-size: var(--font-size-stat);
+    font-size: 1.75rem;
   }
 
   .stat--hero {

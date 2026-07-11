@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { wsClient, type WsTaskProgressMessage } from '@/composables/useWebSocket'
+import { reportsApi } from '@/api/reportsApi'
 
 export interface TaskProgressItem {
   job_id: string
@@ -16,13 +17,44 @@ let subscribed = false
 let cleanupTimer: ReturnType<typeof setInterval> | null = null
 
 // 已完成/失败任务的保留时间 (ms), 超时后自动清理
-const COMPLETED_RETENTION_MS = 30_000
+// P1-1 核心体验：从 30s 增加到 5min，确保用户有足够时间点击下载/重试
+const COMPLETED_RETENTION_MS = 300_000
 // 清理检查间隔
 const CLEANUP_INTERVAL_MS = 10_000
+
+// P1-1 核心体验：从后端恢复任务状态，使刷新后可恢复任务进度
+async function recoverJobs() {
+  try {
+    const result = await reportsApi.listPdfJobs()
+    const now = Date.now()
+    for (const job of result.jobs) {
+      // 仅恢复未过期的任务（后端 TTL 1 小时，但可能已清理）
+      if (!taskProgressMap.value.has(job.id)) {
+        taskProgressMap.value.set(job.id, {
+          job_id: job.id,
+          job_type: 'pdf' as const,
+          status: job.status as TaskProgressItem['status'],
+          progress: job.progress,
+          error: null,
+          created_at: job.created_at,
+          updated_at: now,
+        })
+      }
+    }
+    if (result.jobs.length > 0) {
+      taskProgressMap.value = new Map(taskProgressMap.value)
+      ensureCleanupTimer()
+    }
+  } catch {
+    // 静默失败：后端不可达时不影响前端正常使用
+  }
+}
 
 function ensureSubscribed() {
   if (subscribed) return
   subscribed = true
+  // P1-1 核心体验：页面加载时从后端恢复任务状态
+  recoverJobs()
   wsClient.onTaskProgress((msg: WsTaskProgressMessage) => {
     const item: TaskProgressItem = {
       job_id: msg.data.job_id,

@@ -17,8 +17,6 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from app.main import app
-
 
 def export_openapi_schema(output_path: Path | None = None) -> Path:
     """Export FastAPI OpenAPI schema to JSON file.
@@ -29,6 +27,9 @@ def export_openapi_schema(output_path: Path | None = None) -> Path:
     Returns:
         Path to the exported file
     """
+    # 延迟导入: 确保导入错误能被 __main__ 的 try/except 捕获并输出 ::error:: 注解
+    from app.main import app
+
     if output_path is None:
         output_path = backend_dir / "tests" / "contract" / "openapi.json"
 

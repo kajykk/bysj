@@ -64,8 +64,9 @@ function onPageChange(p: number) {
   loadDetails()
 }
 
-function toggleAutoRefresh(val: boolean) {
-  if (val) refreshTimer.value = setInterval(loadAll, 30000)
+function toggleAutoRefresh(val: string | number | boolean) {
+  const enabled = Boolean(val)
+  if (enabled) refreshTimer.value = setInterval(loadAll, 30000)
   else if (refreshTimer.value) { clearInterval(refreshTimer.value); refreshTimer.value = null }
 }
 

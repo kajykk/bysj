@@ -212,7 +212,7 @@ onUnmounted(stopPolling)
         stripe
       >
         <el-table-column
-          prop="job_id"
+          prop="id"
           :label="t('reports.jobId')"
         />
         <el-table-column
@@ -237,7 +237,7 @@ onUnmounted(stopPolling)
               v-if="row.status === 'completed'"
               size="small"
               type="success"
-              @click="downloadJob(row.job_id)"
+              @click="downloadJob(row.id)"
             >
               {{ t('common.download') }}
             </el-button>

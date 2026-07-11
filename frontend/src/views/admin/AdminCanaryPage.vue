@@ -48,7 +48,9 @@ function openTrafficDialog(d: CanaryDeployment) {
 
 async function updateTraffic() {
   if (!trafficTarget.value) return
-  const p = trafficTarget.value.percent
+  const target = trafficTarget.value
+  if (!target) return
+  const p = target.percent
   if (p < 1 || p > 100) { ElMessage.warning(t('canary.trafficRangeInvalid')); return }
   try {
     await canaryApi.updateCanaryTraffic(trafficTarget.value.id, { traffic_percent: p })
@@ -217,6 +219,7 @@ onMounted(loadAll)
       width="30%"
     >
       <el-slider
+        v-if="trafficTarget"
         v-model="trafficTarget.percent"
         :min="1"
         :max="100"

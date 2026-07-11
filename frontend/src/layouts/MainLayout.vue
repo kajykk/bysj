@@ -247,13 +247,15 @@ const groupedMenus = computed<MenuSection[]>(() => {
   const items = menus.value
   if (!items.length) return []
   const dashboard = items.find((item) => item.path.endsWith('/dashboard'))
-  const daily = items.filter((item) => /risk|warning|users|intervention|content|template|assessment|report|monitoring|observability|canary/.test(item.path))
-  const settings = items.filter((item) => item.path.includes('settings') || item.path.includes('operation-logs'))
-  const remainder = items.filter((item) => !daily.includes(item) && !settings.includes(item) && item !== dashboard)
+  const dailyItems = items.filter((item) => /risk|warning|users|intervention|content/.test(item.path))
+  const reviewItems = items.filter((item) => /assessment|report/.test(item.path))
+  const settingsItems = items.filter((item) => item.path.includes('settings') || item.path.includes('operation-logs'))
+  const opsItems = items.filter((item) => /monitoring|observability|canary|alerts|silences|crisis-events/.test(item.path))
   return [
-    { key: 'daily', labelKey: 'nav.sectionDaily', first: dashboard, items: dashboard ? [dashboard, ...daily.filter((item) => item !== dashboard)] : daily },
-    { key: 'review', labelKey: 'nav.sectionReview', items: remainder.filter((item) => item.path.includes('reports') || item.path.includes('reviews') || item.path.includes('assessments')) },
-    { key: 'settings', labelKey: 'nav.sectionSettings', items: settings },
+    { key: 'daily', labelKey: 'nav.sectionDaily', first: dashboard, items: dashboard ? [dashboard, ...dailyItems.filter((item) => item !== dashboard)] : dailyItems },
+    { key: 'review', labelKey: 'nav.sectionReview', items: reviewItems },
+    { key: 'ops', labelKey: 'nav.sectionOps', items: opsItems },
+    { key: 'settings', labelKey: 'nav.sectionSettings', items: settingsItems },
   ].filter((section) => section.items.length > 0)
 })
 const activePath = computed(() => route.path)
@@ -288,6 +290,13 @@ watch(
     if (isMobile() && !layout.sidebarCollapsed) {
       layout.setSidebarCollapsed(true)
     }
+    // P1-4 无障碍：路由变化时将焦点恢复到主内容区，便于键盘/读屏用户立即定位新页面内容
+    nextTick(() => {
+      const mainContent = document.getElementById('main-content')
+      if (mainContent) {
+        mainContent.focus()
+      }
+    })
   }
 )
 

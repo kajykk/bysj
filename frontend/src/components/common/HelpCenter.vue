@@ -162,8 +162,14 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { QuestionFilled, Guide, Document, Message, Phone, Clock, EditPen, Link } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth'
+import { useAnalytics } from '@/composables/useAnalytics'
 
 const { t } = useI18n()
+// P1-3 统一帮助体系：按角色差异化 FAQ
+const authStore = useAuthStore()
+// P1-5 埋点与隐私：帮助使用追踪
+const { track } = useAnalytics()
 
 const props = defineProps<{
   onRestartOnboarding: () => void
@@ -184,16 +190,39 @@ const feedbackMessage = ref('')
 const GITHUB_ISSUES_URL = 'https://github.com/kajykk/bysj/issues'
 const githubIssuesUrl = GITHUB_ISSUES_URL
 
-const faqList = computed(() => [
-  { q: t('help.faq.q1'), a: t('help.faq.a1') },
-  { q: t('help.faq.q2'), a: t('help.faq.a2') },
-  { q: t('help.faq.q3'), a: t('help.faq.a3') },
-  { q: t('help.faq.q4'), a: t('help.faq.a4') },
-  { q: t('help.faq.q5'), a: t('help.faq.a5') },
-  { q: t('help.faq.q6'), a: t('help.faq.a6') },
-])
+// P1-3 角色差异化 FAQ：通用 FAQ + 角色专属 FAQ
+const faqList = computed(() => {
+  const common = [
+    { q: t('help.faq.q1'), a: t('help.faq.a1') },
+    { q: t('help.faq.q2'), a: t('help.faq.a2') },
+    { q: t('help.faq.q3'), a: t('help.faq.a3') },
+    { q: t('help.faq.q4'), a: t('help.faq.a4') },
+    { q: t('help.faq.q5'), a: t('help.faq.a5') },
+    { q: t('help.faq.q6'), a: t('help.faq.a6') },
+  ]
+  const roleKey = authStore.role === 'admin' ? 'help.faqAdmin'
+    : authStore.role === 'counselor' ? 'help.faqCounselor'
+    : 'help.faqUser'
+  const roleFaq = [
+    { q: t(`${roleKey}.q1`), a: t(`${roleKey}.a1`) },
+    { q: t(`${roleKey}.q2`), a: t(`${roleKey}.a2`) },
+    { q: t(`${roleKey}.q3`), a: t(`${roleKey}.a3`) },
+  ]
+  return [...roleFaq, ...common]
+})
 
 const handleCommand = (command: string) => {
+  // P1-5 埋点与隐私：记录帮助使用事件（不采集反馈内容）
+  const actionMap: Record<string, 'onboarding' | 'faq' | 'contact' | 'feedback'> = {
+    onboarding: 'onboarding',
+    faq: 'faq',
+    contact: 'contact',
+    feedback: 'feedback',
+  }
+  if (actionMap[command]) {
+    track('help_use', { help_action: actionMap[command] })
+  }
+
   if (command === 'onboarding') {
     props.onRestartOnboarding()
   } else if (command === 'faq') {

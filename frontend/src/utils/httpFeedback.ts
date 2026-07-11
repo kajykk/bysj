@@ -1,4 +1,4 @@
-import { ElMessage } from 'element-plus'
+﻿import { ElMessage } from 'element-plus/es/components/message/index'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 
 export const showHttpFeedback = (error: unknown, fallback: string) => {

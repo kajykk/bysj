@@ -49,6 +49,27 @@
           >
             {{ task.error }}
           </div>
+          <!-- P1-1 核心体验：已完成任务提供下载按钮，失败任务提供关闭按钮 -->
+          <div v-if="task.status === 'completed' || task.status === 'failed'" class="task-progress-item-actions">
+            <el-button
+              v-if="task.status === 'completed'"
+              text
+              size="small"
+              type="primary"
+              :icon="Download"
+              @click="downloadTask(task.job_id, task.job_type)"
+            >
+              {{ t('taskProgress.download') }}
+            </el-button>
+            <el-button
+              text
+              size="small"
+              :aria-label="t('taskProgress.dismiss')"
+              @click="dismissTask(task.job_id)"
+            >
+              {{ t('taskProgress.dismiss') }}
+            </el-button>
+          </div>
         </div>
       </div>
     </div>
@@ -56,14 +77,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Close } from '@element-plus/icons-vue'
+import { computed, watch } from 'vue'
+import { Close, Download } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useTaskProgress } from '@/composables/useTaskProgress'
+import { useAnalytics } from '@/composables/useAnalytics'
+import { reportsApi } from '@/api/reportsApi'
 
 const { t } = useI18n()
-const { activeTasks, completedTasks, failedTasks, hasActiveTasks, clearAll } =
+const { activeTasks, completedTasks, failedTasks, hasActiveTasks, clearAll, removeTask } =
   useTaskProgress()
+// P1-5 埋点与隐私：任务失败追踪（不采集错误消息原文）
+const { track } = useAnalytics()
+const _trackedFailures = new Set<string>()
+
+watch(
+  failedTasks,
+  (tasks) => {
+    for (const task of tasks) {
+      if (!_trackedFailures.has(task.job_id)) {
+        _trackedFailures.add(task.job_id)
+        track('task_fail', { task_type: task.job_type as 'export' | 'training' | 'report' })
+      }
+    }
+  },
+  { deep: true },
+)
 
 // 合并显示所有任务, 活跃的在前, 已完成的在后
 const allTasks = computed(() => {
@@ -109,6 +149,33 @@ function getProgressStatus(
     default:
       return undefined
   }
+}
+
+// P1-1 核心体验：下载已完成的 PDF 报告
+async function downloadTask(jobId: string, jobType: string) {
+  try {
+    let blob: Blob
+    if (jobType === 'pdf') {
+      blob = await reportsApi.downloadPdf(jobId)
+    } else {
+      return
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `report_${jobId.slice(0, 8)}.${jobType === 'pdf' ? 'pdf' : 'xlsx'}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch {
+    ElMessage.error(t('taskProgress.downloadFailed'))
+  }
+}
+
+// P1-1 核心体验：关闭已完成/失败的任务通知
+function dismissTask(jobId: string) {
+  removeTask(jobId)
 }
 </script>
 
@@ -211,6 +278,13 @@ function getProgressStatus(
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.task-progress-item-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 8px;
 }
 
 // 进度条样式覆盖, 匹配设计令牌

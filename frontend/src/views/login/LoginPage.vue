@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="auth-shell">
     <!-- 左侧品牌面板：非对称分屏（规则 3：DESIGN_VARIANCE>4 禁止居中 Hero） -->
     <AuthBrandPanel
@@ -211,7 +211,8 @@
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage } from 'element-plus/es/components/message/index'
+import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorDetail } from '@/utils/errorDetail'
 import { validatePasswordBytes } from '@/utils/passwordValidation'
