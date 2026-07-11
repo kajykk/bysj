@@ -5,6 +5,8 @@ Tests crisis override, review triggers, and physiological validation.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,6 +15,15 @@ from app.main import app
 client = TestClient(app)
 
 pytestmark = pytest.mark.integration
+
+PHYSIO_MODEL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "models" / "artifacts" / "physiological_optimized" / "model.json"
+)
+skip_no_physio = pytest.mark.skipif(
+    not PHYSIO_MODEL_PATH.exists(),
+    reason="生理模型 artifacts 不存在 (models/artifacts/physiological_optimized/)",
+)
 
 
 class TestTextPredictionV116:
@@ -98,6 +109,7 @@ class TestPhysiologicalPredictionV116:
         data = response.json()
         assert data["error"]["code"] == "VALIDATION_ERROR"
 
+    @skip_no_physio
     def test_physiological_valid_data(self):
         """有效生理数据应返回预测结果，包含 confidence 和 calibrated。"""
         response = client.post(
