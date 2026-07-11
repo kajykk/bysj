@@ -25,7 +25,7 @@ export interface PdfJobStatus {
 }
 
 export interface PdfJobItem {
-  job_id: string
+  id: string
   user_name?: string
   status: string
   progress: number

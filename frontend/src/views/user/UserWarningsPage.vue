@@ -3,14 +3,6 @@
     :title="t('userWarnings.title')"
     class="warnings-card bento-item"
   >
-    <template #actions>
-      <el-tag
-        type="warning"
-        effect="light"
-      >
-        {{ unreadCountLabel }}
-      </el-tag>
-    </template>
     <FilterBar
       @search="fetchData"
       @reset="handleReset"
@@ -232,7 +224,6 @@ const page = computed(() => queryState.page.value)
 const pageSize = computed(() => queryState.pageSize.value)
 // R-009 修复：将模板中的 rows.some() 提取为 computed，避免每次渲染都重新遍历数组
 const hasUnreadRows = computed(() => rows.value.some((row) => !row.is_read))
-const unreadCountLabel = computed(() => `${rows.value.filter((row) => !row.is_read).length} ${t('userWarnings.unreadLabel')}`)
 
 const rowPendingIds = ref<Set<number>>(new Set())
 const rowErrors = ref<Record<number, string>>({})

@@ -58,8 +58,9 @@ async function loadAll() {
   ])
 }
 
-function toggleAutoRefresh(val: boolean) {
-  if (val) {
+function toggleAutoRefresh(val: string | number | boolean) {
+  const enabled = Boolean(val)
+  if (enabled) {
     refreshTimer.value = setInterval(loadAll, 60000)
   } else if (refreshTimer.value) {
     clearInterval(refreshTimer.value)

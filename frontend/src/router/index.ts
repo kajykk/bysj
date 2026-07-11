@@ -1,8 +1,9 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
 // R-003 修复：基础文件 (路由守卫层) 显式导入 ElMessage，避免依赖 unplugin-auto-import
 // 隐式注入导致测试环境需 globalThis hack、生产环境配置失效时静默失败的可靠性问题。
 // 页面/组件层仍可使用 auto-import，仅基础文件强制显式导入以保障运行时确定性。
-import { ElMessage } from 'element-plus'
+// P1-1 性能优化：改用子路径导入，避免从 element-plus 根入口拉入全量组件（640KB→仅 message 模块）
+import { ElMessage } from 'element-plus/es/components/message/index'
 import { useAuthStore } from '@/stores/auth'
 import { resolveGuardResult, type GuardRouteMeta } from '@/router/guard'
 import { ROUTE_PERMISSIONS } from '@/config/routeAccess'

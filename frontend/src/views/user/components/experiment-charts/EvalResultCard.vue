@@ -4,6 +4,7 @@
       <div class="header-row">
         <span class="card-title">{{ t('experimentAssess.evalResultTitle') }}</span>
         <el-button
+          v-if="canViewDetails"
           size="small"
           @click="copyJson({ summary, confusionMatrix, evalLogRows, trainLogRows })"
         >
@@ -11,8 +12,9 @@
         </el-button>
       </div>
     </template>
+    <!-- P1-2 角色简化：admin/counselor 看到详细 ML 指标，学生看到可解释摘要 -->
     <el-descriptions
-      v-if="summary"
+      v-if="summary && canViewDetails"
       :column="2"
       border
     >
@@ -29,8 +31,17 @@
         {{ summary.status || 'completed' }}
       </el-descriptions-item>
     </el-descriptions>
+    <!-- 学生看到的面向行动摘要 -->
+    <el-alert
+      v-else-if="summary"
+      :type="modelReady ? 'success' : 'warning'"
+      show-icon
+      :closable="false"
+      :title="modelReady ? t('experimentAssess.studentSummaryReady') : t('experimentAssess.studentSummaryPartial')"
+      :description="t('experimentAssess.studentSummaryDesc')"
+    />
     <div
-      v-if="trainLogRows.length || evalLogRows.length"
+      v-if="canViewDetails && (trainLogRows.length || evalLogRows.length)"
       class="log-viewer-grid"
     >
       <el-card
@@ -174,6 +185,7 @@
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   summary: Record<string, unknown> | null
@@ -183,6 +195,17 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+// P1-2 角色简化：admin/counselor 可查看详细 ML 指标，学生仅看摘要
+const authStore = useAuthStore()
+const canViewDetails = computed(() => authStore.role === 'admin' || authStore.role === 'counselor')
+// 模型是否就绪：status 为 completed 或 val_accuracy > 0.6
+const modelReady = computed(() => {
+  if (!props.summary) return false
+  const status = props.summary.status as string | undefined
+  if (status === 'completed') return true
+  const acc = Number(props.summary.val_accuracy)
+  return !isNaN(acc) && acc > 0.6
+})
 
 const trainLogFilter = ref('')
 const evalLogFilter = ref('')

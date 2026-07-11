@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Service Worker registration using vite-plugin-pwa virtual module.
  * Replaces the legacy manual registration with auto-generated SW support.
  */
 
 import { useRegisterSW } from 'virtual:pwa-register/vue'
-import { ElNotification } from 'element-plus'
+import { ElNotification } from 'element-plus/es/components/notification/index'
 import i18n from '@/i18n'
 
 const t = i18n.global.t.bind(i18n.global)

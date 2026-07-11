@@ -9,8 +9,8 @@
           />
           {{ t('userDashboard.eyebrow') }}
         </p>
-        <h2>{{ t('userDashboard.productHeadline') }}</h2>
-        <p>{{ t('userDashboard.productSubheadline') }}</p>
+        <h2>{{ t('userDashboard.title') }}</h2>
+        <p>{{ t('userDashboard.welcome', { name: auth.user?.nickname || auth.user?.username || t('userDashboard.defaultUserName') }) }}</p>
       </div>
       <div class="layout__actions">
         <el-tag type="primary">
@@ -20,33 +20,34 @@
           {{ t('userDashboard.btnLogout') }}
         </el-button>
       </div>
-      <div class="next-step-card">
-        <p class="next-step-card__label">
-          {{ nextAction.label }}
-        </p>
-        <p class="next-step-card__title">
-          {{ nextAction.title }}
-        </p>
-        <p class="next-step-card__desc">
-          {{ nextAction.description }}
-        </p>
-        <div class="next-step-card__actions">
-          <el-button
-            type="primary"
-            @click="nextAction.action()"
-          >
-            {{ nextAction.primaryText }}
-          </el-button>
-          <el-button
-            link
-            type="primary"
-            @click="router.push(nextAction.secondaryPath)"
-          >
-            {{ nextAction.secondaryText }}
-          </el-button>
-        </div>
-      </div>
     </div>
+
+    <section class="next-step-card">
+      <p class="next-step-card__label">
+        {{ nextAction.label }}
+      </p>
+      <p class="next-step-card__title">
+        {{ nextAction.title }}
+      </p>
+      <p class="next-step-card__desc">
+        {{ nextAction.description }}
+      </p>
+      <div class="next-step-card__actions">
+        <el-button
+          type="primary"
+          @click="nextAction.action()"
+        >
+          {{ nextAction.primaryText }}
+        </el-button>
+        <el-button
+          link
+          type="primary"
+          @click="router.push(nextAction.secondaryPath)"
+        >
+          {{ nextAction.secondaryText }}
+        </el-button>
+      </div>
+    </section>
 
     <!-- Bento 网格：风险状态主视觉（2fr）+ 副卡（1fr），打破 3 等宽卡片行 -->
     <div class="bento-grid bento-grid--top">
@@ -399,14 +400,6 @@
               </el-tag>
               <span class="warning-title">{{ w.title }}</span>
               <span class="warning-time tabular-nums">{{ formatDate(w.created_at, 'MM/DD HH:mm') }}</span>
-              <el-button
-                link
-                type="primary"
-                class="warning-action"
-                @click="router.push('/user/warnings')"
-              >
-                {{ t('userDashboard.btnViewDetail') }}
-              </el-button>
             </li>
           </ul>
           <el-button
@@ -511,7 +504,7 @@ const assessmentError = ref('')
 const completedTasks = computed(() => activeIntervention.value.tasks.filter((task) => task.today_status === 'completed').length)
 
 const nextAction = computed(() => {
-  if (warningError.value || riskError.value || interventionError.value || trendError.value || assessmentError.value) {
+  if (riskLoading.value || interventionLoading.value || warningLoading.value || assessmentLoading.value) {
     return {
       label: t('userDashboard.nextActionLabelFallback'),
       title: t('userDashboard.nextActionTitleFallback'),
@@ -702,6 +695,7 @@ const loadDashboard = async () => {
   }
 }
 
+
 const CHART_RISK_LEVEL_KEYS: Record<number, string> = {
   0: 'chartRiskLevel0',
   1: 'chartRiskLevel1',
@@ -760,7 +754,7 @@ const renderTrendChart = () => {
             <span>${scoreLabel}<strong>${score}${scoreUnit}</strong></span>
           </div>
           <div style="margin-bottom:4px;padding-left:16px;">${levelLabel}<span style="color:${chartDanger};font-weight:500;">${level}</span></div>
-          <div style="padding-left:16px;color:${chartTextSecondary};font-size:var(--font-size-extra-small);">${trendLabel}${trend}</div>
+          <div style="padding-left:16px;color:${chartTextSecondary};font-size:12px;">${trendLabel}${trend}</div>
         </div>`
       }
     },
@@ -827,7 +821,7 @@ onUnmounted(() => {
   gap: 0.5rem;
   margin: 0 0 0.375rem;
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-extra-small);
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -844,7 +838,7 @@ onUnmounted(() => {
 .layout__header h2 {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: var(--font-size-stat);
+  font-size: 1.875rem;
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;
@@ -967,7 +961,7 @@ onUnmounted(() => {
 .bento-cell__title {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: var(--font-size-base);
+  font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
@@ -989,7 +983,7 @@ onUnmounted(() => {
 
 .warning-count {
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-extra-small);
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--danger-color);
   background: var(--danger-light);
@@ -1088,11 +1082,6 @@ onUnmounted(() => {
   padding: 0.625rem 0;
   border-bottom: 1px solid var(--border-extra-light);
   transition: background var(--transition-fast) var(--transition-timing);
-  flex-wrap: wrap;
-}
-
-.warning-action {
-  margin-left: auto;
 }
 
 .warning-item:last-child {

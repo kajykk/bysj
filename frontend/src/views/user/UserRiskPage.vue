@@ -1,25 +1,5 @@
 <template>
   <div class="risk-page">
-    <div class="risk-page__summary">
-      <p class="risk-page__eyebrow">
-        {{ t('userRisk.pageEyebrow') }}
-      </p>
-      <h2>{{ t('userRisk.pageTitle') }}</h2>
-      <p>{{ t('userRisk.pageLede') }}</p>
-      <div class="risk-page__actions">
-        <el-button
-          type="primary"
-          @click="activeTab = 'structured'"
-        >
-          {{ t('userRisk.quickStartStructured') }}
-        </el-button>
-        <el-button
-          @click="activeTab = 'report'"
-        >
-          {{ t('userRisk.quickViewReport') }}
-        </el-button>
-      </div>
-    </div>
     <el-tabs
       v-model="activeTab"
       type="border-card"
@@ -323,11 +303,11 @@ import { PhoneFilled } from '@element-plus/icons-vue'
 import { modelApi, type FusionPredictResult, type RiskTrend } from '@/api/modelApi'
 import type { RiskReport } from '@/api/userRiskApi'
 import { userApi } from '@/api/userApi'
-import { reportsApi } from '@/api/reportsApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { hasPermission } from '@/config/permissions'
 import { severityFromLevel, formatArrayText } from '@/utils/riskFormatters'
+import { useAnalytics } from '@/composables/useAnalytics'
 import RiskReportTab from './components/RiskReportTab.vue'
 import StructuredAssessTab from './components/StructuredAssessTab.vue'
 import TextAssessTab from './components/TextAssessTab.vue'
@@ -335,6 +315,8 @@ import ExperimentTab from './components/ExperimentTab.vue'
 import PhysioTab from './components/PhysioTab.vue'
 
 const auth = useAuthStore()
+// P1-5 埋点与隐私：评估流程追踪
+const { track } = useAnalytics()
 const { t } = useI18n()
 // 卸载守卫，防止异步操作在组件卸载后更新状态导致泄漏与告警
 let isUnmounted = false
@@ -356,7 +338,7 @@ const loadReport = async () => {
   reportLoading.value = true
   reportError.value = ''
   try {
-    report.value = await userApi.getRiskReport()
+    report.value = await modelApi.getRiskReport()
   } catch (error) {
     reportError.value = normalizeHttpError(error, t('userRisk.reportLoadFailed')).detail
   } finally {
@@ -364,9 +346,10 @@ const loadReport = async () => {
       reportLoading.value = false
     }
   }
+  // 趋势数据单独获取，失败时使用空趋势占位，不影响报告主流程
   if (isUnmounted) return
   try {
-    const trendResult = await userApi.getRiskTrend(30)
+    const trendResult = await modelApi.getRiskTrend(30)
     if (isUnmounted) return
     reportTrendData.value = trendResult
   } catch (error) {
@@ -376,12 +359,9 @@ const loadReport = async () => {
 
 const handleExport = async (format: 'json' | 'csv' | 'pdf') => {
   try {
-    const blob =
-      format === 'pdf'
-        ? await reportsApi.exportUserRiskPdf(90)
-        : format === 'csv'
-          ? await reportsApi.exportUserRiskCsv(90)
-          : new Blob([JSON.stringify(await reportsApi.exportUserRiskJson(90), null, 2)], { type: 'application/json' })
+    const response = await userApi.exportRiskData(format, 90)
+    const mimeType = format === 'pdf' ? 'application/pdf' : format === 'csv' ? 'text/csv' : 'application/json'
+    const blob = new Blob([response.data], { type: mimeType })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -482,6 +462,8 @@ const handlePhysioSubmitted = async (data: { physiologicalJson: string; physioFo
 
 onMounted(() => {
   loadReport()
+  // P1-5 埋点与隐私：记录进入评估页面事件（不采集评估内容）
+  track('assessment_enter', { page: '/user/risk' })
 })
 
 onUnmounted(() => {
@@ -493,40 +475,6 @@ onUnmounted(() => {
 <style scoped>
 .risk-page {
   padding: 0;
-}
-
-.risk-page__summary {
-  margin-bottom: 1rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--border-extra-light);
-  border-radius: 1rem;
-  background: var(--bg-primary);
-}
-
-.risk-page__eyebrow {
-  margin: 0 0 0.35rem;
-  color: var(--text-secondary);
-  font-size: var(--font-size-extra-small);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.risk-page__summary h2 {
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.risk-page__summary p:last-child {
-  margin: 0.4rem 0 0;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.risk-page__actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.85rem;
-  flex-wrap: wrap;
 }
 
 .card-title {
@@ -564,12 +512,12 @@ onUnmounted(() => {
 }
 
 .hotline-name {
-  font-size: var(--font-size-small);
+  font-size: 13px;
   color: #606266;
 }
 
 .hotline-number {
-  font-size: var(--font-size-large);
+  font-size: 18px;
   font-weight: 600;
   color: #f56c6c;
   margin-top: 4px;

@@ -130,7 +130,10 @@ def _reset_global_executors():
     yield
 
 
-SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test_app.db"
+import os as _os
+SQLALCHEMY_DATABASE_URL = _os.environ.get(
+    "TEST_DATABASE_URL", "sqlite+aiosqlite:///./test_app.db"
+)
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL, future=True)
 SessionFactory = async_sessionmaker(
     bind=engine, expire_on_commit=False, class_=AsyncSession

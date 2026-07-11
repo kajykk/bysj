@@ -1,5 +1,5 @@
-import { computed, ref } from 'vue'
-import { ElNotification } from 'element-plus'
+﻿import { computed, ref } from 'vue'
+import { ElNotification } from 'element-plus/es/components/notification/index'
 import { captureMessage } from '@/plugins/sentry'
 import i18n from '@/i18n'
 

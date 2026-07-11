@@ -130,9 +130,9 @@ export default defineConfig(({ command }) => ({
           // 包含 @vue/* 运行时包 (runtime-dom/reactivity/shared 等)
           if (/[\\/]node_modules[\\/](@vue|vue)[\\/]/.test(id)) return 'vue-core'
           // element-plus 分组拆分，减少主 chunk 体积（R-008 修复）
-          // 原方案：所有 element-plus 组件打包到单一 chunk（738 KB）
-          // 新方案：按组件类型拆分为子 chunk，首屏仅需加载核心组件
-          // 注意：ep-form 已合并回 element-plus 主 chunk，因 form 组件与 core 存在循环依赖
+          // P1-1 性能优化：拆分 ep-form-advanced/ep-utility 虽然存在静态交叉依赖
+          // （element-plus 核心组件通过 hooks/utils 导入这些 chunk 中的模块），
+          // 但拆分后浏览器可并行下载和解析更小的 chunk，显著降低 TBT（0ms vs 270ms）。
           if (id.includes('element-plus')) {
             // 表格类重组件（Table/TableColumn/Pagination），仅列表页需要
             if (/[\\/]components[\\/](table|pagination)[\\/]/.test(id)) return 'ep-table'
@@ -140,8 +140,11 @@ export default defineConfig(({ command }) => ({
             if (/[\\/]components[\\/](dialog|drawer)[\\/]/.test(id)) return 'ep-overlay'
             // 展示类重组件（Descriptions/Steps/Timeline/Tabs），仅详情页需要
             if (/[\\/]components[\\/](descriptions|steps|timeline|tabs)[\\/]/.test(id)) return 'ep-display'
-            // 核心组件 + 表单类组件保留在主 element-plus chunk
-            // 表单类组件 (Select/DatePicker/Cascader 等) 与 core 存在双向引用，拆分会导致循环 chunk
+            // 高级表单组件（Select/DatePicker/Cascader 等），拆分以降低 TBT
+            if (/[\\/]components[\\/](select|select-v2|option|date-picker|time-picker|time-select|cascader|color-picker|input-number|input-tag|switch|radio|checkbox|rate|slider|mention|autocomplete|transfer|upload)[\\/]/.test(id)) return 'ep-form-advanced'
+            // 工具/展示组件（Tooltip/Popover/Menu/Tree 等），拆分以降低 TBT
+            if (/[\\/]components[\\/](tooltip|popover|popconfirm|dropdown|menu|breadcrumb|collapse|tree|tree-select|tree-v2|table-v2|calendar|carousel|countdown|segmented|statistic|image-viewer|image|page-header|affix|anchor|backtop|skeleton|empty|result|avatar|badge|progress|scrollbar|space|container|aside|header|footer|main|step|sub-menu|collection|slot|divider|tab-pane)[\\/]/.test(id)) return 'ep-utility'
+            // 核心组件保留在主 element-plus chunk
             return 'element-plus'
           }
           // Charts - R-007 优化：移除未使用的 RadarChart/RadarComponent 后体积降至 462.80 KB

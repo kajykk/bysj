@@ -36,19 +36,12 @@ export default {
     createFailed: 'Creation failed',
     updateSuccess: 'Updated successfully',
     updateFailed: 'Update failed',
-    failed: 'Operation failed',
-    status: 'Status',
-    createdAt: 'Created At',
-    csv: 'CSV',
-    json: 'JSON',
-    days7: '7d',
-    days30: '30d',
-    days90: '90d',
-    days365: '365d'
+    failed: 'Operation failed'
   },
   nav: {
     sectionDaily: 'Daily Work',
     sectionReview: 'Review & History',
+    sectionOps: 'Ops & Monitoring',
     sectionSettings: 'Settings',
     dashboard: 'Dashboard',
     riskAssessment: 'Risk Assessment',
@@ -164,9 +157,7 @@ export default {
       hour6: '6 Hours',
       hour24: '24 Hours',
       day7: '7 Days'
-    },
-    logId: 'Log ID',
-    input: 'Input'
+    }
   },
   observability: {
     health: 'Health Status',
@@ -175,13 +166,7 @@ export default {
     silenceHitRate: 'Silence Hit Rate',
     trend: 'Trend',
     amSync: 'AlertManager Sync',
-    lockStats: 'Lock Stats',
-    channelStats: 'Channel Stats',
-    startDate: 'Start Date',
-    endDate: 'End Date',
-    cached: 'Cached',
-    points: 'points',
-    channels: 'channels'
+    lockStats: 'Lock Stats'
   },
   report: {
     title: 'Report Center',
@@ -214,21 +199,7 @@ export default {
     pdfReady: 'PDF Ready',
     pdfGenerating: 'PDF Generating',
     jobList: 'Job List',
-    batchExcel: 'Batch Excel',
-    userId: 'User ID',
-    userName: 'User Name',
-    riskLevel: 'Risk Level',
-    riskTrend: 'Risk Trend',
-    recommendations: 'Recommendations',
-    commaSeparated: 'Comma separated',
-    jobId: 'Job ID',
-    status: 'Status',
-    progress: 'Progress',
-    createdAt: 'Created At',
-    columnsLimit: 'Maximum 50 columns',
-    excelColsPlaceholder: 'col1,col2 (comma separated, max 50 columns)',
-    excelFilenamePlaceholder: 'filename.xlsx',
-    placeholderJson: '[{"col":"val"}]'
+    batchExcel: 'Batch Excel'
   },
   canary: {
     running: 'Running',
@@ -241,18 +212,20 @@ export default {
     rollback: 'Rollback',
     confirmComplete: 'Confirm complete deployment {v}?',
     rollbackReason: 'Please enter rollback reason',
-    reasonRequired: 'Reason is required (1-500 chars)',
-    versionRequired: 'Version is required',
-    trafficRangeInvalid: 'Range 1-100',
-    version: 'Version',
-    trafficPercent: 'Traffic %',
-    status: 'Status',
-    startedAt: 'Started At'
+    reasonRequired: 'Reason is required (1-500 chars)'
   },
-  userReports: {
-    eyebrow: 'Risk Assessment Reports',
-    title: 'My Risk Reports',
-    lede: 'View your risk assessment overview and trend data',
+  taskProgress: {
+    defaultTitle: 'Task Progress',
+    pdfTitle: 'PDF Report Generation',
+    excelTitle: 'Excel Export',
+    trainingTitle: 'Model Training',
+    queued: 'Queued',
+    running: 'Running',
+    completed: 'Completed',
+    failed: 'Failed',
+    download: 'Download',
+    dismiss: 'Dismiss',
+    downloadFailed: 'Download failed'
   },
   error: {
     goHome: 'Go Home',
@@ -420,6 +393,21 @@ export default {
       admin: 'Administrator',
       counselor: 'Counselor',
       user: 'User'
+    },
+    // P1-5 Analytics consent management
+    analytics: {
+      title: 'Usage Analytics & Improvement',
+      description: 'We collect anonymized usage events (e.g., assessment start/complete, warning handling, help usage) to improve the product experience. We never collect questionnaire content, assessment text, or any sensitive health content.',
+      consentLabel: 'Consent to usage analytics collection',
+      consentDesc: 'When consented, the system will record the anonymized events above. You can withdraw consent at any time; no new events will be collected after withdrawal.',
+      retentionLabel: 'Data Retention Period',
+      retentionValue: '90 days (auto-deleted after expiry)',
+      eventTypesLabel: 'Event types collected',
+      eventTypes: 'Assessment enter, Assessment start, Assessment complete, Assessment abandon, Warning handle, Help use, Task fail',
+      consentGranted: 'Analytics collection consented',
+      consentWithdrawn: 'Analytics collection withdrawn',
+      updateFailed: 'Failed to update consent status',
+      privacyNote: 'Your choice does not affect the use of core system features.'
     }
   },
   passwordValidation: {
@@ -693,6 +681,10 @@ export default {
     statStructured: 'Structured Model',
     statText: 'Text Model',
     statScript: 'Training Script',
+    // P1-2 Role simplification: generic descriptions for students (no file/script names)
+    statStructuredDesc: 'Ready',
+    statTextDesc: 'Ready',
+    statScriptDesc: 'Built-in',
     consoleAlert: 'Quickly inspect training artifacts, copy paths, jump to the prediction page, and present a unified demo entry for defense.',
     activeJobTitle: 'Active Training Job',
     colJobId: 'Job ID',
@@ -768,9 +760,9 @@ export default {
     modelStatusMissing: 'Missing'
   },
   auth: {
-    brandLoginHeadline1: 'Bring assessment, warning, and intervention',
-    brandLoginHeadline2: 'into one closed loop',
-    brandLoginLede: 'An institution-ready platform for mental-risk detection, warning, and intervention coordination — helping users, counselors, and admins resolve cases faster.',
+    brandLoginHeadline1: 'Read the Subtle',
+    brandLoginHeadline2: 'Signals of Emotion',
+    brandLoginLede: 'A multimodal data platform for dynamic mental-health early warning and intervention — every assessment accumulates evidence for earlier care.',
     brandResetHeadline1: 'Reset Your',
     brandResetHeadline2: 'Security Credentials',
     brandResetLede: 'Set a new password for your account. A strong passphrase with letters and digits is recommended. Keep it safe.',
@@ -952,13 +944,9 @@ export default {
   adminDashboard: {
     eyebrow: 'Console',
     title: 'Admin Workspace',
-    lede: 'Aggregate operational status, templates, alerts, and observability signals so you can quickly assess system health and priorities.',
-    executiveSummaryTitle: 'Operations Summary',
-    executiveSummaryBody: 'There are {users} registered users, {warnings} warnings today, and {templates} active templates. Prioritize alerts and template updates first.',
     welcome: 'Welcome, {name}',
     welcomeFallback: 'Administrator',
     tagAdmin: 'Admin',
-    btnLogout: 'Sign out',
     statLabelUsers: 'Registered Users',
     statSubUsers: '{count} counselors',
     statLabelWarnings: 'Today Warnings',
@@ -1085,9 +1073,6 @@ export default {
   counselorDashboard: {
     eyebrow: 'Counselor Desk',
     title: 'Counselor Workspace',
-    lede: 'Focus on unhandled warnings, bound users, and follow-up queues so counselors can act on the cases that need attention most.',
-    queueSummaryTitle: 'Queue Summary',
-    queueSummaryBody: 'There are {warnings} unhandled warnings and {users} bound users. Start with the high-risk queue first.',
     welcome: 'Welcome, {name}',
     defaultCounselorName: 'Counselor',
     tagCounselor: 'Counselor',
@@ -1310,10 +1295,7 @@ export default {
     eyebrow: 'Workspace',
     title: 'User Dashboard',
     welcome: 'Welcome back, {name}',
-    productHeadline: 'Complete risk assessment, warning response, and review in one platform',
-    productSubheadline: 'An institution-grade mental health management workspace for users, counselors, and admins',
-    primaryCta: 'Enter workspace',
-    secondaryCta: 'View core flow',
+    defaultUserName: 'Student',
     nextActionLabelFallback: 'Next step',
     nextActionTitleFallback: 'Refresh the current work state first',
     nextActionDescFallback: 'The page has a loading issue. Retry first to restore the workflow.',
@@ -1329,7 +1311,6 @@ export default {
     nextActionLabelReview: 'Review',
     nextActionTitleReview: 'Check historical reports',
     nextActionDescReview: 'Review assessments and trends to confirm progress before the next reassessment.',
-    defaultUserName: 'Student',
     tagUserEnd: 'User Portal',
     btnLogout: 'Logout',
     riskStatusTitle: 'Risk Status',
@@ -1920,6 +1901,10 @@ export default {
     labelValLoss: 'Validation Loss',
     labelValAccuracy: 'Validation Accuracy',
     labelModelStatus: 'Model Status',
+    // P1-2 Role simplification: action-oriented summary for students
+    studentSummaryReady: 'Model evaluation completed, results are reliable',
+    studentSummaryPartial: 'Model evaluation incomplete, results for reference only',
+    studentSummaryDesc: 'The system has automatically completed multimodal risk assessment. You can view detailed results on the Risk Assessment page.',
     trainLogViewerTitle: 'Training Log Viewer',
     evalLogViewerTitle: 'Evaluation Log Viewer',
     filterLogPlaceholder: 'Filter logs...',
@@ -1964,97 +1949,6 @@ export default {
     disconnectedTitle: 'Connection Lost',
     disconnectedMessage: 'Real-time connection lost, please refresh the page to resume real-time alert notifications'
   },
-  taskProgress: {
-    pdfTitle: 'PDF Report Generation',
-    excelTitle: 'Excel Export',
-    trainingTitle: 'Model Training',
-    defaultTitle: 'Task Processing',
-    running: 'Processing...',
-    completed: 'Completed',
-    failed: 'Failed',
-    queued: 'Queued...',
-    downloadReady: 'Ready to download',
-    retryAvailable: 'Retry available'
-  },
-  onboarding: {
-    help: 'Onboarding Guide',
-    finish: 'Finish',
-    next: 'Next',
-    prev: 'Previous',
-    skip: 'Skip',
-    steps: {
-      user: {
-        navMenuTitle: 'Navigation Menu',
-        navMenuDesc: 'This is your main navigation menu where you can access all feature pages.',
-        warningBadgeTitle: 'Alert Notifications',
-        warningBadgeDesc: 'When there are new risk alerts, a red dot will appear here. Click to view details.',
-        dashboardTitle: 'Dashboard',
-        dashboardDesc: 'The dashboard shows your risk assessment overview and trend data. Check regularly.',
-        riskAssessTitle: 'Risk Assessment',
-        riskAssessDesc: 'Perform mental health risk assessments here. The system generates personalized reports based on your responses.',
-        warningsTitle: 'Alert Center',
-        warningsDesc: 'View your historical alert records and intervention suggestions.',
-      },
-      counselor: {
-        navMenuTitle: 'Counselor Navigation',
-        navMenuDesc: 'Manage your assigned users, view alerts, and review assessments here.',
-        warningBadgeTitle: 'Alert Notifications',
-        warningBadgeDesc: 'Real-time alerts will be pushed here when your users show high risk.',
-        warningMgmtTitle: 'Alert Management',
-        warningMgmtDesc: 'View and handle all user alerts, follow up with high-risk users promptly.',
-        userMgmtTitle: 'User Management',
-        userMgmtDesc: 'View your assigned user list and their risk assessment history.',
-      },
-      admin: {
-        navMenuTitle: 'Admin Navigation',
-        navMenuDesc: 'Manage system configuration, templates, alerts, and observability here.',
-        warningBadgeTitle: 'Alert Notifications',
-        warningBadgeDesc: 'System-level alerts will be pushed here in real-time. Please pay attention.',
-        dashboardTitle: 'System Dashboard',
-        dashboardDesc: 'View overall system status, user statistics, and risk distribution.',
-        observabilityTitle: 'Observability',
-        observabilityDesc: 'Monitor system metrics, logs, and tracing data.',
-      },
-    },
-  },
-  help: {
-    buttonLabel: 'Help Center',
-    onboarding: 'Onboarding Guide',
-    faqLabel: 'FAQ',
-    contactSupport: 'Contact Support',
-    faqTitle: 'Frequently Asked Questions',
-    contactTitle: 'Contact Technical Support',
-    emailLabel: 'Email',
-    phoneLabel: 'Phone',
-    hoursLabel: 'Service Hours',
-    hoursValue: 'Weekdays 9:00 - 18:00',
-    feedbackLabel: 'Send Feedback',
-    feedbackTitle: 'Feedback',
-    feedbackCategoryLabel: 'Category',
-    feedbackCategoryBug: 'Bug Report',
-    feedbackCategoryFeature: 'Feature Request',
-    feedbackCategoryOther: 'Other',
-    feedbackMessageLabel: 'Message',
-    feedbackMessagePlaceholder: 'Describe the issue or suggestion…',
-    feedbackSubmit: 'Submit to GitHub',
-    feedbackEmpty: 'Please enter your feedback',
-    feedbackSubmitted: 'GitHub Issues page has been opened. Please complete the submission in your browser.',
-    githubIssues: 'GitHub Issues',
-    faq: {
-      q1: 'How do I reset my password?',
-      a1: 'Click the "Forgot Password?" link on the login page, enter your registered email, and the system will send a password reset link to your inbox. The reset link is valid for 30 minutes.',
-      q2: 'How is my risk level calculated?',
-      a2: 'Risk levels are assessed through multimodal data fusion, combining physiological signals, psychological scales, and behavioral data, computed in real time by a machine learning model. Levels are: None, Low, Medium, High, Critical.',
-      q3: 'How do I export my assessment report?',
-      a3: 'Go to the "Reports" page, select the report to export, and click "Export PDF". The system generates the report in the background, and a progress notification in the bottom-right corner will prompt you when download is ready.',
-      q4: 'Is my data secure?',
-      a4: 'The system uses end-to-end encrypted transmission. Sensitive fields (such as ID numbers and phone numbers) are encrypted at rest in the database. Only you and authorized counselors can view your data, and all access is logged for audit.',
-      q5: 'How do I contact a counselor?',
-      a5: 'If you are flagged as medium-to-high risk, the system automatically assigns a counselor. You can view the assigned counselor on the "Warnings" page and communicate via the built-in messaging system.',
-      q6: 'Which browsers are supported?',
-      a6: 'We recommend Chrome 90+, Edge 90+, Firefox 90+, or Safari 15+. IE is not supported. Mobile supports modern browsers on iOS 14+ and Android 10+.'
-    }
-  },
   serviceWorker: {
     updateAvailableTitle: 'Update Available',
     updateAvailableMessage: 'A new version is available, click to update now'
@@ -2069,5 +1963,68 @@ export default {
     daysAgo: '{count} days ago',
     monthsAgo: '{count} months ago',
     yearsAgo: '{count} years ago'
+  },
+  // P1-3 Unified help system: role-differentiated help center/FAQ/contact/feedback
+  help: {
+    buttonLabel: 'Help Center',
+    onboarding: 'Restart Tour',
+    faqLabel: 'FAQ',
+    contactSupport: 'Contact Support',
+    feedbackLabel: 'Submit Feedback',
+    faqTitle: 'Frequently Asked Questions',
+    contactTitle: 'Contact Support Team',
+    emailLabel: 'Email',
+    phoneLabel: 'Phone',
+    hoursLabel: 'Service Hours',
+    hoursValue: 'Mon-Fri 9:00-18:00',
+    feedbackTitle: 'Submit Feedback',
+    feedbackCategoryLabel: 'Category',
+    feedbackCategoryBug: 'Bug Report',
+    feedbackCategoryFeature: 'Feature Request',
+    feedbackCategoryOther: 'Other',
+    feedbackMessageLabel: 'Message',
+    feedbackMessagePlaceholder: 'Describe your issue or suggestion...',
+    githubIssues: 'Submit Issue on GitHub',
+    feedbackSubmit: 'Submit',
+    feedbackEmpty: 'Please enter your feedback',
+    feedbackSubmitted: 'Feedback submitted, thank you!',
+    faq: {
+      q1: 'How do I reset my password?',
+      a1: 'Click "Forgot Password" on the login page and follow the email instructions.',
+      q2: 'Which browsers are supported?',
+      a2: 'Chrome 90+, Edge 90+, Firefox 88+, or Safari 14+ are recommended.',
+      q3: 'How long is my data stored?',
+      a3: 'Your assessment data is securely stored per our privacy policy, accessible only to authorized personnel.',
+      q4: 'How do I edit my profile?',
+      a4: 'Go to "Settings" from the sidebar to edit your nickname, email, etc.',
+      q5: 'What if I forget my username?',
+      a5: 'Contact support team for username recovery via email verification.',
+      q6: 'Does the system support mobile?',
+      a6: 'Yes, the system is mobile-responsive and works on phone browsers.'
+    },
+    faqUser: {
+      q1: 'How do I take a risk assessment?',
+      a1: 'Go to "Risk Assessment" from the sidebar and complete the questionnaire and text assessment.',
+      q2: 'Will my counselor be notified of results?',
+      a2: 'High-risk results automatically notify your assigned counselor for timely support.',
+      q3: 'Can I view my assessment history?',
+      a3: 'Yes, go to "Assessments" page to view all historical results.'
+    },
+    faqCounselor: {
+      q1: 'How do I view student risk assessments?',
+      a1: 'Go to "Warning Management" to see all student risk results and warning levels.',
+      q2: 'How do I handle high-risk warnings?',
+      a2: 'Click "Handle" in the warning detail page to record interventions and update status.',
+      q3: 'How do I view a student\'s assessment history?',
+      a3: 'Click the student\'s name to see full assessment history and trend charts.'
+    },
+    faqAdmin: {
+      q1: 'How do I configure warning thresholds?',
+      a1: 'Go to "System Settings" > "Warning Configuration" to adjust risk thresholds.',
+      q2: 'How do I check system status?',
+      a2: 'Go to "Observability" to view health, API latency, and error rates.',
+      q3: 'How do I manage user roles?',
+      a3: 'User roles are set at registration. Contact the dev team to change roles.'
+    }
   }
 }

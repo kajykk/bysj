@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="auth-shell">
     <!-- 左侧品牌面板：与登录页共享视觉语言 -->
     <AuthBrandPanel
@@ -102,7 +102,8 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage } from 'element-plus/es/components/message/index'
+import type { FormInstance, FormRules } from 'element-plus'
 import { authApi } from '@/api/auth'
 import { getErrorDetail } from '@/utils/errorDetail'
 import { validatePasswordBytes } from '@/utils/passwordValidation'
