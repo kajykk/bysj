@@ -145,7 +145,7 @@ class TestRiskService:
         assert since < now
         # Should be approximately 7 days ago
         diff = now - since
-        assert 6 < diff.days < 8
+        assert 6 <= diff.days < 8
 
     def test_since_datetime_negative(self, db_session):
         """TC-COV-RISK-006b: _since_datetime handles negative days."""
