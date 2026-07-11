@@ -6,6 +6,7 @@ from app.api.v1.alerts import router as alerts_router
 from app.api.v1.analytics_events import router as analytics_events_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.canary import router as canary_router
+from app.api.v1.content_governance import router as content_governance_router
 from app.api.v1.counselor import router as counselor_router
 from app.api.v1.gdpr import admin_router as gdpr_admin_router  # ISS-074
 from app.api.v1.gdpr import router as gdpr_router
@@ -61,3 +62,4 @@ api_router.include_router(grafana_adapter_router)  # v1.37
 api_router.include_router(model_validation_router)  # Phase 3 临床模型验证
 api_router.include_router(model_kill_switch_router)  # Phase 3 模型暂停开关
 api_router.include_router(ops_dashboard_router)  # Phase 4 运营看板
+api_router.include_router(content_governance_router)  # Phase 4 内容治理
