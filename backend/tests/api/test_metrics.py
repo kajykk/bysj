@@ -84,7 +84,7 @@ def test_metrics_excludes_metrics_endpoint_itself(client: TestClient) -> None:
             assert 'path="/api/v1/metrics"' not in line
 
 
-def test_websocket_gauge(client: TestClient) -> None:
+def test_websocket_gauge(client: TestClient, seeded_user_id: int) -> None:
     """建立 WebSocket 连接应增加 websocket_connections_active."""
     from app.core.security import create_access_token
 
