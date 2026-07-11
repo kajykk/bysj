@@ -14,6 +14,12 @@ vi.mock('element-plus', () => ({
     error: vi.fn()
   }
 }))
+vi.mock('element-plus/es/components/message/index', () => ({
+  ElMessage: {
+    warning: vi.fn(),
+    error: vi.fn()
+  }
+}))
 
 describe('request interceptor auth handling', () => {
   beforeEach(() => {

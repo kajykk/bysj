@@ -19,6 +19,9 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('element-plus', () => ({
   ElMessage: ElMessageMock,
 }))
+vi.mock('element-plus/es/components/message/index', () => ({
+  ElMessage: ElMessageMock,
+}))
 
 // Mock @/api/request：仅提供 resetUnauthorizedRedirecting，避免创建真实 axios 实例
 vi.mock('@/api/request', () => ({
