@@ -1,0 +1,38 @@
+apiVersion: 1
+
+# v1.39 Grafana Mute Timings
+# 1 个静音窗口 (P2 工作日静音, R1 决策 Q3)
+# 时区: 默认 UTC, 工作日 09:00-18:00 之外静音
+# P0/P1 不受此 mute 影响 (故障 24×7 通知 SRE)
+
+muteTimeIntervals:
+  - orgId: 1
+    name: p2-business-hours-mute
+    time_intervals:
+      # 工作日 00:00-09:00: 静音
+      - times:
+          - start_time: "00:00"
+            end_time: "09:00"
+        weekdays:
+          - monday
+          - tuesday
+          - wednesday
+          - thursday
+          - friday
+      # 工作日 18:00-24:00: 静音
+      - times:
+          - start_time: "18:00"
+            end_time: "24:00"
+        weekdays:
+          - monday
+          - tuesday
+          - wednesday
+          - thursday
+          - friday
+      # 周末 00:00-24:00: 静音
+      - times:
+          - start_time: "00:00"
+            end_time: "24:00"
+        weekdays:
+          - saturday
+          - sunday

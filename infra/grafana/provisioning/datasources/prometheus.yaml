@@ -1,0 +1,22 @@
+apiVersion: 1
+
+# v1.39: Prometheus Datasource
+# 目的: 供 Grafana Alert Rules 查询 backend 暴露的 8 个 observability_* Gauge + 1 Counter
+# 设计: 复用 backend /api/v1/metrics 端点, 通过 ObservabilityExporter 60s 周期发布
+# 与 simpod-json (observability-api) 并存, isDefault=false
+# 固定 UID: PB0F7F7A2A1B0E0FA (告警规则硬引用, 见 rules.yaml)
+
+datasources:
+  - uid: PB0F7F7A2A1B0E0FA
+    name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://backend:8000
+    isDefault: false
+    editable: false
+    jsonData:
+      timeInterval: 60s
+      httpMethod: POST
+      # 允许 POST body 包含 time range 等参数
+      manageAlerts: true
+    secureJsonData: {}

@@ -1,0 +1,438 @@
+apiVersion: 1
+
+# v1.39 Grafana Alert Rules
+# 10 条告警规则 (R1-R8 + R10 + R11)
+# - P0: 3 条 (R1, R3, R7) - 通道/AM/锁错误, 即时通知
+# - P1: 5 条 (R2, R4, R5, R6, R8) - 性能降级
+# - P2: 2 条 (R10, R11) - 批量告警 + Meta 自监控
+# 数据源: Prometheus (uid=PB0F7F7A2A1B0E0FA)
+# 评估周期: 60s (与 ObservabilityExporter 同步)
+# 时间窗口: 5min (与 _compute_* 函数一致)
+
+groups:
+  - orgId: 1
+    name: observability-alerts
+    folder: Observability Alerts
+    interval: 60s
+    rules:
+      # ============================================================
+      # R1: 通道成功率 Critical (P0)
+      # ============================================================
+      - uid: r-channel-critical
+        title: ChannelSuccessRateCritical
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 2m
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'observability_channel_success_rate{channel="all"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [0.80]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P0
+          team: sre
+          source: grafana
+        annotations:
+          summary: "通道成功率严重下降 (< 80%)"
+          description: "当前值: {{ $values.A }}, 持续 2 分钟"
+      # ============================================================
+      # R2: 通道成功率 Low (P1)
+      # ============================================================
+      - uid: r-channel-low
+        title: ChannelSuccessRateLow
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'observability_channel_success_rate{channel="all"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [0.90]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P1
+          team: sre
+          source: grafana
+        annotations:
+          summary: "通道成功率低 (< 90%)"
+          description: "当前值: {{ $values.A }}, 持续 5 分钟"
+      # ============================================================
+      # R3: AM 同步 Critical (P0)
+      # ============================================================
+      - uid: r-am-sync-critical
+        title: AmSyncCritical
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'observability_am_sync_success_rate'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [0.70]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P0
+          team: sre
+          source: grafana
+        annotations:
+          summary: "AlertManager 同步成功率严重下降 (< 70%)"
+          description: "当前值: {{ $values.A }}, 持续 5 分钟"
+      # ============================================================
+      # R4: AM 同步 Low (P1)
+      # ============================================================
+      - uid: r-am-sync-low
+        title: AmSyncLow
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 10m
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'observability_am_sync_success_rate'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [0.85]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P1
+          team: sre
+          source: grafana
+        annotations:
+          summary: "AlertManager 同步成功率低 (< 85%)"
+          description: "当前值: {{ $values.A }}, 持续 10 分钟"
+      # ============================================================
+      # R5: 锁获取率 Low (P1)
+      # ============================================================
+      - uid: r-lock-acquire-low
+        title: LockAcquireRateLow
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'observability_lock_acquire_rate'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [0.90]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P1
+          team: sre
+          source: grafana
+        annotations:
+          summary: "锁获取率低 (< 90%)"
+          description: "当前值: {{ $values.A }}, 持续 5 分钟"
+      # ============================================================
+      # R6: 锁降级率高 (P1)
+      # ============================================================
+      - uid: r-lock-fallback-high
+        title: LockFallbackRateHigh
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'observability_lock_fallback_rate'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.05]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P1
+          team: sre
+          source: grafana
+        annotations:
+          summary: "锁降级率高 (> 5%)"
+          description: "当前值: {{ $values.A }}, 持续 5 分钟"
+      # ============================================================
+      # R7: 锁错误率高 (P0) — GAP-1 0 流量误报防护
+      # ============================================================
+      - uid: r-lock-error-high
+        title: LockErrorRateHigh
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'observability_lock_error_rate > 0.00 and observability_lock_acquire_total > 0'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P0
+          team: sre
+          source: grafana
+        annotations:
+          summary: "锁错误率高 (> 0, 且有真实锁请求)"
+          description: "当前值: {{ $values.A }}, 持续 5 分钟"
+      # ============================================================
+      # R8: 升级率高 (P1)
+      # ============================================================
+      - uid: r-escalation-high
+        title: EscalationRateHigh
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 1h
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'observability_escalation_rate'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.30]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P1
+          team: sre
+          source: grafana
+        annotations:
+          summary: "升级率高 (> 30%)"
+          description: "当前值: {{ $values.A }}, 持续 1 小时"
+      # ============================================================
+      # R10: 告警总量峰值 (P2, daily)
+      # ============================================================
+      - uid: r-alert-total-spike
+        title: AlertTotalSpike
+        condition: C
+        noDataState: OK
+        execErrState: Alerting
+        for: 1h
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'sum(increase(observability_alert_total[1h]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [500]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P2
+          team: pm
+          source: grafana
+        annotations:
+          summary: "告警总量峰值 (> 500/小时)"
+          description: "当前 1h 增量: {{ $values.A }}"
+      # ============================================================
+      # R11: Prometheus 健康检查 (P2 meta) — 监控自身
+      # ============================================================
+      - uid: meta-prometheus-up
+        title: PrometheusUpCheck
+        condition: C
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 5m
+        data:
+          - refId: A
+            datasourceUid: PB0F7F7A2A1B0E0FA
+            model:
+              refId: A
+              expr: 'up{job="backend"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        labels:
+          severity: P2
+          team: sre
+          source: grafana
+          meta: prometheus-up
+        annotations:
+          summary: "Prometheus 抓取 backend 失败"
+          description: "up{job=\"backend\"} = {{ $values.A }}, 持续 5 分钟"

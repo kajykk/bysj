@@ -1,0 +1,48 @@
+{
+  "id": {{ panel.id }},
+  "type": "gauge",
+  "title": {{ panel.title | tojson }},
+  "gridPos": {
+    "x": {{ panel.gridPos.x }},
+    "y": {{ panel.gridPos.y }},
+    "w": {{ panel.gridPos.w }},
+    "h": {{ panel.gridPos.h }}
+  },
+  "datasource": {
+    "type": "simpod-json-datasource",
+    "uid": "${DS_OBSERVABILITY_API}"
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "payload": {
+        "metric": {{ panel.metric | tojson }},
+        "params": {{ panel.params | tojson }}
+      }
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "unit": {{ panel.fieldConfig.unit | tojson }},
+      "min": {{ panel.fieldConfig.min }},
+      "max": {{ panel.fieldConfig.max }},
+      "thresholds": {
+        "mode": "absolute",
+        "steps": {{ panel.fieldConfig.thresholds.steps | tojson }}
+      }
+    }
+  },
+  "options": {
+    "showThresholdLabels": true,
+    "showThresholdMarkers": true,
+    "reduceOptions": {
+      "calcs": ["lastNotNull"],
+      "fields": "",
+      "values": false
+    }
+  }
+}

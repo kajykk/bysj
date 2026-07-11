@@ -1,0 +1,56 @@
+{
+  "id": {{ panel.id }},
+  "type": "timeseries",
+  "title": {{ panel.title | tojson }},
+  "gridPos": {
+    "x": {{ panel.gridPos.x }},
+    "y": {{ panel.gridPos.y }},
+    "w": {{ panel.gridPos.w }},
+    "h": {{ panel.gridPos.h }}
+  },
+  "datasource": {
+    "type": "simpod-json-datasource",
+    "uid": "${DS_OBSERVABILITY_API}"
+  },
+  "targets": [
+    {
+      "refId": "A",
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "payload": {
+        "metric": {{ panel.metric | tojson }},
+        "params": {{ panel.params | tojson }}
+      }
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {
+      "unit": {{ panel.fieldConfig.unit | tojson }}
+      {%- if panel.fieldConfig.thresholds is defined %},
+      "thresholds": {
+        "mode": "absolute",
+        "steps": {{ panel.fieldConfig.thresholds.steps | tojson }}
+      }
+      {%- endif %},
+      "custom": {
+        "lineWidth": 2,
+        "fillOpacity": 10,
+        "drawStyle": "line",
+        "showPoints": "auto"
+      }
+    }
+  },
+  "options": {
+    "legend": {
+      "displayMode": "list",
+      "placement": "bottom",
+      "showLegend": true
+    },
+    "tooltip": {
+      "mode": "multi",
+      "sort": "none"
+    }
+  }
+}

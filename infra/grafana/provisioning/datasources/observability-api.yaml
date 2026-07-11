@@ -1,0 +1,22 @@
+apiVersion: 1
+
+# v1.37 Grafana Datasource Provisioning
+# ----------------------------------------------------------------------------
+# 自动将 "Observability API" 数据源注册到 Grafana.
+# simpod-json-datasource 插件必须在容器启动前已安装 (通过 GF_PLUGINS_PREINSTALL).
+#
+# 鉴权: Grafana 调用后端 /grafana/* 端点时, 在 Authorization 头附加 Service Account Token.
+# SA Token 创建流程参见 docs/planning/v1.37-grafana-dashboards/11-research-r3.md §3.
+# ----------------------------------------------------------------------------
+
+datasources:
+  - name: Observability API
+    type: simpod-json-datasource
+    access: proxy
+    url: http://backend:8000/api/v1/alerts/observability
+    isDefault: true
+    editable: true
+    jsonData:
+      tlsSkipVerify: false
+    secureJsonData:
+      Authorization: Bearer ${GRAFANA_SA_TOKEN}

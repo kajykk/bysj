@@ -1,0 +1,134 @@
+[
+  {
+    "scenario": "structured_low_text_low_physio_low",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 21,
+        "gender": 1,
+        "study_year": 3,
+        "cgpa": 3.6,
+        "stress_level": 2,
+        "sleep_duration": 7,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "最近状态不错，学习效率还可以。",
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "低风险融合场景"
+  },
+  {
+    "scenario": "structured_high_text_high_physio_high",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 23,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.8,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。",
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "高风险融合场景"
+  },
+  {
+    "scenario": "structured_mid_text_high_physio_mid",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 28,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.1,
+        "stress_level": 4,
+        "sleep_duration": 5,
+        "social_support": 2,
+        "financial_pressure": 3,
+        "family_history": 1,
+        "academic_pressure": 4,
+        "exercise_frequency": 1,
+        "anxiety": 3,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "最近很累，做事提不起劲，但还能勉强完成任务。",
+      "physiological": {
+        "sleep_hours": 5.5,
+        "sleep_quality": 2,
+        "exercise_minutes": 10,
+        "heart_rate": 92,
+        "systolic_bp": 132,
+        "diastolic_bp": 86,
+        "steps": 2800
+      }
+    },
+    "note": "中高风险融合场景"
+  },
+  {
+    "scenario": "structured_low_text_mid_physio_mid",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 19,
+        "gender": 1,
+        "study_year": 1,
+        "cgpa": 3.9,
+        "stress_level": 2,
+        "sleep_duration": 7,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 2,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "有点焦虑，但整体还能正常学习和休息。",
+      "physiological": {
+        "sleep_hours": 6.8,
+        "sleep_quality": 3,
+        "exercise_minutes": 20,
+        "heart_rate": 80,
+        "systolic_bp": 122,
+        "diastolic_bp": 79,
+        "steps": 5600
+      }
+    },
+    "note": "中低风险融合场景"
+  }
+]

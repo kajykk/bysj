@@ -1,0 +1,90 @@
+apiVersion: 1
+
+# v1.39 Grafana Routing Policies
+# 3 个路由 (按 severity 分流):
+#   - P0: 3 渠道并发 (webhook + email + slack), 即时通知, 24×7 不静音
+#   - P1: 2 渠道并发 (webhook + slack), 较慢通知, 24×7 不静音
+#   - P2: 1 渠道 (email), 静音路由 (M1 mute timing, 工作日仅 09:00-18:00 通知)
+# 根 policy: default receiver (兜底)
+# R1 决策 Q2: Webhook 优先
+# R1 决策 Q3: 仅 P2 静音, P0/P1 24×7 通知
+# 多渠道并发通过 continue: true 实现 (Grafana 路由 fall-through 机制)
+
+policies:
+  - orgId: 1
+    receiver: sre-email
+    group_by:
+      - alertname
+      - severity
+    group_wait: 30s
+    group_interval: 10m
+    repeat_interval: 4h
+    routes:
+      # ============================================================
+      # P0 路由: 3 渠道并发 (webhook → email → slack), 即时通知
+      # R1 决策 Q2: Webhook 优先; Q3: 24×7 不静音
+      # ============================================================
+      - receiver: sre-webhook
+        object_matchers:
+          - ["severity", "=", "P0"]
+        group_by:
+          - alertname
+        group_wait: 10s
+        group_interval: 5m
+        repeat_interval: 1h
+        continue: true
+      - receiver: sre-email
+        object_matchers:
+          - ["severity", "=", "P0"]
+        group_by:
+          - alertname
+        group_wait: 10s
+        group_interval: 5m
+        repeat_interval: 1h
+        continue: true
+      - receiver: slack-alerts
+        object_matchers:
+          - ["severity", "=", "P0"]
+        group_by:
+          - alertname
+        group_wait: 10s
+        group_interval: 5m
+        repeat_interval: 1h
+        continue: false
+      # ============================================================
+      # P1 路由: 2 渠道并发 (webhook → slack), 较慢通知
+      # R1 决策 Q3: 24×7 不静音
+      # ============================================================
+      - receiver: sre-webhook
+        object_matchers:
+          - ["severity", "=", "P1"]
+        group_by:
+          - alertname
+        group_wait: 30s
+        group_interval: 10m
+        repeat_interval: 4h
+        continue: true
+      - receiver: slack-alerts
+        object_matchers:
+          - ["severity", "=", "P1"]
+        group_by:
+          - alertname
+        group_wait: 30s
+        group_interval: 10m
+        repeat_interval: 4h
+        continue: false
+      # ============================================================
+      # P2 路由: 仅 email, 工作日 09:00-18:00 通知 (M1 mute timing)
+      # R1 决策 Q3: 仅 P2 静音
+      # ============================================================
+      - receiver: sre-email
+        object_matchers:
+          - ["severity", "=", "P2"]
+        group_by:
+          - alertname
+        group_wait: 5m
+        group_interval: 1h
+        repeat_interval: 24h
+        continue: false
+        mute_time_intervals:
+          - p2-business-hours-mute
