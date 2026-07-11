@@ -56,7 +56,18 @@ jobs:
             --cov-report=html:htmlcov \
             --cov-fail-under=60 \
             --tb=short \
-            -q
+            -q 2>&1 | tee /tmp/pytest_output.txt
+          exit_code=${PIPESTATUS[0]}
+          if [ $exit_code -ne 0 ]; then
+            {
+              echo "## Backend tests FAILED"
+              echo ""
+              echo '```'
+              tail -150 /tmp/pytest_output.txt
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
+            exit $exit_code
+          fi
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
           REDIS_URL: redis://localhost:6379/0
