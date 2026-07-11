@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.admin import router as admin_router
 from app.api.v1.admin_metrics import router as admin_metrics_router
 from app.api.v1.alerts import router as alerts_router
+from app.api.v1.analytics_events import router as analytics_events_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.canary import router as canary_router
 from app.api.v1.counselor import router as counselor_router
@@ -24,10 +25,13 @@ from app.api.v1.user_upload import router as user_upload_router
 from app.api.v1.user_warning import router as user_warning_router
 from app.api.v1.validation import router as validation_router
 from app.api.v1.version import router as version_router
-from app.core.openapi_responses import AUTH_ERROR_RESPONSES
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 
-api_router = APIRouter(prefix="/api/v1", responses=AUTH_ERROR_RESPONSES)
+# 全局文档化常见错误状态码 (400/401/403/404/409/422/500), 避免 schemathesis
+# negative data 测试 (如无效 JSON body) 返回未文档化的 400 导致 contract 失败
+api_router = APIRouter(prefix="/api/v1", responses=COMMON_ERROR_RESPONSES)
 api_router.include_router(auth_router)
+api_router.include_router(analytics_events_router)
 api_router.include_router(user_data_router)
 api_router.include_router(user_warning_router)
 api_router.include_router(user_intervention_router)

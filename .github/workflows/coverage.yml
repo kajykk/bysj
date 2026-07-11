@@ -35,7 +35,21 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Create database schema
         working-directory: backend
-        run: python -c "from app.models import Base; from sqlalchemy import create_engine; import os; Base.metadata.create_all(create_engine(os.environ['DATABASE_URL']))"
+        run: |
+          python -c "
+          import os, sys, traceback
+          try:
+              from app.models import Base
+              from sqlalchemy import create_engine
+              url = os.environ['DATABASE_URL']
+              print('Connecting to:', url)
+              engine = create_engine(url)
+              Base.metadata.create_all(engine)
+              print('Schema created:', len(Base.metadata.tables), 'tables')
+          except Exception:
+              traceback.print_exc()
+              sys.exit(1)
+          "
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
       - name: Run tests with coverage
