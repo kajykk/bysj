@@ -33,9 +33,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-      - name: Run database migrations
+      - name: Create database schema
         working-directory: backend
-        run: alembic upgrade head
+        run: python -c "from app.models import Base; from sqlalchemy import create_engine; import os; Base.metadata.create_all(create_engine(os.environ['DATABASE_URL']))"
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
       - name: Export OpenAPI schema
