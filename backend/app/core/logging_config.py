@@ -40,6 +40,7 @@ import logging.handlers
 from pathlib import Path
 from typing import Any
 
+from app.core import config as _config
 from app.core.config import BACKEND_DIR, settings
 
 # 标记是否已配置过，避免测试中重复配置
@@ -50,8 +51,13 @@ def get_log_dir() -> Path:
     """获取日志目录绝对路径。
 
     ``settings.log_dir`` 可以是绝对路径或相对路径（相对于 BACKEND_DIR）。
+
+    注意: 通过 ``_config.settings`` 动态访问, 而非模块级 ``settings`` 绑定,
+    确保 ``patch("app.core.config.settings", ...)`` 和
+    ``patch.object(settings, "log_dir", ...)`` 均能生效。
     """
-    log_dir = Path(settings.log_dir)
+    _settings = _config.settings
+    log_dir = Path(_settings.log_dir)
     if not log_dir.is_absolute():
         log_dir = BACKEND_DIR / log_dir
     return log_dir.resolve()
@@ -83,9 +89,10 @@ def _build_dict_config(
         enable_file: 是否启用 RotatingFileHandler
         enable_console: 是否启用 StreamHandler
     """
-    level = getattr(logging, settings.log_level.upper(), logging.INFO)
-    max_bytes = max(1024, int(settings.log_max_bytes))  # 至少 1KB
-    backup_count = max(1, int(settings.log_backup_count))  # 至少 1 份
+    _settings = _config.settings
+    level = getattr(logging, _settings.log_level.upper(), logging.INFO)
+    max_bytes = max(1024, int(_settings.log_max_bytes))  # 至少 1KB
+    backup_count = max(1, int(_settings.log_backup_count))  # 至少 1 份
 
     handlers: dict[str, Any] = {}
     root_handlers: list[str] = []
@@ -210,8 +217,9 @@ def configure_logging(force: bool = False) -> None:
     if _CONFIGURED and not force:
         return
 
-    enable_file = bool(settings.log_to_file)
-    enable_console = bool(settings.log_console)
+    _settings = _config.settings
+    enable_file = bool(_settings.log_to_file)
+    enable_console = bool(_settings.log_console)
 
     # 创建日志目录（仅在启用文件日志时）
     if enable_file:
@@ -228,7 +236,7 @@ def configure_logging(force: bool = False) -> None:
             )
             logging.warning(
                 "logging.dir.create.failed path=%s err=%s - 降级为仅控制台输出",
-                settings.log_dir,
+                _settings.log_dir,
                 exc,
             )
             enable_file = False
@@ -252,9 +260,9 @@ def configure_logging(force: bool = False) -> None:
         logger.info(
             "logging.configured dir=%s level=%s max_bytes=%d backup_count=%d file=True console=%s",
             log_dir,
-            settings.log_level,
-            settings.log_max_bytes,
-            settings.log_backup_count,
+            _settings.log_level,
+            _settings.log_max_bytes,
+            _settings.log_backup_count,
             enable_console,
         )
 

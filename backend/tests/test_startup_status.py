@@ -200,7 +200,7 @@ class TestRecordStepAsync:
         """成功的协程应记录 ok 状态并返回结果."""
 
         async def _ok_coro():
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.05)
             return "result"
 
         result = await record_step_async("test_async_ok", _ok_coro(), fatal=True)
