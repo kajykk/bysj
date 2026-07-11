@@ -11,6 +11,7 @@ from app.api.v1.gdpr import admin_router as gdpr_admin_router  # ISS-074
 from app.api.v1.gdpr import router as gdpr_router
 from app.api.v1.grafana_adapter import router as grafana_adapter_router  # v1.37
 from app.api.v1.metrics import router as metrics_router
+from app.api.v1.model_kill_switch import router as model_kill_switch_router
 from app.api.v1.model_predict import router as model_predict_router
 from app.api.v1.model_validation import router as model_validation_router
 from app.api.v1.monitoring import router as monitoring_router
@@ -57,3 +58,4 @@ api_router.include_router(observability_router)
 api_router.include_router(silences_router)
 api_router.include_router(grafana_adapter_router)  # v1.37
 api_router.include_router(model_validation_router)  # Phase 3 临床模型验证
+api_router.include_router(model_kill_switch_router)  # Phase 3 模型暂停开关

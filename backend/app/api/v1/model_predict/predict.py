@@ -96,6 +96,11 @@ async def predict_tabular(
     current_user: Annotated[User, Depends(require_permission("user.predict.use"))],
 ) -> dict:
     from app.core.metrics import track_model_inference
+    from app.core.kill_switch import is_model_paused
+
+    # Phase 3: 暂停开关检查
+    if await is_model_paused():
+        raise HTTPException(status_code=503, detail="模型预测服务已暂停，请联系管理员")
 
     service = ModelPredictService()
     with track_model_inference("tabular"):
@@ -136,6 +141,11 @@ async def predict_text(
     current_user: Annotated[User, Depends(require_permission("user.predict.use"))],
 ) -> dict:
     from app.core.metrics import track_model_inference
+    from app.core.kill_switch import is_model_paused
+
+    # Phase 3: 暂停开关检查
+    if await is_model_paused():
+        raise HTTPException(status_code=503, detail="模型预测服务已暂停，请联系管理员")
 
     service = ModelPredictService()
     with track_model_inference("text"):
@@ -196,6 +206,11 @@ async def predict_physiological(
     current_user: Annotated[User, Depends(require_permission("user.predict.use"))],
 ) -> dict:
     from app.core.metrics import track_model_inference
+    from app.core.kill_switch import is_model_paused
+
+    # Phase 3: 暂停开关检查
+    if await is_model_paused():
+        raise HTTPException(status_code=503, detail="模型预测服务已暂停，请联系管理员")
 
     service = ModelPredictService()
     with track_model_inference("physiological"):
@@ -234,6 +249,11 @@ async def predict_fusion(
     current_user: Annotated[User, Depends(require_permission("user.predict.use"))],
 ) -> dict:
     from app.core.metrics import track_model_inference
+    from app.core.kill_switch import is_model_paused
+
+    # Phase 3: 暂停开关检查
+    if await is_model_paused():
+        raise HTTPException(status_code=503, detail="模型预测服务已暂停，请联系管理员")
 
     service = ModelPredictService()
     with track_model_inference("fusion"):
