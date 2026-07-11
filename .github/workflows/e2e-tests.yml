@@ -49,7 +49,7 @@ jobs:
       - name: Start backend (production-like)
         working-directory: backend
         run: |
-          uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info &
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info > /tmp/backend.log 2>&1 &
           echo "BACKEND_PID=$!" >> $GITHUB_ENV
         env:
           APP_ENV: test
@@ -66,6 +66,22 @@ jobs:
             sleep 1
           done
           echo "::error::Backend failed to become healthy within 30s"
+          # 诊断：检查后端进程和日志
+          if kill -0 $BACKEND_PID 2>/dev/null; then
+            echo "Backend process is still running"
+            echo "--- /health response ---"
+            curl -s http://localhost:8000/health || echo "(no response)"
+          else
+            echo "Backend process has EXITED (crashed during startup)"
+          fi
+          {
+            echo "## Backend startup FAILED"
+            echo ""
+            echo "### Backend log (last 100 lines)"
+            echo '```'
+            tail -100 /tmp/backend.log 2>/dev/null || echo "(no log file)"
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
           exit 1
 
       - name: Verify core API endpoints

@@ -37,17 +37,35 @@ jobs:
         working-directory: backend
         run: |
           python -c "
-          import os, sys, traceback
+          import os, sys
           try:
-              from app.models import Base
-              from sqlalchemy import create_engine
+              # Step 1: 测试 psycopg2 导入
+              import psycopg2
+              print('psycopg2 version:', psycopg2.__version__)
+
+              # Step 2: 测试 Settings 初始化 (会触发 model_validator)
+              from app.core.config import settings
+              print('Settings OK, app_env:', settings.app_env)
+
+              # Step 3: 测试数据库连接
+              from sqlalchemy import create_engine, text
               url = os.environ['DATABASE_URL']
               print('Connecting to:', url)
               engine = create_engine(url)
+              with engine.connect() as conn:
+                  ver = conn.execute(text('SELECT version()')).scalar()
+                  print('DB connection OK:', ver[:60])
+
+              # Step 4: 创建表
+              from app.models import Base
               Base.metadata.create_all(engine)
               print('Schema created:', len(Base.metadata.tables), 'tables')
-          except Exception:
-              traceback.print_exc()
+          except Exception as e:
+              import traceback as tb
+              err = tb.format_exc()
+              print(err, file=sys.stderr)
+              with open(os.environ.get('GITHUB_STEP_SUMMARY', '/dev/null'), 'a') as f:
+                  f.write('## Create database schema FAILED\n\n```\n' + err + '\n```\n')
               sys.exit(1)
           "
         env:
