@@ -24,6 +24,7 @@ from app.core.middlewares import (
     request_id_middleware,
     security_headers_middleware,
 )
+from app.core.tenant_context import tenant_context_middleware
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.pii_crypto import ensure_pii_key
 from app.core.rate_limit import install_rate_limiter, limiter
@@ -196,6 +197,7 @@ except OSError:
     )
 
 app.middleware("http")(request_id_middleware)
+app.middleware("http")(tenant_context_middleware)
 app.middleware("http")(security_headers_middleware)
 app.middleware("http")(metrics_middleware)
 install_rate_limiter(app)

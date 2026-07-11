@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.contracts import DEFAULT_TENANT_ID
 from app.models.base import Base
 
 
@@ -58,6 +59,11 @@ class OperationLog(Base):
     target_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Phase 5: 多租户字段 — 审计日志按租户隔离
+    tenant_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False, default=DEFAULT_TENANT_ID, index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
 
 

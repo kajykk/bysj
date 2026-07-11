@@ -1,5 +1,6 @@
 from app.models.base import Base
 from app.models.auth import RefreshTokenSession
+from app.models.tenant import Tenant, default_tenant_id
 from app.models.user import EmergencyContact, User, UserCounselorBinding, UserProfile
 from app.models.assessment import DataDraft, PhysiologicalRecord, StructuredAssessment, TextEntry
 from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
@@ -35,6 +36,8 @@ from app.models.review import CrisisEvent, ReviewTask
 __all__ = [
     "Base",
     "RefreshTokenSession",
+    "Tenant",
+    "default_tenant_id",
     "User",
     "UserProfile",
     "EmergencyContact",
