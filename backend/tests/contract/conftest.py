@@ -72,6 +72,8 @@ def before_call(ctx, case, **kwargs):
     # 截断 password/new_password 字段至 72 UTF-8 字节 (MAX_PASSWORD_BYTES)
     # JSON Schema maxLength 按字符数计算, 但 validate_password_bytes 按 UTF-8 字节计算.
     # 非 ASCII 字符 (3 字节/字符) 可能字符数 <=72 但字节数 >72, 导致 422.
+    # 注意：仅当字符数 <= 72 (positive data 范围) 时才截断；
+    # 若字符数 > 72，说明是 negative data 测试，保持原样让 API 自己返回 4xx。
     body = case.body
     if isinstance(body, dict):
         for pwd_key in ("password", "new_password"):
@@ -79,6 +81,9 @@ def before_call(ctx, case, **kwargs):
                 continue
             pwd = body[pwd_key]
             if not isinstance(pwd, str):
+                continue
+            # 字符数超过 maxLength=72，说明是 negative test，不截断
+            if len(pwd) > 72:
                 continue
             encoded = pwd.encode("utf-8")
             if len(encoded) > 72:

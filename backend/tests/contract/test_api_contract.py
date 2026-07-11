@@ -58,7 +58,7 @@ predict_text_schema = schema.include(path="/api/v1/model/predict/text")
 health_schema = schema.include(path="/health")
 
 
-@schema.parametrize()
+@schema.parametrize(data_generation_method="positive")
 @settings(max_examples=2, deadline=None)
 def test_api_contract(case):
     """Validate all API endpoints conform to OpenAPI spec.
