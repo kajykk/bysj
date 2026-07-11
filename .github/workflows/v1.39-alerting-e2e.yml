@@ -49,6 +49,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install PyYAML
+        run: pip install pyyaml
+
       - name: Validate YAML (TC-AT-001 ~ TC-AT-007)
         run: |
           python -c "import yaml; assert yaml.safe_load(open('infra/grafana/provisioning/alerting/rules.yaml'))['groups'][0]['rules'], 'rules empty'"
