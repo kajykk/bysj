@@ -47,6 +47,9 @@ def main():
     except Exception:
         err = traceback.format_exc()
         print(err, file=sys.stderr)
+        # GitHub Actions ::error:: 注解 (会出现在 annotations 中, 可通过 API/WebFetch 读取)
+        last_line = err.strip().splitlines()[-1][:250] if err.strip() else "Unknown error"
+        print(f"::error::Schema creation failed: {last_line}")
         # 输出到 GITHUB_STEP_SUMMARY (无需 admin 权限即可在 Summary 页面查看)
         summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
         if summary_path:
