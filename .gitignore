@@ -176,14 +176,14 @@ backend/coverage.xml
 backend/.env
 backend/.pii_key
 
-# Models runtime
-models/
+# Models runtime (only root-level, not backend/app/models/)
+/models/
 
-# Reports runtime
-reports/
+# Reports runtime (only root-level)
+/reports/
 
-# Monitoring runtime
-monitoring/
+# Monitoring runtime (only root-level, not backend/app/monitoring/)
+/monitoring/
 
 # Infra runtime
 infra/

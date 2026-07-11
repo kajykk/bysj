@@ -1,0 +1,77 @@
+# Alerting Rules Configuration
+# This file defines alert rules for the monitoring system.
+# Rules are loaded by the AlertingEngine at startup.
+
+rules:
+  - name: error_rate_spike
+    severity: P0
+    description: "5分钟内错误率超过 5%"
+    condition:
+      type: threshold
+      metric: error_rate
+      operator: gt
+      value: 0.05
+    cooldown_seconds: 300
+
+  - name: slow_request_p99
+    severity: P1
+    description: "P99 响应时间超过 3 秒"
+    condition:
+      type: threshold
+      metric: p99_response_time
+      operator: gt
+      value: 3.0
+    cooldown_seconds: 600
+
+  - name: high_memory_usage
+    severity: P1
+    description: "内存使用率超过 85%"
+    condition:
+      type: threshold
+      metric: memory_usage_percent
+      operator: gt
+      value: 85
+    cooldown_seconds: 300
+
+  - name: low_disk_space
+    severity: P2
+    description: "磁盘使用率超过 90%"
+    condition:
+      type: threshold
+      metric: disk_usage_percent
+      operator: gt
+      value: 90
+    cooldown_seconds: 3600
+
+  - name: high_cpu_usage
+    severity: P1
+    description: "CPU 使用率超过 90%"
+    condition:
+      type: threshold
+      metric: cpu_usage_percent
+      operator: gt
+      value: 90
+    cooldown_seconds: 300
+
+# Webhook Configuration
+webhook:
+  url: "${ALERT_WEBHOOK_URL}"
+  timeout_seconds: 5
+  retry_attempts: 3
+  retry_backoff: exponential
+
+# Notification Channels
+channels:
+  - name: default
+    type: webhook
+    enabled: true
+
+  - name: email
+    type: email
+    enabled: false
+    recipients: []
+
+  - name: slack
+    type: slack
+    enabled: false
+    webhook_url: ""
