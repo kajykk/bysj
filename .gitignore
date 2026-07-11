@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 *.so
 .venv/
+.venv-ci-test*/
 venv/
 
 # CatBoost training artifacts (auto-generated during fit)
@@ -94,6 +95,7 @@ outputs/
 frontend/playwright-report/
 frontend/test-results/
 frontend/lighthouse*.report.*
+frontend/lighthouse*.json
 
 # SQLite databases
 *.db
@@ -205,3 +207,10 @@ requirements-ml.txt
 train_ml_oneclick.bat
 train_ml_oneclick.ps1
 论文_*.txt
+
+# Backend test artifacts
+backend/fail_detail.txt
+backend/full_test.txt
+backend/backend/
+backend/models/
+backend/monitoring/
