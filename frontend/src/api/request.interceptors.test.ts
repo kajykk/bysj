@@ -22,7 +22,12 @@ const redirectHandlerMock = vi.fn()
 // 模拟 element-plus 的 ElMessage
 // R-003 修复：request.ts 已改为显式 import { ElMessage } from 'element-plus'，
 // vi.mock('element-plus') 能直接拦截显式 import，不再需要 globalThis 注入。
+// P1-1 修复：request.ts 改为子路径导入 element-plus/es/components/message/index，
+// 需要同时 mock 两个路径，确保无论从哪个路径导入都能拦截。
 vi.mock('element-plus', () => ({
+  ElMessage: ElMessageMock
+}))
+vi.mock('element-plus/es/components/message/index', () => ({
   ElMessage: ElMessageMock
 }))
 
