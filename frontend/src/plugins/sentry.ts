@@ -9,15 +9,15 @@ type SentryModule = typeof import('@sentry/vue')
 
 let sentryModule: SentryModule | null = null
 
-export function initSentry(app: App, router: Router) {
+export function initSentry(app: App, router: Router): Promise<void> {
   const dsn = import.meta.env.VITE_SENTRY_DSN
   if (!dsn) {
     console.warn('Sentry DSN not configured')
-    return
+    return Promise.resolve()
   }
 
   // 异步加载 Sentry SDK，不阻塞首屏渲染
-  import('@sentry/vue')
+  return import('@sentry/vue')
     .then((Sentry) => {
       sentryModule = Sentry
       Sentry.init({

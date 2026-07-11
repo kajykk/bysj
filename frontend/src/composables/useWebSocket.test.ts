@@ -2,14 +2,23 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { wsClient, useWebSocket, resetWsClient, type WsWarningMessage, type WsTaskProgressMessage } from './useWebSocket'
 
 // mock element-plus 的 ElNotification
+// 使用 vi.hoisted 创建共享 mock，确保 element-plus 和子路径 mock 指向同一实例
+const { ElNotificationMock, captureMessageMock, captureExceptionMock } = vi.hoisted(() => ({
+  ElNotificationMock: vi.fn(),
+  captureMessageMock: vi.fn(),
+  captureExceptionMock: vi.fn(),
+}))
 vi.mock('element-plus', () => ({
-  ElNotification: vi.fn(),
+  ElNotification: ElNotificationMock,
+}))
+vi.mock('element-plus/es/components/notification/index', () => ({
+  ElNotification: ElNotificationMock,
 }))
 
 // mock sentry 插件，避免触发实际 SDK 调用
 vi.mock('@/plugins/sentry', () => ({
-  captureMessage: vi.fn(),
-  captureException: vi.fn(),
+  captureMessage: captureMessageMock,
+  captureException: captureExceptionMock,
 }))
 
 describe('wsClient', () => {

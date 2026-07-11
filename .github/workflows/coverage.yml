@@ -50,12 +50,13 @@ jobs:
       - name: Run tests with coverage
         working-directory: backend
         run: |
-          pytest tests/ -m "unit or integration" \
+          pytest tests/ -m "not contract" \
             --cov=app \
             --cov-report=xml:coverage.xml \
             --cov-report=html:htmlcov \
             --cov-fail-under=60 \
-            -v
+            --tb=short \
+            -q
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
           REDIS_URL: redis://localhost:6379/0

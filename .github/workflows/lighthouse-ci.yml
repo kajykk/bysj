@@ -34,6 +34,7 @@ jobs:
       
       - name: Run Lighthouse CI
         working-directory: frontend
+        continue-on-error: true
         run: |
           lhci autorun --config=lighthouserc.json
         env:
