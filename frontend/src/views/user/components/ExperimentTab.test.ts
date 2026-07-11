@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import ExperimentTab from './ExperimentTab.vue'
 import i18n from '@/i18n'
 
@@ -38,7 +39,7 @@ vi.mock('@/api/modelApi', () => ({
 
 const mountOptions = {
   global: {
-    plugins: [i18n],
+    plugins: [i18n, createPinia()],
   },
 }
 

@@ -3,6 +3,7 @@
     "collect": {
       "url": ["http://localhost:5173"],
       "numberOfRuns": 3,
+      "startServerCommand": "npx serve dist -l 5173",
       "settings": {
         "preset": "desktop"
       }
