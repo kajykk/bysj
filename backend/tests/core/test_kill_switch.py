@@ -9,8 +9,11 @@
 from __future__ import annotations
 
 import pytest
+import pytest_asyncio
 
 from app.core.kill_switch import (
+    _REDIS_KEY,
+    _get_redis,
     get_kill_switch_status,
     invalidate_local_cache,
     is_model_paused,
@@ -19,12 +22,23 @@ from app.core.kill_switch import (
 )
 
 
-@pytest.fixture(autouse=True)
-def _reset_state():
-    """每个测试前重置内存状态和本地缓存."""
+@pytest_asyncio.fixture(autouse=True)
+async def _reset_state():
+    """每个测试前重置内存状态、本地缓存和 Redis."""
+
+    async def _clear_redis():
+        try:
+            redis = await _get_redis()
+            if redis is not None:
+                await redis.delete(_REDIS_KEY)
+        except Exception:
+            pass
+
     reset_memory_state()
+    await _clear_redis()
     yield
     reset_memory_state()
+    await _clear_redis()
 
 
 class TestIsModelPaused:

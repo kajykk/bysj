@@ -1,10 +1,20 @@
 """多模态融合增强逻辑测试"""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 
 from app.core.model_engine import ModelEngine
+
+PHYSIO_MODEL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "models" / "artifacts" / "physiological_optimized" / "model.json"
+)
+skip_no_physio = pytest.mark.skipif(
+    not PHYSIO_MODEL_PATH.exists(),
+    reason="生理模型 artifacts 不存在 (models/artifacts/physiological_optimized/)",
+)
 
 
 def _run(coro):
@@ -134,6 +144,7 @@ class TestFusionEnhanced:
         assert result["risk_score"] >= 0
         assert result["fusion_detail"]["dominant_modality"] == "structured"
 
+    @skip_no_physio
     def test_fusion_single_modality_physiological(self, model_engine):
         """测试仅生理数据融合"""
         result = _run(
