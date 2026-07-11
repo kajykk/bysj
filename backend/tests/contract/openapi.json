@@ -3897,11 +3897,13 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "导出数据 (JSON/CSV/PDF)",
             "content": {
               "application/json": {
                 "schema": {}
-              }
+              },
+              "application/pdf": {},
+              "text/csv": {}
             }
           },
           "400": {
@@ -8881,11 +8883,12 @@
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "PDF 文件",
             "content": {
               "application/json": {
                 "schema": {}
-              }
+              },
+              "application/pdf": {}
             }
           },
           "400": {
@@ -9409,11 +9412,12 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "PDF 文件",
             "content": {
               "application/json": {
                 "schema": {}
-              }
+              },
+              "application/pdf": {}
             }
           },
           "400": {
@@ -9827,11 +9831,12 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "PDF 文件",
             "content": {
               "application/json": {
                 "schema": {}
-              }
+              },
+              "application/pdf": {}
             }
           },
           "400": {

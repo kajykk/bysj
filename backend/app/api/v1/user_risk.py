@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_permission
-from app.core.openapi_responses import COMMON_ERROR_RESPONSES
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES, FILE_EXPORT_RESPONSE
 from app.core.rate_limit import get_real_client_ip
 from app.core.response import ok
 from app.models.admin import OperationLog
@@ -58,7 +58,7 @@ async def get_risk_trend(
     return ok(data)
 
 
-@router.get("/export", responses=COMMON_ERROR_RESPONSES)
+@router.get("/export", responses={**COMMON_ERROR_RESPONSES, **FILE_EXPORT_RESPONSE})
 async def export_risk(
     request: Request,
     current_user: Annotated[User, Depends(require_permission("user.export.risk"))],

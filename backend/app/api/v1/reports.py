@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_permission
-from app.core.openapi_responses import COMMON_ERROR_RESPONSES
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES, PDF_SUCCESS_RESPONSE
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
 from app.models.admin import OperationLog
@@ -67,7 +67,7 @@ REPORT_TEMPLATES = [
 ]
 
 
-@router.post("/user-risk/pdf", responses=COMMON_ERROR_RESPONSES)
+@router.post("/user-risk/pdf", responses={**COMMON_ERROR_RESPONSES, **PDF_SUCCESS_RESPONSE})
 @limiter.limit("5/minute")
 async def generate_user_risk_pdf(
     request: Request,
@@ -302,7 +302,7 @@ async def get_pdf_job_status(
     return ok(job.to_status_dict())
 
 
-@router.get("/pdf/{job_id}/download", responses=COMMON_ERROR_RESPONSES)
+@router.get("/pdf/{job_id}/download", responses={**COMMON_ERROR_RESPONSES, **PDF_SUCCESS_RESPONSE})
 @limiter.limit("30/minute")
 async def download_pdf(
     request: Request,
@@ -483,7 +483,7 @@ async def get_celery_pdf_job_status(
     return ok(job)
 
 
-@router.get("/pdf/celery/{job_id}/download", responses=COMMON_ERROR_RESPONSES)
+@router.get("/pdf/celery/{job_id}/download", responses={**COMMON_ERROR_RESPONSES, **PDF_SUCCESS_RESPONSE})
 @limiter.limit("30/minute")
 async def download_celery_pdf(
     request: Request,
