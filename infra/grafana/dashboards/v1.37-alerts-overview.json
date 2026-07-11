@@ -1,0 +1,1493 @@
+{
+  "title": "v1.37 Alerts Overview",
+  "uid": "v137-alerts-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "v1.37",
+    "v1.38",
+    "alerts",
+    "observability",
+    "bysj"
+  ],
+  "timezone": "browser",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "1m",
+  "templating": {
+    "list": [
+      {
+        "name": "time_range",
+        "type": "time",
+        "label": "Time Range",
+        "hide": 0
+      },
+      {
+        "name": "severity",
+        "type": "custom",
+        "label": "Severity",
+        "query": "all,P0,P1,P2,P3",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "hide": 0
+      },
+      {
+        "name": "rule",
+        "type": "query",
+        "label": "Rule",
+        "datasource": {
+          "type": "simpod-json-datasource",
+          "uid": "${DS_OBSERVABILITY_API}"
+        },
+        "query": {
+          "type": "rule",
+          "metric": ""
+        },
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "all",
+        "hide": 0
+      },
+      {
+        "name": "matcher",
+        "type": "query",
+        "label": "Matcher",
+        "datasource": {
+          "type": "simpod-json-datasource",
+          "uid": "${DS_OBSERVABILITY_API}"
+        },
+        "query": {
+          "type": "matcher",
+          "metric": ""
+        },
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "all",
+        "hide": 0
+      },
+      {
+        "name": "operation",
+        "type": "custom",
+        "label": "Operation",
+        "query": "all,create,update,delete,read",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "hide": 0
+      },
+      {
+        "name": "channel",
+        "type": "custom",
+        "label": "Channel",
+        "query": "all,webhook,slack,dingtalk,email",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "hide": 0
+      },
+      {
+        "name": "DS_OBSERVABILITY_API",
+        "type": "datasource",
+        "label": "Observability API",
+        "query": "simpod-json-datasource",
+        "current": {
+          "text": "Observability API",
+          "value": "Observability API"
+        },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Row 1 - Alert P0 (Trend)",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "trend",
+            "params": {
+              "group_by": "severity",
+              "severity": "P0"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "drawStyle": "line",
+            "showPoints": "auto"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Row 1 - Alert P1 (Trend)",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "trend",
+            "params": {
+              "group_by": "severity",
+              "severity": "P1"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "drawStyle": "line",
+            "showPoints": "auto"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Row 1 - Alert P2/P3 (Trend)",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "trend",
+            "params": {
+              "group_by": "severity",
+              "severity": "P2"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "drawStyle": "line",
+            "showPoints": "auto"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Row 1 - Alert Total (Stat)",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "trend",
+            "params": {
+              "group_by": "status"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Row 2 - Response Time p99 (Stat)",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "response_time",
+            "params": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Row 2 - Response Time p95 (Stat)",
+      "gridPos": {
+        "x": 6,
+        "y": 8,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "response_time",
+            "params": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Row 2 - Response Time Mean (Stat)",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "response_time",
+            "params": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 150
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "gauge",
+      "title": "Row 2 - Ack Rate (Gauge)",
+      "gridPos": {
+        "x": 18,
+        "y": 8,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "response_time",
+            "params": {
+              "metric_field": "ack_rate"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "green",
+                "value": 0.8
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "piechart",
+      "title": "Row 3 - Escalation Distribution (Pie)",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "escalation",
+            "params": {
+              "group_by": "level"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {}
+      },
+      "options": {
+        "pieType": "donut",
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Row 3 - Escalation Rate (Stat)",
+      "gridPos": {
+        "x": 8,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "escalation",
+            "params": {
+              "metric_field": "rate"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.1
+              },
+              {
+                "color": "red",
+                "value": 0.3
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "Row 3 - Escalation by Level (BarGauge)",
+      "gridPos": {
+        "x": 16,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "escalation",
+            "params": {
+              "group_by": "level"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Row 4 - Overall Success Rate (Stat)",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "channel_stats",
+            "params": {
+              "metric_field": "overall_success_rate"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "Row 4 - Webhook Success (BarGauge)",
+      "gridPos": {
+        "x": 6,
+        "y": 24,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "channel_stats",
+            "params": {
+              "channel": "webhook"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "Row 4 - Slack Success (BarGauge)",
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "channel_stats",
+            "params": {
+              "channel": "slack"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 15,
+      "type": "bargauge",
+      "title": "Row 4 - DingTalk+Email (BarGauge)",
+      "gridPos": {
+        "x": 18,
+        "y": 24,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "channel_stats",
+            "params": {
+              "channel": "dingtalk,email"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Row 5 - Silence Hit Rate (Stat)",
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "silence_hit_rate",
+            "params": {
+              "metric_field": "hit_rate"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Row 5 - Total Silenced (Stat)",
+      "gridPos": {
+        "x": 8,
+        "y": 32,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "silence_hit_rate",
+            "params": {
+              "metric_field": "total"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 18,
+      "type": "bargauge",
+      "title": "Row 5 - Top Matchers (BarGauge)",
+      "gridPos": {
+        "x": 16,
+        "y": 32,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "silence_hit_rate",
+            "params": {
+              "group_by": "matcher",
+              "top": 5
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 19,
+      "type": "gauge",
+      "title": "Row 6 - AM Sync Success Rate (Gauge)",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "am_sync",
+            "params": {
+              "metric_field": "success_rate"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.85
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Row 6 - AM Sync Total (Stat)",
+      "gridPos": {
+        "x": 8,
+        "y": 40,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "am_sync",
+            "params": {
+              "metric_field": "total"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "table",
+      "title": "Row 6 - AM Sync by Operation (Table)",
+      "gridPos": {
+        "x": 16,
+        "y": 40,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "am_sync",
+            "params": {
+              "group_by": "operation"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {}
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      }
+    },
+    {
+      "id": 22,
+      "type": "gauge",
+      "title": "Row 7 - Lock Acquire Rate (Gauge)",
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "lock_stats",
+            "params": {
+              "metric_field": "acquire_rate"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "green",
+                "value": 0.9
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "Row 7 - Lock Fallback Rate (Stat)",
+      "gridPos": {
+        "x": 8,
+        "y": 48,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "lock_stats",
+            "params": {
+              "metric_field": "fallback_rate"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Row 7 - Lock Error Rate (Stat)",
+      "gridPos": {
+        "x": 16,
+        "y": 48,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "simpod-json-datasource",
+        "uid": "${DS_OBSERVABILITY_API}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "simpod-json-datasource",
+            "uid": "${DS_OBSERVABILITY_API}"
+          },
+          "payload": {
+            "metric": "lock_stats",
+            "params": {
+              "metric_field": "error_rate"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    }
+  ]
+}

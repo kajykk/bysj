@@ -1,0 +1,38 @@
+apiVersion: 1
+
+# v1.39 Grafana Contact Points
+# 3 个通知渠道:
+#   - sre-webhook (P0/P1 即时通道, R1 决策 Q2: 优先)
+#   - sre-email (P0/P1 存档通道)
+#   - slack-alerts (P0/P1 协同通道)
+# env var 缺失时, Grafana 11.6 自动将 contact point 标记为 disabled (RISK-2 行为)
+
+contactPoints:
+  - orgId: 1
+    name: sre-webhook
+    receivers:
+      - uid: cp-webhook
+        type: webhook
+        settings:
+          url: ${env:GRAFANA_WEBHOOK_URL}
+          httpMethod: POST
+        disableResolveMessage: false
+  - orgId: 1
+    name: sre-email
+    receivers:
+      - uid: cp-email
+        type: email
+        settings:
+          addresses: ${env:GRAFANA_SRE_EMAIL}
+          singleEmail: false
+        disableResolveMessage: false
+  - orgId: 1
+    name: slack-alerts
+    receivers:
+      - uid: cp-slack
+        type: slack
+        settings:
+          url: ${env:GRAFANA_SLACK_URL}
+          channel: ${env:GRAFANA_SLACK_CHANNEL}
+          username: Grafana
+        disableResolveMessage: false

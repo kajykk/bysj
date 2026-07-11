@@ -27,6 +27,15 @@ class ExperimentTrainer:
         batch_size: int,
         learning_rate: float,
     ) -> dict[str, Any]:
+        if train_df.empty or val_df.empty:
+            raise ValueError("训练或验证数据为空")
+        for frame_name, frame in (("train", train_df), ("validation", val_df)):
+            missing = {"text", "label"} - set(frame.columns)
+            if missing:
+                raise ValueError(
+                    f"{frame_name} 数据缺少必要列: {', '.join(sorted(missing))}"
+                )
+
         import torch
         from datasets import Dataset
         from transformers import (
@@ -36,15 +45,6 @@ class ExperimentTrainer:
             TrainerCallback,
             TrainingArguments,
         )
-
-        if train_df.empty or val_df.empty:
-            raise ValueError("训练或验证数据为空")
-        for frame_name, frame in (("train", train_df), ("validation", val_df)):
-            missing = {"text", "label"} - set(frame.columns)
-            if missing:
-                raise ValueError(
-                    f"{frame_name} 数据缺少必要列: {', '.join(sorted(missing))}"
-                )
 
         tokenizer = AutoTokenizer.from_pretrained(DEFAULT_BERT_MODEL)
 

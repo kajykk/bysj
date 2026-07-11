@@ -1,0 +1,510 @@
+# v1.37 Alerts Overview - 仪表盘配置 (24 panels)
+# v1.38 通过 build_dashboard.py 渲染本 YAML + Jinja2 模板 → v1.37-alerts-overview.json
+# 维护: 修改本文件后运行 `python infra/grafana/scripts/build_dashboard.py`
+
+dashboard:
+  title: "v1.37 Alerts Overview"
+  uid: "v137-alerts-overview"
+  schemaVersion: 39
+  version: 1
+  tags:
+    - v1.37
+    - v1.38
+    - alerts
+    - observability
+    - bysj
+  timezone: "browser"
+  time:
+    from: "now-1h"
+    to: "now"
+  refresh: "1m"
+
+# 6 变量
+templating:
+  list:
+    - name: time_range
+      type: time
+      label: "Time Range"
+      hide: 0
+
+    - name: severity
+      type: custom
+      label: "Severity"
+      query: "all,P0,P1,P2,P3"
+      current:
+        text: "all"
+        value: "all"
+      hide: 0
+
+    - name: rule
+      type: query
+      label: "Rule"
+      datasource:
+        type: "simpod-json-datasource"
+        uid: "${DS_OBSERVABILITY_API}"
+      query:
+        type: "rule"
+        metric: ""
+      refresh: 1
+      includeAll: true
+      allValue: "all"
+      hide: 0
+
+    - name: matcher
+      type: query
+      label: "Matcher"
+      datasource:
+        type: "simpod-json-datasource"
+        uid: "${DS_OBSERVABILITY_API}"
+      query:
+        type: "matcher"
+        metric: ""
+      refresh: 1
+      includeAll: true
+      allValue: "all"
+      hide: 0
+
+    - name: operation
+      type: custom
+      label: "Operation"
+      query: "all,create,update,delete,read"
+      current:
+        text: "all"
+        value: "all"
+      hide: 0
+
+    - name: channel
+      type: custom
+      label: "Channel"
+      query: "all,webhook,slack,dingtalk,email"
+      current:
+        text: "all"
+        value: "all"
+      hide: 0
+
+    - name: DS_OBSERVABILITY_API
+      type: datasource
+      label: "Observability API"
+      query: "simpod-json-datasource"
+      current:
+        text: "Observability API"
+        value: "Observability API"
+      hide: 0
+
+# 24 Panels 分布
+panels:
+
+  # ============ Row 1: 告警趋势 (y=0, h=8) ============
+  - id: 1
+    row: 1
+    title: "Row 1 - Alert P0 (Trend)"
+    type: timeseries
+    metric: trend
+    gridPos: { x: 0, y: 0, w: 6, h: 8 }
+    params:
+      group_by: "severity"
+      severity: "P0"
+    fieldConfig:
+      unit: "short"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "yellow", value: 50 }
+          - { color: "red", value: 100 }
+      custom: { lineWidth: 2, fillOpacity: 10 }
+    options:
+      legend: { displayMode: "list", placement: "bottom" }
+      tooltip: { mode: "multi" }
+
+  - id: 2
+    row: 1
+    title: "Row 1 - Alert P1 (Trend)"
+    type: timeseries
+    metric: trend
+    gridPos: { x: 6, y: 0, w: 6, h: 8 }
+    params:
+      group_by: "severity"
+      severity: "P1"
+    fieldConfig:
+      unit: "short"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "yellow", value: 50 }
+          - { color: "red", value: 100 }
+    options:
+      legend: { displayMode: "list", placement: "bottom" }
+      tooltip: { mode: "multi" }
+
+  - id: 3
+    row: 1
+    title: "Row 1 - Alert P2/P3 (Trend)"
+    type: timeseries
+    metric: trend
+    gridPos: { x: 12, y: 0, w: 6, h: 8 }
+    params:
+      group_by: "severity"
+      severity: "P2"
+    fieldConfig:
+      unit: "short"
+    options:
+      legend: { displayMode: "list", placement: "bottom" }
+      tooltip: { mode: "multi" }
+
+  - id: 4
+    row: 1
+    title: "Row 1 - Alert Total (Stat)"
+    type: stat
+    metric: trend
+    gridPos: { x: 18, y: 0, w: 6, h: 8 }
+    params:
+      group_by: "status"
+    fieldConfig:
+      unit: "short"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "yellow", value: 100 }
+          - { color: "red", value: 500 }
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  # ============ Row 2: 响应时长 (y=8, h=8) ============
+  - id: 5
+    row: 2
+    title: "Row 2 - Response Time p99 (Stat)"
+    type: stat
+    metric: response_time
+    gridPos: { x: 0, y: 8, w: 6, h: 8 }
+    params: {}
+    fieldConfig:
+      unit: "ms"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "yellow", value: 200 }
+          - { color: "red", value: 500 }
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 6
+    row: 2
+    title: "Row 2 - Response Time p95 (Stat)"
+    type: stat
+    metric: response_time
+    gridPos: { x: 6, y: 8, w: 6, h: 8 }
+    params: {}
+    fieldConfig:
+      unit: "ms"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "yellow", value: 100 }
+          - { color: "red", value: 300 }
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 7
+    row: 2
+    title: "Row 2 - Response Time Mean (Stat)"
+    type: stat
+    metric: response_time
+    gridPos: { x: 12, y: 8, w: 6, h: 8 }
+    params: {}
+    fieldConfig:
+      unit: "ms"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "yellow", value: 50 }
+          - { color: "red", value: 150 }
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 8
+    row: 2
+    title: "Row 2 - Ack Rate (Gauge)"
+    type: gauge
+    metric: response_time
+    gridPos: { x: 18, y: 8, w: 6, h: 8 }
+    params: { metric_field: "ack_rate" }
+    fieldConfig:
+      unit: "percentunit"
+      min: 0
+      max: 1
+      thresholds:
+        steps:
+          - { color: "red", value: null }
+          - { color: "yellow", value: 0.5 }
+          - { color: "green", value: 0.8 }
+    options:
+      showThresholdLabels: true
+      showThresholdMarkers: true
+
+  # ============ Row 3: 升级率 (y=16, h=8) ============
+  - id: 9
+    row: 3
+    title: "Row 3 - Escalation Distribution (Pie)"
+    type: piechart
+    metric: escalation
+    gridPos: { x: 0, y: 16, w: 8, h: 8 }
+    params: { group_by: "level" }
+    fieldConfig: {}
+    options:
+      pieType: "donut"
+      legend: { displayMode: "list", placement: "right" }
+
+  - id: 10
+    row: 3
+    title: "Row 3 - Escalation Rate (Stat)"
+    type: stat
+    metric: escalation
+    gridPos: { x: 8, y: 16, w: 8, h: 8 }
+    params: { metric_field: "rate" }
+    fieldConfig:
+      unit: "percentunit"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "yellow", value: 0.1 }
+          - { color: "red", value: 0.3 }
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 11
+    row: 3
+    title: "Row 3 - Escalation by Level (BarGauge)"
+    type: bargauge
+    metric: escalation
+    gridPos: { x: 16, y: 16, w: 8, h: 8 }
+    params: { group_by: "level" }
+    fieldConfig:
+      unit: "short"
+    options:
+      orientation: "horizontal"
+      displayMode: "gradient"
+
+  # ============ Row 4: 通道成功率 (y=24, h=8) ============
+  - id: 12
+    row: 4
+    title: "Row 4 - Overall Success Rate (Stat)"
+    type: stat
+    metric: channel_stats
+    gridPos: { x: 0, y: 24, w: 6, h: 8 }
+    params: { metric_field: "overall_success_rate" }
+    fieldConfig:
+      unit: "percentunit"
+      thresholds:
+        steps:
+          - { color: "red", value: null }
+          - { color: "yellow", value: 0.9 }
+          - { color: "green", value: 0.95 }
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 13
+    row: 4
+    title: "Row 4 - Webhook Success (BarGauge)"
+    type: bargauge
+    metric: channel_stats
+    gridPos: { x: 6, y: 24, w: 6, h: 8 }
+    params: { channel: "webhook" }
+    fieldConfig:
+      unit: "percentunit"
+      min: 0
+      max: 1
+      thresholds:
+        steps:
+          - { color: "red", value: null }
+          - { color: "yellow", value: 0.9 }
+          - { color: "green", value: 0.95 }
+    options:
+      orientation: "horizontal"
+      displayMode: "gradient"
+
+  - id: 14
+    row: 4
+    title: "Row 4 - Slack Success (BarGauge)"
+    type: bargauge
+    metric: channel_stats
+    gridPos: { x: 12, y: 24, w: 6, h: 8 }
+    params: { channel: "slack" }
+    fieldConfig:
+      unit: "percentunit"
+      min: 0
+      max: 1
+      thresholds:
+        steps:
+          - { color: "red", value: null }
+          - { color: "yellow", value: 0.9 }
+          - { color: "green", value: 0.95 }
+    options:
+      orientation: "horizontal"
+      displayMode: "gradient"
+
+  - id: 15
+    row: 4
+    title: "Row 4 - DingTalk+Email (BarGauge)"
+    type: bargauge
+    metric: channel_stats
+    gridPos: { x: 18, y: 24, w: 6, h: 8 }
+    params: { channel: "dingtalk,email" }
+    fieldConfig:
+      unit: "percentunit"
+      min: 0
+      max: 1
+      thresholds:
+        steps:
+          - { color: "red", value: null }
+          - { color: "yellow", value: 0.9 }
+          - { color: "green", value: 0.95 }
+    options:
+      orientation: "horizontal"
+      displayMode: "gradient"
+
+  # ============ Row 5: 静默命中率 (y=32, h=8) ============
+  - id: 16
+    row: 5
+    title: "Row 5 - Silence Hit Rate (Stat)"
+    type: stat
+    metric: silence_hit_rate
+    gridPos: { x: 0, y: 32, w: 8, h: 8 }
+    params: { metric_field: "hit_rate" }
+    fieldConfig:
+      unit: "percentunit"
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 17
+    row: 5
+    title: "Row 5 - Total Silenced (Stat)"
+    type: stat
+    metric: silence_hit_rate
+    gridPos: { x: 8, y: 32, w: 8, h: 8 }
+    params: { metric_field: "total" }
+    fieldConfig:
+      unit: "short"
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 18
+    row: 5
+    title: "Row 5 - Top Matchers (BarGauge)"
+    type: bargauge
+    metric: silence_hit_rate
+    gridPos: { x: 16, y: 32, w: 8, h: 8 }
+    params: { group_by: "matcher", top: 5 }
+    fieldConfig:
+      unit: "short"
+    options:
+      orientation: "horizontal"
+      displayMode: "gradient"
+
+  # ============ Row 6: AM 同步 (y=40, h=8) ============
+  - id: 19
+    row: 6
+    title: "Row 6 - AM Sync Success Rate (Gauge)"
+    type: gauge
+    metric: am_sync
+    gridPos: { x: 0, y: 40, w: 8, h: 8 }
+    params: { metric_field: "success_rate" }
+    fieldConfig:
+      unit: "percentunit"
+      min: 0
+      max: 1
+      thresholds:
+        steps:
+          - { color: "red", value: null }
+          - { color: "yellow", value: 0.85 }
+          - { color: "green", value: 0.95 }
+    options:
+      showThresholdLabels: true
+      showThresholdMarkers: true
+
+  - id: 20
+    row: 6
+    title: "Row 6 - AM Sync Total (Stat)"
+    type: stat
+    metric: am_sync
+    gridPos: { x: 8, y: 40, w: 8, h: 8 }
+    params: { metric_field: "total" }
+    fieldConfig:
+      unit: "short"
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 21
+    row: 6
+    title: "Row 6 - AM Sync by Operation (Table)"
+    type: table
+    metric: am_sync
+    gridPos: { x: 16, y: 40, w: 8, h: 8 }
+    params: { group_by: "operation" }
+    fieldConfig: {}
+    options:
+      showHeader: true
+
+  # ============ Row 7: 锁统计 (y=48, h=8) ============
+  - id: 22
+    row: 7
+    title: "Row 7 - Lock Acquire Rate (Gauge)"
+    type: gauge
+    metric: lock_stats
+    gridPos: { x: 0, y: 48, w: 8, h: 8 }
+    params: { metric_field: "acquire_rate" }
+    fieldConfig:
+      unit: "percentunit"
+      min: 0
+      max: 1
+      thresholds:
+        steps:
+          - { color: "red", value: null }
+          - { color: "yellow", value: 0.7 }
+          - { color: "green", value: 0.9 }
+    options:
+      showThresholdLabels: true
+      showThresholdMarkers: true
+
+  - id: 23
+    row: 7
+    title: "Row 7 - Lock Fallback Rate (Stat)"
+    type: stat
+    metric: lock_stats
+    gridPos: { x: 8, y: 48, w: 8, h: 8 }
+    params: { metric_field: "fallback_rate" }
+    fieldConfig:
+      unit: "percentunit"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "yellow", value: 0.05 }
+          - { color: "red", value: 0.1 }
+    options:
+      colorMode: "value"
+      graphMode: "none"
+
+  - id: 24
+    row: 7
+    title: "Row 7 - Lock Error Rate (Stat)"
+    type: stat
+    metric: lock_stats
+    gridPos: { x: 16, y: 48, w: 8, h: 8 }
+    params: { metric_field: "error_rate" }
+    fieldConfig:
+      unit: "percentunit"
+      thresholds:
+        steps:
+          - { color: "green", value: null }
+          - { color: "red", value: 0 }
+    options:
+      colorMode: "value"
+      graphMode: "none"

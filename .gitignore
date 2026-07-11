@@ -50,7 +50,8 @@ uploads/
 /tmp/exports/
 
 # Large files / Models (not committed to GitHub)
-datasets/
+datasets/*
+!datasets/fusion/
 model_assessment/
 outputs/
 *.pkl
@@ -188,7 +189,8 @@ backend/.pii_key
 /monitoring/
 
 # Infra runtime
-infra/
+infra/*
+!infra/grafana/
 
 # Common (task-types.json is auto-generated, but required at runtime)
 /common/*

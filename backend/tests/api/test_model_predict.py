@@ -1,10 +1,23 @@
 """ML模型预测测试"""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 
 from app.core.model_engine import ModelEngine
+
+PHYSIO_MODEL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "models"
+    / "artifacts"
+    / "physiological_optimized"
+    / "model.json"
+)
+skip_no_physio = pytest.mark.skipif(
+    not PHYSIO_MODEL_PATH.exists(),
+    reason="生理模型 artifacts 不存在 (models/artifacts/physiological_optimized/)",
+)
 
 
 def _run(coro):
@@ -85,6 +98,7 @@ class TestModelPredict:
         weights = model_engine._boost_gate_for_physiology([], [])
         assert weights == []
 
+    @skip_no_physio
     def test_physiological_prediction_normal(self, model_engine):
         """测试生理模态正常预测"""
         result = _run(
@@ -149,6 +163,7 @@ class TestModelPredict:
             ),
         ],
     )
+    @skip_no_physio
     def test_physiological_prediction_matches_expected_risk_level(
         self, model_engine, physiological, expected_level
     ):

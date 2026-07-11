@@ -1,0 +1,1254 @@
+[
+  {
+    "scenario": "structured_low_text_low_physio_low",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 21,
+        "gender": 1,
+        "study_year": 3,
+        "cgpa": 3.6,
+        "stress_level": 2,
+        "sleep_duration": 7,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "最近状态不错，学习效率还可以。",
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "低风险融合场景"
+  },
+  {
+    "scenario": "structured_high_text_high_physio_high",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 23,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.8,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。",
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "高风险融合场景"
+  },
+  {
+    "scenario": "structured_mid_text_high_physio_mid",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 28,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.1,
+        "stress_level": 4,
+        "sleep_duration": 5,
+        "social_support": 2,
+        "financial_pressure": 3,
+        "family_history": 1,
+        "academic_pressure": 4,
+        "exercise_frequency": 1,
+        "anxiety": 3,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "最近很累，做事提不起劲，但还能勉强完成任务。",
+      "physiological": {
+        "sleep_hours": 5.5,
+        "sleep_quality": 2,
+        "exercise_minutes": 10,
+        "heart_rate": 92,
+        "systolic_bp": 132,
+        "diastolic_bp": 86,
+        "steps": 2800
+      }
+    },
+    "note": "中高风险融合场景"
+  },
+  {
+    "scenario": "structured_low_text_mid_physio_mid",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 19,
+        "gender": 1,
+        "study_year": 1,
+        "cgpa": 3.9,
+        "stress_level": 2,
+        "sleep_duration": 7,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 2,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "有点焦虑，但整体还能正常学习和休息。",
+      "physiological": {
+        "sleep_hours": 6.8,
+        "sleep_quality": 3,
+        "exercise_minutes": 20,
+        "heart_rate": 80,
+        "systolic_bp": 122,
+        "diastolic_bp": 79,
+        "steps": 5600
+      }
+    },
+    "note": "中低风险融合场景"
+  },
+  {
+    "scenario": "structured_low_only",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.7,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      }
+    },
+    "note": "单模态-结构化-低风险"
+  },
+  {
+    "scenario": "structured_mid_only",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 22,
+        "gender": 0,
+        "study_year": 3,
+        "cgpa": 3.2,
+        "stress_level": 3,
+        "sleep_duration": 6,
+        "social_support": 3,
+        "financial_pressure": 2,
+        "family_history": 0,
+        "academic_pressure": 3,
+        "exercise_frequency": 2,
+        "anxiety": 2,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      }
+    },
+    "note": "单模态-结构化-中风险"
+  },
+  {
+    "scenario": "structured_high_only",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      }
+    },
+    "note": "单模态-结构化-高风险"
+  },
+  {
+    "scenario": "text_low_only",
+    "label": 0,
+    "payload": {
+      "text": "最近状态不错，学习效率还可以。"
+    },
+    "note": "单模态-文本-低风险"
+  },
+  {
+    "scenario": "text_mid_only",
+    "label": 0,
+    "payload": {
+      "text": "有点焦虑，但整体还能正常学习和休息。"
+    },
+    "note": "单模态-文本-中风险"
+  },
+  {
+    "scenario": "text_high_only",
+    "label": 1,
+    "payload": {
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。"
+    },
+    "note": "单模态-文本-高风险"
+  },
+  {
+    "scenario": "physio_low_only",
+    "label": 0,
+    "payload": {
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "单模态-生理-低风险"
+  },
+  {
+    "scenario": "physio_mid_only",
+    "label": 0,
+    "payload": {
+      "physiological": {
+        "sleep_hours": 6.0,
+        "sleep_quality": 3,
+        "exercise_minutes": 20,
+        "heart_rate": 82,
+        "systolic_bp": 124,
+        "diastolic_bp": 80,
+        "steps": 4500
+      }
+    },
+    "note": "单模态-生理-中风险"
+  },
+  {
+    "scenario": "physio_high_only",
+    "label": 1,
+    "payload": {
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "单模态-生理-高风险"
+  },
+  {
+    "scenario": "structured_text_low_low",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.8,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "最近状态不错，学习效率还可以。"
+    },
+    "note": "双模态-结构化+文本-低低"
+  },
+  {
+    "scenario": "structured_text_low_high",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.8,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。"
+    },
+    "note": "双模态-结构化+文本-低高"
+  },
+  {
+    "scenario": "structured_text_high_low",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "最近状态不错，学习效率还可以。"
+    },
+    "note": "双模态-结构化+文本-高低"
+  },
+  {
+    "scenario": "structured_text_high_high",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。"
+    },
+    "note": "双模态-结构化+文本-高高"
+  },
+  {
+    "scenario": "structured_physio_low_low",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.8,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "双模态-结构化+生理-低低"
+  },
+  {
+    "scenario": "structured_physio_low_high",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.8,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "双模态-结构化+生理-低高"
+  },
+  {
+    "scenario": "structured_physio_high_low",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "双模态-结构化+生理-高低"
+  },
+  {
+    "scenario": "structured_physio_high_high",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "双模态-结构化+生理-高高"
+  },
+  {
+    "scenario": "text_physio_low_low",
+    "label": 0,
+    "payload": {
+      "text": "最近状态不错，学习效率还可以。",
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "双模态-文本+生理-低低"
+  },
+  {
+    "scenario": "text_physio_low_high",
+    "label": 1,
+    "payload": {
+      "text": "最近状态不错，学习效率还可以。",
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "双模态-文本+生理-低高"
+  },
+  {
+    "scenario": "text_physio_high_low",
+    "label": 1,
+    "payload": {
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。",
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "双模态-文本+生理-高低"
+  },
+  {
+    "scenario": "text_physio_high_high",
+    "label": 1,
+    "payload": {
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。",
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "双模态-文本+生理-高高"
+  },
+  {
+    "scenario": "all_modalities_low_low_low",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.8,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "最近状态不错，学习效率还可以。",
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "三模态-全低"
+  },
+  {
+    "scenario": "all_modalities_high_high_high",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。",
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "三模态-全高"
+  },
+  {
+    "scenario": "all_modalities_mixed_1",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 22,
+        "gender": 0,
+        "study_year": 3,
+        "cgpa": 3.2,
+        "stress_level": 3,
+        "sleep_duration": 6,
+        "social_support": 3,
+        "financial_pressure": 2,
+        "family_history": 0,
+        "academic_pressure": 3,
+        "exercise_frequency": 2,
+        "anxiety": 2,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。",
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "三模态-混合1: 结构化中+文本高+生理低"
+  },
+  {
+    "scenario": "all_modalities_mixed_2",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 22,
+        "gender": 0,
+        "study_year": 3,
+        "cgpa": 3.2,
+        "stress_level": 3,
+        "sleep_duration": 6,
+        "social_support": 3,
+        "financial_pressure": 2,
+        "family_history": 0,
+        "academic_pressure": 3,
+        "exercise_frequency": 2,
+        "anxiety": 2,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "最近状态不错，学习效率还可以。",
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "三模态-混合2: 结构化中+文本低+生理高"
+  },
+  {
+    "scenario": "all_modalities_mixed_3",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "有点焦虑，但整体还能正常学习和休息。",
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "三模态-混合3: 结构化高+文本中+生理低"
+  },
+  {
+    "scenario": "missing_structured",
+    "label": 1,
+    "payload": {
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。",
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "模态缺失-无结构化"
+  },
+  {
+    "scenario": "missing_text",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 104,
+        "systolic_bp": 144,
+        "diastolic_bp": 95,
+        "steps": 1200
+      }
+    },
+    "note": "模态缺失-无文本"
+  },
+  {
+    "scenario": "missing_physiological",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.5,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "我最近经常失眠，情绪很差，对任何事情都提不起兴趣。"
+    },
+    "note": "模态缺失-无生理"
+  },
+  {
+    "scenario": "missing_text_physio",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.8,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      }
+    },
+    "note": "模态缺失-仅结构化"
+  },
+  {
+    "scenario": "missing_structured_physio",
+    "label": 0,
+    "payload": {
+      "text": "最近状态不错，学习效率还可以。"
+    },
+    "note": "模态缺失-仅文本"
+  },
+  {
+    "scenario": "missing_structured_text",
+    "label": 0,
+    "payload": {
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 70,
+        "systolic_bp": 116,
+        "diastolic_bp": 74,
+        "steps": 8200
+      }
+    },
+    "note": "模态缺失-仅生理"
+  },
+  {
+    "scenario": "all_missing",
+    "label": 0,
+    "payload": {},
+    "note": "模态缺失-全部缺失"
+  },
+  {
+    "scenario": "boundary_age_min",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 17,
+        "gender": 1,
+        "study_year": 1,
+        "cgpa": 4.0,
+        "stress_level": 1,
+        "sleep_duration": 9,
+        "social_support": 5,
+        "financial_pressure": 0,
+        "family_history": 0,
+        "academic_pressure": 1,
+        "exercise_frequency": 4,
+        "anxiety": 0,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "一切正常，生活很规律。",
+      "physiological": {
+        "sleep_hours": 8.5,
+        "sleep_quality": 5,
+        "exercise_minutes": 60,
+        "heart_rate": 65,
+        "systolic_bp": 110,
+        "diastolic_bp": 70,
+        "steps": 10000
+      }
+    },
+    "note": "边界值-年龄最小"
+  },
+  {
+    "scenario": "boundary_age_max",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 35,
+        "gender": 0,
+        "study_year": 6,
+        "cgpa": 2.0,
+        "stress_level": 5,
+        "sleep_duration": 3,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 5,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "压力巨大，完全无法应对。",
+      "physiological": {
+        "sleep_hours": 3.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 120,
+        "systolic_bp": 160,
+        "diastolic_bp": 100,
+        "steps": 500
+      }
+    },
+    "note": "边界值-年龄最大"
+  },
+  {
+    "scenario": "boundary_cgpa_min",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 22,
+        "gender": 0,
+        "study_year": 3,
+        "cgpa": 0.0,
+        "stress_level": 5,
+        "sleep_duration": 3,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 5,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "学业完全崩溃，看不到希望。",
+      "physiological": {
+        "sleep_hours": 3.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 115,
+        "systolic_bp": 155,
+        "diastolic_bp": 98,
+        "steps": 800
+      }
+    },
+    "note": "边界值-CGPA最小"
+  },
+  {
+    "scenario": "boundary_cgpa_max",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 4.0,
+        "stress_level": 1,
+        "sleep_duration": 9,
+        "social_support": 5,
+        "financial_pressure": 0,
+        "family_history": 0,
+        "academic_pressure": 1,
+        "exercise_frequency": 4,
+        "anxiety": 0,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "成绩优异，生活平衡。",
+      "physiological": {
+        "sleep_hours": 8.0,
+        "sleep_quality": 5,
+        "exercise_minutes": 50,
+        "heart_rate": 68,
+        "systolic_bp": 112,
+        "diastolic_bp": 72,
+        "steps": 9500
+      }
+    },
+    "note": "边界值-CGPA最大"
+  },
+  {
+    "scenario": "boundary_sleep_min",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 23,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.2,
+        "stress_level": 5,
+        "sleep_duration": 0,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 5,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "完全无法入睡，精神崩溃。",
+      "physiological": {
+        "sleep_hours": 0.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 130,
+        "systolic_bp": 170,
+        "diastolic_bp": 110,
+        "steps": 200
+      }
+    },
+    "note": "边界值-睡眠最小"
+  },
+  {
+    "scenario": "boundary_sleep_max",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 19,
+        "gender": 1,
+        "study_year": 1,
+        "cgpa": 3.8,
+        "stress_level": 1,
+        "sleep_duration": 12,
+        "social_support": 5,
+        "financial_pressure": 0,
+        "family_history": 0,
+        "academic_pressure": 1,
+        "exercise_frequency": 4,
+        "anxiety": 0,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "睡眠充足，精力充沛。",
+      "physiological": {
+        "sleep_hours": 10.0,
+        "sleep_quality": 5,
+        "exercise_minutes": 60,
+        "heart_rate": 62,
+        "systolic_bp": 108,
+        "diastolic_bp": 68,
+        "steps": 11000
+      }
+    },
+    "note": "边界值-睡眠最大"
+  },
+  {
+    "scenario": "boundary_heart_rate_min",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.5,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "身体健康，心情愉快。",
+      "physiological": {
+        "sleep_hours": 8.0,
+        "sleep_quality": 4,
+        "exercise_minutes": 45,
+        "heart_rate": 50,
+        "systolic_bp": 105,
+        "diastolic_bp": 65,
+        "steps": 9000
+      }
+    },
+    "note": "边界值-心率最小"
+  },
+  {
+    "scenario": "boundary_heart_rate_max",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 25,
+        "gender": 0,
+        "study_year": 5,
+        "cgpa": 2.0,
+        "stress_level": 5,
+        "sleep_duration": 3,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 5,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "心跳加速，极度恐慌。",
+      "physiological": {
+        "sleep_hours": 3.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 180,
+        "systolic_bp": 180,
+        "diastolic_bp": 120,
+        "steps": 300
+      }
+    },
+    "note": "边界值-心率最大"
+  },
+  {
+    "scenario": "boundary_steps_min",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 24,
+        "gender": 0,
+        "study_year": 4,
+        "cgpa": 2.3,
+        "stress_level": 5,
+        "sleep_duration": 4,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 4,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "整天躺在床上，不想动。",
+      "physiological": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 110,
+        "systolic_bp": 150,
+        "diastolic_bp": 95,
+        "steps": 0
+      }
+    },
+    "note": "边界值-步数最小"
+  },
+  {
+    "scenario": "boundary_steps_max",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 21,
+        "gender": 1,
+        "study_year": 3,
+        "cgpa": 3.6,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "运动量大，活力满满。",
+      "physiological": {
+        "sleep_hours": 8.0,
+        "sleep_quality": 4,
+        "exercise_minutes": 60,
+        "heart_rate": 65,
+        "systolic_bp": 115,
+        "diastolic_bp": 75,
+        "steps": 20000
+      }
+    },
+    "note": "边界值-步数最大"
+  },
+  {
+    "scenario": "boundary_bp_min",
+    "label": 0,
+    "payload": {
+      "features": {
+        "age": 20,
+        "gender": 1,
+        "study_year": 2,
+        "cgpa": 3.5,
+        "stress_level": 2,
+        "sleep_duration": 8,
+        "social_support": 4,
+        "financial_pressure": 1,
+        "family_history": 0,
+        "academic_pressure": 2,
+        "exercise_frequency": 3,
+        "anxiety": 1,
+        "panic_attack": 0,
+        "treatment_seeking": 0
+      },
+      "text": "血压正常，身体很好。",
+      "physiological": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 4,
+        "exercise_minutes": 40,
+        "heart_rate": 68,
+        "systolic_bp": 90,
+        "diastolic_bp": 60,
+        "steps": 8000
+      }
+    },
+    "note": "边界值-血压最小"
+  },
+  {
+    "scenario": "boundary_bp_max",
+    "label": 1,
+    "payload": {
+      "features": {
+        "age": 26,
+        "gender": 0,
+        "study_year": 5,
+        "cgpa": 2.1,
+        "stress_level": 5,
+        "sleep_duration": 3,
+        "social_support": 1,
+        "financial_pressure": 5,
+        "family_history": 1,
+        "academic_pressure": 5,
+        "exercise_frequency": 0,
+        "anxiety": 5,
+        "panic_attack": 1,
+        "treatment_seeking": 1
+      },
+      "text": "血压飙升，头痛欲裂。",
+      "physiological": {
+        "sleep_hours": 3.0,
+        "sleep_quality": 1,
+        "exercise_minutes": 0,
+        "heart_rate": 125,
+        "systolic_bp": 200,
+        "diastolic_bp": 130,
+        "steps": 500
+      }
+    },
+    "note": "边界值-血压最大"
+  }
+]

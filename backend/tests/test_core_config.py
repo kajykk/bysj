@@ -42,8 +42,9 @@ class TestSettingsDefaults:
         settings = Settings()
         assert settings.app_env == "development"
 
-    def test_default_database_url(self):
+    def test_default_database_url(self, monkeypatch):
         """TC-COV-CONFIG-004: Default database_url is SQLite."""
+        monkeypatch.delenv("DATABASE_URL", raising=False)
         from app.core.config import Settings
 
         settings = Settings()

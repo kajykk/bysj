@@ -1,6 +1,21 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
+
+PHYSIO_MODEL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "models"
+    / "artifacts"
+    / "physiological_optimized"
+    / "model.json"
+)
+skip_no_physio = pytest.mark.skipif(
+    not PHYSIO_MODEL_PATH.exists(),
+    reason="生理模型 artifacts 不存在 (models/artifacts/physiological_optimized/)",
+)
 
 
 class TestStructuredDataCollect:
@@ -147,6 +162,7 @@ class TestTextAnalyze:
 
 
 class TestPhysiologicalRecord:
+    @skip_no_physio
     def test_record_physiological_success(self, client: TestClient, as_role):
         as_role("user", 1)
         resp = client.post(
@@ -167,6 +183,7 @@ class TestPhysiologicalRecord:
         assert body["code"] == 200
         assert "record_id" in body["data"]
 
+    @skip_no_physio
     def test_record_physiological_invalid_fields_filtered(
         self, client: TestClient, as_role
     ):

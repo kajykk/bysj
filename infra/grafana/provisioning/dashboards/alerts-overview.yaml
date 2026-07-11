@@ -1,0 +1,25 @@
+apiVersion: 1
+
+# Grafana Dashboard Provisioning (v1.38)
+# ----------------------------------------------------------------------------
+# 自动加载 /var/lib/grafana/dashboards/ 目录下的所有 JSON 仪表盘.
+# v1.38 提供 1 个标准仪表盘: v1.37-alerts-overview.json (24 panels)
+# 由 infra/grafana/scripts/build_dashboard.py 从 YAML + Jinja2 模板生成.
+#
+# 加载策略:
+# - updateIntervalSeconds: 30s 刷新 (避免磁盘 I/O 风暴)
+# - allowUiUpdates: 允许用户在 UI 上编辑 (不锁定)
+# - foldersFromFilesStructure: 按子目录组织 (预留扩展)
+# ----------------------------------------------------------------------------
+
+providers:
+  - name: 'v1.37 Alerts Overview'
+    orgId: 1
+    folder: 'Observability'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true
