@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.contracts import (
+    DEFAULT_TENANT_ID,
     USER_ROLE_ADMIN,
     USER_ROLE_COUNSELOR,
     USER_ROLE_USER,
@@ -52,6 +53,11 @@ class User(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=USER_STATUS_ACTIVE, index=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Phase 5: 多租户字段 — 默认 DEFAULT_TENANT_ID 向后兼容单租户数据
+    tenant_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False, default=DEFAULT_TENANT_ID, index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

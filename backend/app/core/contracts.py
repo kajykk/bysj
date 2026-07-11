@@ -108,7 +108,22 @@ USER_STATUSES: frozenset[str] = frozenset(
 
 
 # =========================================================================
-# 6. 通知渠道 (Notification Channels) — 集中 warning_service 散落定义
+# 6. 租户状态 (Tenant Status) — Phase 5 多租户与商业化验证
+# =========================================================================
+TENANT_STATUS_ACTIVE = "active"
+TENANT_STATUS_INACTIVE = "inactive"
+TENANT_STATUS_SUSPENDED = "suspended"
+
+TENANT_STATUSES: frozenset[str] = frozenset(
+    {TENANT_STATUS_ACTIVE, TENANT_STATUS_INACTIVE, TENANT_STATUS_SUSPENDED}
+)
+
+# 默认租户 ID（向后兼容单租户场景）
+DEFAULT_TENANT_ID = 1
+
+
+# =========================================================================
+# 7. 通知渠道 (Notification Channels) — 集中 warning_service 散落定义
 # =========================================================================
 NOTIFY_CHANNEL_IN_APP = "in_app"
 NOTIFY_CHANNEL_EMAIL = "email"
@@ -126,7 +141,7 @@ NOTIFY_CHANNELS: frozenset[str] = frozenset(
 
 
 # =========================================================================
-# 7. Re-export 独立域核心枚举
+# 8. Re-export 独立域核心枚举
 # =========================================================================
 # BindingStatus: 绑定状态 (from states.py)
 # ReviewReason: 人工复核原因 (from review_reasons.py)
@@ -199,6 +214,12 @@ __all__ = [
     "USER_STATUS_INACTIVE",
     "USER_STATUS_DELETED",
     "USER_STATUSES",
+    # 租户状态
+    "TENANT_STATUS_ACTIVE",
+    "TENANT_STATUS_INACTIVE",
+    "TENANT_STATUS_SUSPENDED",
+    "TENANT_STATUSES",
+    "DEFAULT_TENANT_ID",
     # 通知渠道
     "NOTIFY_CHANNEL_IN_APP",
     "NOTIFY_CHANNEL_EMAIL",
