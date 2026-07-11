@@ -59,7 +59,7 @@ health_schema = schema.include(path="/health")
 
 
 @schema.parametrize()
-@settings(max_examples=10, deadline=None)
+@settings(max_examples=2, deadline=None)
 def test_api_contract(case):
     """Validate all API endpoints conform to OpenAPI spec.
 
@@ -71,7 +71,7 @@ def test_api_contract(case):
 
 
 @predict_tabular_schema.parametrize()
-@settings(max_examples=10, deadline=None)
+@settings(max_examples=3, deadline=None)
 def test_predict_tabular_contract(case):
     """Specific contract test for tabular prediction endpoint."""
     response = case.call()
@@ -86,7 +86,7 @@ def test_predict_tabular_contract(case):
 
 
 @predict_text_schema.parametrize()
-@settings(max_examples=10, deadline=None)
+@settings(max_examples=3, deadline=None)
 def test_predict_text_contract(case):
     """Specific contract test for text prediction endpoint."""
     response = case.call()

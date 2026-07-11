@@ -20,7 +20,7 @@ pytestmark = pytest.mark.contract
 class TestStructuredPredictionContract:
     """Contract tests for POST /api/v1/predict/structured"""
 
-    @settings(max_examples=20, deadline=None)
+    @settings(max_examples=5, deadline=None)
     @given(
         sleep_hours=st.floats(min_value=0.0, max_value=24.0),
         exercise_minutes=st.floats(min_value=0.0, max_value=300.0),

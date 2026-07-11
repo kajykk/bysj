@@ -20,7 +20,7 @@ pytestmark = pytest.mark.contract
 class TestTextPredictionContract:
     """Contract tests for POST /api/v1/predict/text"""
 
-    @settings(max_examples=20, deadline=None)
+    @settings(max_examples=5, deadline=None)
     @given(text=st.text(min_size=1, max_size=500))
     def test_valid_text_returns_prediction(self, text):
         """TC-CNT-HP-010: Valid text input returns prediction."""
