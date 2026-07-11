@@ -205,7 +205,7 @@ def db_session(db_connection: AsyncConnection) -> AsyncSession:
 
 
 @pytest_asyncio.fixture(autouse=True)
-def override_db_dependency(db_connection: AsyncConnection):
+def override_db_dependency(db_connection: AsyncConnection, monkeypatch):
     def _make_test_session():
         """创建绑定到测试连接且 commit->flush 的 session."""
         session = SessionFactory(bind=db_connection)
@@ -220,6 +220,14 @@ def override_db_dependency(db_connection: AsyncConnection):
             await session.close()
 
     app.dependency_overrides[get_db] = _override_get_db
+
+    # Override AsyncSessionLocal for code that bypasses get_db (e.g., WebSocket endpoint)
+    import app.core.database
+    import app.core.ws
+
+    monkeypatch.setattr(app.core.database, "AsyncSessionLocal", _make_test_session)
+    monkeypatch.setattr(app.core.ws, "AsyncSessionLocal", _make_test_session)
+
     CURRENT_USER["id"] = 1
     CURRENT_USER["role"] = "user"
 
