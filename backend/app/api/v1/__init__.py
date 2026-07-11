@@ -21,6 +21,8 @@ from app.api.v1.ops_dashboard import router as ops_dashboard_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.review import router as review_router
 from app.api.v1.silences import router as silences_router
+from app.api.v1.tenant_admin import router as tenant_admin_router
+from app.api.v1.tenant_audit import router as tenant_audit_router
 from app.api.v1.user_content import router as user_content_router
 from app.api.v1.user_data import router as user_data_router
 from app.api.v1.user_intervention import router as user_intervention_router
@@ -63,3 +65,5 @@ api_router.include_router(model_validation_router)  # Phase 3 临床模型验证
 api_router.include_router(model_kill_switch_router)  # Phase 3 模型暂停开关
 api_router.include_router(ops_dashboard_router)  # Phase 4 运营看板
 api_router.include_router(content_governance_router)  # Phase 4 内容治理
+api_router.include_router(tenant_admin_router)  # Phase 5 租户管理
+api_router.include_router(tenant_audit_router)  # Phase 5 租户级审计

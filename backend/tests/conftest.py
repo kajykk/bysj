@@ -222,11 +222,11 @@ def override_db_dependency(db_connection: AsyncConnection, monkeypatch):
     app.dependency_overrides[get_db] = _override_get_db
 
     # Override AsyncSessionLocal for code that bypasses get_db (e.g., WebSocket endpoint)
-    import app.core.database
-    import app.core.ws
+    from app.core import database as _db_module
+    from app.core import ws as _ws_module
 
-    monkeypatch.setattr(app.core.database, "AsyncSessionLocal", _make_test_session)
-    monkeypatch.setattr(app.core.ws, "AsyncSessionLocal", _make_test_session)
+    monkeypatch.setattr(_db_module, "AsyncSessionLocal", _make_test_session)
+    monkeypatch.setattr(_ws_module, "AsyncSessionLocal", _make_test_session)
 
     CURRENT_USER["id"] = 1
     CURRENT_USER["role"] = "user"
