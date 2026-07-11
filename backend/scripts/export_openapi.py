@@ -54,4 +54,20 @@ def export_openapi_schema(output_path: Path | None = None) -> Path:
 
 
 if __name__ == "__main__":
-    export_openapi_schema()
+    import os
+    import traceback
+
+    try:
+        export_openapi_schema()
+    except Exception:
+        err = traceback.format_exc()
+        print(err, file=sys.stderr)
+        last_line = err.strip().splitlines()[-1][:250] if err.strip() else "Unknown error"
+        print(f"::error::Export OpenAPI schema failed: {last_line}")
+        summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary_path:
+            with open(summary_path, "a", encoding="utf-8") as f:
+                f.write("## Export OpenAPI schema FAILED\n\n```\n")
+                f.write(err)
+                f.write("```\n")
+        sys.exit(1)

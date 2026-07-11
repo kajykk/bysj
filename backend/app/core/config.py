@@ -154,6 +154,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def apply_env_defaults(self) -> "Settings":
+        # CI/部署兼容性：将同步 postgresql:// 协议自动转换为异步 postgresql+asyncpg://
+        # create_async_engine 要求 async driver，直接传入 postgresql:// 会抛 InvalidRequestError
+        # 仅处理裸 postgresql://，不处理已带 driver 的 postgresql+psycopg2:// 等
+        if self.database_url.startswith("postgresql://"):
+            self.database_url = "postgresql+asyncpg://" + self.database_url[len("postgresql://"):]
         # M-Core-1 修复说明：本 validator 中对 self.jwt_secret_key / self.pii_encryption_key
         # 的赋值仅在 Settings 实例化时执行（模块级 `settings = Settings()`），
         # 该过程位于应用启动阶段且为单线程，不存在并发突变。Pydantic v2 的 model_validator
