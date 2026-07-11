@@ -188,8 +188,9 @@ backend/.pii_key
 # Infra runtime
 infra/
 
-# Common (task-types.json is auto-generated)
-common/
+# Common (task-types.json is auto-generated, but required at runtime)
+/common/*
+!/common/task-types.json
 
 # Docker
 docker-compose.yml
