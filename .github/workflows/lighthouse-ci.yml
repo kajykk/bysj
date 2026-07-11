@@ -32,7 +32,7 @@ jobs:
       - name: Run Lighthouse CI
         working-directory: frontend
         run: |
-          lhci autorun --config=lighthouserc.js
+          lhci autorun --config=lighthouserc.json
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
       
