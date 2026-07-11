@@ -8,17 +8,17 @@ vi.mock('@/router', () => ({
   default: { replace: vi.fn() }
 }))
 
+// 使用 vi.hoisted 创建共享 mock，确保 element-plus 和子路径 mock 指向同一实例
+const ElMessageMock = vi.hoisted(() => ({
+  warning: vi.fn(),
+  error: vi.fn(),
+}))
+
 vi.mock('element-plus', () => ({
-  ElMessage: {
-    warning: vi.fn(),
-    error: vi.fn()
-  }
+  ElMessage: ElMessageMock,
 }))
 vi.mock('element-plus/es/components/message/index', () => ({
-  ElMessage: {
-    warning: vi.fn(),
-    error: vi.fn()
-  }
+  ElMessage: ElMessageMock,
 }))
 
 describe('request interceptor auth handling', () => {
