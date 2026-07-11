@@ -34,6 +34,7 @@ from schemathesis.config._checks import (
     ChecksConfig,
     PositiveDataAcceptanceConfig,
 )
+from schemathesis.config._generation import GenerationConfig
 from schemathesis.config._projects import ProjectConfig, ProjectsConfig
 
 from app.main import app
@@ -45,7 +46,10 @@ _positive_config = PositiveDataAcceptanceConfig(
     expected_statuses=["2xx", "400", "401", "403", "404", "409", "422", "5xx"]
 )
 _checks = ChecksConfig(positive_data_acceptance=_positive_config)
-_project = ProjectConfig(checks=_checks)
+# 只生成 positive data: negative data 测试中 bool->int 类型转换是 Python 标准行为,
+# 不属于真正的 schema 违规, 会产生大量误报
+_generation = GenerationConfig(modes=["positive"])
+_project = ProjectConfig(checks=_checks, generation=_generation)
 _projects = ProjectsConfig(default=_project)
 _contract_config = SchemathesisConfig(projects=_projects)
 
@@ -58,7 +62,7 @@ predict_text_schema = schema.include(path="/api/v1/model/predict/text")
 health_schema = schema.include(path="/health")
 
 
-@schema.parametrize(data_generation_method="positive")
+@schema.parametrize()
 @settings(max_examples=2, deadline=None)
 def test_api_contract(case):
     """Validate all API endpoints conform to OpenAPI spec.
