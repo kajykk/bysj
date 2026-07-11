@@ -36,6 +36,7 @@ from schemathesis.config._checks import (
 )
 from schemathesis.config._generation import GenerationConfig
 from schemathesis.config._projects import ProjectConfig, ProjectsConfig
+from schemathesis.generation import GenerationMode
 
 from app.main import app
 
@@ -48,7 +49,7 @@ _positive_config = PositiveDataAcceptanceConfig(
 _checks = ChecksConfig(positive_data_acceptance=_positive_config)
 # 只生成 positive data: negative data 测试中 bool->int 类型转换是 Python 标准行为,
 # 不属于真正的 schema 违规, 会产生大量误报
-_generation = GenerationConfig(modes=["positive"])
+_generation = GenerationConfig(modes=[GenerationMode.POSITIVE])
 _project = ProjectConfig(checks=_checks, generation=_generation)
 _projects = ProjectsConfig(default=_project)
 _contract_config = SchemathesisConfig(projects=_projects)
