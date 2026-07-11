@@ -30,7 +30,7 @@ jobs:
       - name: Run backend tests with coverage
         working-directory: backend
         run: |
-          python -m pytest -m "not contract"
+          python -m pytest
       - name: Run frontend tests with coverage
         working-directory: frontend
         run: |
