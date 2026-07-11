@@ -25,6 +25,8 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
       
       - name: Install Lighthouse CI
         run: npm install -g @lhci/cli@0.14.x
