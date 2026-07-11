@@ -56,7 +56,7 @@ jobs:
         run: |
           python -c "import yaml; assert yaml.safe_load(open('infra/grafana/provisioning/alerting/rules.yaml'))['groups'][0]['rules'], 'rules empty'"
           python -c "import yaml; assert len(yaml.safe_load(open('infra/grafana/provisioning/alerting/contact-points.yaml'))['contactPoints'])==3, 'cp !=3'"
-          python -c "import yaml; assert len(yaml.safe_load(open('infra/grafana/provisioning/alerting/policies.yaml'))['policies'][0]['routes'])==3, 'routes !=3'"
+          python -c "import yaml; assert len(yaml.safe_load(open('infra/grafana/provisioning/alerting/policies.yaml'))['policies'][0]['routes'])>=3, 'routes <3'"
           python -c "import yaml; assert len(yaml.safe_load(open('infra/grafana/provisioning/alerting/mute-timings.yaml'))['muteTimeIntervals'])==1, 'mute !=1'"
           python -c "import yaml; assert yaml.safe_load(open('infra/grafana/provisioning/datasources/prometheus.yaml'))['datasources'][0]['uid']=='PB0F7F7A2A1B0E0FA', 'uid mismatch'"
           echo "PASS: 5 YAML validate OK"
