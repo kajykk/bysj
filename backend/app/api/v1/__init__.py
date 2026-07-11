@@ -16,6 +16,7 @@ from app.api.v1.model_predict import router as model_predict_router
 from app.api.v1.model_validation import router as model_validation_router
 from app.api.v1.monitoring import router as monitoring_router
 from app.api.v1.observability import router as observability_router
+from app.api.v1.ops_dashboard import router as ops_dashboard_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.review import router as review_router
 from app.api.v1.silences import router as silences_router
@@ -59,3 +60,4 @@ api_router.include_router(silences_router)
 api_router.include_router(grafana_adapter_router)  # v1.37
 api_router.include_router(model_validation_router)  # Phase 3 临床模型验证
 api_router.include_router(model_kill_switch_router)  # Phase 3 模型暂停开关
+api_router.include_router(ops_dashboard_router)  # Phase 4 运营看板
