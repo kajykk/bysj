@@ -79,8 +79,8 @@ async def test_acquire_lock_no_fingerprint() -> None:
 
 
 async def test_acquire_lock_no_redis_url() -> None:
-    """v1.35: 无 Redis URL 应直接返回 True."""
-    with patch("app.monitoring.dedup_lock._get_redis_url", return_value=None):
+    """v1.35: 无 Redis client (共享 client 为 None) 应降级返回 True."""
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=None)):
         result = await try_acquire_lock("fp-1")
         assert result is True
 
@@ -137,8 +137,8 @@ async def test_release_lock_no_fingerprint() -> None:
 
 
 async def test_release_lock_no_redis_url() -> None:
-    """v1.35: 无 Redis URL 应返回 False."""
-    with patch("app.monitoring.dedup_lock._get_redis_url", return_value=None):
+    """v1.35: 无 Redis client (共享 client 为 None) 应返回 False."""
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=None)):
         result = await release_lock("fp-1")
         assert result is False
 
@@ -200,8 +200,8 @@ async def test_lock_stats_incremented_on_fallback() -> None:
 
 
 async def test_lock_stats_incremented_on_no_redis_url() -> None:
-    """v1.36 T1.3: 无 redis_url 时 fallback 计数 +1."""
-    with patch("app.monitoring.dedup_lock._get_redis_url", return_value=None):
+    """v1.36 T1.3: 无 redis client 时 fallback 计数 +1."""
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=None)):
         await try_acquire_lock("fp-no-url")
 
     stats = get_stats()

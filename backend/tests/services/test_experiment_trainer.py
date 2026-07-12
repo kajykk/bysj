@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.machinery
 import sys
 import tempfile
 from pathlib import Path
@@ -12,7 +13,9 @@ import pytest
 
 # CI 环境可能未安装 datasets 包（重量级依赖），注入 mock 以支持 @patch("datasets.Dataset")
 if "datasets" not in sys.modules:
-    sys.modules["datasets"] = MagicMock()
+    _mock = MagicMock()
+    _mock.__spec__ = importlib.machinery.ModuleSpec("datasets", None)
+    sys.modules["datasets"] = _mock
 
 from app.services.experiment_trainer import ExperimentTrainer
 

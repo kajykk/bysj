@@ -4,11 +4,27 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.models.admin import OperationLog
 from app.monitoring.dedup import should_send
 from app.monitoring.notifier import AlertPayload
+
+
+@pytest.fixture(autouse=True)
+def _mock_redis_lock():
+    """Mock Redis 锁为始终返回 True, 使 should_send 只测试 SQL dedup 逻辑.
+
+    避免 CI 环境 Redis 锁状态 (SETNX + TTL 5min) 在测试间泄漏导致后续测试
+    lock_acquired=False -> should_send 直接返回 False.
+    """
+    with patch(
+        "app.monitoring.dedup.try_acquire_lock",
+        AsyncMock(return_value=True),
+    ):
+        yield
 
 
 def _make_log(

@@ -9,6 +9,8 @@ import pandas as pd
 import pytest
 
 from app.ml.data_loader import (
+    DEPRESJON_PATH,
+    KAGGLE_PATH,
     REQUIRED_COLUMNS,
     get_dataset_stats,
     load_depresjon_data,
@@ -16,10 +18,16 @@ from app.ml.data_loader import (
     merge_datasets,
 )
 
+skip_no_datasets = pytest.mark.skipif(
+    not DEPRESJON_PATH.exists() or not KAGGLE_PATH.exists(),
+    reason="外部数据集文件不存在 (datasets/physiological/external/)",
+)
+
 
 class TestLoadDepresjonData:
     """Test load_depresjon_data."""
 
+    @skip_no_datasets
     def test_load_default(self):
         """TC-COV-DL-001: Load default Depresjon dataset."""
         df = load_depresjon_data()
@@ -48,6 +56,7 @@ class TestLoadDepresjonData:
 class TestLoadKaggleData:
     """Test load_kaggle_data."""
 
+    @skip_no_datasets
     def test_load_default(self):
         """TC-COV-DL-004: Load default Kaggle dataset."""
         df = load_kaggle_data()
@@ -67,6 +76,7 @@ class TestLoadKaggleData:
 class TestMergeDatasets:
     """Test merge_datasets."""
 
+    @skip_no_datasets
     def test_merge_default(self):
         """TC-COV-DL-006: Merge default datasets."""
         df = merge_datasets()
@@ -74,6 +84,7 @@ class TestMergeDatasets:
         assert len(df) > 0
         assert set(df["source"].unique()) == {"depresjon", "kaggle"}
 
+    @skip_no_datasets
     def test_merge_with_provided_data(self):
         """TC-COV-DL-007: Merge with provided DataFrames."""
         depresjon = load_depresjon_data()
@@ -85,6 +96,7 @@ class TestMergeDatasets:
 class TestGetDatasetStats:
     """Test get_dataset_stats."""
 
+    @skip_no_datasets
     def test_stats(self):
         """TC-COV-DL-008: Get dataset stats."""
         df = merge_datasets()

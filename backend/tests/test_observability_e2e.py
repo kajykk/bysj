@@ -262,8 +262,8 @@ async def test_e2e_lock_fallback_to_stats(db_session, client, as_role) -> None:
     # 重置内存统计
     reset_stats()
 
-    # 1. 触发 3 次 fallback (无 redis_url)
-    with patch("app.monitoring.dedup_lock._get_redis_url", return_value=None):
+    # 1. 触发 3 次 fallback (无 redis client)
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=None)):
         for fp in ["fp-1", "fp-2", "fp-3"]:
             acquired = await try_acquire_lock(fp)
             assert acquired is True  # 降级: 允许发送
@@ -336,7 +336,7 @@ async def test_e2e_lock_mixed_paths_to_stats(db_session, client, as_role) -> Non
         assert a2 is False
 
     # 2. 模拟 fallback 路径
-    with patch("app.monitoring.dedup_lock._get_redis_url", return_value=None):
+    with patch("app.core.cache.get_redis_client", AsyncMock(return_value=None)):
         a3 = await try_acquire_lock("fp-fallback")
         assert a3 is True  # 降级
 
