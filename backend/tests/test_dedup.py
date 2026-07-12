@@ -21,7 +21,7 @@ def _mock_redis_lock():
     lock_acquired=False -> should_send 直接返回 False.
     """
     with patch(
-        "app.monitoring.dedup.try_acquire_lock",
+        "app.monitoring.dedup_lock.try_acquire_lock",
         AsyncMock(return_value=True),
     ):
         yield

@@ -122,14 +122,17 @@ def test_counter_label_validation() -> None:
 
 
 def test_render_exposition_idempotent(client: TestClient) -> None:
-    """连续两次 render 应得到相同结构."""
+    """连续两次 render 应得到相同的已注册指标定义 (HELP/TYPE 注释行).
+
+    注: 指标值行 (metric_name value) 可能因非确定性状态指标 (如
+    observability_escalation_rate, smtp_circuit_state) 的条件渲染而不同,
+    因此只比较 HELP 注释行 (指标注册是确定性的).
+    """
     r1 = client.get("/api/v1/metrics", headers=_METRICS_AUTH).text
     r2 = client.get("/api/v1/metrics", headers=_METRICS_AUTH).text
-    # 相同的指标集合 (行数相同)
-    r1_lines = sorted(
-        line for line in r1.splitlines() if line and not line.startswith("#")
+    r1_help = sorted(line for line in r1.splitlines() if line.startswith("# HELP"))
+    r2_help = sorted(line for line in r2.splitlines() if line.startswith("# HELP"))
+    assert r1_help == r2_help, (
+        f"HELP 注释行不一致, r1 独有: {set(r1_help) - set(r2_help)}, "
+        f"r2 独有: {set(r2_help) - set(r1_help)}"
     )
-    r2_lines = sorted(
-        line for line in r2.splitlines() if line and not line.startswith("#")
-    )
-    assert r1_lines == r2_lines
