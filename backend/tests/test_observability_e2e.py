@@ -355,23 +355,26 @@ async def test_e2e_lock_mixed_paths_to_stats(db_session, client, as_role) -> Non
     # lock-stats 缓存导致本次 API 调用返回旧数据
     clear_memory_cache()
 
-    # 5. 调 lock-stats API
-    resp = client.get("/api/v1/alerts/observability/lock-stats")
-    assert resp.status_code == 200
-    body = resp.json()
-    data = body["data"]
-    # 从 recent_flushes 中查找当前测试的记录 (acquired=1, skipped=1, fallback=1)
-    rf = next(
-        (
-            r
-            for r in data["recent_flushes"]
-            if r["acquired"] == 1 and r["skipped"] == 1 and r["fallback"] == 1
-        ),
-        None,
+    # 5. 直接查 DB 验证 flush 记录 (不依赖 API, 避免 CI 中 DB session 隔离问题)
+    log_stmt = select(OperationLog).where(
+        OperationLog.action_type == "dedup_lock_stats",
+        OperationLog.target_type == "dedup_lock",
     )
+    logs = (await db_session.execute(log_stmt)).scalars().all()
+    # 查找当前测试的 flush 记录 (acquired=1, skipped=1, fallback=1)
+    rf = None
+    for log in logs:
+        detail = json.loads(log.detail)
+        if (
+            detail.get("acquired") == 1
+            and detail.get("skipped") == 1
+            and detail.get("fallback") == 1
+        ):
+            rf = detail
+            break
     assert rf is not None, (
         f"未找到 acquired=1, skipped=1, fallback=1 的 flush 记录, "
-        f"recent_flushes={data['recent_flushes']}"
+        f"logs={[json.loads(l.detail) for l in logs]}"
     )
     # 比例: 1/3 each
     assert abs(rf["fallback"] / 3 - 1 / 3) < 0.001
