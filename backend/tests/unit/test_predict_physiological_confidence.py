@@ -1,8 +1,20 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from app.core.model_engine import ModelEngine
+
+PHYSIO_MODEL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "models" / "artifacts" / "physiological_optimized" / "model.json"
+)
+skip_no_physio = pytest.mark.skipif(
+    not PHYSIO_MODEL_PATH.exists(),
+    reason="生理模型 artifacts 不存在 (models/artifacts/physiological_optimized/)",
+)
+pytestmark = skip_no_physio
 
 
 class TestPredictPhysiologicalConfidence:

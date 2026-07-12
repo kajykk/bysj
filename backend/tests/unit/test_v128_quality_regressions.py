@@ -7,6 +7,15 @@ import pytest
 from app.core.config import BACKEND_DIR
 from app.core.model_engine import ModelEngine
 
+PHYSIO_MODEL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "models" / "artifacts" / "physiological_optimized" / "model.json"
+)
+skip_no_physio = pytest.mark.skipif(
+    not PHYSIO_MODEL_PATH.exists(),
+    reason="生理模型 artifacts 不存在 (models/artifacts/physiological_optimized/)",
+)
+
 
 class _IdentityScaler:
     def transform(self, feature_array):
@@ -63,6 +72,7 @@ def test_structured_mapping_separates_panic_attack_from_suicidal_thoughts():
     assert input_dict["CGPA"] == pytest.approx(8.0)
 
 
+@skip_no_physio
 @pytest.mark.asyncio
 async def test_physiological_artifact_paths_are_backend_absolute(monkeypatch):
     checked_paths: list[Path] = []
