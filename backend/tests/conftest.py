@@ -39,6 +39,12 @@ os.environ.setdefault("E2E_ADMIN_PASSWORD", "TestAdminPwd-2024-Secure!")
 os.environ.setdefault("E2E_COUNSELOR_PASSWORD", "TestCounselorPwd-2024-Secure!")
 os.environ.setdefault("E2E_USER_PASSWORD", "TestUserPwd-2024-Secure!")
 
+# CI 环境 DATABASE_URL 可能指向 PostgreSQL, 但测试引擎默认用 SQLite (TEST_DATABASE_URL 未设置).
+# 覆盖 DATABASE_URL 确保 settings.database_url 与测试引擎一致, 避免 _is_sqlite 误判
+# (monitoring.py 的 to_char vs strftime 选择) 和模块级 engine 事件循环不匹配.
+if not os.environ.get("TEST_DATABASE_URL"):
+    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_app.db"
+
 from starlette.requests import Request as StarletteRequest
 
 from app.core.database import get_db
@@ -140,7 +146,7 @@ SessionFactory = async_sessionmaker(
 )
 TestingSessionLocal = SessionFactory
 
-CURRENT_USER = {"id": 1, "role": "user"}
+CURRENT_USER = {"id": 1, "role": "user", "tenant_id": 1}
 
 
 def run(coro):
@@ -230,6 +236,7 @@ def override_db_dependency(db_connection: AsyncConnection, monkeypatch):
 
     CURRENT_USER["id"] = 1
     CURRENT_USER["role"] = "user"
+    CURRENT_USER["tenant_id"] = 1
 
     from app.core.rate_limit import limiter
 
@@ -249,6 +256,7 @@ def override_user_dependency():
     ) -> User:
         role = CURRENT_USER["role"]
         user_id = CURRENT_USER["id"]
+        tenant_id = CURRENT_USER.get("tenant_id", 1)
         return User(
             id=user_id,
             username=f"{role}_tester",
@@ -256,6 +264,7 @@ def override_user_dependency():
             role=role,
             status="active",
             password_hash="x",
+            tenant_id=tenant_id,
         )
 
     app.dependency_overrides[get_current_user] = _override_get_current_user
@@ -282,9 +291,10 @@ def client() -> TestClient:
 
 @pytest.fixture
 def as_role():
-    def _set(role: str, user_id: int = 1) -> None:
+    def _set(role: str, user_id: int = 1, tenant_id: int = 1) -> None:
         CURRENT_USER["role"] = role
         CURRENT_USER["id"] = user_id
+        CURRENT_USER["tenant_id"] = tenant_id
 
     return _set
 

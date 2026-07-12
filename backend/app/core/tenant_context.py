@@ -30,7 +30,9 @@ from app.core.contracts import (
     TENANT_STATUS_SUSPENDED,
 )
 from app.core.database import get_db
+from app.core.deps import ROLE_HIERARCHY, get_current_user
 from app.models.tenant import Tenant
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -201,8 +203,6 @@ def enforce_tenant_match(resource_tenant_id: int | None, request_tenant_id: int)
     Raises:
         HTTPException(403): 租户不匹配
     """
-    from app.core.contracts import DEFAULT_TENANT_ID
-
     effective = resource_tenant_id if resource_tenant_id is not None else DEFAULT_TENANT_ID
     if effective != request_tenant_id:
         logger.warning(
@@ -213,3 +213,66 @@ def enforce_tenant_match(resource_tenant_id: int | None, request_tenant_id: int)
             status_code=status.HTTP_403_FORBIDDEN,
             detail="跨租户访问被拒绝",
         )
+
+
+# =========================================================================
+# RBAC + 租户上下文绑定依赖
+# =========================================================================
+
+
+def require_role_tenant_scoped(*roles: str):
+    """角色 + 租户双向校验依赖工厂.
+
+    在 ``require_role`` 基础上增加租户上下文一致性校验：
+    1. 校验用户角色属于允许列表（复用 ROLE_HIERARCHY）
+    2. 校验用户 ``tenant_id`` 与请求租户上下文一致（防串租）
+
+    防御场景：租户 A 的用户伪造 ``X-Tenant-ID: B`` 头，试图在租户 B
+    上下文中执行操作。此依赖在入口层即阻断此类租户混淆攻击。
+
+    用法::
+
+        current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))]
+
+    Raises:
+        HTTPException(403): 角色不足或租户不匹配
+    """
+    allowed = set(roles)
+
+    async def checker(
+        request: Request,
+        current_user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        # 1. 角色校验
+        if current_user.role not in ROLE_HIERARCHY:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
+            )
+        effective = ROLE_HIERARCHY[current_user.role]
+        if not effective.intersection(allowed):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
+            )
+
+        # 2. 租户上下文一致性校验（防串租）
+        request_tenant_id = get_request_tenant_id(request)
+        user_tenant_id = (
+            current_user.tenant_id
+            if current_user.tenant_id is not None
+            else DEFAULT_TENANT_ID
+        )
+        if user_tenant_id != request_tenant_id:
+            logger.warning(
+                "Tenant confusion blocked: user_tenant=%s, request_tenant=%s, user_id=%s",
+                user_tenant_id,
+                request_tenant_id,
+                current_user.id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="用户租户与请求租户不匹配",
+            )
+
+        return current_user
+
+    return checker
