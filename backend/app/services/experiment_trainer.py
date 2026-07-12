@@ -134,7 +134,7 @@ class ExperimentTrainer:
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
             num_train_epochs=epochs,
-            evaluation_strategy="epoch",
+            eval_strategy="epoch",
             save_strategy="epoch",
             save_total_limit=2,
             logging_strategy="epoch",

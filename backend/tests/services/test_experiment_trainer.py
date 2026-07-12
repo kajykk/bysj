@@ -287,10 +287,10 @@ class TestExperimentTrainerExtended:
             assert 0.0 <= float(s) <= 1.0
 
     @patch("datasets.Dataset")
-    @patch("transformers.Trainer")
-    @patch("transformers.TrainingArguments")
-    @patch("transformers.AutoModelForSequenceClassification")
-    @patch("transformers.AutoTokenizer")
+    @patch("transformers.trainer.Trainer")
+    @patch("transformers.training_args.TrainingArguments")
+    @patch("transformers.models.auto.modeling_auto.AutoModelForSequenceClassification")
+    @patch("transformers.models.auto.tokenization_auto.AutoTokenizer")
     def test_train_full_flow_with_mocks(
         self,
         mock_tokenizer_cls,

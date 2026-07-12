@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
 
@@ -24,21 +26,18 @@ from app.core.kill_switch import (
 
 @pytest_asyncio.fixture(autouse=True)
 async def _reset_state():
-    """每个测试前重置内存状态、本地缓存和 Redis."""
+    """每个测试前重置内存状态, 并 mock _get_redis 返回 None 强制内存模式.
 
-    async def _clear_redis():
-        try:
-            redis = await _get_redis()
-            if redis is not None:
-                await redis.delete(_REDIS_KEY)
-        except Exception:
-            pass
+    CI 环境有 Redis 服务, 若不清除 Redis 中的 _REDIS_KEY 会导致测试间状态泄漏.
+    最可靠的方式是直接 mock _get_redis 返回 None, 让所有测试走内存降级路径.
+    """
 
     reset_memory_state()
-    await _clear_redis()
-    yield
+    with patch(
+        "app.core.kill_switch._get_redis", AsyncMock(return_value=None)
+    ):
+        yield
     reset_memory_state()
-    await _clear_redis()
 
 
 class TestIsModelPaused:
