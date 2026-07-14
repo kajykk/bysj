@@ -8,7 +8,10 @@ import { applyCspMetaTag } from './csp'
 import { useAuthStore } from './stores/auth'
 import { setRedirectToLogin } from './api/request'
 import { registerServiceWorker } from './utils/serviceWorker'
-import { initSentry, captureException } from './plugins/sentry'
+
+// WF-1 性能优化：Sentry 延迟初始化，移除首屏关键渲染路径
+// 首屏阶段用空实现缓冲，Sentry 异步加载完成后再赋值为真实实现
+let captureException: (err: Error, ctx?: Record<string, unknown>) => void = () => {}
 
 // 性能分析：Vite 会将以下 CSS 内联到主 chunk，不会产生额外网络请求，因此同步 import 的实际开销有限。
 // variables/theme 为首屏必需；mixins/transitions/utilities 为工具样式，可能被首屏组件引用，保留同步加载以避免 FOUC。
@@ -40,8 +43,12 @@ setRedirectToLogin(() => {
   router.replace({ path: '/login', query: { redirect: pathname + search + hash } })
 })
 
-// 初始化 Sentry 监控（需在 router 注册之后、mount 之前）
-initSentry(app, router)
+// 初始化 Sentry 监控（延迟到 mount 之后异步执行，避免阻塞首屏渲染）
+// 在 router 注册之后加载；首屏渲染期间错误由上方空实现缓冲
+import('./plugins/sentry').then(({ initSentry, captureException: cap }) => {
+  initSentry(app, router)
+  captureException = cap
+}).catch(() => {})
 
 // 全局组件异常捕获：将 Vue 内部错误上报到 Sentry
 app.config.errorHandler = (err, _instance, info) => {

@@ -45,25 +45,25 @@ const getRandomWidth = (index: number) => {
 .skeleton-row {
   display: flex;
   align-items: center;
-  padding: 8px 0;
+  padding: var(--spacing-xs) 0;
 }
 
 .skeleton-item {
   height: 100%;
-  background-color: #f0f2f5;
-  border-radius: 4px;
+  background-color: var(--border-light);
+  border-radius: var(--radius-xs);
 }
 
+/* 与全局 skeleton 动画（transitions.scss / index.html 内联）保持一致，
+   使用设计令牌，避免独立的 opacity 脉冲造成视觉割裂 */
 .skeleton-animate .skeleton-item {
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes skeleton-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
+  background: linear-gradient(
+    90deg,
+    var(--border-light) 25%,
+    var(--bg-page) 50%,
+    var(--border-light) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
 }
 </style>

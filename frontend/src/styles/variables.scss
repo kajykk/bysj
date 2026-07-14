@@ -69,8 +69,8 @@
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
-  --spacing-xl: 24px;
-  --spacing-2xl: 32px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
   --spacing-section: 24px;
 
   /* ===== 圆角系统 ===== */
@@ -95,6 +95,10 @@
   --shadow-dropdown: 0 4px 16px rgba(46, 111, 168, 0.08);
   --shadow-modal: 0 16px 48px rgba(46, 111, 168, 0.16);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  /* ===== 焦点环（键盘可达性：按钮/可交互元素 :focus-visible 统一描边） ===== */
+  --ring-focus: 0 0 0 3px rgba(46, 111, 168, 0.28);
+  --ring-focus-strong: 0 0 0 4px rgba(46, 111, 168, 0.36);
 
   /* ===== 表格行高亮 ===== */
   /* ISS-031 修复：PageTable 行高亮颜色令牌化，深色模式在 theme.scss 中重写 */

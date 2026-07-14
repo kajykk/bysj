@@ -5,14 +5,21 @@
     :style="chartStyle"
     role="img"
     :aria-label="effectiveAriaLabel"
+    :aria-describedby="hasDescription ? describedById : undefined"
     tabindex="0"
     @keydown.enter="handleEnter"
     @keydown.space="handleSpace"
-  />
+  >
+    <span
+      v-if="hasDescription"
+      :id="describedById"
+      class="sr-only"
+    >{{ description }}</span>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, shallowRef, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
+import { computed, ref, shallowRef, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 // H-12 修复：改用 @/utils/echarts 统一入口，避免重复注册组件，
 // 同时获得 HeatmapChart/VisualMapComponent 等图表支持（R-007 移除未使用的 RadarChart）。
@@ -31,6 +38,8 @@ interface Props {
   theme?: string
   autoResize?: boolean
   ariaLabel?: string
+  chartId?: string
+  description?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -39,6 +48,8 @@ const props = withDefaults(defineProps<Props>(), {
   theme: undefined,
   autoResize: true,
   ariaLabel: undefined,
+  chartId: undefined,
+  description: undefined,
 })
 
 const emit = defineEmits<{
@@ -61,6 +72,12 @@ const chartStyle = computed(() => ({
 }))
 
 const effectiveAriaLabel = computed(() => props.ariaLabel ?? t('charts.baseAriaLabel'))
+
+// A11Y-P2-08 修复：role="img" 关联 aria-describedby，提供图表数据摘要描述
+const generatedChartId = useId()
+const effectiveChartId = computed(() => props.chartId || `chart-${generatedChartId}`)
+const describedById = computed(() => `${effectiveChartId.value}-desc`)
+const hasDescription = computed(() => Boolean(props.description))
 
 const validExportTypes = ['png', 'svg', 'jpeg'] as const
 
@@ -161,5 +178,18 @@ defineExpose({
 <style scoped>
 .base-chart {
   width: 100%;
+}
+
+/* A11Y-P2-08：图表数据摘要描述，仅供屏幕阅读器读取，视觉隐藏 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

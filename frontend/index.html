@@ -45,6 +45,9 @@
         }
       }
     </style>
+    <!-- ISS-04 修复：显式 favicon，避免浏览器自动请求 /favicon.ico 产生 404 控制台错误（该错误会拉低 Lighthouse errors-in-console） -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png" />
   </head>
   <body>
     <div id="app">

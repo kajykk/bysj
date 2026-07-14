@@ -1,4 +1,4 @@
-﻿import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 // R-003 修复：基础文件 (路由守卫层) 显式导入 ElMessage，避免依赖 unplugin-auto-import
 // 隐式注入导致测试环境需 globalThis hack、生产环境配置失效时静默失败的可靠性问题。
 // 页面/组件层仍可使用 auto-import，仅基础文件强制显式导入以保障运行时确定性。
@@ -13,8 +13,10 @@ import i18n from '@/i18n'
 // H-FE-1 修复：使用顶部进度条替代全屏 loading，避免路由切换时锁定整个 UI
 // 原实现调用 loadingStore.startLoading() 触发 App.vue 的 v-loading.fullscreen.lock，
 // 每次路由切换都会全屏遮罩阻塞用户操作
+// PERF-P3-006: 使用 requestAnimationFrame 替代 setInterval, 与浏览器渲染帧同步,
+// 页面不可见时自动暂停节省 CPU, 动画更流畅
 let progressBar: HTMLDivElement | null = null
-let progressTimer: ReturnType<typeof setInterval> | null = null
+let progressRafId: number | null = null
 
 function ensureProgressBar(): HTMLDivElement {
   if (progressBar && document.body.contains(progressBar)) return progressBar
@@ -40,19 +42,23 @@ function startProgress() {
   const bar = ensureProgressBar()
   bar.style.opacity = '1'
   bar.style.width = '0%'
-  if (progressTimer) clearInterval(progressTimer)
+  if (progressRafId !== null) cancelAnimationFrame(progressRafId)
   let width = 0
+  // PERF-P3-006: requestAnimationFrame 回调频率约 60fps (16.67ms),
+  // 增长因子从 0.1 (setInterval 200ms) 调整为 0.02, 保持视觉增长速度相似.
   // 模拟进度增长，越接近 90% 越慢，但不达到 100%（等待 afterEach 完成）
-  progressTimer = setInterval(() => {
-    width += (90 - width) * 0.1
+  const tick = () => {
+    width += (90 - width) * 0.02
     bar.style.width = `${width}%`
-  }, 200)
+    progressRafId = requestAnimationFrame(tick)
+  }
+  progressRafId = requestAnimationFrame(tick)
 }
 
 function stopProgress() {
-  if (progressTimer) {
-    clearInterval(progressTimer)
-    progressTimer = null
+  if (progressRafId !== null) {
+    cancelAnimationFrame(progressRafId)
+    progressRafId = null
   }
   if (progressBar) {
     progressBar.style.width = '100%'

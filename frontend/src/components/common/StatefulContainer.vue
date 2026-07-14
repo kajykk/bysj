@@ -44,6 +44,7 @@
             <el-icon
               :size="60"
               color="var(--text-placeholder, #dcdfe6)"
+              aria-hidden="true"
             >
               <Document />
             </el-icon>

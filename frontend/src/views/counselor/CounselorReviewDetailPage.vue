@@ -244,7 +244,7 @@ const handleEscalate = async () => {
 const getScoreColor = (score: number) => {
   if (score >= 80) return '#d65a5a'
   if (score >= 60) return '#d4923a'
-  if (score >= 40) return '#3b82c4'
+  if (score >= 40) return '#2e6fa8'
   return '#5a9e3a'
 }
 

@@ -233,9 +233,75 @@
   outline-offset: 2px;
 }
 
-/* ===== 按钮按压反馈 ===== */
+/* ===== 按钮交互增强（统一触感反馈，与全局设计令牌一致） ===== */
+/* 全局为所有按钮补充 transform/box-shadow 过渡，使 hover/active 更顺滑 */
+.el-button {
+  transition: transform var(--transition-fast) var(--transition-ease-out),
+    box-shadow var(--transition-fast) var(--transition-ease-out),
+    background-color var(--transition-fast) var(--transition-timing),
+    border-color var(--transition-fast) var(--transition-timing);
+}
+
+/* 主按钮：常态带柔和投影，hover 微抬升并加深投影，强化可点击感知 */
+.el-button--primary {
+  box-shadow: 0 2px 8px rgba(46, 111, 168, 0.18);
+}
+
+.el-button--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(46, 111, 168, 0.28);
+}
+
+/* 所有实心按钮 hover 轻微抬升，统一触感（主按钮的投影见上） */
+.el-button--default:hover,
+.el-button--success:hover,
+.el-button--warning:hover,
+.el-button--danger:hover,
+.el-button--info:hover {
+  transform: translateY(-1px);
+}
+
+.el-button--primary:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(46, 111, 168, 0.18);
+}
+
+/* 按压回弹（所有按钮通用） */
 .el-button:active {
   transform: scale(0.98);
+}
+
+/* 键盘焦点可见环：仅在键盘聚焦时显示，避免鼠标点击产生描边 */
+.el-button:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+/* 尊重减少动效偏好：关闭按钮位移类动画 */
+@media (prefers-reduced-motion: reduce) {
+  .el-button,
+  .el-button--primary:hover,
+  .el-button--default:hover,
+  .el-button--success:hover,
+  .el-button--warning:hover,
+  .el-button--danger:hover,
+  .el-button--info:hover,
+  .el-button:active {
+    transform: none !important;
+  }
+}
+
+/* ===== 全局加载态文字（v-loading 全屏/局部反馈） ===== */
+.el-loading-spinner .el-loading-text {
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  letter-spacing: var(--letter-spacing-wide);
+  margin-top: var(--spacing-sm);
+}
+
+/* 深色模式下加载文字保证可读性 */
+html.dark .el-loading-spinner .el-loading-text {
+  color: var(--text-secondary);
 }
 
 /* ===== 数据数字等宽（表格、分数、日期） ===== */

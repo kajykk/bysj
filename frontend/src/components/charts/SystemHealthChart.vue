@@ -11,6 +11,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
+import { chartColors } from '@/utils/chartTheme'
 import type { EChartsCoreOption } from 'echarts/core'
 
 const { t } = useI18n()
@@ -47,6 +48,8 @@ const handleChartReady = (instance: unknown) => {
 
 const chartOption = computed<EChartsCoreOption>(() => {
   const times = props.data.map((d) => d.time)
+  // 统一读取设计令牌，避免硬编码旧主色 #3b82c4 与全局主色不一致
+  const c = chartColors()
 
   return {
     title: {
@@ -126,8 +129,8 @@ const chartOption = computed<EChartsCoreOption>(() => {
         data: props.data.map((d) => d.successRate),
         smooth: true,
         yAxisIndex: 0,
-        lineStyle: { width: 2, color: '#5a9e3a' },
-        itemStyle: { color: '#5a9e3a' },
+        lineStyle: { width: 2, color: c.success },
+        itemStyle: { color: c.success },
         areaStyle: {
           color: {
             type: 'linear',
@@ -136,8 +139,8 @@ const chartOption = computed<EChartsCoreOption>(() => {
             x2: 0,
             y2: 1,
             colorStops: [
-              { offset: 0, color: 'rgba(90, 158, 58, 0.25)' },
-              { offset: 1, color: 'rgba(90, 158, 58, 0.04)' },
+              { offset: 0, color: c.successAreaStart },
+              { offset: 1, color: c.successAreaEnd },
             ],
           },
         },
@@ -148,8 +151,8 @@ const chartOption = computed<EChartsCoreOption>(() => {
         data: props.data.map((d) => d.fallbackRate),
         smooth: true,
         yAxisIndex: 0,
-        lineStyle: { width: 2, color: '#d65a5a' },
-        itemStyle: { color: '#d65a5a' },
+        lineStyle: { width: 2, color: c.danger },
+        itemStyle: { color: c.danger },
       },
       {
         name: t('charts.seriesLatency'),
@@ -157,8 +160,8 @@ const chartOption = computed<EChartsCoreOption>(() => {
         data: props.data.map((d) => d.latency),
         smooth: true,
         yAxisIndex: 1,
-        lineStyle: { width: 2, color: '#3b82c4', type: 'dashed' },
-        itemStyle: { color: '#3b82c4' },
+        lineStyle: { width: 2, color: c.primary, type: 'dashed' },
+        itemStyle: { color: c.primary },
       },
     ],
   }

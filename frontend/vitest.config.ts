@@ -29,7 +29,15 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
-      reportsDirectory: 'coverage'
+      reportsDirectory: 'coverage',
+      // MAINT-P3-001: 覆盖率门禁 (渐进式提升路线图: 50% → 60% → 70% → 85%)
+      // 当前基线未知, 先设 50% 保守起点, 与 backend --cov-fail-under=50 一致
+      thresholds: {
+        lines: 50,
+        functions: 50,
+        branches: 40,
+        statements: 50
+      }
     }
   }
 })

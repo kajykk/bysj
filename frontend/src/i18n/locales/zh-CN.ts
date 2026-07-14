@@ -408,6 +408,29 @@ export default {
       consentWithdrawn: '已撤回分析事件采集',
       updateFailed: '更新同意状态失败',
       privacyNote: '您的选择不影响系统核心功能的使用。'
+    },
+    riskThreshold: {
+      title: '风险阈值配置',
+      desc: '当综合风险评分落入以下区间时，系统将触发对应等级的预警与干预建议。',
+      high: '高风险',
+      highRange: '≥ 65',
+      moderate: '中风险',
+      moderateRange: '45 – 64',
+      low: '低风险',
+      lowRange: '< 45',
+      note: '阈值由系统管理员统一配置，此处仅作展示参考。'
+    },
+    crisis: {
+      title: '危机资源',
+      desc: '遇到紧急心理危机时，请立即联系以下资源获取帮助。',
+      hotline: '心理援助热线',
+      hotlineNumber: '400-161-9995',
+      hotlineDesc: '全国 24 小时免费心理危机干预热线',
+      doctor: '紧急联系医生',
+      doctorName: '李医生',
+      doctorDesc: '您的主治医师 / 咨询师',
+      doctorPhone: '138-0000-0000',
+      call: '拨打'
     }
   },
   passwordValidation: {
@@ -1375,7 +1398,12 @@ export default {
     chartRiskLevel3: '高风险',
     chartRiskLevel4: '严重',
     chartTrendUp: '上升',
-    chartTrendDown: '下降'
+    chartTrendDown: '下降',
+    // A11Y-P2-06 修复：风险趋势图标的屏幕阅读器标签
+    trendUp: '风险上升',
+    trendDown: '风险下降',
+    // UX-P2-08 修复：风险等级判定标准提示
+    severityTooltip: '风险等级依据综合评分判定：无风险、轻度、中度、较高、严重，等级越高需越多关注。'
   },
   userWarnings: {
     title: '我的预警',
