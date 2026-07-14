@@ -334,7 +334,7 @@ async def update_model(
             target_id=model_id_int,
             detail=json.dumps(
                 payload.model_dump(exclude_unset=True), ensure_ascii=False
-            )[:5000],
+            ),
         )
     )
     await db.commit()
@@ -420,7 +420,7 @@ async def export_crisis_events(
                     "content_size": len(csv_content),
                 },
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )

@@ -75,10 +75,15 @@ async def generate_user_risk_pdf(
     current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> StreamingResponse:
-    """Generate a user risk assessment PDF report."""
+    """Generate a user risk assessment PDF report.
+
+    RES-P2-002: 使用 BytesIO 流式响应, 避免 PDF bytes 在内存中拷贝.
+    reportlab 生成 PDF 到 BytesIO, API 层用 StreamingResponse 分块读取.
+    """
     # M8 修复：使用 asyncio.to_thread 包装同步调用，避免阻塞事件循环
+    # RES-P2-002: 使用 generate_user_risk_report_stream 返回 BytesIO (不 getvalue 拷贝)
     result = await asyncio.to_thread(
-        pdf_report_service.generate_user_risk_report,
+        pdf_report_service.generate_user_risk_report_stream,
         user_name=payload.user_name,
         risk_level=payload.risk_level,
         risk_trend=[item.model_dump() for item in payload.risk_trend],
@@ -95,14 +100,35 @@ async def generate_user_risk_pdf(
         safe_name = "user"
     # P1-SEC-030 修复：限制文件名长度，防止超长文件名导致文件系统错误
     safe_name = safe_name[:_MAX_SAFE_NAME_LEN]
+    # RES-P2-002: 分块流式读取 BytesIO (默认 64KB chunks)
     return StreamingResponse(
-        iter([result.pdf_bytes]),
+        _stream_bytes(result.stream),
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename=user_risk_{safe_name}.pdf",
             "Content-Length": str(result.file_size),
         },
     )
+
+
+def _stream_bytes(buffer, chunk_size: int = 65536):
+    """RES-P2-002: 分块生成器, 从 BytesIO 流式读取数据.
+
+    Args:
+        buffer: BytesIO 缓冲区 (位置指针应已 rewind 到 0).
+        chunk_size: 每块大小 (字节), 默认 64KB.
+
+    Yields:
+        bytes chunks.
+    """
+    try:
+        while True:
+            chunk = buffer.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+    finally:
+        buffer.close()
 
 
 @router.post("/batch-export/excel", responses=COMMON_ERROR_RESPONSES)
@@ -113,7 +139,68 @@ async def batch_export_excel(
     current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> StreamingResponse:
-    """Export data to Excel with filtering."""
+    """Export data to Excel with filtering.
+
+    RES-P2-003: 自动切换流式输出 - 数据量 > 5000 行时使用 export_to_stream
+    返回 BytesIO, 避免 bytes 拷贝. 小数据量仍用 export 返回 bytes.
+    """
+    # RES-P2-003: 根据数据量自动选择流式或非流式
+    use_stream = excel_export_service.should_use_stream(len(payload.data))
+
+    if use_stream:
+        # 大数据量: 流式输出
+        result = await asyncio.to_thread(
+            excel_export_service.export_to_stream,
+            data=[item.model_dump() for item in payload.data],
+            columns=payload.columns,
+            filters=payload.filters,
+        )
+
+        if not result.success:
+            raise HTTPException(status_code=500, detail=result.error_message)
+
+        raw_name = payload.filename or "export"
+        safe_name = (
+            "".join(c if c.isascii() and c.isalnum() else "_" for c in raw_name)
+            or "export"
+        )
+        safe_name = safe_name[:_MAX_SAFE_NAME_LEN]
+
+        # SEC-P1-003 修复：记录批量 Excel 导出审计日志
+        db.add(
+            OperationLog(
+                operator_id=current_user.id,
+                operator_role=current_user.role,
+                action_type="admin.report.batch_export_excel",
+                target_type="report",
+                target_id=None,
+                detail=json.dumps(
+                    {
+                        "filename": safe_name,
+                        "row_count": result.row_count,
+                        "columns": list(payload.columns) if payload.columns else [],
+                        "filters": payload.filters if payload.filters else {},
+                        "file_size": result.file_size,
+                        "stream_mode": True,  # RES-P2-003: 标记流式模式
+                    },
+                    ensure_ascii=False,
+                ),
+                ip_address=get_real_client_ip(request),
+            )
+        )
+        await db.commit()
+
+        # RES-P2-003: 分块流式读取 BytesIO (复用 PDF 的 _stream_bytes 生成器)
+        return StreamingResponse(
+            _stream_bytes(result.stream),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={safe_name}.xlsx",
+                "Content-Length": str(result.file_size),
+            },
+        )
+
+    # 小数据量: 原有非流式路径 (保持向后兼容)
     # M8 修复：使用 asyncio.to_thread 包装同步调用，避免阻塞事件循环
     result = await asyncio.to_thread(
         excel_export_service.export,
@@ -147,9 +234,10 @@ async def batch_export_excel(
                     "columns": list(payload.columns) if payload.columns else [],
                     "filters": payload.filters if payload.filters else {},
                     "file_size": result.file_size,
+                    "stream_mode": False,  # RES-P2-003: 标记非流式模式
                 },
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )

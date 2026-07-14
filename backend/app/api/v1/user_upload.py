@@ -21,6 +21,7 @@ from app.core.response import ok
 from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
+from app.services.file_security_service import process_uploaded_file
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +179,13 @@ async def upload_file(
         size, content = await _save_upload_stream(file, save_path)
         # MIME类型验证
         await _validate_mime_type(content, category)
+        # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描
+        safe, sec_msg = process_uploaded_file(save_path, category)
+        if not safe:
+            save_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=400, detail=f"文件安全检查失败: {sec_msg}"
+            )
     except HTTPException:
         save_path.unlink(missing_ok=True)
         raise
@@ -206,7 +214,7 @@ async def upload_file(
                     "url": url,
                 },
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )
@@ -262,6 +270,15 @@ async def upload_batch(
             await file.seek(0)
             await _validate_mime_type(head_content, category)
             size, _ = await _save_upload_stream(file, save_path)
+            # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描
+            safe, sec_msg = process_uploaded_file(save_path, category)
+            if not safe:
+                if save_path is not None:
+                    save_path.unlink(missing_ok=True)
+                results.append(
+                    {"filename": file.filename, "error": f"安全检查失败: {sec_msg}"}
+                )
+                continue
 
             url = f"/uploads/{current_user.id}/{save_name}"
             results.append(
@@ -305,7 +322,7 @@ async def upload_batch(
                     ][:20],
                 },
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )

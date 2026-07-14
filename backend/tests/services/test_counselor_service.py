@@ -350,6 +350,7 @@ class TestListMyUsersExtended:
                 models_used=["m"],
                 risk_factors=[],
                 assessment_type="structured",
+                is_latest=True,
             )
         )
         await db_session.commit()
@@ -379,6 +380,7 @@ class TestListMyUsersExtended:
                 models_used=["m"],
                 risk_factors=[],
                 assessment_type="structured",
+                is_latest=True,
             )
         )
         await db_session.commit()
@@ -613,6 +615,7 @@ class TestGetUserDetailExtended:
                 models_used=["m"],
                 risk_factors=[],
                 assessment_type="structured",
+                is_latest=True,
             )
         )
         await db_session.commit()

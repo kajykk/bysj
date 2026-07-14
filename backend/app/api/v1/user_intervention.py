@@ -36,7 +36,7 @@ def _log_intervention_op(
             action_type=action_type,
             target_type="intervention_task",
             target_id=task_id,
-            detail=json.dumps(detail or {}, ensure_ascii=False)[:5000],
+            detail=json.dumps(detail or {}, ensure_ascii=False),
         )
     )
 

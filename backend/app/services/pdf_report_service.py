@@ -58,6 +58,37 @@ class PDFReportResult:
         }
 
 
+@dataclass
+class PDFStreamResult:
+    """RES-P2-002: PDF 流式生成结果.
+
+    与 PDFReportResult 区别: 保留 BytesIO 流 (不调用 getvalue()),
+    避免 PDF 完整 bytes 在内存中再拷贝一份. API 层用 StreamingResponse
+    分块读取 BytesIO 实现真正的流式响应.
+
+    适用于: 同步 PDF 生成场景 (数据量中等, 生成时间 < 3s).
+    大报告 (>1000 行) 仍建议用 Celery 异步队列 (P1-4).
+    """
+
+    success: bool
+    stream: io.BytesIO | None = None
+    file_size: int = 0
+    page_count: int = 0
+    generation_time_ms: float = 0.0
+    error_message: str | None = None
+    has_charts: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "file_size": self.file_size,
+            "page_count": self.page_count,
+            "generation_time_ms": round(self.generation_time_ms, 2),
+            "error_message": self.error_message,
+            "has_charts": self.has_charts,
+        }
+
+
 class PDFReportService:
     """Generate PDF reports using ReportLab.
 
@@ -234,6 +265,168 @@ class PDFReportService:
                 generation_time_ms=generation_time_ms,
             )
 
+    def generate_pdf_stream(self, report_data: ReportData) -> PDFStreamResult:
+        """RES-P2-002: Generate PDF and return BytesIO stream (no getvalue copy).
+
+        与 generate_pdf 区别: 保留 BytesIO 流, 不调用 getvalue() 拷贝完整 bytes.
+        适用于 StreamingResponse 分块流式输出, 避免内存中同时存在两份 PDF.
+
+        注意: PDF 是结构化文档, reportlab 需要完整 build 后才能输出,
+        所以生成阶段仍是同步阻塞 + 内存占用, 但响应阶段是流式的,
+        且避免了 getvalue() 的 bytes 拷贝 (大 PDF 可节省一倍内存).
+
+        Args:
+            report_data: Report data.
+
+        Returns:
+            PDFStreamResult with BytesIO stream (位置指针已 rewind 到 0).
+        """
+        start_time = time.time()
+
+        if not self._check_reportlab_available():
+            return PDFStreamResult(
+                success=False,
+                error_message="ReportLab not installed",
+                generation_time_ms=(time.time() - start_time) * 1000,
+            )
+
+        try:
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.lib.units import inch
+            from reportlab.platypus import (
+                Paragraph,
+                SimpleDocTemplate,
+                Spacer,
+                Table,
+                TableStyle,
+            )
+
+            # RES-P2-002: 保留 BytesIO 不 close, 由调用方 (StreamingResponse) 负责
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=A4,
+                rightMargin=72,
+                leftMargin=72,
+                topMargin=72,
+                bottomMargin=18,
+            )
+
+            styles = getSampleStyleSheet()
+            story = []
+
+            # Title
+            title_style = styles["Heading1"]
+            story.append(Paragraph(report_data.title, title_style))
+            story.append(Spacer(1, 0.2 * inch))
+
+            # Subtitle
+            if report_data.subtitle:
+                story.append(Paragraph(report_data.subtitle, styles["Heading2"]))
+                story.append(Spacer(1, 0.1 * inch))
+
+            # Generated at
+            if report_data.generated_at:
+                story.append(
+                    Paragraph(
+                        f"Generated: {report_data.generated_at}", styles["Normal"]
+                    )
+                )
+                story.append(Spacer(1, 0.2 * inch))
+
+            # User info
+            if report_data.user_info:
+                user_text = " | ".join(
+                    f"{k}: {v}" for k, v in report_data.user_info.items()
+                )
+                story.append(Paragraph(user_text, styles["Normal"]))
+                story.append(Spacer(1, 0.2 * inch))
+
+            # Sections
+            for section in report_data.sections:
+                section_title = section.get("title", "")
+                section_content = section.get("content", "")
+                if section_title:
+                    story.append(Paragraph(section_title, styles["Heading2"]))
+                if section_content:
+                    story.append(Paragraph(section_content, styles["Normal"]))
+                story.append(Spacer(1, 0.1 * inch))
+
+            # Tables
+            for table_data in report_data.tables:
+                headers = table_data.get("headers", [])
+                rows = table_data.get("rows", [])
+                if headers and rows:
+                    data = [headers] + rows
+                    table = Table(data)
+                    table.setStyle(
+                        TableStyle(
+                            [
+                                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                                ("FONTSIZE", (0, 0), (-1, 0), 12),
+                                ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                                ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                            ]
+                        )
+                    )
+                    story.append(table)
+                    story.append(Spacer(1, 0.2 * inch))
+
+            # Recommendations
+            if report_data.recommendations:
+                story.append(Paragraph("Recommendations", styles["Heading2"]))
+                for rec in report_data.recommendations:
+                    story.append(Paragraph(f"• {rec}", styles["Normal"]))
+                story.append(Spacer(1, 0.2 * inch))
+
+            doc.build(story)
+
+            # RES-P2-002: 不调用 getvalue(), 直接获取 size 后 rewind 指针
+            file_size = buffer.tell()
+            buffer.seek(0)
+
+            generation_time_ms = (time.time() - start_time) * 1000
+
+            return PDFStreamResult(
+                success=True,
+                stream=buffer,
+                file_size=file_size,
+                page_count=self._estimate_page_count_from_stream(buffer, file_size),
+                generation_time_ms=generation_time_ms,
+                has_charts=len(report_data.charts) > 0,
+            )
+
+        except Exception as exc:
+            generation_time_ms = (time.time() - start_time) * 1000
+            logger.exception("PDF stream generation failed")
+            return PDFStreamResult(
+                success=False,
+                error_message=str(exc),
+                generation_time_ms=generation_time_ms,
+            )
+
+    def _estimate_page_count_from_stream(
+        self, buffer: io.BytesIO, file_size: int
+    ) -> int:
+        """RES-P2-002: 从 BytesIO 流估算页数 (不消耗流).
+
+        读取流内容估算页数后 rewind 指针, 确保 StreamingResponse 能完整读取.
+        """
+        import re
+
+        buffer.seek(0)
+        # 仅读取前 64KB 估算页数 (PDF /Type /Page 通常在前部)
+        chunk = buffer.read(65536)
+        buffer.seek(0)
+        count = len(re.findall(rb"/Type\s*/Page(?![a-zA-Z])", chunk))
+        return max(1, count)
+
     def _validate_pdf(self, pdf_bytes: bytes) -> tuple[bool, str]:
         """Validate generated PDF.
 
@@ -342,6 +535,68 @@ class PDFReportService:
         )
 
         return self.generate_pdf(report_data)
+
+    def generate_user_risk_report_stream(
+        self,
+        user_name: str | dict[str, Any],
+        risk_level: str | None = None,
+        risk_trend: list[dict[str, Any]] | None = None,
+        recommendations: list[str] | None = None,
+    ) -> PDFStreamResult:
+        """RES-P2-002: Generate a user risk report and return BytesIO stream.
+
+        与 generate_user_risk_report 区别: 返回 BytesIO 流 (不调用 getvalue()),
+        适用于 StreamingResponse 流式响应.
+        """
+        import datetime
+
+        if isinstance(user_name, dict):
+            user_data = user_name
+            display_name = str(
+                user_data.get("user_name") or user_data.get("user_id") or "Unknown"
+            )
+            risk_level_value = str(user_data.get("risk_level", "Unknown"))
+            trend_items = (
+                user_data.get("trend_data") or user_data.get("risk_trend") or []
+            )
+            recommendations_value = user_data.get("recommendations") or []
+        else:
+            display_name = user_name
+            risk_level_value = str(risk_level or "Unknown")
+            trend_items = risk_trend or []
+            recommendations_value = recommendations or []
+
+        report_data = ReportData(
+            title="User Risk Assessment Report",
+            subtitle=f"User: {display_name}",
+            generated_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            user_info={
+                "Risk Level": risk_level_value,
+                "Report Type": "Individual Assessment",
+            },
+            sections=[
+                {
+                    "title": "Risk Summary",
+                    "content": f"Current risk level: {risk_level_value}. Based on recent assessments and physiological data.",
+                },
+            ],
+            tables=[
+                {
+                    "headers": ["Date", "Risk Score", "Level"],
+                    "rows": [
+                        [
+                            item.get("date", ""),
+                            str(item.get("score", "")),
+                            item.get("level", ""),
+                        ]
+                        for item in trend_items[-10:]
+                    ],
+                },
+            ],
+            recommendations=recommendations_value,
+        )
+
+        return self.generate_pdf_stream(report_data)
 
     def generate_management_report(
         self,

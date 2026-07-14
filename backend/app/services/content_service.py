@@ -216,9 +216,12 @@ class ContentService:
         self, user_id: int, page: int, page_size: int
     ) -> dict:
         risk_stmt = (
+            # PERF-P2-002: 使用 is_latest 标志替代 ORDER BY created_at DESC LIMIT 1
             select(RiskAssessment)
-            .where(RiskAssessment.user_id == user_id)
-            .order_by(RiskAssessment.created_at.desc())
+            .where(
+                RiskAssessment.user_id == user_id,
+                RiskAssessment.is_latest.is_(True),
+            )
             .limit(1)
         )
         latest_risk = (await self.db.execute(risk_stmt)).scalar_one_or_none()

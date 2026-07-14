@@ -404,7 +404,7 @@ async def update_silence(
             {"before": before_snapshot, "after": _serialize_silence(row)},
             ensure_ascii=False,
             default=str,
-        )[:5000],
+        ),
     )
     db.add(op_log)
     await db.commit()
@@ -486,7 +486,7 @@ async def enable_silence(
         detail=json.dumps(
             {"name": row.name, "matcher": row.matcher},
             ensure_ascii=False,
-        )[:5000],
+        ),
     )
     db.add(op_log)
     await db.commit()
@@ -521,7 +521,7 @@ async def delete_silence(
         # L-API-3 修复：截断 detail 至 5000 字符，与 alerts.py 保持一致，避免超 DB 字段限制
         detail=json.dumps(
             {"name": row.name, "matcher": row.matcher}, ensure_ascii=False
-        )[:5000],
+        ),
     )
     db.add(op_log)
     await db.commit()

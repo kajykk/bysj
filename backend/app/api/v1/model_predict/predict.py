@@ -95,8 +95,8 @@ async def predict_tabular(
     payload: TabularPredictRequest,
     current_user: Annotated[User, Depends(require_permission("user.predict.use"))],
 ) -> dict:
-    from app.core.metrics import track_model_inference
     from app.core.kill_switch import is_model_paused
+    from app.core.metrics import track_model_inference
 
     # Phase 3: 暂停开关检查
     if await is_model_paused():
@@ -140,8 +140,8 @@ async def predict_text(
     payload: TextPredictRequest,
     current_user: Annotated[User, Depends(require_permission("user.predict.use"))],
 ) -> dict:
-    from app.core.metrics import track_model_inference
     from app.core.kill_switch import is_model_paused
+    from app.core.metrics import track_model_inference
 
     # Phase 3: 暂停开关检查
     if await is_model_paused():
@@ -205,8 +205,8 @@ async def predict_physiological(
     payload: PhysiologicalPredictRequest,
     current_user: Annotated[User, Depends(require_permission("user.predict.use"))],
 ) -> dict:
-    from app.core.metrics import track_model_inference
     from app.core.kill_switch import is_model_paused
+    from app.core.metrics import track_model_inference
 
     # Phase 3: 暂停开关检查
     if await is_model_paused():
@@ -248,8 +248,8 @@ async def predict_fusion(
     payload: FusionPredictRequest,
     current_user: Annotated[User, Depends(require_permission("user.predict.use"))],
 ) -> dict:
-    from app.core.metrics import track_model_inference
     from app.core.kill_switch import is_model_paused
+    from app.core.metrics import track_model_inference
 
     # Phase 3: 暂停开关检查
     if await is_model_paused():

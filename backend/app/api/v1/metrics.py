@@ -29,6 +29,11 @@ from app.core.metrics import (
     model_fallback_rate,
     redis_circuit_state,
     render_exposition,
+    slo_availability_ratio,
+    slo_error_budget_burn_rate,
+    slo_error_budget_remaining_ratio,
+    slo_p99_latency_seconds,
+    slo_p99_model_latency_seconds,
     smtp_circuit_failure_count,
     smtp_circuit_state,
 )
@@ -185,6 +190,23 @@ async def get_metrics(
         alert_unresolved_count.set(float(stats.unresolved_count))
     except Exception as exc:
         logger.warning("mttr metric collection failed: %s", exc)
+
+    # STAB-P2-011: 采集 SLO/SLI 指标 + 错误预算
+    try:
+        from app.core.slo import compute_sli
+
+        sli = compute_sli()
+        slo_availability_ratio.set(float(sli.availability))
+        if sli.p99_latency_seconds is not None:
+            slo_p99_latency_seconds.set(float(sli.p99_latency_seconds))
+        if sli.p99_model_latency_seconds is not None:
+            slo_p99_model_latency_seconds.set(float(sli.p99_model_latency_seconds))
+        slo_error_budget_remaining_ratio.set(
+            float(sli.error_budget_remaining_ratio)
+        )
+        slo_error_budget_burn_rate.set(float(sli.error_budget_burn_rate))
+    except Exception as exc:
+        logger.warning("slo metric collection failed: %s", exc)
 
     body = render_exposition()
     return PlainTextResponse(

@@ -42,6 +42,7 @@ async def create_canary(
             traffic_percent=payload.traffic_percent,
             triggered_by=current_user.id,
             thresholds=payload.thresholds,
+            route_prefix=payload.route_prefix,
         )
         return ok(
             CanaryDeploymentResponse(
@@ -51,6 +52,7 @@ async def create_canary(
                 status=canary.status,
                 started_at=canary.started_at.isoformat() if canary.started_at else None,
                 created_at=canary.created_at.isoformat() if canary.created_at else None,
+                route_prefix=canary.route_prefix,
             ).model_dump()
         )
     except ValueError as exc:
@@ -100,6 +102,8 @@ async def list_canaries(
             "ended_at": c.ended_at.isoformat() if c.ended_at else None,
             "rollback_reason": c.rollback_reason,
             "created_at": c.created_at.isoformat() if c.created_at else None,
+            # STAB-P2-006: 路由前缀分流
+            "route_prefix": c.route_prefix,
         }
         for c in canaries
     ]

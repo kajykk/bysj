@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.model_engine import model_engine
@@ -89,6 +89,16 @@ class UserDataService:
             )
             return
 
+        # PERF-P2-002: 清除该用户旧风险评估的 is_latest 标志
+        await self.db.execute(
+            update(RiskAssessment)
+            .where(
+                RiskAssessment.user_id == user_id,
+                RiskAssessment.is_latest.is_(True),
+            )
+            .values(is_latest=False)
+        )
+
         risk = RiskAssessment(
             user_id=user_id,
             risk_score=risk_score_value,
@@ -101,6 +111,7 @@ class UserDataService:
             models_used=models_used,
             risk_factors=risk_factors,
             assessment_type=assessment_type,
+            is_latest=True,
         )
         self.db.add(risk)
         await self.db.flush()
