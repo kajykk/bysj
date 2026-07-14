@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import { compression } from 'vite-plugin-compression2'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig(({ command }) => ({
@@ -98,6 +99,14 @@ export default defineConfig(({ command }) => ({
       resolvers: [ElementPlusResolver()],
       dts: 'src/components.d.ts',
     }),
+    // PERF-P2-008: Brotli 预压缩 (生产环境)
+    // 比 gzip 小 15-25%, 预生成 .br 文件省去运行时压缩开销
+    // nginx 需启用 ngx_brotli + brotli_static on 自动服务 .br 文件
+    command === 'build' && compression({
+      algorithms: ['brotliCompress'],
+      exclude: [/\.png$/, /\.jpg$/, /\.jpeg$/, /\.gif$/, /\.webp$/, /\.ico$/, /\.woff2$/],
+      threshold: 1024, // 仅压缩 >1KB 的文件
+    }),
   ],
   define: {
     __CSP_NONCE__: JSON.stringify(process.env.VITE_CSP_NONCE || ''),
@@ -110,9 +119,7 @@ export default defineConfig(({ command }) => ({
     }
   },
   build: {
-    // 性能优化：Brotli 预压缩可在生产环境进一步降低传输体积（比 gzip 小 15-25%）
-    // 启用方式：安装 vite-plugin-compression2 后在 plugins 中添加 brotli({ deleteOriginalAssets: false })
-    // 当前由 nginx 负责 gzip 压缩；若 nginx 已启用 ngx_brotli 模块，可在此预生成 .br 文件以省去运行时压缩开销
+    // PERF-P2-008: Brotli 预压缩已在 plugins 中通过 vite-plugin-compression2 启用
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -130,9 +137,16 @@ export default defineConfig(({ command }) => ({
           // 包含 @vue/* 运行时包 (runtime-dom/reactivity/shared 等)
           if (/[\\/]node_modules[\\/](@vue|vue)[\\/]/.test(id)) return 'vue-core'
           // element-plus 分组拆分，减少主 chunk 体积（R-008 修复）
-          // P1-1 性能优化：拆分 ep-form-advanced/ep-utility 虽然存在静态交叉依赖
-          // （element-plus 核心组件通过 hooks/utils 导入这些 chunk 中的模块），
-          // 但拆分后浏览器可并行下载和解析更小的 chunk，显著降低 TBT（0ms vs 270ms）。
+          //
+          // Circular dependency 修复 (2026-07-15)：
+          // 原实现额外拆分了 ep-form-advanced 和 ep-utility 两个子 chunk 以降低 TBT，
+          // 但 element-plus 核心组件通过 hooks/utils 反向引用这两个 chunk 中的模块，
+          // 形成 3 条循环依赖 (ep-utility↔element-plus / element-plus↔ep-form-advanced /
+          // ep-utility→element-plus→ep-form-advanced→ep-utility)。
+          // production 压缩后变量名跨 chunk 提前访问触发 TDZ
+          // (ReferenceError: Cannot access 'X' before initialization)。
+          // 修复：移除 ep-form-advanced / ep-utility 拆分，让这些组件回归 element-plus 主 chunk。
+          // 保留 ep-table / ep-overlay / ep-display 拆分（单向依赖，无循环风险）。
           if (id.includes('element-plus')) {
             // 表格类重组件（Table/TableColumn/Pagination），仅列表页需要
             if (/[\\/]components[\\/](table|pagination)[\\/]/.test(id)) return 'ep-table'
@@ -140,19 +154,18 @@ export default defineConfig(({ command }) => ({
             if (/[\\/]components[\\/](dialog|drawer)[\\/]/.test(id)) return 'ep-overlay'
             // 展示类重组件（Descriptions/Steps/Timeline/Tabs），仅详情页需要
             if (/[\\/]components[\\/](descriptions|steps|timeline|tabs)[\\/]/.test(id)) return 'ep-display'
-            // 高级表单组件（Select/DatePicker/Cascader 等），拆分以降低 TBT
-            if (/[\\/]components[\\/](select|select-v2|option|date-picker|time-picker|time-select|cascader|color-picker|input-number|input-tag|switch|radio|checkbox|rate|slider|mention|autocomplete|transfer|upload)[\\/]/.test(id)) return 'ep-form-advanced'
-            // 工具/展示组件（Tooltip/Popover/Menu/Tree 等），拆分以降低 TBT
-            if (/[\\/]components[\\/](tooltip|popover|popconfirm|dropdown|menu|breadcrumb|collapse|tree|tree-select|tree-v2|table-v2|calendar|carousel|countdown|segmented|statistic|image-viewer|image|page-header|affix|anchor|backtop|skeleton|empty|result|avatar|badge|progress|scrollbar|space|container|aside|header|footer|main|step|sub-menu|collection|slot|divider|tab-pane)[\\/]/.test(id)) return 'ep-utility'
-            // 核心组件保留在主 element-plus chunk
+            // 其余所有 element-plus 模块（含 form-advanced / utility 类组件及核心 hooks/utils）
+            // 统一归入主 chunk，避免与核心模块形成循环引用
             return 'element-plus'
           }
           // Charts - R-007 优化：移除未使用的 RadarChart/RadarComponent 后体积降至 462.80 KB
-          // 仅匹配 echarts 路径，zrender 作为 echarts 依赖会被自动捕获进同一 chunk。
-          // 注意：若显式匹配 zrender 会将原本在 vendor chunk 中的 zrender 代码拉入，
-          // 导致 charts chunk 从 462.80 KB 上涨到 631.40 KB。
-          // 通过路由懒加载确保仅图表页面加载此 chunk。
-          if (id.includes('echarts')) return 'charts'
+          // 仅匹配 echarts 路径，zrender 作为 echarts 依赖随 charts 懒加载。
+          // ISS-03 修复：显式将 zrender 归入 charts chunk（而非落入默认 vendor 入口 chunk）。
+          // 原实现把 zrender 留在 vendor，导致图表渲染器(~50KB gz)被首屏(登录页)白加载、
+          // 且被 Lighthouse 标记为 unused-javascript。zrender 仅图表页使用，归入懒加载的
+          // charts chunk 后：首屏 vendor 体积下降、charts chunk 从 462.80KB 涨到 ~631KB
+          // （但 charts 本就路由懒加载，对首屏无影响）。首屏性能优先于单 chunk 体积。
+          if (id.includes('echarts') || id.includes('zrender')) return 'charts'
           // Utilities
           if (id.includes('dompurify')) return 'security'
           if (id.includes('axios')) return 'http'
@@ -172,7 +185,7 @@ export default defineConfig(({ command }) => ({
         },
       }
     },
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 500,
     sourcemap: false,
     // M-FE-22 修复：改用 esbuild 压缩（比 terser 快 20-40 倍），
     // drop console/debugger 配置已移至顶层 esbuild 选项（仅 build 时生效）
