@@ -355,7 +355,10 @@ class TestMonitoringSnapshot:
         engine.model_load_stats = {}
         engine.predict_stats = {}
         engine.monitoring_counters = {}
-        engine.monitoring_score_deltas = []
+        # RES-P3-003: 类型从 list 改为 deque(maxlen=500), 保持测试一致性
+        from collections import deque
+
+        engine.monitoring_score_deltas = deque(maxlen=500)
         engine._routing_stats = {
             "structured": 0,
             "lite": 0,

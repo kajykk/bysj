@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 
 from app.core.celery_app import celery_app
-from app.core.celery_async import get_celery_loop as _get_loop
 from app.core.celery_async import run_async as _run_async
 from app.core.database import AsyncSessionLocal
 

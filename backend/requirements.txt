@@ -28,5 +28,4 @@ reportlab>=4.1.0
 python-dotenv>=1.0.1
 slowapi>=0.1.9
 python-magic>=0.4.27
-pytest-cov>=6.0.0
 sentry-sdk[fastapi]>=2.0.0

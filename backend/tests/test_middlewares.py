@@ -48,16 +48,17 @@ class TestMiddlewares:
     def test_security_headers(self):
         """TC-COV-MID-003: Security headers are set."""
         response = client.get("/test")
-        assert response.headers["X-Frame-Options"] == "DENY"
+        # SEC-P2-010: X-Frame-Options 由 nginx 统一设置, 后端不再设置 (避免双重 header)
+        assert "X-Frame-Options" not in response.headers
         assert response.headers["X-Content-Type-Options"] == "nosniff"
         assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
-        assert "Content-Security-Policy-Report-Only" in response.headers
+        # SEC-P2-009: CSP 由 nginx 统一设置, 后端不再设置 (避免双重 header 冲突)
+        assert "Content-Security-Policy" not in response.headers
+        assert "Content-Security-Policy-Report-Only" not in response.headers
 
-    def test_csp_nonce(self):
-        """TC-COV-MID-004: CSP nonce is applied when present."""
-        # We can't easily set request.state.csp_nonce via TestClient,
-        # but we can verify the base CSP is present
+    def test_csp_not_set_by_backend(self):
+        """TC-COV-MID-004: CSP 不由后端设置 (SEC-P2-009, 由 nginx 统一设置)."""
         response = client.get("/test")
-        csp = response.headers["Content-Security-Policy-Report-Only"]
-        assert "default-src 'self'" in csp
-        assert "report-uri /api/v1/csp-report" in csp
+        # SEC-P2-009: 后端不再生成 CSP, nginx 在 frontend/nginx.conf:81 统一设置
+        assert "Content-Security-Policy" not in response.headers
+        assert "Content-Security-Policy-Report-Only" not in response.headers

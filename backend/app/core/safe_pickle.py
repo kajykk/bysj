@@ -328,7 +328,7 @@ def safe_torch_load(
     )
 
     try:
-        return torch.load(path, map_location=map_location, weights_only=weights_only)
+        return torch.load(path, map_location=map_location, weights_only=weights_only)  # nosec B614  controlled load with weights_only flag
     except Exception as exc:
         raise ValueError(
             f"检查点 '{label}' 加载失败：{exc.__class__.__name__}: {exc}"

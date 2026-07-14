@@ -70,16 +70,19 @@ class TestSecurityHeadersMiddleware:
         assert resp.status_code == 200
 
         # Check all security headers
-        assert resp.headers["X-Frame-Options"] == "DENY"
+        # SEC-P2-010: X-Frame-Options 由 nginx 统一设置, 后端不再设置 (避免双重 header)
+        assert "X-Frame-Options" not in resp.headers
         assert resp.headers["X-Content-Type-Options"] == "nosniff"
         assert resp.headers["X-XSS-Protection"] == "0"
         assert resp.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
         assert "Permissions-Policy" in resp.headers
         assert resp.headers["X-DNS-Prefetch-Control"] == "off"
-        assert "Content-Security-Policy-Report-Only" in resp.headers
+        # SEC-P2-009: CSP 由 nginx 统一设置, 后端不再设置 (避免双重 header 冲突)
+        assert "Content-Security-Policy" not in resp.headers
+        assert "Content-Security-Policy-Report-Only" not in resp.headers
 
-    def test_csp_report_only_header(self):
-        """TC-COV-065: CSP header is in Report-Only mode."""
+    def test_csp_not_set_by_backend(self):
+        """TC-COV-065: CSP 不由后端设置 (SEC-P2-009, 由 nginx 统一设置)."""
         app = FastAPI()
 
         @app.middleware("http")
@@ -92,9 +95,9 @@ class TestSecurityHeadersMiddleware:
 
         client = TestClient(app)
         resp = client.get("/test")
-        csp = resp.headers["Content-Security-Policy-Report-Only"]
-        assert "report-uri /api/v1/csp-report" in csp
-        assert "default-src 'self'" in csp
+        # SEC-P2-009: 后端不再生成 CSP, nginx 在 frontend/nginx.conf:81 统一设置
+        assert "Content-Security-Policy" not in resp.headers
+        assert "Content-Security-Policy-Report-Only" not in resp.headers
 
     def test_hsts_in_production(self):
         """TC-COV-066: HSTS header in production mode."""

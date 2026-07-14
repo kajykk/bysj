@@ -309,6 +309,105 @@ class TestModelLoader:
                 loaded.layers[0]["bn_gamma"], model.layers[0]["bn_gamma"]
             )
 
+    def test_validate_bn_stats_normal(self):
+        """PERF-P3-002: 正常 BN stats 不触发重置."""
+        model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=True)
+        # 手动设置有效 stats
+        model.layers[0]["bn_running_mean"] = np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)
+        model.layers[0]["bn_running_var"] = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+        original_mean = model.layers[0]["bn_running_mean"].copy()
+        original_var = model.layers[0]["bn_running_var"].copy()
+        model._validate_batch_norm_stats()
+        np.testing.assert_array_equal(model.layers[0]["bn_running_mean"], original_mean)
+        np.testing.assert_array_equal(model.layers[0]["bn_running_var"], original_var)
+
+    def test_validate_bn_stats_missing(self):
+        """PERF-P3-002: 缺失 bn_running_mean 时重置为默认值."""
+        model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=True)
+        del model.layers[0]["bn_running_mean"]
+        model._validate_batch_norm_stats()
+        # 重置后应存在且为默认值 (mean=0, var=1)
+        assert "bn_running_mean" in model.layers[0]
+        np.testing.assert_array_equal(
+            model.layers[0]["bn_running_mean"],
+            np.zeros(4, dtype=np.float32),
+        )
+        np.testing.assert_array_equal(
+            model.layers[0]["bn_running_var"],
+            np.ones(4, dtype=np.float32),
+        )
+
+    def test_validate_bn_stats_nan(self):
+        """PERF-P3-002: bn_running_var 含 NaN 时重置."""
+        model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=True)
+        model.layers[0]["bn_running_var"] = np.array([1.0, np.nan, 3.0, 4.0], dtype=np.float32)
+        model._validate_batch_norm_stats()
+        np.testing.assert_array_equal(
+            model.layers[0]["bn_running_mean"],
+            np.zeros(4, dtype=np.float32),
+        )
+        np.testing.assert_array_equal(
+            model.layers[0]["bn_running_var"],
+            np.ones(4, dtype=np.float32),
+        )
+
+    def test_validate_bn_stats_inf(self):
+        """PERF-P3-002: bn_running_mean 含 Inf 时重置."""
+        model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=True)
+        model.layers[0]["bn_running_mean"] = np.array([0.1, np.inf, 0.3, 0.4], dtype=np.float32)
+        model._validate_batch_norm_stats()
+        np.testing.assert_array_equal(
+            model.layers[0]["bn_running_mean"],
+            np.zeros(4, dtype=np.float32),
+        )
+
+    def test_validate_bn_stats_negative_var(self):
+        """PERF-P3-002: bn_running_var 含负值时重置."""
+        model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=True)
+        model.layers[0]["bn_running_var"] = np.array([1.0, -0.5, 3.0, 4.0], dtype=np.float32)
+        model._validate_batch_norm_stats()
+        np.testing.assert_array_equal(
+            model.layers[0]["bn_running_var"],
+            np.ones(4, dtype=np.float32),
+        )
+
+    def test_validate_bn_stats_shape_mismatch(self):
+        """PERF-P3-002: shape 不匹配时重置."""
+        model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=True)
+        # bn_gamma shape=(4,), 但 bn_running_mean shape=(3,)
+        model.layers[0]["bn_running_mean"] = np.array([0.1, 0.2, 0.3], dtype=np.float32)
+        model._validate_batch_norm_stats()
+        np.testing.assert_array_equal(
+            model.layers[0]["bn_running_mean"],
+            np.zeros(4, dtype=np.float32),
+        )
+
+    def test_validate_bn_stats_no_batch_norm(self):
+        """PERF-P3-002: use_batch_norm=False 时不校验."""
+        model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=False)
+        # 不应抛出异常
+        model._validate_batch_norm_stats()
+        assert model.use_batch_norm is False
+
+    def test_load_validates_bn_stats(self):
+        """PERF-P3-002: load() 方法自动调用 BN stats 校验."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "model.json"
+            model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=True)
+            model.save(path)
+            # 篡改 model.json: 将 bn_running_var 设为 NaN
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            data["layers"][0]["bn_running_var"] = [float("nan")] * 4
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            # load 应自动校验并重置
+            loaded = PhysiologicalMLP.load(path)
+            np.testing.assert_array_equal(
+                loaded.layers[0]["bn_running_var"],
+                np.ones(4, dtype=np.float32),
+            )
+
     def test_predict_multi_sample(self):
         """TC-COV-ML-032: Predict on multiple samples."""
         model = PhysiologicalMLP(input_dim=3, hidden_dims=[4], use_batch_norm=False)

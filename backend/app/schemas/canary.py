@@ -16,6 +16,12 @@ class CanaryCreateRequest(BaseModel):
         default=None,
         description="Auto-rollback thresholds",
     )
+    # STAB-P2-006: 路由前缀分流 (None=全局覆盖所有路由, 非 None=仅覆盖该路由前缀)
+    route_prefix: str | None = Field(
+        default=None,
+        max_length=100,
+        description="STAB-P2-006: 路由前缀分流 (None=全局, 如 '/api/v1/reports')",
+    )
 
 
 class CanaryTrafficUpdateRequest(BaseModel):
@@ -43,6 +49,8 @@ class CanaryDeploymentResponse(BaseModel):
     status: str
     started_at: str | None
     created_at: str | None
+    # STAB-P2-006: 路由前缀分流
+    route_prefix: str | None = None
 
 
 class CanaryListItem(BaseModel):
@@ -58,6 +66,8 @@ class CanaryListItem(BaseModel):
     ended_at: str | None
     rollback_reason: str | None
     created_at: str | None
+    # STAB-P2-006: 路由前缀分流
+    route_prefix: str | None = None
 
 
 class CanaryListResponse(BaseModel):

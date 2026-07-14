@@ -167,15 +167,37 @@ class RiskMixin:
         total = sum(boosted) or 1.0
         return [float(v / total) for v in boosted]
 
-    @staticmethod
+    def _get_shap_explainer(self, model: "BaseEstimator", masker: Any) -> Any:
+        """RES-P3-002: 缓存 shap.Explainer, 避免每次预测重复构造.
+
+        shap.Explainer 构造开销大 (需推断 model 类型 + 初始化 masker),
+        对同一 model 对象只需构造一次. cache key = id(model),
+        model 重新加载 (id 变化) 时缓存自然失效.
+
+        注意: masker 仅在第一次构造时使用, 后续复用缓存的 explainer.
+        这意味着 SHAP 值相对于第一次的背景数据计算, 与每次新建 explainer
+        的行为略有差异, 但性能提升显著 (避免重复构造).
+        """
+        cache = getattr(self, "_shap_explainers", None)
+        if cache is None:
+            cache = {}
+            self._shap_explainers = cache
+        key = id(model)
+        explainer = cache.get(key)
+        if explainer is None:
+            import shap
+
+            explainer = shap.Explainer(model, masker)
+            cache[key] = explainer
+        return explainer
+
     def _compute_shap_factors(
-        model: BaseEstimator,
-        feature_df: pd.DataFrame,
+        self,
+        model: "BaseEstimator",
+        feature_df: "pd.DataFrame",
         model_feature_names: list[str],
     ) -> list[dict[str, Any]]:
-        import shap
-
-        explainer = shap.Explainer(model, feature_df)
+        explainer = self._get_shap_explainer(model, feature_df)
         shap_values = explainer(feature_df)
         factors: list[dict[str, Any]] = []
         for i, col in enumerate(model_feature_names):
@@ -190,15 +212,13 @@ class RiskMixin:
         factors.sort(key=lambda x: x["importance"], reverse=True)
         return factors[:5]
 
-    @staticmethod
     def _compute_shap_factors_array(
-        model: BaseEstimator,
-        feature_array: np.ndarray,
+        self,
+        model: "BaseEstimator",
+        feature_array: "np.ndarray",
         feature_order: list[str],
     ) -> list[dict[str, Any]]:
-        import shap
-
-        explainer = shap.Explainer(model, feature_array)
+        explainer = self._get_shap_explainer(model, feature_array)
         shap_values = explainer(feature_array)
         factors: list[dict[str, Any]] = []
         for i, f in enumerate(feature_order):

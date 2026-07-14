@@ -585,6 +585,19 @@ class PredictMixin:
         }
 
     async def _predict_text_bert(self, text: str) -> dict[str, Any] | None:
+        # PERF-P3-007: 如果 batch collector 已启动, 走 batch 路径提高吞吐量
+        collector = getattr(self, "_bert_batch_collector", None)
+        if collector is not None and collector._running:
+            try:
+                return await collector.submit(text)
+            except asyncio.CancelledError:
+                # 请求被取消 (如 collector 停止), 回退到单条推理
+                pass
+
+        return await self._predict_text_bert_single(text)
+
+    async def _predict_text_bert_single(self, text: str) -> dict[str, Any] | None:
+        """BERT 单条文本推理 (原 _predict_text_bert 逻辑)."""
         try:
             bundle = await self._load_model_async("text_bert_classifier")
             tokenizer = bundle["tokenizer"]
@@ -620,6 +633,63 @@ class PredictMixin:
             # P1-E 修复：BERT 文本模型预测失败必须记录日志，便于排查模型加载/推理问题
             logger.warning("BERT text predict failed: %s", exc)
             return None
+
+    async def _predict_text_bert_batch(
+        self, texts: list[str]
+    ) -> list[dict[str, Any] | None]:
+        """PERF-P3-007: BERT batch 推理, 一次处理多条文本.
+
+        tokenizer 一次处理 list[str], model 一次 forward 整个 batch,
+        减少 Python→torch 调用开销, 提高吞吐量.
+
+        Args:
+            texts: 文本列表.
+
+        Returns:
+            结果列表 (与输入顺序一致), 每个元素为 dict 或 None (推理失败时).
+        """
+        if not texts:
+            return []
+        try:
+            bundle = await self._load_model_async("text_bert_classifier")
+            tokenizer = bundle["tokenizer"]
+            model = bundle["model"]
+            # tokenizer 支持 list[str] 输入, 一次处理整个 batch
+            inputs = await asyncio.to_thread(
+                tokenizer,
+                texts,
+                return_tensors="pt",
+                truncation=True,
+                padding=True,
+                max_length=256,
+            )
+            import torch
+
+            with torch.no_grad():
+                outputs = await asyncio.to_thread(model, **inputs)
+                logits = outputs.logits
+                probs = torch.softmax(logits, dim=-1)  # (batch_size, num_classes)
+
+            results: list[dict[str, Any] | None] = []
+            for i in range(len(texts)):
+                prob_i = probs[i]
+                score = (
+                    float(prob_i[1].item())
+                    if prob_i.shape[-1] > 1
+                    else float(prob_i[0].item())
+                )
+                prediction = int(torch.argmax(prob_i).item())
+                results.append({
+                    "prediction": prediction,
+                    "probability": round(score, 4),
+                    "sentiment_label": "negative" if prediction == 1 else "positive",
+                    "sentiment_score": round(score, 4),
+                    "model_used": "text_bert_classifier",
+                })
+            return results
+        except Exception as exc:
+            logger.warning("BERT text batch predict failed: %s", exc)
+            return [None] * len(texts)
 
     async def predict_lite(
         self,

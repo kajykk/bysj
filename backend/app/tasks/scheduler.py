@@ -88,10 +88,13 @@ async def _daily_risk_scan_impl():
 
         for user in users:
             scanned_count += 1
+            # PERF-P2-002: 使用 is_latest 标志替代 ORDER BY created_at DESC LIMIT 1
             latest_risk_stmt = (
                 select(RiskAssessment)
-                .where(RiskAssessment.user_id == user.id)
-                .order_by(RiskAssessment.created_at.desc())
+                .where(
+                    RiskAssessment.user_id == user.id,
+                    RiskAssessment.is_latest.is_(True),
+                )
                 .limit(1)
             )
             latest_risk = (await db.execute(latest_risk_stmt)).scalar_one_or_none()
@@ -309,6 +312,101 @@ async def _weekly_log_archive_impl():
         service = AdminService(db)
         count = await service.archive_old_logs(days=90)
         logger.info("Archived %d old operation logs", count)
+
+
+@celery_app.task(
+    bind=True, max_retries=2, default_retry_delay=30, time_limit=60, soft_time_limit=50
+)
+def mask_old_ips_task(self):
+    """SEC-P2-008: 掩码 30 天前的 OperationLog.ip_address (GDPR 合规).
+
+    与 weekly_log_archive 配合:
+    - 30 天后: 掩码 IP (保留网络段, 仍可用于异常检测)
+    - 90 天后: 删除整条记录 (archive_old_logs)
+    """
+    logger.info("Starting mask old IPs task (SEC-P2-008)")
+    try:
+        _run_async(_mask_old_ips_impl())
+    except Exception as exc:
+        logger.warning(
+            "Mask old IPs task failed, will retry: %s", exc, exc_info=True
+        )
+        raise self.retry(exc=exc)
+    logger.info("Mask old IPs task completed")
+
+
+async def _mask_old_ips_impl():
+    async with AsyncSessionLocal() as db:
+        from app.services.admin_service import AdminService
+
+        service = AdminService(db)
+        count = await service.mask_old_ips(days=30)
+        logger.info("Masked IPs for %d old operation logs", count)
+
+
+@celery_app.task(
+    bind=True, max_retries=2, default_retry_delay=30, time_limit=120, soft_time_limit=100
+)
+def weekly_risk_assessment_archive(self):
+    """PERF-P2-003: 归档 (删除) 365 天前的 RiskAssessment 记录.
+
+    长期累积的 risk_assessments 表会拖慢查询, 每周清理一次超过 365 天的记录.
+    维护 is_latest 标志位 (PERF-P2-002): 被删除的 is_latest=True 记录
+    会从剩余记录中重新标记一条最新的.
+    WarningNotification.risk_assessment_id 外键 ondelete="SET NULL" 自动处理.
+    """
+    logger.info("Starting weekly risk assessment archive (PERF-P2-003)")
+    try:
+        _run_async(_weekly_risk_assessment_archive_impl())
+    except Exception as exc:
+        logger.warning(
+            "Weekly risk assessment archive failed, will retry: %s",
+            exc,
+            exc_info=True,
+        )
+        raise self.retry(exc=exc)
+    logger.info("Weekly risk assessment archive completed")
+
+
+async def _weekly_risk_assessment_archive_impl():
+    async with AsyncSessionLocal() as db:
+        from app.services.admin_service import AdminService
+
+        service = AdminService(db)
+        count = await service.archive_old_risk_assessments(days=365)
+        logger.info("Archived %d old risk assessments", count)
+
+
+@celery_app.task(
+    bind=True, max_retries=2, default_retry_delay=30, time_limit=120, soft_time_limit=100
+)
+def weekly_monitoring_logs_archive(self):
+    """RES-P2-005: 归档 (删除) 180 天前的 MonitoringLog 记录.
+
+    监控日志 (inference/fallback/drift_alert/canary_switch 等) 增长迅速,
+    每周清理一次超过 180 天的记录, 避免监控日志表拖慢查询.
+    与 archive_old_logs (OperationLog, 90 天) 分离, 监控日志保留更久用于趋势分析.
+    """
+    logger.info("Starting weekly monitoring logs archive (RES-P2-005)")
+    try:
+        _run_async(_weekly_monitoring_logs_archive_impl())
+    except Exception as exc:
+        logger.warning(
+            "Weekly monitoring logs archive failed, will retry: %s",
+            exc,
+            exc_info=True,
+        )
+        raise self.retry(exc=exc)
+    logger.info("Weekly monitoring logs archive completed")
+
+
+async def _weekly_monitoring_logs_archive_impl():
+    async with AsyncSessionLocal() as db:
+        from app.services.admin_service import AdminService
+
+        service = AdminService(db)
+        count = await service.archive_old_monitoring_logs(days=180)
+        logger.info("Archived %d old monitoring logs", count)
 
 
 @celery_app.task(

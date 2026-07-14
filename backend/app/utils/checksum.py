@@ -58,3 +58,54 @@ def write_sha256_sidecar(path: Path | str) -> str:
     checksum_path.write_text(f"{sha256}  {path.name}\n", encoding="utf-8")
     logger.debug("Generated SHA256 sidecar: %s", checksum_path.name)
     return sha256
+
+
+def cleanup_stale_sidecars(directory: Path | str) -> int:
+    """RES-P3-005: 清理孤立的 .sha256 侧车文件.
+
+    模型升级 (重新训练保存为新文件名, 或删除旧版本) 后, 旧的 .sha256
+    侧车文件可能残留, 占用磁盘空间并造成混淆. 本函数扫描指定目录,
+    删除没有对应主文件的 .sha256 文件.
+
+    用法:
+        # 模型升级后清理
+        from app.utils.checksum import cleanup_stale_sidecars
+        cleanup_stale_sidecars(settings.model_dir)
+
+    Args:
+        directory: 要扫描的目录路径.
+
+    Returns:
+        清理的孤立 .sha256 文件数量.
+    """
+    directory = Path(directory)
+    if not directory.is_dir():
+        logger.warning("cleanup_stale_sidecars: directory not found: %s", directory)
+        return 0
+
+    removed = 0
+    for sidecar in directory.glob("*.sha256"):
+        # 侧车文件名格式: <original_name>.<ext>.sha256 (例如 model.json.sha256)
+        # 对应主文件: <original_name>.<ext> (移除 .sha256 后缀)
+        main_file = sidecar.with_suffix("")  # 移除 .sha256
+        if not main_file.exists():
+            try:
+                sidecar.unlink()
+                removed += 1
+                logger.info(
+                    "RES-P3-005: removed stale sidecar (main file missing): %s",
+                    sidecar.name,
+                )
+            except OSError as exc:
+                logger.warning(
+                    "RES-P3-005: failed to remove stale sidecar %s: %s",
+                    sidecar.name,
+                    exc,
+                )
+    if removed:
+        logger.info(
+            "RES-P3-005: cleaned up %d stale .sha256 sidecar(s) in %s",
+            removed,
+            directory,
+        )
+    return removed

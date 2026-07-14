@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core import config as _config
-from app.core.config import BACKEND_DIR, settings
+from app.core.config import BACKEND_DIR
 
 # 标记是否已配置过，避免测试中重复配置
 _CONFIGURED: bool = False
@@ -102,7 +102,9 @@ def _build_dict_config(
             "class": "logging.StreamHandler",
             "level": level,
             "formatter": "standard",
-            "filters": ["trace"],  # ISS-100: 注入 request_id/trace_id
+            # ISS-100: trace filter 注入 request_id/trace_id
+            # SEC-P2-007: sanitizer filter 集中化脱敏 PII
+            "filters": ["trace", "sanitizer"],
             "stream": "ext://sys.stderr",
         }
         root_handlers.append("console")
@@ -112,7 +114,7 @@ def _build_dict_config(
             "class": "logging.handlers.RotatingFileHandler",
             "level": level,
             "formatter": "standard",
-            "filters": ["trace"],  # ISS-100: 注入 request_id/trace_id
+            "filters": ["trace", "sanitizer"],  # ISS-100 + SEC-P2-007
             "filename": str(log_dir / "app.log"),
             "maxBytes": max_bytes,
             "backupCount": backup_count,
@@ -122,7 +124,7 @@ def _build_dict_config(
             "class": "logging.handlers.RotatingFileHandler",
             "level": logging.ERROR,
             "formatter": "standard",
-            "filters": ["trace"],  # ISS-100: 注入 request_id/trace_id
+            "filters": ["trace", "sanitizer"],  # ISS-100 + SEC-P2-007
             "filename": str(log_dir / "error.log"),
             "maxBytes": max_bytes,
             "backupCount": backup_count,
@@ -142,9 +144,13 @@ def _build_dict_config(
         "disable_existing_loggers": False,
         # ISS-100 修复：注册 TraceLogFilter，自动注入 request_id/trace_id/span_id
         # 到每条日志记录，使 format 串中的 %(request_id)s 等占位符可生效。
+        # SEC-P2-007: 注册 SanitizingFilter, 集中化脱敏 PII (password/token/email/手机号等)
         "filters": {
             "trace": {
                 "()": "app.core.tracing.TraceLogFilter",
+            },
+            "sanitizer": {
+                "()": "app.core.log_sanitizer.SanitizingFilter",
             },
         },
         "formatters": {

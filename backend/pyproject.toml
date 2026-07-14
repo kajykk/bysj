@@ -35,3 +35,91 @@ known-first-party = ["app"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+# MAINT-P3-003: mypy 静态类型检查门禁
+# 策略: 适度严格, 不破坏现有代码, 重点检查 app/ 目录
+# 第三方库无 stub 时忽略 missing imports, 避免噪音
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+show_error_codes = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+exclude = [
+    "alembic/",
+    "tests/",
+    "scripts/",
+    "build/",
+    "dist/",
+]
+
+# app.core 层级类型安全要求更高
+[[tool.mypy.overrides]]
+module = "app.core.*"
+disallow_untyped_defs = false  # 现有代码大量无类型注解, 先不强制
+
+# app.ml 模块依赖大量第三方 ML 库 (sklearn/torch), 放宽
+[[tool.mypy.overrides]]
+module = "app.ml.*"
+ignore_errors = true
+
+# MAINT-P3-003: bandit 安全扫描门禁
+# 策略: 中等严重度 + 中等置信度, 排除测试目录
+[tool.bandit]
+severity = "medium"
+confidence = "medium"
+exclude_dirs = ["tests", "alembic", "scripts", "build", "dist"]
+skips = [
+    "B101",  # assert_used: 测试中常用 assert, 不作为错误
+    "B311",  # random: 测试中常用 random, 不作为安全问题
+]
+
+# MAINT-P2-003: import-linter 层级依赖契约
+# 禁止 app.core 反向依赖 app.ml / app.services (层级倒置反模式)
+# 已知技术债豁免: model_engine 系列 6 处延迟导入 (74 处引用无法短期迁移)
+# 注: grimp 静态分析包含函数体内 import, 故延迟导入仍需显式 ignore_imports 豁免
+[tool.importlinter]
+root_packages = ["app"]
+include_external_packages = false
+
+[[tool.importlinter.contracts]]
+name = "Core layer must not depend on ml/services layers"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = ["app.ml", "app.services"]
+ignore_imports = [
+    # model_engine.py: __init__ 内实例化 fusion/text 组件 (技术债, 74 处引用)
+    "app.core.model_engine -> app.ml.fusion_engine",
+    "app.core.model_engine -> app.ml.fusion_priority_engine",
+    "app.core.model_engine -> app.ml.text_analyzer",
+    # model_engine_predict.py: 推理路径延迟导入 (性能优化, 避免顶层加载 ML 依赖)
+    "app.core.model_engine_predict -> app.ml.model_loader",
+    "app.core.model_engine_predict -> app.ml.data_cleaner",
+    "app.core.model_engine_predict -> app.ml.feature_engineering",
+]
+
+# MAINT-P3-005: 依赖锁定 (lock files)
+# =============================================================================
+# 依赖管理分层架构:
+#   - requirements.txt / requirements-dev.txt: 高级声明 (人类编辑, 允许 >= 范围)
+#   - requirements.lock / requirements-dev.lock: 锁定文件 (机器生成, == 精确版本)
+#
+# 锁定文件由 uv pip compile 自动生成, 禁止手动编辑.
+# 重新生成命令 (在仓库根目录执行):
+#   uv pip compile backend/requirements.txt -o backend/requirements.lock \
+#       --python-version 3.11 --no-emit-index-url --quiet
+#   uv pip compile backend/requirements-dev.txt -o backend/requirements-dev.lock \
+#       --python-version 3.11 --no-emit-index-url --quiet
+#
+# 部署/CI 使用方式 (推荐):
+#   生产环境: pip install -r backend/requirements.lock
+#   开发环境: pip install -r backend/requirements.lock && pip install -r backend/requirements-dev.lock
+#
+# 依赖更新流程:
+#   1. 修改 requirements.txt (或 requirements-dev.txt) 中的版本范围
+#   2. 重新运行 uv pip compile 生成 lock 文件
+#   3. 提交 .txt + .lock 两个文件
+#   4. pip-audit / safety 在 CI 中扫描 lock 文件检查已知漏洞
+# =============================================================================

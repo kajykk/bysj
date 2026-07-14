@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
@@ -771,6 +771,15 @@ async def _seed_assessments_and_warnings(db: AsyncSession) -> None:
                     },
                 )
             )
+            # PERF-P2-002: 清除该用户旧风险评估的 is_latest 标志 (seed 场景通常无旧记录)
+            await db.execute(
+                update(RiskAssessment)
+                .where(
+                    RiskAssessment.user_id == user.id,
+                    RiskAssessment.is_latest.is_(True),
+                )
+                .values(is_latest=False)
+            )
             risk = RiskAssessment(
                 user_id=user.id,
                 risk_score=user_seed["risk_score"],
@@ -779,6 +788,7 @@ async def _seed_assessments_and_warnings(db: AsyncSession) -> None:
                 models_used=user_seed["models_used"],
                 risk_factors=user_seed["risk_factors"],
                 assessment_type="structured",
+                is_latest=True,
             )
             db.add(risk)
             risk_by_username[user.username] = risk

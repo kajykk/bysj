@@ -20,11 +20,16 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.core.model_engine import LiteFeatureExtractor, ModelEngine
+from app.core.model_engine import (
+    LiteFeatureExtractor,
+    ModelEngine,
+    _BertMicroBatchCollector,
+)
 
 # ═══════════════════════════════════════════════════════════════════════
 # 1. _structured_heuristic_fallback (4 层回退 - 结构化)
@@ -1369,3 +1374,150 @@ class TestBoostGateForPhysiology:
         result = ModelEngine._boost_gate_for_physiology(scores, gate_weights)
         assert len(result) == 2
         assert abs(sum(result) - 1.0) < 0.01
+
+
+class TestBertMicroBatchCollector:
+    """PERF-P3-007: 测试 BERT micro-batch collector."""
+
+    @pytest.fixture
+    def engine(self) -> ModelEngine:
+        return ModelEngine()
+
+    @pytest.mark.asyncio
+    async def test_collector_start_stop(self, engine: ModelEngine) -> None:
+        """collector 启动/停止."""
+        collector = _BertMicroBatchCollector(engine, max_batch_size=4, max_wait_ms=50.0)
+        assert collector._running is False
+        assert collector._worker_task is None
+
+        await collector.start()
+        assert collector._running is True
+        assert collector._worker_task is not None
+
+        await collector.stop()
+        assert collector._running is False
+        assert collector._worker_task is None
+
+    @pytest.mark.asyncio
+    async def test_collector_submit_single(self, engine: ModelEngine) -> None:
+        """提交单条请求, 通过 mock batch 方法返回结果."""
+        collector = _BertMicroBatchCollector(engine, max_batch_size=4, max_wait_ms=50.0)
+        expected_result = {"prediction": 1, "probability": 0.85, "model_used": "text_bert_classifier"}
+
+        async def mock_batch(texts: list[str]):
+            return [expected_result] * len(texts)
+
+        engine._predict_text_bert_batch = mock_batch  # type: ignore[assignment]
+        await collector.start()
+        try:
+            result = await collector.submit("test text")
+            assert result == expected_result
+        finally:
+            await collector.stop()
+
+    @pytest.mark.asyncio
+    async def test_collector_submit_batch(self, engine: ModelEngine) -> None:
+        """提交多条请求, 验证 batch 推理一次处理."""
+        collector = _BertMicroBatchCollector(engine, max_batch_size=4, max_wait_ms=100.0)
+        call_count = 0
+
+        async def mock_batch(texts: list[str]):
+            nonlocal call_count
+            call_count += 1
+            return [
+                {"prediction": 1, "probability": 0.9, "model_used": "text_bert_classifier", "text": t}
+                for t in texts
+            ]
+
+        engine._predict_text_bert_batch = mock_batch  # type: ignore[assignment]
+        await collector.start()
+        try:
+            # 并发提交 3 个请求
+            results = await asyncio.gather(
+                collector.submit("text1"),
+                collector.submit("text2"),
+                collector.submit("text3"),
+            )
+            assert len(results) == 3
+            # batch 方法应被调用 (可能 1 次 batch=3 或多次, 但至少 1 次)
+            assert call_count >= 1
+        finally:
+            await collector.stop()
+
+    @pytest.mark.asyncio
+    async def test_collector_batch_failure(self, engine: ModelEngine) -> None:
+        """batch 推理失败时返回 None (走 TF-IDF 回退)."""
+        collector = _BertMicroBatchCollector(engine, max_batch_size=4, max_wait_ms=50.0)
+
+        async def mock_batch(texts: list[str]):
+            raise RuntimeError("model load failed")
+
+        engine._predict_text_bert_batch = mock_batch  # type: ignore[assignment]
+        await collector.start()
+        try:
+            result = await collector.submit("test text")
+            assert result is None
+        finally:
+            await collector.stop()
+
+    @pytest.mark.asyncio
+    async def test_predict_text_bert_without_collector(self, engine: ModelEngine) -> None:
+        """collector 未启动时走单条推理路径."""
+        assert engine._bert_batch_collector is None
+        # mock _predict_text_bert_single 验证走单条路径
+        called = False
+
+        async def mock_single(text: str):
+            nonlocal called
+            called = True
+            return {"prediction": 0, "model_used": "text_bert_classifier"}
+
+        engine._predict_text_bert_single = mock_single  # type: ignore[assignment]
+        result = await engine._predict_text_bert("test")
+        assert called is True
+        assert result["prediction"] == 0
+
+    @pytest.mark.asyncio
+    async def test_predict_text_bert_with_collector(self, engine: ModelEngine) -> None:
+        """collector 启动时走 batch 路径."""
+        await engine.start_bert_batch_collector(max_batch_size=4, max_wait_ms=50.0)
+        try:
+            assert engine._bert_batch_collector is not None
+            assert engine._bert_batch_collector._running is True
+
+            expected = {"prediction": 1, "probability": 0.8, "model_used": "text_bert_classifier"}
+
+            async def mock_batch(texts: list[str]):
+                return [expected] * len(texts)
+
+            engine._predict_text_bert_batch = mock_batch  # type: ignore[assignment]
+            result = await engine._predict_text_bert("test text")
+            assert result == expected
+        finally:
+            await engine.stop_bert_batch_collector()
+            assert engine._bert_batch_collector is None
+
+    @pytest.mark.asyncio
+    async def test_predict_text_bert_batch_empty(self, engine: ModelEngine) -> None:
+        """_predict_text_bert_batch 空列表输入返回空列表."""
+        result = await engine._predict_text_bert_batch([])
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_start_stop_bert_batch_collector(self, engine: ModelEngine) -> None:
+        """ModelEngine.start/stop_bert_batch_collector 方法."""
+        assert engine._bert_batch_collector is None
+        await engine.start_bert_batch_collector()
+        assert engine._bert_batch_collector is not None
+        assert engine._bert_batch_collector._running is True
+
+        # 重复调用 start 应无副作用
+        await engine.start_bert_batch_collector()
+        assert engine._bert_batch_collector._running is True
+
+        await engine.stop_bert_batch_collector()
+        assert engine._bert_batch_collector is None
+
+        # 重复调用 stop 应无副作用
+        await engine.stop_bert_batch_collector()
+        assert engine._bert_batch_collector is None

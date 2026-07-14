@@ -126,6 +126,8 @@ class Settings(BaseSettings):
     ml_half_open_max_calls: int = 1
     # ML 单次推理超时 (秒), 超过则 asyncio.TimeoutError 并触发熔断器计数
     ml_inference_timeout: int = 5
+    # PERF-P2-009: ML 推理结果 Redis 缓存 TTL (秒), 0 表示禁用缓存
+    ml_inference_cache_ttl: int = 60
 
     # ── STAB-P1-004 修复：SMTP 邮件熔断器 ──
     # 是否启用 SMTP 熔断器 (关闭后邮件发送不再拦截)
@@ -151,6 +153,14 @@ class Settings(BaseSettings):
     observability_pending_logs_maxlen: int = 1000
     # RES-P1-004: 默认值从 10000 降至 1000, 避免死缓冲区占用过多内存
     observability_max_buffer_size: int = 1000
+
+    # ── STAB-P3-002: WebSocket 单用户最大连接数可配置化 ──
+    # 默认 5 个连接 (原硬编码值), 可通过环境变量 WEBSOCKET_MAX_CONNECTIONS_PER_USER 覆盖
+    websocket_max_connections_per_user: int = 5
+    # RES-P3-004: WebSocket 全局连接上限 (跨所有用户), 超过时拒绝新连接并告警
+    # 默认 1000, 可通过环境变量 WEBSOCKET_MAX_GLOBAL_CONNECTIONS 覆盖.
+    # 用于防止大量用户同时连接导致内存/文件描述符耗尽.
+    websocket_max_global_connections: int = 1000
 
     @model_validator(mode="after")
     def apply_env_defaults(self) -> "Settings":
@@ -256,7 +266,35 @@ class Settings(BaseSettings):
 
     jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
+    # SEC-P2-001: RS256 非对称签名支持
+    # HS256 (对称): jwt_secret_key 同时用于签名和验证 (开发环境默认)
+    # RS256 (非对称): jwt_private_key 签名, jwt_public_key 验证 (生产环境推荐)
+    # 切换方式: 设置 JWT_ALGORITHM=RS256 + JWT_PRIVATE_KEY_PATH + JWT_PUBLIC_KEY_PATH
+    jwt_private_key_path: str = ""
+    jwt_public_key_path: str = ""
+    # 运行时加载的 PEM 内容 (由 security.py 在首次使用时从 path 加载)
+    jwt_private_key_pem: str = ""
+    jwt_public_key_pem: str = ""
+    # SEC-P3-001: JWT issuer/audience 声明 (防止 token 跨服务重放)
+    # 留空则不添加/不验证 iss/aud 声明 (向后兼容模式)
+    jwt_issuer: str = ""
+    jwt_audience: str = ""
     access_token_expire_minutes: int = 120
+    # SEC-P2-003: 上传文件安全处理
+    # EXIF 剥离: 用 Pillow 重编码图片, 删除 GPS/设备信息等敏感元数据
+    enable_exif_strip: bool = True
+    # ClamAV 病毒扫描: 对接 clamd 守护进程, 无连接时降级跳过
+    enable_clamav_scan: bool = False  # 默认关闭, 需要 clamd 守护进程
+    clamav_host: str = "localhost"
+    clamav_port: int = 3310
+    clamav_unix_socket: str = ""  # 非空时优先使用 Unix socket
+    # STAB-P2-009: OpenTelemetry 分布式追踪
+    # 通过 OTLP 协议导出 trace 到外部 collector (如 Jaeger/Tempo/OTel Collector)
+    otel_enabled: bool = False  # 默认关闭, 需要 opentelemetry-sdk + opentelemetry-exporter-otlp
+    otlp_endpoint: str = ""  # OTLP collector 端点 (如 "http://localhost:4317")
+    otlp_protocol: str = "grpc"  # "grpc" 或 "http/protobuf"
+    otel_service_name: str = "mindcare-backend"
+    otel_resource_attributes: str = ""  # 附加资源属性 (如 "key1=val1,key2=val2")
     refresh_token_expire_days: int = 7
     password_reset_token_expire_minutes: int = 30
 
@@ -271,6 +309,11 @@ class Settings(BaseSettings):
     smtp_from_email: str = ""
 
     model_dir: str = "models"
+
+    # ISS-13 (B615): 固定从 HuggingFace Hub 下载的预训练模型 revision，防止供应链漂移。
+    # 生产环境应固定为具体 commit hash（如 "a9050c1a"），而非浮动分支名。
+    model_bert_revision: str = "main"
+
     enable_seed: bool = False
 
     structured_model_mode: str = "primary"  # "primary" | "fallback"

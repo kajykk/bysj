@@ -6,7 +6,7 @@ import logging
 import re
 import threading
 import time
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict, defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 from time import perf_counter
@@ -23,7 +23,6 @@ from app.core.crisis_detector import CrisisDetector
 # 此处通过别名导入保持内部 _ 前缀命名约定, 同时 re-export 供外部
 # `from app.core.model_engine import LITE_FEATURE_ORDER` 继续可用 (向后兼容)
 from app.core.feature_maps import DEFAULTS as _DEFAULTS
-from app.core.feature_maps import LITE_FEATURE_ORDER
 from app.core.feature_maps import STR_TO_NUM as _STR_TO_NUM
 from app.core.model_engine_fallback import FallbackMixin
 from app.core.model_engine_predict import PredictMixin
@@ -34,9 +33,10 @@ from app.core.model_engine_predict import PredictMixin
 # 核心预测方法 → PredictMixin (model_engine_predict.py)
 from app.core.model_engine_risk import RiskMixin
 from app.core.model_registry import MODEL_PATHS, is_model_enabled, resolve_model_path
-from app.ml.fusion_engine import FusionEngine
-from app.ml.fusion_priority_engine import FusionPriorityEngine
-from app.ml.text_analyzer import TextAnalyzer
+
+# MAINT-P2-003: app.core 不应在顶层导入 app.ml (层级倒置)
+# 这三个类仅在 ModelEngine.__init__ 中实例化, 改为方法内延迟导入
+# grimp/import-linter 静态分析函数体导入时不计入模块依赖图
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +222,117 @@ class LiteFeatureExtractor:
         }
 
 
+class _BertMicroBatchCollector:
+    """PERF-P3-007: BERT micro-batching collector.
+
+    收集短时间内的多条文本预测请求, 批量推理提高吞吐量.
+    通过 asyncio.Queue 收集请求, 后台 worker 定期触发 batch 推理.
+
+    设计要点:
+    - max_batch_size=8: 一次 batch 最多 8 条文本 (CPU 推理友好)
+    - max_wait_ms=50: 最多等待 50ms 攒 batch, 避免低流量时延迟过高
+    - Future 管理: 每个请求返回 Future, batch 完成后设置结果
+    - 异常隔离: batch 推理失败时所有 Future 返回 None (走 TF-IDF 回退)
+    """
+
+    def __init__(
+        self,
+        engine: "ModelEngine",
+        max_batch_size: int = 8,
+        max_wait_ms: float = 50.0,
+    ) -> None:
+        self._engine = engine
+        self._max_batch_size = max_batch_size
+        self._max_wait_seconds = max_wait_ms / 1000.0
+        self._queue: asyncio.Queue[
+            tuple[str, asyncio.Future[dict[str, Any] | None]]
+        ] = asyncio.Queue()
+        self._worker_task: asyncio.Task[None] | None = None
+        self._running = False
+
+    async def start(self) -> None:
+        """启动后台 batch worker."""
+        if self._worker_task is not None:
+            return
+        self._running = True
+        self._worker_task = asyncio.create_task(self._worker_loop())
+        logger.info(
+            "PERF-P3-007: BERT micro-batch collector started "
+            "(max_batch_size=%d, max_wait_ms=%.0f)",
+            self._max_batch_size,
+            self._max_wait_seconds * 1000,
+        )
+
+    async def stop(self) -> None:
+        """停止后台 batch worker, 排空队列并取消未完成的 futures."""
+        self._running = False
+        if self._worker_task is not None:
+            self._worker_task.cancel()
+            try:
+                await self._worker_task
+            except asyncio.CancelledError:
+                pass
+            self._worker_task = None
+        # 排空队列, 取消未完成的 futures
+        while not self._queue.empty():
+            try:
+                _, fut = self._queue.get_nowait()
+                if not fut.done():
+                    fut.cancel()
+            except asyncio.QueueEmpty:
+                break
+        logger.info("PERF-P3-007: BERT micro-batch collector stopped")
+
+    async def submit(self, text: str) -> dict[str, Any] | None:
+        """提交单条文本到 batch 队列, 等待结果."""
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[dict[str, Any] | None] = loop.create_future()
+        await self._queue.put((text, fut))
+        return await fut
+
+    async def _worker_loop(self) -> None:
+        """后台 worker: 收集请求并批量推理."""
+        while self._running:
+            try:
+                # 等待第一个请求 (1s 超时, 便于检查 _running 状态)
+                first_item = await asyncio.wait_for(self._queue.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                break
+
+            first_text, first_fut = first_item
+            batch_texts: list[str] = [first_text]
+            batch_futs: list[asyncio.Future[dict[str, Any] | None]] = [first_fut]
+            deadline = asyncio.get_event_loop().time() + self._max_wait_seconds
+
+            # 收集更多请求 (最多 max_batch_size - 1 个, 最多等 max_wait_ms)
+            while len(batch_texts) < self._max_batch_size:
+                remaining = deadline - asyncio.get_event_loop().time()
+                if remaining <= 0:
+                    break
+                try:
+                    text, fut = await asyncio.wait_for(
+                        self._queue.get(), timeout=remaining
+                    )
+                    batch_texts.append(text)
+                    batch_futs.append(fut)
+                except asyncio.TimeoutError:
+                    break
+
+            # 批量推理
+            try:
+                results = await self._engine._predict_text_bert_batch(batch_texts)
+                for fut, result in zip(batch_futs, results):
+                    if not fut.done():
+                        fut.set_result(result)
+            except Exception as exc:
+                logger.error("PERF-P3-007: batch inference failed: %s", exc)
+                for fut in batch_futs:
+                    if not fut.done():
+                        fut.set_result(None)
+
+
 class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
     """T-P2-001 PHASE_2: ModelEngine 通过 Mixin 多继承装配预测/回退/风险方法.
 
@@ -287,7 +398,9 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             lambda: {"count": 0, "total_ms": 0.0, "last_ms": 0.0}
         )
         self.monitoring_counters: dict[str, int] = defaultdict(int)
-        self.monitoring_score_deltas: list[float] = []
+        # RES-P3-003: 使用 deque(maxlen=500) 替代 list 手动截断,
+        # 自动淘汰旧数据, 避免 O(n) 切片赋值开销
+        self.monitoring_score_deltas: deque[float] = deque(maxlen=500)
         self._routing_stats: dict[str, int] = {
             "structured": 0,
             "lite": 0,
@@ -303,12 +416,40 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
         self._persist_task: asyncio.Task | None = None
         self._snapshot_path = Path(__file__).resolve().parents[2] / "logs"
         self.crisis_detector = CrisisDetector()
+        # MAINT-P2-003: 延迟导入 app.ml, 避免 app.core 顶层依赖 app.ml
+        from app.ml.fusion_engine import FusionEngine
+        from app.ml.fusion_priority_engine import FusionPriorityEngine
+        from app.ml.text_analyzer import TextAnalyzer
+
         self.text_analyzer = TextAnalyzer()
         self.fusion_priority_engine = FusionPriorityEngine()
         self.fusion_engine = FusionEngine(
             use_confidence_weighting=True,
             use_modality_missing_handling=True,
         )
+        # PERF-P3-007: BERT micro-batch collector (lazy init, None = 未启用)
+        self._bert_batch_collector: _BertMicroBatchCollector | None = None
+
+    async def start_bert_batch_collector(
+        self, max_batch_size: int = 8, max_wait_ms: float = 50.0
+    ) -> None:
+        """PERF-P3-007: 启动 BERT micro-batch collector.
+
+        启动后 _predict_text_bert 会自动走 batch 路径,
+        收集短时间内的多条请求批量推理, 提高吞吐量.
+        """
+        if self._bert_batch_collector is not None:
+            return
+        self._bert_batch_collector = _BertMicroBatchCollector(
+            self, max_batch_size=max_batch_size, max_wait_ms=max_wait_ms
+        )
+        await self._bert_batch_collector.start()
+
+    async def stop_bert_batch_collector(self) -> None:
+        """PERF-P3-007: 停止 BERT micro-batch collector."""
+        if self._bert_batch_collector is not None:
+            await self._bert_batch_collector.stop()
+            self._bert_batch_collector = None
 
     # ── M-03 修复：线程安全的监控计数器辅助方法 ──
     # 模型推理通过 asyncio.to_thread 在线程池中执行，监控计数器的
@@ -335,11 +476,9 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             self._crisis_override_count += 1
 
     def _record_score_delta(self, delta: float) -> None:
-        """线程安全地记录分数差值，并维护最大 500 条的滚动窗口。"""
+        """线程安全地记录分数差值。deque(maxlen=500) 自动淘汰旧数据, 无需手动截断。"""
         with self._monitoring_lock:
             self.monitoring_score_deltas.append(delta)
-            if len(self.monitoring_score_deltas) > 500:
-                self.monitoring_score_deltas = self.monitoring_score_deltas[-500:]
 
     @asynccontextmanager
     async def _timed_async(
@@ -397,7 +536,8 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
         with self._monitoring_lock:
             # 保持 defaultdict 语义：访问未设置的 key 返回 0 而非 KeyError
             counters: defaultdict[str, int] = defaultdict(int, self.monitoring_counters)
-            deltas = list(self.monitoring_score_deltas[-100:])
+            # RES-P3-003: deque 不支持切片, 先转 list 再切片
+            deltas = list(self.monitoring_score_deltas)[-100:]
             routing = dict(self._routing_stats)
             fallback_total = self._fallback_count
             crisis_override_count = self._crisis_override_count
@@ -546,6 +686,9 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                 await asyncio.sleep(interval)
                 snapshot = self.get_metrics_snapshot()
                 snapshot["persisted_at"] = time.time()
+                # RES-P2-006: 统一 Prometheus — 发布到 metrics.py Gauge
+                self._publish_to_prometheus(snapshot)
+                # 保留 monitoring_snapshot.json 作为可选备份 (向后兼容)
                 snapshot_file = self._snapshot_path / "monitoring_snapshot.json"
                 snapshot_file.write_text(
                     json.dumps(snapshot, indent=2, ensure_ascii=False, default=str),
@@ -557,6 +700,38 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                 break
             except Exception as exc:
                 logger.warning("Monitoring persist error: %s", exc)
+
+    def _publish_to_prometheus(self, snapshot: dict[str, Any]) -> None:
+        """RES-P2-006: 将监控快照发布到 Prometheus 指标 (替代本地文件冗余持久化).
+
+        更新 metrics.py 中的 Gauge, 由 /metrics 端点统一导出.
+        保留 monitoring_snapshot.json 作为备份, 但 Prometheus 是主要数据源.
+        """
+        try:
+            from app.core import metrics
+
+            monitoring = snapshot.get("monitoring", {})
+            metrics.model_cache_size.set(snapshot.get("cache_size", 0))
+            metrics.model_uptime_seconds.set(snapshot.get("uptime_seconds", 0))
+            metrics.model_high_critical_ratio.set(
+                monitoring.get("high_critical_ratio", 0)
+            )
+            metrics.model_high_critical_count.set(
+                monitoring.get("high_critical_count", 0)
+            )
+            metrics.model_fallback_count.set(monitoring.get("fallback_count", 0))
+            metrics.model_fallback_rate.set(monitoring.get("fallback_ratio", 0))
+            metrics.model_experimental_hit_count.set(
+                monitoring.get("experimental_hit_count", 0)
+            )
+            metrics.model_experimental_miss_count.set(
+                monitoring.get("experimental_miss_count", 0)
+            )
+            metrics.model_structured_total.set(
+                monitoring.get("structured_total", 0)
+            )
+        except Exception as exc:
+            logger.warning("RES-P2-006: Publish to Prometheus failed: %s", exc)
 
     def start_persist(self, interval: float = 60.0) -> None:
         if self._persist_task is not None and not self._persist_task.done():
@@ -701,14 +876,14 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
         elif model_path.is_dir():
             from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-            tokenizer = AutoTokenizer.from_pretrained(model_path)
-            bert_model = AutoModelForSequenceClassification.from_pretrained(model_path)
+            tokenizer = AutoTokenizer.from_pretrained(model_path)  # nosec B615  (本地目录, 非 Hub 下载)
+            bert_model = AutoModelForSequenceClassification.from_pretrained(model_path)  # nosec B615
             model = {"tokenizer": tokenizer, "model": bert_model}
         else:
             from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-            tokenizer = AutoTokenizer.from_pretrained(model_path)
-            bert_model = AutoModelForSequenceClassification.from_pretrained(model_path)
+            tokenizer = AutoTokenizer.from_pretrained(model_path)  # nosec B615  (本地路径加载)
+            bert_model = AutoModelForSequenceClassification.from_pretrained(model_path)  # nosec B615
             model = {"tokenizer": tokenizer, "model": bert_model}
 
         elapsed_ms = (perf_counter() - started) * 1000.0

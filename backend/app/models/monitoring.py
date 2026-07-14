@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, func
+from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -145,6 +145,14 @@ class CanaryRecord(Base):
         Text,
         nullable=True,
         comment="回退原因"
+    )
+    # STAB-P2-006: 路由前缀分流 - NULL 表示覆盖所有路由 (向后兼容, 模型预测路由)
+    # 非 NULL 值 (如 "/api/v1/reports") 表示仅覆盖该路由前缀的请求
+    route_prefix: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        default=None,
+        comment="STAB-P2-006: 路由前缀分流 (NULL=覆盖所有路由)"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,

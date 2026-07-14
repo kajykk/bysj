@@ -17,8 +17,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 logger = logging.getLogger(__name__)
 
 # Default fusion weights
@@ -109,7 +107,8 @@ class FusionEngine:
                 if missing_fields > 0:
                     base_confidence *= 1 - missing_fields * 0.2
 
-        return float(np.clip(base_confidence, 0.1, 1.0))
+        # RES-P3-001: 使用纯 Python 内建替代 np.clip, 避免标量操作的 numpy 开销
+        return float(max(0.1, min(1.0, base_confidence)))
 
     def redistribute_weights(self, available_modalities: set[str]) -> dict[str, float]:
         """Redistribute weights when modalities are missing.
@@ -211,7 +210,10 @@ class FusionEngine:
         )
 
         # Compute overall confidence
-        overall_confidence = np.mean(list(confidences.values())) if confidences else 0.0
+        # RES-P3-001: 使用纯 Python 内建替代 np.mean, 避免标量操作的 numpy 开销
+        overall_confidence = (
+            sum(confidences.values()) / len(confidences) if confidences else 0.0
+        )
 
         # Determine risk level
         risk_level = self._score_to_level(fused_score)

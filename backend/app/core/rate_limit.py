@@ -134,6 +134,11 @@ def _verify_redis_backend() -> None:
     slowapi 在 Redis 不可用时会静默降级到进程内内存存储，多实例部署下
     每个实例独立计数，限流将完全失效。此处显式 ping 一次 Redis，
     让运维人员能在日志中看到降级事件。
+
+    RES-P3-006: 复用 slowapi limiter 内部的 Redis storage (limits 库),
+    避免新建独立的 redis.from_url 客户端。slowapi Limiter 通过 storage_uri
+    配置 Redis 后, _storage 属性指向 limits.storage.RedisStorage, 其 check()
+    方法会执行真实的 Redis 读写测试 (SET + DEL).
     """
     if settings.app_env.lower() != "production":
         return
@@ -144,13 +149,21 @@ def _verify_redis_backend() -> None:
             "Multi-instance deployments will have per-instance rate limits."
         )
         return
-    # L-8 修复：将 client.close() 放入 finally 块，确保 ping() 抛异常时 client 被正确关闭
-    import redis
-
-    client = redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
+    # RES-P3-006: 复用 slowapi limiter 内部的 Redis storage, 避免新建客户端
+    # _storage 是 slowapi/limits 库的内部属性, 但没有公共 API 暴露 storage 实例
     try:
-        client.ping()
-        logger.info("Rate limiter Redis backend connectivity verified.")
+        storage = getattr(limiter, "_storage", None)
+        if storage is not None and storage.check():
+            logger.info("Rate limiter Redis backend connectivity verified.")
+            return
+        # storage 为 None 或 check() 返回 False
+        logger.critical(
+            "Rate limiter Redis backend check returned False. "
+            "slowapi may silently degrade to in-memory storage, causing rate limits "
+            "to be per-instance in multi-instance deployments. "
+            "Please verify REDIS_URL=%s and Redis service health.",
+            redis_url,
+        )
     except Exception as exc:
         # 不阻止启动（允许降级运行），但发出 critical 告警以便监控告警系统捕获
         logger.critical(
@@ -161,5 +174,3 @@ def _verify_redis_backend() -> None:
             exc,
             redis_url,
         )
-    finally:
-        client.close()

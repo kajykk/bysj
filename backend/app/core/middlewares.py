@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import secrets
 import time
 from collections.abc import Awaitable, Callable
 
@@ -96,13 +95,24 @@ async def metrics_middleware(
 async def security_headers_middleware(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
-    """添加安全响应头中间件 (v1.10 增强版)"""
-    # H-02 修复：主动生成 CSP nonce 并设置到 request.state，供响应头使用
-    request.state.csp_nonce = secrets.token_urlsafe(16)
+    """添加安全响应头中间件 (v1.10 增强版).
+
+    SEC-P2-009: CSP 由 nginx 统一设置 (frontend/nginx.conf:81), 后端不再设置.
+    原因:
+    1. nginx 的 add_header Content-Security-Policy ... always 对 proxy_pass 响应也追加,
+       若后端也设置会导致浏览器收到两个 CSP header, 行为不确定
+    2. nginx 静态 CSP 与后端 nonce-based CSP 取交集会让所有内联脚本被阻塞
+       (因为 nginx CSP 的 script-src 'self' 没有对应 nonce)
+    3. API 响应为 JSON, 不需要 CSP; 前端 HTML 由 nginx 服务, nginx CSP 已覆盖
+
+    后端保留: X-Content-Type-Options, X-XSS-Protection, Referrer-Policy,
+    Permissions-Policy, X-DNS-Prefetch-Control, HSTS (生产环境)
+    """
     response = await call_next(request)
 
     # 基础安全头（所有环境）
-    response.headers["X-Frame-Options"] = "DENY"
+    # SEC-P2-010: X-Frame-Options 由 nginx 统一设置 (SAMEORIGIN), 避免前后端双重 header 冲突
+    # nginx add_header 对 proxy_pass 响应也会追加, 若后端也设置会导致浏览器收到两个 X-Frame-Options
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "0"  # 现代浏览器使用CSP
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -111,31 +121,8 @@ async def security_headers_middleware(
     )
     response.headers["X-DNS-Prefetch-Control"] = "off"
 
-    # CSP 策略 (v1.27 强化: 生产环境强制执行；非生产环境 Report-Only 以便调试)
-    nonce = getattr(request.state, "csp_nonce", "")
-    script_src = (
-        f"script-src 'self' 'nonce-{nonce}'; " if nonce else "script-src 'self'; "
-    )
-    style_src = f"style-src 'self' 'nonce-{nonce}'; " if nonce else "style-src 'self'; "
-    csp_value = (
-        "default-src 'self'; "
-        + script_src
-        + style_src
-        + "img-src 'self' data: blob:; "
-        + "connect-src 'self' https://sentry.io; "
-        + "font-src 'self'; "
-        + "frame-ancestors 'none'; "
-        + "base-uri 'self'; "
-        + "form-action 'self'; "
-        + "upgrade-insecure-requests; "
-        + "report-uri /api/v1/csp-report"
-    )
-    if settings.app_env.lower() == "production":
-        # 生产环境: 强制执行（违规将被浏览器阻止）
-        response.headers["Content-Security-Policy"] = csp_value
-    else:
-        # 非生产环境: Report-Only 以便调试，不阻断开发体验
-        response.headers["Content-Security-Policy-Report-Only"] = csp_value
+    # SEC-P2-009: CSP 由 nginx 统一设置 (frontend/nginx.conf:81), 后端不再设置
+    # 详见函数 docstring 说明
 
     # HSTS（仅生产环境）
     if settings.app_env.lower() == "production":

@@ -167,7 +167,6 @@ def compute_binary_metrics(
     npv = tn / (tn + fn) if (tn + fn) > 0 else 0.0
 
     # Wilson CI for proportions
-    n_total = tp + fp + tn + fn
     sens_ci = _wilson_ci(tp, tp + fn, confidence) if (tp + fn) > 0 else [0.0, 0.0]
     spec_ci = _wilson_ci(tn, tn + fp, confidence) if (tn + fp) > 0 else [0.0, 0.0]
     ppv_ci = _wilson_ci(tp, tp + fp, confidence) if (tp + fp) > 0 else [0.0, 0.0]

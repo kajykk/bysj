@@ -345,7 +345,9 @@ class TestPubsubLifecycle:
         async def _mock_get_redis_client():
             return None  # 让 _pubsub_loop 进入 sleep 分支,不真实订阅
 
-        with patch("app.core.cache.get_redis_client", _mock_get_redis_client):
+        with patch("app.core.cache.get_redis_client", _mock_get_redis_client), patch(
+    "app.core.cache.get_redis_pubsub_client", _mock_get_redis_client
+):
             await manager.start_pubsub_subscriber()
             task1 = manager._pubsub_task
             assert task1 is not None
@@ -374,7 +376,9 @@ class TestPubsubLifecycle:
         async def _mock_get_redis_client():
             return None
 
-        with patch("app.core.cache.get_redis_client", _mock_get_redis_client):
+        with patch("app.core.cache.get_redis_client", _mock_get_redis_client), patch(
+    "app.core.cache.get_redis_pubsub_client", _mock_get_redis_client
+):
             await manager.start_pubsub_subscriber()
             assert manager._pubsub_task is not None
             await manager.stop_pubsub_subscriber()
@@ -408,7 +412,9 @@ class TestCrossProcessMessageFlow:
             return fake_redis
 
         # FastAPI worker 启动订阅器
-        with patch("app.core.cache.get_redis_client", _fake_get_redis):
+        with patch("app.core.cache.get_redis_client", _fake_get_redis), patch(
+            "app.core.cache.get_redis_pubsub_client", _fake_get_redis
+        ):
             await fastapi_manager.start_pubsub_subscriber()
             try:
                 # 给订阅器一点时间完成 psubscribe
@@ -448,7 +454,9 @@ class TestCrossProcessMessageFlow:
         async def _fake_get_redis():
             return fake_redis
 
-        with patch("app.core.cache.get_redis_client", _fake_get_redis):
+        with patch("app.core.cache.get_redis_client", _fake_get_redis), patch(
+            "app.core.cache.get_redis_pubsub_client", _fake_get_redis
+        ):
             await manager.start_pubsub_subscriber()
             try:
                 await asyncio.sleep(0.05)  # 等待 psubscribe 完成
@@ -481,7 +489,9 @@ class TestCrossProcessMessageFlow:
             return fake_redis
 
         # manager_b 启动订阅器
-        with patch("app.core.cache.get_redis_client", _fake_get_redis):
+        with patch("app.core.cache.get_redis_client", _fake_get_redis), patch(
+            "app.core.cache.get_redis_pubsub_client", _fake_get_redis
+        ):
             await manager_b.start_pubsub_subscriber()
             try:
                 await asyncio.sleep(0.05)

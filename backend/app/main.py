@@ -24,12 +24,12 @@ from app.core.middlewares import (
     request_id_middleware,
     security_headers_middleware,
 )
-from app.core.tenant_context import tenant_context_middleware
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.pii_crypto import ensure_pii_key
 from app.core.rate_limit import install_rate_limiter, limiter
 from app.core.seed import seed_database
 from app.core.sentry import init_sentry
+from app.core.tenant_context import tenant_context_middleware
 from app.core.ws import websocket_endpoint
 from app.models.base import Base
 from app.services import ObservabilityExporter
@@ -93,14 +93,53 @@ async def lifespan(app: FastAPI):
     else:
         startup_status.record("seed_database", "skipped")
 
-    # R-006: model preload 是非致命组件 (失败时降级运行，不影响启动)
-    async def _preload_models():
-        from app.core.model_engine import model_engine
+    # STAB-P2-004: model preload 改为后台任务, 不阻塞启动
+    # 原: await record_step_async("model_preload", _preload_models(), fatal=False) 阻塞启动
+    # 新: asyncio.create_task 后台预加载, 模型未加载时按需加载 (model_engine._load_model 已有缓存+回退)
+    async def _preload_models_background():
+        import time as _time
 
-        await asyncio.to_thread(model_engine.preload)
-        model_engine.start_persist()
+        from app.core.startup_status import startup_status
 
-    await record_step_async("model_preload", _preload_models(), fatal=False)
+        start = _time.monotonic()
+        startup_status.record("model_preload", "pending")
+        try:
+            from app.core.model_engine import model_engine
+
+            await asyncio.to_thread(model_engine.preload)
+            model_engine.start_persist()
+            # PERF-P3-007: 启动 BERT micro-batch collector (模型预加载完成后)
+            try:
+                await model_engine.start_bert_batch_collector()
+            except Exception as batch_exc:
+                logger.warning(
+                    "BERT micro-batch collector start failed (non-fatal): %s",
+                    batch_exc,
+                )
+            duration_ms = (_time.monotonic() - start) * 1000
+            startup_status.record(
+                "model_preload", "ok", duration_ms=duration_ms, fatal=False
+            )
+            logger.info("Model preload completed in background (%.0f ms)", duration_ms)
+        except BaseException as exc:
+            duration_ms = (_time.monotonic() - start) * 1000
+            startup_status.record(
+                "model_preload",
+                "failed",
+                error=exc,
+                duration_ms=duration_ms,
+                fatal=False,
+            )
+            logger.error(
+                "Model preload failed in background: %s: %s",
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
+
+    app.state._model_preload_task = asyncio.create_task(
+        _preload_models_background()
+    )
 
     # R-006: sentry 初始化失败不影响启动 (仅监控降级)
     def _init_sentry():
@@ -112,6 +151,20 @@ async def lifespan(app: FastAPI):
         )
 
     record_step_sync("init_sentry", _init_sentry, fatal=False)
+    # STAB-P2-009: 初始化 OpenTelemetry 分布式追踪 (OTLP 导出)
+    # OTel 初始化失败不影响启动 (仅追踪降级, 与 Sentry 一致)
+    def _init_otel():
+        from app.core.otel import init_otel
+
+        init_otel(
+            service_name=settings.otel_service_name,
+            service_version=settings.app_version,
+            otlp_endpoint=settings.otlp_endpoint,
+            otlp_protocol=settings.otlp_protocol,
+            environment=settings.sentry_environment,
+        )
+
+    record_step_sync("init_otel", _init_otel, fatal=False)
     # v1.39: 启动 ObservabilityExporter (60s 周期发布 7 v1.36 metric 到 Prometheus)
     observability_exporter = ObservabilityExporter()
     await record_step_async(
@@ -145,6 +198,14 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        # STAB-P2-004: 取消后台模型预加载任务 (如果仍在运行)
+        _preload_task = getattr(app.state, "_model_preload_task", None)
+        if _preload_task is not None and not _preload_task.done():
+            _preload_task.cancel()
+            try:
+                await _preload_task
+            except asyncio.CancelledError:
+                pass
         # P2-1: 停止 WebSocket pubsub 订阅器
         await ws_manager.stop_pubsub_subscriber()
         # STAB-P1-009: 停止金丝雀回滚备用监控
@@ -153,8 +214,17 @@ async def lifespan(app: FastAPI):
         await stop_canary_fallback_monitor()
         # P0-1.1: 关闭后台健康监控任务
         await stop_health_monitor()
+        # STAB-P2-009: 关闭 OpenTelemetry, 刷新待导出的 span
+        from app.core.otel import shutdown_otel
+
+        shutdown_otel()
         from app.core.model_engine import model_engine as _me
 
+        # PERF-P3-007: 停止 BERT micro-batch collector (在 persist 之前停止)
+        try:
+            await _me.stop_bert_batch_collector()
+        except Exception:
+            logger.warning("Failed to stop BERT micro-batch collector")
         try:
             await _me.stop_persist()
         except Exception:
@@ -173,6 +243,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+
+# STAB-P2-009: 对 FastAPI 应用启用 OTel 自动 instrumentation (HTTP 请求追踪)
+# 在 app 创建后调用, init_otel 在 lifespan 中已初始化 TracerProvider
+from app.core.otel import instrument_app as _otel_instrument_app
+
+_otel_instrument_app(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -212,9 +288,21 @@ async def ws_endpoint(ws: WebSocket, user_id: int):
     await websocket_endpoint(ws, user_id)
 
 
-@app.get("/health", responses=COMMON_ERROR_RESPONSES)
+@app.get("/health", responses=COMMON_ERROR_RESPONSES, deprecated=True)
 @limiter.exempt
 async def health_check() -> dict:
+    """[DEPRECATED] 完整健康检查 (DB + Redis + Celery + Models 同步执行).
+
+    PERF-P3-005: 该端点在缓存未命中时会同步执行 4 项 I/O 检查,
+    高负载下可能阻塞 3-8s, 不适合作为 k8s 探针使用.
+
+    建议使用以下替代端点:
+    - /health/live: 轻量存活探针 (无 I/O, 延迟 < 5ms)
+    - /health/ready: 就绪探针 (读取缓存, 延迟 < 5ms, 后台任务刷新)
+    - /health/startup: 启动探针 (检查启动流程是否完成)
+
+    该端点暂保留用于人工调试, 后续版本将移除.
+    """
     snapshot = await get_health_snapshot(engine, settings.redis_url)
     # R-006 修复: 暴露启动失败组件摘要，便于运维定位降级原因
     from app.core.startup_status import startup_status

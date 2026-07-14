@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger(__name__)
@@ -201,6 +202,73 @@ def install_exception_handlers(app: FastAPI) -> None:
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "request_id": req_id,
                 },
+            },
+        )
+
+    # STAB-P2-001: DB 异常分类处理
+    # IntegrityError → 409 Conflict (唯一约束/外键约束/检查约束冲突)
+    @app.exception_handler(IntegrityError)
+    async def _integrity_error_handler(
+        request: Request, exc: IntegrityError
+    ) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
+        logger.warning(
+            "IntegrityError: request_id=%s | orig=%s",
+            req_id,
+            exc.orig,
+        )
+        from app.core.config import settings
+
+        is_production = settings.app_env.lower() == "production"
+        error_data: dict[str, Any] = {
+            "code": "INTEGRITY_ERROR",
+            "message": "数据冲突，请检查唯一性约束或关联关系",
+            "status_code": 409,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "request_id": req_id,
+        }
+        if not is_production:
+            error_data["detail"] = str(exc.orig) if exc.orig else str(exc)
+        return JSONResponse(
+            status_code=409,
+            content={
+                "code": 409,
+                "message": "数据冲突，请检查唯一性约束或关联关系",
+                "data": None,
+                "error": error_data,
+            },
+        )
+
+    # STAB-P2-001: OperationalError → 503 Service Unavailable (连接错误/超时/数据库不可用)
+    @app.exception_handler(OperationalError)
+    async def _operational_error_handler(
+        request: Request, exc: OperationalError
+    ) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
+        logger.error(
+            "OperationalError: request_id=%s | orig=%s",
+            req_id,
+            exc.orig,
+        )
+        from app.core.config import settings
+
+        is_production = settings.app_env.lower() == "production"
+        error_data: dict[str, Any] = {
+            "code": "DB_OPERATIONAL_ERROR",
+            "message": "数据库暂时不可用，请稍后重试",
+            "status_code": 503,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "request_id": req_id,
+        }
+        if not is_production:
+            error_data["detail"] = str(exc.orig) if exc.orig else str(exc)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "code": 503,
+                "message": "数据库暂时不可用，请稍后重试",
+                "data": None,
+                "error": error_data,
             },
         )
 

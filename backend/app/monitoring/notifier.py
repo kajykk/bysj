@@ -25,7 +25,7 @@ import os
 import time
 import urllib.parse
 from dataclasses import dataclass, field
-from typing import Any, Protocol, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 import requests
 

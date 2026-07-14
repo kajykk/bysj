@@ -29,7 +29,67 @@ celery_app.conf.update(
     # P1-D-7: DLQ 配置 - 任务失败后保留结果更久便于排查
     task_default_max_retries=2,
     task_default_retry_delay=60,
+    # RES-P2-001: Worker 并发参数 - 防止内存泄漏与任务堆积
+    # worker_max_tasks_per_child: 每个 worker 子进程执行指定任务数后重启, 释放内存 (防止 PDF/模型加载等内存泄漏)
+    # worker_max_memory_per_child: 单个子进程内存上限 (KB), 超过后重启 (400MB, 适配容器化部署)
+    worker_max_tasks_per_child=200,
+    worker_max_memory_per_child=400 * 1024,
+    # RES-P2-001: 任务时间限制 - 防止单任务卡死 worker
+    # task_time_limit: 硬超时 (秒), 超过后 worker 强制终止任务
+    # task_soft_time_limit: 软超时 (秒), 超过后任务可捕获 SoftTimeLimitExceeded 自行清理
+    task_time_limit=600,
+    task_soft_time_limit=540,
+    # RES-P2-001: 队列分离 - 不同优先级任务路由到不同队列
+    # task_routes: 默认路由表, 任务名匹配 pattern → 指定 queue
+    # - celery: 默认队列 (普通任务: daily_risk_scan, stale_warning_reminder 等)
+    # - celery:high_prio: 高优先级队列 (用户触发的同步任务, 如 generate_pdf_report)
+    # - celery:low_prio: 低优先级队列 (清理类任务, 如 cleanup_*, archive_*)
+    task_routes={
+        "app.tasks.scheduler.daily_risk_scan": {"queue": "celery"},
+        "app.tasks.scheduler.stale_warning_reminder": {"queue": "celery"},
+        "app.tasks.scheduler.daily_intervention_check": {"queue": "celery"},
+        # 用户触发任务 → high_prio
+        "app.tasks.scheduler.generate_pdf_report*": {"queue": "celery:high_prio"},
+        # 清理类任务 → low_prio
+        "app.tasks.scheduler.weekly_log_archive": {"queue": "celery:low_prio"},
+        "app.tasks.scheduler.mask_old_ips_task": {"queue": "celery:low_prio"},
+        "app.tasks.scheduler.cleanup_*": {"queue": "celery:low_prio"},
+        "app.tasks.scheduler.weekly_risk_assessment_archive": {"queue": "celery:low_prio"},
+        "app.tasks.scheduler.weekly_monitoring_logs_archive": {"queue": "celery:low_prio"},
+        "app.tasks.alerts.archive_old_alerts_task": {"queue": "celery:low_prio"},
+    },
+    # PERF-P3-003: 为短任务设置更短的时间限制, 避免卡住 worker
+    # 这些任务每 30-60s 执行一次, 应在 30s 内完成. 默认 600s/540s 时间限制过长,
+    # 任务卡住时会长时间占用 worker, 影响其他任务调度.
+    task_annotations={
+        "app.tasks.scheduler.canary_auto_rollback_check": {
+            "soft_time_limit": 20,
+            "time_limit": 30,
+        },
+        "app.tasks.alerts.escalate_pending_alerts_task": {
+            "soft_time_limit": 30,
+            "time_limit": 60,
+        },
+        "app.tasks.observability.flush_lock_stats_task": {
+            "soft_time_limit": 15,
+            "time_limit": 30,
+        },
+        "app.tasks.anomaly_detection.detect_anomaly_access_task": {
+            "soft_time_limit": 120,
+            "time_limit": 180,
+        },
+    },
+    # RES-P2-001: 默认队列名 (向后兼容: 未匹配 task_routes 的任务进入默认队列)
+    task_default_queue="celery",
 )
+# PERF-P3-003 部署建议 (不在代码中强制, 由部署脚本配置):
+# 生产环境建议为不同队列启动独立 worker, 配置不同的 prefetch_multiplier:
+#   # 长任务队列 (PDF/模型训练): 低 prefetch, 防止积压
+#   celery -A app.core.celery_app worker -Q celery --prefetch-multiplier=1
+#   # 高优先级队列 (用户触发): 中 prefetch, 平衡响应速度与公平性
+#   celery -A app.core.celery_app worker -Q celery:high_prio --prefetch-multiplier=2
+#   # 低优先级队列 (清理/归档): 高 prefetch, 提高吞吐量
+#   celery -A app.core.celery_app worker -Q celery:low_prio --prefetch-multiplier=4
 
 celery_app.conf.beat_schedule = {
     "daily-risk-scan": {
@@ -47,6 +107,12 @@ celery_app.conf.beat_schedule = {
     "weekly-log-archive": {
         "task": "app.tasks.scheduler.weekly_log_archive",
         "schedule": crontab(day_of_week=1, hour=3, minute=0),
+    },
+    # SEC-P2-008: OperationLog IP 掩码 (GDPR 合规) - 每日 03:30 掩码 30 天前的 IP
+    # 与 weekly-log-archive 配合: 30 天后掩码 IP, 90 天后删除整条记录
+    "daily-mask-old-ips": {
+        "task": "app.tasks.scheduler.mask_old_ips_task",
+        "schedule": crontab(hour=3, minute=30),
     },
     "canary-auto-rollback-check": {
         "task": "app.tasks.scheduler.canary_auto_rollback_check",
@@ -81,6 +147,18 @@ celery_app.conf.beat_schedule = {
     "cleanup-experiment-artifacts": {
         "task": "app.tasks.scheduler.cleanup_experiment_artifacts_task",
         "schedule": crontab(day_of_week=1, hour=4, minute=0),
+    },
+    # PERF-P2-003: risk_assessments 表归档 - 每周一 04:30 删除 365 天前的记录
+    # 维护 is_latest 标志位, WarningNotification 外键 ondelete=SET NULL 自动处理
+    "weekly-risk-assessment-archive": {
+        "task": "app.tasks.scheduler.weekly_risk_assessment_archive",
+        "schedule": crontab(day_of_week=1, hour=4, minute=30),
+    },
+    # RES-P2-005: monitoring_logs 表归档 - 每周一 05:00 删除 180 天前的记录
+    # 与 weekly-risk-assessment-archive (04:30) 错开 30 分钟, 避免并发归档争抢资源
+    "weekly-monitoring-logs-archive": {
+        "task": "app.tasks.scheduler.weekly_monitoring_logs_archive",
+        "schedule": crontab(day_of_week=1, hour=5, minute=0),
     },
     # SEC-P1-005: 异常访问检测 - 每 5 分钟扫描 OperationLog
     # 关联 alert_rules.py AR-303~AR-306 + services/anomaly_detection_service.py

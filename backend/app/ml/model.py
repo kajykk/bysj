@@ -109,6 +109,75 @@ class PhysiologicalMLP:
                 count += layer["bn_beta"].size
         return count
 
+    def _validate_batch_norm_stats(self) -> None:
+        """PERF-P3-002: 校验 BatchNorm running stats 完整性与有效性。
+
+        模型加载后预校验 bn_running_mean / bn_running_var:
+        - 存在性: use_batch_norm=True 时隐藏层必须含 BN stats
+        - 有效性: 非 NaN / 非 Inf / running_var 非负
+        - 形状: 与 bn_gamma 形状一致
+
+        校验失败时记录警告并用默认值 (mean=0, var=1) 重置,
+        保证模型仍可推理 (精度可能下降), 同时记录日志便于排查。
+        """
+        if not self.use_batch_norm:
+            return
+
+        for i, layer in enumerate(self.layers):
+            # 最后一层 (输出层) 无 BN
+            if i == len(self.layers) - 1:
+                continue
+            if "bn_gamma" not in layer:
+                # use_batch_norm=True 但该层无 BN 参数, 跳过 (可能是输出层前一层)
+                continue
+
+            expected_shape = layer["bn_gamma"].shape
+            stats_keys = ("bn_running_mean", "bn_running_var")
+            needs_reset = False
+
+            for key in stats_keys:
+                val = layer.get(key)
+                if val is None:
+                    logger.warning(
+                        "PERF-P3-002: layer[%d] %s missing, resetting to default",
+                        i, key,
+                    )
+                    needs_reset = True
+                    break
+                if val.shape != expected_shape:
+                    logger.warning(
+                        "PERF-P3-002: layer[%d] %s shape mismatch "
+                        "(got %s, expected %s), resetting to default",
+                        i, key, val.shape, expected_shape,
+                    )
+                    needs_reset = True
+                    break
+                if np.any(np.isnan(val)) or np.any(np.isinf(val)):
+                    logger.warning(
+                        "PERF-P3-002: layer[%d] %s contains NaN/Inf, resetting to default",
+                        i, key,
+                    )
+                    needs_reset = True
+                    break
+
+            # running_var 额外校验非负 (eps=1e-5 已在 forward 中保护除零, 但负值会导致 sqrt 异常)
+            rv = layer.get("bn_running_var")
+            if rv is not None and not needs_reset:
+                if np.any(rv < 0):
+                    logger.warning(
+                        "PERF-P3-002: layer[%d] bn_running_var has negative values, resetting to default",
+                        i,
+                    )
+                    needs_reset = True
+
+            if needs_reset:
+                dim = layer["bn_gamma"].shape[0]
+                layer["bn_running_mean"] = np.zeros(dim, dtype=np.float32)
+                layer["bn_running_var"] = np.ones(dim, dtype=np.float32)
+                logger.info(
+                    "PERF-P3-002: layer[%d] BN stats reset to defaults (mean=0, var=1)", i,
+                )
+
     def _batch_norm_forward(
         self, x: np.ndarray, layer: dict, training: bool
     ) -> tuple[np.ndarray, dict]:
@@ -311,4 +380,6 @@ class PhysiologicalMLP:
                 )
 
         logger.info("Loaded model from %s", path)
+        # PERF-P3-002: 加载后预校验 BN stats, 异常时重置为默认值并记录警告
+        model._validate_batch_norm_stats()
         return model

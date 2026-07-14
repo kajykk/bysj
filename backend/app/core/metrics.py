@@ -458,6 +458,73 @@ anomaly_access_last_detected_at = Gauge(
 )
 
 
+# STAB-P2-011: SLO/SLI 与错误预算指标
+# 数据源: 由 /metrics 端点调用 app.core.slo.compute_sli() 更新
+# 关联 SLO 目标:
+#   - 可用性 SLO: 99.9% (slo_availability_ratio)
+#   - 延迟 SLO: p99 < 500ms (slo_p99_latency_seconds)
+#   - 模型推理延迟 SLO: p99 < 2s (slo_p99_model_latency_seconds)
+slo_availability_ratio = Gauge(
+    "slo_availability_ratio",
+    "Service availability ratio (0-1) = (total - 5xx) / total. "
+    "SLO target=0.999 (STAB-P2-011).",
+)
+slo_p99_latency_seconds = Gauge(
+    "slo_p99_latency_seconds",
+    "HTTP request p99 latency in seconds. SLO target < 0.5s (STAB-P2-011).",
+)
+slo_p99_model_latency_seconds = Gauge(
+    "slo_p99_model_latency_seconds",
+    "Model inference p99 latency in seconds. SLO target < 2.0s (STAB-P2-011).",
+)
+slo_error_budget_remaining_ratio = Gauge(
+    "slo_error_budget_remaining_ratio",
+    "Error budget remaining ratio (1.0=full, 0.0=exhausted, negative=overspent). "
+    "STAB-P2-011.",
+)
+slo_error_budget_burn_rate = Gauge(
+    "slo_error_budget_burn_rate",
+    "Error budget burn rate (1.0=normal, >1=fast burn, <1=slow burn). "
+    "STAB-P2-011.",
+)
+
+# RES-P2-006: ModelEngine 统一 Prometheus 指标
+# 由 model_engine._persist_loop 定期更新 (替代 monitoring_snapshot.json 本地文件)
+# /metrics 端点也会在 scrape 时更新 model_fallback_rate (已存在)
+model_cache_size = Gauge(
+    "model_cache_size",
+    "Number of models currently loaded in ModelEngine cache. RES-P2-006.",
+)
+model_uptime_seconds = Gauge(
+    "model_uptime_seconds",
+    "ModelEngine uptime in seconds. RES-P2-006.",
+)
+model_high_critical_ratio = Gauge(
+    "model_high_critical_ratio",
+    "Ratio of high-critical risk predictions (0-1). RES-P2-006.",
+)
+model_high_critical_count = Gauge(
+    "model_high_critical_count",
+    "Count of high-critical risk predictions. RES-P2-006.",
+)
+model_fallback_count = Gauge(
+    "model_fallback_count",
+    "Total model fallback count. RES-P2-006.",
+)
+model_experimental_hit_count = Gauge(
+    "model_experimental_hit_count",
+    "Experimental model hit count. RES-P2-006.",
+)
+model_experimental_miss_count = Gauge(
+    "model_experimental_miss_count",
+    "Experimental model miss count. RES-P2-006.",
+)
+model_structured_total = Gauge(
+    "model_structured_total",
+    "Total structured predictions. RES-P2-006.",
+)
+
+
 # R-005 修复: fire-and-forget 任务可观测性指标
 # 数据源: app/core/fire_forget_metrics.py 在调度 + done_callback 中递增
 # 覆盖 5 类 fire-and-forget 任务:
