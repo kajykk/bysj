@@ -306,8 +306,9 @@ class ObservabilityCollector:
             logs_to_flush = list(self._pending_logs)
             self._pending_logs.clear()
 
-        for log in logs_to_flush:
-            db_session.add(log)
+        # PERF-P3-004: 使用 add_all 批量添加替代逐个 add,
+        # 减少 Python 层循环开销 (SQLAlchemy 内部优化批量 insert)
+        db_session.add_all(logs_to_flush)
         # M-12 修复：service 层不内部 commit，避免污染调用方事务。
         # 改用 flush() 将更改刷入 DB（同一事务内可见），由调用方（API 层）统一管理事务提交。
         await db_session.flush()

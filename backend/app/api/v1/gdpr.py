@@ -166,7 +166,7 @@ async def export_my_data(
             action_type="user.gdpr.export_self",
             target_type="user",
             target_id=current_user.id,
-            detail=json.dumps({"export_id": export_id}, ensure_ascii=False)[:5000],
+            detail=json.dumps({"export_id": export_id}, ensure_ascii=False),
             ip_address=get_real_client_ip(request),
         )
     )
@@ -271,7 +271,7 @@ async def admin_export_user_data(
         detail=json.dumps(
             {"export_id": export_id, "target_username": target.username},
             ensure_ascii=False,
-        )[:5000],
+        ),
     )
     db.add(audit_log)
     await db.commit()
@@ -344,7 +344,7 @@ async def admin_delete_user_account(
             },
             ensure_ascii=False,
             default=str,
-        )[:5000],
+        ),
     )
     db.add(admin_audit_log)
     await db.commit()

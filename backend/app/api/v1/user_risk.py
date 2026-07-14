@@ -80,7 +80,7 @@ async def export_risk(
             detail=json.dumps(
                 {"format": format, "days": days, "filename": data.get("filename")},
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )

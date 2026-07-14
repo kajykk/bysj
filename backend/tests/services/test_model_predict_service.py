@@ -219,7 +219,7 @@ class TestModelPredictServicePersistence:
 
 
 class TestStartTrainingJob:
-    """测试 start_training_job 的 Celery 提交与 Thread 回退路径."""
+    """测试 start_training_job 的 Celery 提交与 PERF-P2-001 503 返回路径."""
 
     def test_start_training_job_celery_success(self, isolated_jobs, monkeypatch):
         """TC-COV-MPD-015: Celery 任务提交成功时返回 queued 状态."""
@@ -239,13 +239,14 @@ class TestStartTrainingJob:
         mt.save_job_to_redis.assert_called_once()
         mock_task.delay.assert_called_once()
 
-    def test_start_training_job_celery_failure_fallback_thread(
+    def test_start_training_job_celery_failure_returns_503(
         self, isolated_jobs, monkeypatch
     ):
-        """TC-COV-MPD-016: Celery 提交失败时回退到 daemon Thread 完成训练."""
+        """PERF-P2-001: Celery 提交失败时返回 HTTPException(503), 不再回退到 daemon Thread."""
         import app.tasks.model_training as mt
+        from fastapi import HTTPException
 
-        # save_job_to_redis 成功但 delay 抛异常触发回退
+        # save_job_to_redis 成功但 delay 抛异常触发 503
         monkeypatch.setattr(mt, "save_job_to_redis", MagicMock())
         mock_task = MagicMock()
         mock_task.delay = MagicMock(side_effect=RuntimeError("celery down"))
@@ -253,41 +254,21 @@ class TestStartTrainingJob:
         # 避免 get_training_job / update_job_in_redis 触发真实 Redis 调用
         monkeypatch.setattr(mt, "get_job_from_redis", MagicMock(return_value=None))
         monkeypatch.setattr(mt, "update_job_in_redis", MagicMock())
-        # Mock ExperimentService 避免真实训练
-        mock_exp = MagicMock()
-        mock_exp.import_dataset.return_value = {"status": "ok"}
-        mock_exp.train_model.return_value = {"loss": 0.1}
-        mock_exp.evaluate_model.return_value = {"accuracy": 0.9}
-        monkeypatch.setattr(
-            "app.services.experiment_service.ExperimentService", lambda: mock_exp
-        )
-
-        # 替换 threading.Thread：同步执行 target，避免异步等待
-        class _SyncThread:
-            def __init__(self, target=None, daemon=False, **kwargs):
-                self._target = target
-
-            def start(self):
-                if self._target is not None:
-                    self._target()
-
-        monkeypatch.setattr(threading, "Thread", _SyncThread)
 
         service = ModelPredictService()
-        result = service.start_training_job("ds", "model", 1, 8, 0.001)
+        with pytest.raises(HTTPException) as exc_info:
+            service.start_training_job("ds", "model", 1, 8, 0.001)
+        assert exc_info.value.status_code == 503
+        assert "Celery" in exc_info.value.detail or "Redis" in exc_info.value.detail
+        # 验证未创建 daemon Thread (ExperimentService 不应被实例化)
+        # mock_exp 未设置, 若代码尝试回退会因 ExperimentService 未 mock 而失败
 
-        assert result["status"] == "completed"
-        assert result["progress"] == 100
-        assert result["stage"] == "completed"
-        mock_exp.import_dataset.assert_called_once()
-        mock_exp.train_model.assert_called_once()
-        mock_exp.evaluate_model.assert_called_once()
-
-    def test_start_training_job_fallback_thread_inner_exception(
+    def test_start_training_job_503_no_thread_created(
         self, isolated_jobs, monkeypatch
     ):
-        """TC-COV-MPD-029: Thread 回退路径中训练抛异常时更新状态为 failed."""
+        """PERF-P2-001: Celery 失败时不应创建任何 threading.Thread."""
         import app.tasks.model_training as mt
+        from fastapi import HTTPException
 
         monkeypatch.setattr(mt, "save_job_to_redis", MagicMock())
         mock_task = MagicMock()
@@ -295,30 +276,23 @@ class TestStartTrainingJob:
         monkeypatch.setattr(mt, "train_bert_model_task", mock_task)
         monkeypatch.setattr(mt, "get_job_from_redis", MagicMock(return_value=None))
         monkeypatch.setattr(mt, "update_job_in_redis", MagicMock())
-        # Mock ExperimentService.train_model 抛异常触发 _run_job except 分支
-        mock_exp = MagicMock()
-        mock_exp.import_dataset.return_value = {"status": "ok"}
-        mock_exp.train_model.side_effect = RuntimeError("training failed")
-        monkeypatch.setattr(
-            "app.services.experiment_service.ExperimentService", lambda: mock_exp
-        )
 
-        class _SyncThread:
-            def __init__(self, target=None, daemon=False, **kwargs):
-                self._target = target
+        # 监控 threading.Thread 构造, 若被调用则测试失败
+        original_thread = threading.Thread
+        thread_created = []
 
-            def start(self):
-                if self._target is not None:
-                    self._target()
+        class _SpyThread(original_thread):
+            def __init__(self, *args, **kwargs):
+                thread_created.append(self)
+                super().__init__(*args, **kwargs)
 
-        monkeypatch.setattr(threading, "Thread", _SyncThread)
+        monkeypatch.setattr(threading, "Thread", _SpyThread)
 
         service = ModelPredictService()
-        result = service.start_training_job("ds", "model", 1, 8, 0.001)
-
-        assert result["status"] == "failed"
-        assert result["stage"] == "failed"
-        assert "training failed" in result["error"]
+        with pytest.raises(HTTPException) as exc_info:
+            service.start_training_job("ds", "model", 1, 8, 0.001)
+        assert exc_info.value.status_code == 503
+        assert thread_created == [], "不应创建 daemon Thread"
 
 
 class TestUpdateJob:
@@ -529,23 +503,15 @@ class TestModelPredictServiceEdgeCases:
 
 # =============================================================================
 # PERF-P1-006: start_evaluate_job / start_compare_job 测试
-# 镜像 TestStartTrainingJob 模式 (Celery 成功 + Thread 回退 + 异常路径)
+# PERF-P2-001: 移除 Thread 回退, Celery 失败时返回 503
 # =============================================================================
 
 
-class _SyncThread:
-    """测试辅助: 同步执行 Thread target, 避免异步等待."""
 
-    def __init__(self, target=None, daemon=False, **kwargs):
-        self._target = target
-
-    def start(self):
-        if self._target is not None:
-            self._target()
 
 
 class TestStartEvaluateJob:
-    """PERF-P1-006: 测试 start_evaluate_job 的 Celery 提交与 Thread 回退路径."""
+    """PERF-P1-006 + PERF-P2-001: 测试 start_evaluate_job 的 Celery 提交与 503 返回路径."""
 
     def test_start_evaluate_job_celery_success(self, isolated_jobs, monkeypatch):
         """PERF-P1-006: Celery 任务提交成功时返回 queued 状态."""
@@ -570,11 +536,12 @@ class TestStartEvaluateJob:
         assert call_kwargs["model_name"] == "model"
         assert call_kwargs["split"] == "validation"
 
-    def test_start_evaluate_job_celery_failure_fallback_thread(
+    def test_start_evaluate_job_celery_failure_returns_503(
         self, isolated_jobs, monkeypatch
     ):
-        """PERF-P1-006: Celery 提交失败时回退到 daemon Thread 完成评估."""
+        """PERF-P2-001: Celery 提交失败时返回 HTTPException(503), 不再回退到 daemon Thread."""
         import app.tasks.model_training as mt
+        from fastapi import HTTPException
 
         monkeypatch.setattr(mt, "save_job_to_redis", MagicMock())
         mock_task = MagicMock()
@@ -582,28 +549,19 @@ class TestStartEvaluateJob:
         monkeypatch.setattr(mt, "evaluate_model_task", mock_task)
         monkeypatch.setattr(mt, "get_job_from_redis", MagicMock(return_value=None))
         monkeypatch.setattr(mt, "update_job_in_redis", MagicMock())
-        # Mock ExperimentService 避免真实评估
-        mock_exp = MagicMock()
-        mock_exp.evaluate_model.return_value = {"accuracy": 0.92}
-        monkeypatch.setattr(
-            "app.services.experiment_service.ExperimentService", lambda: mock_exp
-        )
-        monkeypatch.setattr(threading, "Thread", _SyncThread)
 
         service = ModelPredictService()
-        result = service.start_evaluate_job("ds", "model", "validation")
+        with pytest.raises(HTTPException) as exc_info:
+            service.start_evaluate_job("ds", "model", "validation")
+        assert exc_info.value.status_code == 503
+        assert "Celery" in exc_info.value.detail or "Redis" in exc_info.value.detail
 
-        assert result["status"] == "completed"
-        assert result["progress"] == 100
-        assert result["stage"] == "completed"
-        assert result["result"] == {"accuracy": 0.92}
-        mock_exp.evaluate_model.assert_called_once_with("ds", "model", "validation")
-
-    def test_start_evaluate_job_fallback_thread_inner_exception(
+    def test_start_evaluate_job_503_no_thread_created(
         self, isolated_jobs, monkeypatch
     ):
-        """PERF-P1-006: Thread 回退路径中评估抛异常时更新状态为 failed."""
+        """PERF-P2-001: Celery 失败时不应创建任何 threading.Thread."""
         import app.tasks.model_training as mt
+        from fastapi import HTTPException
 
         monkeypatch.setattr(mt, "save_job_to_redis", MagicMock())
         mock_task = MagicMock()
@@ -611,23 +569,26 @@ class TestStartEvaluateJob:
         monkeypatch.setattr(mt, "evaluate_model_task", mock_task)
         monkeypatch.setattr(mt, "get_job_from_redis", MagicMock(return_value=None))
         monkeypatch.setattr(mt, "update_job_in_redis", MagicMock())
-        mock_exp = MagicMock()
-        mock_exp.evaluate_model.side_effect = RuntimeError("eval failed")
-        monkeypatch.setattr(
-            "app.services.experiment_service.ExperimentService", lambda: mock_exp
-        )
-        monkeypatch.setattr(threading, "Thread", _SyncThread)
+
+        original_thread = threading.Thread
+        thread_created = []
+
+        class _SpyThread(original_thread):
+            def __init__(self, *args, **kwargs):
+                thread_created.append(self)
+                super().__init__(*args, **kwargs)
+
+        monkeypatch.setattr(threading, "Thread", _SpyThread)
 
         service = ModelPredictService()
-        result = service.start_evaluate_job("ds", "model", "test")
-
-        assert result["status"] == "failed"
-        assert result["stage"] == "failed"
-        assert "eval failed" in result["error"]
+        with pytest.raises(HTTPException) as exc_info:
+            service.start_evaluate_job("ds", "model", "test")
+        assert exc_info.value.status_code == 503
+        assert thread_created == [], "不应创建 daemon Thread"
 
 
 class TestStartCompareJob:
-    """PERF-P1-006: 测试 start_compare_job 的 Celery 提交与 Thread 回退路径."""
+    """PERF-P1-006 + PERF-P2-001: 测试 start_compare_job 的 Celery 提交与 503 返回路径."""
 
     def test_start_compare_job_celery_success(self, isolated_jobs, monkeypatch):
         """PERF-P1-006: Celery 任务提交成功时返回 queued 状态."""
@@ -650,11 +611,12 @@ class TestStartCompareJob:
         assert call_kwargs["dataset_name"] == "ds"
         assert call_kwargs["model_names"] == ["model-a", "model-b"]
 
-    def test_start_compare_job_celery_failure_fallback_thread(
+    def test_start_compare_job_celery_failure_returns_503(
         self, isolated_jobs, monkeypatch
     ):
-        """PERF-P1-006: Celery 提交失败时回退到 daemon Thread 完成对比."""
+        """PERF-P2-001: Celery 提交失败时返回 HTTPException(503), 不再回退到 daemon Thread."""
         import app.tasks.model_training as mt
+        from fastapi import HTTPException
 
         monkeypatch.setattr(mt, "save_job_to_redis", MagicMock())
         mock_task = MagicMock()
@@ -662,27 +624,19 @@ class TestStartCompareJob:
         monkeypatch.setattr(mt, "compare_models_task", mock_task)
         monkeypatch.setattr(mt, "get_job_from_redis", MagicMock(return_value=None))
         monkeypatch.setattr(mt, "update_job_in_redis", MagicMock())
-        mock_exp = MagicMock()
-        mock_exp.compare_models.return_value = {"best": "model-a"}
-        monkeypatch.setattr(
-            "app.services.experiment_service.ExperimentService", lambda: mock_exp
-        )
-        monkeypatch.setattr(threading, "Thread", _SyncThread)
 
         service = ModelPredictService()
-        result = service.start_compare_job("ds", ["model-a", "model-b"])
+        with pytest.raises(HTTPException) as exc_info:
+            service.start_compare_job("ds", ["model-a", "model-b"])
+        assert exc_info.value.status_code == 503
+        assert "Celery" in exc_info.value.detail or "Redis" in exc_info.value.detail
 
-        assert result["status"] == "completed"
-        assert result["progress"] == 100
-        assert result["stage"] == "completed"
-        assert result["result"] == {"best": "model-a"}
-        mock_exp.compare_models.assert_called_once_with("ds", ["model-a", "model-b"])
-
-    def test_start_compare_job_fallback_thread_inner_exception(
+    def test_start_compare_job_503_no_thread_created(
         self, isolated_jobs, monkeypatch
     ):
-        """PERF-P1-006: Thread 回退路径中对比抛异常时更新状态为 failed."""
+        """PERF-P2-001: Celery 失败时不应创建任何 threading.Thread."""
         import app.tasks.model_training as mt
+        from fastapi import HTTPException
 
         monkeypatch.setattr(mt, "save_job_to_redis", MagicMock())
         mock_task = MagicMock()
@@ -690,19 +644,22 @@ class TestStartCompareJob:
         monkeypatch.setattr(mt, "compare_models_task", mock_task)
         monkeypatch.setattr(mt, "get_job_from_redis", MagicMock(return_value=None))
         monkeypatch.setattr(mt, "update_job_in_redis", MagicMock())
-        mock_exp = MagicMock()
-        mock_exp.compare_models.side_effect = RuntimeError("compare failed")
-        monkeypatch.setattr(
-            "app.services.experiment_service.ExperimentService", lambda: mock_exp
-        )
-        monkeypatch.setattr(threading, "Thread", _SyncThread)
+
+        original_thread = threading.Thread
+        thread_created = []
+
+        class _SpyThread(original_thread):
+            def __init__(self, *args, **kwargs):
+                thread_created.append(self)
+                super().__init__(*args, **kwargs)
+
+        monkeypatch.setattr(threading, "Thread", _SpyThread)
 
         service = ModelPredictService()
-        result = service.start_compare_job("ds", ["model-a"])
-
-        assert result["status"] == "failed"
-        assert result["stage"] == "failed"
-        assert "compare failed" in result["error"]
+        with pytest.raises(HTTPException) as exc_info:
+            service.start_compare_job("ds", ["model-a"])
+        assert exc_info.value.status_code == 503
+        assert thread_created == [], "不应创建 daemon Thread"
 
     def test_start_compare_job_empty_models_raises(self, isolated_jobs):
         """PERF-P1-006: 空模型列表抛 ValueError."""

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
@@ -114,6 +115,16 @@ async def save_assessment_result(
             )
             risk_score_value = 0.0
 
+        # PERF-P2-002: 清除该用户旧风险评估的 is_latest 标志
+        await session.execute(
+            update(RiskAssessment)
+            .where(
+                RiskAssessment.user_id == user_id,
+                RiskAssessment.is_latest.is_(True),
+            )
+            .values(is_latest=False)
+        )
+
         risk = RiskAssessment(
             user_id=user_id,
             risk_score=risk_score_value,
@@ -124,6 +135,7 @@ async def save_assessment_result(
             models_used=models_used,
             risk_factors=risk_factors,
             assessment_type=assessment_type,
+            is_latest=True,
         )
         session.add(risk)
         await session.flush()

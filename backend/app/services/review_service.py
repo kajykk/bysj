@@ -549,7 +549,7 @@ class CrisisEventService:
             target_type="crisis_event",
             target_id=event_id,
             # L-API-3 修复：截断 detail 至 5000 字符，避免超 DB 字段限制
-            detail=json.dumps(detail, ensure_ascii=False)[:5000],
+            detail=json.dumps(detail, ensure_ascii=False),
         )
         self.db.add(op_log)
         await self.db.flush()

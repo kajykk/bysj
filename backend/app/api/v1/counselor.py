@@ -131,7 +131,7 @@ async def list_users(
                     ),
                 },
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )
@@ -169,7 +169,7 @@ async def get_user_detail(
                     ),
                 },
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )
@@ -238,7 +238,7 @@ async def list_consultation_records(
                     ),
                 },
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )

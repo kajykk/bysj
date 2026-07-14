@@ -12,19 +12,18 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.tenant_admin import _get_tenant_or_404
 from app.core.database import get_db
 from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.models.admin import OperationLog
-from app.models.tenant import Tenant
 from app.models.user import User
-from app.api.v1.tenant_admin import _get_tenant_or_404
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tenants", tags=["tenants-branding"])

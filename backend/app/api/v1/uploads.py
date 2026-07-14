@@ -252,7 +252,7 @@ async def serve_upload(
                     "self_access": current_user.id == user_id,
                 },
                 ensure_ascii=False,
-            )[:5000],
+            ),
             ip_address=get_real_client_ip(request),
         )
     )

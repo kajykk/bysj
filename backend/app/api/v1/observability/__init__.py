@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal
 
@@ -147,7 +148,38 @@ def _jittered_ttl() -> int:
 
 # M-6 修复：single-flight in-flight 表，防止 cache stampede
 # 同一 cache key 的并发请求只允许一个执行 compute_fn，其他请求等待结果
-_inflight_futures: dict[str, asyncio.Future[tuple[dict[str, Any], bool]]] = {}
+# PERF-P3-001: value 改为 (future, created_at) 元组, 支持超时清理
+_inflight_futures: dict[str, tuple[asyncio.Future[tuple[dict[str, Any], bool]], float]] = {}
+# PERF-P3-001: 单个 in-flight 请求最长存活时间 (秒).
+# 超过此时间的 entry 会被清理, Future 被 cancel, 防止卡住的 leader 请求导致泄漏.
+# 60s 足以覆盖大多数 compute_fn 执行时间 (含 DB 查询 + 缓存写入).
+_INFLIGHT_TTL_SECONDS: float = 60.0
+
+
+def _cleanup_inflight_futures() -> None:
+    """PERF-P3-001: 清理超时的 in-flight futures, 防止泄漏.
+
+    如果 leader 请求因异常卡住 (compute_fn 永不返回或数据库连接挂起),
+    Future 会一直占用 _inflight_futures 字典, 后续相同 key 的请求都会
+    等待卡住的 Future. 本函数在 cached_or_compute 入口处调用,
+    清理超过 _INFLIGHT_TTL_SECONDS 的 entries.
+    """
+    if not _inflight_futures:
+        return
+    now = time.monotonic()
+    expired_keys = [
+        key
+        for key, (_, created_at) in _inflight_futures.items()
+        if now - created_at > _INFLIGHT_TTL_SECONDS
+    ]
+    for key in expired_keys:
+        fut, _ = _inflight_futures.pop(key)
+        if not fut.done():
+            fut.cancel()
+            logger.warning(
+                "[cached_or_compute] cancelled stale in-flight future: key=%s",
+                key,
+            )
 
 
 async def cached_or_compute(
@@ -176,6 +208,9 @@ async def cached_or_compute(
     if cached is not None:
         return cached, True
 
+    # PERF-P3-001: 入口处清理超时的 in-flight futures, 防止泄漏
+    _cleanup_inflight_futures()
+
     # M-6 修复：检查是否有 in-flight 请求
     if key in _inflight_futures:
         # 已有请求在执行，等待结果（不重复计算）
@@ -183,7 +218,8 @@ async def cached_or_compute(
         # M-API-6 修复：leader 抛异常时 waiter 不直接 500，
         # 回退到旧缓存值或空结果，避免所有 waiter 连锁失败
         try:
-            return await _inflight_futures[key]
+            # PERF-P3-001: value 是 (future, created_at) 元组, 取 [0]
+            return await _inflight_futures[key][0]
         except Exception as exc:
             logger.warning(
                 "[cached_or_compute] leader failed, waiter fallback to stale cache: %s",
@@ -197,7 +233,8 @@ async def cached_or_compute(
     # 当前请求成为 leader，创建 Future 让后续请求等待
     loop = asyncio.get_running_loop()
     fut: asyncio.Future[tuple[dict[str, Any], bool]] = loop.create_future()
-    _inflight_futures[key] = fut
+    # PERF-P3-001: 存储 (future, created_at) 元组, 用于 TTL 清理
+    _inflight_futures[key] = (fut, time.monotonic())
 
     try:
         data = await compute_fn()

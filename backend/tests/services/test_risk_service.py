@@ -403,7 +403,7 @@ class TestAssessStructured:
             "risk_level": 3,
             "model_used": "structured_logistic_regression_quick",
         }
-        with patch("app.services.risk_service.model_engine") as mock_engine, patch(
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine, patch(
             "app.services.risk_service._schedule_warning_and_intervention"
         ) as mock_sched:
             mock_engine.predict_structured = AsyncMock(return_value=mock_result)
@@ -453,7 +453,7 @@ class TestAssessStructured:
             "risk_level": 0,
             "model_used": "test",
         }
-        with patch("app.services.risk_service.model_engine") as mock_engine:
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine:
             mock_engine.predict_structured = AsyncMock(return_value=mock_result)
             mock_engine.explain_prediction = AsyncMock(return_value=[])
             await service.assess_structured(seeded_user_id, student_payload)
@@ -484,7 +484,7 @@ class TestAssessStructured:
             "risk_level": 0,
             "model_used": "test",
         }
-        with patch("app.services.risk_service.model_engine") as mock_engine:
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine:
             mock_engine.predict_structured = AsyncMock(return_value=mock_result)
             mock_engine.explain_prediction = AsyncMock(return_value=[])
             # is_student=True
@@ -515,7 +515,7 @@ class TestAssessStructured:
             "risk_level": 0,
             "model_used": "test",
         }
-        with patch("app.services.risk_service.model_engine") as mock_engine:
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine:
             mock_engine.predict_structured = AsyncMock(return_value=mock_result)
             mock_engine.explain_prediction = AsyncMock(return_value=[])
             await service.assess_structured(seeded_user_id, student_payload)
@@ -536,7 +536,7 @@ class TestAssessStructured:
     ):
         """TC-AS-005: 模型预测异常走 _calculate_heuristic_score 回退."""
         service = RiskService(db_session)
-        with patch("app.services.risk_service.model_engine") as mock_engine:
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine:
             mock_engine.predict_structured = AsyncMock(
                 side_effect=RuntimeError("model unavailable")
             )
@@ -563,7 +563,7 @@ class TestAssessStructured:
             "risk_level": 1,
             "model_used": "test",
         }
-        with patch("app.services.risk_service.model_engine") as mock_engine:
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine:
             mock_engine.predict_structured = AsyncMock(return_value=mock_result)
             mock_engine.explain_prediction = AsyncMock(return_value=[])
             result = await service.assess_structured(seeded_user_id, student_payload)
@@ -600,7 +600,7 @@ class TestAssessStructured:
             "risk_level": 2,
             "model_used": "test",
         }
-        with patch("app.services.risk_service.model_engine") as mock_engine:
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine:
             mock_engine.predict_structured = AsyncMock(return_value=mock_result)
             mock_engine.explain_prediction = AsyncMock(return_value=[])
             result = await service.assess_structured(seeded_user_id, student_payload)
@@ -625,7 +625,7 @@ class TestAssessStructured:
             "risk_level": 2,
             "model_used": "test",
         }
-        with patch("app.services.risk_service.model_engine") as mock_engine, patch(
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine, patch(
             "app.services.risk_service._schedule_warning_and_intervention"
         ):
             mock_engine.predict_structured = AsyncMock(return_value=mock_result)

@@ -8,12 +8,18 @@ from time import time
 from typing import Any
 from uuid import uuid4
 
+from fastapi import HTTPException
+
+from app.core.cache import cache_get, cache_set, make_cache_key
 from app.core.config import settings
 from app.core.ml_breaker import call_with_ml_breaker
 from app.core.model_engine import model_engine
 from app.core.model_registry import MODEL_PATHS, get_model_info, resolve_model_path
 
 logger = logging.getLogger(__name__)
+
+# PERF-P2-009: ML 推理结果缓存 TTL (秒), 从 settings 读取, 0 表示禁用
+_ML_INFERENCE_CACHE_TTL: int = getattr(settings, "ml_inference_cache_ttl", 60)
 
 TRAINING_JOBS: dict[str, dict[str, Any]] = {}
 TRAINING_JOBS_LOCK = Lock()
@@ -280,65 +286,15 @@ class ModelPredictService:
                 model_name,
             )
         except Exception as exc:
-            # Celery/Redis 不可用时回退到 daemon Thread（保证功能可用性）
-            logger.warning(
-                "[training] Celery submission failed, falling back to daemon Thread: %s",
-                exc,
+            # PERF-P2-001: 移除 daemon Thread 回退, Celery/Redis 不可用时返回 503
+            # 原回退路径在 Web 进程内执行长跑训练, 会阻塞 worker 线程并绕过 Celery 资源治理
+            logger.error(
+                "[training] Celery submission failed, returning 503: %s", exc
             )
-            with TRAINING_JOBS_LOCK:
-                TRAINING_JOBS[job_id] = dict(job_data)
-            _save_training_jobs()
-            # RES-P1-005: 添加任务后执行清理 (避免字典无限增长)
-            cleanup_old_training_jobs()
-
-            from threading import Thread
-
-            from app.services.experiment_service import (
-                ExperimentService as BertExperimentService,
-            )
-
-            def _run_job() -> None:
-                service = BertExperimentService()
-                try:
-                    self._update_job(
-                        job_id,
-                        status="running",
-                        progress=10,
-                        stage="import",
-                        message="开始导入数据集",
-                    )
-                    service.import_dataset(dataset_name, "local", 0.7, 0.15, 0.15)
-                    self._update_job(
-                        job_id, progress=35, stage="train", message="开始训练模型"
-                    )
-                    result = service.train_model(
-                        dataset_name, model_name, epochs, batch_size, learning_rate
-                    )
-                    self._update_job(
-                        job_id, progress=75, stage="evaluate", message="开始评估模型"
-                    )
-                    evaluation = service.evaluate_model(
-                        dataset_name, model_name, "validation"
-                    )
-                    self._update_job(
-                        job_id,
-                        progress=100,
-                        stage="completed",
-                        status="completed",
-                        message="训练完成",
-                        result={"train": result, "evaluation": evaluation},
-                    )
-                except Exception as inner_exc:
-                    self._update_job(
-                        job_id,
-                        status="failed",
-                        progress=100,
-                        stage="failed",
-                        message="训练失败",
-                        error=str(inner_exc),
-                    )
-
-            Thread(target=_run_job, daemon=True).start()
+            raise HTTPException(
+                status_code=503,
+                detail="训练服务暂时不可用，请稍后重试 (Celery/Redis 故障)",
+            ) from exc
 
         return self.get_training_job(job_id)
 
@@ -371,7 +327,7 @@ class ModelPredictService:
             "error": None,
         }
 
-        # 复用 start_training_job 的 Celery + Thread fallback 模式
+        # PERF-P2-001: Celery 不可用时返回 503 (不再回退到 daemon Thread)
         try:
             from app.tasks.model_training import evaluate_model_task, save_job_to_redis
 
@@ -395,52 +351,14 @@ class ModelPredictService:
                 split,
             )
         except Exception as exc:
-            # Celery/Redis 不可用时回退到 daemon Thread
-            logger.warning(
-                "[evaluate] Celery submission failed, falling back to daemon Thread: %s",
-                exc,
+            # PERF-P2-001: 移除 daemon Thread 回退, Celery/Redis 不可用时返回 503
+            logger.error(
+                "[evaluate] Celery submission failed, returning 503: %s", exc
             )
-            with TRAINING_JOBS_LOCK:
-                TRAINING_JOBS[job_id] = dict(job_data)
-            _save_training_jobs()
-            cleanup_old_training_jobs()
-
-            from threading import Thread
-
-            from app.services.experiment_service import (
-                ExperimentService as BertExperimentService,
-            )
-
-            def _run_eval_job() -> None:
-                service = BertExperimentService()
-                try:
-                    self._update_job(
-                        job_id,
-                        status="running",
-                        progress=20,
-                        stage="evaluate",
-                        message="开始评估模型",
-                    )
-                    result = service.evaluate_model(dataset_name, model_name, split)
-                    self._update_job(
-                        job_id,
-                        progress=100,
-                        stage="completed",
-                        status="completed",
-                        message="评估完成",
-                        result=result,
-                    )
-                except Exception as inner_exc:
-                    self._update_job(
-                        job_id,
-                        status="failed",
-                        progress=100,
-                        stage="failed",
-                        message="评估失败",
-                        error=str(inner_exc),
-                    )
-
-            Thread(target=_run_eval_job, daemon=True).start()
+            raise HTTPException(
+                status_code=503,
+                detail="评估服务暂时不可用，请稍后重试 (Celery/Redis 故障)",
+            ) from exc
 
         return self.get_training_job(job_id)
 
@@ -475,7 +393,7 @@ class ModelPredictService:
             "error": None,
         }
 
-        # 复用 start_training_job 的 Celery + Thread fallback 模式
+        # PERF-P2-001: Celery 不可用时返回 503 (不再回退到 daemon Thread)
         try:
             from app.tasks.model_training import compare_models_task, save_job_to_redis
 
@@ -497,52 +415,14 @@ class ModelPredictService:
                 model_names,
             )
         except Exception as exc:
-            # Celery/Redis 不可用时回退到 daemon Thread
-            logger.warning(
-                "[compare] Celery submission failed, falling back to daemon Thread: %s",
-                exc,
+            # PERF-P2-001: 移除 daemon Thread 回退, Celery/Redis 不可用时返回 503
+            logger.error(
+                "[compare] Celery submission failed, returning 503: %s", exc
             )
-            with TRAINING_JOBS_LOCK:
-                TRAINING_JOBS[job_id] = dict(job_data)
-            _save_training_jobs()
-            cleanup_old_training_jobs()
-
-            from threading import Thread
-
-            from app.services.experiment_service import (
-                ExperimentService as BertExperimentService,
-            )
-
-            def _run_compare_job() -> None:
-                service = BertExperimentService()
-                try:
-                    self._update_job(
-                        job_id,
-                        status="running",
-                        progress=10,
-                        stage="compare",
-                        message="开始对比模型",
-                    )
-                    result = service.compare_models(dataset_name, model_names)
-                    self._update_job(
-                        job_id,
-                        progress=100,
-                        stage="completed",
-                        status="completed",
-                        message="对比完成",
-                        result=result,
-                    )
-                except Exception as inner_exc:
-                    self._update_job(
-                        job_id,
-                        status="failed",
-                        progress=100,
-                        stage="failed",
-                        message="对比失败",
-                        error=str(inner_exc),
-                    )
-
-            Thread(target=_run_compare_job, daemon=True).start()
+            raise HTTPException(
+                status_code=503,
+                detail="对比服务暂时不可用，请稍后重试 (Celery/Redis 故障)",
+            ) from exc
 
         return self.get_training_job(job_id)
 
@@ -608,6 +488,14 @@ class ModelPredictService:
         for key, value in features.items():
             sanitized[key] = value
 
+        # PERF-P2-009: 60s Redis 缓存, 相同输入直接返回缓存结果
+        if _ML_INFERENCE_CACHE_TTL > 0:
+            cache_key = make_cache_key("ml:tabular", sanitized)
+            cached = await cache_get(cache_key)
+            if cached is not None:
+                logger.debug("[predict_tabular] cache hit key=%s", cache_key)
+                return cached
+
         # STAB-P1-002: ML 推理熔断器 + asyncio.wait_for 超时保护
         result = await call_with_ml_breaker(model_engine.predict_structured(sanitized))
 
@@ -621,6 +509,10 @@ class ModelPredictService:
                 routing_info.get("prediction_confidence_band"),
             )
 
+        # PERF-P2-009: 写入缓存 (best-effort, 失败不影响推理结果)
+        if _ML_INFERENCE_CACHE_TTL > 0:
+            await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
+
         return result
 
     async def predict_text(self, text: str) -> dict:
@@ -628,16 +520,45 @@ class ModelPredictService:
         if not text or not text.strip():
             raise ValueError("text cannot be empty")
         cleaned = text.strip()
+
+        # PERF-P2-009: 60s Redis 缓存
+        if _ML_INFERENCE_CACHE_TTL > 0:
+            cache_key = make_cache_key("ml:text", {"text": cleaned})
+            cached = await cache_get(cache_key)
+            if cached is not None:
+                logger.debug("[predict_text] cache hit key=%s", cache_key)
+                return cached
+
         # STAB-P1-002: ML 推理熔断器 + asyncio.wait_for 超时保护
-        return await call_with_ml_breaker(model_engine.predict_text(cleaned))
+        result = await call_with_ml_breaker(model_engine.predict_text(cleaned))
+
+        # PERF-P2-009: 写入缓存
+        if _ML_INFERENCE_CACHE_TTL > 0:
+            await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
+
+        return result
 
     async def predict_physiological(
         self, physiological: dict[str, float | int]
     ) -> dict:
+        # PERF-P2-009: 60s Redis 缓存
+        if _ML_INFERENCE_CACHE_TTL > 0:
+            cache_key = make_cache_key("ml:physiological", physiological)
+            cached = await cache_get(cache_key)
+            if cached is not None:
+                logger.debug("[predict_physiological] cache hit key=%s", cache_key)
+                return cached
+
         # STAB-P1-002: ML 推理熔断器 + asyncio.wait_for 超时保护
-        return await call_with_ml_breaker(
+        result = await call_with_ml_breaker(
             model_engine.predict_physiological(physiological)
         )
+
+        # PERF-P2-009: 写入缓存
+        if _ML_INFERENCE_CACHE_TTL > 0:
+            await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
+
+        return result
 
     async def predict_fusion(
         self,
@@ -645,12 +566,33 @@ class ModelPredictService:
         text: str | None = None,
         physiological: dict[str, float | int] | None = None,
     ) -> dict:
+        # PERF-P2-009: 60s Redis 缓存 (组合输入哈希)
+        if _ML_INFERENCE_CACHE_TTL > 0:
+            cache_key = make_cache_key(
+                "ml:fusion",
+                {
+                    "features": features,
+                    "text": text,
+                    "physiological": physiological,
+                },
+            )
+            cached = await cache_get(cache_key)
+            if cached is not None:
+                logger.debug("[predict_fusion] cache hit key=%s", cache_key)
+                return cached
+
         # STAB-P1-002: ML 推理熔断器 + asyncio.wait_for 超时保护
-        return await call_with_ml_breaker(
+        result = await call_with_ml_breaker(
             model_engine.predict_fusion(
                 features=features, text=text, physiological=physiological
             )
         )
+
+        # PERF-P2-009: 写入缓存
+        if _ML_INFERENCE_CACHE_TTL > 0:
+            await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
+
+        return result
 
 
 class ModelExperimentService:

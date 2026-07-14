@@ -112,7 +112,7 @@ def _log_auth_operation(
         action_type=action_type,
         target_type="user",
         target_id=user.id if user else None,
-        detail=json.dumps(detail or {}, ensure_ascii=False)[:5000],
+        detail=json.dumps(detail or {}, ensure_ascii=False),
         ip_address=get_real_client_ip(request),
     )
     db.add(log)

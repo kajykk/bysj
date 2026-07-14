@@ -77,16 +77,55 @@ class CanaryManager:
         user_hash = self._hash_user_id(user_id)
         return user_hash < traffic_percent
 
-    async def get_active_canary(self, db_session: AsyncSession) -> CanaryRecord | None:
+    async def get_active_canary(
+        self, db_session: AsyncSession, route_prefix: str | None = None
+    ) -> CanaryRecord | None:
         """Get currently active canary record.
+
+        STAB-P2-006: 支持 route_prefix 过滤.
+        - route_prefix=None: 返回 route_prefix IS NULL 的活跃金丝雀 (全局, 向后兼容)
+        - route_prefix="/api/v1/reports": 优先返回 route_prefix="/api/v1/reports" 的金丝雀;
+          如果没有, 回退到 route_prefix IS NULL 的全局金丝雀.
+
+        Args:
+            db_session: Database session.
+            route_prefix: 路由前缀过滤 (None=全局).
 
         Returns:
             Active canary record or None.
         """
+        if route_prefix is None:
+            # 全局查询: 仅匹配 route_prefix IS NULL (向后兼容)
+            result = await db_session.execute(
+                select(CanaryRecord)
+                .where(
+                    CanaryRecord.status == CanaryStatus.RUNNING,
+                    CanaryRecord.route_prefix.is_(None),
+                )
+                .order_by(CanaryRecord.started_at.desc())
+            )
+            return result.scalar_one_or_none()
+
+        # STAB-P2-006: 特定路由查询 - 优先匹配 route_prefix, 回退到全局
+        # 1. 先查找 route_prefix 精确匹配的活跃金丝雀
         result = await db_session.execute(
             select(CanaryRecord)
             .where(
                 CanaryRecord.status == CanaryStatus.RUNNING,
+                CanaryRecord.route_prefix == route_prefix,
+            )
+            .order_by(CanaryRecord.started_at.desc())
+        )
+        canary = result.scalar_one_or_none()
+        if canary is not None:
+            return canary
+
+        # 2. 回退到全局金丝雀 (route_prefix IS NULL)
+        result = await db_session.execute(
+            select(CanaryRecord)
+            .where(
+                CanaryRecord.status == CanaryStatus.RUNNING,
+                CanaryRecord.route_prefix.is_(None),
             )
             .order_by(CanaryRecord.started_at.desc())
         )
@@ -97,18 +136,24 @@ class CanaryManager:
         db_session: AsyncSession,
         user_id: int | str,
         stable_version: str,
+        route_prefix: str | None = None,
     ) -> TrafficDecision:
         """Decide which version to use for a user.
+
+        STAB-P2-006: 支持 route_prefix 过滤.
+        - route_prefix=None: 仅匹配全局金丝雀 (向后兼容, 模型预测路由)
+        - route_prefix="/api/v1/reports": 优先匹配特定路由金丝雀, 回退到全局
 
         Args:
             db_session: Database session.
             user_id: User identifier.
             stable_version: Current stable version.
+            route_prefix: 路由前缀过滤 (None=全局).
 
         Returns:
             TrafficDecision with routing information.
         """
-        canary = await self.get_active_canary(db_session)
+        canary = await self.get_active_canary(db_session, route_prefix)
 
         if not canary:
             return TrafficDecision(
@@ -150,8 +195,15 @@ class CanaryManager:
         traffic_percent: int = 1,
         triggered_by: int | None = None,
         thresholds: dict[str, float] | None = None,
+        route_prefix: str | None = None,
     ) -> CanaryRecord:
         """Start a new canary deployment.
+
+        STAB-P2-006: 支持 route_prefix 参数, 按路由前缀分流.
+        - route_prefix=None: 全局金丝雀 (覆盖所有路由, 向后兼容)
+        - route_prefix="/api/v1/reports": 仅覆盖该路由前缀的请求
+
+        同一 route_prefix 仅允许一个活跃金丝雀 (避免冲突).
 
         Args:
             db_session: Database session.
@@ -159,14 +211,35 @@ class CanaryManager:
             traffic_percent: Initial traffic percentage.
             triggered_by: User ID who triggered the canary.
             thresholds: Auto-rollback thresholds.
+            route_prefix: 路由前缀分流 (None=全局).
 
         Returns:
             Created canary record.
         """
-        # Check if there's already a running canary
-        existing = await self.get_active_canary(db_session)
+        # Check if there's already a running canary with the same route_prefix
+        # STAB-P2-006: 精确匹配 route_prefix, 不使用 get_active_canary (避免回退到全局误判冲突)
+        if route_prefix is None:
+            conflict_stmt = select(CanaryRecord).where(
+                CanaryRecord.status == CanaryStatus.RUNNING,
+                CanaryRecord.route_prefix.is_(None),
+            )
+        else:
+            conflict_stmt = select(CanaryRecord).where(
+                CanaryRecord.status == CanaryStatus.RUNNING,
+                CanaryRecord.route_prefix == route_prefix,
+            )
+        existing = (
+            await db_session.execute(conflict_stmt.order_by(CanaryRecord.started_at.desc()))
+        ).scalar_one_or_none()
         if existing:
-            raise ValueError(f"Canary already running: {existing.version}")
+            scope_desc = (
+                f"route_prefix={route_prefix}"
+                if route_prefix is not None
+                else "global"
+            )
+            raise ValueError(
+                f"Canary already running for {scope_desc}: {existing.version}"
+            )
 
         default_thresholds = {
             "max_fallback_rate": 0.05,
@@ -182,6 +255,7 @@ class CanaryManager:
             status=CanaryStatus.RUNNING,
             auto_rollback_thresholds=default_thresholds,
             triggered_by=triggered_by,
+            route_prefix=route_prefix,
             # H-Svc-4 修复：DateTime 列为 naive，写入前剥离 tzinfo 避免 aware/naive 混用
             started_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )

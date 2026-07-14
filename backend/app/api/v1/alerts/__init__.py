@@ -4,23 +4,48 @@
 - POST /api/v1/alerts/webhook: 接收 AlertManager Webhook
 - GET /api/v1/alerts/history: 查询告警历史
 - POST /api/v1/alerts/{id}/ack: 确认告警 (停止升级)
+- GET /api/v1/alerts/archive: 查询告警归档 (v1.35)
+
+模块拆分 (维护性优化):
+- _schemas:  Pydantic 模型 + _validate_url_safety + _ALERT_MAX_* 常量
+- _helpers:  _validate_history_time_range / _to_naive_utc / _parse_alertmanager_payload / _persist_alert_log
+- __init__:  router + 4 端点 + re-export
+
+patch 路径兼容:
+- CompositeNotifier / AlertPayload / OperationLog 在本模块命名空间可见,
+  测试 monkeypatch.setattr("app.api.v1.alerts.CompositeNotifier") 生效
+  (endpoint 的 __globals__ 即本包命名空间).
+- AlertManagerPayload / AlertManagerAlert / _validate_history_time_range 通过
+  re-export 保持 ``from app.api.v1.alerts import xxx`` 可用.
 """
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Annotated, Any
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
-from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# re-export helpers (back-compat: tests do `from app.api.v1.alerts import _validate_history_time_range`)
+from app.api.v1.alerts._helpers import (  # noqa: F401
+    _parse_alertmanager_payload,
+    _persist_alert_log,
+    _to_naive_utc,
+    _validate_history_time_range,
+)
+
+# re-export schemas (back-compat: tests do `from app.api.v1.alerts import AlertManagerPayload`)
+from app.api.v1.alerts._schemas import (  # noqa: F401
+    AlertHistoryItem,
+    AlertManagerAlert,
+    AlertManagerPayload,
+    _validate_url_safety,
+)
 from app.core.database import get_db
 from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
@@ -28,261 +53,17 @@ from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.models.admin import OperationLog
 from app.models.user import User
-from app.monitoring.notifier import AlertPayload, CompositeNotifier
+from app.monitoring.notifier import (
+    AlertPayload,  # noqa: F401  re-export for back-compat
+    CompositeNotifier,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 # P1-SEC-022 修复：查询时间范围限制，防止超大窗口导致 DoS
-_HISTORY_MAX_RANGE_DAYS = 90  # 告警历史查询最大时间跨度
-# P1-SEC-024 修复：AlertManager payload 大小限制，防止恶意大 payload 耗尽资源
-_ALERT_MAX_LABELS = 50
-_ALERT_MAX_LABEL_KEY_LEN = 128
-_ALERT_MAX_LABEL_VAL_LEN = 2048
-_ALERT_MAX_ANNOTATIONS = 50
-_ALERT_MAX_ANNOTATION_VAL_LEN = 4096
-_ALERT_MAX_URL_LEN = 2048
-_ALERT_MAX_LIST_SIZE = 500
-_ALERT_MAX_MSG_LEN = 4096
-
-
-def _validate_url_safety(url: str | None, field_name: str = "url") -> str | None:
-    """C-API-3 修复：校验 URL 安全性，防止 SSRF.
-
-    - 必须以 http:// 或 https:// 开头（拒绝 javascript:, data:, file: 等）
-    - 不指向内网/元数据地址（169.254.169.254, 127.0.0.1, 10.x, 192.168.x, 172.16-31.x）
-    """
-    if not url:
-        return url
-    url = url.strip()
-    if not url:
-        return url
-    if not url.startswith(("http://", "https://")):
-        raise ValueError(f"{field_name} 必须以 http:// 或 https:// 开头")
-    try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname
-        if not hostname:
-            return url
-        # 拒绝 localhost 和云元数据地址
-        if hostname in ("localhost", "0.0.0.0", "::1") or hostname.startswith(
-            "169.254."
-        ):
-            raise ValueError(f"{field_name} 不允许指向本机或元数据地址")
-        try:
-            ip = ipaddress.ip_address(hostname)
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                raise ValueError(f"{field_name} 不允许指向内网/保留 IP 地址")
-        except ValueError:
-            # 非 IP 格式（域名），允许通过
-            pass
-    except ValueError:
-        raise
-    except Exception:
-        # 解析失败时放行（AlertManager 的 generatorURL 通常是合法 URL）
-        pass
-    return url
-
-
-# ===== Request/Response Models =====
-
-
-class AlertManagerAlert(BaseModel):
-    """v1.33: AlertManager 单条告警."""
-
-    status: str = "firing"  # firing/resolved
-    labels: dict[str, str] = Field(default_factory=dict, max_length=_ALERT_MAX_LABELS)
-    annotations: dict[str, str] = Field(
-        default_factory=dict, max_length=_ALERT_MAX_ANNOTATIONS
-    )
-    startsAt: str | None = Field(default=None, max_length=64)
-    endsAt: str | None = Field(default=None, max_length=64)
-    generatorURL: str | None = Field(default=None, max_length=_ALERT_MAX_URL_LEN)
-    fingerprint: str | None = Field(default=None, max_length=128)
-
-    @model_validator(mode="after")
-    def _validate_alert_fields(self) -> "AlertManagerAlert":
-        """P1-SEC-024 修复：校验 labels/annotations 键值长度."""
-        for key, value in self.labels.items():
-            if len(key) > _ALERT_MAX_LABEL_KEY_LEN:
-                raise ValueError(
-                    f"label key 长度不能超过 {_ALERT_MAX_LABEL_KEY_LEN} 字符"
-                )
-            if len(value) > _ALERT_MAX_LABEL_VAL_LEN:
-                raise ValueError(
-                    f"label value 长度不能超过 {_ALERT_MAX_LABEL_VAL_LEN} 字符"
-                )
-        for key, value in self.annotations.items():
-            if len(key) > _ALERT_MAX_LABEL_KEY_LEN:
-                raise ValueError(
-                    f"annotation key 长度不能超过 {_ALERT_MAX_LABEL_KEY_LEN} 字符"
-                )
-            if len(value) > _ALERT_MAX_ANNOTATION_VAL_LEN:
-                raise ValueError(
-                    f"annotation value 长度不能超过 {_ALERT_MAX_ANNOTATION_VAL_LEN} 字符"
-                )
-        # C-API-3 修复：校验 generatorURL 协议，防止 SSRF
-        if self.generatorURL:
-            self.generatorURL = _validate_url_safety(self.generatorURL, "generatorURL")
-        return self
-
-
-class AlertManagerPayload(BaseModel):
-    """v1.33: AlertManager webhook payload (v4 格式)."""
-
-    version: str = Field(default="1", max_length=32)
-    groupKey: str | None = Field(default=None, max_length=512)
-    status: str = Field(default="firing", max_length=32)
-    receiver: str | None = Field(default=None, max_length=128)
-    groupLabels: dict[str, str] = Field(
-        default_factory=dict, max_length=_ALERT_MAX_LABELS
-    )
-    commonLabels: dict[str, str] = Field(
-        default_factory=dict, max_length=_ALERT_MAX_LABELS
-    )
-    commonAnnotations: dict[str, str] = Field(
-        default_factory=dict, max_length=_ALERT_MAX_ANNOTATIONS
-    )
-    externalURL: str | None = Field(default=None, max_length=_ALERT_MAX_URL_LEN)
-    alerts: list[AlertManagerAlert] = Field(
-        default_factory=list, max_length=_ALERT_MAX_LIST_SIZE
-    )
-
-    @model_validator(mode="after")
-    def _validate_payload_urls(self) -> "AlertManagerPayload":
-        """C-API-3 修复：校验 externalURL 协议，防止 SSRF."""
-        if self.externalURL:
-            self.externalURL = _validate_url_safety(self.externalURL, "externalURL")
-        return self
-
-
-class AlertHistoryItem(BaseModel):
-    """v1.33: 告警历史条目."""
-
-    id: int
-    rule: str
-    severity: str
-    status: str
-    message: str
-    fingerprint: str | None = None
-    operator_id: int | None = None
-    operator_role: str | None = None
-    created_at: str | None = None
-
-
-# ===== Helpers =====
-
-
-def _validate_history_time_range(
-    start_time: datetime | None,
-    end_time: datetime | None,
-) -> None:
-    """P1-SEC-022 修复：校验查询时间范围，防止超大窗口导致 DoS.
-
-    规则:
-    1. 若同时提供 start_time 和 end_time，则 start_time <= end_time
-    2. 时间跨度不能超过 _HISTORY_MAX_RANGE_DAYS 天
-    """
-    if start_time is None or end_time is None:
-        return
-    if start_time > end_time:
-        raise HTTPException(
-            status_code=400,
-            detail="start_time 不能晚于 end_time",
-        )
-    # 统一为 timezone-aware UTC 进行比较
-    s = start_time if start_time.tzinfo else start_time.replace(tzinfo=timezone.utc)
-    e = end_time if end_time.tzinfo else end_time.replace(tzinfo=timezone.utc)
-    if (e - s) > timedelta(days=_HISTORY_MAX_RANGE_DAYS):
-        raise HTTPException(
-            status_code=400,
-            detail=f"查询时间跨度不能超过 {_HISTORY_MAX_RANGE_DAYS} 天",
-        )
-
-
-def _to_naive_utc(dt: datetime | None) -> datetime | None:
-    """M-API-1 修复：将 datetime 统一为 naive UTC，用于与 naive DB 列比较.
-
-    服务器非 UTC 时区时，aware datetime 直接与 naive DB 列比较会导致查询窗口偏移。
-    naive datetime 假设为 UTC（项目约定），aware datetime 先转 UTC 再去除 tzinfo。
-    """
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        return dt
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
-
-
-def _parse_alertmanager_payload(payload: AlertManagerPayload) -> list[AlertPayload]:
-    """解析 AlertManager payload 为内部 AlertPayload 列表."""
-    out: list[AlertPayload] = []
-    for alert in payload.alerts:
-        labels = {**payload.commonLabels, **alert.labels}
-        annotations = {**payload.commonAnnotations, **alert.annotations}
-        severity = labels.get("severity", "P2")
-        # normalize: critical -> P0, warning -> P1
-        if severity in ("critical",):
-            severity = "P0"
-        elif severity in ("warning",):
-            severity = "P1"
-        elif severity in ("info",):
-            severity = "P2"
-        rule = labels.get("alertname", "UnknownAlert")
-        msg = annotations.get("summary") or annotations.get("description") or rule
-        # P1-SEC-024 修复：限制 message 长度，防止超长文本导致日志/DB 膨胀
-        if len(msg) > _ALERT_MAX_MSG_LEN:
-            msg = msg[:_ALERT_MAX_MSG_LEN]
-        out.append(
-            AlertPayload(
-                rule=rule,
-                severity=severity,
-                status=alert.status or payload.status,
-                message=msg,
-                labels=labels,
-                annotations=annotations,
-                fingerprint=alert.fingerprint or payload.groupKey,
-                starts_at=alert.startsAt,
-                ends_at=alert.endsAt,
-                generator_url=alert.generatorURL,
-            )
-        )
-    return out
-
-
-async def _persist_alert_log(
-    db: AsyncSession,
-    alert: AlertPayload,
-    operator_id: int | None = None,
-    operator_role: str = "system",
-) -> int:
-    """持久化告警到 OperationLog. 返回新行 ID."""
-    action_type = "alert_fired" if alert.status == "firing" else "alert_resolved"
-    detail = json.dumps(
-        {
-            "rule": alert.rule,
-            "severity": alert.severity,
-            "fingerprint": alert.fingerprint,
-            "labels": alert.labels,
-            "annotations": alert.annotations,
-            "message": alert.message,
-        },
-        ensure_ascii=False,
-    )[
-        :5000
-    ]  # 限制 detail 长度
-    row = OperationLog(
-        operator_id=operator_id,
-        operator_role=operator_role,
-        action_type=action_type,
-        target_type="alert",
-        target_id=None,
-        detail=detail,
-    )
-    db.add(row)
-    await db.flush()
-    await db.refresh(row)
-    return row.id
+# (常量定义在 _helpers._HISTORY_MAX_RANGE_DAYS, 此处保留兼容性 re-export 占位)
 
 
 # ===== Endpoints =====
@@ -379,7 +160,7 @@ async def alertmanager_webhook(
                             "silence_name": silence_rule.name if silence_rule else None,
                         },
                         ensure_ascii=False,
-                    )[:5000]
+                    )
                     sil_log = OperationLog(
                         operator_id=None,
                         operator_role="system",
@@ -607,7 +388,7 @@ async def acknowledge_alert(
                 .replace("+00:00", "Z"),
             },
             ensure_ascii=False,
-        )[:5000],
+        ),
     )
     db.add(ack_log)
     await db.commit()

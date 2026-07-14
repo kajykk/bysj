@@ -29,6 +29,34 @@ class ExcelExportResult:
         }
 
 
+@dataclass
+class ExcelStreamResult:
+    """RES-P2-003: Excel 流式导出结果.
+
+    与 ExcelExportResult 区别: 保留 BytesIO 流 (不调用 getvalue()),
+    避免 Excel 完整 bytes 在内存中再拷贝一份. API 层用 StreamingResponse
+    分块读取 BytesIO 实现真正的流式响应.
+
+    适用于: 大数据量 Excel 导出 (> 5000 行), 避免内存峰值.
+    """
+
+    success: bool
+    stream: io.BytesIO | None = None
+    file_size: int = 0
+    row_count: int = 0
+    column_count: int = 0
+    error_message: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "file_size": self.file_size,
+            "row_count": self.row_count,
+            "column_count": self.column_count,
+            "error_message": self.error_message,
+        }
+
+
 class ExcelExportService:
     """Export data to Excel (.xlsx) using openpyxl.
 
@@ -36,9 +64,12 @@ class ExcelExportService:
     - Support 10000+ rows export
     - Column filtering and filtering conditions
     - Streaming write to prevent memory overflow
+    - RES-P2-003: 流式输出 (export_to_stream) 返回 BytesIO, 避免 bytes 拷贝
     """
 
     BATCH_SIZE = 1000
+    # RES-P2-003: 流式输出阈值, 超过此行数自动切换到 export_to_stream
+    STREAM_THRESHOLD_ROWS = 5000
 
     def __init__(self) -> None:
         pass
@@ -136,6 +167,99 @@ class ExcelExportService:
                 success=False,
                 error_message=str(exc),
             )
+
+    def export_to_stream(
+        self,
+        data: list[dict[str, Any]],
+        columns: list[str] | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> ExcelStreamResult:
+        """RES-P2-003: Export data to Excel and return BytesIO stream.
+
+        与 export 区别: 返回 BytesIO 流 (不调用 getvalue()), 避免 bytes 拷贝.
+        适用于 StreamingResponse 流式响应.
+
+        内部仍用 openpyxl Workbook(write_only=True) 流式写入 (已有优化),
+        但避免最后 getvalue() 的内存拷贝 (大 Excel 可节省一倍内存).
+
+        Args:
+            data: List of dictionaries with data.
+            columns: List of columns to include. If None, use all keys from first row.
+            filters: Dictionary of column -> value to filter by.
+
+        Returns:
+            ExcelStreamResult with BytesIO stream (位置指针已 rewind 到 0).
+        """
+        if not self._check_openpyxl_available():
+            return ExcelStreamResult(
+                success=False,
+                error_message="openpyxl not installed",
+            )
+
+        try:
+            from openpyxl import Workbook
+
+            if not data:
+                return ExcelStreamResult(
+                    success=False,
+                    error_message="No data to export",
+                )
+
+            # Determine columns
+            if columns is None:
+                columns = list(data[0].keys())
+
+            # Apply filters
+            filtered_data = self._apply_filters(data, filters)
+
+            # Create workbook (write_only=True 已是流式写入模式)
+            wb = Workbook(write_only=True)
+            ws = wb.create_sheet(title="Data")
+
+            # Write header
+            ws.append(columns)
+
+            # Write data in batches
+            row_count = 0
+            for i in range(0, len(filtered_data), self.BATCH_SIZE):
+                batch = filtered_data[i : i + self.BATCH_SIZE]
+                for row in batch:
+                    row_values = [self._format_value(row.get(col)) for col in columns]
+                    ws.append(row_values)
+                    row_count += 1
+
+            # RES-P2-003: 保留 BytesIO 不 close, 由调用方 (StreamingResponse) 负责
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            # 不调用 getvalue(), 直接获取 size 后 rewind 指针
+            file_size = buffer.tell()
+            buffer.seek(0)
+
+            return ExcelStreamResult(
+                success=True,
+                stream=buffer,
+                file_size=file_size,
+                row_count=row_count,
+                column_count=len(columns),
+            )
+
+        except Exception as exc:
+            logger.exception("Excel stream export failed")
+            return ExcelStreamResult(
+                success=False,
+                error_message=str(exc),
+            )
+
+    def should_use_stream(self, data_row_count: int) -> bool:
+        """RES-P2-003: 判断是否应使用流式输出.
+
+        Args:
+            data_row_count: 数据行数.
+
+        Returns:
+            True if stream output is recommended (> STREAM_THRESHOLD_ROWS).
+        """
+        return data_row_count >= self.STREAM_THRESHOLD_ROWS
 
     def _apply_filters(
         self,

@@ -21,9 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.rate_limit import get_real_client_ip
+from app.core.response import ok
 from app.models.admin import OperationLog
 from app.models.user import User, UserProfile
-from app.core.response import ok
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/analytics", tags=["analytics-events"])

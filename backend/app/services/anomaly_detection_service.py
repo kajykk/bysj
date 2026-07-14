@@ -154,7 +154,7 @@ async def detect_high_frequency(db: AsyncSession) -> list[AnomalyFinding]:
                 "operator_role": operator_role,
             },
             ensure_ascii=False,
-        )[:5000]
+        )
 
         findings.append(
             AnomalyFinding(
@@ -238,7 +238,7 @@ async def detect_off_hours(db: AsyncSession) -> list[AnomalyFinding]:
                 "occurred_at": created_at.isoformat() if created_at else None,
             },
             ensure_ascii=False,
-        )[:5000]
+        )
 
         findings.append(
             AnomalyFinding(
@@ -332,7 +332,7 @@ async def detect_cross_region(db: AsyncSession) -> list[AnomalyFinding]:
                 "operator_role": operator_role,
             },
             ensure_ascii=False,
-        )[:5000]
+        )
 
         findings.append(
             AnomalyFinding(
@@ -429,7 +429,7 @@ async def detect_lateral_access(db: AsyncSession) -> list[AnomalyFinding]:
                 "operator_role": role,
             },
             ensure_ascii=False,
-        )[:5000]
+        )
 
         findings.append(
             AnomalyFinding(
