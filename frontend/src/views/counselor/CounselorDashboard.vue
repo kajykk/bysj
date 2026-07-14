@@ -355,7 +355,7 @@ onMounted(() => {
 .layout__header h2 {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: var(--font-size-stat);
+  font-size: var(--font-size-display);
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;

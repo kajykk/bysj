@@ -11,16 +11,10 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
+import { readChartVar } from '@/utils/chartTheme'
 import type { EChartsCoreOption } from 'echarts/core'
 
 const { t } = useI18n()
-
-// ISS-076 修复：从 CSS 变量读取图表色板，消除硬编码 hex，与 variables.scss 令牌统一
-const readChartVar = (name: string, fallback: string): string => {
-  if (typeof window === 'undefined') return fallback
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
-}
 
 interface DataPoint {
   date: string
@@ -55,12 +49,12 @@ const handleChartReady = (instance: unknown) => {
 }
 
 const chartOption = computed<EChartsCoreOption>(() => {
-  // ISS-076 修复：图表配色读取 CSS 变量令牌，与 variables.scss 统一
-  const colorPrimary = readChartVar('--chart-color-primary', '#3b82c4')
+  // 图表配色读取 CSS 变量令牌，与 variables.scss 统一（回退值同步为当前品牌色）
+  const colorPrimary = readChartVar('--chart-color-primary', '#2e6fa8')
   const colorDanger = readChartVar('--chart-color-danger', '#d65a5a')
   const colorSuccess = readChartVar('--chart-color-success', '#5a9e3a')
-  const areaStart = readChartVar('--chart-color-primary-area', 'rgba(59, 130, 196, 0.25)')
-  const areaEnd = readChartVar('--chart-color-primary-area-end', 'rgba(59, 130, 196, 0.04)')
+  const areaStart = readChartVar('--chart-color-primary-area', 'rgba(46, 111, 168, 0.25)')
+  const areaEnd = readChartVar('--chart-color-primary-area-end', 'rgba(46, 111, 168, 0.04)')
 
   const dates = props.data.map((d) => d.date)
   const values = props.data.map((d) => d.value)

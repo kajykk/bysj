@@ -99,10 +99,10 @@ withDefaults(
   border-color: var(--border-light);
 }
 
-/* Hero 变体：主色微染背景 */
+/* Hero 变体：主色微染背景（使用品牌渐变令牌，避免硬编码旧主色） */
 .bento-cell--hero {
   background:
-    linear-gradient(180deg, rgba(59, 130, 196, 0.04) 0%, transparent 60%),
+    var(--gradient-surface),
     var(--bg-primary);
 }
 
@@ -153,7 +153,7 @@ withDefaults(
   height: 7px;
   border-radius: 50%;
   background: var(--primary-color);
-  box-shadow: 0 0 8px rgba(59, 130, 196, 0.6);
+  box-shadow: 0 0 8px rgba(46, 111, 168, 0.6);
   flex-shrink: 0;
 }
 

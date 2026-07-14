@@ -328,7 +328,7 @@
         <el-form-item :label="t('counselorUserDetail.groupFormColorTag')">
           <el-input
             v-model="groupForm.color_tag"
-            placeholder="#3b82c4"
+            placeholder="#2e6fa8"
           />
         </el-form-item>
       </el-form>
@@ -370,7 +370,7 @@ const route = useRoute(); const router = useRouter(); const auth = useAuthStore(
 const loading = ref(false); const pageError = ref(''); const user = ref<UserManageItem | null>(null); const tab = ref('records')
 const consultationLoading = ref(false); const consultationRows = ref<ConsultationItem[]>([]); const consultationDialogVisible = ref(false); const editingConsultation = ref<ConsultationItem | null>(null); const savingConsultation = ref(false)
 const consultationForm = reactive<Partial<ConsultationItem>>({ main_topics: '', client_status: '', interventions: '', next_plan: '', notes: '' })
-const groupLoading = ref(false); const groupRows = ref<ConsultationGroupItem[]>([]); const groupDialogVisible = ref(false); const savingGroup = ref(false); const groupForm = reactive({ group_name: '', description: '', color_tag: '#3b82c4' })
+const groupLoading = ref(false); const groupRows = ref<ConsultationGroupItem[]>([]); const groupDialogVisible = ref(false); const savingGroup = ref(false); const groupForm = reactive({ group_name: '', description: '', color_tag: '#2e6fa8' })
 // ISS-057: 风险轨迹 / 评估记录 / 干预记录
 const riskHistoryRows = ref<UserRiskHistoryItem[]>([])
 const assessmentRows = ref<UserAssessmentItem[]>([])
@@ -462,7 +462,7 @@ const saveConsultation = async () => {
 const openCreateGroup = () => {
   groupForm.group_name = ''
   groupForm.description = ''
-  groupForm.color_tag = '#3b82c4'
+  groupForm.color_tag = '#2e6fa8'
   groupDialogVisible.value = true
 }
 

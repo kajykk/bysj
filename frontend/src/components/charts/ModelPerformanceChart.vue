@@ -11,6 +11,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
+import { chartColors } from '@/utils/chartTheme'
 import type { EChartsCoreOption } from 'echarts/core'
 
 const { t } = useI18n()
@@ -49,6 +50,8 @@ const handleChartReady = (instance: unknown) => {
 
 const chartOption = computed<EChartsCoreOption>(() => {
   const models = props.data.map((d) => d.name)
+  // 统一读取设计令牌，避免硬编码旧主色 #3b82c4 与全局主色不一致
+  const c = chartColors()
 
   return {
     title: {
@@ -99,31 +102,31 @@ const chartOption = computed<EChartsCoreOption>(() => {
         name: 'Accuracy',
         type: 'bar',
         data: props.data.map((d) => d.accuracy),
-        itemStyle: { color: '#3b82c4' },
+        itemStyle: { color: c.primary },
       },
       {
         name: 'Precision',
         type: 'bar',
         data: props.data.map((d) => d.precision),
-        itemStyle: { color: '#5a9e3a' },
+        itemStyle: { color: c.success },
       },
       {
         name: 'Recall',
         type: 'bar',
         data: props.data.map((d) => d.recall),
-        itemStyle: { color: '#d4923a' },
+        itemStyle: { color: c.warning },
       },
       {
         name: 'F1',
         type: 'bar',
         data: props.data.map((d) => d.f1),
-        itemStyle: { color: '#d65a5a' },
+        itemStyle: { color: c.danger },
       },
       {
         name: 'AUC',
         type: 'bar',
         data: props.data.map((d) => d.auc),
-        itemStyle: { color: '#7a8290' },
+        itemStyle: { color: c.info },
       },
     ],
   }

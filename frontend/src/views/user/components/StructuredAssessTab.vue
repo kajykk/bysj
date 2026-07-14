@@ -136,249 +136,17 @@
       </el-col>
     </el-row>
 
-    <el-card
-      v-if="structuredResult || modelTabResult"
-      style="margin-top: 16px"
-      class="result-panel"
-    >
-      <template #header>
-        <div class="header-row">
-          <span class="card-title">{{ t('structuredAssess.resultTitle') }}</span>
-          <el-tag
-            type="success"
-            effect="light"
-          >
-            {{ t('structuredAssess.dualResultTag') }}
-          </el-tag>
-        </div>
-      </template>
+    <StructuredResultPanel
+      :structured-result="structuredResult"
+      :model-tab-result="modelTabResult"
+      @view-report="emit('view-report')"
+    />
 
-      <div
-        v-if="modelTabResult?.requires_human_review"
-        style="margin-bottom: 12px"
-      >
-        <el-alert
-          type="warning"
-          :closable="false"
-          show-icon
-        >
-          <template #title>
-            {{ t('structuredAssess.crisisDetectedAlert') }}<span v-if="modelTabResult?.crisis_keywords_matched?.length">：{{ modelTabResult.crisis_keywords_matched.join('、') }}</span>
-          </template>
-        </el-alert>
-      </div>
-
-      <div
-        v-if="modelTabResult?.routing_info"
-        class="routing-info-bar"
-      >
-        <el-tag
-          :type="routeFamilyTagType(modelTabResult.routing_info.selected_model_family)"
-          size="small"
-          effect="dark"
-        >
-          {{ routeFamilyLabel(modelTabResult.routing_info.selected_model_family) }}
-        </el-tag>
-        <span class="routing-reason">{{ routeReasonLabel(modelTabResult.routing_info.routing_reason) }}</span>
-        <el-tag
-          v-if="modelTabResult.routing_info.prediction_confidence_band"
-          :type="confidenceTagType(modelTabResult.routing_info.prediction_confidence_band)"
-          size="small"
-          effect="plain"
-        >
-          {{ confidenceLabel(modelTabResult.routing_info.prediction_confidence_band) }}
-        </el-tag>
-      </div>
-
-      <el-row
-        :gutter="16"
-        class="result-grid"
-      >
-        <el-col :span="12">
-          <el-card
-            shadow="never"
-            class="mini-result-card"
-          >
-            <template #header>
-              <span class="mini-title">{{ t('structuredAssess.modelOverviewTitle') }}</span>
-            </template>
-            <el-result
-              :icon="(modelTabResult?.risk_level ?? 0) <= 1 ? 'success' : (modelTabResult?.risk_level ?? 0) <= 2 ? 'warning' : 'error'"
-              :title="severityFromLevel(modelTabResult?.risk_level ?? 0)"
-            >
-              <template #sub-title>
-                <p>{{ t('structuredAssess.riskScoreLabel') }}{{ modelTabResult?.risk_score != null ? modelTabResult.risk_score.toFixed(2) : '-' }}</p>
-                <p>{{ t('structuredAssess.businessLevelLabel') }}{{ modelTabResult ? severityFromLevel(modelTabResult.risk_level ?? 0) : '-' }}</p>
-                <p>{{ t('structuredAssess.modelNameLabel') }}{{ modelTabResult?.model_used || '-' }}</p>
-              </template>
-            </el-result>
-            <el-descriptions
-              v-if="modelTabResult"
-              :column="1"
-              border
-              size="small"
-              style="margin-top: 12px"
-            >
-              <el-descriptions-item :label="t('structuredAssess.modelVersionLabel')">
-                {{ modelTabResult.model_version || t('structuredAssess.notAvailable') }}
-              </el-descriptions-item>
-              <el-descriptions-item :label="t('structuredAssess.modelFamilyLabel')">
-                {{ routeFamilyLabel(modelTabResult.model_family) }}
-              </el-descriptions-item>
-              <el-descriptions-item :label="t('structuredAssess.fallbackLabel')">
-                {{ modelTabResult.fallback_used ? t('structuredAssess.yesOption') : t('structuredAssess.noOption') }}
-              </el-descriptions-item>
-              <el-descriptions-item :label="t('structuredAssess.fallbackReasonLabel')">
-                {{ modelTabResult.fallback_reason || t('structuredAssess.notAvailable') }}
-              </el-descriptions-item>
-              <el-descriptions-item :label="t('structuredAssess.humanReviewLabel')">
-                {{ modelTabResult.requires_human_review ? t('structuredAssess.reviewRequired') : t('structuredAssess.reviewNotRequired') }}
-              </el-descriptions-item>
-              <el-descriptions-item :label="t('structuredAssess.safetyFlagsLabel')">
-                {{ formatArrayText(modelTabResult.safety_flags, '、') }}
-              </el-descriptions-item>
-              <el-descriptions-item :label="t('structuredAssess.crisisKeywordsLabel')">
-                {{ formatArrayText(modelTabResult.crisis_keywords_matched, '、') }}
-              </el-descriptions-item>
-              <el-descriptions-item :label="t('structuredAssess.systemWarningLabel')">
-                {{ modelTabResult.warning || t('structuredAssess.notAvailable') }}
-              </el-descriptions-item>
-              <el-descriptions-item :label="t('structuredAssess.dataQualityLabel')">
-                {{ modelTabResult.data_quality?.quality_level || 'unknown' }}
-                <span v-if="modelTabResult.data_quality?.missing_fields?.length">{{ t('structuredAssess.missingFieldsPrefix') }}{{ formatArrayText(modelTabResult.data_quality.missing_fields, '、') }}</span>
-              </el-descriptions-item>
-            </el-descriptions>
-            <div
-              v-if="modelTabResult?.routing_info"
-              class="experimental-ref"
-            >
-              <el-divider style="margin: 8px 0" />
-              <el-tag
-                type="info"
-                size="small"
-                effect="plain"
-              >
-                {{ t('structuredAssess.routingInfoTag') }}
-              </el-tag>
-              <p style="margin-top: 6px">
-                {{ t('structuredAssess.selectedModelIdLabel') }}{{ modelTabResult.routing_info.selected_model_id || '-' }}<br>
-                {{ t('structuredAssess.selectedModelFamilyLabel') }}{{ routeFamilyLabel(modelTabResult.routing_info.selected_model_family) }}<br>
-                {{ t('structuredAssess.routingReasonLabel') }}{{ routeReasonLabel(modelTabResult.routing_info.routing_reason) }}<br>
-                {{ t('structuredAssess.featureCoverageLabel') }}{{ modelTabResult.routing_info.feature_coverage_ratio != null ? (modelTabResult.routing_info.feature_coverage_ratio * 100).toFixed(1) + '%' : '-' }}<br>
-                {{ t('structuredAssess.confidenceBandLabel') }}{{ confidenceLabel(modelTabResult.routing_info.prediction_confidence_band) }}
-              </p>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :span="12">
-          <el-card
-            shadow="never"
-            class="mini-result-card"
-          >
-            <template #header>
-              <span class="mini-title">{{ t('structuredAssess.businessOverviewTitle') }}</span>
-            </template>
-            <el-result
-              :icon="(structuredResult?.risk_level ?? 0) <= 1 ? 'success' : (structuredResult?.risk_level ?? 0) <= 2 ? 'warning' : 'error'"
-              :title="severityFromLevel(structuredResult?.risk_level ?? 0)"
-            >
-              <template #sub-title>
-                <p>{{ t('structuredAssess.riskScoreLabel') }}{{ structuredResult ? structuredResult.risk_score : '-' }}</p>
-                <p>{{ t('structuredAssess.severityLabel') }}{{ structuredResult ? structuredResult.severity : '-' }}</p>
-                <p>{{ t('structuredAssess.warningTriggeredLabel') }}{{ structuredResult ? (structuredResult.warning_generated ? t('structuredAssess.yesOption') : t('structuredAssess.noOption')) : '-' }}</p>
-              </template>
-            </el-result>
-          </el-card>
-        </el-col>
-      </el-row>
-      <div class="result-actions">
-        <el-button
-          type="primary"
-          @click="emit('view-report')"
-        >
-          {{ t('structuredAssess.viewReportBtn') }}
-        </el-button>
-        <el-button
-          :disabled="!structuredResult && !modelTabResult"
-          @click="copyLatestStructuredResult"
-        >
-          {{ t('structuredAssess.copyResultBtn') }}
-        </el-button>
-      </div>
-    </el-card>
-
-    <el-card style="margin-top: 16px">
-      <template #header>
-        <div class="header-row">
-          <span class="card-title">{{ t('structuredAssess.historyTitle') }}</span>
-          <div style="display:flex; gap:8px;">
-            <el-button
-              size="small"
-              :disabled="!predictionHistory.length"
-              @click="exportPredictionHistoryCsv"
-            >
-              {{ t('structuredAssess.exportHistoryBtn') }}
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              plain
-              :disabled="!predictionHistory.length"
-              @click="clearPredictionHistory"
-            >
-              {{ t('structuredAssess.clearHistoryBtn') }}
-            </el-button>
-          </div>
-        </div>
-      </template>
-      <el-table
-        :data="predictionHistory"
-        size="small"
-        stripe
-      >
-        <el-table-column
-          prop="time"
-          :label="t('structuredAssess.colTime')"
-          min-width="170"
-        />
-        <el-table-column
-          prop="risk_score"
-          :label="t('structuredAssess.colRiskScore')"
-          width="110"
-        />
-        <el-table-column
-          prop="risk_level"
-          :label="t('structuredAssess.colBusinessLevel')"
-          width="90"
-        >
-          <template #default="{ row }">
-            {{ severityFromLevel(row.risk_level) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="severity"
-          :label="t('structuredAssess.colSeverity')"
-          width="120"
-        >
-          <template #default="{ row }">
-            {{ severityLabel(row.severity) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('structuredAssess.colReviewTriggered')"
-          width="100"
-        >
-          <template #default="{ row }">
-            {{ row.warning_generated ? t('structuredAssess.csvYes') : t('structuredAssess.csvNo') }}
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-empty
-        v-if="!predictionHistory.length"
-        :description="t('structuredAssess.emptyHistory')"
-        :image-size="60"
-      />
-    </el-card>
+    <StructuredHistoryCard
+      :prediction-history="predictionHistory"
+      @clear="clearPredictionHistory"
+      @export="exportPredictionHistoryCsv"
+    />
   </div>
 </template>
 
@@ -390,29 +158,20 @@ import { ElMessage } from 'element-plus'
 import { userApi } from '@/api/userApi'
 import { modelApi, type ModelPredictResponse } from '@/api/modelApi'
 import type { StructuredCollectResult } from '@/api/userRiskApi'
-import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { useAnalytics } from '@/composables/useAnalytics'
-import { sanitizeCellForExcel } from '@/utils/exportUtils'
-import {
-  severityLabel,
-  severityFromLevel,
-  routeFamilyLabel,
-  routeFamilyTagType,
-  routeReasonLabel,
-  confidenceTagType,
-  confidenceLabel,
-  formatArrayText,
-} from '@/utils/riskFormatters'
 import BasicInfoStep from './structured-steps/BasicInfoStep.vue'
 import AcademicStep from './structured-steps/AcademicStep.vue'
 import LifestyleStep from './structured-steps/LifestyleStep.vue'
 import MentalHealthStep from './structured-steps/MentalHealthStep.vue'
+import StructuredResultPanel from './structured-steps/StructuredResultPanel.vue'
+import StructuredHistoryCard from './structured-steps/StructuredHistoryCard.vue'
 import {
   DEFAULT_STRUCTURED_FORM,
   STEP_FIELDS,
   type StructuredForm,
 } from './structured-steps/sharedStepUtils'
+import { usePredictionHistory } from './structured-steps/usePredictionHistory'
 
 interface Props {
   canUse: boolean
@@ -425,32 +184,17 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const auth = useAuthStore()
 // P1-5 埋点与隐私：评估流程追踪（不采集问卷内容）
 const { track } = useAnalytics()
 let isUnmounted = false
 
-// ISS-058 修复：匿名用户（id=0 或未登录）使用会话级随机 ID，避免共享 localStorage 导致历史相互覆盖
-const anonSessionId = (() => {
-  const key = 'structured_anon_session_id'
-  try {
-    let id = sessionStorage.getItem(key)
-    if (!id) {
-      id = 'anon_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-      sessionStorage.setItem(key, id)
-    }
-    return id
-  } catch {
-    // sessionStorage 不可用时回退到内存随机 ID
-    return 'anon_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-  }
-})()
-const historyKey = (base: string) => {
-  const userId = auth.user?.id
-  if (userId && userId > 0) return `${base}_u${userId}`
-  return `${base}_${anonSessionId}`
-}
-const PREDICTION_HISTORY_KEY = historyKey('prediction_history_v1')
+const {
+  predictionHistory,
+  loadPredictionHistory,
+  clearPredictionHistory,
+  exportPredictionHistoryCsv,
+  addPredictionEntry,
+} = usePredictionHistory()
 
 const structuredFormRef = ref<FormInstance>()
 const structuredForm = reactive<StructuredForm>({ ...DEFAULT_STRUCTURED_FORM })
@@ -492,71 +236,12 @@ const structuredRules: FormRules = {
   treatment_seeking: [{ required: true, type: 'number', message: t('structuredAssess.ruleTreatmentSeeking'), trigger: 'change' }]
 }
 
-const predictionHistory = ref<Array<StructuredCollectResult & { time: string }>>([])
 const structuredSubmitting = ref(false)
 const structuredResult = ref<StructuredCollectResult | null>(null)
 const modelTabResult = ref<ModelPredictResponse | null>(null)
 const structuredMode = ref<'single' | 'stepper'>('single')
 const structuredStep = ref(0)
 const structuredStepFormRef = ref<FormInstance>()
-
-const loadPredictionHistory = () => {
-  try {
-    const raw = localStorage.getItem(PREDICTION_HISTORY_KEY)
-    if (!raw) return
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      predictionHistory.value = parsed
-    }
-  } catch {
-    predictionHistory.value = []
-  }
-}
-
-const savePredictionHistory = () => {
-  localStorage.setItem(PREDICTION_HISTORY_KEY, JSON.stringify(predictionHistory.value.slice(0, 20)))
-}
-
-const clearPredictionHistory = () => {
-  predictionHistory.value = []
-  localStorage.removeItem(PREDICTION_HISTORY_KEY)
-  ElMessage.success(t('structuredAssess.historyCleared'))
-}
-
-const exportPredictionHistoryCsv = () => {
-  if (!predictionHistory.value.length) {
-    ElMessage.warning(t('structuredAssess.noHistoryToExport'))
-    return
-  }
-
-  const headers = [
-    t('structuredAssess.csvHeaderTime'),
-    t('structuredAssess.csvHeaderRiskScore'),
-    t('structuredAssess.csvHeaderRiskLevel'),
-    t('structuredAssess.csvHeaderSeverity'),
-    t('structuredAssess.csvHeaderWarningTriggered')
-  ]
-  const rows = predictionHistory.value.map((row) => [
-    row.time,
-    row.risk_score,
-    row.risk_level,
-    row.severity,
-    row.warning_generated ? t('structuredAssess.csvYes') : t('structuredAssess.csvNo')
-  ])
-
-  const csv = [headers, ...rows]
-    .map((line) => line.map((cell) => `"${sanitizeCellForExcel(String(cell)).replace(/"/g, '""')}"`).join(','))
-    .join('\n')
-
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `prediction_history_${Date.now()}.csv`
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-  ElMessage.success(t('structuredAssess.historyCsvExported'))
-}
 
 const handleStepNext = async () => {
   if (!structuredStepFormRef.value) return
@@ -571,23 +256,6 @@ const handleStepNext = async () => {
   } catch {
     ElMessage.warning(t('structuredAssess.stepIncomplete'))
   }
-}
-
-const copyJson = async (value: unknown) => {
-  try {
-    await navigator.clipboard.writeText(JSON.stringify(value, null, 2))
-    ElMessage.success(t('structuredAssess.copiedToClipboard'))
-  } catch {
-    ElMessage.error(t('structuredAssess.copyFailed'))
-  }
-}
-
-const copyLatestStructuredResult = async () => {
-  const payload = {
-    model_predict: modelTabResult.value,
-    business_result: structuredResult.value,
-  }
-  await copyJson(payload)
 }
 
 const resetStructuredForm = () => {
@@ -661,11 +329,7 @@ const submitStructured = async () => {
       risk_level: typeof result?.risk_level === 'number' ? result.risk_level : undefined,
     })
 
-    predictionHistory.value.unshift({
-      ...result,
-      time: new Date().toLocaleString()
-    })
-    savePredictionHistory()
+    addPredictionEntry(result)
 
     if (modelTabResult.value) {
       ElMessage.success(t('structuredAssess.submitSuccessWithModel'))
@@ -730,63 +394,5 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-start;
   gap: 8px;
-}
-
-.result-panel {
-  border-radius: 16px;
-}
-
-.result-grid {
-  margin-bottom: 10px;
-}
-
-.mini-result-card {
-  min-height: 260px;
-  border-radius: 14px;
-}
-
-.mini-title {
-  font-weight: 600;
-  color: #2c3340;
-}
-
-.result-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-.experimental-ref {
-  font-size: var(--font-size-extra-small);
-  color: #7a8290;
-  line-height: 1.7;
-  padding: 8px 10px;
-  background: rgba(144, 147, 153, 0.06);
-  border-radius: 8px;
-  border: 1px dashed rgba(144, 147, 153, 0.3);
-}
-
-.experimental-ref p {
-  margin: 0;
-}
-
-.routing-info-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  background: rgba(64, 158, 255, 0.06);
-  border-radius: 8px;
-  border: 1px solid rgba(64, 158, 255, 0.15);
-  flex-wrap: wrap;
-}
-
-.routing-reason {
-  font-size: var(--font-size-extra-small);
-  color: #5a6470;
-  flex: 1;
-  min-width: 0;
 }
 </style>

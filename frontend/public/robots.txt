@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# 心理预警平台（SPA）：允许索引，与 index.html 的 <meta name="robots" content="index, follow"> 保持一致。
+# 注意：/api/ 与 /ws/ 为鉴权接口，不应被爬虫直接遍历；如需收紧可改为：
+# Disallow: /api/
+# Disallow: /ws/

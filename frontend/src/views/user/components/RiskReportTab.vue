@@ -404,9 +404,9 @@ const renderReportTrend = async () => {
       {
         name: t('riskReport.legendComprehensive'), type: 'line', data: points.map(p => p.risk_score), smooth: true,
         areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(64,158,255,0.3)' }, { offset: 1, color: 'rgba(64,158,255,0.02)' }
+          { offset: 0, color: 'rgba(46,111,168,0.3)' }, { offset: 1, color: 'rgba(46,111,168,0.02)' }
         ]) },
-        lineStyle: { color: '#3b82c4', width: 2 }, itemStyle: { color: '#3b82c4' }
+        lineStyle: { color: '#2e6fa8', width: 2 }, itemStyle: { color: '#2e6fa8' }
       },
       { name: t('riskReport.legendStructured'), type: 'line', data: points.map(p => valueOrNull(p.structured_score)), smooth: true, connectNulls: true, lineStyle: { color: '#5a9e3a', width: 1.8 }, itemStyle: { color: '#5a9e3a' } },
       { name: t('riskReport.legendText'), type: 'line', data: points.map(p => valueOrNull(p.text_score)), smooth: true, connectNulls: true, lineStyle: { color: '#d4923a', width: 1.8 }, itemStyle: { color: '#d4923a' } },
@@ -489,7 +489,7 @@ onUnmounted(() => {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #3b82c4, #4a9bd6);
+  background: linear-gradient(135deg, #2e6fa8, #4a9bd6);
   color: #fff;
   font-size: var(--font-size-extra-small);
   font-weight: 600;

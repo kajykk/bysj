@@ -408,6 +408,29 @@ export default {
       consentWithdrawn: 'Analytics collection withdrawn',
       updateFailed: 'Failed to update consent status',
       privacyNote: 'Your choice does not affect the use of core system features.'
+    },
+    riskThreshold: {
+      title: 'Risk Threshold Configuration',
+      desc: 'When the composite risk score falls into the following ranges, the system triggers the corresponding alert level and intervention suggestions.',
+      high: 'High Risk',
+      highRange: '≥ 65',
+      moderate: 'Moderate Risk',
+      moderateRange: '45 – 64',
+      low: 'Low Risk',
+      lowRange: '< 45',
+      note: 'Thresholds are configured centrally by the system administrator and shown here for reference only.'
+    },
+    crisis: {
+      title: 'Crisis Resources',
+      desc: 'If you are experiencing a mental health crisis, please contact the following resources immediately.',
+      hotline: 'Psychological Support Hotline',
+      hotlineNumber: '400-161-9995',
+      hotlineDesc: 'National 24/7 free psychological crisis intervention hotline',
+      doctor: 'Emergency Contact Doctor',
+      doctorName: 'Dr. Li',
+      doctorDesc: 'Your attending physician / counselor',
+      doctorPhone: '138-0000-0000',
+      call: 'Call'
     }
   },
   passwordValidation: {
@@ -1375,7 +1398,12 @@ export default {
     chartRiskLevel3: 'High Risk',
     chartRiskLevel4: 'Critical',
     chartTrendUp: 'Rising',
-    chartTrendDown: 'Declining'
+    chartTrendDown: 'Declining',
+    // A11Y-P2-06: screen reader labels for the risk trend icons
+    trendUp: 'Risk rising',
+    trendDown: 'Risk falling',
+    // UX-P2-08: tooltip explaining how the severity level is determined
+    severityTooltip: 'Risk severity is derived from the overall score: None, Mild, Moderate, Elevated, Critical. Higher levels require more attention.'
   },
   userWarnings: {
     title: 'My Warnings',

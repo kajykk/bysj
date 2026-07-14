@@ -23,6 +23,9 @@ function safeSetTheme(theme: Theme) {
   }
 }
 
+// WF-1 性能优化：暗色主题 CSS 移出首屏关键路径，按需异步加载
+let darkCssPromise: Promise<unknown> | null = null
+
 export function useTheme() {
   const theme = ref<Theme>(safeGetTheme())
   const isDark = ref(false)
@@ -33,6 +36,11 @@ export function useTheme() {
 
     // Element Plus 标准：使用 html.dark 类名
     document.documentElement.classList.toggle('dark', isDark.value)
+
+    // 仅当实际需要暗色时才加载暗色变量 CSS（首次加载默认浅色不阻塞首屏）
+    if (isDark.value && !darkCssPromise) {
+      darkCssPromise = import('element-plus/theme-chalk/dark/css-vars.css').catch(() => {})
+    }
   }
 
   const setTheme = (newTheme: Theme) => {

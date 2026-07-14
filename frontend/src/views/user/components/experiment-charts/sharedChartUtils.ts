@@ -4,10 +4,10 @@
 
 /** 图表配色（与原 ExperimentTab 内联配色保持一致） */
 export const CHART_COLORS = {
-  loss: '#3b82c4',
+  loss: '#2e6fa8',
   accuracy: '#5a9e3a',
   /** 对比柱状图各指标配色 */
-  compareSeries: ['#3b82c4', '#5a9e3a', '#d4923a', '#d65a5a', '#7a8290'],
+  compareSeries: ['#2e6fa8', '#5a9e3a', '#d4923a', '#d65a5a', '#7a8290'],
 } as const
 
 /** 对比实验指标键名 */

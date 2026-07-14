@@ -18,6 +18,14 @@ RUN npm run build
 # ── Production Stage ──
 FROM nginx:1.27.4-alpine AS production
 
+# RES-P2-008: 安装 ngx_brotli 模块 (Alpine nginx-mod-http-brotli 包)
+# 提供 Brotli 压缩, 比 gzip 压缩率高 15-25%, 减少传输体积
+RUN apk add --no-cache nginx-mod-http-brotli
+
+# RES-P2-008: 在 /etc/nginx/nginx.conf 顶部插入 load_module 指令
+# load_module 是全局指令, 只能在 main context (nginx.conf) 中使用, 不能在 conf.d/ 中
+RUN sed -i '1i load_module modules/ngx_http_brotli_filter_module.so;' /etc/nginx/nginx.conf
+
 # 复制自定义 nginx 配置
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

@@ -56,15 +56,15 @@ const generateRiskTrendOption = (
       smooth: true,
       symbol: 'circle',
       symbolSize: 6,
-      lineStyle: { width: 3, color: '#3b82c4' },
-      itemStyle: { color: '#3b82c4' },
+      lineStyle: { width: 3, color: '#2e6fa8' },
+      itemStyle: { color: '#2e6fa8' },
       areaStyle: {
         color: {
           type: 'linear',
           x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [
-            { offset: 0, color: 'rgba(59, 130, 196, 0.25)' },
-            { offset: 1, color: 'rgba(59, 130, 196, 0.04)' },
+            { offset: 0, color: 'rgba(46, 111, 168, 0.25)' },
+            { offset: 1, color: 'rgba(46, 111, 168, 0.04)' },
           ],
         },
       },
@@ -122,7 +122,7 @@ const generateModelPerformanceOption = (data: ModelMetric[], title: string) => {
     xAxis: { type: 'category', data: models },
     yAxis: { type: 'value', min: 0, max: 1 },
     series: [
-      { name: 'Accuracy', type: 'bar', data: data.map((d) => d.accuracy), itemStyle: { color: '#3b82c4' } },
+      { name: 'Accuracy', type: 'bar', data: data.map((d) => d.accuracy), itemStyle: { color: '#2e6fa8' } },
       { name: 'Precision', type: 'bar', data: data.map((d) => d.precision), itemStyle: { color: '#5a9e3a' } },
       { name: 'Recall', type: 'bar', data: data.map((d) => d.recall), itemStyle: { color: '#d4923a' } },
       { name: 'F1', type: 'bar', data: data.map((d) => d.f1), itemStyle: { color: '#d65a5a' } },
