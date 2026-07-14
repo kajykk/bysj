@@ -216,3 +216,10 @@ backend/full_test.txt
 backend/backend/
 backend/models/
 backend/monitoring/
+
+# AI tool memory
+.workbuddy/
+backend/NUL
+_*.py
+_*.txt
+_*.json
