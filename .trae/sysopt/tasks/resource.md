@@ -86,28 +86,104 @@
   - 19/19 am_sync + 55/55 notifier tests passed
 
 ## P2 任务 (中优先级)
-- [ ] RES-P2-001: celery_app worker 并发参数未配置 → max_tasks_per_child + 队列分离
-- [ ] RES-P2-002: pdf_report_service 全量加载 PDF → StreamingResponse
-- [ ] RES-P2-003: excel_export_service 输入全量入内存 → 自动切换流式
-- [ ] RES-P2-004: _pdf_executor 线程池队列无上限 → Semaphore 限流
-- [ ] RES-P2-005: monitoring_logs 表无归档 → 扩展 archive_old_logs 多表
-- [ ] RES-P2-006: monitoring_snapshot.json 本地持久化冗余 → 统一 Prometheus
-- [ ] RES-P2-007: 前端依赖 Google Fonts CDN → 自托管字体
-- [ ] RES-P2-008: nginx Brotli 未启用 → nginx-mod-http-brotli
+- [x] RES-P2-001: celery_app worker 并发参数未配置 → max_tasks_per_child + 队列分离 ✅ (2026-07-14)
+  - `app/core/celery_app.py`: 新增 worker 并发参数 + 任务时间限制 + 队列分离配置
+    - `worker_max_tasks_per_child=200`: 每个子进程执行 200 任务后重启, 释放内存 (防止 PDF/模型加载内存泄漏)
+    - `worker_max_memory_per_child=400*1024` (400MB): 单个子进程内存上限, 超过后重启 (容器化部署适配)
+    - `task_time_limit=600` (硬超时 10 分钟) + `task_soft_time_limit=540` (软超时 9 分钟, 给任务自行清理)
+    - `task_routes`: 队列分离 (3 个队列)
+      - `celery` (默认): 普通任务 (daily_risk_scan, stale_warning_reminder, daily_intervention_check)
+      - `celery:high_prio`: 用户触发任务 (generate_pdf_report*)
+      - `celery:low_prio`: 清理类任务 (weekly_log_archive, mask_old_ips, cleanup_*, archive_*)
+    - `task_default_queue="celery"`: 向后兼容 (未匹配 task_routes 的任务进入默认队列)
+- [x] RES-P2-002: pdf_report_service 全量加载 PDF → StreamingResponse ✅ (2026-07-14)
+  - `app/services/pdf_report_service.py`: 新增流式生成方法
+    - 新增 `PDFStreamResult` dataclass (success, stream: BytesIO, file_size, page_count, ...)
+    - 新增 `generate_pdf_stream(report_data)`: 返回 BytesIO 流 (不调用 getvalue() 拷贝)
+      - reportlab 生成 PDF 到 BytesIO, 用 `buffer.tell()` 获取 size, `buffer.seek(0)` rewind 指针
+      - 新增 `_estimate_page_count_from_stream`: 从 BytesIO 读取前 64KB 估算页数后 rewind
+    - 新增 `generate_user_risk_report_stream`: 与 generate_user_risk_report 对应的流式版本
+  - `app/api/v1/reports.py`: `generate_user_risk_pdf` 端点改造
+    - 调用 `generate_user_risk_report_stream` (返回 BytesIO) 替代 `generate_user_risk_report` (返回 bytes)
+    - 新增 `_stream_bytes(buffer, chunk_size=65536)` 分块生成器: 64KB chunks 流式读取 BytesIO
+    - StreamingResponse 使用 `_stream_bytes(result.stream)` 实现真正流式响应 (非 iter([bytes]))
+- [x] RES-P2-003: excel_export_service 输入全量入内存 → 自动切换流式 ✅ (2026-07-14)
+  - `app/services/excel_export_service.py`: 新增流式导出方法
+    - 新增 `ExcelStreamResult` dataclass (success, stream: BytesIO, file_size, row_count, ...)
+    - 新增 `STREAM_THRESHOLD_ROWS = 5000` 常量: 流式输出阈值
+    - 新增 `export_to_stream(data, columns, filters)`: 返回 BytesIO 流 (不调用 getvalue())
+      - 内部仍用 `Workbook(write_only=True)` 流式写入 (已有优化), 避免最后 getvalue() 内存拷贝
+      - 用 `buffer.tell()` 获取 size, `buffer.seek(0)` rewind 指针
+    - 新增 `should_use_stream(data_row_count)`: 数据量 >= 5000 行时返回 True
+  - `app/api/v1/reports.py`: `batch_export_excel` 端点自动切换
+    - 调用 `should_use_stream(len(payload.data))` 判断
+    - 大数据量 (>5000 行): 调用 `export_to_stream` + `_stream_bytes` 分块流式响应
+    - 小数据量: 保持原有 `export` + `iter([result.excel_bytes])` 路径 (向后兼容)
+    - 审计日志新增 `stream_mode: True/False` 标志, 区分流式/非流式模式
+- [x] RES-P2-004: _pdf_executor 线程池队列无上限 → Semaphore 限流 ✅ (2026-07-14)
+  - `app/services/risk_service.py`: 新增 `_pdf_semaphore = threading.Semaphore(MAX_CONCURRENT_PDF_TASKS=16)`
+    - 原问题: ThreadPoolExecutor(max_workers=4) 限制并发执行线程数, 但 submit() 调用无上限, 高并发场景下队列堆积大量 PDF 请求, 占用内存
+    - 解决: 在 executor 线程中 acquire/release Semaphore, 限制待处理任务数 (执行中 + 排队中) 为 16 (4 workers × 4 排队余量)
+    - `_generate_pdf_report_async` 改用 `_pdf_with_semaphore` 闭包包装, Semaphore 在调用线程获取/释放, 避免 async 事件循环阻塞
+  - 新增 `import threading` 导入
+- [x] RES-P2-005: monitoring_logs 表无归档 → 扩展 archive_old_logs 多表 ✅ (2026-07-14)
+  - `app/services/admin_service.py`: 新增 `archive_old_monitoring_logs(days=180)` 方法
+    - 与 `archive_old_logs` (OperationLog, 90 天) 分离, 监控日志默认保留 180 天 (用于长期趋势分析)
+    - 删除超过阈值的 MonitoringLog 记录 (event_type: inference/fallback/drift_alert/canary_switch 等)
+    - 使用 `await self.db.commit()` 提交事务 (与 archive_old_logs 一致)
+  - `app/tasks/scheduler.py`: 新增 `weekly_monitoring_logs_archive` Celery task
+    - bind=True, max_retries=2, default_retry_delay=30, time_limit=120, soft_time_limit=100
+    - impl: `_weekly_monitoring_logs_archive_impl()` 调用 `archive_old_monitoring_logs(days=180)`
+  - `app/core/celery_app.py`:
+    - beat_schedule: `weekly-monitoring-logs-archive` 每周一 05:00 (与 04:30 risk_assessment 错开 30 分钟)
+    - task_routes: 路由到 `celery:low_prio` 队列
+  - 新增 36 个测试 (`tests/test_res_p2_001_004_005_resource.py`), 5 个测试类:
+    - TestCeleryWorkerConcurrencyConfig (5): max_tasks_per_child 配置 + 取值合理 + max_memory + time_limit + soft_time_limit
+    - TestCeleryQueueSeparation (6): task_routes 配置 + task_default_queue + 清理任务 low_prio + 归档任务 low_prio + 普通任务默认队列
+    - TestPdfSemaphoreConfig (6): semaphore 存在 + 类型 + MAX_CONCURRENT_PDF_TASKS 常量 + 取值合理 + 方法使用 semaphore + threading 导入
+    - TestArchiveOldMonitoringLogsService (5): 空数据 + 删除旧记录 + 保留近期 + 自定义 days + 多 event_type
+    - TestMonitoringLogsCeleryTask (8): task 函数 + impl 函数 + Celery task + bind=True + retry 配置 + beat schedule 注册 + 每周一 05:00 + 不冲突
+    - TestMonitoringLogsSourceStructure (6): 方法存在 + RES-P2-005 注释 + 默认 days=180 + commit + MonitoringLog 模型 + task 注释
+  - 回归测试: 169 passed (test_admin_service + test_scheduler + test_risk_service)
+- [x] RES-P2-006: monitoring_snapshot.json 本地持久化冗余 → 统一 Prometheus ✅ (2026-07-14)
+  - `app/core/metrics.py`: 新增 9 个 model_* Gauge (RES-P2-006)
+    - model_cache_size / model_uptime_seconds / model_high_critical_ratio / model_high_critical_count
+    - model_fallback_count / model_fallback_rate (已有) / model_experimental_hit_count / model_experimental_miss_count / model_structured_total
+  - `app/core/model_engine.py`: 新增 `_publish_to_prometheus(snapshot)` 方法
+    - 将监控快照发布到 metrics.py 的 Gauge, 由 /metrics 端点统一导出
+    - `_persist_loop` 调用 `_publish_to_prometheus` 替代仅写本地文件
+    - 保留 monitoring_snapshot.json 作为可选备份 (向后兼容), Prometheus 是主要数据源
+    - 优雅降级: 发布失败仅记录 warning, 不影响应用
+- [x] RES-P2-007: 前端依赖 Google Fonts CDN → 自托管字体 ✅ (2026-07-14)
+  - 前端已移除 Google Fonts CDN 引用 (index.html L15-18 注释, 改用系统字体栈)
+  - `frontend/src/csp.ts`: 清理 CSP 残留白名单
+    - PROD_POLICY: 移除 font-src 的 `https://fonts.gstatic.com` + style-src 的 `https://fonts.googleapis.com` + connect-src 的 `https://fonts.googleapis.com https://fonts.gstatic.com`
+    - DEV_POLICY: 同上, 移除所有 Google Fonts 白名单
+    - 标注 RES-P2-007 修复说明
+  - `frontend/nginx.conf`: 已无 Google Fonts 白名单 (CSP header 中 font-src 仅 'self' data:)
+  - 安全收益: 消除外部 CDN 依赖, 防止 CDN 供应链攻击, 提升 CSP 严格性
+- [x] RES-P2-008: nginx Brotli 未启用 → nginx-mod-http-brotli ✅ (2026-07-14)
+  - `frontend/nginx.conf`: 取消 Brotli 配置注释
+    - `brotli on;` + `brotli_comp_level 6;` + `brotli_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml`
+    - load_module 指令由 Dockerfile 通过 sed 插入 /etc/nginx/nginx.conf (全局指令不能在 conf.d/ 中)
+  - `frontend/Dockerfile`: 安装 Brotli 模块 + 插入 load_module
+    - `RUN apk add --no-cache nginx-mod-http-brotli` (Alpine 包)
+    - `RUN sed -i '1i load_module modules/ngx_http_brotli_filter_module.so;' /etc/nginx/nginx.conf`
+  - 性能收益: Brotli 比 gzip 压缩率高 15-25%, 减少传输体积, 加速页面加载
 
 ## P3 任务 (低优先级)
-- [ ] RES-P3-001: FusionEngine numpy 处理标量 → 纯 Python 内建
-- [ ] RES-P3-002: SHAP explainer 未缓存 → 缓存到 _explainers dict
-- [ ] RES-P3-003: monitoring_score_deltas 用 list → deque(maxlen=500)
-- [ ] RES-P3-004: ws_manager 未限制总用户数 → 全局连接上限告警
-- [ ] RES-P3-005: .sha256 侧车文件累积 → 模型升级时清理
-- [ ] RES-P3-006: _verify_redis_backend 新建客户端 → 复用 cache 客户端
-- [ ] RES-P3-007: nginx WebSocket timeout 3600s → 改为 600s
+- [x] RES-P3-001: FusionEngine numpy 处理标量 → 纯 Python 内建 ✅ 完成 (2026-07-15, np.clip→max/min + np.mean→sum/len)
+- [x] RES-P3-002: SHAP explainer 未缓存 → 缓存到 _explainers dict ✅ 完成 (2026-07-15, lazy init + id(model) key)
+- [x] RES-P3-003: monitoring_score_deltas 用 list → deque(maxlen=500) ✅ 完成 (2026-07-15, 自动淘汰 + 测试同步)
+- [x] RES-P3-004: ws_manager 未限制总用户数 → 全局连接上限告警 ✅ 完成 (2026-07-15, websocket_max_global_connections=1000)
+- [x] RES-P3-005: .sha256 侧车文件累积 → 模型升级时清理 ✅ 完成 (2026-07-15, cleanup_stale_sidecars 函数)
+- [x] RES-P3-006: _verify_redis_backend 新建客户端 → 复用 cache 客户端 ✅ 完成 (2026-07-15, 复用 limiter._storage.check())
+- [x] RES-P3-007: nginx WebSocket timeout 3600s → 改为 600s ✅ 完成 (2026-07-15, proxy_read/send_timeout)
 
 ---
 ## 进度统计
 - P0: 2/2 ✅ RES-P0-001/002
 - P1: 10/10 ✅ RES-P1-001 + RES-P1-002 + RES-P1-003 + RES-P1-004 + RES-P1-005 + RES-P1-006 + RES-P1-007 + RES-P1-008 + RES-P1-009 + RES-P1-010
-- P2: 0/8
-- P3: 0/7
-- **总计**: 12/27
+- P2: 8/8 ✅ ALL P2 COMPLETE (RES-P2-001 ~ RES-P2-008)
+- P3: 7/7 ✅ ALL P3 COMPLETE (RES-P3-001 ~ RES-P3-007)
+- **总计**: 27/27

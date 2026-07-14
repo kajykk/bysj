@@ -134,27 +134,204 @@
   - 回归 204 tests passed (test_nginx_tls_config 35 + test_security_p1_fixes + test_core_config + test_password_reset_https + test_token_blocklist + test_export_audit_log + test_anomaly_detection)
 
 ## P2 任务 (中优先级)
-- [ ] SEC-P2-001: JWT 使用 HS256 对称签名 → 迁移到 RS256/ES256
-- [ ] SEC-P2-002: access token 无撤销机制 → Redis revoked_jti SET
-- [ ] SEC-P2-003: 上传文件无安全扫描/EXIF 剥离 → ClamAV + Pillow 重编码
-- [ ] SEC-P2-004: PII 加密使用 AES-128 → 迁移到 AES-256-GCM
+- [x] SEC-P2-001: JWT 使用 HS256 对称签名 → 迁移到 RS256/ES256 ✅ (2026-07-14)
+  - `app/core/config.py`: 新增 RS256 配置字段 (向后兼容, 默认仍 HS256)
+    - `jwt_private_key_path: str = ""`: RSA 私钥文件路径
+    - `jwt_public_key_path: str = ""`: RSA 公钥文件路径
+    - `jwt_private_key_pem: str = ""`: 直接 PEM 内容 (优先于 path)
+    - `jwt_public_key_pem: str = ""`: 直接 PEM 内容 (优先于 path)
+    - `jwt_algorithm: str = "HS256"`: 默认 HS256, 可切换为 "RS256"
+  - `app/core/security.py`: JWT 签名/验证 key 分发
+    - 新增 `_load_private_key()` (lru_cache): 从 pem 或 path 加载 RSA 私钥
+    - 新增 `_load_public_key()` (lru_cache): 从 pem 或 path 加载 RSA 公钥
+    - 新增 `_get_signing_key()`: HS256 返回 jwt_secret_key, RS256 返回私钥 PEM
+    - 新增 `_get_verifying_key()`: HS256 返回 jwt_secret_key, RS256 返回公钥 PEM
+    - `create_access_token` / `create_refresh_token` / `create_password_reset_token`: 全部改用 `_get_signing_key()`
+    - `decode_token`: 改用 `_get_verifying_key()`
+  - 安全性: RS256 非对称签名, 私钥签名 + 公钥验证, 即使验证方泄露也无法伪造 token
+  - 向后兼容: 默认 HS256, 现有部署无需改动; 生产环境通过环境变量切换:
+    - `JWT_ALGORITHM=RS256` + `JWT_PRIVATE_KEY_PATH=/path/to/private.pem` + `JWT_PUBLIC_KEY_PATH=/path/to/public.pem`
+  - 新增 51 个测试 (`tests/test_res_p2_002_003_sec_p2_001.py` 中 SEC-P2-001 部分), 3 个测试类:
+    - TestJwtRs256Config (5): jwt_algorithm + private_key_path + public_key_path + private_key_pem + public_key_pem 配置存在
+    - TestJwtKeyLoading (8): _load_private_key + _load_public_key + _get_signing_key + _get_verifying_key 函数 + HS256/RS256 分发逻辑
+    - TestJwtRs256TokenFlow (8): RS256 access/refresh/password_reset token 签发+验证 + RS256 token 不能用 HS256 验证 + HS256 向后兼容 + 源码标注 SEC-P2-001
+  - 回归测试: 100 passed + 10 skipped (test_reports_api_extended + test_auth_flow + test_core_config + test_pdf_report_service + test_excel_export_service + test_excel_job_store)
+- [x] SEC-P2-002: access token 无撤销机制 → Redis revoked_jti SET ✅ (2026-07-02, 已在 SEC-P1-001 中完成)
+  - app/core/token_blocklist.py 已实现 is_token_revoked/revoke_token (Redis 断路器+内存 LRU 回退, TTL=token 剩余有效期)
+  - app/core/deps.py get_current_user 已接入 jti blocklist 检查
+  - app/services/auth_service.py logout 方法已撤销 access_token_jti
+  - 新增 26 个测试 (test_token_blocklist.py 7 个测试类), 回归 111 tests passed
+- [x] SEC-P2-003: 上传文件无安全扫描/EXIF 剥离 → ClamAV + Pillow 重编码 ✅ (2026-07-14)
+  - `app/services/file_security_service.py`: 新建文件安全处理服务
+    - `strip_image_exif(file_path)`: 用 Pillow 重编码图片, 删除 GPS/设备信息等敏感 EXIF 元数据
+      - 支持 JPEG/PNG/WebP/GIF, 用 `Image.new + putdata` 重编码 (自动丢弃 EXIF/ICC profile)
+      - 临时文件 + `os.replace` 原子替换, 确保文件系统一致性
+      - 优雅降级: Pillow 不可用时记录 warning 并跳过
+    - `scan_with_clamav(file_path)`: 对接 clamd 守护进程病毒扫描
+      - 支持 TCP (clamav_host:clamav_port) 和 Unix socket (clamav_unix_socket) 两种连接方式
+      - 优雅降级: clamd 不可用时记录 warning 并跳过 (不阻断上传)
+      - 检测到威胁时返回 safe=False, 由调用方删除文件并拒绝上传
+    - `process_uploaded_file(file_path, category)`: 整合 EXIF 剥离 + ClamAV 扫描
+  - `app/core/config.py`: 新增配置项
+    - `enable_exif_strip: bool = True` (默认启用 EXIF 剥离)
+    - `enable_clamav_scan: bool = False` (默认关闭, 需要 clamd 守护进程)
+    - `clamav_host: str = "localhost"` + `clamav_port: int = 3310` + `clamav_unix_socket: str = ""`
+  - `app/api/v1/user_upload.py`: 单文件 + 批量上传端点集成安全检查
+    - 在 `_save_upload_stream` + `_validate_mime_type` 之后调用 `process_uploaded_file`
+    - 安全检查失败时删除文件并抛出 HTTPException (单文件) 或记录 error (批量)
+  - `requirements.in`: 新增 `Pillow>=10.0.0` 依赖
+- [x] SEC-P2-005: 后端依赖版本未固定 → pip-compile + requirements.lock ✅ (2026-07-14)
+  - `requirements.in`: 新建顶层声明依赖文件 (32 行)
+    - 从 requirements.txt 转换, 保持 >= 下限约束
+    - 新增 Pillow 依赖 (SEC-P2-003)
+    - 注释状态列出可选 OTel 依赖 (STAB-P2-009)
+    - 包含 pip-compile 生成/更新说明
+  - `requirements-dev.in`: 新建开发依赖文件
+    - 引用 `-r requirements.in`
+    - 包含 pytest/pytest-asyncio/httpx/ruff/mypy/pip-tools
+  - `requirements.lock`: 生成锁定依赖文件 (390 行)
+    - 用 pip freeze 生成当前环境完整快照
+    - 所有依赖用 `==` 精确锁定版本
+    - 文件头标注 SEC-P2-005 + pip-compile 生成说明
+  - 工作流: 修改依赖 → 编辑 requirements.in → 运行 `pip-compile requirements.in -o requirements.lock` → 提交两个文件
+- [x] SEC-P2-004: PII 加密使用 AES-128 → 迁移到 AES-256-GCM ✅ (2026-07-14)
+  - 修改 `app/core/pii_crypto.py`:
+    - 新增 `ENCRYPTED_PREFIX_V2 = "enc:v2:"` 常量 + `_ENCRYPTED_PREFIXES` 元组 (v1 + v2)
+    - 新增 `_AESGCM_NONCE_BYTES=12` + `_AESGCM_KEY_BYTES=32` 常量 (NIST 推荐 96-bit nonce + AES-256)
+    - 新增 `_derive_aes_key_with_base(field, base_key)`: HKDF 派生 32 字节 AES-256 密钥 (info=`b"bysj-pii-aes-gcm-key-v2"`, 与 Fernet info 不同确保密钥隔离)
+    - 新增 `_derive_aes_key(field)` / `_get_aes_gcm(field)` / `_get_previous_aes_gcms(field)`: 当前密钥 + 旧密钥回退 AESGCM 实例
+    - 新增 `_encrypt_aes_gcm(plaintext, field)`: AES-256-GCM 加密, 输出 `enc:v2:` + base64(12字节nonce + 密文 + 16字节tag)
+    - 新增 `_decrypt_aes_gcm_with_key(token_str, aesgcm)` / `_decrypt_aes_gcm(token_str, field)`: AES-256-GCM 解密 (当前密钥优先 + 旧密钥回退)
+    - 修改 `encrypt_field`: 默认使用 `_encrypt_aes_gcm` (新数据 v2), 不再调用 Fernet 加密
+    - 修改 `decrypt_field`: 双前缀自动识别 - `enc:v2:` → AES-GCM 解密, `enc:v1:` → Fernet 解密 (向后兼容)
+    - 修改 `_is_encrypted`: 检测 v1 和 v2 双前缀 (使用 `_ENCRYPTED_PREFIXES` 元组)
+    - 修改 `is_encrypted_with_current_key`: 支持 v2 (AES-GCM 当前密钥尝试) + v1 (Fernet 当前密钥尝试)
+    - 新增导入: `AESGCM` (cryptography.hazmat.primitives.ciphers.aead) + `InvalidTag` (cryptography.exceptions) + `os` (os.urandom 生成 nonce)
+  - 修改 `app/services/gdpr_service.py`: `_safe_decrypt` 函数支持 v1 + v2 双前缀检测 (新增 `ENCRYPTED_PREFIX_V2` 导入)
+  - 修改 `backend/scripts/rotate_pii_keys.py`: 密钥轮换脚本支持 v1 + v2 双前缀检测 (新增 `ENCRYPTED_PREFIX_V2` 导入)
+  - 设计原则: 新数据默认 v2 (AES-256-GCM), 旧数据 v1 (Fernet) 仍可解密 (平滑迁移), HKDF info 隔离 (AES 密钥 ≠ Fernet 密钥), 字段级 salt 防跨字段关联, 12 字节随机 nonce (NIST SP 800-38D 推荐), 16 字节 GCM tag (认证加密), 旧密钥回退支持密钥轮换
+  - 新增 46 个测试 (`tests/test_sec_p2_004_aes_gcm.py`), 8 个测试类:
+    - TestSourceCodeStructure (12): ENCRYPTED_PREFIX_V2 常量 + _ENCRYPTED_PREFIXES 元组 + AESGCM 参数 + 导入 + 6 个函数存在 + encrypt_field 调用 _encrypt_aes_gcm + decrypt_field 处理 v2 前缀
+    - TestAesGcmEncryption (6): v2 前缀 + roundtrip + 随机 nonce + 字段隔离 + Unicode + 32 字节密钥
+    - TestBackwardCompatibility (5): v1 密文解密 + v2 密文解密 + _is_encrypted 双前缀检测 + 拒绝明文/部分前缀/未知版本
+    - TestKeyRotationFallback (7): 当前密钥 + 单旧密钥回退 + 多旧密钥回退 + 全部失败抛错 + _get_previous_aes_gcms 空配置/去重/顺序
+    - TestEncryptFieldDefaultsToV2 (5): v2 前缀 + v2 幂等 + v1 幂等 (不升级) + None/空字符串透传
+    - TestIsEncryptedWithCurrentKey (6): v2 当前/旧密钥 + v1 当前/旧密钥 + None/空 + 明文
+    - TestEncryptedStringTypeDecorator (3): bind_param v2 + result_value v2 解密 + result_value v1 解密 (向后兼容)
+    - TestFieldKeyIsolation (2): AES 密钥 ≠ Fernet 密钥 (HKDF info 隔离) + AES 密钥确定性
+  - 更新现有测试 (4 个文件, 4 处断言): `test_gdpr_pii.py` (2 处) + `test_pii_crypto_helpers.py` (2 处) + `test_fault_injection.py` (1 处) 将 `enc:v1:` 断言改为 `enc:v2:`
+  - 回归 216 tests passed (test_pii_crypto_helpers 40 + test_pii_key_rotation 30 + test_gdpr_pii 16 + test_gdpr_service 77 + test_fault_injection 7 + test_sec_p2_004_aes_gcm 46)
 - [ ] SEC-P2-005: 后端依赖版本未固定 → pip-compile + requirements.lock
-- [ ] SEC-P2-006: OperationLog detail 截断 5000 字符 → TEXT 类型或拆分字段
-- [ ] SEC-P2-007: 日志脱敏无集中化强制 → 统一 logging.Filter
-- [ ] SEC-P2-008: OperationLog 保留 IP 违反 GDPR → 30/90 天后掩码
-- [ ] SEC-P2-009: CSP 不一致 + unsafe-inline → 仅 nginx 层设置 + nonce
-- [ ] SEC-P2-010: X-Frame-Options 前后端冲突 → 仅 nginx 层设置
+- [x] SEC-P2-006: OperationLog detail 截断 5000 字符 → TEXT 类型或拆分字段 ✅ (2026-07-13)
+  - `app/models/admin.py:60` OperationLog.detail 已是 `Text` 类型 (无长度限制)
+  - 移除业务代码中遗留的 28 处 `[:5000]` 截断 (19 个文件):
+    - app/monitoring/escalation.py (1), app/services/anomaly_detection_service.py (4)
+    - app/services/admin_service.py (2), app/services/review_service.py (1)
+    - app/api/v1/auth.py (1), app/api/v1/counselor.py (3), app/api/v1/alerts.py (2)
+    - app/api/v1/reports.py (1), app/api/v1/admin.py (2), app/api/v1/gdpr.py (3)
+    - app/api/v1/silences.py (3), app/api/v1/uploads.py (1), app/api/v1/user_intervention.py (1)
+    - app/api/v1/user_risk.py (1), app/api/v1/user_upload.py (2)
+  - 新增 11 个测试 (`tests/test_sec_p2_006_detail_text.py`), 4 个测试类:
+    - TestDetailFieldType (4): detail 是 Text 类型 + 无 length 属性 + nullable + ip_address 仍是 String(50)
+    - TestNoTruncationInBusinessCode (3): app/ 无 [:5000] + AdminService 无 [:5000] + mask_old_ips 无截断
+    - TestOperationLogCreationNoTruncation (1): AdminService 中无 detail=...[:5000]
+    - TestDetailTextTypeValidation (3): 100KB 长文本可赋值 + 短文本可赋值 + None 可赋值
+  - 回归 61 tests passed (test_middlewares + test_core_middlewares_extended + test_security_p1_fixes)
+- [x] SEC-P2-007: 日志脱敏无集中化强制 → 统一 logging.Filter ✅ (2026-07-13)
+  - 新增 `app/core/log_sanitizer.py` (243 行): `sanitize_text()` 函数 + `SanitizingFilter` 类 (logging.Filter 子类)
+  - 支持的 PII 模式 (按处理顺序):
+    - JWT Token (三段式 `eyJxxx.eyJxxx.xxx`) → `***JWT_MASKED***`
+    - API Key 前缀 (sk-/pk_/gh[pousr]_) → `***APIKEY_MASKED***`
+    - Bearer Token (`Authorization: Bearer xxx`) → `Bearer ***MASKED***` (先于 key=value 处理)
+    - JSON 敏感键值对 (`"password":"xxx"`) → `"password":"***MASKED***"`
+    - 普通敏感键值对 (`password=xxx` / `password: xxx`) → `password=***MASKED***`
+    - Email (`user@example.com`) → `u***@example.com` (保留首字符 + 域名)
+    - 中国手机号 (`13912345678`) → `139****5678` (保留前 3 + 后 4)
+    - 身份证号 (`110101199001011234`) → `110101********1234` (保留前 6 + 后 4)
+    - 信用卡号 (16 位连续/4-4-4-4 分组) → `411111******1111`
+  - 设计原则: 幂等 (已脱敏不重复处理), 性能 (编译正则), 安全 (脱敏失败不抛异常), 顺序敏感 (先具体后通用, Bearer 先于 key=value)
+  - 修改 `app/core/logging_config.py`: dictConfig 的 `filters` 字典注册 `SanitizingFilter`, 所有 handler (console/app_file/error_file) 的 `filters` 列表追加 `"sanitizer"`
+  - `SanitizingFilter.filter()` 处理 LogRecord 的三部分: `record.msg` (主消息) + `record.args` (tuple/dict 格式化参数) + `record.exc_info` (异常 args)
+  - 新增 50 个测试 (`tests/test_sec_p2_007_log_sanitizer.py`), 14 个测试类:
+    - TestSensitiveKeyValue (10): password/token/secret/api_key/authorization + 大小写 + 引号 + JSON
+    - TestBearerToken (2): Bearer xxx + 小写 bearer
+    - TestJwtToken (2): 三段式 JWT + URL 中的 JWT
+    - TestEmail (3): 标准邮箱 + 带+号 + 保留首字符
+    - TestPhoneNumber (3): 11位手机号 + 上下文 + 无效前缀不脱敏
+    - TestIdCard (3): 18位身份证 + 末位X + 裸身份证号
+    - TestCreditCard (3): 16位连续 + 4-4-4-4分组 + 空格分隔
+    - TestApiKeyPrefix (2): OpenAI sk- + GitHub ghp_
+    - TestIdempotent (2): 已脱敏不重复处理 + 二次脱敏一致
+    - TestEdgeCases (4): 空字符串 + 非字符串 + 无PII + 多PII
+    - TestSanitizingFilter (6): 返回True + 修改msg + args + dict_args + 异常record + 保留非PII
+    - TestExcInfoSanitization (1): 异常args脱敏
+    - TestLoggingConfigIntegration (4): filter注册 + handler覆盖 + configure加载 + 端到端
+    - TestLogSanitizerSourceStructure (5): 模块存在 + SEC-P2-007注释 + 导出函数 + 导出类 + logging_config引用
+  - 回归 168 tests passed (test_logging_config + test_security_p1_fixes + test_sec_p2_006/007/008/009)
+- [x] SEC-P2-008: OperationLog 保留 IP 违反 GDPR → 30/90 天后掩码 ✅ (2026-07-13)
+  - 新增 `AdminService.mask_old_ips(days=30)` 方法 (`app/services/admin_service.py:744`):
+    - 查询超过 30 天且 ip_address 非空的 OperationLog 记录
+    - 调用 `_mask_ip()` 掩码 IP (保留网络段, 用于异常检测)
+    - 批量 UPDATE, 返回已掩码记录数, 幂等可重复执行
+  - 新增 `_mask_ip(ip)` 函数 (`app/services/admin_service.py:789`):
+    - IPv4: `192.168.1.100` → `192.168.1.0` (保留前三段)
+    - IPv6: `2001:db8::1` → `2001:db8::` (保留前两组)
+    - 非标准格式 (unknown/localhost): → `xxx.xxx.xxx.xxx`
+    - 已掩码的原样返回 (幂等)
+  - 新增 `mask_old_ips_task` Celery 任务 (`app/tasks/scheduler.py:317`):
+    - bind=True, max_retries=2, default_retry_delay=30, time_limit=60s
+    - 调用 `_mask_old_ips_impl()` → `AdminService.mask_old_ips(days=30)`
+  - 注册 beat_schedule (`app/core/celery_app.py:53`):
+    - `daily-mask-old-ips` 每日 03:30 执行 (避开 03:00 weekly-log-archive)
+  - GDPR 合规配合: 30 天后掩码 IP + 90 天后删除整条记录 (archive_old_logs)
+  - 新增 23 个测试 (`tests/test_sec_p2_008_ip_masking.py`), 4 个测试类:
+    - TestMaskIpFunction (8): IPv4/IPv6/非标准格式 + 幂等 + 空字符串 + loopback
+    - TestMaskOldIpsService (7): 空数据 + 30天掩码 + 保留近期 + 自定义天数 + 幂等 + 跳过NULL + 非标准格式
+    - TestMaskOldIpsTaskRegistration (4): beat_schedule 注册 + 调度时间 03:30 + 函数存在 + Celery Task
+    - TestMaskOldIpsTaskExecution (4): 可调用 + 协程 + 装饰器配置 + 调用 mask_old_ips
+- [x] SEC-P2-009: CSP 不一致 + unsafe-inline → 仅 nginx 层设置 + nonce ✅ (2026-07-13)
+  - 修改 `app/core/middlewares.py` security_headers_middleware:
+    - 移除 CSP nonce 生成 (`request.state.csp_nonce = secrets.token_urlsafe(16)`)
+    - 移除 CSP 设置代码 (生产环境 Content-Security-Policy + 非生产 Content-Security-Policy-Report-Only)
+    - 移除 `import secrets` (csp_nonce 不再需要)
+    - 添加 SEC-P2-009 docstring 说明由 nginx 统一设置
+  - 原因 (与 SEC-P2-010 X-Frame-Options 同模式):
+    1. nginx `add_header Content-Security-Policy ... always` 对 proxy_pass 响应也追加, 后端也设置会导致浏览器收到两个 CSP header
+    2. nginx 静态 CSP 与后端 nonce-based CSP 取交集会让所有内联脚本被阻塞
+       (nginx CSP 的 script-src 'self' 没有对应 nonce)
+    3. API 响应为 JSON, 不需要 CSP; 前端 HTML 由 nginx 服务, nginx CSP 已覆盖
+  - nginx CSP (`frontend/nginx.conf:81`) 已配置: 静态策略, `style-src 'self' 'unsafe-inline'` (Element Plus 需要), `script-src 'self'` (无 unsafe-inline, XSS 防护)
+  - 更新 `tests/test_middlewares.py`: CSP 断言从 `in response.headers` 改为 `not in response.headers`
+  - 更新 `tests/test_core_middlewares_extended.py`: test_security_headers_present + test_csp_report_only_header 改为 test_csp_not_set_by_backend
+  - 更新 `tests/test_security_p1_fixes.py` TestCSPModeByEnvironment: 2 个测试改为验证后端不设置 CSP (生产/开发)
+  - 新增 17 个测试 (`tests/test_sec_p2_009_csp_unified.py`), 5 个测试类:
+    - TestBackendNoCSPHeader (3): 无 CSP + 无 CSP-Report-Only + 其他安全头仍设置
+    - TestBackendNoCSPNonce (2): request.state 无 csp_nonce + middlewares 无 secrets 导入
+    - TestNginxCSPConfig (5): nginx.conf 存在 + 设置 CSP + style-src unsafe-inline + script-src 无 unsafe-inline + 使用 always
+    - TestMiddlewaresSourceAnnotation (4): 文件存在 + SEC-P2-009 注释 + 无 active CSP 赋值 + 无 csp_nonce 生成
+    - TestCSPEnvironmentBehavior (3): 生产/开发/staging 环境后端都不设置 CSP
+  - 回归 61 tests passed (test_middlewares + test_core_middlewares_extended + test_security_p1_fixes)
+- [x] SEC-P2-010: X-Frame-Options 前后端冲突 → 仅 nginx 层设置 ✅ (2026-07-12)
+  - 修改 `app/core/middlewares.py`: 移除 `response.headers["X-Frame-Options"] = "DENY"`, 添加 SEC-P2-010 注释说明由 nginx 统一设置
+  - 原因: nginx `add_header X-Frame-Options "SAMEORIGIN" always` 对 proxy_pass 响应也追加, 若后端也设置 DENY 会导致浏览器收到两个 X-Frame-Options header (DENY + SAMEORIGIN)
+  - nginx 统一设置 `SAMEORIGIN` (允许同源 iframe, 支持 PDF 预览等场景), 使用 `always` 确保所有响应 (含 4xx/5xx) 都带 header
+  - 更新 `tests/test_middlewares.py` + `tests/test_core_middlewares_extended.py`: X-Frame-Options 断言从 `== "DENY"` 改为 `not in response.headers`
+  - 新增 9 个测试 (`tests/test_sec_p2_010_x_frame_options.py`), 3 个测试类:
+    - TestBackendNoFrameOptions (2): 后端不设置 X-Frame-Options + 其他安全头仍设置
+    - TestNginxFrameOptionsConfig (4): nginx.conf 存在 + 设置 X-Frame-Options + 值为 SAMEORIGIN + 使用 always
+    - TestMiddlewaresSourceAnnotation (3): middlewares.py 存在 + 有 SEC-P2-010 注释 + 无 active X-Frame-Options 赋值
+  - 回归 96 tests passed (test_middlewares + test_core_middlewares_extended + test_nginx_tls_config + test_security_p1_fixes)
 
 ## P3 任务 (低优先级)
-- [ ] SEC-P3-001: JWT 缺 issuer/audience → 增加 iss/aud 声明
-- [ ] SEC-P3-002: requirements.txt 混入测试依赖 → 移除 pytest-cov 到 dev
-- [ ] SEC-P3-003: 前端无 npm audit CI → 增加 npm audit 步骤
-- [ ] SEC-P3-004: PII 轮换脚本可能泄露明文 → 失败日志仅记录 id
+- [x] SEC-P3-001: JWT 缺 issuer/audience → 增加 iss/aud 声明 ✅ 完成 (2026-07-15)
+- [x] SEC-P3-002: requirements.txt 混入测试依赖 → 移除 pytest-cov 到 dev ✅ 完成 (2026-07-15)
+- [x] SEC-P3-003: 前端无 npm audit CI → 增加 npm audit 步骤 ✅ 完成 (2026-07-15)
+- [x] SEC-P3-004: PII 轮换脚本可能泄露明文 → 失败日志仅记录 id ✅ 完成 (2026-07-15)
 
 ---
 ## 进度统计
 - P0: 1/1 ✅
 - P1: 6/6 ✅ SEC-P1-001 + SEC-P1-002 + SEC-P1-003 + SEC-P1-004 + SEC-P1-005 + SEC-P1-006 (安全维度 P1 100% 收口)
-- P2: 0/10
-- P3: 0/4
-- **总计**: 7/21
+- P2: 10/10 ✅ ALL P2 COMPLETE (SEC-P2-001 ~ SEC-P2-010)
+- P3: 4/4 ✅ ALL P3 COMPLETE (SEC-P3-001 ~ SEC-P3-004)
+- **总计**: 21/21

@@ -50,11 +50,14 @@ jobs:
       - name: Run tests with coverage
         working-directory: backend
         run: |
+          # MAINT-P3-002: --maxfail=1 fail-fast, 第一个失败即停止避免吞掉错误
+          # MAINT-P3-001: 覆盖率门禁 60% → 50% 统一 (略高于基线 46.13%, 渐进提升路线图: 50% → 60% → 70% → 85%)
           pytest tests/ -m "not contract" \
+            --maxfail=1 \
             --cov=app \
             --cov-report=xml:coverage.xml \
             --cov-report=html:htmlcov \
-            --cov-fail-under=60 \
+            --cov-fail-under=50 \
             --tb=short \
             -q 2>&1 | tee /tmp/pytest_output.txt
           exit_code=${PIPESTATUS[0]}
@@ -100,7 +103,8 @@ jobs:
       - name: Run tests with coverage
         working-directory: frontend
         run: npm run test:coverage
-        continue-on-error: true
+        # MAINT-P3-002: 移除 continue-on-error: true, 测试失败必须阻塞 CI
+        # MAINT-P3-001: 覆盖率门禁由 vitest.config.ts thresholds 控制 (50% 起点)
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

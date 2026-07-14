@@ -1,0 +1,48 @@
+name: migration-compat-tests
+
+# STAB-P2-008: 数据库迁移向后兼容性 CI 测试
+# 验证 alembic upgrade head → downgrade base → upgrade head 循环
+# 防止 migration 文件的 downgrade() 函数缺失或不正确导致生产部署后无法回滚
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/alembic/**'
+      - 'backend/alembic.ini'
+      - 'backend/app/models/**'
+      - 'scripts/test_migration_compat.py'
+      - '.github/workflows/migration-tests.yml'
+  pull_request:
+    paths:
+      - 'backend/alembic/**'
+      - 'backend/alembic.ini'
+      - 'backend/app/models/**'
+      - 'scripts/test_migration_compat.py'
+      - '.github/workflows/migration-tests.yml'
+
+jobs:
+  migration-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run migration compatibility test (STAB-P2-008)
+        run: python scripts/test_migration_compat.py
+
+      - name: Run pytest migration structure tests (STAB-P2-008)
+        working-directory: backend
+        run: |
+          # MAINT-P3-002: --maxfail=1 fail-fast
+          python -m pytest tests/test_stab_p2_008_migration_compat.py --maxfail=1 -v --no-cov --tb=short
