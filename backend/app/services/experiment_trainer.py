@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 TRAINED_ROOT = Path(settings.model_dir) / "trained"
 DEFAULT_BERT_MODEL = "bert-base-chinese"
+# ISS-13 (B615): 显式固定 Hub 下载 revision，避免供应链漂移。生产固定 commit hash。
+DEFAULT_BERT_REVISION = settings.model_bert_revision
 
 
 class ExperimentTrainer:
@@ -46,7 +48,9 @@ class ExperimentTrainer:
             TrainingArguments,
         )
 
-        tokenizer = AutoTokenizer.from_pretrained(DEFAULT_BERT_MODEL)
+        tokenizer = AutoTokenizer.from_pretrained(
+            DEFAULT_BERT_MODEL, revision=DEFAULT_BERT_REVISION
+        )
 
         def tokenize(batch: dict[str, list[Any]]) -> dict[str, Any]:
             return tokenizer(
@@ -81,7 +85,7 @@ class ExperimentTrainer:
         val_ds.set_format(type="torch")
 
         model = AutoModelForSequenceClassification.from_pretrained(
-            DEFAULT_BERT_MODEL, num_labels=2
+            DEFAULT_BERT_MODEL, revision=DEFAULT_BERT_REVISION, num_labels=2
         )
         model_dir = TRAINED_ROOT / model_name
         model_dir.mkdir(parents=True, exist_ok=True)

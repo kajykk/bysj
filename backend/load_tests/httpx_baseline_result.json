@@ -1,0 +1,74 @@
+{
+  "measured_at": "2026-07-14T23:44:49+0800",
+  "tool": "httpx ThreadPoolExecutor (locust unavailable)",
+  "base_url": "http://127.0.0.1:8010",
+  "env": "APP_ENV=test sqlite+aiosqlite (single uvicorn worker)",
+  "note": "本地单 worker 测试环境数字，非生产容量；用于 WF-0 相对基线",
+  "targets": {
+    "health_live": {
+      "endpoint": "/health/live",
+      "requests": 300,
+      "concurrency": 20,
+      "errors": 0,
+      "status_mismatch": 0,
+      "p50_ms": 37.5,
+      "p95_ms": 68.16,
+      "p99_ms": 74.29,
+      "max_ms": 74.85,
+      "mean_ms": 40.7,
+      "qps": 478.4
+    },
+    "health_ready": {
+      "endpoint": "/health/ready",
+      "requests": 300,
+      "concurrency": 20,
+      "errors": 0,
+      "status_mismatch": 0,
+      "p50_ms": 34.13,
+      "p95_ms": 43.34,
+      "p99_ms": 47.75,
+      "max_ms": 48.79,
+      "mean_ms": 34.03,
+      "qps": 571.9
+    },
+    "health_startup": {
+      "endpoint": "/health/startup",
+      "requests": 300,
+      "concurrency": 20,
+      "errors": 0,
+      "status_mismatch": 0,
+      "p50_ms": 34.15,
+      "p95_ms": 38.35,
+      "p99_ms": 46.48,
+      "max_ms": 56.58,
+      "mean_ms": 33.74,
+      "qps": 576.7
+    },
+    "openapi_json": {
+      "endpoint": "/openapi.json",
+      "requests": 300,
+      "concurrency": 20,
+      "errors": 0,
+      "status_mismatch": 0,
+      "p50_ms": 128.04,
+      "p95_ms": 386.59,
+      "p99_ms": 394.48,
+      "max_ms": 400.68,
+      "mean_ms": 144.79,
+      "qps": 137.2
+    },
+    "reviews_authwall": {
+      "endpoint": "/api/v1/reviews",
+      "requests": 300,
+      "concurrency": 20,
+      "errors": 0,
+      "status_mismatch": 0,
+      "p50_ms": 38.18,
+      "p95_ms": 46.14,
+      "p99_ms": 49.91,
+      "max_ms": 51.31,
+      "mean_ms": 38.71,
+      "qps": 501.6
+    }
+  }
+}

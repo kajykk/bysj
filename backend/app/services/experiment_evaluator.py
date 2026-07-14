@@ -75,8 +75,8 @@ class ExperimentEvaluator:
         if "text" not in df.columns:
             raise ValueError("评估数据缺少必要列: text")
 
-        tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+        tokenizer = AutoTokenizer.from_pretrained(model_dir)  # nosec B615  (本地目录, 非 Hub 下载)
+        model = AutoModelForSequenceClassification.from_pretrained(model_dir)  # nosec B615
         model.eval()
         y_true = df["label"].astype(int).tolist()
         y_pred: list[int] = []
