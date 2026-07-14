@@ -153,7 +153,7 @@ async def apply_escalation(
         row = (await db.execute(select(OperationLog).where(OperationLog.id == d.alert_id))).scalar_one_or_none()
         if row is None:
             continue
-        row.detail = json.dumps(d.detail, ensure_ascii=False)[:5000]
+        row.detail = json.dumps(d.detail, ensure_ascii=False)
         # 记录升级事件
         escalation_log = OperationLog(
             operator_id=None,

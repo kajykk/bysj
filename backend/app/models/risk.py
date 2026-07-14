@@ -1,6 +1,19 @@
 from datetime import datetime, time
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, Time, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    Time,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -17,6 +30,8 @@ class RiskAssessment(Base):
         CheckConstraint("physiological_score IS NULL OR (physiological_score >= 0 AND physiological_score <= 100)", name="ck_risk_assessments_physiological_score"),
         # P1-D-5 修复：复合索引 - 用户风险评估历史按时间倒序查询
         Index("ix_risk_assessments_user_created", "user_id", "created_at"),
+        # PERF-P2-002: 复合索引 - 通过 is_latest 快速查询每个用户的最新风险评估
+        Index("ix_risk_assessments_user_is_latest", "user_id", "is_latest"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -30,6 +45,8 @@ class RiskAssessment(Base):
     risk_factors: Mapped[list] = mapped_column(JSON, default=lambda: list())
     assessment_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    # PERF-P2-002: is_latest 标志位, 标记每个用户的最新风险评估, 避免 GROUP BY + max(created_at) 子查询
+    is_latest: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 
 class WarningNotification(Base):

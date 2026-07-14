@@ -156,12 +156,17 @@ class TestPIIKeyFallback:
 
     def test_encrypt_decrypt_roundtrip_with_current_key(self) -> None:
         """当前密钥加密的数据应能被当前密钥解密."""
-        from app.core.pii_crypto import ENCRYPTED_PREFIX, decrypt_field, encrypt_field
+        from app.core.pii_crypto import (
+            ENCRYPTED_PREFIX_V2,
+            decrypt_field,
+            encrypt_field,
+        )
 
         plaintext = "test@example.com"
         ciphertext = encrypt_field(plaintext, "email")
         assert ciphertext != plaintext
-        assert ciphertext.startswith(ENCRYPTED_PREFIX)
+        # SEC-P2-004: 新数据使用 enc:v2: (AES-256-GCM) 前缀
+        assert ciphertext.startswith(ENCRYPTED_PREFIX_V2)
 
         decrypted = decrypt_field(ciphertext, "email")
         assert decrypted == plaintext

@@ -26,7 +26,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.contracts import (
     DEFAULT_TENANT_ID,
-    TENANT_STATUS_ACTIVE,
     TENANT_STATUS_SUSPENDED,
 )
 from app.core.database import get_db
@@ -75,7 +74,7 @@ async def tenant_context_middleware(
     if tenant_id is None and tenant_code is None:
         host = request.headers.get("host", "")
         # 形如 xx_univ.dws.example.com → 取第一段
-        if "." in host and not host.startswith(("localhost", "127.0.0.1", "0.0.0.0")):
+        if "." in host and not host.startswith(("localhost", "127.0.0.1", "0.0.0.0")):  # nosec B104  security check, not actual bind
             first_segment = host.split(".", 1)[0]
             # 排除常见非租户子域名
             if first_segment and first_segment not in {"www", "api", "admin", "dws"}:

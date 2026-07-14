@@ -93,6 +93,11 @@ def clear_memory_cache() -> None:
 
 # 模块级共享 Redis 客户端 (懒加载, 复用连接池, 避免每次操作创建新连接)
 _redis_client: aioredis.Redis | None = None
+# ISS-14 修复：pubsub 订阅专用客户端单例。
+# 共享客户端 socket_timeout=2 会使订阅空闲阻塞读 (pubsub.listen()) 超过 2s 时
+# 抛 redis.exceptions.TimeoutError, 触发 ws.py _pubsub_loop 崩溃重启循环。
+# 订阅是长空闲阻塞读, 必须用独立客户端 + socket_timeout=None, 与共享缓存客户端隔离。
+_redis_pubsub_client: aioredis.Redis | None = None
 # H-Core-2 修复：使用 asyncio.Lock 替代 threading.Lock，
 # 避免 asyncio 上下文中使用同步锁阻塞事件循环
 _redis_client_lock = asyncio.Lock()
@@ -135,13 +140,54 @@ async def _get_redis_client() -> aioredis.Redis | None:
         return _redis_client
 
 
+async def get_redis_pubsub_client() -> "aioredis.Redis | None":
+    """ISS-14 修复：获取 pubsub 订阅专用 Redis 客户端 (socket_timeout=None)。
+
+    与 get_redis_client 共享同一 Redis URL, 但独立连接池, 且:
+      - socket_timeout=None: 订阅是长空闲阻塞读 (pubsub.listen), 绝不应有读超时;
+        若沿用共享客户端的 socket_timeout=2, 空闲 >2s 即抛 TimeoutError,
+        导致 ws.py _pubsub_loop 每秒崩溃重启 (ISS-14)。
+      - socket_connect_timeout=2: 连接阶段仍保持短超时, 启动失败快速退出。
+      - socket_keepalive=True + health_check_interval=30: 保活, 静默断线时
+        周期性 PING 探测, 失败即抛 ConnectionError 触发 _pubsub_loop 重连。
+      - retry_on_timeout=True: 超时自动重试 (与 socket_timeout=None 配合, 兜底)。
+
+    该客户端仅供 ws.py 的 _pubsub_loop 使用, 不用于普通缓存读写。
+    """
+    global _redis_pubsub_client
+    if _redis_pubsub_client is not None:
+        return _redis_pubsub_client
+    async with _redis_client_lock:
+        if _redis_pubsub_client is not None:
+            return _redis_pubsub_client
+        url = _get_redis_url()
+        if not url:
+            return None
+        try:
+            _redis_pubsub_client = aioredis.from_url(
+                url,
+                decode_responses=True,
+                socket_connect_timeout=2,
+                socket_timeout=None,
+                socket_keepalive=True,
+                health_check_interval=30,
+                retry_on_timeout=True,
+            )
+        except Exception as exc:
+            logger.warning("[cache] redis pubsub client init failed: %s", exc)
+            _redis_pubsub_client = None
+            return None
+        return _redis_pubsub_client
+
+
 def _reset_redis_client() -> None:
     """重置 Redis 客户端单例，下次调用 _get_redis_client 时重建连接。
 
     H-Core-2 修复：仅做赋值操作，无需锁保护，保持同步以便在异常处理中直接调用。
     """
-    global _redis_client
+    global _redis_client, _redis_pubsub_client
     _redis_client = None
+    _redis_pubsub_client = None
 
 
 async def get_redis_client() -> "aioredis.Redis | None":
@@ -165,15 +211,22 @@ async def close_redis_client() -> None:
     """P1-2: 应用关闭时关闭共享 Redis 客户端, 释放连接池资源.
 
     应在 FastAPI lifespan 的关闭阶段调用. 调用后单例被重置,
-    下次 get_redis_client() 会重建连接 (主要用于测试或应用重启场景).
+    下次 get_redis_client() / get_redis_pubsub_client() 会重建连接
+    (主要用于测试或应用重启场景).
     """
-    global _redis_client
+    global _redis_client, _redis_pubsub_client
     if _redis_client is not None:
         try:
             await _redis_client.aclose()
         except Exception as exc:
             logger.warning("[cache] redis client aclose failed: %s", exc)
         _redis_client = None
+    if _redis_pubsub_client is not None:
+        try:
+            await _redis_pubsub_client.aclose()
+        except Exception as exc:
+            logger.warning("[cache] redis pubsub client aclose failed: %s", exc)
+        _redis_pubsub_client = None
 
 
 def _should_skip_redis() -> bool:

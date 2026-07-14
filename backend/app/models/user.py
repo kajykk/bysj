@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -12,8 +13,13 @@ from app.core.contracts import (
     USER_STATUS_DELETED,
     USER_STATUS_INACTIVE,
 )
-from app.core.pii_crypto import EncryptedString, compute_blind_index
+from app.core.pii_crypto import EncryptedString
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    # Forward reference for SQLAlchemy relationship string "ReviewTask"
+    # Avoid runtime circular import; SQLAlchemy resolves via registry at mapper config time
+    from app.models.review import ReviewTask
 
 
 class User(Base):

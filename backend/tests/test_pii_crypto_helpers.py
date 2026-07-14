@@ -224,7 +224,8 @@ class TestEncryptDecryptRoundtrip:
         plain = "user@example.com"
         enc = encrypt_field(plain, "email")
         assert enc is not None
-        assert enc.startswith("enc:v1:")
+        # SEC-P2-004: 新数据使用 enc:v2: (AES-256-GCM) 前缀
+        assert enc.startswith("enc:v2:")
         assert decrypt_field(enc, "email") == plain
 
     def test_encrypt_none_returns_none(self) -> None:
@@ -483,7 +484,8 @@ class TestEncryptedStringTypeDecorator:
         col = EncryptedString(100, field="email")
         result = col.process_bind_param("user@example.com", dialect="sqlite")
         assert result is not None
-        assert result.startswith("enc:v1:")
+        # SEC-P2-004: 新数据使用 enc:v2: (AES-256-GCM) 前缀
+        assert result.startswith("enc:v2:")
         # 可解密回原值
         assert decrypt_field(result, "email") == "user@example.com"
 

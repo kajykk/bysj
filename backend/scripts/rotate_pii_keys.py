@@ -41,6 +41,7 @@ from app.core.config import settings  # noqa: E402
 from app.core.database import AsyncSessionLocal, engine  # noqa: E402
 from app.core.pii_crypto import (  # noqa: E402
     ENCRYPTED_PREFIX,
+    ENCRYPTED_PREFIX_V2,
     compute_blind_index,
     decrypt_field,
     encrypt_field,
@@ -149,7 +150,9 @@ async def rotate_field(
         if ciphertext is None or ciphertext == "":
             stats.skipped += 1
             continue
-        if not ciphertext.startswith(ENCRYPTED_PREFIX):
+        # SEC-P2-004: 支持 v1 (Fernet) 和 v2 (AES-256-GCM) 双前缀检测
+        if not (ciphertext.startswith(ENCRYPTED_PREFIX)
+                or ciphertext.startswith(ENCRYPTED_PREFIX_V2)):
             # 未加密的旧数据 - 跳过 (避免误加密非 PII 数据)
             stats.skipped += 1
             continue
@@ -167,8 +170,10 @@ async def rotate_field(
             new_ciphertext = encrypt_field(plaintext, spec.field)
         except Exception as exc:
             stats.failed += 1
+            # SEC-P3-004: 失败日志仅记录 id 和异常类名, 不记录完整异常消息
+            # (异常消息可能包含部分明文 PII 数据, 存在泄露风险)
             print(f"  [FAIL] {spec.table}.{spec.column} id={row_id}: "
-                  f"{exc.__class__.__name__}: {exc}")
+                  f"{exc.__class__.__name__} (详情见应用日志)")
             continue
 
         update_payload: dict = {"id": row_id, "value": new_ciphertext}
@@ -212,8 +217,9 @@ async def rotate_field(
             await session.rollback()
             stats.failed += len(batch)
             stats.rotated -= len(batch)
+            # SEC-P3-004: 批次失败日志仅记录行数和异常类名, 不记录完整异常消息
             print(f"  [BATCH-FAIL] {spec.table}.{spec.column} batch #{batch_num} "
-                  f"({len(batch)} rows): {exc.__class__.__name__}: {exc}")
+                  f"({len(batch)} rows): {exc.__class__.__name__} (详情见应用日志)")
             continue
         if spec.has_blind_index:
             stats.blind_index_updated += len(batch)

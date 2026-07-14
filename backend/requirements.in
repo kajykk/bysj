@@ -1,0 +1,75 @@
+# SEC-P2-005: 顶层声明依赖 (输入文件)
+#
+# 此文件仅声明顶层依赖及其版本约束, 不锁定传递依赖.
+# 锁定文件为 requirements.lock (由 pip-compile 生成).
+#
+# 生成方式:
+#   pip install pip-tools
+#   pip-compile requirements.in -o requirements.lock
+#
+# 更新依赖:
+#   pip-compile --upgrade requirements.in -o requirements.lock
+#
+# 安装锁定版本 (CI/CD 生产部署):
+#   pip install -r requirements.lock
+#
+# 安装开发版本 (本地开发):
+#   pip install -r requirements.in
+
+# Web 框架
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+slowapi>=0.1.9
+
+# 数据库
+sqlalchemy[asyncio]>=2.0.29
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.9  # alembic 同步迁移需要 (CI PostgreSQL)
+aiosqlite>=0.19.0
+alembic>=1.13.1
+
+# 数据验证
+pydantic[email]>=2.7.0  # EmailStr 需要 email-validator 扩展
+pydantic-settings>=2.2.1
+
+# 安全
+PyJWT[crypto]>=2.13.0
+cryptography>=42.0.0  # pii_crypto.py 显式依赖 Fernet/HKDF
+bcrypt>=4.0.0,<5.0.0
+
+# 缓存与队列
+redis>=5.0.4
+celery>=5.4.0
+
+# ML / 数据科学
+scikit-learn>=1.5.0,<2.0.0
+scipy>=1.11.0
+tensorflow>=2.21.0
+torch>=2.2.0
+transformers>=5.3.0
+shap>=0.45.0
+statsmodels>=0.14.0
+joblib>=1.4.2
+numpy>=1.26.4
+pandas>=2.1.4
+
+# 报告导出
+openpyxl>=3.1.2
+reportlab>=4.1.0
+Pillow>=10.0.0  # SEC-P2-003: EXIF 剥离
+
+# 文件安全
+python-magic>=0.4.27
+# pyclamd>=0.4.0  # SEC-P2-003: ClamAV 病毒扫描 (可选, 需要 clamd 守护进程)
+
+# 可观测性
+sentry-sdk[fastapi]>=2.0.0
+# opentelemetry-distro>=0.45b0  # STAB-P2-009: 分布式追踪 (可选)
+# opentelemetry-exporter-otlp>=1.24.0  # STAB-P2-009: OTLP 导出 (可选)
+# opentelemetry-instrumentation-fastapi>=0.45b0  # STAB-P2-009: FastAPI 自动追踪 (可选)
+# opentelemetry-instrumentation-sqlalchemy>=0.45b0  # STAB-P2-009: SQLAlchemy 自动追踪 (可选)
+# opentelemetry-instrumentation-redis>=0.45b0  # STAB-P2-009: Redis 自动追踪 (可选)
+
+# 配置
+python-dotenv>=1.0.1

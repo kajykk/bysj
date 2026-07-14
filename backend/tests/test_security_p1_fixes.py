@@ -132,7 +132,7 @@ class TestXSSMiddlewareOptIn:
 
 
 class TestCSPModeByEnvironment:
-    """测试 CSP 头按环境切换 (P1 #6)."""
+    """测试 CSP 头由 nginx 统一设置, 后端不再设置 (SEC-P2-009)."""
 
     def _build_app_with_env(self, app_env: str) -> FastAPI:
         app = FastAPI()
@@ -149,23 +149,23 @@ class TestCSPModeByEnvironment:
 
         return app
 
-    def test_production_uses_enforce_header(self):
-        """生产环境: Content-Security-Policy (强制)."""
+    def test_production_no_backend_csp(self):
+        """SEC-P2-009: 生产环境后端不设置 CSP (由 nginx 统一设置)."""
         app = self._build_app_with_env("production")
         client = TestClient(app)
         resp = client.get("/")
-        assert "Content-Security-Policy" in resp.headers
-        # Report-Only 应当不存在（除非生产需要两者都设，这里只验证有强制头）
-        # 生产不应该只设 Report-Only
+        # SEC-P2-009: 后端不再生成 CSP, nginx 在 frontend/nginx.conf:81 统一设置
+        assert "Content-Security-Policy" not in resp.headers
+        assert "Content-Security-Policy-Report-Only" not in resp.headers
 
-    def test_development_uses_report_only(self):
-        """开发环境: Content-Security-Policy-Report-Only."""
+    def test_development_no_backend_csp(self):
+        """SEC-P2-009: 开发环境后端不设置 CSP (由 nginx 统一设置)."""
         app = self._build_app_with_env("development")
         client = TestClient(app)
         resp = client.get("/")
-        assert "Content-Security-Policy-Report-Only" in resp.headers
-        # 开发环境不设置强制 header
-        # 注意: 此断言不绝对严格，因为某些库可能统一设置两个
+        # SEC-P2-009: 后端不再生成 CSP, nginx 在 frontend/nginx.conf:81 统一设置
+        assert "Content-Security-Policy" not in resp.headers
+        assert "Content-Security-Policy-Report-Only" not in resp.headers
 
 
 class TestCORSDefaults:

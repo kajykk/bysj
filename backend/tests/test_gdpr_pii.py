@@ -49,7 +49,8 @@ class TestPIICrypto:
         original = "user@example.com"
         encrypted = encrypt_field(original, "email")
         assert encrypted != original
-        assert encrypted.startswith("enc:v1:")
+        # SEC-P2-004: 新数据使用 enc:v2: (AES-256-GCM) 前缀
+        assert encrypted.startswith("enc:v2:")
         assert decrypt_field(encrypted, "email") == original
 
     def test_different_fields_have_different_keys(self):
@@ -109,7 +110,8 @@ class TestPIICrypto:
         col = EncryptedString(100, field="email")
         # process_bind_param 应加密
         encrypted = col.process_bind_param("user@test.com", dialect=MagicMock())
-        assert encrypted.startswith("enc:v1:")
+        # SEC-P2-004: 新数据使用 enc:v2: (AES-256-GCM) 前缀
+        assert encrypted.startswith("enc:v2:")
         # process_result_value 应解密
         plain = col.process_result_value(encrypted, dialect=MagicMock())
         assert plain == "user@test.com"
@@ -224,7 +226,9 @@ class TestGDPRServiceAnonymize:
         mock_db = AsyncMock()
         mock_db.get.return_value = mock_user
 
-        with patch("app.services.gdpr_service.verify_password", return_value=False):
+        with patch(
+            "app.services.gdpr_service_anonymize.verify_password", return_value=False
+        ):
             service = GDPRService(mock_db)
             with pytest.raises(ValueError, match="密码错误"):
                 await service.anonymize_user(1, password_confirm="wrong")
@@ -267,7 +271,9 @@ class TestGDPRServiceAnonymize:
         empty_result.scalars.return_value.all.return_value = []
         mock_db.execute.return_value = empty_result
 
-        with patch("app.services.gdpr_service.verify_password", return_value=True):
+        with patch(
+            "app.services.gdpr_service_anonymize.verify_password", return_value=True
+        ):
             service = GDPRService(mock_db)
             result = await service.anonymize_user(42, password_confirm="correct")
 

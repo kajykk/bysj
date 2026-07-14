@@ -22,9 +22,13 @@ WS_PUBSUB_CHANNEL_PREFIX = "ws:user:"
 
 
 class ConnectionManager:
-    MAX_CONNECTIONS_PER_USER = 5
-
+    # STAB-P3-002: 从 settings 读取,不再硬编码
     def __init__(self) -> None:
+        from app.core.config import settings
+
+        self.max_connections_per_user: int = settings.websocket_max_connections_per_user
+        # RES-P3-004: 全局连接上限 (跨所有用户), 超过时拒绝新连接并告警
+        self.max_global_connections: int = settings.websocket_max_global_connections
         self._connections: dict[int, list[WebSocket]] = {}
         # M-Core-15 修复：使用 asyncio.Lock 保护 connections 字典的读写，
         # 防止多协程并发 connect 导致连接数统计错乱。
@@ -37,12 +41,24 @@ class ConnectionManager:
     async def connect(self, user_id: int, ws: WebSocket) -> bool:
         """尝试建立连接。如果用户连接数已达上限，返回False。"""
         async with self._lock:
+            # RES-P3-004: 全局连接上限检查 (跨所有用户)
+            current_global = sum(len(conns) for conns in self._connections.values())
+            if current_global >= self.max_global_connections:
+                logger.warning(
+                    "RES-P3-004: WebSocket global connection limit reached "
+                    "(current=%d, max=%d). Rejecting new connection from user_id=%d.",
+                    current_global,
+                    self.max_global_connections,
+                    user_id,
+                )
+                return False
+
             current_connections = self._connections.get(user_id, [])
-            if len(current_connections) >= self.MAX_CONNECTIONS_PER_USER:
+            if len(current_connections) >= self.max_connections_per_user:
                 logger.warning(
                     "WebSocket connection limit reached for user_id=%d (max=%d)",
                     user_id,
-                    self.MAX_CONNECTIONS_PER_USER,
+                    self.max_connections_per_user,
                 )
                 return False
 
@@ -57,9 +73,10 @@ class ConnectionManager:
                 # P1-E 修复：监控指标采集失败必须记录日志，便于发现指标系统异常
                 logger.warning("websocket_connections_active.inc failed: %s", exc)
             logger.info(
-                "WebSocket connected for user_id=%d, total=%d",
+                "WebSocket connected for user_id=%d, total=%d, global=%d",
                 user_id,
                 len(self._connections[user_id]),
+                current_global + 1,
             )
             return True
 
@@ -194,14 +211,18 @@ class ConnectionManager:
             - Redis 不可用: 1 秒退避后重试
             - 订阅异常: 关闭当前 pubsub,1 秒后重连
             - 消息处理异常: 仅记录,不退出循环
+
+        ISS-14 修复: 订阅使用专用 Redis 客户端 (get_redis_pubsub_client,
+        socket_timeout=None), 不复用共享缓存客户端 (socket_timeout=2)。
+        否则空闲阻塞读超过 2s 会抛 TimeoutError, 触发本循环每秒崩溃重启。
         """
-        from app.core.cache import get_redis_client
+        from app.core.cache import get_redis_pubsub_client
 
         logger.info("WebSocket pubsub loop started (node_id=%s)", self._node_id)
         while True:
             pubsub = None
             try:
-                client = await get_redis_client()
+                client = await get_redis_pubsub_client()
                 if client is None:
                     # Redis 未配置 - 等待并重试 (不抛异常,允许应用在无 Redis 时继续运行)
                     await asyncio.sleep(1.0)

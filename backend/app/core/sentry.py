@@ -4,9 +4,74 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+import random
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_status_code(event: dict) -> Optional[int]:
+    """从 Sentry transaction event 中提取 HTTP response status code.
+
+    Sentry SDK 在 transaction event 的不同位置记录 status code:
+    - event["request"]["response_status_code"] (FastApiIntegration)
+    - event["tags"]["http.status_code"] (部分集成)
+    - event["contexts"]["trace"]["tags"]["http.response.status_code"]
+    """
+    # 路径 1: event["request"]["response_status_code"]
+    request = event.get("request") or {}
+    code = request.get("response_status_code")
+    if code is not None:
+        try:
+            return int(code)
+        except (ValueError, TypeError):
+            pass
+
+    # 路径 2: event["tags"]["http.status_code"]
+    tags = event.get("tags") or {}
+    code = tags.get("http.status_code")
+    if code is not None:
+        try:
+            return int(code)
+        except (ValueError, TypeError):
+            pass
+
+    # 路径 3: event["contexts"]["trace"]["tags"]
+    contexts = event.get("contexts") or {}
+    trace_ctx = contexts.get("trace") or {}
+    trace_tags = trace_ctx.get("tags") or {}
+    code = trace_tags.get("http.response.status_code")
+    if code is not None:
+        try:
+            return int(code)
+        except (ValueError, TypeError):
+            pass
+
+    return None
+
+
+def _make_before_send_transaction(
+    base_sample_rate: float,
+) -> Callable[[dict, dict], Optional[dict]]:
+    """创建 before_send_transaction 回调.
+
+    STAB-P2-010: 5xx 事务 100% 保留, 其他事务按 base_sample_rate 随机采样.
+
+    实现: traces_sample_rate 设为 1.0 (所有事务都创建 event),
+    before_send_transaction 在上报前过滤 — 5xx 保留, 其他按概率丢弃.
+    """
+
+    def _before_send_transaction(event: dict, hint: dict) -> Optional[dict]:
+        status_code = _extract_status_code(event)
+        if status_code is not None and 500 <= status_code < 600:
+            return event  # 5xx 100% 保留
+
+        # 非 5xx 事务按 base_sample_rate 随机采样
+        if random.random() < base_sample_rate:
+            return event
+        return None
+
+    return _before_send_transaction
 
 
 def init_sentry(
@@ -22,7 +87,8 @@ def init_sentry(
         dsn: Sentry DSN. If None, uses SENTRY_DSN env var.
         environment: Deployment environment.
         release: Release version.
-        traces_sample_rate: Percentage of transactions to trace.
+        traces_sample_rate: Percentage of non-5xx transactions to trace (0.0~1.0).
+            5xx transactions are always 100% sampled (STAB-P2-010).
         profiles_sample_rate: Percentage of transactions to profile.
     """
     dsn = dsn or os.getenv("SENTRY_DSN")
@@ -42,9 +108,12 @@ def init_sentry(
         dsn=dsn,
         environment=environment,
         release=release,
-        traces_sample_rate=traces_sample_rate,
+        # STAB-P2-010: traces_sample_rate=1.0 让所有事务都创建 event,
+        # 由 before_send_transaction 过滤 (5xx 100% 保留, 其他按 traces_sample_rate 采样)
+        traces_sample_rate=1.0,
         profiles_sample_rate=profiles_sample_rate,
         send_default_pii=False,
+        before_send_transaction=_make_before_send_transaction(traces_sample_rate),
         integrations=[
             FastApiIntegration(
                 transaction_style="endpoint",
@@ -55,7 +124,9 @@ def init_sentry(
         ],
     )
     logger.info(
-        "Sentry SDK initialized (env=%s, traces=%s)", environment, traces_sample_rate
+        "Sentry SDK initialized (env=%s, non-5xx traces=%s, 5xx traces=1.0)",
+        environment,
+        traces_sample_rate,
     )
 
 
