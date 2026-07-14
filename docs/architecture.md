@@ -61,6 +61,7 @@
 | ADR-008 | 健康检查分层 (live/ready/startup) | [ADR-008](./architecture/adr/ADR-008-health-check-probes.md) |
 | ADR-009 | Redis pubsub 用于 WebSocket 多 worker | [ADR-009](./architecture/adr/ADR-009-redis-pubsub-websocket.md) |
 | ADR-010 | 使用 Alembic 数据库迁移 | [ADR-010](./architecture/adr/ADR-010-alembic-migration.md) |
+| ADR-011 | 进程内 EventBus 事件驱动可观测性 | [ADR-011](./architecture/adr/ADR-011-event-bus.md) |
 
 ---
 

@@ -44,7 +44,8 @@ jobs:
       - name: Run contract tests
         working-directory: backend
         run: |
-          pytest tests/contract/ -v --tb=short 2>&1 | tee /tmp/contract_output.txt
+          # MAINT-P3-002: --maxfail=1 fail-fast
+          pytest tests/contract/ --maxfail=1 -v --tb=short 2>&1 | tee /tmp/contract_output.txt
           exit_code=${PIPESTATUS[0]}
           if [ $exit_code -ne 0 ]; then
             {

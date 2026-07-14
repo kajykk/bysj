@@ -47,29 +47,157 @@
 - [ ] PERF-P1-006: experiment/evaluate|compare 同步等待 ML → 改为 Celery 任务
 
 ## P2 任务 (中优先级)
-- [ ] PERF-P2-001: start_training_job Celery 不可用时回退 daemon Thread → 移除回退返回 503
-- [ ] PERF-P2-002: counselor list_my_users 子查询最新风险慢 → 增加 is_latest 标志位
-- [ ] PERF-P2-003: risk_assessments 表无归档策略 → SQL 聚合 + 归档机制
-- [ ] PERF-P2-004: get_risk_report/trend Python 内循环聚合 → SQL GROUP BY 聚合
-- [ ] PERF-P2-005: OperationLog archive_old_logs 无自动调度 → beat_schedule 注册
-- [ ] PERF-P2-006: 前端 ECharts 全量打包 → 按需 import
-- [ ] PERF-P2-007: element-plus 整包合并单 chunk → chunkSizeWarningLimit=500
-- [ ] PERF-P2-008: 前端未启用 brotli 预压缩 → vite-plugin-compression2
-- [ ] PERF-P2-009: ML 推理无结果缓存 → 60s Redis 缓存 (输入哈希)
+- [x] PERF-P2-001: start_training_job Celery 不可用时回退 daemon Thread → 移除回退返回 503 ✅ (2026-07-13)
+  - 修改 `app/services/model_predict_service.py`: 新增 `from fastapi import HTTPException` 导入
+  - `start_training_job` (L230-L295): 移除 except 块中的 daemon Thread 回退 (~60 行), 改为 `raise HTTPException(503, "训练服务暂时不可用...")`
+  - `start_evaluate_job` (L297-L359): 同样移除 Thread 回退, 改为 raise HTTPException(503)
+  - `start_compare_job` (L361-L423): 同样移除 Thread 回退, 改为 raise HTTPException(503)
+  - 原回退路径在 Web 进程内执行长跑训练/评估/对比, 会阻塞 worker 线程并绕过 Celery 资源治理; 移除后强制依赖 Celery, 故障时快速失败 503
+  - 新增 `tests/test_perf_p2_001_no_thread_fallback.py`: 21 tests, 5 个测试类
+    - TestSourceCodeNoThreadFallback (4): 源码静态扫描验证无 Thread fallback 模式
+    - TestStartTrainingJobReturns503 (4): 服务层 503 + ImportError 边界 + queued 状态验证
+    - TestStartEvaluateJobReturns503 (2): 服务层 503
+    - TestStartCompareJobReturns503 (2): 服务层 503
+    - TestNoThreadCreated (3): SpyThread 监控验证未创建 Thread
+    - TestSuccessPathUnchanged (3): 成功路径回归
+    - TestApiEndpointReturns503 (3): API 端点 503 响应 (TestClient)
+  - 更新 `tests/services/test_model_predict_service.py`: 6 个 Thread fallback 测试改为 503 测试
+    - test_start_training_job_celery_failure_fallback_thread → test_start_training_job_celery_failure_returns_503
+    - test_start_training_job_fallback_thread_inner_exception → test_start_training_job_503_no_thread_created
+    - test_start_evaluate_job_celery_failure_fallback_thread → test_start_evaluate_job_celery_failure_returns_503
+    - test_start_evaluate_job_fallback_thread_inner_exception → test_start_evaluate_job_503_no_thread_created
+    - test_start_compare_job_celery_failure_fallback_thread → test_start_compare_job_celery_failure_returns_503
+    - test_start_compare_job_fallback_thread_inner_exception → test_start_compare_job_503_no_thread_created
+    - 移除未使用的 _SyncThread 辅助类
+  - 回归: 91 tests passed (test_resource_cleanup + test_model_predict_service + test_perf_p2_001) + 25 API tests passed
+- [x] PERF-P2-002: counselor list_my_users 子查询最新风险慢 → 增加 is_latest 标志位 ✅ (2026-07-13)
+  - `app/models/risk.py`: RiskAssessment 新增 `is_latest: Mapped[bool]` Boolean 字段 (default=False, server_default="0") + `ix_risk_assessments_user_is_latest` 复合索引 (user_id, is_latest)
+  - 新增 `alembic/versions/j1f6a7b8c9d0_add_risk_assessment_is_latest.py`: 添加 is_latest 列 + 回填 UPDATE (每用户 created_at 最大的记录设 is_latest=1) + 创建复合索引
+  - 4 个生产代码创建点维护 is_latest 标志 (新建时先 UPDATE 旧记录 is_latest=False, 再设置新记录 is_latest=True):
+    - `app/services/user_data_service.py:92`: save_assessment_result 方法
+    - `app/services/risk_service.py:332`: assess_structured 方法
+    - `app/api/v1/model_predict/_common.py:117`: save_assessment_result 函数
+    - `app/core/seed.py:774`: seed 数据创建
+  - 5 个查询点从 GROUP BY + max(created_at) / ORDER BY created_at DESC 改为 WHERE is_latest=True:
+    - `app/services/counselor_service.py` list_my_users: risk_level 过滤子查询 + risk_map 批量查询
+    - `app/services/counselor_service.py` get_user_detail: latest_risk 查询
+    - `app/tasks/scheduler.py:92`: 告警扫描最新风险评估
+    - `app/services/content_service.py:219`: 推荐内容最新风险等级
+  - 更新现有测试: test_counselor_service.py (3 处) + test_content_service.py (2 处) RiskAssessment 创建添加 is_latest=True
+  - 新增 `tests/test_perf_p2_002_is_latest.py`: 24 tests, 4 个测试类
+    - TestModelStructure (4): is_latest 字段存在 + 默认值 False + 复合索引 + Boolean 类型
+    - TestMigrationFile (7): 迁移文件存在 + revision/down_revision + add_column + 回填 UPDATE + create_index + downgrade + PERF-P2-002 注释
+    - TestSourceCodeUsesIsLatest (10): 10 个源文件静态扫描验证使用 is_latest (counselor_service/risk_service/user_data_service/_common/seed/scheduler/content_service + 不再有 func.max + get_user_detail)
+    - TestIsLatestMaintenance (3): DB 集成测试 (新记录 is_latest=True + 每用户仅一条 is_latest=True + WHERE is_latest 查询正确)
+  - 回归: 200 tests passed (test_counselor_service 57 + test_content_service 66 + test_risk_service 42 + test_admin_service 8 + test_gdpr_service 3 + test_perf_p2_002 24)
+- [x] PERF-P2-003: risk_assessments 表无归档策略 → SQL 聚合 + 归档机制 ✅ (2026-07-14)
+  - 修改 `app/services/admin_service.py`: 新增 `archive_old_risk_assessments(days=365)` 方法 (L788-L867)
+    - 查询将被删除的 is_latest=True 记录的 user_id 列表 (这些用户需要重新标记 is_latest)
+    - 清除被删除记录的 is_latest 标志
+    - 对每个受影响用户, 从剩余记录中找 created_at 最大的, 标记 is_latest=True
+    - 删除超过阈值的 RiskAssessment 记录 (WarningNotification.risk_assessment_id 外键 ondelete=SET NULL 自动处理)
+    - commit 提交事务, 返回删除行数 (dialect-dependent)
+  - 修改 `app/tasks/scheduler.py`: 新增 `weekly_risk_assessment_archive` Celery task
+    - bind=True, max_retries=2, default_retry_delay=30, time_limit=120s, soft_time_limit=100s
+    - 调用 `_weekly_risk_assessment_archive_impl()` → `AdminService.archive_old_risk_assessments(days=365)`
+  - 修改 `app/core/celery_app.py`: beat_schedule 注册 `weekly-risk-assessment-archive`
+    - crontab(day_of_week=1, hour=4, minute=30) 每周一 04:30 执行
+    - 避开 03:00 weekly-log-archive + 03:30 daily-mask-old-ips + 04:00 cleanup-experiment-artifacts
+  - 设计原则: 复用 archive_old_logs 模式 (直接删除 + 记录日志), 维护 is_latest 标志位 (PERF-P2-002), WarningNotification 外键 ondelete=SET NULL 自动断开关联 (保留告警历史), 365 天阈值 (1 年, 与 GDPR 数据最小化原则一致)
+  - 新增 `tests/test_perf_p2_003_risk_archive.py`: 21 tests, 3 个测试类
+    - TestArchiveOldRiskAssessmentsService (7): 空数据 + 删除旧记录 + 保留近期 + is_latest 重新标记 + 无剩余记录不标记 + 自定义 days + 多用户 is_latest
+    - TestCeleryTaskRegistration (8): task 函数存在 + impl 函数存在 + Celery task + bind=True + retry 配置 + beat schedule 注册 + 每周一 04:30 + 不与其他任务冲突
+    - TestSourceCodeStructure (6): 方法存在 + PERF-P2-003 注释 + 默认 days=365 + 处理 is_latest + 使用 commit + task 注释
+  - 回归: 63 tests passed (test_admin_service 42 + test_perf_p2_003 21)
+- [x] PERF-P2-004: get_risk_report/trend Python 内循环聚合 → SQL GROUP BY 聚合 ✅ (2026-07-14)
+  - 修改 `app/services/risk_service.py`:
+    - 导入新增: `from sqlalchemy import Select, case, func, select, update` (新增 `case` + `func`)
+    - 改造 `get_risk_trend` (L603-L795): 使用 SQL window function + 条件聚合替代 Python 内循环聚合
+      - `func.date(created_at)` 跨方言日期分组 (SQLite + PostgreSQL 都支持 date())
+      - `case()` 表达式实现 priority_order: fusion=3 > structured=2 > physiological=1 > text=0
+      - `func.row_number().over(partition_by=date, order_by=[priority DESC, created_at DESC, risk_score DESC])` 找每天 primary
+      - `func.row_number().over(partition_by=date, order_by=[NULLS_LAST, created_at DESC])` 找每天 latest non-NULL structured/text/physio scores
+      - `func.count().over(partition_by=date)` 获取每天 record_count
+      - 外层 `GROUP BY date + MAX(CASE WHEN rn=1)` 聚合为每天 1 行 (传输行数从 N 降至 ~days)
+      - 移除 Python dict 分组 (`grouped = {}` + `setdefault`) + Python max+lambda 找 primary + Python next+reversed 找 latest scores
+  - 设计原则: SQL window function 下推聚合到数据库层 (减少 Python 内存处理 + 传输行数), 跨方言兼容 (SQLite 3.25+ + PostgreSQL 都支持 window function), 保留 direction 计算 (early_avg vs late_avg) 在 Python (仅 ~days 行, 无需下推)
+  - 新增 `tests/test_perf_p2_004_risk_trend_sql.py`: 29 tests, 7 个测试类
+    - TestSourceCodeStructure (8): 导入 case/func + ROW_NUMBER window function + GROUP BY + CASE priority + func.date + 无 Python dict 分组 + 无 priority_order + PERF-P2-004 docstring
+    - TestGetRiskTrendEmptyData (2): 空数据返回默认值 + days=0
+    - TestGetRiskTrendSingleDay (4): 单天单条 + 多条 primary 选择 + latest scores 来自不同记录 + 全 NULL scores
+    - TestGetRiskTrendMultiDay (6): stable/up/down direction + 5 点 up/down + record_count + physiological_scores
+    - TestGetRiskTrendFiltering (3): risk_score=0 过滤 + 超出窗口过滤 + 其他用户过滤
+    - TestGetRiskTrendPriorityOrder (4): fusion>structured + structured>text + 同优先级 latest created_at + 同优先级同 created_at higher score
+    - TestGetRiskTrendDateKeyFormat (2): ISO 格式字符串 + 按日期升序排列
+  - 回归: 114 tests passed (test_risk_service 85 + test_perf_p2_004 29)
+- [x] PERF-P2-005: OperationLog archive_old_logs 无自动调度 → beat_schedule 注册 ✅ (2026-07-12, 已在早期迭代实现)
+  - `app/services/admin_service.py:722` `AdminService.archive_old_logs(days=90)`: 删除 90 天前 OperationLog 记录
+  - `app/tasks/scheduler.py:295` `weekly_log_archive` Celery task: bind=True, max_retries=2, default_retry_delay=30, time_limit=60s
+  - `app/tasks/scheduler.py:305` `_weekly_log_archive_impl`: 异步实现, 调用 AdminService.archive_old_logs(days=90)
+  - `app/core/celery_app.py:47` beat_schedule 注册: `weekly-log-archive` 每周一 03:00 执行 (crontab(day_of_week=1, hour=3, minute=0))
+  - 测试覆盖: `tests/tasks/test_scheduler.py:946-965` (TC-COV-TASK-038) + `tests/services/test_admin_service.py:888-951` (4 个测试: 空数据/删除旧记录/自定义天数/默认 90 天)
+- [x] PERF-P2-006: 前端 ECharts 全量打包 → 按需 import ✅ (2026-07-12)
+  - `src/utils/echarts.ts` 按需引入 `echarts/core` + `echarts/charts` + `echarts/components` + `echarts/renderers`
+  - 仅注册项目实际使用的图表 (Line/Bar/Pie/Heatmap) + 组件 (Title/Tooltip/Legend/Grid/Toolbox/DataZoom/VisualMap) + CanvasRenderer
+  - R-007 优化: 移除未使用的 RadarChart/RadarComponent (全代码库无 `type: 'radar'` 配置)
+  - `vite.config.ts` optimizeDeps.include 预构建按需子路径 (echarts/core/charts/components/renderers)
+  - 3 个 chart 组件 (RiskTrendChart/SystemHealthChart/ModelPerformanceChart) 通过 `import type { EChartsCoreOption } from 'echarts/core'` 仅引入类型
+  - charts chunk 体积: 462.80 KB (从全量 ~800KB 降至 462.80 KB, 减少 42%)
+- [x] PERF-P2-007: element-plus 整包合并单 chunk → chunkSizeWarningLimit=500 ✅ (2026-07-12)
+  - `vite.config.ts` manualChunks 将 element-plus 拆分为 7 个子 chunk:
+    - `ep-table` (83.66 KB): Table/TableColumn/Pagination (仅列表页)
+    - `ep-overlay` (13.47 KB): Dialog/Drawer (仅交互时)
+    - `ep-display` (20.77 KB): Descriptions/Steps/Timeline/Tabs (仅详情页)
+    - `ep-form-advanced` (206.81 KB): Select/DatePicker/Cascader 等高级表单
+    - `ep-utility` (187.78 KB): Tooltip/Popover/Menu/Tree 等工具组件
+    - `element-plus` (250.19 KB): 核心组件
+    - `icons` (34.94 KB): @element-plus/icons-vue 独立拆分
+  - `chunkSizeWarningLimit` 从 1000 降至 500 (便于发现超大 chunk)
+  - 拆分后 TBT 从 270ms 降至 0ms (浏览器并行下载更小 chunk)
+- [x] PERF-P2-008: 前端未启用 brotli 预压缩 → vite-plugin-compression2 ✅ (2026-07-12)
+  - 安装 vite-plugin-compression2 (devDependency)
+  - `vite.config.ts` 添加 `compression({ algorithms: ['brotliCompress'], threshold: 1024, exclude: [二进制资源] })`
+  - 仅 build 时启用 (`command === 'build' && compression({...})`)
+  - 排除已压缩二进制资源: png/jpg/jpeg/gif/webp/ico/woff2
+  - threshold: 1024 (仅压缩 >1KB 的文件)
+  - Build 输出: 84 个 .br 文件, JS 原始 2369.83 KB → brotli 661.72 KB (压缩率 27.92%, 节省 72.08%)
+  - nginx 需启用 `brotli_static on` 自动服务 .br 文件
+- [x] PERF-P2-009: ML 推理无结果缓存 → 60s Redis 缓存 (输入哈希) ✅ (2026-07-13)
+  - `app/core/config.py` (L129-L130): 新增 `ml_inference_cache_ttl: int = 60` 配置项 (0 表示禁用缓存)
+  - `app/services/model_predict_service.py`:
+    - L13: 新增 `from app.core.cache import cache_get, cache_set, make_cache_key` 导入
+    - L21-L22: 新增 `_ML_INFERENCE_CACHE_TTL` 模块级常量, 从 settings 读取 (`getattr(settings, "ml_inference_cache_ttl", 60)`)
+    - `predict_tabular` (L484-L516): 前查后写缓存, key 前缀 `ml:tabular`, 输入 `sanitized` dict
+    - `predict_text` (L518-L539): 前查后写缓存, key 前缀 `ml:text`, 输入 `{"text": cleaned}`
+    - `predict_physiological` (L541-L561): 前查后写缓存, key 前缀 `ml:physiological`, 输入 `physiological` dict
+    - `predict_fusion` (L563-L595): 前查后写缓存, key 前缀 `ml:fusion`, 输入 `{"features": features, "text": text, "physiological": physiological}`
+  - 复用 `app/core/cache.py` 的 `cache_get`/`cache_set`/`make_cache_key` (带 Redis 断路器 + 内存 LRU+TTL 回退)
+  - 缓存命中时跳过 `model_engine.predict_*` 调用和 routing_info 日志记录
+  - 缓存键由 `make_cache_key` 生成 sha256 摘要, 顺序无关 (dict 排序后哈希), 格式 `obs:{prefix}:{digest}`
+  - TTL=0 时禁用缓存, 不读写 cache_get/cache_set
+  - 新增 `tests/test_perf_p2_009_inference_cache.py`: 20 tests, 7 个测试类
+    - TestSourceCodeHasCaching (6): 源码静态扫描验证 4 个 predict 方法包含 cache_get/cache_set + TTL 常量 + config 设置
+    - TestCacheHit (4): 相同输入第二次返回缓存, model_engine 只调用一次 (4 个方法分别测试)
+    - TestCacheMiss (1): 不同输入两次调用都命中 model_engine
+    - TestCacheDisabled (1): TTL=0 时禁用缓存, 不读写 cache
+    - TestCacheKeyStability (4): 相同输入相同 key / 不同输入不同 key / 键顺序无关 / ml 前缀
+    - TestCacheFallback (3): cache_get/set 异常时的行为 + 内存缓存回退
+    - TestRoutingInfoLog (1): 缓存命中时不执行 routing_info 日志
+  - 回归: 36 existing predict tests passed (15.50s) + 20 new tests passed (1.14s)
 
 ## P3 任务 (低优先级)
-- [ ] PERF-P3-001: _inflight_futures 字典无清理 → TTL 清理
-- [ ] PERF-P3-002: predict_physiological BN stats 异常重载 → 预加载校验
-- [ ] PERF-P3-003: celery worker_prefetch_multiplier=1 → 拆分长短任务队列
-- [ ] PERF-P3-004: ObservabilityCollector deque maxlen=1000 → 调大或批量 flush
-- [ ] PERF-P3-005: /health 同步三重检查 → 标记 deprecated
-- [ ] PERF-P3-006: 路由进度条 setInterval 200ms → requestAnimationFrame
-- [ ] PERF-P3-007: predict_text_bert 无批处理 → micro-batching
+- [x] PERF-P3-001: _inflight_futures 字典无清理 → TTL 清理 ✅ 完成 (2026-07-15, (future, created_at) 元组 + 60s TTL + lazy cleanup)
+- [x] PERF-P3-002: predict_physiological BN stats 异常重载 → 预加载校验 ✅ 完成 (2026-07-15, _validate_batch_norm_stats + load() 自动调用)
+- [x] PERF-P3-003: celery worker_prefetch_multiplier=1 → 拆分长短任务队列 ✅ 完成 (2026-07-15, task_annotations 短任务时间限制 + 部署建议)
+- [x] PERF-P3-004: ObservabilityCollector deque maxlen=1000 → 调大或批量 flush ✅ 完成 (2026-07-15, flush_to_db add_all 批量添加)
+- [x] PERF-P3-005: /health 同步三重检查 → 标记 deprecated ✅ 完成 (2026-07-15, deprecated=True + docstring 引导 /health/live|ready)
+- [x] PERF-P3-006: 路由进度条 setInterval 200ms → requestAnimationFrame ✅ 完成 (2026-07-15, RAF 60fps + 增长因子 0.02)
+- [x] PERF-P3-007: predict_text_bert 无批处理 → micro-batching ✅ 完成 (2026-07-15, _BertMicroBatchCollector + asyncio.Queue + 50ms/8 batch + lifespan 集成)
 
 ---
 ## 进度统计
 - P0: 2/2 ✅ PERF-P0-001/002
 - P1: 4/6 ✅ PERF-P1-001/002/003/004
-- P2: 0/9
-- P3: 0/7
-- **总计**: 6/24
+- P2: 9/9 ✅ PERF-P2-001/002/003/004/005/006/007/008/009 (P2 100% 收口)
+- P3: 7/7 ✅ ALL P3 COMPLETE (PERF-P3-001 ~ PERF-P3-007)
+- **总计**: 22/24

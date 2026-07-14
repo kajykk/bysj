@@ -1,0 +1,42 @@
+# STAB-P2-003: 部署后健康检查门禁
+# 在部署完成后执行健康检查, 失败时触发回滚
+name: post-deploy-health-check
+
+on:
+  workflow_dispatch:
+    inputs:
+      health_check_url:
+        description: '健康检查 URL (如 https://api.example.com)'
+        required: true
+        type: string
+      skip:
+        description: '跳过健康检查 (紧急部署)'
+        type: boolean
+        default: false
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run post-deploy health checks
+        env:
+          HEALTH_CHECK_URL: ${{ inputs.health_check_url }}
+          HEALTH_CHECK_TIMEOUT: ${{ vars.HEALTH_CHECK_TIMEOUT || '5' }}
+          HEALTH_CHECK_RETRIES: ${{ vars.HEALTH_CHECK_RETRIES || '6' }}
+          HEALTH_CHECK_INTERVAL: ${{ vars.HEALTH_CHECK_INTERVAL || '5' }}
+          HEALTH_CHECK_PATHS: ${{ vars.HEALTH_CHECK_PATHS || '/health,/health/ready' }}
+          HEALTH_CHECK_SKIP: ${{ inputs.skip == true && 'true' || '' }}
+        run: python scripts/check_post_deploy_health.py
+
+      - name: Run pytest health check tests
+        working-directory: backend
+        # MAINT-P3-002: --maxfail=1 fail-fast
+        run: python -m pytest tests/test_stab_p2_003_post_deploy_health.py --maxfail=1 -v --no-cov --tb=short
