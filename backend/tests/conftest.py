@@ -197,10 +197,32 @@ def db_session(db_connection: AsyncConnection) -> AsyncSession:
 
     # 清理可能被 AsyncSessionLocal 直接提交到 SQLite 文件的残留数据
     # (SQLite 延迟事务在首次读取时才获取快照, 无法隔离其他连接的已提交数据)
+    # 清理所有 seed 相关表 (FK 反序), 防止多测试共享同一事务时 UNIQUE 冲突.
     from sqlalchemy import text
 
     async def _cleanup():
-        await session.execute(text("DELETE FROM operation_logs"))
+        # FK 反序: 先清依赖表, 再清 users
+        for tbl in [
+            "operation_logs",
+            "alert_silences",
+            "refresh_token_sessions",
+            "client_group_members",
+            "client_groups",
+            "user_counselor_bindings",
+            "intervention_tasks",
+            "intervention_plans",
+            "intervention_templates",
+            "user_data_records",
+            "risk_assessments",
+            "crisis_events",
+            "warnings",
+            "users",
+        ]:
+            try:
+                await session.execute(text(f"DELETE FROM {tbl}"))
+            except Exception:
+                # 表可能不存在 (SQLite schema 差异), 忽略
+                pass
 
     run(_cleanup())
 
