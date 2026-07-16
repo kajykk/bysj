@@ -14,7 +14,7 @@
 
 本文档描述 DWS 系统在第 2 层 (Container) 的架构视图。容器图将系统拆分为一组可独立部署、可独立扩展的容器 (进程/服务)，展示各容器的技术栈、端口、职责及相互依赖关系。
 
-DWS 通过 `docker-compose.yml` 编排 **9 个容器服务**，覆盖前端、后端、数据存储、异步任务、监控可观测性等完整生命周期。
+DWS 通过 `docker-compose.yml` 编排 **8 个容器服务**（frontend / backend / celery-worker / celery-beat / postgres / redis / grafana / alembic-migrate），加 1 个一次性 CI 容器（test），覆盖前端、后端、数据存储、异步任务、监控可观测性等完整生命周期。Prometheus 通过 `monitoring/` 目录独立部署（不在 docker-compose 中）。
 
 ---
 
@@ -36,12 +36,12 @@ C4Container
         Container(postgres, "PostgreSQL", "PostgreSQL 15", "业务数据持久化<br/>30+ 张表 (用户/评估/风险/告警)<br/>PII 字段加密存储")
         Container(redis, "Redis", "Redis 7", "多用途: 缓存 + Celery Broker<br/>WebSocket pubsub + 限流计数<br/>分布式锁 + 模型状态缓存")
         Container(grafana, "Grafana", "Grafana 11.6", "监控仪表盘可视化<br/>告警规则管理<br/>数据源: Prometheus")
-        Container(prometheus, "Prometheus", "Prometheus", "指标采集与时序存储<br/>告警规则评估<br/>抓取 backend /metrics")
     }
 
     System_Ext(smtp, "SMTP 邮件服务")
     System_Ext(sentry, "Sentry")
     System_Ext(alertmanager, "AlertManager")
+    System_Ext(prometheus, "Prometheus", "指标采集与时序存储<br/>告警规则评估<br/>抓取 backend /metrics<br/>(不在 docker-compose, 独立部署)")
 
     Rel(student, frontend, "HTTPS 访问 SPA", "HTTPS")
     Rel(counselor, frontend, "HTTPS 访问 SPA", "HTTPS")
@@ -75,7 +75,7 @@ C4Container
 | 容器 | 技术栈 | 端口 | 职责 |
 |---|---|---|---|
 | **frontend** | Vue 3.5 + TypeScript 5.6 + Vite 6.2 + Element Plus 2.8 + ECharts 5.5 + Nginx | 80 (对外) | 三角色统一 SPA 入口；路由守卫 + RBAC 权限矩阵；WebSocket 客户端实时接收预警；PWA 离线支持；ECharts 风险趋势可视化 |
-| **backend** | Python 3.12 + FastAPI + Uvicorn + SQLAlchemy 2.0 (async) + Pydantic 2.7 | 8000 | REST API (23 个路由) + WebSocket；业务编排、JWT 鉴权、风险评估、告警生命周期管理；多模态 ML 推理 (FusionEngine) + 模型治理；lifespan 管理 ObservabilityExporter 与 WS 连接管理 |
+| **backend** | Python 3.12 + FastAPI + Uvicorn + SQLAlchemy 2.0 (async) + Pydantic 2.7 | 8000 | REST API (33 个路由模块) + WebSocket；业务编排、JWT 鉴权、风险评估、告警生命周期管理；多模态 ML 推理 (FusionEngine) + 模型治理；lifespan 管理 ObservabilityExporter 与 WS 连接管理 |
 | **celery-worker** | Python 3.12 + Celery 5.4 | - | 异步任务执行：PDF 报告生成 (reportlab)、模型训练、异常检测、可观测性聚合、告警升级检查 |
 | **celery-beat** | Python 3.12 + Celery Beat 5.4 | - | 定时任务调度：漂移检测、金丝雀监控、告警升级、静默过期、模型状态轮询 |
 
@@ -91,13 +91,14 @@ C4Container
 | 容器 | 技术栈 | 端口 | 职责 |
 |---|---|---|---|
 | **grafana** | Grafana 11.6 | 3000 | 监控仪表盘可视化；告警规则管理；数据源：Prometheus；预置仪表盘：系统健康、模型性能、告警概览 |
-| **prometheus** | Prometheus | 9090 | 指标采集与时序存储；告警规则评估；抓取 backend `/metrics` 端点 (15s 间隔) |
+| **prometheus** *(外部)* | Prometheus | 9090 | 指标采集与时序存储；告警规则评估；抓取 backend `/metrics` 端点 (15s 间隔)。不在 docker-compose 中，通过 `monitoring/prometheus/` 独立部署 |
 
 ### 3.4 一次性容器
 
 | 容器 | 技术栈 | 触发时机 | 职责 |
 |---|---|---|---|
 | **alembic-migrate** | Python 3.12 + Alembic | 容器启动时 (依赖 postgres 健康) | 执行数据库迁移 (upgrade head)；迁移完成后退出；幂等执行 |
+| **test** | Python 3.12 + pytest | 仅 CI 环境 | 运行后端测试套件 (`pytest tests/`)；使用 SQLite 内存数据库；不参与生产部署 |
 
 ---
 
@@ -148,15 +149,16 @@ graph LR
 
 | 容器 | 内部端口 | 主机端口 | 暴露 | 说明 |
 |---|---|---|---|---|
-| frontend | 80 | 8080 | 对外 | Nginx 反向代理后端 API |
+| frontend | 80 / 443 | 80 / 443 | 对外 | Nginx 反向代理后端 API，80→443 TLS 跳转 |
 | backend | 8000 | 8000 | 对内 | REST API + WebSocket |
-| postgres | 5432 | 5432 | 对内 | 数据库 |
-| redis | 6379 | 6379 | 对内 | 缓存/消息队列 |
+| postgres | 5432 | - | 内部 | 生产环境不暴露到宿主机（容器间通信） |
+| redis | 6379 | - | 内部 | 生产环境不暴露到宿主机（容器间通信） |
 | grafana | 3000 | 3000 | 对内 | 仪表盘 |
-| prometheus | 9090 | 9090 | 对内 | 指标查询 |
+| prometheus | 9090 | - | 外部 | 不在 docker-compose 中，通过 monitoring/ 独立部署 |
 | celery-worker | - | - | 内部 | 无 HTTP 端口 |
 | celery-beat | - | - | 内部 | 无 HTTP 端口 |
 | alembic-migrate | - | - | 一次性 | 迁移后退出 |
+| test | - | - | CI | 仅 CI 环境运行 pytest |
 
 ---
 

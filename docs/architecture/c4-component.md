@@ -32,7 +32,7 @@ graph TD
         MW_XSS["xss.py<br/>XSS 输入过滤"]
     end
 
-    subgraph API["API 路由层 (api/v1/ - 23 个路由)"]
+    subgraph API["API 路由层 (api/v1/ - 33 个路由模块)"]
         API_Auth["auth.py<br/>登录/注册/Token"]
         API_Risk["user_risk.py<br/>风险评估提交"]
         API_Warning["user_warning.py + alerts.py<br/>预警查询/告警管理"]
@@ -200,7 +200,7 @@ graph TD
 | `security.py` | JWT 校验、CSRF 防护、安全响应头 | Bearer Token 验证；CSP/HSTS/XSS-Protection |
 | `xss.py` | XSS 输入过滤、CSP 报告接收 | 对用户输入做 HTML 转义；接收 `/csp-report` |
 
-### 3.2 API 路由层 (api/v1/ - 23 个路由)
+### 3.2 API 路由层 (api/v1/ - 33 个路由模块)
 
 | 路由模块 | 职责 |
 |---|---|
