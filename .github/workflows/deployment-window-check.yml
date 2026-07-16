@@ -42,9 +42,10 @@ jobs:
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt 2>/dev/null || pip install pytest
+          # 此测试只测 scripts/check_deployment_window.py 纯逻辑, 无需项目依赖
+          # 不装重型 requirements-dev.txt (含 schemathesis/locust/mkdocs, 安装易失败)
+          # --noconftest: 跳过项目级 tests/conftest.py (它 import fastapi/sqlalchemy/testclient)
+          # -o addopts=: 跳过 pytest.ini 的 --cov (无 pytest-cov 时会报 unrecognized arguments)
+          pip install pytest pytest-asyncio
           # MAINT-P3-002: --maxfail=1 fail-fast
-          # -o addopts= 跳过 pytest.ini 的 --cov (此测试只测脚本逻辑, 无需 coverage;
-          #   且 requirements-dev.txt 安装失败 fallback 到纯 pytest 时无 pytest-cov,
-          #   --cov=app 会报 unrecognized arguments)
-          python -m pytest tests/test_stab_p2_007_deployment_window.py --maxfail=1 -v -o "addopts=" --tb=short
+          python -m pytest tests/test_stab_p2_007_deployment_window.py --maxfail=1 -v -o "addopts=" --noconftest --tb=short
