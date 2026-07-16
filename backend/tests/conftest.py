@@ -225,6 +225,8 @@ def db_session(db_connection: AsyncConnection) -> AsyncSession:
                 pass
 
     run(_cleanup())
+    # flush 让 DELETE 对同一 connection 的其他 session (get_db override) 可见
+    run(session.flush())
 
     try:
         yield session
