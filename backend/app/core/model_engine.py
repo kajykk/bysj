@@ -1,3 +1,17 @@
+"""风险评估模型引擎（核心编排器）。
+
+负责把多模态输入组装为特征、加载模型、执行推理并输出风险分。
+为避免 app.core 反向依赖 app.ml（层级倒置反模式），ML 相关组件在方法内延迟导入。
+
+架构采用 Mixin 拆分，保持单一文件职责清晰：
+- RiskMixin   (model_engine_risk.py)     : 风险映射 / 干预建议 / 危机检测 / SHAP 解释
+- FallbackMixin(model_engine_fallback.py): 分层启发式回退策略
+- PredictMixin (model_engine_predict.py)  : 核心预测流程
+
+当模型不可用或推理失败时，依次回退到统计基线、规则启发式、轻量模型等，
+在保证高可用的前提下仍能产出可用的风险分。
+"""
+
 from __future__ import annotations
 
 import asyncio

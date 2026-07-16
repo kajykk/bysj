@@ -36,6 +36,25 @@ const trendOption = computed<EChartsCoreOption>(() => {
   }
 })
 
+const FACTOR_COLORS = ['#2e6fa8', '#5a9e3a', '#d4923a', '#d65a5a', '#7a8290', '#82a9cb']
+const factorOption = computed<EChartsCoreOption>(() => {
+  const factors = (report.value?.main_factors || []).slice(0, 6)
+  const data = factors.map((f) => ({ name: f.feature, value: Number(f.importance) || 0 }))
+  if (!data.length) return {}
+  return {
+    tooltip: { trigger: 'item' },
+    legend: { type: 'scroll', orient: 'vertical', right: 10, top: 'middle' },
+    series: [{
+      type: 'pie',
+      radius: ['42%', '70%'],
+      avoidLabelOverlap: true,
+      itemStyle: { borderColor: '#fff', borderWidth: 2 },
+      label: { show: false },
+      data: data.map((d, i) => ({ ...d, itemStyle: { color: FACTOR_COLORS[i % FACTOR_COLORS.length] } }))
+    }]
+  }
+})
+
 async function loadData() {
   loading.value = true
   try {
@@ -134,6 +153,24 @@ onMounted(loadData)
       />
     </el-card>
 
+    <el-card class="factor-card">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">{{ t('userReports.factorChartTitle') }}</span>
+          <span class="card-sub">{{ t('userReports.factorCount') }} {{ report?.main_factors?.length || 0 }}</span>
+        </div>
+      </template>
+      <BaseChart
+        v-if="report && report.main_factors && report.main_factors.length"
+        :option="factorOption"
+        height="280px"
+      />
+      <el-empty
+        v-else
+        :description="t('userReports.factorChartEmpty')"
+      />
+    </el-card>
+
     <el-card class="export-card">
       <el-button
         type="primary"
@@ -160,6 +197,9 @@ onMounted(loadData)
 
 <style scoped>
 .user-reports-page { display: flex; flex-direction: column; gap: 16px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-title { font-weight: var(--font-weight-semibold); }
+.card-sub { font-size: var(--font-size-extra-small); color: var(--text-secondary); }
 .page-summary {
   padding: 1rem 1.25rem;
   border: 1px solid var(--border-extra-light);

@@ -19,6 +19,15 @@ import {
   type NextAction
 } from './sharedDashboardUtils'
 
+/** 最近活动时间线条目 */
+export interface ActivityItem {
+  id: string
+  type: 'assessment' | 'warning' | 'plan'
+  title: string
+  time: string
+  color: string
+}
+
 export function useUserDashboardData() {
   const { t } = useI18n()
   const router = useRouter()
@@ -81,6 +90,57 @@ export function useUserDashboardData() {
   const assessmentTypeLabelText = computed(() =>
     assessmentTypeLabel(getAssessmentType(latestAssessment.value))
   )
+
+  // 最近活动：复用已加载的带时间戳数据，避免额外请求与虚构内容
+  const activityLoading = computed(() =>
+    assessmentLoading.value || warningLoading.value || interventionLoading.value
+  )
+
+  const activities = computed<ActivityItem[]>(() => {
+    const items: ActivityItem[] = []
+
+    if (latestAssessment.value?.created_at) {
+      items.push({
+        id: `assessment-${latestAssessment.value.id}`,
+        type: 'assessment',
+        title: t('userDashboard.activity.assessment'),
+        time: latestAssessment.value.created_at,
+        color: 'var(--primary-color)'
+      })
+    }
+
+    for (const w of unreadWarnings.value) {
+      if (!w.created_at) continue
+      const level = w.risk_level
+      const color =
+        level >= 3 ? 'var(--danger-color)'
+          : level === 2 ? 'var(--warning-color)'
+            : 'var(--success-color)'
+      items.push({
+        id: `warning-${w.id}`,
+        type: 'warning',
+        title: t('userDashboard.activity.warning'),
+        time: w.created_at,
+        color
+      })
+    }
+
+    const plan = activeIntervention.value.plan
+    if (plan.id && plan.start_date) {
+      items.push({
+        id: `plan-${plan.id}`,
+        type: 'plan',
+        title: t('userDashboard.activity.planStarted', {
+          name: plan.plan_name || t('userDashboard.defaultPlanName')
+        }),
+        time: plan.start_date,
+        color: 'var(--success-color)'
+      })
+    }
+
+    items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+    return items.slice(0, 6)
+  })
 
   const nextAction = computed<NextAction>(() => {
     if (riskLoading.value || interventionLoading.value || warningLoading.value || assessmentLoading.value) {
@@ -234,6 +294,7 @@ export function useUserDashboardData() {
     latestAssessment, assessmentLoading, assessmentError,
     completedTasks, riskColor, severityLabel, severityTagType,
     assessmentTypeLabelText,
+    activities, activityLoading,
     nextAction,
     loadRiskReport, loadActiveIntervention, loadRiskTrend, loadWarnings, loadLatestAssessment, loadDashboard
   }

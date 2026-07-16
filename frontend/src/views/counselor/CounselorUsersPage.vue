@@ -1,5 +1,6 @@
 <template>
   <div class="counselor-users-page">
+    <UserOverviewStatsCard />
     <ListPageScaffold
       :title="t('counselorUsers.pageTitle')"
       :loading="loading"
@@ -179,6 +180,7 @@ import { useI18n } from 'vue-i18n'
 import { counselorApi, type UserManageItem } from '@/api/counselorApi'
 import PageTable from '@/components/common/PageTable.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
+import UserOverviewStatsCard from './components/counselor-users/UserOverviewStatsCard.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import FilterBar from '@/components/common/FilterBar.vue'
 import { mockUsers } from '@/mocks/business'
@@ -296,6 +298,9 @@ onMounted(fetchData)
 <style scoped>
 .counselor-users-page {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 
 .user-cell {

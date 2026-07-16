@@ -1,195 +1,198 @@
 <template>
-  <BentoCell
-    :title="t('userWarnings.title')"
-    class="warnings-card bento-item"
-  >
-    <FilterBar
-      @search="fetchData"
-      @reset="handleReset"
+  <div class="warnings-page">
+    <WarningStatsCard />
+    <BentoCell
+      :title="t('userWarnings.title')"
+      class="warnings-card bento-item"
     >
-      <el-form-item :label="t('userWarnings.filterStatusLabel')">
-        <el-select
-          v-model="filters.isRead"
-          clearable
-          style="width: 140px"
-        >
-          <el-option
-            :label="t('userWarnings.filterUnread')"
-            :value="false"
-          />
-          <el-option
-            :label="t('userWarnings.filterRead')"
-            :value="true"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button
-          type="primary"
-          plain
-          :loading="bulkLoading"
-          :disabled="!hasUnreadRows"
-          @click="handleMarkAllRead"
-        >
-          {{ t('userWarnings.btnMarkAllRead') }}
-        </el-button>
-      </el-form-item>
-    </FilterBar>
+      <FilterBar
+        @search="fetchData"
+        @reset="handleReset"
+      >
+        <el-form-item :label="t('userWarnings.filterStatusLabel')">
+          <el-select
+            v-model="filters.isRead"
+            clearable
+            style="width: 140px"
+          >
+            <el-option
+              :label="t('userWarnings.filterUnread')"
+              :value="false"
+            />
+            <el-option
+              :label="t('userWarnings.filterRead')"
+              :value="true"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button
+            type="primary"
+            plain
+            :loading="bulkLoading"
+            :disabled="!hasUnreadRows"
+            @click="handleMarkAllRead"
+          >
+            {{ t('userWarnings.btnMarkAllRead') }}
+          </el-button>
+        </el-form-item>
+      </FilterBar>
 
-    <StatefulContainer
-      :loading="loading"
-      :empty="!loading && rows.length === 0"
-      :error-message="pageError"
-      :empty-text="t('userWarnings.emptyText')"
-      @retry="fetchData"
-    >
-      <!-- L-29 优化说明：大数据列表渲染优化
+      <StatefulContainer
+        :loading="loading"
+        :empty="!loading && rows.length === 0"
+        :error-message="pageError"
+        :empty-text="t('userWarnings.emptyText')"
+        @retry="fetchData"
+      >
+        <!-- L-29 优化说明：大数据列表渲染优化
            该页面已通过 PageTable 实现服务端分页（仅渲染当前 page_size 条数据），
            DOM 节点数量受 page_size 限制，性能影响较小。
            若后续需在单页渲染超大量数据（如关闭分页或 page_size > 200），
            建议迁移至 el-table-v2（虚拟滚动版本）以避免全量 DOM 渲染。 -->
-      <PageTable
-        :loading="loading"
-        :data="rows"
-        :total="total"
-        :page="page"
-        :page-size="pageSize"
-        :row-class-name="rowClassName"
-        @update:page="(value: number) => { queryState.setQuery({ page: value }); fetchData() }"
-        @update:page-size="(value: number) => { queryState.setQuery({ page_size: value, page: 1 }); fetchData() }"
-      >
-        <el-table-column
-          prop="id"
-          :label="t('userWarnings.colId')"
-          width="80"
-        />
-        <el-table-column
-          prop="title"
-          :label="t('userWarnings.colTitle')"
-          min-width="180"
-        />
-        <el-table-column
-          :label="t('userWarnings.colContent')"
-          min-width="220"
+        <PageTable
+          :loading="loading"
+          :data="rows"
+          :total="total"
+          :page="page"
+          :page-size="pageSize"
+          :row-class-name="rowClassName"
+          @update:page="(value: number) => { queryState.setQuery({ page: value }); fetchData() }"
+          @update:page-size="(value: number) => { queryState.setQuery({ page_size: value, page: 1 }); fetchData() }"
         >
-          <template #default="{ row }">
-            {{ row.content }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('userWarnings.colRiskLevel')"
-          width="120"
-        >
-          <template #default="{ row }">
-            <el-tag
-              :type="getWarningRiskLevelTagType(row.risk_level)"
-              size="small"
-            >
-              {{ getWarningRiskLevelLabel(row.risk_level) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('userWarnings.colStatus')"
-          width="120"
-        >
-          <template #default="{ row }">
-            <el-tag
-              :type="getWarningStatusTagType(row.status)"
-              size="small"
-            >
-              {{ getWarningStatusLabel(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('userWarnings.colReadStatus')"
-          width="100"
-        >
-          <template #default="{ row }">
-            <el-tag
-              :type="row.is_read ? 'success' : 'warning'"
-              size="small"
-            >
-              {{ row.is_read ? t('userWarnings.readLabel') : t('userWarnings.unreadLabel') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="created_at"
-          :label="t('userWarnings.colTime')"
-          min-width="180"
-        >
-          <template #default="{ row }">
-            {{ formatWarningDateTime(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('userWarnings.colHandleRecord')"
-          min-width="240"
-        >
-          <template #default="{ row }">
-            <div class="row-meta">
-              <span>{{ t('userWarnings.handlerLabel') }}{{ row.handled_by || '—' }}</span>
-              <span>{{ t('userWarnings.handleTimeLabel') }}{{ formatWarningDateTime(row.handled_at) }}</span>
-              <span>{{ t('userWarnings.handleNoteLabel') }}{{ row.handled_note || '—' }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('userWarnings.colInlineHint')"
-          min-width="200"
-        >
-          <template #default="{ row }">
-            <span
-              v-if="rowErrors[row.id]"
-              class="row-error"
-            >{{ rowErrors[row.id] }}</span>
-            <span
-              v-else
-              class="row-ok"
-            >-</span>
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('userWarnings.colModalInfo')"
-          min-width="180"
-        >
-          <template #default="{ row }">
-            <div class="row-meta">
-              <span>{{ t('userWarnings.physiologicalScoreLabel') }}{{ row.physiological_score ?? '—' }}</span>
-              <span>{{ t('userWarnings.fusionDetailLabel') }}{{ row.fusion_detail ? t('userWarnings.fusionIncluded') : '—' }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('userWarnings.colOperation')"
-          width="140"
-          fixed="right"
-        >
-          <template #default="{ row }">
-            <el-button
-              v-if="canTrackWarning()"
-              link
-              type="primary"
-              :loading="isRowPending(row.id)"
-              :disabled="row.is_read || isRowPending(row.id)"
-              @click="handleMarkRead(row)"
-            >
-              {{ t('userWarnings.btnMarkRead') }}
-            </el-button>
-            <el-tag
-              v-else
-              type="info"
-              size="small"
-            >
-              {{ t('userWarnings.noTrackPermission') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-      </PageTable>
-    </StatefulContainer>
-  </BentoCell>
+          <el-table-column
+            prop="id"
+            :label="t('userWarnings.colId')"
+            width="80"
+          />
+          <el-table-column
+            prop="title"
+            :label="t('userWarnings.colTitle')"
+            min-width="180"
+          />
+          <el-table-column
+            :label="t('userWarnings.colContent')"
+            min-width="220"
+          >
+            <template #default="{ row }">
+              {{ row.content }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('userWarnings.colRiskLevel')"
+            width="120"
+          >
+            <template #default="{ row }">
+              <el-tag
+                :type="getWarningRiskLevelTagType(row.risk_level)"
+                size="small"
+              >
+                {{ getWarningRiskLevelLabel(row.risk_level) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('userWarnings.colStatus')"
+            width="120"
+          >
+            <template #default="{ row }">
+              <el-tag
+                :type="getWarningStatusTagType(row.status)"
+                size="small"
+              >
+                {{ getWarningStatusLabel(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('userWarnings.colReadStatus')"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag
+                :type="row.is_read ? 'success' : 'warning'"
+                size="small"
+              >
+                {{ row.is_read ? t('userWarnings.readLabel') : t('userWarnings.unreadLabel') }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="created_at"
+            :label="t('userWarnings.colTime')"
+            min-width="180"
+          >
+            <template #default="{ row }">
+              {{ formatWarningDateTime(row.created_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('userWarnings.colHandleRecord')"
+            min-width="240"
+          >
+            <template #default="{ row }">
+              <div class="row-meta">
+                <span>{{ t('userWarnings.handlerLabel') }}{{ row.handled_by || '—' }}</span>
+                <span>{{ t('userWarnings.handleTimeLabel') }}{{ formatWarningDateTime(row.handled_at) }}</span>
+                <span>{{ t('userWarnings.handleNoteLabel') }}{{ row.handled_note || '—' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('userWarnings.colInlineHint')"
+            min-width="200"
+          >
+            <template #default="{ row }">
+              <span
+                v-if="rowErrors[row.id]"
+                class="row-error"
+              >{{ rowErrors[row.id] }}</span>
+              <span
+                v-else
+                class="row-ok"
+              >-</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('userWarnings.colModalInfo')"
+            min-width="180"
+          >
+            <template #default="{ row }">
+              <div class="row-meta">
+                <span>{{ t('userWarnings.physiologicalScoreLabel') }}{{ row.physiological_score ?? '—' }}</span>
+                <span>{{ t('userWarnings.fusionDetailLabel') }}{{ row.fusion_detail ? t('userWarnings.fusionIncluded') : '—' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('userWarnings.colOperation')"
+            width="140"
+            fixed="right"
+          >
+            <template #default="{ row }">
+              <el-button
+                v-if="canTrackWarning()"
+                link
+                type="primary"
+                :loading="isRowPending(row.id)"
+                :disabled="row.is_read || isRowPending(row.id)"
+                @click="handleMarkRead(row)"
+              >
+                {{ t('userWarnings.btnMarkRead') }}
+              </el-button>
+              <el-tag
+                v-else
+                type="info"
+                size="small"
+              >
+                {{ t('userWarnings.noTrackPermission') }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </PageTable>
+      </StatefulContainer>
+    </BentoCell>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -201,6 +204,7 @@ import FilterBar from '@/components/common/FilterBar.vue'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import PageTable from '@/components/common/PageTable.vue'
 import BentoCell from '@/components/common/BentoCell.vue'
+import WarningStatsCard from './components/user-warnings/WarningStatsCard.vue'
 import { mockWarnings } from '@/mocks/business'
 import { withMockFallback } from '@/utils/mockFallback'
 import { getErrorDetail } from '@/utils/errorDetail'
@@ -367,6 +371,12 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.warnings-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
 .row-error {
   color: var(--danger-color);
 }

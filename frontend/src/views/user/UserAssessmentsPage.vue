@@ -1,113 +1,117 @@
 <template>
-  <ListPageScaffold
-    :title="t('userAssessments.pageTitle')"
-    :loading="loading"
-    :empty="!loading && rows.length === 0"
-    :error-message="pageError"
-    :empty-text="t('userAssessments.emptyText')"
-    @retry="fetchData"
-  >
-    <template #filters>
-      <FilterBar
-        @search="handleSearch"
-        @reset="handleReset"
-      >
-        <el-form-item :label="t('userAssessments.filterType')">
-          <el-select
-            v-model="filters.type"
-            clearable
-            style="width: 160px"
-          >
-            <el-option
-              :label="t('userAssessments.typeStructured')"
-              value="structured"
-            />
-            <el-option
-              :label="t('userAssessments.typeText')"
-              value="text"
-            />
-            <el-option
-              :label="t('userAssessments.typePhysiological')"
-              value="physiological"
-            />
-          </el-select>
-        </el-form-item>
+  <div class="assessments-page">
+    <AssessmentsStatsCard />
 
-        <el-form-item :label="t('userAssessments.filterTimeRange')">
-          <el-date-picker
-            v-model="filters.range"
-            type="daterange"
-            value-format="YYYY-MM-DD"
-            :range-separator="t('userAssessments.rangeSeparator')"
-            :start-placeholder="t('userAssessments.startPlaceholder')"
-            :end-placeholder="t('userAssessments.endPlaceholder')"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button @click="handleExport">
-            {{ t('userAssessments.btnExport') }}
-          </el-button>
-        </el-form-item>
-      </FilterBar>
-    </template>
-
-    <PageTable
+    <ListPageScaffold
+      :title="t('userAssessments.pageTitle')"
       :loading="loading"
-      :data="rows"
-      :total="total"
-      :page="page"
-      :page-size="pageSize"
-      @update:page="onPageChange"
-      @update:page-size="onPageSizeChange"
+      :empty="!loading && rows.length === 0"
+      :error-message="pageError"
+      :empty-text="t('userAssessments.emptyText')"
+      @retry="fetchData"
     >
-      <el-table-column
-        prop="id"
-        :label="t('userAssessments.colId')"
-        width="80"
-      />
-      <el-table-column
-        prop="assessment_type"
-        :label="t('userAssessments.colType')"
-        width="120"
-      />
-      <el-table-column
-        prop="score"
-        :label="t('userAssessments.colScore')"
-        width="100"
-      />
-      <el-table-column
-        prop="risk_level"
-        :label="t('userAssessments.colRiskLevel')"
-        width="120"
-      />
-      <el-table-column
-        prop="summary"
-        :label="t('userAssessments.colSummary')"
-        min-width="220"
-      />
-      <el-table-column
-        prop="created_at"
-        :label="t('userAssessments.colTime')"
-        min-width="180"
-      />
-      <el-table-column
-        :label="t('userAssessments.colOperation')"
-        width="180"
-        fixed="right"
+      <template #filters>
+        <FilterBar
+          @search="handleSearch"
+          @reset="handleReset"
+        >
+          <el-form-item :label="t('userAssessments.filterType')">
+            <el-select
+              v-model="filters.type"
+              clearable
+              style="width: 160px"
+            >
+              <el-option
+                :label="t('userAssessments.typeStructured')"
+                value="structured"
+              />
+              <el-option
+                :label="t('userAssessments.typeText')"
+                value="text"
+              />
+              <el-option
+                :label="t('userAssessments.typePhysiological')"
+                value="physiological"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item :label="t('userAssessments.filterTimeRange')">
+            <el-date-picker
+              v-model="filters.range"
+              type="daterange"
+              value-format="YYYY-MM-DD"
+              :range-separator="t('userAssessments.rangeSeparator')"
+              :start-placeholder="t('userAssessments.startPlaceholder')"
+              :end-placeholder="t('userAssessments.endPlaceholder')"
+            />
+          </el-form-item>
+
+          <el-form-item>
+            <el-button @click="handleExport">
+              {{ t('userAssessments.btnExport') }}
+            </el-button>
+          </el-form-item>
+        </FilterBar>
+      </template>
+
+      <PageTable
+        :loading="loading"
+        :data="rows"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        @update:page="onPageChange"
+        @update:page-size="onPageSizeChange"
       >
-        <template #default="{ row }">
-          <ActionColumn
-            :label="t('userAssessments.btnViewDetail')"
-            :disabled="!canViewAssessment"
-            :disabled-reason="t('userAssessments.noPermission')"
-            show-audit
-            @action="openDetail(row)"
-          />
-        </template>
-      </el-table-column>
-    </PageTable>
-  </ListPageScaffold>
+        <el-table-column
+          prop="id"
+          :label="t('userAssessments.colId')"
+          width="80"
+        />
+        <el-table-column
+          prop="assessment_type"
+          :label="t('userAssessments.colType')"
+          width="120"
+        />
+        <el-table-column
+          prop="score"
+          :label="t('userAssessments.colScore')"
+          width="100"
+        />
+        <el-table-column
+          prop="risk_level"
+          :label="t('userAssessments.colRiskLevel')"
+          width="120"
+        />
+        <el-table-column
+          prop="summary"
+          :label="t('userAssessments.colSummary')"
+          min-width="220"
+        />
+        <el-table-column
+          prop="created_at"
+          :label="t('userAssessments.colTime')"
+          min-width="180"
+        />
+        <el-table-column
+          :label="t('userAssessments.colOperation')"
+          width="180"
+          fixed="right"
+        >
+          <template #default="{ row }">
+            <ActionColumn
+              :label="t('userAssessments.btnViewDetail')"
+              :disabled="!canViewAssessment"
+              :disabled-reason="t('userAssessments.noPermission')"
+              show-audit
+              @action="openDetail(row)"
+            />
+          </template>
+        </el-table-column>
+      </PageTable>
+    </ListPageScaffold>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -123,6 +127,7 @@ import FilterBar from '@/components/common/FilterBar.vue'
 import PageTable from '@/components/common/PageTable.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
+import AssessmentsStatsCard from './components/user-assessments/AssessmentsStatsCard.vue'
 import { mockAssessments } from '@/mocks/business'
 import { withMockFallback } from '@/utils/mockFallback'
 import { hasPermission } from '@/config/permissions'
@@ -245,3 +250,11 @@ const handleExport = async () => {
 
 onMounted(fetchData)
 </script>
+
+<style scoped>
+.assessments-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+</style>

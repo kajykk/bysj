@@ -1,5 +1,6 @@
 <template>
   <div class="review-list-page">
+    <ReviewStatsCard :stats="stats" />
     <el-card>
       <template #header>
         <div class="header-row">
@@ -75,55 +76,6 @@
           </el-button>
         </el-form-item>
       </el-form>
-
-      <!-- 统计卡片 -->
-      <el-row
-        :gutter="16"
-        class="stats-row"
-      >
-        <el-col
-          :xs="12"
-          :sm="6"
-        >
-          <el-statistic
-            :title="t('counselorReviews.statPending')"
-            :value="stats.pending"
-          />
-        </el-col>
-        <el-col
-          :xs="12"
-          :sm="6"
-        >
-          <el-statistic
-            :title="t('counselorReviews.statInReview')"
-            :value="stats.in_review"
-          />
-        </el-col>
-        <el-col
-          :xs="12"
-          :sm="6"
-        >
-          <el-statistic
-            :title="t('counselorReviews.statResolved')"
-            :value="stats.resolved"
-          />
-        </el-col>
-        <el-col
-          :xs="12"
-          :sm="6"
-        >
-          <el-statistic
-            :title="t('counselorReviews.statCrisis')"
-            :value="stats.crisis_count"
-          >
-            <template #suffix>
-              <el-icon class="crisis-icon">
-                <Warning />
-              </el-icon>
-            </template>
-          </el-statistic>
-        </el-col>
-      </el-row>
 
       <!-- 任务列表 -->
       <el-table
@@ -259,9 +211,10 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Refresh, Warning } from '@element-plus/icons-vue'
+import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { counselorApi, type ReviewItem, type ReviewStats } from '@/api/counselorApi'
+import ReviewStatsCard from './components/counselor-reviews/ReviewStatsCard.vue'
 // P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
 import { formatDate } from '@/utils/formatUtils'
 
@@ -408,6 +361,9 @@ onMounted(() => {
 <style scoped>
 .review-list-page {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 
 .header-row {
@@ -425,17 +381,9 @@ onMounted(() => {
   margin-bottom: var(--spacing-lg);
 }
 
-.stats-row {
-  margin-bottom: var(--spacing-lg);
-}
-
 .review-table {
   width: 100%;
   margin-top: var(--spacing-lg);
-}
-
-.crisis-icon {
-  color: var(--danger-color);
 }
 
 :deep(.el-table__row) {

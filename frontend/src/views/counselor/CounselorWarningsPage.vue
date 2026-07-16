@@ -1,5 +1,7 @@
 <template>
   <div class="counselor-warnings-page">
+    <CounselorWarningStatsCard />
+
     <ListPageScaffold
       :title="t('counselorWarnings.title')"
       :loading="loading"
@@ -105,6 +107,7 @@ import FilterBar from '@/components/common/FilterBar.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import WarningsTable from './components/counselor-warnings/WarningsTable.vue'
 import WarningDetailDrawer from './components/counselor-warnings/WarningDetailDrawer.vue'
+import CounselorWarningStatsCard from './components/counselor-warnings/CounselorWarningStatsCard.vue'
 import { useCounselorWarningsData } from './components/counselor-warnings/useCounselorWarningsData'
 
 const { t } = useI18n()
@@ -123,6 +126,11 @@ const {
 </script>
 
 <style scoped>
-.counselor-warnings-page { width: 100%; }
+.counselor-warnings-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
 .batch-actions { display: flex; gap: var(--spacing-sm); align-items: center; }
 </style>

@@ -1,5 +1,6 @@
 <template>
   <div class="intervention-page">
+    <InterventionStatsCard />
     <el-tabs
       v-model="activeTab"
       type="border-card"
@@ -69,6 +70,7 @@
 import { useI18n } from 'vue-i18n'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import ActivePlanCard from './components/user-intervention/ActivePlanCard.vue'
+import InterventionStatsCard from './components/user-intervention/InterventionStatsCard.vue'
 import TodayTasksCard from './components/user-intervention/TodayTasksCard.vue'
 import HistoryTab from './components/user-intervention/HistoryTab.vue'
 import FeedbackDialog from './components/user-intervention/FeedbackDialog.vue'
@@ -97,5 +99,8 @@ const {
 <style scoped>
 .intervention-page {
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 </style>
