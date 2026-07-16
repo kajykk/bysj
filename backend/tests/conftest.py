@@ -302,6 +302,15 @@ def as_role():
 @pytest_asyncio.fixture
 def seeded_user_id(db_session: AsyncSession) -> int:
     async def _seed() -> int:
+        # 幂等: 同一事务内多测试共享, 避免重复插入 UNIQUE 冲突
+        from sqlalchemy import select
+
+        existing = (
+            await db_session.execute(select(User).where(User.id == 1))
+        ).scalar_one_or_none()
+        if existing is not None:
+            return 1
+
         # 使用正确的密码哈希，使登录测试可用
         test_password_hash = get_password_hash("testpass123")
         # P1-E 修复：User 模型新增 email_hash（nullable=False），需在 fixture 中提供
