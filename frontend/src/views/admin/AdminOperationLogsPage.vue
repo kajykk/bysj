@@ -1,178 +1,181 @@
 <template>
-  <ListPageScaffold
-    :title="t('adminOperationLogs.title')"
-    :loading="loading"
-    :empty="!loading && rows.length === 0"
-    :error-message="pageError"
-    :empty-text="t('adminOperationLogs.empty')"
-    @retry="fetchData"
-  >
-    <template #filters>
-      <FilterBar
-        @search="handleSearch"
-        @reset="handleReset"
-      >
-        <el-form-item :label="t('adminOperationLogs.filterActionType')">
-          <el-input
-            v-model="filters.actionType"
-            clearable
-            :placeholder="t('adminOperationLogs.actionTypePlaceholder')"
-            style="width: 220px"
-          />
-        </el-form-item>
-
-        <el-form-item :label="t('adminOperationLogs.filterOperatorRole')">
-          <el-select
-            v-model="filters.operatorRole"
-            clearable
-            style="width: 180px"
-          >
-            <el-option
-              :label="t('role.user')"
-              value="user"
-            />
-            <el-option
-              :label="t('role.counselor')"
-              value="counselor"
-            />
-            <el-option
-              :label="t('role.admin')"
-              value="admin"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item :label="t('adminOperationLogs.filterOperatorName')">
-          <el-input
-            v-model="filters.operatorName"
-            clearable
-            :placeholder="t('adminOperationLogs.operatorNamePlaceholder')"
-            style="width: 160px"
-          />
-        </el-form-item>
-
-        <el-form-item :label="t('adminOperationLogs.filterRange')">
-          <el-date-picker
-            v-model="filters.range"
-            type="datetimerange"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            :range-separator="t('adminOperationLogs.rangeSeparator')"
-            :start-placeholder="t('adminOperationLogs.rangeStart')"
-            :end-placeholder="t('adminOperationLogs.rangeEnd')"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button
-            type="success"
-            plain
-            :loading="exporting"
-            @click="exportLogs"
-          >
-            <el-icon><Download /></el-icon> {{ t('adminOperationLogs.exportCsv') }}
-          </el-button>
-        </el-form-item>
-      </FilterBar>
-    </template>
-
-    <PageTable
+  <div class="operation-logs-page">
+    <OperationLogStatsCard />
+    <ListPageScaffold
+      :title="t('adminOperationLogs.title')"
       :loading="loading"
-      :data="rows"
-      :total="total"
-      :page="page"
-      :page-size="pageSize"
-      @update:page="onPageChange"
-      @update:page-size="onPageSizeChange"
+      :empty="!loading && rows.length === 0"
+      :error-message="pageError"
+      :empty-text="t('adminOperationLogs.empty')"
+      @retry="fetchData"
     >
-      <el-table-column
-        prop="id"
-        :label="t('adminOperationLogs.colId')"
-        width="80"
-      />
-      <el-table-column
-        prop="action_type"
-        :label="t('adminOperationLogs.colActionType')"
-        width="160"
-      >
-        <template #default="{ row }">
-          <el-tag
-            :type="getActionTypeTag(row.action_type)"
-            size="small"
-          >
-            {{ row.action_type }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column
-        prop="operator_role"
-        :label="t('adminOperationLogs.colOperatorRole')"
-        width="120"
-      >
-        <template #default="{ row }">
-          <el-tag
-            :type="getRoleTagType(row.operator_role)"
-            size="small"
-            effect="plain"
-          >
-            {{ getRoleLabel(row.operator_role) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column
-        prop="target_type"
-        :label="t('adminOperationLogs.colTargetType')"
-        width="140"
-      />
-      <el-table-column
-        prop="target_id"
-        :label="t('adminOperationLogs.colTargetId')"
-        width="120"
-      />
-      <el-table-column
-        prop="created_at"
-        :label="t('adminOperationLogs.colCreatedAt')"
-        min-width="180"
-      />
-      <el-table-column
-        :label="t('adminOperationLogs.colOperation')"
-        width="160"
-        fixed="right"
-      >
-        <template #default="{ row }">
-          <ActionColumn
-            :label="t('adminOperationLogs.actionViewDetail')"
-            :disabled="!canAuditDetail"
-            :disabled-reason="t('adminOperationLogs.detailNoPermission')"
-            show-audit
-            @action="openDetail(row)"
-          />
-        </template>
-      </el-table-column>
-    </PageTable>
+      <template #filters>
+        <FilterBar
+          @search="handleSearch"
+          @reset="handleReset"
+        >
+          <el-form-item :label="t('adminOperationLogs.filterActionType')">
+            <el-input
+              v-model="filters.actionType"
+              clearable
+              :placeholder="t('adminOperationLogs.actionTypePlaceholder')"
+              style="width: 220px"
+            />
+          </el-form-item>
 
-    <el-dialog
-      v-model="detailVisible"
-      :title="t('adminOperationLogs.detailTitle')"
-      width="620px"
-      @closed="current = null"
-    >
-      <pre class="json-view">{{ JSON.stringify(current, null, 2) }}</pre>
-      <template #footer>
-        <el-button
-          :disabled="!current"
-          @click="copyDetail"
-        >
-          {{ t('adminOperationLogs.copyDetail') }}
-        </el-button>
-        <el-button
-          type="primary"
-          @click="detailVisible = false"
-        >
-          {{ t('common.close') }}
-        </el-button>
+          <el-form-item :label="t('adminOperationLogs.filterOperatorRole')">
+            <el-select
+              v-model="filters.operatorRole"
+              clearable
+              style="width: 180px"
+            >
+              <el-option
+                :label="t('role.user')"
+                value="user"
+              />
+              <el-option
+                :label="t('role.counselor')"
+                value="counselor"
+              />
+              <el-option
+                :label="t('role.admin')"
+                value="admin"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item :label="t('adminOperationLogs.filterOperatorName')">
+            <el-input
+              v-model="filters.operatorName"
+              clearable
+              :placeholder="t('adminOperationLogs.operatorNamePlaceholder')"
+              style="width: 160px"
+            />
+          </el-form-item>
+
+          <el-form-item :label="t('adminOperationLogs.filterRange')">
+            <el-date-picker
+              v-model="filters.range"
+              type="datetimerange"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              :range-separator="t('adminOperationLogs.rangeSeparator')"
+              :start-placeholder="t('adminOperationLogs.rangeStart')"
+              :end-placeholder="t('adminOperationLogs.rangeEnd')"
+            />
+          </el-form-item>
+
+          <el-form-item>
+            <el-button
+              type="success"
+              plain
+              :loading="exporting"
+              @click="exportLogs"
+            >
+              <el-icon><Download /></el-icon> {{ t('adminOperationLogs.exportCsv') }}
+            </el-button>
+          </el-form-item>
+        </FilterBar>
       </template>
-    </el-dialog>
-  </ListPageScaffold>
+
+      <PageTable
+        :loading="loading"
+        :data="rows"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        @update:page="onPageChange"
+        @update:page-size="onPageSizeChange"
+      >
+        <el-table-column
+          prop="id"
+          :label="t('adminOperationLogs.colId')"
+          width="80"
+        />
+        <el-table-column
+          prop="action_type"
+          :label="t('adminOperationLogs.colActionType')"
+          width="160"
+        >
+          <template #default="{ row }">
+            <el-tag
+              :type="getActionTypeTag(row.action_type)"
+              size="small"
+            >
+              {{ row.action_type }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="operator_role"
+          :label="t('adminOperationLogs.colOperatorRole')"
+          width="120"
+        >
+          <template #default="{ row }">
+            <el-tag
+              :type="getRoleTagType(row.operator_role)"
+              size="small"
+              effect="plain"
+            >
+              {{ getRoleLabel(row.operator_role) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="target_type"
+          :label="t('adminOperationLogs.colTargetType')"
+          width="140"
+        />
+        <el-table-column
+          prop="target_id"
+          :label="t('adminOperationLogs.colTargetId')"
+          width="120"
+        />
+        <el-table-column
+          prop="created_at"
+          :label="t('adminOperationLogs.colCreatedAt')"
+          min-width="180"
+        />
+        <el-table-column
+          :label="t('adminOperationLogs.colOperation')"
+          width="160"
+          fixed="right"
+        >
+          <template #default="{ row }">
+            <ActionColumn
+              :label="t('adminOperationLogs.actionViewDetail')"
+              :disabled="!canAuditDetail"
+              :disabled-reason="t('adminOperationLogs.detailNoPermission')"
+              show-audit
+              @action="openDetail(row)"
+            />
+          </template>
+        </el-table-column>
+      </PageTable>
+
+      <el-dialog
+        v-model="detailVisible"
+        :title="t('adminOperationLogs.detailTitle')"
+        width="620px"
+        @closed="current = null"
+      >
+        <pre class="json-view">{{ JSON.stringify(current, null, 2) }}</pre>
+        <template #footer>
+          <el-button
+            :disabled="!current"
+            @click="copyDetail"
+          >
+            {{ t('adminOperationLogs.copyDetail') }}
+          </el-button>
+          <el-button
+            type="primary"
+            @click="detailVisible = false"
+          >
+            {{ t('common.close') }}
+          </el-button>
+        </template>
+      </el-dialog>
+    </ListPageScaffold>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -185,6 +188,7 @@ import PageTable from '@/components/common/PageTable.vue'
 import FilterBar from '@/components/common/FilterBar.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
+import OperationLogStatsCard from './components/admin-operation-logs/OperationLogStatsCard.vue'
 import type { ActionType } from '@/types/contracts'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
@@ -327,5 +331,11 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
+.operation-logs-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
 .json-view { margin: 0; white-space: pre-wrap; word-break: break-word; }
 </style>

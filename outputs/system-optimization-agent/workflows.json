@@ -1,0 +1,93 @@
+{
+  "agent": {
+    "name": "system-optimization-agent",
+    "description": "基于《系统优化总体计划》分阶段提升系统性能/稳定性/安全/可维护性的 CodeBuddy 编排代理",
+    "orchestrator_skill": "sys-optimization-orchestrator",
+    "skill_dir": "skills",
+    "principles": [
+      "先数据、后决策",
+      "先高风险、高收益、低成本项",
+      "每阶段必须有可量化成果",
+      "优化必须伴随监控与回滚",
+      "把一次性修复升级为长期机制"
+    ]
+  },
+  "priority_model": {
+    "dimensions": ["impact", "risk", "cost", "benefit"],
+    "levels": {
+      "P0": "必须立即处理：高危漏洞/核心不可用/严重泄漏/关键链路超时",
+      "P1": "高优先级：关键接口慢/慢查询锁冲突/告警失效/高风险权限缺失",
+      "P2": "中优先级：非核心性能/文档补齐/测试提升/局部架构",
+      "P3": "低优先级：体验细节/长期重构/非紧急技术债"
+    }
+  },
+  "phases": [
+    {
+      "id": "WF-0",
+      "name": "基线评估与问题诊断",
+      "plan_section": "§2, §5 阶段0",
+      "goal": "建立可比基线，输出按优先级排序的问题清单与 KPI 基线",
+      "depends_on": [],
+      "tasks": [
+        {"id": "WF0-1", "title": "梳理架构/依赖/核心链路图", "skills": ["sys-code-quality", "sys-observability"]},
+        {"id": "WF0-2", "title": "五维度基线数据采集", "skills": ["sys-perf-diagnosis", "sys-load-testing", "sys-security-hardening", "sys-code-quality"]},
+        {"id": "WF0-3", "title": "核心接口压测建基线", "skills": ["sys-load-testing"]},
+        {"id": "WF0-4", "title": "5-Why 根因分析", "skills": ["sys-perf-diagnosis"]},
+        {"id": "WF0-5", "title": "按四维排序输出 P0-P3 问题清单", "skills": ["sys-optimization-orchestrator"]}
+      ],
+      "gate": "现状评估报告 + 问题清单与优先级 + KPI 基线数据，通过技术负责人评审",
+      "deliverables": ["系统现状评估报告.md", "问题清单与优先级.csv", "KPI-基线.json"]
+    },
+    {
+      "id": "WF-1",
+      "name": "快速止血优化",
+      "plan_section": "§4 高收益项, §5 阶段1",
+      "goal": "优先解决 P0 与高收益 P1，先止血",
+      "depends_on": ["WF-0"],
+      "tasks": [
+        {"id": "WF1-1", "title": "修复高频慢接口/慢SQL", "skills": ["sys-db-optimizer", "sys-perf-diagnosis"]},
+        {"id": "WF1-2", "title": "调整缓存策略", "skills": ["sys-cache-optimizer"]},
+        {"id": "WF1-3", "title": "补齐限流/熔断/超时", "skills": ["sys-reliability"]},
+        {"id": "WF1-4", "title": "处理内存泄漏/资源浪费", "skills": ["sys-resource-tuning"]},
+        {"id": "WF1-5", "title": "修复高危安全漏洞", "skills": ["sys-security-hardening"]},
+        {"id": "WF1-6", "title": "完善告警阈值与故障通知", "skills": ["sys-observability"]}
+      ],
+      "gate": "高危漏洞清零；P0 全部闭环；核心接口 P95 较基线↓≥20%；5xx 错误率<1%",
+      "deliverables": ["热点问题修复清单.md", "性能优化前后对比.md", "稳定性改进结果.md"]
+    },
+    {
+      "id": "WF-2",
+      "name": "结构性优化",
+      "plan_section": "§4 深度项, §5 阶段2",
+      "goal": "针对瓶颈链路与架构问题深度治理",
+      "depends_on": ["WF-1"],
+      "tasks": [
+        {"id": "WF2-1", "title": "拆分高耦合模块", "skills": ["sys-code-quality", "sys-resource-tuning"]},
+        {"id": "WF2-2", "title": "耗时任务异步化", "skills": ["sys-async-decoupling"]},
+        {"id": "WF2-3", "title": "优化DB结构/索引/查询", "skills": ["sys-db-optimizer"]},
+        {"id": "WF2-4", "title": "引入消息队列与削峰", "skills": ["sys-async-decoupling"]},
+        {"id": "WF2-5", "title": "完善服务降级与故障隔离", "skills": ["sys-reliability"]},
+        {"id": "WF2-6", "title": "调整资源配额与线程池", "skills": ["sys-resource-tuning"]}
+      ],
+      "gate": "架构优化方案评审通过；P95 较 WF-1 再↓≥15%；CPU 峰值<70%；内存常态<75%",
+      "deliverables": ["架构优化方案.md", "新旧链路对比.md", "性能-资源-稳定性提升报告.md"]
+    },
+    {
+      "id": "WF-3",
+      "name": "体系化治理",
+      "plan_section": "§4.3-4.5, §5 阶段3, §9",
+      "goal": "固化监控/安全/质量/发布门禁与长效机制",
+      "depends_on": ["WF-2"],
+      "tasks": [
+        {"id": "WF3-1", "title": "持续性能监控+容量预测", "skills": ["sys-observability"]},
+        {"id": "WF3-2", "title": "安全扫描 SLA 固化", "skills": ["sys-security-hardening"]},
+        {"id": "WF3-3", "title": "代码质量门禁+测试门禁", "skills": ["sys-code-quality"]},
+        {"id": "WF3-4", "title": "发布灰度/回滚标准", "skills": ["sys-release-governance"]},
+        {"id": "WF3-5", "title": "文档/Runbook/应急预案", "skills": ["sys-code-quality", "sys-observability"]},
+        {"id": "WF3-6", "title": "定期压测与故障演练", "skills": ["sys-load-testing", "sys-reliability"]}
+      ],
+      "gate": "治理机制手册；质量/测试/安全门禁在 CI 生效；≥1 次故障演练记录；核心模块单测覆盖率≥70%",
+      "deliverables": ["运营与治理机制手册.md", "标准化发布与回滚流程.md", "长效优化机制.md", "故障演练记录.md"]
+    }
+  ]
+}

@@ -212,7 +212,13 @@ export default {
     rollback: '回滚',
     confirmComplete: '确认完成部署 {v}？',
     rollbackReason: '请输入回滚原因',
-    reasonRequired: '原因必填（1-500 字）'
+    reasonRequired: '原因必填（1-500 字）',
+    stats: {
+      title: '部署概览',
+      total: '总数',
+      completed: '已完成',
+      rolledBack: '已回滚'
+    }
   },
   taskProgress: {
     defaultTitle: '任务进度',
@@ -615,7 +621,11 @@ export default {
     updated: '静默规则更新成功',
     created: '静默规则创建成功',
     updateFailed: '更新静默规则失败',
-    createFailed: '创建静默规则失败'
+    createFailed: '创建静默规则失败',
+    stats: {
+      title: '静默规则概览',
+      total: '总数'
+    }
   },
   adminCrisisEvents: {
     title: '危机事件管理',
@@ -651,6 +661,10 @@ export default {
       reviewed: '已复核',
       escalated: '已升级',
       resolved: '已解决'
+    },
+    stats: {
+      title: '危机事件概览',
+      total: '总数'
     },
     handleDialogTitle: '处理危机事件',
     handleEventId: '事件 ID',
@@ -920,7 +934,16 @@ export default {
     batchAtomicFailedIgnore: '批量忽略失败，已回滚',
     batchPartialFailure: '操作失败',
     batchPartialSummary: '批量操作完成：成功 {success} 条{failPart}',
-    batchPartialFailPart: '，失败 {count} 条'
+    batchPartialFailPart: '，失败 {count} 条',
+    stats: {
+      title: '预警概览',
+      total: '预警总数',
+      unhandled: '待处理',
+      handled: '已处理',
+      highRisk: '高风险',
+      mediumRisk: '中风险',
+      lowRisk: '低风险'
+    }
   },
   adminAlerts: {
     titleHistory: '告警历史',
@@ -962,7 +985,11 @@ export default {
     ackConfirmTitle: '确认告警',
     ackSuccess: '告警已确认',
     loadFailed: '告警数据加载失败',
-    ackFailed: '确认告警失败'
+    ackFailed: '确认告警失败',
+    stats: {
+      title: '告警概览',
+      total: '总数'
+    }
   },
   adminDashboard: {
     eyebrow: '控制台',
@@ -1032,7 +1059,11 @@ export default {
     exportFailed: '导出失败',
     noAuditPermission: '无权限查看审计详情',
     copySuccess: '已复制日志详情',
-    copyFailed: '复制失败，请手动选择内容复制'
+    copyFailed: '复制失败，请手动选择内容复制',
+    stats: {
+      title: '操作日志概览',
+      total: '总数'
+    }
   },
   adminTemplates: {
     cardTitle: '干预模板管理',
@@ -1137,6 +1168,10 @@ export default {
     statInReview: '处理中',
     statResolved: '已处理',
     statCrisis: '危机事件',
+    statsTitle: '复核概览',
+    statTotal: '总数',
+    statEscalated: '已升级',
+    statHighRisk: '高风险',
     colId: 'ID',
     colUserId: '用户ID',
     colRiskLevel: '风险等级',
@@ -1252,7 +1287,16 @@ export default {
     riskLabelHigh: '高风险',
     riskLabelCritical: '严重',
     riskLabelUnknown: '未知',
-    loadFailed: '用户列表加载失败'
+    loadFailed: '用户列表加载失败',
+    stats: {
+      title: '用户概览',
+      total: '总用户',
+      none: '无风险',
+      low: '低风险',
+      medium: '中风险',
+      high: '高风险',
+      critical: '严重'
+    }
   },
   counselorUserDetail: {
     pageTitle: '用户详情 - {name}',
@@ -1403,7 +1447,16 @@ export default {
     trendUp: '风险上升',
     trendDown: '风险下降',
     // UX-P2-08 修复：风险等级判定标准提示
-    severityTooltip: '风险等级依据综合评分判定：无风险、轻度、中度、较高、严重，等级越高需越多关注。'
+    severityTooltip: '风险等级依据综合评分判定：无风险、轻度、中度、较高、严重，等级越高需越多关注。',
+    activity: {
+      title: '最近活动',
+      empty: '暂无近期活动',
+      emptyDesc: '完成评估或收到预警后，动态会显示在这里',
+      assessment: '完成风险评估',
+      warning: '收到风险预警',
+      planStarted: '干预计划启动：{name}',
+      viewAll: '查看全部'
+    }
   },
   userWarnings: {
     title: '我的预警',
@@ -1439,7 +1492,16 @@ export default {
     markAllReadSuccess: '已全部标记为已读',
     loadFailed: '预警列表加载失败',
     markReadFailed: '标记已读失败，请稍后重试',
-    bulkMarkFailed: '批量标记失败'
+    bulkMarkFailed: '批量标记失败',
+    stats: {
+      title: '预警概览',
+      total: '预警总数',
+      highRisk: '高风险',
+      mediumRisk: '中风险',
+      lowRisk: '低风险',
+      handled: '已处理',
+      unread: '未读'
+    }
   },
   userIntervention: {
     tabActive: '当前计划',
@@ -1501,7 +1563,23 @@ export default {
     taskStatusCompleted: '已完成',
     taskStatusMissed: '未完成',
     taskStatusSkipped: '已跳过',
-    taskStatusPostponed: '已延期'
+    taskStatusPostponed: '已延期',
+    stats: {
+      title: '方案概览',
+      active: '进行中',
+      completed: '已完成',
+      cancelled: '已取消',
+      avgCompletion: '平均完成率'
+    }
+  },
+  userReports: {
+    eyebrow: '报告与分析',
+    title: '评估报告',
+    lede: '查看与分析你的风险评估报告与趋势变化。',
+    factorChartTitle: '主要风险因子',
+    factorChartEmpty: '暂无风险因子数据',
+    factorCount: '主要因子',
+    adviceCount: '干预建议'
   },
   userContent: {
     tabBrowse: '内容浏览',
@@ -1561,7 +1639,17 @@ export default {
     noPermission: '无权限',
     loadFailed: '评估记录加载失败',
     exportSuccess: '导出成功',
-    exportFailed: '导出失败'
+    exportFailed: '导出失败',
+    stats: {
+      title: '测评概览',
+      total: '测评总数',
+      structured: '结构化',
+      text: '文本',
+      physiological: '生理',
+      highRisk: '高风险',
+      mediumRisk: '中风险',
+      lowRisk: '低风险'
+    }
   },
   userAssessmentDetail: {
     cardTitle: '评估记录详情',

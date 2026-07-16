@@ -4,7 +4,9 @@
     class="app-root"
     :element-loading-text="loadingStore.loadingText"
   >
-    <router-view />
+    <main class="app-main">
+      <router-view />
+    </main>
   </div>
 </template>
 

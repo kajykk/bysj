@@ -1,3 +1,7 @@
+# 后端生产依赖声明（允许 >= 下限范围，便于安全更新与漏洞修复）
+# 版本锁定策略与 requirements.lock 生成方式见 backend/pyproject.toml 顶部注释
+# 安装生产环境: pip install -r requirements.txt
+# 安装开发环境: pip install -r requirements.txt -r requirements-dev.txt
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 sqlalchemy[asyncio]>=2.0.29

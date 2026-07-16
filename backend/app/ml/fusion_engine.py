@@ -172,6 +172,17 @@ class FusionEngine:
         modality_metadata = modality_metadata or {}
         available_modalities = set(modality_scores.keys())
 
+        # ── 融合公式（核心逻辑）──────────────────────────────────────────────
+        # 最终风险分 fused_score = Σ_m (score_m · final_w_m)，其中：
+        #   1) 基础权重 w_base 来自 DEFAULT_WEIGHTS
+        #      （structured 0.55 / text 0.30 / physiological 0.15）
+        #   2) 缺失模态的权重按剩余模态比例重新分配（redistribute_weights）
+        #   3) 置信度加权：conf_m 由分数"极端程度"决定（越接近 0/100 越确信），
+        #      final_w_m = w_base_m · conf_m，再归一化使 Σ final_w_m = 1
+        #   4) fused_score = Σ_m score_m · final_w_m（取值 0-100）
+        #   5) 整体置信度 = 各模态置信度的算术平均
+        #   6) risk_level 由 fused_score 经阈值表（_score_to_level）映射为 0-4
+        # ──────────────────────────────────────────────────────────────────
         # Redistribute weights for missing modalities
         weights = self.redistribute_weights(available_modalities)
 

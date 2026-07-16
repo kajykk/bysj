@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { canaryApi, type CanaryDeployment, type CanaryCreateRequest } from '@/api/canaryApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { availableActions } from './utils/canaryUtils'
+import CanaryStatsCard from './components/admin-canary/CanaryStatsCard.vue'
 
 const { t } = useI18n()
 const deployments = ref<CanaryDeployment[]>([])
@@ -19,6 +20,17 @@ const actionLoading = ref<Record<string, boolean>>({})
 
 const runningCount = computed(() => deployments.value.filter((d) => d.status === 'running').length)
 const pausedCount = computed(() => deployments.value.filter((d) => d.status === 'paused').length)
+
+const canaryStats = computed(() => {
+  const items = deployments.value
+  return {
+    total: items.length,
+    running: items.filter((d) => d.status === 'running').length,
+    paused: items.filter((d) => d.status === 'paused').length,
+    completed: items.filter((d) => d.status === 'completed').length,
+    rolledBack: items.filter((d) => d.status === 'rolled_back').length,
+  }
+})
 
 async function loadAll() {
   loading.value = true
@@ -101,6 +113,7 @@ onMounted(loadAll)
     v-loading="loading"
     class="canary-page"
   >
+    <CanaryStatsCard :stats="canaryStats" />
     <div class="toolbar">
       <span>{{ t('canary.running') }}: {{ runningCount }}</span>
       <span>{{ t('canary.paused') }}: {{ pausedCount }}</span>
@@ -240,6 +253,6 @@ onMounted(loadAll)
 </template>
 
 <style scoped>
-.canary-page { display: flex; flex-direction: column; gap: 12px; }
+.canary-page { display: flex; flex-direction: column; gap: var(--spacing-md); }
 .toolbar { display: flex; gap: 16px; align-items: center; }
 </style>

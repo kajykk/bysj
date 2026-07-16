@@ -212,7 +212,13 @@ export default {
     rollback: 'Rollback',
     confirmComplete: 'Confirm complete deployment {v}?',
     rollbackReason: 'Please enter rollback reason',
-    reasonRequired: 'Reason is required (1-500 chars)'
+    reasonRequired: 'Reason is required (1-500 chars)',
+    stats: {
+      title: 'Deployment Overview',
+      total: 'Total',
+      completed: 'Completed',
+      rolledBack: 'Rolled Back'
+    }
   },
   taskProgress: {
     defaultTitle: 'Task Progress',
@@ -615,7 +621,11 @@ export default {
     updated: 'Silence rule updated successfully',
     created: 'Silence rule created successfully',
     updateFailed: 'Failed to update silence rule',
-    createFailed: 'Failed to create silence rule'
+    createFailed: 'Failed to create silence rule',
+    stats: {
+      title: 'Silence Rules Overview',
+      total: 'Total'
+    }
   },
   adminCrisisEvents: {
     title: 'Crisis Event Management',
@@ -651,6 +661,10 @@ export default {
       reviewed: 'Reviewed',
       escalated: 'Escalated',
       resolved: 'Resolved'
+    },
+    stats: {
+      title: 'Crisis Event Overview',
+      total: 'Total'
     },
     handleDialogTitle: 'Handle Crisis Event',
     handleEventId: 'Event ID',
@@ -920,7 +934,16 @@ export default {
     batchAtomicFailedIgnore: 'Batch ignore failed, rolled back',
     batchPartialFailure: 'Operation failed',
     batchPartialSummary: 'Batch operation complete: {success} succeeded{failPart}',
-    batchPartialFailPart: ', {count} failed'
+    batchPartialFailPart: ', {count} failed',
+    stats: {
+      title: 'Warning Overview',
+      total: 'Total',
+      unhandled: 'Unhandled',
+      handled: 'Handled',
+      highRisk: 'High Risk',
+      mediumRisk: 'Medium Risk',
+      lowRisk: 'Low Risk'
+    }
   },
   adminAlerts: {
     titleHistory: 'Alert History',
@@ -962,7 +985,11 @@ export default {
     ackConfirmTitle: 'Acknowledge Alert',
     ackSuccess: 'Alert acknowledged',
     loadFailed: 'Failed to load alert data',
-    ackFailed: 'Failed to acknowledge alert'
+    ackFailed: 'Failed to acknowledge alert',
+    stats: {
+      title: 'Alert Overview',
+      total: 'Total'
+    }
   },
   adminDashboard: {
     eyebrow: 'Console',
@@ -1032,7 +1059,11 @@ export default {
     exportFailed: 'Export failed',
     noAuditPermission: 'No permission to view audit details',
     copySuccess: 'Log details copied',
-    copyFailed: 'Copy failed, please manually select and copy'
+    copyFailed: 'Copy failed, please manually select and copy',
+    stats: {
+      title: 'Operation Log Overview',
+      total: 'Total'
+    }
   },
   adminTemplates: {
     cardTitle: 'Intervention Template Management',
@@ -1137,6 +1168,10 @@ export default {
     statInReview: 'In Review',
     statResolved: 'Resolved',
     statCrisis: 'Crisis Events',
+    statsTitle: 'Review Overview',
+    statTotal: 'Total',
+    statEscalated: 'Escalated',
+    statHighRisk: 'High Risk',
     colId: 'ID',
     colUserId: 'User ID',
     colRiskLevel: 'Risk Level',
@@ -1252,7 +1287,16 @@ export default {
     riskLabelHigh: 'High Risk',
     riskLabelCritical: 'Severe',
     riskLabelUnknown: 'Unknown',
-    loadFailed: 'Failed to load user list'
+    loadFailed: 'Failed to load user list',
+    stats: {
+      title: 'User Overview',
+      total: 'Total Users',
+      none: 'No Risk',
+      low: 'Low Risk',
+      medium: 'Medium Risk',
+      high: 'High Risk',
+      critical: 'Severe'
+    }
   },
   counselorUserDetail: {
     pageTitle: 'User Detail - {name}',
@@ -1403,7 +1447,16 @@ export default {
     trendUp: 'Risk rising',
     trendDown: 'Risk falling',
     // UX-P2-08: tooltip explaining how the severity level is determined
-    severityTooltip: 'Risk severity is derived from the overall score: None, Mild, Moderate, Elevated, Critical. Higher levels require more attention.'
+    severityTooltip: 'Risk severity is derived from the overall score: None, Mild, Moderate, Elevated, Critical. Higher levels require more attention.',
+    activity: {
+      title: 'Recent Activity',
+      empty: 'No recent activity',
+      emptyDesc: 'Your activity will appear here after you complete an assessment or receive a warning',
+      assessment: 'Completed risk assessment',
+      warning: 'Received risk warning',
+      planStarted: 'Intervention plan started: {name}',
+      viewAll: 'View all'
+    }
   },
   userWarnings: {
     title: 'My Warnings',
@@ -1439,7 +1492,16 @@ export default {
     markAllReadSuccess: 'All marked as read',
     loadFailed: 'Failed to load warning list',
     markReadFailed: 'Failed to mark as read, please try again later',
-    bulkMarkFailed: 'Failed to bulk mark'
+    bulkMarkFailed: 'Failed to bulk mark',
+    stats: {
+      title: 'Warning Overview',
+      total: 'Total Warnings',
+      highRisk: 'High Risk',
+      mediumRisk: 'Medium Risk',
+      lowRisk: 'Low Risk',
+      handled: 'Handled',
+      unread: 'Unread'
+    }
   },
   userIntervention: {
     tabActive: 'Current Plan',
@@ -1501,7 +1563,23 @@ export default {
     taskStatusCompleted: 'Completed',
     taskStatusMissed: 'Missed',
     taskStatusSkipped: 'Skipped',
-    taskStatusPostponed: 'Postponed'
+    taskStatusPostponed: 'Postponed',
+    stats: {
+      title: 'Plan Overview',
+      active: 'Active',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      avgCompletion: 'Avg Completion'
+    }
+  },
+  userReports: {
+    eyebrow: 'Reports & Analysis',
+    title: 'Assessment Reports',
+    lede: 'View and analyze your risk assessment reports and trend changes.',
+    factorChartTitle: 'Top Risk Factors',
+    factorChartEmpty: 'No risk factor data available',
+    factorCount: 'Top Factors',
+    adviceCount: 'Suggestions'
   },
   userContent: {
     tabBrowse: 'Content Browse',
@@ -1561,7 +1639,17 @@ export default {
     noPermission: 'No permission',
     loadFailed: 'Failed to load assessment records',
     exportSuccess: 'Export succeeded',
-    exportFailed: 'Export failed'
+    exportFailed: 'Export failed',
+    stats: {
+      title: 'Assessment Overview',
+      total: 'Total',
+      structured: 'Structured',
+      text: 'Text',
+      physiological: 'Physiological',
+      highRisk: 'High Risk',
+      mediumRisk: 'Medium Risk',
+      lowRisk: 'Low Risk'
+    }
   },
   userAssessmentDetail: {
     cardTitle: 'Assessment Record Detail',

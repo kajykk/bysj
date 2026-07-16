@@ -72,6 +72,14 @@
         @reload="loadWarnings"
       />
     </div>
+
+    <!-- 第三行：最近活动时间线（全宽） -->
+    <div class="dashboard-activity">
+      <RecentActivityCard
+        :activities="activities"
+        :loading="activityLoading"
+      />
+    </div>
   </div>
 </template>
 
@@ -87,6 +95,7 @@ import LatestAssessmentCard from './components/user-dashboard/LatestAssessmentCa
 import InterventionPlanCard from './components/user-dashboard/InterventionPlanCard.vue'
 import RiskTrendChart from './components/user-dashboard/RiskTrendChart.vue'
 import UnreadWarningsCard from './components/user-dashboard/UnreadWarningsCard.vue'
+import RecentActivityCard from './components/user-dashboard/RecentActivityCard.vue'
 import { useUserDashboardData } from './components/user-dashboard/useUserDashboardData'
 
 const { t } = useI18n()
@@ -101,6 +110,7 @@ const {
   latestAssessment, assessmentLoading, assessmentError,
   completedTasks, riskColor, severityLabel, severityTagType,
   assessmentTypeLabelText,
+  activities, activityLoading,
   nextAction,
   loadRiskReport, loadActiveIntervention, loadRiskTrend, loadWarnings, loadLatestAssessment, loadDashboard
 } = useUserDashboardData()
@@ -192,6 +202,10 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 1.85fr 1fr;
   gap: var(--spacing-lg);
+}
+
+.dashboard-activity {
+  margin-top: var(--spacing-lg);
 }
 
 .bento-cell-stack {
