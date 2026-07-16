@@ -77,12 +77,15 @@ describe('PERF-P2-007: element-plus 分包', () => {
     const source = readSource(viteConfigPath)
     expect(source).toContain("id.includes('element-plus')")
     // 拆分的子 chunk 名称
+    // 注: ep-form-advanced / ep-utility 已由 ISS-15 修复移除 (消除 EP manualChunks
+    // 循环依赖 TDZ: production minified ReferenceError)。仅保留单向依赖的拆分:
     expect(source).toContain("'ep-table'")
     expect(source).toContain("'ep-overlay'")
     expect(source).toContain("'ep-display'")
-    expect(source).toContain("'ep-form-advanced'")
-    expect(source).toContain("'ep-utility'")
     expect(source).toContain("'element-plus'")
+    // 确认已移除会触发循环依赖的 chunk
+    expect(source).not.toContain("'ep-form-advanced'")
+    expect(source).not.toContain("'ep-utility'")
   })
 
   it('chunkSizeWarningLimit 应为 500 (降低警告阈值便于发现超大 chunk)', () => {
