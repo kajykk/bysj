@@ -39,4 +39,8 @@ jobs:
       - name: Run pytest health check tests
         working-directory: backend
         # MAINT-P3-002: --maxfail=1 fail-fast
-        run: python -m pytest tests/test_stab_p2_003_post_deploy_health.py --maxfail=1 -v --no-cov --tb=short
+        # --noconftest: 跳过项目级 conftest (它 import fastapi/sqlalchemy/testclient)
+        # -o addopts=: 跳过 pytest.ini 的 --cov (无 pytest-cov 时报 unrecognized arguments)
+        run: |
+          pip install pytest pytest-asyncio
+          python -m pytest tests/test_stab_p2_003_post_deploy_health.py --maxfail=1 -v -o "addopts=" --noconftest --tb=short
