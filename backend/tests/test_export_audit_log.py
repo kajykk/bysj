@@ -217,13 +217,18 @@ class TestBatchExportExcelAuditLog:
         monkeypatch,
     ):
         """导出失败时 (service 返回 success=False) 不应写入审计日志."""
-        from app.services import excel_export_service as exc_svc_mod
-        from app.services.excel_export_service import ExcelExportResult
+        # 注意: app.services.__init__ 通过 from .excel_export_service import excel_export_service
+        # 把实例 (小写) re-export 到 app.services 命名空间, 覆盖了子模块引用.
+        # 因此必须直接从子模块导入类, 不能用 `from app.services import excel_export_service`.
+        from app.services.excel_export_service import (
+            ExcelExportResult,
+            ExcelExportService,
+        )
 
         def _fail_export(self, **kwargs):
             return ExcelExportResult(success=False, error_message="mock failure")
 
-        monkeypatch.setattr(exc_svc_mod.ExcelExportService, "export", _fail_export)
+        monkeypatch.setattr(ExcelExportService, "export", _fail_export)
 
         as_role("admin", 3)
         res = client.post(

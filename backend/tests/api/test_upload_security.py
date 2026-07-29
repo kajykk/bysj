@@ -5,16 +5,31 @@ from io import BytesIO
 from fastapi.testclient import TestClient
 
 
+def _make_valid_jpeg() -> bytes:
+    """生成一个合法的最小 JPEG 图片字节流 (1x1 红色像素).
+
+    使用 Pillow 创建真实可解析的 JPEG, 确保 EXIF 剥离流程能正常打开图片.
+    仅用 magic bytes (\\xff\\xd8...) 的旧方式会被 Pillow 判定为 UnidentifiedImageError.
+    """
+    from PIL import Image
+
+    buf = BytesIO()
+    img = Image.new("RGB", (1, 1), color=(255, 0, 0))
+    img.save(buf, format="JPEG", quality=95)
+    buf.seek(0)
+    return buf.getvalue()
+
+
 class TestUploadSecurity:
     """文件上传安全测试"""
 
     def test_upload_valid_image(self, client: TestClient, auth_headers: dict):
         """测试有效图片上传"""
-        # 创建一个简单的JPEG文件头
+        # 使用 Pillow 生成真实 JPEG, 确保 EXIF 剥离流程可正常解析
         data = {
             "file": (
                 "test.jpg",
-                BytesIO(b"\xff\xd8\xff\xe0" + b"\x00" * 100),
+                BytesIO(_make_valid_jpeg()),
                 "image/jpeg",
             )
         }
@@ -46,7 +61,7 @@ class TestUploadSecurity:
         data = {
             "file": (
                 "../../../etc/passwd.jpg",
-                BytesIO(b"\xff\xd8\xff\xe0" + b"\x00" * 100),
+                BytesIO(_make_valid_jpeg()),
                 "image/jpeg",
             )
         }
@@ -68,7 +83,7 @@ class TestUploadSecurity:
                     "files",
                     (
                         f"test{i}.jpg",
-                        BytesIO(b"\xff\xd8\xff\xe0" + b"\x00" * 100),
+                        BytesIO(_make_valid_jpeg()),
                         "image/jpeg",
                     ),
                 )

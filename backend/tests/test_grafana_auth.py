@@ -31,14 +31,21 @@ from app.main import app
 
 @pytest.fixture
 def sa_token_env(monkeypatch):
-    """设置 GRAFANA_SERVICE_TOKEN 环境变量."""
-    monkeypatch.setenv("GRAFANA_SERVICE_TOKEN", "test-sa-secret-xyz789")
-    # Reload settings to pick up env var
-    import importlib
+    """设置 GRAFANA_SERVICE_TOKEN.
 
-    import app.core.config as cfg_mod
+    PB-09 修复: 原实现使用 ``importlib.reload(cfg_mod)`` 重新加载 ``app.core.config``,
+    会创建新的 ``Settings()`` 实例并重绑定 ``app.core.config.settings``. 但
+    ``app.core.security.settings`` 等模块级导入绑定的仍是旧实例, 导致后续 JWT 测试
+    (如 ``test_res_p2_002_003_sec_p2_001.py::TestJwtKeyLoading``) 的
+    ``patch.object(settings, ...)`` 修补新实例, 而 ``_get_signing_key()`` 读取旧实例,
+    使 patch 不生效 (非确定性失败).
 
-    importlib.reload(cfg_mod)
+    改用 ``monkeypatch.setattr`` 直接在现有 ``settings`` 实例上设置属性,
+    避免 reload 引发的对象分裂.
+    """
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "grafana_service_token", "test-sa-secret-xyz789")
     return "test-sa-secret-xyz789"
 
 
