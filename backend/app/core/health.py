@@ -94,7 +94,7 @@ async def check_celery_worker(redis_url: str, timeout_seconds: float = 1.5) -> b
     """STAB-P1-005: 在 Celery broker 熔断器保护下检查 worker 可用性.
 
     改造点:
-    - ``inspect.stats()`` 调用用 ``call_with_celery_breaker`` 包装,
+    - ``inspect.ping()`` 调用用 ``call_with_celery_breaker`` 包装,
       broker 连续 5 次失败后熔断器 OPEN, 后续健康检查快速返回 False
       (不再每次阻塞 1.5s+0.5s).
     - 熔断器 OPEN 时捕获 ``CircuitBreakerOpenError`` 返回 False.
@@ -110,20 +110,24 @@ async def check_celery_worker(redis_url: str, timeout_seconds: float = 1.5) -> b
     try:
         inspect = celery_app.control.inspect(timeout=timeout_seconds)
         # 添加 asyncio.wait_for 超时保护，防止 broker 网络挂起导致 /health 无限阻塞
-        # STAB-P1-005: 用熔断器包装 inspect.stats() 调用
-        stats = await asyncio.wait_for(
-            call_with_celery_breaker(asyncio.to_thread(inspect.stats)),
-            timeout=timeout_seconds + 0.5,
+        # STAB-P1-005: 用熔断器包装 inspect.ping() 调用
+        # ping() 比 stats() 轻量得多 (只返回 {'ok':'pong'}, 不收集完整统计),
+        # 适合高频健康检查场景, 避免 worker 繁忙时 stats() 超时导致误判熔断
+        # 注意: inspect.ping() 会等待完整 timeout 再返回 (celery 设计, 等待所有 worker 响应),
+        # 实际耗时 = inspect_timeout + 连接开销 (~0.1-0.5s), 需留足 asyncio.wait_for 缓冲
+        result = await asyncio.wait_for(
+            call_with_celery_breaker(asyncio.to_thread(inspect.ping)),
+            timeout=timeout_seconds + 1.0,
         )
         celery_worker_heartbeat.set(1.0)
-        return bool(stats)
+        return bool(result)
     except CircuitBreakerOpenError:
         # 熔断器打开: broker 持续不可用, 快速返回 False
         celery_worker_heartbeat.set(0.0)
         return False
     except asyncio.TimeoutError:
         logger.warning(
-            "Celery worker health check timed out after %.1fs", timeout_seconds + 0.5
+            "Celery worker health check timed out after %.1fs", timeout_seconds + 1.0
         )
         celery_worker_heartbeat.set(0.0)
         return False

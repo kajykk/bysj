@@ -122,11 +122,15 @@ def save_scaler(scaler: SimpleStandardScaler, path: Path | str | None = None) ->
     """Save fitted scaler to disk.
 
     Args:
-        scaler: Fitted SimpleStandardScaler.
+        scaler: Fitted scaler.
         path: Save path. Defaults to SCALER_PATH.
     """
-    ensure_artifacts_dir()
-    path = Path(path) if path else SCALER_PATH
+    if path:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        ensure_artifacts_dir()
+        path = SCALER_PATH
     with open(path, "w", encoding="utf-8") as f:
         json.dump(scaler.to_dict(), f, indent=2)
     # C-ML-2 修复：生成 .sha256 侧车校验文件
@@ -167,8 +171,12 @@ def save_feature_names(
         feature_names: List of feature names.
         path: Save path. Defaults to FEATURE_NAMES_PATH.
     """
-    ensure_artifacts_dir()
-    path = Path(path) if path else FEATURE_NAMES_PATH
+    if path:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        ensure_artifacts_dir()
+        path = FEATURE_NAMES_PATH
     with open(path, "w", encoding="utf-8") as f:
         json.dump(feature_names, f, indent=2)
     # C-ML-2 修复：生成 .sha256 侧车校验文件

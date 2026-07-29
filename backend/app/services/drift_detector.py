@@ -68,3 +68,47 @@ class DriftDetector:
         if array.size == 0:
             return array
         return array[np.isfinite(array)]
+
+    def calculate_kl(
+        self,
+        baseline: Iterable[float] | np.ndarray,
+        current: Iterable[float] | np.ndarray,
+        buckets: int = 10,
+    ) -> float:
+        """Calculate KL divergence KL(current || baseline) between distributions.
+
+        S4 P3: 补充 KL 漂移检测 (v2.0 计划要求 PSI/KL 双指标).
+        Returns 0.0 when input is insufficient or degenerate.
+        """
+        base = self._clean_array(baseline)
+        curr = self._clean_array(current)
+
+        if base.size == 0 or curr.size == 0:
+            return 0.0
+
+        combined = np.concatenate((base, curr))
+        min_value = float(np.min(combined))
+        max_value = float(np.max(combined))
+        if (
+            not math.isfinite(min_value)
+            or not math.isfinite(max_value)
+            or min_value == max_value
+        ):
+            return 0.0
+
+        bucket_count = max(2, int(buckets))
+        edges = np.linspace(min_value, max_value, bucket_count + 1)
+        edges[0] = -np.inf
+        edges[-1] = np.inf
+
+        base_counts, _ = np.histogram(base, bins=edges)
+        curr_counts, _ = np.histogram(curr, bins=edges)
+
+        epsilon = 1e-6
+        base_pct = np.maximum(base_counts.astype(float) / max(1, base.size), epsilon)
+        curr_pct = np.maximum(curr_counts.astype(float) / max(1, curr.size), epsilon)
+
+        # KL(current || baseline) = sum(current_pct * log(current_pct / base_pct))
+        kl_values = curr_pct * np.log(curr_pct / base_pct)
+        kl = float(np.sum(kl_values))
+        return kl if math.isfinite(kl) else 0.0

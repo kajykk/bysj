@@ -446,6 +446,49 @@ async def _canary_auto_rollback_check_impl():
 
 
 # ============================================================================
+# S4 P3: 漂移监测任务 (Celery beat 每小时触发)
+# ============================================================================
+
+
+@celery_app.task(
+    bind=True, max_retries=1, default_retry_delay=60, time_limit=120, soft_time_limit=100
+)
+def drift_monitoring_check(self):
+    """S4 P3: 漂移监测 — 计算 PSI/KL 并写入 DriftAlert + Gauge.
+
+    每小时从 RiskAssessment 读取各模态评分, 计算 baseline(7d) vs current(24h) 的
+    PSI/KL, 写入 model_drift_psi/model_drift_kl Gauge (Grafana) 和 DriftAlert 表 (auto-rollback).
+    """
+    logger.info("Starting drift monitoring check")
+    try:
+        _run_async(_drift_monitoring_check_impl())
+    except Exception as exc:
+        logger.warning("Drift monitoring check failed, will retry: %s", exc, exc_info=True)
+        raise self.retry(exc=exc)
+    logger.info("Drift monitoring check completed")
+
+
+async def _drift_monitoring_check_impl():
+    from app.services.drift_monitoring_service import drift_monitoring_service
+
+    async with AsyncSessionLocal() as db:
+        results = await drift_monitoring_service.check_all_modalities(db)
+        for r in results:
+            if r.psi > 0.25:
+                logger.warning(
+                    "Drift detected: modality=%s feature=%s PSI=%.4f KL=%.4f alert=%s",
+                    r.modality, r.feature, r.psi, r.kl, r.alert_created,
+                )
+            else:
+                logger.debug(
+                    "Drift check: modality=%s PSI=%.4f (baseline=%d current=%d)",
+                    r.modality, r.psi, r.baseline_n, r.current_n,
+                )
+        # S4 P4 修复: 提交事务, 确保 DriftAlert 记录持久化 (此前仅 flush 未 commit, 导致告警丢失)
+        await db.commit()
+
+
+# ============================================================================
 # RES-P1-005/006/007: 资源清理任务 (Celery beat 周期触发)
 # ============================================================================
 

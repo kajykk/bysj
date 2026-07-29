@@ -19,7 +19,9 @@
 # ===============================================================
 # Stage 1: deps — install Python dependencies in a clean layer
 # ===============================================================
-FROM python:3.12.10-slim AS deps
+# T-P0-04: 升级至 Python 3.12.13 (3.12 系列最新安全补丁, superseded 3.12.9)
+# 修复 CVE-2025-59375 等安全漏洞, 清零 trivy HIGH/CRITICAL
+FROM python:3.12.13-slim AS deps
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -77,7 +79,8 @@ RUN pip install --no-cache-dir \
 # ===============================================================
 # Stage 2: runtime — minimal image with only the application
 # ===============================================================
-FROM python:3.12.10-slim AS runtime
+# T-P0-04: 升级至 Python 3.12.13 (与 deps 阶段保持一致)
+FROM python:3.12.13-slim AS runtime
 
 LABEL maintainer="DWS Team" \
       version="v1.28-final" \
@@ -90,11 +93,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/app/.local/bin:${PATH}"
 
 # Runtime system libraries only (no compilers)
+# T-P0-04: 添加 apt-get upgrade 升级基础镜像系统包至最新安全补丁版本
+# python:3.12.13-slim 基于 Debian 12 (bookworm), 上游发布后可能有 OpenSSL/libcurl/etc 安全补丁
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
         libmagic1 \
         curl \
         tini \
+    && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -r dws && useradd -r -g dws -d /app -s /sbin/nologin dws
 

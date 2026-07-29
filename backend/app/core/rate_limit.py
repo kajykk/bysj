@@ -101,6 +101,54 @@ def _build_limiter() -> Limiter:
 limiter = _build_limiter()
 
 
+# --- slowapi __globals__ 兼容补丁 ---
+# 问题: slowapi 的 @limiter.limit 用 functools.wraps 生成包装函数, 包装函数的
+# __globals__ 指向 slowapi.extension 模块而非路由所在模块。当路由模块使用
+# ``from __future__ import annotations`` (PEP 563) 时, 注解变为字符串,
+# FastAPI 通过 func.__globals__ 解析 ForwardRef 时在 slowapi 命名空间中找不到
+# 路由模块的类型 (如 AlertManagerPayload) → PydanticUndefinedAnnotation。
+#
+# 修复: 在包装函数上设置 __signature__, 其中参数注解已用原函数的 __globals__
+# (正确的命名空间) 预解析为实际类型对象。inspect.signature() 优先返回 __signature__,
+# FastAPI 的 get_typed_annotation 看到非字符串注解直接返回, 不再需要 __globals__ 解析。
+import inspect as _inspect
+import typing as _typing
+
+_original_limit = limiter.limit
+
+
+def _patched_limit(*args, **kwargs):
+    original_decorator = _original_limit(*args, **kwargs)
+
+    def decorator(func):
+        wrapped = original_decorator(func)
+        try:
+            globalns = getattr(func, "__globals__", {})
+            hints = _typing.get_type_hints(
+                func, globalns, None, include_extras=True
+            )
+            sig = _inspect.signature(func)
+            new_params = [
+                param.replace(annotation=hints[name])
+                if name in hints
+                else param
+                for name, param in sig.parameters.items()
+            ]
+            return_annotation = hints.get("return", sig.return_annotation)
+            wrapped.__signature__ = sig.replace(
+                parameters=new_params, return_annotation=return_annotation
+            )
+        except Exception:
+            # 类型提示解析失败时回退到原始行为 (后续会以原错误暴露)
+            pass
+        return wrapped
+
+    return decorator
+
+
+limiter.limit = _patched_limit
+
+
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Response:
     from fastapi.responses import JSONResponse
 

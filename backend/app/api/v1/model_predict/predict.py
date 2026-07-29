@@ -262,6 +262,7 @@ async def predict_fusion(
                 features=payload.features,
                 text=payload.text,
                 physiological=payload.physiological,
+                user_id=current_user.id,
             )
         except CircuitBreakerOpenError:
             # STAB-P1-002: 熔断器打开, 直接放行 HTTPException(503)

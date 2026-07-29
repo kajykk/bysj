@@ -19,10 +19,15 @@ import logging
 from datetime import datetime, timezone
 
 from app.core.celery_app import celery_app
+from app.core.celery_async import get_celery_loop
 from app.core.celery_async import run_async as _run_async
 from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
+
+# RES-P1-003-TC-007: 通过别名 re-export _get_loop 和 _run_async,
+# 保证 patch("app.tasks.anomaly_detection._run_async") 等 mock 路径仍可工作
+_get_loop = get_celery_loop
 
 
 def _utcnow_naive() -> datetime:

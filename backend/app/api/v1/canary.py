@@ -44,6 +44,7 @@ async def create_canary(
             thresholds=payload.thresholds,
             route_prefix=payload.route_prefix,
         )
+        await db.commit()
         return ok(
             CanaryDeploymentResponse(
                 id=canary.id,
@@ -174,6 +175,7 @@ async def update_canary_traffic(
         canary = await canary_manager.update_traffic_percent(
             db, deployment_id, payload.traffic_percent
         )
+        await db.commit()
         return ok(
             {
                 "id": canary.id,
@@ -201,6 +203,7 @@ async def pause_canary(
     """Pause a running canary deployment."""
     try:
         canary = await canary_manager.pause_canary(db, deployment_id)
+        await db.commit()
         return ok(
             {
                 "id": canary.id,
@@ -227,6 +230,7 @@ async def resume_canary(
     """Resume a paused canary deployment."""
     try:
         canary = await canary_manager.resume_canary(db, deployment_id)
+        await db.commit()
         return ok(
             {
                 "id": canary.id,
@@ -258,6 +262,7 @@ async def rollback_canary(
             deployment_id,
             f"{payload.reason} (by user {current_user.id})",
         )
+        await db.commit()
         return ok(
             {
                 "id": canary.id,
@@ -286,6 +291,7 @@ async def complete_canary(
     """Complete a successful canary deployment."""
     try:
         canary = await canary_manager.complete_canary(db, deployment_id)
+        await db.commit()
         return ok(
             {
                 "id": canary.id,

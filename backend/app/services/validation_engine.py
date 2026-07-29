@@ -331,9 +331,9 @@ class ValidationEngine:
         return delta
 
     # 模型版本到 model_id 的映射（用于真实模型推理）
+    # S-03 (V4 ML 优化): v1.21 已清理并归档，不再作为可验证版本
     _VERSION_TO_MODEL_ID: dict[str, str] = {
         "v1.20": "structured_logistic_regression_v1.20",
-        "v1.21": "structured_v1.21_binary_lr",
         "v1.23": "structured_v1.23_external_lr",
         "v1.25": "mmpsy_lite_model",
     }

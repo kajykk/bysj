@@ -180,7 +180,11 @@ class ObservabilityExporter:
         单个失败不阻塞其他.
         """
         async with AsyncSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            # DB 列为 TIMESTAMP WITHOUT TIME ZONE (naive),
+            # 传 aware datetime 给 asyncpg 会触发
+            # "can't subtract offset-naive and offset-aware datetimes" 错误.
+            # 取 UTC 时间后剥离 tzinfo 以匹配 DB 列类型.
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             start = now - timedelta(minutes=5)
 
             # 1. channel_stats → observability_channel_success_rate

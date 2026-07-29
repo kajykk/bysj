@@ -58,6 +58,11 @@ class CSPReportPayload(BaseModel):
     summary="Receive CSP violation reports",
     status_code=204,
     response_class=Response,
+    responses={
+        400: {"description": "Invalid JSON or invalid Content-Length header"},
+        413: {"description": "Payload too large (> 64KB)"},
+        415: {"description": "Unsupported Content-Type"},
+    },
 )
 # M-API-11 修复：CSP report 端点无需鉴权（浏览器无法携带 token），通过限流防止滥用
 @limiter.limit("30/minute")

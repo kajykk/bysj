@@ -562,6 +562,78 @@ startup_component_failures_total = Counter(
 )
 
 
+# ── S4 P3: ML 模型质量指标 (v2.0 优化计划要求 AUC/F1/ECE/P95 接入 Grafana) ──
+# 标签:
+#   modality: structured / text / physiological / fusion
+#   model_version: v1.20 / v1.23 / m2_bert / v2_dl / stacking_gbdt 等
+# 数据源: 由 scripts/p3_push_ml_metrics.py 从 models/experiments/*.json 读取并 set
+model_auc = Gauge(
+    "model_auc",
+    "Model AUC-ROC, labeled by modality and model_version. S4 P3 ML quality metric.",
+    labelnames=("modality", "model_version"),
+)
+
+model_f1 = Gauge(
+    "model_f1",
+    "Model F1 score, labeled by modality and model_version. S4 P3 ML quality metric.",
+    labelnames=("modality", "model_version"),
+)
+
+model_ece = Gauge(
+    "model_ece",
+    "Model Expected Calibration Error (ECE), labeled by modality and model_version. "
+    "S4 P3 ML quality metric. Lower is better.",
+    labelnames=("modality", "model_version"),
+)
+
+model_p95_latency_ms = Gauge(
+    "model_p95_latency_ms",
+    "Model inference P95 latency in milliseconds, labeled by modality and model_version. "
+    "S4 P3 ML quality metric.",
+    labelnames=("modality", "model_version"),
+)
+
+model_recall = Gauge(
+    "model_recall",
+    "Model high-risk recall, labeled by modality and model_version. S4 P3 G5 metric.",
+    labelnames=("modality", "model_version"),
+)
+
+model_precision = Gauge(
+    "model_precision",
+    "Model precision, labeled by modality and model_version. S4 P3 G5 metric.",
+    labelnames=("modality", "model_version"),
+)
+
+# 漂移监测指标 (P3 PSI/KL)
+model_drift_psi = Gauge(
+    "model_drift_psi",
+    "Population Stability Index (PSI) between baseline and current feature distribution. "
+    "S4 P3 drift monitoring. PSI < 0.1 = stable, 0.1-0.25 = warning, > 0.25 = drift.",
+    labelnames=("modality", "feature"),
+)
+
+model_drift_kl = Gauge(
+    "model_drift_kl",
+    "KL divergence between baseline and current feature distribution. "
+    "S4 P3 drift monitoring.",
+    labelnames=("modality", "feature"),
+)
+
+# 金丝雀状态指标 (P3)
+canary_traffic_percent = Gauge(
+    "canary_traffic_percent",
+    "Current canary traffic percentage (0-100). S4 P3 canary monitoring.",
+    labelnames=("canary_id", "version"),
+)
+
+canary_rollback_triggered = Counter(
+    "canary_rollback_triggered_total",
+    "Total canary rollbacks triggered, labeled by canary_id and reason. S4 P3.",
+    labelnames=("canary_id", "reason"),
+)
+
+
 def _format_labels(labels: dict[str, str]) -> str:
     """格式化为 {key="value",...}"""
     if not labels:
@@ -587,7 +659,10 @@ def render_exposition() -> str:
 
     for name, meta in registry_snapshot.items():
         lines.append(f"# HELP {name} {meta['doc']}")
-        lines.append(f"# TYPE {name} {meta['type']}")
+        # S4 P4 修复: Prometheus text exposition format 不支持 "info" 类型,
+        # 输出 "gauge" 以兼容 Prometheus v2.55+ 抓取 (OpenMetrics 才支持 info 类型)
+        exposition_type = "gauge" if meta["type"] == "info" else meta["type"]
+        lines.append(f"# TYPE {name} {exposition_type}")
         instance = meta["instance"]
         for entry in instance.collect():
             if meta["type"] == "info":

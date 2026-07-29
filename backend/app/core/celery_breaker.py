@@ -1,6 +1,6 @@
 """STAB-P1-005 修复：Celery broker 熔断器
 
-原问题：``check_celery_worker`` 通过 ``celery_app.control.inspect().stats()``
+原问题：``check_celery_worker`` 通过 ``celery_app.control.inspect().ping()``
 检查 broker 连通性，但 Redis broker 宕机时该调用会阻塞至 timeout (1.5s)，
 后台健康监控任务每 10s 调用一次，5 次连续失败后仍持续重试，无法快速失败。
 同理，``train_bert_model_task.delay()`` 在 broker 宕机时也会阻塞。
@@ -28,10 +28,10 @@
     async def check_celery_worker(redis_url: str, timeout_seconds: float = 1.5) -> bool:
         try:
             inspect = celery_app.control.inspect(timeout=timeout_seconds)
-            stats = await call_with_celery_breaker(
-                asyncio.to_thread(inspect.stats)
+            result = await call_with_celery_breaker(
+                asyncio.to_thread(inspect.ping)
             )
-            return bool(stats)
+            return bool(result)
         except CircuitBreakerOpenError:
             # 熔断中, 快速返回 False
             return False
@@ -199,7 +199,7 @@ async def call_with_celery_breaker(coro: Awaitable[T]) -> T:
         3. 成功 → ``on_success()``; 失败 → ``on_failure(exc)`` 后重新抛出
 
     参数:
-        coro: broker 调用协程 (如 ``asyncio.to_thread(inspect.stats)``)
+        coro: broker 调用协程 (如 ``asyncio.to_thread(inspect.ping)``)
 
     抛出:
         CircuitBreakerOpenError: 熔断器打开时 (HTTP 503)

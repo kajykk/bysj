@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import torch
 
 from app.core.config import settings
 from app.services.experiment_metrics import ExperimentMetrics
@@ -85,6 +84,8 @@ class ExperimentEvaluator:
             inputs = tokenizer(
                 text, return_tensors="pt", truncation=True, padding=True, max_length=128
             )
+            import torch  # 延迟导入: 仅实验评估需要, 避免生产镜像必须安装 torch
+
             with torch.no_grad():
                 outputs = model(**inputs)
                 logits = outputs.logits
