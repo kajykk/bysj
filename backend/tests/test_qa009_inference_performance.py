@@ -93,6 +93,11 @@ class TestInferencePerformance:
         baseline = [1.0, 2.0, 3.0, 4.0, 5.0] * 20  # 100 samples
         current = [1.1, 2.1, 3.1, 4.1, 5.1] * 20
 
+        # 预热 5 次: 消除首次调用的 import/JIT/缓存预热开销,
+        # 让 P99 反映稳定状态的真实延迟 (而非冷启动峰值).
+        for _ in range(5):
+            detector.calculate_psi(baseline, current)
+
         latencies = []
         for _ in range(50):
             start = time.perf_counter()
@@ -141,6 +146,11 @@ class TestInferencePerformance:
         ground_truth = [random.randint(0, 1) for _ in range(1000)]
         predictions = [random.randint(0, 1) for _ in range(1000)]
         probabilities = [random.random() for _ in range(1000)]
+
+        # 预热 3 次: 消除首次调用的 import/numpy JIT/缓存预热开销,
+        # 让单次测量反映稳定状态的真实延迟 (而非冷启动峰值).
+        for _ in range(3):
+            engine.calculate_metrics(ground_truth, predictions, probabilities)
 
         start = time.perf_counter()
         metrics = engine.calculate_metrics(ground_truth, predictions, probabilities)

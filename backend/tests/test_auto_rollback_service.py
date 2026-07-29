@@ -133,13 +133,18 @@ def _default_thresholds() -> dict:
 
 @pytest.fixture
 def mock_observability_for_rollback(monkeypatch):
-    """Mock observability_collector 以隔离 execute_rollback 副作用。"""
+    """Mock observability_collector 以隔离 execute_rollback 副作用.
+
+    注意: app.services.__init__ 把 canary_manager 实例 re-export 到 app.services 命名空间,
+    覆盖了子模块引用, 因此不能用字符串路径 "app.services.canary_manager.observability_collector".
+    改用 sys.modules 显式获取子模块对象, 再用 (obj, name) 形式 monkeypatch.
+    """
+    import sys
+
+    canary_mod = sys.modules["app.services.canary_manager"]
     mock = MagicMock()
     mock.record_fallback = MagicMock()
-    monkeypatch.setattr(
-        "app.services.canary_manager.observability_collector",
-        mock,
-    )
+    monkeypatch.setattr(canary_mod, "observability_collector", mock)
     return mock
 
 

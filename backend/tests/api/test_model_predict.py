@@ -118,7 +118,7 @@ class TestModelPredict:
         assert "probability" in result
         assert "risk_score" in result
         assert 0 <= result["risk_score"] <= 100
-        assert result["model_used"] == "physiological_risk_model"
+        assert result["model_used"] == "physiological_model_v2_dl"
 
     @pytest.mark.parametrize(
         ("physiological", "expected_level"),

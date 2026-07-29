@@ -96,7 +96,7 @@ class TestCheckCeleryWorker:
         """TC-COV-005: check_celery_worker returns True when workers exist."""
         with patch("app.core.health.celery_app") as mock_celery:
             mock_inspect = MagicMock()
-            mock_inspect.stats.return_value = {"worker1": {"stats": "data"}}
+            mock_inspect.ping.return_value = {"worker1": {"ok": "pong"}}
             mock_celery.control.inspect.return_value = mock_inspect
 
             result = await check_celery_worker("redis://localhost:6379")
@@ -107,7 +107,7 @@ class TestCheckCeleryWorker:
         """TC-COV-006: check_celery_worker returns False when no workers."""
         with patch("app.core.health.celery_app") as mock_celery:
             mock_inspect = MagicMock()
-            mock_inspect.stats.return_value = None
+            mock_inspect.ping.return_value = None
             mock_celery.control.inspect.return_value = mock_inspect
 
             result = await check_celery_worker("redis://localhost:6379")

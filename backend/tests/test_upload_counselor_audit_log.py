@@ -65,8 +65,18 @@ def mock_upload_dir(tmp_path: Path, monkeypatch):
 
 
 def _make_jpeg_bytes() -> bytes:
-    """生成可通过 python-magic MIME 校验的 JPEG 文件内容。"""
-    return b"\xff\xd8\xff\xe0" + b"\x00" * 100
+    """生成真实可解析的 JPEG 文件内容 (1x1 像素).
+
+    使用 Pillow 创建完整 JPEG, 确保 EXIF 剥离流程能正常打开图片.
+    仅用 magic bytes (\\xff\\xd8...) 的旧方式会被 Pillow 判定为 UnidentifiedImageError.
+    """
+    from PIL import Image
+
+    buf = io.BytesIO()
+    img = Image.new("RGB", (1, 1), color=(255, 0, 0))
+    img.save(buf, format="JPEG", quality=95)
+    buf.seek(0)
+    return buf.getvalue()
 
 
 # ===== 1. 单文件上传 =====

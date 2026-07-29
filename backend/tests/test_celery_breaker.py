@@ -85,7 +85,7 @@ def fresh_celery_breaker():
 
 @pytest.fixture
 def ok_coro():
-    """返回一个立即返回 {'worker1': {}} 的协程 (模拟 inspect.stats 成功)."""
+    """返回一个立即返回 {'worker1': {}} 的协程 (模拟 inspect.ping 成功)."""
 
     async def _ok():
         return {"worker1": {"stats": "data"}}
@@ -455,7 +455,7 @@ class TestCheckCeleryWorkerBreakerIntegration:
 
         with patch("app.core.health.celery_app") as mock_celery:
             mock_inspect = MagicMock()
-            mock_inspect.stats.return_value = {"worker1": {"stats": "data"}}
+            mock_inspect.ping.return_value = {"worker1": {"ok": "pong"}}
             mock_celery.control.inspect.return_value = mock_inspect
 
             result = await check_celery_worker("redis://localhost:6379/0")
@@ -476,7 +476,7 @@ class TestCheckCeleryWorkerBreakerIntegration:
 
         with patch("app.core.health.celery_app") as mock_celery:
             mock_inspect = MagicMock()
-            mock_inspect.stats.side_effect = OSError("broker unreachable")
+            mock_inspect.ping.side_effect = OSError("broker unreachable")
             mock_celery.control.inspect.return_value = mock_inspect
 
             result = await check_celery_worker("redis://localhost:6379/0")
@@ -703,7 +703,7 @@ class TestCeleryBreakerEndToEnd:
         ), patch("app.core.health.celery_app") as mock_celery:
             # 模拟 broker 不可达
             mock_inspect = MagicMock()
-            mock_inspect.stats.side_effect = OSError("broker unreachable")
+            mock_inspect.ping.side_effect = OSError("broker unreachable")
             mock_celery.control.inspect.return_value = mock_inspect
 
             # 前 3 次失败打开熔断器
@@ -712,12 +712,12 @@ class TestCeleryBreakerEndToEnd:
                 assert result is False
             assert breaker.state == CircuitState.OPEN
 
-            # 第 4 次应被熔断器快速拒绝 (inspect.stats 不应被再次调用)
-            mock_inspect.stats.reset_mock()
+            # 第 4 次应被熔断器快速拒绝 (inspect.ping 不应被再次调用)
+            mock_inspect.ping.reset_mock()
             result = await check_celery_worker("redis://localhost:6379/0")
             assert result is False
-            # 熔断器 OPEN 时 inspect.stats 不应被调用
-            assert mock_inspect.stats.call_count == 0
+            # 熔断器 OPEN 时 inspect.ping 不应被调用
+            assert mock_inspect.ping.call_count == 0
 
         # 验证 heartbeat 最终为 0
         entries = celery_worker_heartbeat.collect()

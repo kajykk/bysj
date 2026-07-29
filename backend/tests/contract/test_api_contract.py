@@ -44,7 +44,10 @@ _positive_config = PositiveDataAcceptanceConfig(
     # 422 加入合法状态码: FastAPI 的 Pydantic 验证错误 (如密码字节长度校验、
     # extra fields 拒绝) 返回 422, 这些是 schema-compliant 请求的业务验证拒绝,
     # 不是 schema 违规。JSON Schema 无法表达 UTF-8 字节长度约束等业务规则。
-    expected_statuses=["2xx", "400", "401", "403", "404", "409", "422", "5xx"]
+    # 415 加入合法状态码: CSP report 等端点在 OpenAPI 中未声明 requestBody,
+    # schemathesis 生成的 positive data 不携带 Content-Type, 端点根据
+    # Content-Type 校验规则返回 415, 这是合法的业务拒绝, 不是 schema 违规。
+    expected_statuses=["2xx", "400", "401", "403", "404", "409", "415", "422", "5xx"]
 )
 _checks = ChecksConfig(positive_data_acceptance=_positive_config)
 # 只生成 positive data: negative data 测试中 bool->int 类型转换是 Python 标准行为,

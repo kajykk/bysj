@@ -420,7 +420,7 @@ class TestValidateModel:
         with patch("app.core.model_engine.model_engine") as mock_engine:
             mock_engine.predict_structured = mock_predict
             result = await engine.validate_model(
-                "v1.20", dataset_path, baseline_version="v1.21"
+                "v1.20", dataset_path, baseline_version="v1.23"
             )
         assert result.baseline_metrics is not None
         assert "accuracy" in result.delta
@@ -454,7 +454,7 @@ class TestComputeBaselineMetrics:
         """验证 baseline 数据集加载失败返回 None"""
         engine = ValidationEngine()
         result = await engine._compute_baseline_metrics(
-            "v1.21", tmp_path / "nonexistent.json"
+            "v1.23", tmp_path / "nonexistent.json"
         )
         assert result is None
 
@@ -481,6 +481,6 @@ class TestComputeBaselineMetrics:
         mock_predict = AsyncMock(return_value={"prediction": 1, "probability": 0.9})
         with patch("app.core.model_engine.model_engine") as mock_engine:
             mock_engine.predict_structured = mock_predict
-            result = await engine._compute_baseline_metrics("v1.21", dataset_path)
+            result = await engine._compute_baseline_metrics("v1.23", dataset_path)
         assert result is not None
         assert result.sample_count == 2

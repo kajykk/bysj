@@ -133,6 +133,18 @@ def _reset_global_executors():
         event_bus.reset()
     except Exception:
         pass
+    # PB-09 修复: 重置全局 metrics Counter/Histogram/Gauge, 防止跨测试污染.
+    # 背景: app/core/metrics.py 的 http_requests_total 等是模块级全局单例,
+    # FastAPI 中间件每次 HTTP 请求都会递增 http_requests_total.
+    # test_stab_p2_011_slo 中 _compute_availability() 读取全局 Counter 计算 SLI,
+    # 若前序测试通过 TestClient 发起过 HTTP 请求, 残留计数会让
+    # test_no_requests_returns_1 的 availability != 1.0 (8项失败).
+    try:
+        from app.core.metrics import reset_registry
+
+        reset_registry()
+    except Exception:
+        pass
     yield
 
 
@@ -201,22 +213,69 @@ def db_session(db_connection: AsyncConnection) -> AsyncSession:
     from sqlalchemy import text
 
     async def _cleanup():
-        # FK 反序: 先清依赖表, 再清 users
+        # FK 反序: 先清依赖表, 再清父表.
+        # PB-09 修复: 之前只清理 15 张表, 实际数据库有 39 张表.
+        # 缺失表导致跨测试数据污染:
+        #   - education_contents 未清 → test_content_service 计数错乱 (11项失败)
+        #   - warning_notifications 未清 → test_counselor_service 计数错乱 (5项失败)
+        #   - model_feedbacks 未清 → test_admin_service 计数错乱 (2项失败)
+        # 此处补充全量表清理 (按 FK 反序), tenants 故意不清 (multi-tenant 测试需要).
         for tbl in [
+            # 1. 操作日志/告警归档 (FK -> users)
             "operation_logs",
             "alert_silences",
-            "refresh_token_sessions",
-            "client_group_members",
-            "client_groups",
-            "user_counselor_bindings",
+            "alert_archives",
+            # 2. 监控/漂移/金丝雀 (FK -> users, model_registry)
+            "monitoring_logs",
+            "canary_records",
+            "validation_results",
+            "drift_alerts",
+            # 3. 复核任务 (FK -> users)
+            "review_tasks",
+            # 4. 危机事件 (FK -> users, risk_assessments)
+            "crisis_events",
+            # 5. 干预相关 (FK: task_executions -> intervention_tasks -> intervention_plans)
+            "task_executions",
             "intervention_tasks",
             "intervention_plans",
             "intervention_templates",
-            "user_data_records",
+            # 6. 认证 (FK -> users)
+            "refresh_token_sessions",
+            # 7. 咨询师/咨询预约 (FK -> users, counselor_profiles)
+            "client_group_members",
+            "client_groups",
+            "user_counselor_bindings",
+            "consultation_records",
+            "consultation_appointments",
+            "counselor_profiles",
+            # 8. 评估数据 (FK -> users)
+            "data_drafts",
+            "structured_assessments",
+            "text_entries",
+            "physiological_records",
+            # 9. 风险/告警 (FK -> users)
             "risk_assessments",
-            "crisis_events",
-            "warnings",
+            "warning_notifications",
+            "warning_thresholds",
+            "warning_settings",
+            # 10. 教育内容相关 (FK -> users, education_contents)
+            "content_view_histories",
+            "meditation_logs",
+            "user_favorites",
+            "education_contents",
+            # 11. 模型反馈/注册 (FK -> users)
+            "model_feedbacks",
+            "model_registry",
+            # 12. 系统配置
+            "system_configs",
+            # 13. 紧急联系人/用户档案 (FK -> users)
+            "emergency_contacts",
+            "user_profiles",
+            # 14. 父表 (最后)
+            "user_data_records",  # legacy 表名, 已不存在, try/except 忽略
+            "warnings",  # legacy 表名, 已不存在, try/except 忽略
             "users",
+            # tenants 故意不清: session-scope seed, multi-tenant 测试依赖 tenant_id=1
         ]:
             try:
                 await session.execute(text(f"DELETE FROM {tbl}"))

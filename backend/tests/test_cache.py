@@ -278,39 +278,30 @@ class TestCacheSetFailure:
 
 class TestGetRedisUrl:
     def test_get_redis_url_from_settings(self):
-        """从 settings.redis_url 读取."""
-        # Patch settings BEFORE importing cache
+        """从 settings.redis_url 读取.
+
+        PB-09 修复: _get_redis_url() 内部使用函数级 ``from app.core.config import settings``,
+        因此直接 patch ``app.core.config.settings`` 即可生效, 无需 reload cache 模块.
+        原 reload 实现会重绑定 cache 模块级导入, 引发跨测试对象分裂.
+        """
+        from app.core import cache
+
         mock_settings = MagicMock(redis_url="redis://test:6379/0")
         with patch("app.core.config.settings", mock_settings):
-            # Force re-import of cache
-            import importlib
-
-            from app.core import cache
-
-            importlib.reload(cache)
-            try:
-                result = cache._get_redis_url()
-                assert result == "redis://test:6379/0"
-            finally:
-                importlib.reload(cache)
+            result = cache._get_redis_url()
+            assert result == "redis://test:6379/0"
 
     def test_get_redis_url_settings_empty_returns_none(self):
         """settings.redis_url 为空时返回 None."""
+        from app.core import cache
+
         mock_settings = MagicMock(redis_url="")
         with patch("app.core.config.settings", mock_settings):
-            import importlib
-
-            from app.core import cache
-
-            importlib.reload(cache)
-            try:
-                with patch.dict(os.environ, {}, clear=True):
-                    # 清理 REDIS_URL 环境变量
-                    os.environ.pop("REDIS_URL", None)
-                    result = cache._get_redis_url()
-                    assert result is None
-            finally:
-                importlib.reload(cache)
+            with patch.dict(os.environ, {}, clear=True):
+                # 清理 REDIS_URL 环境变量
+                os.environ.pop("REDIS_URL", None)
+                result = cache._get_redis_url()
+                assert result is None
 
     def test_get_redis_url_fallback_to_env(self):
         """环境变量兜底 (settings 不可用时, 走 REDIS_URL 环境变量)."""

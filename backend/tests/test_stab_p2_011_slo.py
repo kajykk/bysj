@@ -45,6 +45,19 @@ from app.core.slo import (
 )
 
 
+# PB-09 修复: 文件级 autouse fixture, 确保每个测试前所有 metrics 被清理.
+# 背景: 全量回归测试中, 前序测试通过 TestClient 发起 HTTP 请求会递增
+# http_requests_total. 即使 conftest.py 的 _reset_global_executors autouse
+# 调用 reset_registry(), setup_method 也清空 _values, 仍有偶发污染
+# (疑似 lifespan 后台任务或异步事件). 此 fixture 在 setup_method 之后、
+# 测试方法之前再次清空, 提供三重保险.
+@pytest.fixture(autouse=True)
+def _reset_slo_metrics():
+    """清空所有 metrics, 确保 SLO/SLI 测试从干净状态开始."""
+    reset_registry()
+    yield
+
+
 class TestSLOConstants:
     """SLO 目标常量合理性测试."""
 
