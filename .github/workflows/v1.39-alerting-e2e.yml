@@ -39,6 +39,10 @@ jobs:
       GRAFANA_SRE_EMAIL: sre-ci@example.invalid
       GRAFANA_SLACK_URL: https://hooks.slack.com/services/CI/CI/CI
       GRAFANA_SLACK_CHANNEL: '#sre-alerts-ci'
+      # docker-compose.yml 中 ${VAR:?...} 必需变量 (缺失会导致 docker compose up 插值失败)
+      ALERTMANAGER_WEBHOOK_SECRET: ci-alertmanager-secret
+      METRICS_ACCESS_TOKEN: ci-metrics-token
+      PASSWORD_RESET_BASE_URL: https://example.invalid/reset
 
     steps:
       - name: Checkout
