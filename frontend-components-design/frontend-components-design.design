@@ -1,0 +1,57 @@
+{
+  "data": [
+    {
+      "id": "page-skeleton-loading",
+      "title": "骨架屏加载态",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1784256000000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/skeleton-loading.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-error-pages",
+      "title": "统一错误页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1784256000000,
+      "canvasData": {
+        "x": 620,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/error-pages.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-lazy-image",
+      "title": "图片懒加载",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1784256000000,
+      "canvasData": {
+        "x": 1240,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/lazy-image.html",
+        "interactions": []
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "前端组件设计稿"
+  }
+}
