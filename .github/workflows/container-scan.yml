@@ -1,5 +1,8 @@
 name: Container Image Security Scan
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 # SEC-B: 容器镜像 trivy 扫描
 # - PR 修改 Dockerfile / docker-compose.yml 时触发
 # - 每周日 03:00 UTC 全量扫描已发布镜像

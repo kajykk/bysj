@@ -1,5 +1,8 @@
 name: Dependency Security Scan
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 # SEC-A: 依赖项 SCA 扫描 (Software Composition Analysis)
 # 双重扫描: pip-audit (PyPI 数据源) + safety (商业数据库兜底)
 # 严重漏洞 (HIGH/CRITICAL) 阻塞 PR 合并

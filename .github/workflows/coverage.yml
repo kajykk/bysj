@@ -1,5 +1,11 @@
 name: Coverage
 
+env:
+  # GitHub Runner 自 2026-07 起默认 Node 24; actions/upload-artifact@v4 与
+  # download-artifact@v4 仍捆绑 Node 20, 在 Node 24 上上传会"假成功"导致
+  # 下游下载 artifact 报 "not found"。此变量恢复 Node 20 action 正常运行。
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 on:
   push:
     branches: [main, develop]
@@ -128,11 +134,13 @@ jobs:
     if: always()
     steps:
       - name: Download backend coverage
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: backend-coverage-report
           path: backend-coverage
       - name: Download frontend coverage
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: frontend-coverage-report

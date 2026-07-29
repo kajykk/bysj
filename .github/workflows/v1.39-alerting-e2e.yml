@@ -1,5 +1,9 @@
 name: v1.39-alerting-e2e
 
+env:
+  # 恢复 bundles Node 20 的 actions/upload-artifact@v4 在 Node 24 runner 上的正常行为
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 # v1.39 Grafana Alerting E2E (TC-AT-012 / TC-AT-016 / TC-AT-017)
 # Windows 本地不可达 (Docker Desktop + provisioning 加载限制), 转入 CI
 # 来源: docs/planning/v1.39-grafana-alert-rules/NEXT_STEPS.md §2
