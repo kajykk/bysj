@@ -12,7 +12,7 @@ venv/
 catboost_info/
 
 # FastAPI/Alembic
-alembic.ini
+# alembic.ini 已纳入版本控制 (backend Dockerfile 构建需要; 无密钥, sqlalchemy.url 为开发默认值, 运行时由 DATABASE_URL 覆盖)
 
 # Node
 node_modules/
@@ -215,7 +215,9 @@ train_ml_oneclick.ps1
 backend/fail_detail.txt
 backend/full_test.txt
 backend/backend/
-backend/models/
+# models/ 含大型 .pkl 模型文件不入库, 但保留 .gitkeep 使目录存在于 CI 构建上下文 (Dockerfile COPY models/ 需要)
+backend/models/*
+!backend/models/.gitkeep
 backend/monitoring/
 
 # AI tool memory

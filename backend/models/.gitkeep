@@ -1,0 +1,2 @@
+# 占位文件: 使 models/ 目录存在于 Git 仓库中, 供 Dockerfile COPY models/ /app/models/ 使用。
+# 实际 .pkl 模型文件由 .gitignore 忽略, 不入库; 运行时模型加载器在目录为空时降级为启发式规则。
