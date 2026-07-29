@@ -5,7 +5,10 @@ apiVersion: 1
 #   - sre-webhook (P0/P1 即时通道, R1 决策 Q2: 优先)
 #   - sre-email (P0/P1 存档通道)
 #   - slack-alerts (P0/P1 协同通道)
-# env var 缺失时, Grafana 11.6 自动将 contact point 标记为 disabled (RISK-2 行为)
+#
+# 2026-07-25 修复: Grafana 11.5 provisioning 文件不支持 ${env:XXX} 占位符
+# (Grafana 内部系统变量只能通过 GF_ 前缀环境变量注入, 不能用于 url/email)
+# 改为字面量值,与 .env 中的 GRAFANA_WEBHOOK_URL/GRAFANA_SRE_EMAIL 等保持同步
 
 contactPoints:
   - orgId: 1
@@ -14,7 +17,7 @@ contactPoints:
       - uid: cp-webhook
         type: webhook
         settings:
-          url: ${env:GRAFANA_WEBHOOK_URL}
+          url: https://httpbin.org/post
           httpMethod: POST
         disableResolveMessage: false
   - orgId: 1
@@ -23,16 +26,17 @@ contactPoints:
       - uid: cp-email
         type: email
         settings:
-          addresses: ${env:GRAFANA_SRE_EMAIL}
+          addresses: sre-alerts@example.invalid
           singleEmail: false
         disableResolveMessage: false
-  - orgId: 1
-    name: slack-alerts
-    receivers:
-      - uid: cp-slack
-        type: slack
-        settings:
-          url: ${env:GRAFANA_SLACK_URL}
-          channel: ${env:GRAFANA_SLACK_CHANNEL}
-          username: Grafana
-        disableResolveMessage: false
+  # slack-alerts 已禁用: GRAFANA_SLACK_URL 在 .env 中为空,无效 URL 会导致 provisioning 失败
+  # - orgId: 1
+  #   name: slack-alerts
+  #   receivers:
+  #     - uid: cp-slack
+  #       type: slack
+  #       settings:
+  #         url: https://hooks.slack.com/services/PLACEHOLDER
+  #         channel: "#sre-alerts"
+  #         username: Grafana
+  #       disableResolveMessage: false

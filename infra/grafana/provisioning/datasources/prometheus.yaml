@@ -19,4 +19,7 @@ datasources:
       httpMethod: POST
       # 允许 POST body 包含 time range 等参数
       manageAlerts: true
-    secureJsonData: {}
+      # S4 P3: /metrics 端点鉴权 (CRIT-007)
+      httpHeaderName1: Authorization
+    secureJsonData:
+      httpHeaderValue1: Bearer ${METRICS_ACCESS_TOKEN}
