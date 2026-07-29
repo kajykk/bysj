@@ -13,9 +13,9 @@
             v-if="bindCodeLoading"
             class="skeleton-padding"
           >
-            <el-skeleton
+            <SkeletonScreen
               :rows="2"
-              animated
+              variant="text"
             />
           </div>
           <template v-else>
@@ -163,6 +163,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { InfoFilled } from '@element-plus/icons-vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { counselorApi } from '@/api/counselorApi'

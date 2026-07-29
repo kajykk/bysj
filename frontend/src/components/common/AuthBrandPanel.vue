@@ -6,10 +6,42 @@
 
     <header class="auth-brand__top">
       <div class="auth-brand__logo">
-        <span class="auth-brand__logo-mark" />
-        <span class="auth-brand__logo-text">Mindwatch</span>
+        <!-- UI 升级 v3.2: 统一 Logo Mark - 与侧边栏相同的双叶护心图形 -->
+        <svg
+          class="auth-brand__logo-mark"
+          viewBox="0 0 32 32"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient
+              id="auth-logo-gradient"
+              x1="0"
+              y1="0"
+              x2="1"
+              y2="1"
+            >
+              <stop
+                offset="0%"
+                stop-color="var(--brand-accent-soft, #6bb4e8)"
+              />
+              <stop
+                offset="100%"
+                stop-color="var(--brand-accent-blue, #4a9bd6)"
+              />
+            </linearGradient>
+          </defs>
+          <path
+            d="M16 6 C 10 10, 8 16, 16 26 C 24 16, 22 10, 16 6 Z"
+            fill="url(#auth-logo-gradient)"
+          />
+          <path
+            d="M16 12 C 13 14, 12 17, 16 22 C 20 17, 19 14, 16 12 Z"
+            fill="rgba(255,255,255,0.4)"
+          />
+        </svg>
+        <span class="auth-brand__logo-text">{{ t('layout.appTitle', 'Mindwatch') }}</span>
       </div>
-      <span class="auth-brand__version">v3.1</span>
+      <span class="auth-brand__version">v3.2</span>
     </header>
 
     <div class="auth-brand__body">
@@ -55,11 +87,15 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
 export interface BrandSignal {
   key: string
   label: string
   live?: boolean
 }
+
+const { t } = useI18n()
 
 withDefaults(
   defineProps<{
@@ -166,11 +202,10 @@ withDefaults(
 }
 
 .auth-brand__logo-mark {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--brand-accent-blue);
-  box-shadow: 0 0 16px rgba(74, 155, 214, 0.7);
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 12px rgba(74, 155, 214, 0.5));
 }
 
 .auth-brand__logo-text {

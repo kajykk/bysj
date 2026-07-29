@@ -9,9 +9,9 @@
       v-if="loading"
       class="card-loading"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="2"
-        animated
+        variant="text"
       />
     </div>
     <EmptyState
@@ -77,6 +77,7 @@
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/EmptyState.vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { ActiveIntervention } from '@/api/userRiskApi'
 
 defineProps<{

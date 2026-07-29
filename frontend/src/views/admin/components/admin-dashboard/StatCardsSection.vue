@@ -9,9 +9,10 @@
         v-if="loading"
         class="stat-loading"
       >
-        <el-skeleton
+        <SkeletonScreen
+          variant="text"
           :rows="1"
-          animated
+          :row-height="32"
         />
       </div>
       <div
@@ -51,9 +52,10 @@
           v-if="loading"
           class="stat-loading"
         >
-          <el-skeleton
+          <SkeletonScreen
+            variant="text"
             :rows="1"
-            animated
+            :row-height="32"
           />
         </div>
         <div
@@ -95,6 +97,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ArrowUp, ArrowDown } from '@element-plus/icons-vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { StatCard } from './sharedAdminDashboardUtils'
 
 defineProps<{

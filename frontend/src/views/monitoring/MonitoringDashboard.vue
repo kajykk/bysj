@@ -156,10 +156,10 @@
         </div>
       </template>
 
-      <el-skeleton
+      <SkeletonScreen
         v-if="loading"
         :rows="5"
-        animated
+        variant="text"
       />
 
       <el-table
@@ -218,6 +218,7 @@ import { Refresh } from '@element-plus/icons-vue'
 import SystemHealthChart from '@/components/charts/SystemHealthChart.vue'
 import RiskTrendChart from '@/components/charts/RiskTrendChart.vue'
 import TrendArrow from '@/components/common/TrendArrow.vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 
 interface AlertItem {
   id: number

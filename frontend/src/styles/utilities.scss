@@ -137,6 +137,86 @@
   transform: translateY(0);
 }
 
+/* ===== UI 升级 v3.2: 语义化卡片层级 =====
+   在 .card-base / .stat-card 基础上派生 4 种语义卡,
+   用于统一全站的卡片视觉权重与情感语义。
+   设计者: UI Designer */
+.card-hero {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-lighter);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-hero);
+  padding: var(--spacing-xl);
+  transition: box-shadow var(--transition-duration) var(--transition-ease-out),
+    transform var(--transition-duration) var(--transition-ease-out);
+}
+
+.card-hero:hover {
+  box-shadow: var(--shadow-emphasis);
+  transform: translateY(-2px);
+}
+
+.card-safety {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-lighter);
+  border-left: 3px solid var(--calm-accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-safety);
+  padding: var(--spacing-lg);
+  transition: box-shadow var(--transition-duration) var(--transition-ease-out),
+    border-color var(--transition-duration) var(--transition-ease-out);
+}
+
+.card-safety:hover {
+  box-shadow: 0 8px 24px rgba(122, 176, 168, 0.18);
+}
+
+.card-data {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-lighter);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-data);
+  padding: var(--spacing-md);
+  transition: box-shadow var(--transition-duration) var(--transition-ease-out),
+    transform var(--transition-duration) var(--transition-ease-out);
+}
+
+.card-data:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.card-emphasis {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-lighter);
+  border-left: 3px solid var(--warning-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--spacing-md);
+  transition: box-shadow var(--transition-duration) var(--transition-ease-out),
+    border-color var(--transition-duration) var(--transition-ease-out);
+}
+
+.card-emphasis:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-left-color: var(--primary-color);
+}
+
+/* 减少动效偏好:关闭卡片 hover 变换 */
+@media (prefers-reduced-motion: reduce) {
+  .card-hero,
+  .card-safety,
+  .card-data,
+  .card-emphasis {
+    transition: none;
+  }
+  .card-hero:hover,
+  .card-data:hover,
+  .card-emphasis:hover {
+    transform: none;
+  }
+}
+
 /* ===== 页面头部工具类 ===== */
 .page-header {
   display: flex;

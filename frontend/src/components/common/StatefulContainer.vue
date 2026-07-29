@@ -4,9 +4,9 @@
       v-if="loading"
       class="state-wrap"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="skeletonRows"
-        animated
+        variant="text"
       />
     </div>
     <div
@@ -83,6 +83,7 @@
 <script setup lang="ts">
 import { Document } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 // ISS-096 TODO：错误/空状态渲染后建议自动聚焦错误容器或重试按钮，方便键盘用户快速操作
 
 interface Props {

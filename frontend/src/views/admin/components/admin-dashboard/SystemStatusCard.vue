@@ -27,9 +27,9 @@
       v-if="loading"
       class="card-loading"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="4"
-        animated
+        variant="text"
       />
     </div>
     <template v-else>
@@ -62,6 +62,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { COMPONENT_NAME_KEYS, type ComponentStatusItem } from './sharedAdminDashboardUtils'
 
 defineProps<{

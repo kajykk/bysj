@@ -1,21 +1,42 @@
 <template>
   <div class="error-page">
     <div class="error-content">
+      <!-- 状态标签 -->
+      <div
+        class="error-status-tag"
+        :class="`error-status-tag--${errorType}`"
+      >
+        {{ code }}
+      </div>
+
+      <!-- 错误代码 -->
+      <h1
+        class="error-code"
+        :class="`error-code--${errorType}`"
+      >
+        {{ code }}
+      </h1>
+
       <!-- 错误图标 -->
-      <div class="error-icon">
+      <div
+        class="error-icon"
+        :class="`error-icon--${errorType}`"
+      >
         <svg
           v-if="code === '404'"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
           <circle
             cx="12"
             cy="12"
             r="10"
           />
-          <path d="M8 8l8 8M16 8l-8 8" />
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
         </svg>
         <svg
           v-else-if="code === '403'"
@@ -23,6 +44,8 @@
           fill="none"
           stroke="currentColor"
           stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
           <rect
             x="3"
@@ -40,10 +63,22 @@
           fill="none"
           stroke="currentColor"
           stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
-          <polygon points="12 2 2 7 12 12 22 7 12 2" />
-          <polyline points="2 17 12 22 22 17" />
-          <polyline points="2 12 12 17 22 12" />
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          <line
+            x1="12"
+            y1="9"
+            x2="12"
+            y2="13"
+          />
+          <line
+            x1="12"
+            y1="17"
+            x2="12.01"
+            y2="17"
+          />
         </svg>
         <svg
           v-else
@@ -51,6 +86,8 @@
           fill="none"
           stroke="currentColor"
           stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
           <circle
             cx="12"
@@ -72,11 +109,6 @@
         </svg>
       </div>
 
-      <!-- 错误代码 -->
-      <h1 class="error-code">
-        {{ code }}
-      </h1>
-
       <!-- 错误标题 -->
       <h2 class="error-title">
         {{ title }}
@@ -89,18 +121,24 @@
 
       <!-- 操作按钮 -->
       <div class="error-actions">
-        <el-button
-          type="primary"
-          @click="goHome"
-        >
-          {{ t('error.goHome') }}
-        </el-button>
-        <el-button
-          v-if="showBack"
-          @click="goBack"
-        >
-          {{ t('error.goBack') }}
-        </el-button>
+        <slot name="actions">
+          <el-button
+            type="primary"
+            size="large"
+            :icon="HomeFilled"
+            @click="goHome"
+          >
+            {{ t('error.goHome') }}
+          </el-button>
+          <el-button
+            v-if="showBack"
+            size="large"
+            :icon="Back"
+            @click="goBack"
+          >
+            {{ t('error.goBack') }}
+          </el-button>
+        </slot>
       </div>
     </div>
   </div>
@@ -110,6 +148,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { HomeFilled, Back } from '@element-plus/icons-vue'
 
 interface Props {
   code?: string
@@ -128,7 +167,15 @@ const props = withDefaults(defineProps<Props>(), {
 const router = useRouter()
 const { t } = useI18n()
 
-// ISS-027 修复：硬编码中文迁移到 i18n，通过 code 映射到对应文案
+const errorType = computed(() => {
+  switch (props.code) {
+    case '404': return 'info'
+    case '403': return 'warning'
+    case '500': return 'danger'
+    default: return 'info'
+  }
+})
+
 const defaultTitleKey = computed(() => {
   switch (props.code) {
     case '404': return 'error.page404Title'
@@ -167,27 +214,84 @@ const goBack = () => {
 </script>
 
 <style scoped>
-/* ISS-027/036 修复：改用 CSS 变量，自动支持深色模式（变量在 theme.scss 中按 html.dark 重写） */
 .error-page {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
   padding: var(--spacing-xl);
-  background: linear-gradient(135deg, var(--bg-page) 0%, var(--bg-tertiary, #e4e7ed) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--bg-page) 0%,
+    var(--bg-hover) 100%
+  );
 }
 
 .error-content {
+  position: relative;
   text-align: center;
   max-width: 480px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-2xl) var(--spacing-xl);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
-.error-icon {
-  width: 120px;
-  height: 120px;
-  margin: 0 auto var(--spacing-xl);
+/* ===== 状态标签 ===== */
+.error-status-tag {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-extra-small);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-mono, monospace);
+  line-height: 1.6;
+}
+
+.error-status-tag--info {
+  background-color: var(--info-light, var(--bg-page));
+  color: var(--info-color, var(--text-secondary));
+}
+
+.error-status-tag--warning {
+  background-color: var(--warning-light, var(--bg-page));
+  color: var(--warning-color);
+}
+
+.error-status-tag--danger {
+  background-color: var(--danger-light, var(--bg-page));
+  color: var(--danger-color);
+}
+
+/* ===== 错误代码 ===== */
+.error-code {
+  font-size: 72px;
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--spacing-md);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.error-code--info {
   color: var(--primary-color);
-  opacity: 0.8;
+}
+
+.error-code--warning {
+  color: var(--warning-color);
+}
+
+.error-code--danger {
+  color: var(--danger-color);
+}
+
+/* ===== 错误图标 ===== */
+.error-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto var(--spacing-md);
 }
 
 .error-icon svg {
@@ -195,44 +299,48 @@ const goBack = () => {
   height: 100%;
 }
 
-.error-code {
-  font-size: 72px;
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-sm);
-  line-height: 1;
-  letter-spacing: -2px;
+.error-icon--info {
+  color: var(--info-color, var(--text-secondary));
 }
 
+.error-icon--warning {
+  color: var(--warning-color);
+}
+
+.error-icon--danger {
+  color: var(--danger-color);
+}
+
+/* ===== 错误标题 ===== */
 .error-title {
   font-size: var(--font-size-extra-large);
   font-weight: var(--font-weight-medium);
-  color: var(--text-regular);
-  margin: 0 0 var(--spacing-lg);
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-sm);
 }
 
+/* ===== 错误描述 ===== */
 .error-description {
   font-size: var(--font-size-base);
   color: var(--text-secondary);
-  margin: 0 0 var(--spacing-2xl);
+  margin: 0 0 var(--spacing-xl);
   line-height: var(--line-height-normal);
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
+/* ===== 操作按钮 ===== */
 .error-actions {
   display: flex;
-  gap: var(--spacing-md);
+  gap: var(--spacing-sm);
   justify-content: center;
 }
 
-/* 响应式 */
+/* ===== 响应式 ===== */
 @media (max-width: 768px) {
-  .error-icon {
-    width: 80px;
-    height: 80px;
-  }
-
   .error-code {
-    font-size: 48px;
+    font-size: 56px;
   }
 
   .error-title {
@@ -241,6 +349,11 @@ const goBack = () => {
 
   .error-actions {
     flex-direction: column;
+    width: 100%;
+  }
+
+  .error-actions .el-button {
+    width: 100%;
   }
 }
 </style>

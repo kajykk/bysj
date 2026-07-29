@@ -160,10 +160,10 @@
       </div>
     </el-card>
 
-    <el-skeleton
+    <SkeletonScreen
       v-else
       :rows="10"
-      animated
+      variant="text"
     />
   </div>
 </template>
@@ -173,6 +173,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Check, Top } from '@element-plus/icons-vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { counselorApi, type ReviewItem } from '@/api/counselorApi'
 // P2-A 修复：使用共享的 formatDate 替代本地重复实现

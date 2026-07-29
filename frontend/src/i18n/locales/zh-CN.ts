@@ -96,7 +96,16 @@ export default {
     warningNotificationTitle: '风险预警通知',
     warningNotificationMessage: '检测到{level}风险等级预警，请及时查看',
     logoutConfirm: '确认退出登录吗？',
-    logoutConfirmTitle: '提示'
+    logoutConfirmTitle: '提示',
+    // UI 升级 v3.2: 新增 Header 用户菜单与角色相关文案
+    appSubtitle: '心理健康守护',
+    newWarningCount: '有 {count} 条新预警，点击查看',
+    unreadCount: '{count} 条未读',
+    userMenuAria: '{name}，{role}，点击打开用户菜单',
+    userMenuSettings: '个人设置',
+    userMenuTheme: '切换主题',
+    userMenuOnboarding: '查看新手引导',
+    themeSwitchedTitle: '主题已切换'
   },
   role: {
     admin: '管理员',
