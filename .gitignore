@@ -224,6 +224,13 @@ _*.py
 _*.txt
 _*.json
 
+# Trae IDE runtime state (编排器维护的运行时状态，易过期；保留稳定的 .trae/skills/ 与 .trae/rules/)
+.trae/mlopt/
+.trae/sysopt/
+
+# Third-party vendored reference (非本项目代码，仅作本地参考)
+superpowers-resources/
+
 # Editor session state
 .zcode/
 
