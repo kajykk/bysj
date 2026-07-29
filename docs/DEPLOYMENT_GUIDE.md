@@ -746,7 +746,7 @@ curl -X POST https://localhost/api/v1/canary/deployments/{deployment_id}/rollbac
 - [API 文档](./api/v1.5-api-documentation.md) (待补齐为 v1.39 全量 API, MAINT-P1-002)
 - [OpenAPI 规范](../backend/tests/contract/openapi.json)
 - [CHANGELOG](../CHANGELOG.md)
-- [系统优化状态](../.trae/sysopt/STATE.md)
+- 系统优化状态：本地维护（`.trae/sysopt/STATE.md`，已 gitignore 不入库，避免运行时状态污染仓库）
 
 ### 运维命令速查
 

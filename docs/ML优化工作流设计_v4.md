@@ -498,10 +498,8 @@ P0 告警触发
 
 ### 7.3 版本控制
 
-- `.trae/mlopt/` 全部纳入 Git 版本控制
-- 每次状态变更生成 commit
-- commit message 格式: `mlopt: {action} {item_id} {state}`
-- 示例: `mlopt: complete S-01 COMPLETED`
+- `.trae/mlopt/` 状态文件本地维护（已 gitignore，不入库），避免运行时状态污染仓库；如需长期归档可手动提交到 `docs/`
+- 状态变更仅在本地记录，不强制生成 commit
 
 ---
 

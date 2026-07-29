@@ -140,7 +140,7 @@ python scripts/canary_release.py rollback \
 
 ## 关联文档
 
-- [ML 优化状态](../.trae/mlopt/STATE.md)
-- [优化项清单](../.trae/mlopt/optimization-inventory.md)
+- ML 优化状态：本地维护（`.trae/mlopt/STATE.md`，已 gitignore 不入库）
+- 优化项清单：本地维护（`.trae/mlopt/optimization-inventory.md`，已 gitignore 不入库）
 - [部署指南](DEPLOYMENT_GUIDE.md)
 - [紧急运维手册](EMERGENCY_RUNBOOK.md)
