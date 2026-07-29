@@ -197,7 +197,8 @@ infra/*
 !/common/task-types.json
 
 # Docker
-docker-compose.yml
+# docker-compose.yml 已纳入版本控制 (CI v1.39-alerting-e2e 与 Docker 快速启动需要;
+# 所有密码均使用 ${ENV} 占位符, 无硬编码密钥)
 
 # Misc root files (not part of source)
 BASELINE.md

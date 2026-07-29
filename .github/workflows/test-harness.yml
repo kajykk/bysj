@@ -73,7 +73,10 @@ jobs:
         run: |
           npm run test:coverage
       - name: Run harnesses and merge report
-        shell: pwsh
+        shell: bash
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379/0
         run: |
           python -m pytest backend/tests/test_harness.py backend/tests/test_harness_integration.py --maxfail=1 --disable-warnings
           npm --prefix frontend run test -- --no-file-parallelism
