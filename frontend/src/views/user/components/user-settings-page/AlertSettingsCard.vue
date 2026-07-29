@@ -7,9 +7,9 @@
       v-if="settingsLoading"
       class="skeleton-padding"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="4"
-        animated
+        variant="text"
       />
     </div>
     <el-form
@@ -102,6 +102,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { userApi } from '@/api/userApi'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 
 const { t } = useI18n()

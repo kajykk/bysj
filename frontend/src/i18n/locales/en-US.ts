@@ -96,7 +96,16 @@ export default {
     warningNotificationTitle: 'Risk Alert',
     warningNotificationMessage: 'Detected {level} risk level alert, please review',
     logoutConfirm: 'Are you sure you want to log out?',
-    logoutConfirmTitle: 'Notice'
+    logoutConfirmTitle: 'Notice',
+    // UI 升级 v3.2: Header user menu and role-related copy
+    appSubtitle: 'Mental Health Guardian',
+    newWarningCount: '{count} new warnings, click to view',
+    unreadCount: '{count} unread',
+    userMenuAria: '{name}, {role}, click to open user menu',
+    userMenuSettings: 'Settings',
+    userMenuTheme: 'Toggle Theme',
+    userMenuOnboarding: 'View Onboarding',
+    themeSwitchedTitle: 'Theme Switched'
   },
   role: {
     admin: 'Administrator',

@@ -10,9 +10,9 @@
       v-if="loading"
       class="skeleton-padding"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="6"
-        animated
+        variant="text"
       />
     </div>
     <template v-else-if="data">
@@ -72,6 +72,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { ContentItem, ContentDetail } from '@/api/userApi'
 import { CONTENT_TYPE_LABEL_KEYS } from './sharedContentUtils'
 

@@ -20,9 +20,9 @@
       v-if="loading"
       class="card-loading"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="3"
-        animated
+        variant="text"
       />
     </div>
     <EmptyState
@@ -70,6 +70,7 @@
     </template>
     <EmptyState
       v-else
+      variant="warning"
       :title="t('userDashboard.emptyNoUnread')"
       :description="t('userDashboard.emptyNoUnreadDesc')"
       :image-size="60"
@@ -81,6 +82,7 @@
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/EmptyState.vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { formatDate } from '@/utils/formatUtils'
 import type { WarningItem } from '@/api/userTypes'
 

@@ -57,7 +57,7 @@ describe('RiskReportTab', () => {
       props: { ...baseProps, loading: true },
       ...mountOptions,
     })
-    expect(wrapper.find('.el-skeleton').exists()).toBe(true)
+    expect(wrapper.find('.skeleton-screen').exists()).toBe(true)
     expect(wrapper.find('.report-score-wrap').exists()).toBe(false)
   })
 

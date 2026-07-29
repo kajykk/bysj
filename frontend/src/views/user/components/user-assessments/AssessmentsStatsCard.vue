@@ -7,9 +7,9 @@
       v-if="loading"
       class="skeleton-padding"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="2"
-        animated
+        variant="text"
       />
     </div>
     <div
@@ -81,6 +81,7 @@ defineOptions({ name: 'AssessmentsStatsCard' })
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { userApi, type AssessmentRecordItem } from '@/api/userApi'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 

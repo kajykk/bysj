@@ -10,11 +10,15 @@
       <LayoutHeader
         :role-label="roleLabel"
         :has-new-warning="hasNewWarning"
+        :warning-count="unreadWarningCount"
         :user-name="auth.user?.nickname || auth.user?.username || ''"
+        :current-role="auth.role"
         :on-restart-onboarding="restartOnboarding"
         @go-warnings="goWarnings"
         @logout="handleLogout"
         @toggle-sidebar="layout.toggleSidebar"
+        @go-settings="goSettings"
+        @toggle-theme="toggleTheme"
       />
       <el-main
         id="main-content"
@@ -82,9 +86,33 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const layout = useLayoutStore()
-const { hasNewWarning, incrementUnread, resetUnread } = useWebSocket()
+const { hasNewWarning, unreadWarningCount, incrementUnread, resetUnread } = useWebSocket()
 
 const { groupedMenus, activePath, roleLabel } = useLayoutMenu()
+
+// UI 升级 v3.2: 主题切换 - 循环 light → dark → auto → light
+import { useTheme } from '@/composables/useTheme'
+const { theme, setTheme } = useTheme()
+const toggleTheme = () => {
+  const order: Array<'light' | 'dark' | 'auto'> = ['light', 'dark', 'auto']
+  const currentIdx = order.indexOf(theme.value as 'light' | 'dark' | 'auto')
+  const next = order[(currentIdx + 1) % order.length]
+  setTheme(next)
+  ElNotification({
+    title: t('layout.themeSwitchedTitle'),
+    message: t(`theme.${next}`),
+    type: 'info',
+    duration: 2000,
+  })
+}
+
+// UI 升级 v3.2: 跳转个人设置
+const goSettings = () => {
+  const settingsPath = auth.role === 'admin' ? '/admin/settings'
+    : auth.role === 'counselor' ? '/counselor/settings'
+    : '/user/settings'
+  router.push(settingsPath)
+}
 
 // I2 改进：新手引导系统
 const { tryStartOnboarding, restartTour } = useOnboarding(auth.role)

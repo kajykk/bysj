@@ -24,9 +24,9 @@
       v-if="loading"
       class="card-loading"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="4"
-        animated
+        variant="text"
       />
     </div>
     <EmptyState
@@ -66,6 +66,7 @@ import { echarts, type ECharts } from '@/utils/echarts'
 import { subscribeResize } from '@/utils/sharedResize'
 import { readChartVar } from '@/utils/chartTheme'
 import EmptyState from '@/components/common/EmptyState.vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { RiskTrend } from '@/api/userRiskApi'
 import {
   CHART_RISK_LEVEL_KEYS,

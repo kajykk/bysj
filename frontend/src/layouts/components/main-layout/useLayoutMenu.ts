@@ -27,6 +27,10 @@ export interface MenuItem {
   path: string
   icon?: Component
   tourTarget?: string
+  /** UI 升级 v3.2: 未读数徽章 - 大于 0 时显示 */
+  badge?: number
+  /** 徽章配色变体: danger(默认,预警) / warning(待办) / primary(信息) */
+  badgeVariant?: 'danger' | 'warning' | 'primary'
 }
 
 export interface MenuSection {

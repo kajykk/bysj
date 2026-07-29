@@ -9,9 +9,9 @@
       v-if="loading"
       class="card-loading"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="2"
-        animated
+        variant="text"
       />
     </div>
     <EmptyState
@@ -52,6 +52,7 @@
     </template>
     <template v-else>
       <EmptyState
+        variant="assessment"
         :title="t('userDashboard.emptyNoRecord')"
         :description="t('userDashboard.emptyNoRecordDesc')"
         :image-size="40"
@@ -74,6 +75,7 @@
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/EmptyState.vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { formatDate } from '@/utils/formatUtils'
 import type { DataHistoryItem } from '@/api/userTypes'
 

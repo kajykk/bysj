@@ -7,9 +7,9 @@
       v-if="loading"
       class="chart-skeleton"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="5"
-        animated
+        variant="text"
       />
     </div>
     <div
@@ -23,6 +23,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { echarts, type ECharts } from '@/utils/echarts'
 import { subscribeResize } from '@/utils/sharedResize'
 import { CHART_COLORS } from './sharedChartUtils'

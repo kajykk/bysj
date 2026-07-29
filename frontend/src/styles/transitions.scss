@@ -288,3 +288,88 @@
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   UI 升级 v3.2 - 情感化动效扩展
+   设计者: UI Designer
+   策略: 追加到现有动效库,所有动效基于 transform/opacity,60fps 友好
+   ========================================================================== */
+
+/* 风险呼吸光晕 - 高/危急等级专用，比 breathe 更慢更柔，避免焦虑感 */
+@keyframes risk-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 90, 90, 0.12); }
+  50% { box-shadow: 0 0 0 8px rgba(214, 90, 90, 0.04); }
+}
+
+.risk-pulse-high {
+  animation: risk-pulse var(--risk-glow-pulse-duration, 3.6s) var(--ease-soft, cubic-bezier(0.32, 0.72, 0, 1)) infinite;
+}
+
+/* 危急等级 - 更明显但仍然柔和 */
+@keyframes risk-pulse-critical {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 46, 40, 0.16); }
+  50% { box-shadow: 0 0 0 10px rgba(168, 46, 40, 0.05); }
+}
+
+.risk-pulse-critical {
+  animation: risk-pulse-critical calc(var(--risk-glow-pulse-duration, 3.6s) * 0.85) var(--ease-soft, cubic-bezier(0.32, 0.72, 0, 1)) infinite;
+}
+
+/* 庆祝回弹 - 任务完成、评估提交成功 */
+@keyframes celebrate {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.celebrate-in {
+  animation: celebrate var(--duration-deliberate, 400ms) var(--ease-celebration, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
+}
+
+/* 安全感入场 - 学生端卡片默认入场动效，传递"被温柔接住"的感觉 */
+@keyframes safe-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.safe-in {
+  animation: safe-in var(--duration-base, 240ms) var(--ease-soft, cubic-bezier(0.32, 0.72, 0, 1)) both;
+}
+
+/* 错位安全感入场 - 多卡片阶梯式 */
+.safe-in-stagger > * {
+  animation: safe-in var(--duration-base, 240ms) var(--ease-soft, cubic-bezier(0.32, 0.72, 0, 1)) both;
+}
+
+.safe-in-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.safe-in-stagger > *:nth-child(2) { animation-delay: 80ms; }
+.safe-in-stagger > *:nth-child(3) { animation-delay: 160ms; }
+.safe-in-stagger > *:nth-child(4) { animation-delay: 240ms; }
+.safe-in-stagger > *:nth-child(5) { animation-delay: 320ms; }
+.safe-in-stagger > *:nth-child(6) { animation-delay: 400ms; }
+
+/* 完成态勾选 - 干预任务勾选时的勾画动画 */
+@keyframes check-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.check-draw path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: check-draw var(--duration-deliberate, 400ms) var(--ease-emphasized, cubic-bezier(0.3, 0, 0, 1)) forwards;
+}
+
+/* 扩展减少动效偏好 - 兼容新增动效 */
+@media (prefers-reduced-motion: reduce) {
+  .risk-pulse-high,
+  .risk-pulse-critical,
+  .celebrate-in,
+  .safe-in,
+  .safe-in-stagger > *,
+  .check-draw path {
+    animation: none !important;
+  }
+  .check-draw path {
+    stroke-dashoffset: 0;
+  }
+}

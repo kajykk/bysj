@@ -7,9 +7,9 @@
       v-if="loading"
       class="skeleton-padding"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="2"
-        animated
+        variant="text"
       />
     </div>
     <div
@@ -49,6 +49,7 @@ defineOptions({ name: 'SilenceStatsCard' })
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { alertsApi } from '@/api/alertsApi'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 
 const { t } = useI18n()
 

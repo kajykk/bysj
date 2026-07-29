@@ -76,10 +76,10 @@
         </div>
       </template>
 
-      <el-skeleton
+      <SkeletonScreen
         v-if="loading"
         :rows="5"
-        animated
+        variant="text"
       />
 
       <el-table
@@ -195,6 +195,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Document, Download, Refresh } from '@element-plus/icons-vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 
 interface ExportRecord {
   id: number

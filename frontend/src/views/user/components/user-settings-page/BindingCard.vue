@@ -7,9 +7,9 @@
       v-if="bindingLoading"
       class="skeleton-padding"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="3"
-        animated
+        variant="text"
       />
     </div>
     <template v-else-if="currentBinding">
@@ -76,6 +76,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { InfoFilled } from '@element-plus/icons-vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { useAuthStore } from '@/stores/auth'
 import { userApi, type UserBindingInfo } from '@/api/userApi'
 import type { BindCounselorResult } from '@/api/userBindingApi'

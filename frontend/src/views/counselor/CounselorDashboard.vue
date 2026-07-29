@@ -47,9 +47,9 @@
           v-if="statsLoading"
           class="stat-loading"
         >
-          <el-skeleton
+          <SkeletonScreen
             :rows="2"
-            animated
+            variant="text"
           />
         </div>
         <template v-else>
@@ -100,9 +100,9 @@
             v-if="statsLoading"
             class="stat-loading"
           >
-            <el-skeleton
+            <SkeletonScreen
               :rows="1"
-              animated
+              variant="text"
             />
           </div>
           <template v-else>
@@ -149,9 +149,9 @@
             v-if="bindCodeLoading"
             class="stat-loading"
           >
-            <el-skeleton
+            <SkeletonScreen
               :rows="1"
-              animated
+              variant="text"
             />
           </div>
           <template v-else>
@@ -229,6 +229,7 @@ import { hasPermission } from '@/config/permissions'
 import { counselorApi } from '@/api/counselorApi'
 import CountUp from '@/components/common/CountUp.vue'
 import BentoCell from '@/components/common/BentoCell.vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { Warning, User, CopyDocument, Bell, Management } from '@element-plus/icons-vue'
 
 const { t } = useI18n()

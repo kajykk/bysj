@@ -1,31 +1,35 @@
 <template>
-  <div class="forbidden-page">
-    <el-result
-      icon="warning"
-      title="403"
-      sub-title="抱歉，您没有权限访问此页面"
-    >
-      <template #extra>
-        <el-button
-          type="primary"
-          @click="goHome"
-        >
-          返回首页
-        </el-button>
-        <el-button @click="goBack">
-          返回上一页
-        </el-button>
-      </template>
-    </el-result>
-  </div>
+  <ErrorPage code="403">
+    <template #actions>
+      <el-button
+        type="primary"
+        size="large"
+        :icon="HomeFilled"
+        @click="goHome"
+      >
+        {{ t('error.goHome') }}
+      </el-button>
+      <el-button
+        size="large"
+        :icon="Back"
+        @click="goBack"
+      >
+        {{ t('error.goBack') }}
+      </el-button>
+    </template>
+  </ErrorPage>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { HomeFilled, Back } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import ErrorPage from '@/components/common/ErrorPage.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 
 const goHome = () => {
   const role = auth.role
@@ -41,12 +45,3 @@ const goBack = () => {
   router.back()
 }
 </script>
-
-<style scoped>
-.forbidden-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-}
-</style>

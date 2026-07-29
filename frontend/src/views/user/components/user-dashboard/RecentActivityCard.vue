@@ -18,9 +18,9 @@
       v-if="loading"
       class="card-loading"
     >
-      <el-skeleton
+      <SkeletonScreen
         :rows="4"
-        animated
+        variant="text"
       />
     </div>
 
@@ -49,6 +49,7 @@
 
     <EmptyState
       v-else
+      variant="assessment"
       :title="t('userDashboard.activity.empty')"
       :description="t('userDashboard.activity.emptyDesc')"
       :image-size="48"
@@ -60,6 +61,7 @@
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/EmptyState.vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { formatRelativeTime } from '@/utils/formatUtils'
 import type { ActivityItem } from './useUserDashboardData'
 

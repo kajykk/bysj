@@ -4,20 +4,21 @@
     class="lazy-image-container"
     :style="containerStyle"
   >
-    <!-- 占位图 / 加载中 -->
+    <!-- 骨架占位 / 加载中 -->
     <div
-      v-if="!isLoaded"
+      v-if="!isLoaded && !hasError"
       class="lazy-image-placeholder"
-      :class="{ 'lazy-image-loading': isLoading }"
     >
       <slot name="placeholder">
-        <div class="lazy-image-default-placeholder">
+        <div class="lazy-image-skeleton">
           <svg
             class="lazy-image-icon"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
             <rect
               x="3"
@@ -34,6 +35,10 @@
             />
             <polyline points="21 15 16 10 5 21" />
           </svg>
+          <div
+            v-if="isLoading"
+            class="lazy-image-progress-bar"
+          />
         </div>
       </slot>
     </div>
@@ -84,26 +89,49 @@
             fill="none"
             stroke="currentColor"
             stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
+            <rect
+              x="3"
+              y="3"
+              width="18"
+              height="18"
+              rx="2"
+              ry="2"
             />
             <line
-              x1="12"
-              y1="8"
-              x2="12"
-              y2="12"
+              x1="9"
+              y1="9"
+              x2="15"
+              y2="15"
             />
             <line
-              x1="12"
-              y1="16"
-              x2="12.01"
-              y2="16"
+              x1="15"
+              y1="9"
+              x2="9"
+              y2="15"
             />
           </svg>
-          <span class="lazy-image-error-text">加载失败</span>
+          <span class="lazy-image-error-text">{{ t('common.loadFailed') }}</span>
+          <button
+            class="lazy-image-retry-btn"
+            type="button"
+            @click="handleRetry"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+            </svg>
+            <span>{{ t('common.retry') }}</span>
+          </button>
         </div>
       </slot>
     </div>
@@ -112,6 +140,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { generateSrcSet, generatePictureSources } from '@/utils/imageOptimizer'
 
 interface Props {
@@ -141,6 +170,8 @@ const emit = defineEmits<{
   load: []
   error: [Event]
 }>()
+
+const { t } = useI18n()
 
 const containerRef = ref<HTMLDivElement>()
 const imgRef = ref<HTMLImageElement>()
@@ -190,6 +221,14 @@ const handleError = (e: Event) => {
   emit('error', e)
 }
 
+const handleRetry = () => {
+  hasError.value = false
+  isLoaded.value = false
+  isVisible.value = false
+  isLoading.value = false
+  setupObserver()
+}
+
 const setupObserver = () => {
   if (!containerRef.value) return
 
@@ -199,7 +238,6 @@ const setupObserver = () => {
         if (entry.isIntersecting) {
           isVisible.value = true
           isLoading.value = true
-          // 停止观察，图片只需加载一次
           if (observer && containerRef.value) {
             observer.unobserve(containerRef.value)
           }
@@ -216,11 +254,9 @@ const setupObserver = () => {
 }
 
 onMounted(() => {
-  // 检查浏览器是否支持 IntersectionObserver
   if ('IntersectionObserver' in window) {
     setupObserver()
   } else {
-    // 降级：直接加载图片
     isVisible.value = true
     isLoading.value = true
   }
@@ -233,15 +269,8 @@ onUnmounted(() => {
   }
 })
 
-// 暴露方法供外部调用
 defineExpose({
-  reload: () => {
-    hasError.value = false
-    isLoaded.value = false
-    isVisible.value = false
-    isLoading.value = false
-    setupObserver()
-  },
+  reload: handleRetry,
 })
 </script>
 
@@ -250,7 +279,7 @@ defineExpose({
   position: relative;
   display: inline-block;
   overflow: hidden;
-  background-color: #f5f7fa;
+  background-color: var(--bg-page);
 }
 
 .lazy-image-placeholder,
@@ -265,46 +294,126 @@ defineExpose({
   justify-content: center;
 }
 
-.lazy-image-default-placeholder,
-.lazy-image-default-error {
+/* ===== 骨架占位（shimmer 动画，与 SkeletonScreen / transitions.scss 一致） ===== */
+.lazy-image-skeleton {
+  position: relative;
+  width: 100%;
+  height: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #c0c4cc;
-}
-
-.lazy-image-loading .lazy-image-default-placeholder {
-  animation: lazyImagePulse 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    var(--border-light) 25%,
+    var(--bg-page) 50%,
+    var(--border-light) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
 }
 
 .lazy-image-icon {
   width: 32px;
   height: 32px;
+  color: var(--text-placeholder);
+  opacity: 0.6;
+}
+
+.lazy-image-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  width: 60%;
+  height: 2px;
+  background-color: var(--primary-color);
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  0% {
+    transform: translateX(-30%);
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(30%);
+    opacity: 0.6;
+  }
+}
+
+/* ===== 错误状态 ===== */
+.lazy-image-default-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+.lazy-image-default-error .lazy-image-icon {
+  color: var(--text-placeholder);
 }
 
 .lazy-image-error-text {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #f56c6c;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
 }
 
+.lazy-image-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+  padding: 0 var(--spacing-sm);
+  height: 28px;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-xs);
+  background-color: transparent;
+  color: var(--primary-color);
+  font-size: var(--font-size-extra-small);
+  cursor: pointer;
+  transition: background-color var(--transition-duration, 0.2s) ease;
+}
+
+.lazy-image-retry-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.lazy-image-retry-btn:hover {
+  background-color: var(--bg-active);
+}
+
+.lazy-image-retry-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* ===== 图片渐入 ===== */
 .lazy-image-img {
   display: block;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s var(--transition-ease-out, ease);
 }
 
 .lazy-image-fade-in {
   opacity: 1;
 }
 
-@keyframes lazyImagePulse {
-  0%,
-  100% {
+@media (prefers-reduced-motion: reduce) {
+  .lazy-image-skeleton {
+    animation: none;
+  }
+
+  .lazy-image-progress-bar {
+    animation: none;
     opacity: 0.6;
   }
-  50% {
+
+  .lazy-image-img {
+    transition: none;
     opacity: 1;
   }
 }
