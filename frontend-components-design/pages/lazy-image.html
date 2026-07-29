@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片懒加载</title>
+    <style id="theme-vars">
+/* ===== Mindwatch 心理健康预警系统 — 设计令牌 =====
+   基于现有 frontend/src/styles/variables.scss 的设计令牌，
+   映射为画布所需的语义化别名。主色 #2e6fa8，WCAG AA 达标。 */
+
+:root {
+  /* ===== 语义化别名（fill-html-head.mjs 必需） ===== */
+  --mw-background: #f5f7fa;
+  --mw-foreground: #2c3340;
+  --mw-card: #ffffff;
+  --mw-card-foreground: #2c3340;
+  --mw-popover: #ffffff;
+  --mw-popover-foreground: #2c3340;
+  --mw-primary: #2e6fa8;
+  --mw-primary-foreground: #ffffff;
+  --mw-muted: #f5f7fa;
+  --mw-muted-foreground: #6a727f;
+  --mw-border: #dcdfe6;
+  --mw-input: #dcdfe6;
+  --mw-ring: #2e6fa8;
+
+  /* ===== 圆角 ===== */
+  --mw-radius-sm: 6px;
+  --mw-radius-md: 10px;
+  --mw-radius-lg: 16px;
+
+  /* ===== 品牌主色阶 ===== */
+  --mw-primary-50: #eaf0f6;
+  --mw-primary-100: #d5e2ed;
+  --mw-primary-200: #abc5dc;
+  --mw-primary-300: #82a9cb;
+  --mw-primary-400: #588cb9;
+  --mw-primary-500: #2e6fa8;
+  --mw-primary-600: #255986;
+  --mw-primary-700: #1c4365;
+
+  /* ===== 语义状态色 ===== */
+  --mw-success: #5a9e3a;
+  --mw-success-light: #eef5e8;
+  --mw-warning: #d4923a;
+  --mw-warning-light: #faf3e8;
+  --mw-danger: #d65a5a;
+  --mw-danger-light: #faecec;
+  --mw-info: #7a8290;
+  --mw-info-light: #f0f2f5;
+
+  /* ===== 风险等级色阶（系统核心业务色） ===== */
+  --mw-risk-none: #7a8290;
+  --mw-risk-mild: #5a9e3a;
+  --mw-risk-moderate: #d4923a;
+  --mw-risk-high: #d65a5a;
+  --mw-risk-critical: #a82e28;
+
+  /* ===== 文字色阶 ===== */
+  --mw-text-primary: #2c3340;
+  --mw-text-regular: #5a6470;
+  --mw-text-secondary: #6a727f;
+  --mw-text-placeholder: #a8abb2;
+  --mw-text-disabled: #c0c4cc;
+  --mw-text-inverse: #ffffff;
+
+  /* ===== 边框色阶 ===== */
+  --mw-border-light: #e4e7ed;
+  --mw-border-lighter: #ebeef5;
+  --mw-border-extra-light: #f2f6fc;
+
+  /* ===== 背景色阶 ===== */
+  --mw-bg-primary: #ffffff;
+  --mw-bg-page: #f5f7fa;
+  --mw-bg-hover: #f5f7fa;
+  --mw-bg-active: #ecf5ff;
+
+  /* ===== 间距系统（8px 基准） ===== */
+  --mw-spacing-xs: 4px;
+  --mw-spacing-sm: 8px;
+  --mw-spacing-md: 16px;
+  --mw-spacing-lg: 24px;
+  --mw-spacing-xl: 32px;
+  --mw-spacing-2xl: 48px;
+
+  /* ===== 阴影系统（着色阴影，匹配主色色相） ===== */
+  --mw-shadow-light: 0 1px 3px rgba(46, 111, 168, 0.04);
+  --mw-shadow-card: 0 2px 8px rgba(46, 111, 168, 0.06);
+  --mw-shadow-card-hover: 0 8px 24px rgba(46, 111, 168, 0.12);
+  --mw-shadow-dropdown: 0 4px 16px rgba(46, 111, 168, 0.08);
+  --mw-shadow-modal: 0 16px 48px rgba(46, 111, 168, 0.16);
+
+  /* ===== 焦点环 ===== */
+  --mw-ring-focus: 0 0 0 3px rgba(46, 111, 168, 0.28);
+
+  /* ===== 动效 ===== */
+  --mw-transition-fast: 0.15s;
+  --mw-transition-duration: 0.3s;
+  --mw-transition-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --mw-transition-quicker: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ===== 字体 ===== */
+  --mw-font-sans: 'Geist', -apple-system, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', 'Segoe UI', Roboto, sans-serif;
+  --mw-font-mono: 'Geist Mono', 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+
+  /* ===== 品牌渐变 ===== */
+  --mw-gradient-primary: linear-gradient(135deg, #2e6fa8 0%, #327ab0 100%);
+  --mw-gradient-surface: linear-gradient(180deg, rgba(46, 111, 168, 0.04) 0%, transparent 100%);
+
+  /* ===== 骨架屏闪烁 ===== */
+  --mw-skeleton-base: #eef0f4;
+  --mw-skeleton-wave: #e2e6ed;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--mw-background);
+    --color-foreground: var(--mw-foreground);
+    --color-card: var(--mw-card);
+    --color-card-foreground: var(--mw-card-foreground);
+    --color-popover: var(--mw-popover);
+    --color-popover-foreground: var(--mw-popover-foreground);
+    --color-primary: var(--mw-primary);
+    --color-primary-foreground: var(--mw-primary-foreground);
+    --color-muted: var(--mw-muted);
+    --color-muted-foreground: var(--mw-muted-foreground);
+    --color-border: var(--mw-border);
+    --color-input: var(--mw-input);
+    --color-ring: var(--mw-ring);
+    --radius-sm: var(--mw-radius-sm);
+    --radius-md: var(--mw-radius-md);
+    --radius-lg: var(--mw-radius-lg);
+  }
+  @layer base {
+    body { background: var(--mw-background); color: var(--mw-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--mw-background); }
+      .text-background { color: var(--mw-background); }
+      .border-background { border-color: var(--mw-background); }
+      .ring-background { --tw-ring-color: var(--mw-background); }
+      .bg-foreground { background-color: var(--mw-foreground); }
+      .text-foreground { color: var(--mw-foreground); }
+      .border-foreground { border-color: var(--mw-foreground); }
+      .ring-foreground { --tw-ring-color: var(--mw-foreground); }
+      .bg-card { background-color: var(--mw-card); }
+      .text-card { color: var(--mw-card); }
+      .border-card { border-color: var(--mw-card); }
+      .ring-card { --tw-ring-color: var(--mw-card); }
+      .bg-card-foreground { background-color: var(--mw-card-foreground); }
+      .text-card-foreground { color: var(--mw-card-foreground); }
+      .border-card-foreground { border-color: var(--mw-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--mw-card-foreground); }
+      .bg-popover { background-color: var(--mw-popover); }
+      .text-popover { color: var(--mw-popover); }
+      .border-popover { border-color: var(--mw-popover); }
+      .ring-popover { --tw-ring-color: var(--mw-popover); }
+      .bg-popover-foreground { background-color: var(--mw-popover-foreground); }
+      .text-popover-foreground { color: var(--mw-popover-foreground); }
+      .border-popover-foreground { border-color: var(--mw-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--mw-popover-foreground); }
+      .bg-primary { background-color: var(--mw-primary); }
+      .text-primary { color: var(--mw-primary); }
+      .border-primary { border-color: var(--mw-primary); }
+      .ring-primary { --tw-ring-color: var(--mw-primary); }
+      .bg-primary-foreground { background-color: var(--mw-primary-foreground); }
+      .text-primary-foreground { color: var(--mw-primary-foreground); }
+      .border-primary-foreground { border-color: var(--mw-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--mw-primary-foreground); }
+      .bg-muted { background-color: var(--mw-muted); }
+      .text-muted { color: var(--mw-muted); }
+      .border-muted { border-color: var(--mw-muted); }
+      .ring-muted { --tw-ring-color: var(--mw-muted); }
+      .bg-muted-foreground { background-color: var(--mw-muted-foreground); }
+      .text-muted-foreground { color: var(--mw-muted-foreground); }
+      .border-muted-foreground { border-color: var(--mw-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--mw-muted-foreground); }
+      .bg-border { background-color: var(--mw-border); }
+      .text-border { color: var(--mw-border); }
+      .border-border { border-color: var(--mw-border); }
+      .ring-border { --tw-ring-color: var(--mw-border); }
+      .bg-input { background-color: var(--mw-input); }
+      .text-input { color: var(--mw-input); }
+      .border-input { border-color: var(--mw-input); }
+      .ring-input { --tw-ring-color: var(--mw-input); }
+      .bg-ring { background-color: var(--mw-ring); }
+      .text-ring { color: var(--mw-ring); }
+      .border-ring { border-color: var(--mw-ring); }
+      .ring-ring { --tw-ring-color: var(--mw-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main class="min-h-screen">
+      <style>
+        /* ===== 页面级动效：骨架 shimmer + 进度条扫动 + 卡片悬停 ===== */
+        @keyframes mw-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .mw-skeleton {
+          background: linear-gradient(
+            90deg,
+            var(--mw-skeleton-base) 0%,
+            var(--mw-skeleton-wave) 50%,
+            var(--mw-skeleton-base) 100%
+          );
+          background-size: 200% 100%;
+          animation: mw-shimmer 1.5s infinite linear;
+        }
+        @keyframes mw-progress-slide {
+          0% { transform: translateX(-120%); }
+          100% { transform: translateX(320%); }
+        }
+        .mw-progress-indicator {
+          animation: mw-progress-slide 1.4s infinite ease-in-out;
+        }
+        .mw-img-card {
+          transition: box-shadow 0.2s var(--mw-transition-quicker),
+            transform 0.2s var(--mw-transition-quicker);
+        }
+        .mw-img-card:hover {
+          box-shadow: var(--mw-shadow-card-hover);
+          transform: translateY(-2px);
+        }
+        .mw-state-card {
+          transition: box-shadow 0.2s var(--mw-transition-quicker);
+        }
+        .mw-state-card:hover {
+          box-shadow: var(--mw-shadow-card-hover);
+        }
+      </style>
+
+      <!-- ============ 区域 1：页面标题区 ============ -->
+      <section class="max-w-[1280px] mx-auto px-8 pt-10 pb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium"
+            style="background: var(--mw-primary-50); color: var(--mw-primary);"
+          >
+            <i data-lucide="component" class="w-3 h-3"></i>
+            组件设计稿
+          </span>
+        </div>
+        <h1
+          class="text-[28px] leading-tight font-semibold tracking-tight"
+          style="color: var(--mw-text-primary);"
+        >
+          图片懒加载
+        </h1>
+        <p class="mt-2 text-sm" style="color: var(--mw-text-secondary);">
+          LazyImage 组件设计参考 — IntersectionObserver 懒加载 + 骨架占位 + 错误兜底
+        </p>
+      </section>
+
+      <!-- ============ 区域 2：状态说明区 ============ -->
+      <section class="max-w-[1280px] mx-auto px-8 pb-8">
+        <div class="grid grid-cols-3 gap-4">
+          <!-- 已加载 -->
+          <div
+            class="mw-state-card bg-white rounded-[10px] p-4 flex items-start gap-3"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="w-2 h-2 rounded-full mt-1.5 shrink-0"
+              style="background: var(--mw-success);"
+            ></span>
+            <div class="min-w-0">
+              <h3
+                class="text-sm font-semibold"
+                style="color: var(--mw-text-primary);"
+              >
+                已加载
+              </h3>
+              <p
+                class="mt-1 text-xs leading-relaxed"
+                style="color: var(--mw-text-secondary);"
+              >
+                图片进入视口后完成加载，显示高清原图
+              </p>
+            </div>
+          </div>
+          <!-- 加载中 -->
+          <div
+            class="mw-state-card bg-white rounded-[10px] p-4 flex items-start gap-3"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="w-2 h-2 rounded-full mt-1.5 shrink-0"
+              style="background: var(--mw-primary);"
+            ></span>
+            <div class="min-w-0">
+              <h3
+                class="text-sm font-semibold"
+                style="color: var(--mw-text-primary);"
+              >
+                加载中
+              </h3>
+              <p
+                class="mt-1 text-xs leading-relaxed"
+                style="color: var(--mw-text-secondary);"
+              >
+                图片正在加载，显示骨架占位 + shimmer 动画
+              </p>
+            </div>
+          </div>
+          <!-- 加载失败 -->
+          <div
+            class="mw-state-card bg-white rounded-[10px] p-4 flex items-start gap-3"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="w-2 h-2 rounded-full mt-1.5 shrink-0"
+              style="background: var(--mw-danger);"
+            ></span>
+            <div class="min-w-0">
+              <h3
+                class="text-sm font-semibold"
+                style="color: var(--mw-text-primary);"
+              >
+                加载失败
+              </h3>
+              <p
+                class="mt-1 text-xs leading-relaxed"
+                style="color: var(--mw-text-secondary);"
+              >
+                图片加载失败，显示错误占位 + 重试按钮
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 区域 3：图片网格画廊 ============ -->
+      <section class="max-w-[1280px] mx-auto px-8 pb-12">
+        <!-- 画廊标题行 -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <h2
+              class="text-base font-semibold"
+              style="color: var(--mw-text-primary);"
+            >
+              用户内容图片网格
+            </h2>
+            <span
+              class="text-xs px-1.5 py-0.5 rounded"
+              style="background: var(--mw-bg-hover); color: var(--mw-text-secondary);"
+            >
+              9
+            </span>
+          </div>
+          <button
+            class="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium"
+            style="border: 1px solid var(--mw-border-light); background: var(--mw-bg-primary); color: var(--mw-text-regular);"
+          >
+            全部状态
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+          <!-- ===== 已加载状态（卡片 1-4） ===== -->
+          <!-- 卡片 1：蓝色系渐变 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-success-light); color: var(--mw-success);"
+              >已加载</span
+            >
+            <div
+              class="h-[200px] flex items-center justify-center"
+              style="background: linear-gradient(135deg, #abc5dc, #d5e2ed);"
+            >
+              <i
+                data-lucide="image"
+                class="w-8 h-8"
+                style="color: rgba(255, 255, 255, 0.85);"
+              ></i>
+            </div>
+            <div class="p-3">
+              <p
+                class="text-[13px] font-medium truncate"
+                style="color: var(--mw-text-primary);"
+              >
+                评估报告_2026
+              </p>
+              <p class="mt-0.5 text-xs" style="color: var(--mw-text-secondary);">
+                2026-07-15
+              </p>
+            </div>
+          </article>
+
+          <!-- 卡片 2：绿色系渐变 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-success-light); color: var(--mw-success);"
+              >已加载</span
+            >
+            <div
+              class="h-[200px] flex items-center justify-center"
+              style="background: linear-gradient(135deg, #7ab558, #eef5e8);"
+            >
+              <i
+                data-lucide="image"
+                class="w-8 h-8"
+                style="color: rgba(255, 255, 255, 0.85);"
+              ></i>
+            </div>
+            <div class="p-3">
+              <p
+                class="text-[13px] font-medium truncate"
+                style="color: var(--mw-text-primary);"
+              >
+                评估报告_2026
+              </p>
+              <p class="mt-0.5 text-xs" style="color: var(--mw-text-secondary);">
+                2026-07-14
+              </p>
+            </div>
+          </article>
+
+          <!-- 卡片 3：橙色系渐变 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-success-light); color: var(--mw-success);"
+              >已加载</span
+            >
+            <div
+              class="h-[200px] flex items-center justify-center"
+              style="background: linear-gradient(135deg, #e4b46a, #faf3e8);"
+            >
+              <i
+                data-lucide="image"
+                class="w-8 h-8"
+                style="color: rgba(255, 255, 255, 0.85);"
+              ></i>
+            </div>
+            <div class="p-3">
+              <p
+                class="text-[13px] font-medium truncate"
+                style="color: var(--mw-text-primary);"
+              >
+                评估报告_2026
+              </p>
+              <p class="mt-0.5 text-xs" style="color: var(--mw-text-secondary);">
+                2026-07-12
+              </p>
+            </div>
+          </article>
+
+          <!-- 卡片 4：灰色系渐变 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-success-light); color: var(--mw-success);"
+              >已加载</span
+            >
+            <div
+              class="h-[200px] flex items-center justify-center"
+              style="background: linear-gradient(135deg, #a8abb2, #f0f2f5);"
+            >
+              <i
+                data-lucide="image"
+                class="w-8 h-8"
+                style="color: rgba(255, 255, 255, 0.85);"
+              ></i>
+            </div>
+            <div class="p-3">
+              <p
+                class="text-[13px] font-medium truncate"
+                style="color: var(--mw-text-primary);"
+              >
+                评估报告_2026
+              </p>
+              <p class="mt-0.5 text-xs" style="color: var(--mw-text-secondary);">
+                2026-07-10
+              </p>
+            </div>
+          </article>
+
+          <!-- ===== 加载中状态（卡片 5-7） ===== -->
+          <!-- 卡片 5 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-primary-50); color: var(--mw-primary);"
+              >加载中</span
+            >
+            <div
+              class="h-[200px] relative mw-skeleton flex items-center justify-center"
+            >
+              <i
+                data-lucide="image"
+                class="w-8 h-8"
+                style="color: var(--mw-text-placeholder);"
+              ></i>
+              <div
+                class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-[2px] rounded-full overflow-hidden"
+                style="background: rgba(46, 111, 168, 0.18);"
+              >
+                <div
+                  class="mw-progress-indicator h-full w-[40%] rounded-full"
+                  style="background: var(--mw-primary);"
+                ></div>
+              </div>
+            </div>
+            <div class="p-3 space-y-1.5">
+              <div class="mw-skeleton h-[13px] rounded w-[60%]"></div>
+              <div class="mw-skeleton h-[12px] rounded w-[40%]"></div>
+            </div>
+          </article>
+
+          <!-- 卡片 6 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-primary-50); color: var(--mw-primary);"
+              >加载中</span
+            >
+            <div
+              class="h-[200px] relative mw-skeleton flex items-center justify-center"
+            >
+              <i
+                data-lucide="image"
+                class="w-8 h-8"
+                style="color: var(--mw-text-placeholder);"
+              ></i>
+              <div
+                class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-[2px] rounded-full overflow-hidden"
+                style="background: rgba(46, 111, 168, 0.18);"
+              >
+                <div
+                  class="mw-progress-indicator h-full w-[40%] rounded-full"
+                  style="background: var(--mw-primary);"
+                ></div>
+              </div>
+            </div>
+            <div class="p-3 space-y-1.5">
+              <div class="mw-skeleton h-[13px] rounded w-[60%]"></div>
+              <div class="mw-skeleton h-[12px] rounded w-[40%]"></div>
+            </div>
+          </article>
+
+          <!-- 卡片 7 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-primary-50); color: var(--mw-primary);"
+              >加载中</span
+            >
+            <div
+              class="h-[200px] relative mw-skeleton flex items-center justify-center"
+            >
+              <i
+                data-lucide="image"
+                class="w-8 h-8"
+                style="color: var(--mw-text-placeholder);"
+              ></i>
+              <div
+                class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-[2px] rounded-full overflow-hidden"
+                style="background: rgba(46, 111, 168, 0.18);"
+              >
+                <div
+                  class="mw-progress-indicator h-full w-[40%] rounded-full"
+                  style="background: var(--mw-primary);"
+                ></div>
+              </div>
+            </div>
+            <div class="p-3 space-y-1.5">
+              <div class="mw-skeleton h-[13px] rounded w-[60%]"></div>
+              <div class="mw-skeleton h-[12px] rounded w-[40%]"></div>
+            </div>
+          </article>
+
+          <!-- ===== 加载失败状态（卡片 8-9） ===== -->
+          <!-- 卡片 8 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-danger-light); color: var(--mw-danger);"
+              >失败</span
+            >
+            <div
+              class="h-[200px] flex flex-col items-center justify-center gap-2"
+              style="background: var(--mw-bg-hover);"
+            >
+              <i
+                data-lucide="image-off"
+                class="w-8 h-8"
+                style="color: var(--mw-text-placeholder);"
+              ></i>
+              <p class="text-xs" style="color: var(--mw-text-secondary);">
+                图片加载失败
+              </p>
+              <button
+                class="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium"
+                style="border: 1px solid var(--mw-primary); color: var(--mw-primary); background: var(--mw-bg-primary);"
+              >
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                重试
+              </button>
+            </div>
+            <div class="p-3">
+              <p class="text-[13px] truncate" style="color: var(--mw-text-secondary);">
+                报告附件_损坏
+              </p>
+              <p class="mt-0.5 text-xs" style="color: var(--mw-danger);">
+                加载失败
+              </p>
+            </div>
+          </article>
+
+          <!-- 卡片 9 -->
+          <article
+            class="mw-img-card relative bg-white rounded-[10px] overflow-hidden"
+            style="border: 1px solid var(--mw-border-light);"
+          >
+            <span
+              class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style="background: var(--mw-danger-light); color: var(--mw-danger);"
+              >失败</span
+            >
+            <div
+              class="h-[200px] flex flex-col items-center justify-center gap-2"
+              style="background: var(--mw-bg-hover);"
+            >
+              <i
+                data-lucide="image-off"
+                class="w-8 h-8"
+                style="color: var(--mw-text-placeholder);"
+              ></i>
+              <p class="text-xs" style="color: var(--mw-text-secondary);">
+                图片加载失败
+              </p>
+              <button
+                class="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium"
+                style="border: 1px solid var(--mw-primary); color: var(--mw-primary); background: var(--mw-bg-primary);"
+              >
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                重试
+              </button>
+            </div>
+            <div class="p-3">
+              <p class="text-[13px] truncate" style="color: var(--mw-text-secondary);">
+                报告附件_损坏
+              </p>
+              <p class="mt-0.5 text-xs" style="color: var(--mw-danger);">
+                加载失败
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <!-- 画廊底部说明 -->
+        <div
+          class="mt-6 flex items-center gap-2 px-3 py-2.5 rounded-md text-xs"
+          style="background: var(--mw-primary-50); color: var(--mw-text-secondary);"
+        >
+          <i data-lucide="info" class="w-3.5 h-3.5 shrink-0" style="color: var(--mw-primary);"></i>
+          <span>
+            LazyImage 在图片进入视口时通过 IntersectionObserver 触发加载，加载中显示骨架占位，失败后提供重试入口。
+          </span>
+        </div>
+      </section>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

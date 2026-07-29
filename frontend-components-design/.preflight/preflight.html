@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preflight</title>
+    <style id="theme-vars">
+/* ===== Mindwatch 心理健康预警系统 — 设计令牌 =====
+   基于现有 frontend/src/styles/variables.scss 的设计令牌，
+   映射为画布所需的语义化别名。主色 #2e6fa8，WCAG AA 达标。 */
+
+:root {
+  /* ===== 语义化别名（fill-html-head.mjs 必需） ===== */
+  --mw-background: #f5f7fa;
+  --mw-foreground: #2c3340;
+  --mw-card: #ffffff;
+  --mw-card-foreground: #2c3340;
+  --mw-popover: #ffffff;
+  --mw-popover-foreground: #2c3340;
+  --mw-primary: #2e6fa8;
+  --mw-primary-foreground: #ffffff;
+  --mw-muted: #f5f7fa;
+  --mw-muted-foreground: #6a727f;
+  --mw-border: #dcdfe6;
+  --mw-input: #dcdfe6;
+  --mw-ring: #2e6fa8;
+
+  /* ===== 圆角 ===== */
+  --mw-radius-sm: 6px;
+  --mw-radius-md: 10px;
+  --mw-radius-lg: 16px;
+
+  /* ===== 品牌主色阶 ===== */
+  --mw-primary-50: #eaf0f6;
+  --mw-primary-100: #d5e2ed;
+  --mw-primary-200: #abc5dc;
+  --mw-primary-300: #82a9cb;
+  --mw-primary-400: #588cb9;
+  --mw-primary-500: #2e6fa8;
+  --mw-primary-600: #255986;
+  --mw-primary-700: #1c4365;
+
+  /* ===== 语义状态色 ===== */
+  --mw-success: #5a9e3a;
+  --mw-success-light: #eef5e8;
+  --mw-warning: #d4923a;
+  --mw-warning-light: #faf3e8;
+  --mw-danger: #d65a5a;
+  --mw-danger-light: #faecec;
+  --mw-info: #7a8290;
+  --mw-info-light: #f0f2f5;
+
+  /* ===== 风险等级色阶（系统核心业务色） ===== */
+  --mw-risk-none: #7a8290;
+  --mw-risk-mild: #5a9e3a;
+  --mw-risk-moderate: #d4923a;
+  --mw-risk-high: #d65a5a;
+  --mw-risk-critical: #a82e28;
+
+  /* ===== 文字色阶 ===== */
+  --mw-text-primary: #2c3340;
+  --mw-text-regular: #5a6470;
+  --mw-text-secondary: #6a727f;
+  --mw-text-placeholder: #a8abb2;
+  --mw-text-disabled: #c0c4cc;
+  --mw-text-inverse: #ffffff;
+
+  /* ===== 边框色阶 ===== */
+  --mw-border-light: #e4e7ed;
+  --mw-border-lighter: #ebeef5;
+  --mw-border-extra-light: #f2f6fc;
+
+  /* ===== 背景色阶 ===== */
+  --mw-bg-primary: #ffffff;
+  --mw-bg-page: #f5f7fa;
+  --mw-bg-hover: #f5f7fa;
+  --mw-bg-active: #ecf5ff;
+
+  /* ===== 间距系统（8px 基准） ===== */
+  --mw-spacing-xs: 4px;
+  --mw-spacing-sm: 8px;
+  --mw-spacing-md: 16px;
+  --mw-spacing-lg: 24px;
+  --mw-spacing-xl: 32px;
+  --mw-spacing-2xl: 48px;
+
+  /* ===== 阴影系统（着色阴影，匹配主色色相） ===== */
+  --mw-shadow-light: 0 1px 3px rgba(46, 111, 168, 0.04);
+  --mw-shadow-card: 0 2px 8px rgba(46, 111, 168, 0.06);
+  --mw-shadow-card-hover: 0 8px 24px rgba(46, 111, 168, 0.12);
+  --mw-shadow-dropdown: 0 4px 16px rgba(46, 111, 168, 0.08);
+  --mw-shadow-modal: 0 16px 48px rgba(46, 111, 168, 0.16);
+
+  /* ===== 焦点环 ===== */
+  --mw-ring-focus: 0 0 0 3px rgba(46, 111, 168, 0.28);
+
+  /* ===== 动效 ===== */
+  --mw-transition-fast: 0.15s;
+  --mw-transition-duration: 0.3s;
+  --mw-transition-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --mw-transition-quicker: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ===== 字体 ===== */
+  --mw-font-sans: 'Geist', -apple-system, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', 'Segoe UI', Roboto, sans-serif;
+  --mw-font-mono: 'Geist Mono', 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+
+  /* ===== 品牌渐变 ===== */
+  --mw-gradient-primary: linear-gradient(135deg, #2e6fa8 0%, #327ab0 100%);
+  --mw-gradient-surface: linear-gradient(180deg, rgba(46, 111, 168, 0.04) 0%, transparent 100%);
+
+  /* ===== 骨架屏闪烁 ===== */
+  --mw-skeleton-base: #eef0f4;
+  --mw-skeleton-wave: #e2e6ed;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--mw-background);
+    --color-foreground: var(--mw-foreground);
+    --color-card: var(--mw-card);
+    --color-card-foreground: var(--mw-card-foreground);
+    --color-popover: var(--mw-popover);
+    --color-popover-foreground: var(--mw-popover-foreground);
+    --color-primary: var(--mw-primary);
+    --color-primary-foreground: var(--mw-primary-foreground);
+    --color-muted: var(--mw-muted);
+    --color-muted-foreground: var(--mw-muted-foreground);
+    --color-border: var(--mw-border);
+    --color-input: var(--mw-input);
+    --color-ring: var(--mw-ring);
+    --radius-sm: var(--mw-radius-sm);
+    --radius-md: var(--mw-radius-md);
+    --radius-lg: var(--mw-radius-lg);
+  }
+  @layer base {
+    body { background: var(--mw-background); color: var(--mw-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--mw-background); }
+      .text-background { color: var(--mw-background); }
+      .border-background { border-color: var(--mw-background); }
+      .ring-background { --tw-ring-color: var(--mw-background); }
+      .bg-foreground { background-color: var(--mw-foreground); }
+      .text-foreground { color: var(--mw-foreground); }
+      .border-foreground { border-color: var(--mw-foreground); }
+      .ring-foreground { --tw-ring-color: var(--mw-foreground); }
+      .bg-card { background-color: var(--mw-card); }
+      .text-card { color: var(--mw-card); }
+      .border-card { border-color: var(--mw-card); }
+      .ring-card { --tw-ring-color: var(--mw-card); }
+      .bg-card-foreground { background-color: var(--mw-card-foreground); }
+      .text-card-foreground { color: var(--mw-card-foreground); }
+      .border-card-foreground { border-color: var(--mw-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--mw-card-foreground); }
+      .bg-popover { background-color: var(--mw-popover); }
+      .text-popover { color: var(--mw-popover); }
+      .border-popover { border-color: var(--mw-popover); }
+      .ring-popover { --tw-ring-color: var(--mw-popover); }
+      .bg-popover-foreground { background-color: var(--mw-popover-foreground); }
+      .text-popover-foreground { color: var(--mw-popover-foreground); }
+      .border-popover-foreground { border-color: var(--mw-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--mw-popover-foreground); }
+      .bg-primary { background-color: var(--mw-primary); }
+      .text-primary { color: var(--mw-primary); }
+      .border-primary { border-color: var(--mw-primary); }
+      .ring-primary { --tw-ring-color: var(--mw-primary); }
+      .bg-primary-foreground { background-color: var(--mw-primary-foreground); }
+      .text-primary-foreground { color: var(--mw-primary-foreground); }
+      .border-primary-foreground { border-color: var(--mw-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--mw-primary-foreground); }
+      .bg-muted { background-color: var(--mw-muted); }
+      .text-muted { color: var(--mw-muted); }
+      .border-muted { border-color: var(--mw-muted); }
+      .ring-muted { --tw-ring-color: var(--mw-muted); }
+      .bg-muted-foreground { background-color: var(--mw-muted-foreground); }
+      .text-muted-foreground { color: var(--mw-muted-foreground); }
+      .border-muted-foreground { border-color: var(--mw-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--mw-muted-foreground); }
+      .bg-border { background-color: var(--mw-border); }
+      .text-border { color: var(--mw-border); }
+      .border-border { border-color: var(--mw-border); }
+      .ring-border { --tw-ring-color: var(--mw-border); }
+      .bg-input { background-color: var(--mw-input); }
+      .text-input { color: var(--mw-input); }
+      .border-input { border-color: var(--mw-input); }
+      .ring-input { --tw-ring-color: var(--mw-input); }
+      .bg-ring { background-color: var(--mw-ring); }
+      .text-ring { color: var(--mw-ring); }
+      .border-ring { border-color: var(--mw-ring); }
+      .ring-ring { --tw-ring-color: var(--mw-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

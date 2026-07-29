@@ -471,8 +471,76 @@
 #### 剩余待办 (更新)
 
 - UserRiskPage.vue 3800+ 行单文件拆分为子组件 (风险较高，暂未动)
-- 图片优化工具落地 (LazyImage 组件文件实际不存在，需先创建)
-- 加载与错误状态统一 (SkeletonScreen/ErrorPage 组件文件实际不存在，需先创建)
+- Lighthouse 性能审计对比基线
+- 图表色阶函数中的硬编码颜色 (getScoreColor 等 JS 逻辑返回值，保留)
+- UserModelTrainingPage 自定义设计色 (Tailwind 风格色值，保留)
+
+### 2026-07-17 第七轮实施记录
+
+#### 新增完成任务
+
+- [x] SkeletonScreen 组件升级 (新增 6 种 variant: text/stat-card/card/chart/avatar/table，支持 cols 网格布局和默认插槽，加入 prefers-reduced-motion 降级，原有 rows/rowHeight API 完全向后兼容)
+- [x] ErrorPage 组件升级 (404 蓝色/403 橙色/500 红色语义色错误码，右上角状态标签，按钮加 HomeFilled/Back 图标，卡片容器替代渐变背景，新增 actions 插槽支持自定义按钮，移除硬编码回退色)
+- [x] LazyImage 组件升级 (全部硬编码色替换为设计令牌，pulse 占位改为 shimmer 骨架动画+进度条，错误态新增"重试"按钮，文案迁移到 i18n，加入 prefers-reduced-motion 降级)
+- [x] ForbiddenPage 接入 ErrorPage (替换 el-result 为 ErrorPage code="403"，使用 actions 插槽保留角色路由逻辑，统一全站错误页风格)
+- [x] StatefulContainer 接入 SkeletonScreen (el-skeleton 替换为 SkeletonScreen variant="text"，影响所有使用 StatefulContainer 的页面)
+- [x] StatCardsSection 接入 SkeletonScreen (AdminDashboard 统计卡片加载态升级)
+- [x] 全站 el-skeleton 统一替换为 SkeletonScreen (28 个文件、30 处替换，覆盖所有 StatsCard 组件、仪表盘卡片、图表加载态、设置页卡片、报告中心等)
+- [x] 设计参考稿 (3 页 HTML 画布项目: 骨架屏加载态/统一错误页/图片懒加载，含品牌配色 CSS 和设计令牌映射)
+
+#### 验证结果
+
+| 验证项 | 结果 | 详情 |
+|--------|------|------|
+| typecheck | ✅ 通过 | vue-tsc 无错误 |
+| test | ✅ 通过 | 1119+ 通过 (修复 RiskReportTab 测试选择器 .el-skeleton → .skeleton-screen) |
+| build | ✅ 成功 | 32.29s 编译完成，PWA SW 成功生成 |
+
+#### 累计成果 (七轮合计)
+
+| 指标 | 改造前 | 当前 | 改善 |
+|------|--------|------|------|
+| ECharts chunk 体积 | ~800KB (全量) | 467KB (按需) | -42% |
+| 设计令牌数 | 30+ | 70+ | +133% |
+| 响应式 @media | 0 处 | 12+ 处 | 从无到有 |
+| el-col 响应式属性 | 0 处 | 28+ 处 | 从无到有 |
+| 硬编码颜色 (改造文件) | 100+ 处 | 0 处 | 100% 替换 |
+| 硬编码间距/字号 | 120+ 处 | 0 处 | 100% 替换 |
+| 内联 style 属性 | 35+ 处 | 0 处 | 100% 移除 |
+| a11y aria 属性 | 2 处 | 15+ 处 | +650% |
+| 表单 required 属性 | 2 处 | 11+ 处 | +450% |
+| el-skeleton 使用 | 31 处 | 0 处 | 100% 统一为 SkeletonScreen |
+| 组件接入率 | 0% | 100% | ErrorPage/SkeletonScreen/LazyImage 全部接入 |
+| 优化覆盖页面 | 0 | 16+ | 全部关键页面 |
+
+#### 改动文件清单 (第七轮)
+
+**组件升级**:
+- `src/components/common/SkeletonScreen.vue` - 新增 6 种 variant + cols 网格 + 插槽 + prefers-reduced-motion
+- `src/components/common/ErrorPage.vue` - 语义色错误码 + 状态标签 + 图标按钮 + actions 插槽
+- `src/components/common/LazyImage.vue` - 设计令牌替换 + shimmer 骨架 + 重试按钮 + i18n
+
+**组件接入**:
+- `src/views/common/ForbiddenPage.vue` - 接入 ErrorPage code="403"
+- `src/components/common/StatefulContainer.vue` - el-skeleton → SkeletonScreen
+- `src/views/admin/components/admin-dashboard/StatCardsSection.vue` - el-skeleton → SkeletonScreen
+
+**批量替换 (28 个文件)**:
+- StatsCard 组件 (9 个): SilenceStatsCard / AlertStatsCard / OperationLogStatsCard / CrisisEventStatsCard / UserOverviewStatsCard / CounselorWarningStatsCard / AssessmentsStatsCard / InterventionStatsCard / WarningStatsCard
+- 仪表盘卡片 (7 个): RecentActivityCard / RiskStatusCard / RiskTrendChart / InterventionPlanCard / LatestAssessmentCard / UnreadWarningsCard / SystemStatusCard
+- 设置页卡片 (3 个): BindingCard / AlertSettingsCard / CounselorSettingsPage
+- 图表加载态 (4 个): LossChart / ConfusionChart / CompareChart / AccuracyChart
+- 其他页面 (5 个): CounselorDashboard / ContentDetailDialog / CounselorReviewDetailPage / MonitoringDashboard / ReportCenter
+
+**测试修复**:
+- `src/views/user/components/RiskReportTab.test.ts` - 选择器 .el-skeleton → .skeleton-screen
+
+**设计参考稿**:
+- `frontend-components-design/` - 3 页 HTML 画布项目 (骨架屏/错误页/懒加载)
+
+#### 剩余待办 (最终)
+
+- UserRiskPage.vue 3800+ 行单文件拆分为子组件 (风险较高，暂未动)
 - Lighthouse 性能审计对比基线
 - 图表色阶函数中的硬编码颜色 (getScoreColor 等 JS 逻辑返回值，保留)
 - UserModelTrainingPage 自定义设计色 (Tailwind 风格色值，保留)

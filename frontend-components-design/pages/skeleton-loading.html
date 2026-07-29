@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>骨架屏加载态</title>
+    <style id="theme-vars">
+/* ===== Mindwatch 心理健康预警系统 — 设计令牌 =====
+   基于现有 frontend/src/styles/variables.scss 的设计令牌，
+   映射为画布所需的语义化别名。主色 #2e6fa8，WCAG AA 达标。 */
+
+:root {
+  /* ===== 语义化别名（fill-html-head.mjs 必需） ===== */
+  --mw-background: #f5f7fa;
+  --mw-foreground: #2c3340;
+  --mw-card: #ffffff;
+  --mw-card-foreground: #2c3340;
+  --mw-popover: #ffffff;
+  --mw-popover-foreground: #2c3340;
+  --mw-primary: #2e6fa8;
+  --mw-primary-foreground: #ffffff;
+  --mw-muted: #f5f7fa;
+  --mw-muted-foreground: #6a727f;
+  --mw-border: #dcdfe6;
+  --mw-input: #dcdfe6;
+  --mw-ring: #2e6fa8;
+
+  /* ===== 圆角 ===== */
+  --mw-radius-sm: 6px;
+  --mw-radius-md: 10px;
+  --mw-radius-lg: 16px;
+
+  /* ===== 品牌主色阶 ===== */
+  --mw-primary-50: #eaf0f6;
+  --mw-primary-100: #d5e2ed;
+  --mw-primary-200: #abc5dc;
+  --mw-primary-300: #82a9cb;
+  --mw-primary-400: #588cb9;
+  --mw-primary-500: #2e6fa8;
+  --mw-primary-600: #255986;
+  --mw-primary-700: #1c4365;
+
+  /* ===== 语义状态色 ===== */
+  --mw-success: #5a9e3a;
+  --mw-success-light: #eef5e8;
+  --mw-warning: #d4923a;
+  --mw-warning-light: #faf3e8;
+  --mw-danger: #d65a5a;
+  --mw-danger-light: #faecec;
+  --mw-info: #7a8290;
+  --mw-info-light: #f0f2f5;
+
+  /* ===== 风险等级色阶（系统核心业务色） ===== */
+  --mw-risk-none: #7a8290;
+  --mw-risk-mild: #5a9e3a;
+  --mw-risk-moderate: #d4923a;
+  --mw-risk-high: #d65a5a;
+  --mw-risk-critical: #a82e28;
+
+  /* ===== 文字色阶 ===== */
+  --mw-text-primary: #2c3340;
+  --mw-text-regular: #5a6470;
+  --mw-text-secondary: #6a727f;
+  --mw-text-placeholder: #a8abb2;
+  --mw-text-disabled: #c0c4cc;
+  --mw-text-inverse: #ffffff;
+
+  /* ===== 边框色阶 ===== */
+  --mw-border-light: #e4e7ed;
+  --mw-border-lighter: #ebeef5;
+  --mw-border-extra-light: #f2f6fc;
+
+  /* ===== 背景色阶 ===== */
+  --mw-bg-primary: #ffffff;
+  --mw-bg-page: #f5f7fa;
+  --mw-bg-hover: #f5f7fa;
+  --mw-bg-active: #ecf5ff;
+
+  /* ===== 间距系统（8px 基准） ===== */
+  --mw-spacing-xs: 4px;
+  --mw-spacing-sm: 8px;
+  --mw-spacing-md: 16px;
+  --mw-spacing-lg: 24px;
+  --mw-spacing-xl: 32px;
+  --mw-spacing-2xl: 48px;
+
+  /* ===== 阴影系统（着色阴影，匹配主色色相） ===== */
+  --mw-shadow-light: 0 1px 3px rgba(46, 111, 168, 0.04);
+  --mw-shadow-card: 0 2px 8px rgba(46, 111, 168, 0.06);
+  --mw-shadow-card-hover: 0 8px 24px rgba(46, 111, 168, 0.12);
+  --mw-shadow-dropdown: 0 4px 16px rgba(46, 111, 168, 0.08);
+  --mw-shadow-modal: 0 16px 48px rgba(46, 111, 168, 0.16);
+
+  /* ===== 焦点环 ===== */
+  --mw-ring-focus: 0 0 0 3px rgba(46, 111, 168, 0.28);
+
+  /* ===== 动效 ===== */
+  --mw-transition-fast: 0.15s;
+  --mw-transition-duration: 0.3s;
+  --mw-transition-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --mw-transition-quicker: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ===== 字体 ===== */
+  --mw-font-sans: 'Geist', -apple-system, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', 'Segoe UI', Roboto, sans-serif;
+  --mw-font-mono: 'Geist Mono', 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+
+  /* ===== 品牌渐变 ===== */
+  --mw-gradient-primary: linear-gradient(135deg, #2e6fa8 0%, #327ab0 100%);
+  --mw-gradient-surface: linear-gradient(180deg, rgba(46, 111, 168, 0.04) 0%, transparent 100%);
+
+  /* ===== 骨架屏闪烁 ===== */
+  --mw-skeleton-base: #eef0f4;
+  --mw-skeleton-wave: #e2e6ed;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--mw-background);
+    --color-foreground: var(--mw-foreground);
+    --color-card: var(--mw-card);
+    --color-card-foreground: var(--mw-card-foreground);
+    --color-popover: var(--mw-popover);
+    --color-popover-foreground: var(--mw-popover-foreground);
+    --color-primary: var(--mw-primary);
+    --color-primary-foreground: var(--mw-primary-foreground);
+    --color-muted: var(--mw-muted);
+    --color-muted-foreground: var(--mw-muted-foreground);
+    --color-border: var(--mw-border);
+    --color-input: var(--mw-input);
+    --color-ring: var(--mw-ring);
+    --radius-sm: var(--mw-radius-sm);
+    --radius-md: var(--mw-radius-md);
+    --radius-lg: var(--mw-radius-lg);
+  }
+  @layer base {
+    body { background: var(--mw-background); color: var(--mw-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--mw-background); }
+      .text-background { color: var(--mw-background); }
+      .border-background { border-color: var(--mw-background); }
+      .ring-background { --tw-ring-color: var(--mw-background); }
+      .bg-foreground { background-color: var(--mw-foreground); }
+      .text-foreground { color: var(--mw-foreground); }
+      .border-foreground { border-color: var(--mw-foreground); }
+      .ring-foreground { --tw-ring-color: var(--mw-foreground); }
+      .bg-card { background-color: var(--mw-card); }
+      .text-card { color: var(--mw-card); }
+      .border-card { border-color: var(--mw-card); }
+      .ring-card { --tw-ring-color: var(--mw-card); }
+      .bg-card-foreground { background-color: var(--mw-card-foreground); }
+      .text-card-foreground { color: var(--mw-card-foreground); }
+      .border-card-foreground { border-color: var(--mw-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--mw-card-foreground); }
+      .bg-popover { background-color: var(--mw-popover); }
+      .text-popover { color: var(--mw-popover); }
+      .border-popover { border-color: var(--mw-popover); }
+      .ring-popover { --tw-ring-color: var(--mw-popover); }
+      .bg-popover-foreground { background-color: var(--mw-popover-foreground); }
+      .text-popover-foreground { color: var(--mw-popover-foreground); }
+      .border-popover-foreground { border-color: var(--mw-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--mw-popover-foreground); }
+      .bg-primary { background-color: var(--mw-primary); }
+      .text-primary { color: var(--mw-primary); }
+      .border-primary { border-color: var(--mw-primary); }
+      .ring-primary { --tw-ring-color: var(--mw-primary); }
+      .bg-primary-foreground { background-color: var(--mw-primary-foreground); }
+      .text-primary-foreground { color: var(--mw-primary-foreground); }
+      .border-primary-foreground { border-color: var(--mw-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--mw-primary-foreground); }
+      .bg-muted { background-color: var(--mw-muted); }
+      .text-muted { color: var(--mw-muted); }
+      .border-muted { border-color: var(--mw-muted); }
+      .ring-muted { --tw-ring-color: var(--mw-muted); }
+      .bg-muted-foreground { background-color: var(--mw-muted-foreground); }
+      .text-muted-foreground { color: var(--mw-muted-foreground); }
+      .border-muted-foreground { border-color: var(--mw-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--mw-muted-foreground); }
+      .bg-border { background-color: var(--mw-border); }
+      .text-border { color: var(--mw-border); }
+      .border-border { border-color: var(--mw-border); }
+      .ring-border { --tw-ring-color: var(--mw-border); }
+      .bg-input { background-color: var(--mw-input); }
+      .text-input { color: var(--mw-input); }
+      .border-input { border-color: var(--mw-input); }
+      .ring-input { --tw-ring-color: var(--mw-input); }
+      .bg-ring { background-color: var(--mw-ring); }
+      .text-ring { color: var(--mw-ring); }
+      .border-ring { border-color: var(--mw-ring); }
+      .ring-ring { --tw-ring-color: var(--mw-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main class="min-h-screen bg-[var(--mw-bg-page)]">
+      <style>
+        /* ===== Skeleton shimmer animation ===== */
+        @keyframes mw-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .mw-skeleton {
+          background: linear-gradient(
+            90deg,
+            var(--mw-skeleton-base) 0%,
+            var(--mw-skeleton-wave) 50%,
+            var(--mw-skeleton-base) 100%
+          );
+          background-size: 200% 100%;
+          animation: mw-shimmer 1.6s var(--mw-transition-ease-out) infinite;
+          border-radius: 4px;
+          display: block;
+        }
+        .mw-skeleton-pill { border-radius: 9999px; }
+        /* ===== Stat card left accent bar ===== */
+        .mw-accent-bar {
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 4px;
+          height: 56%;
+          border-radius: 0 4px 4px 0;
+        }
+        /* ===== Risk tag ===== */
+        .mw-risk-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          border-radius: 9999px;
+          font-size: 12px;
+          font-weight: 500;
+          line-height: 1.4;
+        }
+        .mw-risk-tag::before {
+          content: '';
+          width: 6px;
+          height: 6px;
+          border-radius: 9999px;
+          background: currentColor;
+        }
+        /* ===== Status tag ===== */
+        .mw-status-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 500;
+          line-height: 1.4;
+        }
+      </style>
+
+      <!-- ============================ Page Header ============================ -->
+      <section class="page-header bg-[var(--mw-card)] border-b border-[var(--mw-border-light)]">
+        <div class="max-w-[1440px] mx-auto px-8 py-6">
+          <div class="flex items-end justify-between gap-6 flex-wrap">
+            <div class="flex flex-col gap-2.5">
+              <div class="flex items-center gap-3">
+                <h1 class="text-[26px] leading-tight font-semibold text-[var(--mw-text-primary)] tracking-tight">骨架屏加载态</h1>
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-medium text-[var(--mw-primary)] bg-[var(--mw-primary-50)] border border-[var(--mw-primary-100)]">
+                  <i data-lucide="component" class="w-3 h-3"></i>
+                  组件设计稿
+                </span>
+              </div>
+              <p class="text-sm text-[var(--mw-text-secondary)]">SkeletonScreen 组件设计参考 — 统一加载状态，替代 v-loading 全屏遮罩</p>
+            </div>
+            <div class="flex items-center gap-5 text-xs text-[var(--mw-text-placeholder)]">
+              <div class="flex items-center gap-1.5">
+                <i data-lucide="monitor" class="w-3.5 h-3.5"></i>
+                <span>Desktop 1440</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                <span>SkeletonScreen</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <i data-lucide="palette" class="w-3.5 h-3.5"></i>
+                <span>Mindwatch</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ Section 1: Skeleton Loading State ============================ -->
+      <section class="skeleton-dashboard py-8">
+        <div class="max-w-[1440px] mx-auto px-8">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5">
+              <span class="w-1 h-4 bg-[var(--mw-primary)] rounded-full"></span>
+              <h2 class="text-base font-semibold text-[var(--mw-text-primary)]">加载态</h2>
+              <span class="text-xs text-[var(--mw-text-placeholder)]">— 数据请求中，SkeletonScreen 占位</span>
+            </div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-[var(--mw-text-secondary)] bg-[var(--mw-info-light)] border border-[var(--mw-border-lighter)]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[var(--mw-info)] animate-pulse"></span>
+              Loading
+            </span>
+          </div>
+
+          <!-- Dashboard preview frame -->
+          <div class="rounded-[var(--mw-radius-lg)] overflow-hidden border border-[var(--mw-border-light)] shadow-[var(--mw-shadow-card)] bg-[var(--mw-card)]">
+            <div class="flex items-stretch">
+              <!-- ===== Sidebar (skeleton) ===== -->
+              <aside class="w-[220px] shrink-0 bg-[var(--mw-card)] border-r border-[var(--mw-border-lighter)] flex flex-col">
+                <!-- Logo skeleton -->
+                <div class="h-14 flex items-center px-5 border-b border-[var(--mw-border-lighter)]">
+                  <div class="mw-skeleton" style="width:60%;height:24px;"></div>
+                </div>
+                <!-- Menu skeletons -->
+                <nav class="flex-1 py-4 px-3 flex flex-col gap-1">
+                  <!-- Active menu item (highlighted) -->
+                  <div class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mw-radius-sm)] bg-[var(--mw-primary-50)]">
+                    <div class="mw-skeleton mw-skeleton-pill" style="width:20px;height:20px;"></div>
+                    <div class="mw-skeleton" style="width:70%;height:14px;"></div>
+                  </div>
+                  <!-- Inactive menu item 2 -->
+                  <div class="flex items-center gap-3 px-3 py-2.5">
+                    <div class="mw-skeleton mw-skeleton-pill" style="width:20px;height:20px;"></div>
+                    <div class="mw-skeleton" style="width:70%;height:14px;"></div>
+                  </div>
+                  <!-- Inactive menu item 3 -->
+                  <div class="flex items-center gap-3 px-3 py-2.5">
+                    <div class="mw-skeleton mw-skeleton-pill" style="width:20px;height:20px;"></div>
+                    <div class="mw-skeleton" style="width:70%;height:14px;"></div>
+                  </div>
+                  <!-- Inactive menu item 4 -->
+                  <div class="flex items-center gap-3 px-3 py-2.5">
+                    <div class="mw-skeleton mw-skeleton-pill" style="width:20px;height:20px;"></div>
+                    <div class="mw-skeleton" style="width:70%;height:14px;"></div>
+                  </div>
+                  <!-- Inactive menu item 5 -->
+                  <div class="flex items-center gap-3 px-3 py-2.5">
+                    <div class="mw-skeleton mw-skeleton-pill" style="width:20px;height:20px;"></div>
+                    <div class="mw-skeleton" style="width:70%;height:14px;"></div>
+                  </div>
+                </nav>
+              </aside>
+
+              <!-- ===== Main column (skeleton) ===== -->
+              <div class="flex-1 flex flex-col min-w-0">
+                <!-- Top header -->
+                <header class="h-14 bg-[var(--mw-card)] border-b border-[var(--mw-border-lighter)] flex items-center justify-between px-6 shrink-0">
+                  <div class="mw-skeleton" style="width:120px;height:18px;"></div>
+                  <div class="flex items-center gap-3">
+                    <div class="mw-skeleton mw-skeleton-pill" style="width:32px;height:32px;"></div>
+                    <div class="mw-skeleton" style="width:80px;height:14px;"></div>
+                  </div>
+                </header>
+                <!-- Content area -->
+                <div class="flex-1 bg-[var(--mw-bg-page)] p-6 flex flex-col gap-4">
+                  <!-- 4 stat card skeletons (grid 4 cols) -->
+                  <div class="grid grid-cols-4 gap-4">
+                    <div class="bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] p-5 border border-[var(--mw-border-lighter)] flex flex-col gap-3">
+                      <div class="mw-skeleton" style="width:40%;height:12px;"></div>
+                      <div class="mw-skeleton" style="width:60%;height:32px;"></div>
+                      <div class="mw-skeleton" style="width:50%;height:12px;"></div>
+                    </div>
+                    <div class="bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] p-5 border border-[var(--mw-border-lighter)] flex flex-col gap-3">
+                      <div class="mw-skeleton" style="width:40%;height:12px;"></div>
+                      <div class="mw-skeleton" style="width:60%;height:32px;"></div>
+                      <div class="mw-skeleton" style="width:50%;height:12px;"></div>
+                    </div>
+                    <div class="bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] p-5 border border-[var(--mw-border-lighter)] flex flex-col gap-3">
+                      <div class="mw-skeleton" style="width:40%;height:12px;"></div>
+                      <div class="mw-skeleton" style="width:60%;height:32px;"></div>
+                      <div class="mw-skeleton" style="width:50%;height:12px;"></div>
+                    </div>
+                    <div class="bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] p-5 border border-[var(--mw-border-lighter)] flex flex-col gap-3">
+                      <div class="mw-skeleton" style="width:40%;height:12px;"></div>
+                      <div class="mw-skeleton" style="width:60%;height:32px;"></div>
+                      <div class="mw-skeleton" style="width:50%;height:12px;"></div>
+                    </div>
+                  </div>
+
+                  <!-- Chart area skeleton -->
+                  <div class="bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] border border-[var(--mw-border-lighter)] p-5" style="height:320px;">
+                    <div class="h-full flex items-center justify-center">
+                      <div class="mw-skeleton" style="width:80%;height:240px;border-radius:var(--mw-radius-md);"></div>
+                    </div>
+                  </div>
+
+                  <!-- Data table skeleton (5 rows x 4 cols) -->
+                  <div class="bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] border border-[var(--mw-border-lighter)] p-5">
+                    <div class="flex flex-col gap-4">
+                      <div class="grid grid-cols-4 gap-4">
+                        <div class="mw-skeleton" style="height:14px;width:70%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:50%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:60%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:40%;"></div>
+                      </div>
+                      <div class="grid grid-cols-4 gap-4">
+                        <div class="mw-skeleton" style="height:14px;width:65%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:45%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:55%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:35%;"></div>
+                      </div>
+                      <div class="grid grid-cols-4 gap-4">
+                        <div class="mw-skeleton" style="height:14px;width:72%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:48%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:58%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:42%;"></div>
+                      </div>
+                      <div class="grid grid-cols-4 gap-4">
+                        <div class="mw-skeleton" style="height:14px;width:68%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:52%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:62%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:38%;"></div>
+                      </div>
+                      <div class="grid grid-cols-4 gap-4">
+                        <div class="mw-skeleton" style="height:14px;width:60%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:46%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:56%;"></div>
+                        <div class="mw-skeleton" style="height:14px;width:44%;"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ Transition Divider ============================ -->
+      <div class="max-w-[1440px] mx-auto px-8 py-2">
+        <div class="flex items-center gap-4">
+          <div class="flex-1 h-px bg-[var(--mw-border-light)]"></div>
+          <span class="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--mw-text-secondary)] bg-[var(--mw-card)] border border-[var(--mw-border-light)] px-3 py-1 rounded-full">
+            <i data-lucide="arrow-down-narrow-wide" class="w-3.5 h-3.5"></i>
+            加载完成态对比
+          </span>
+          <div class="flex-1 h-px bg-[var(--mw-border-light)]"></div>
+        </div>
+      </div>
+
+      <!-- ============================ Section 2: Loaded State ============================ -->
+      <section class="loaded-dashboard py-8">
+        <div class="max-w-[1440px] mx-auto px-8">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5">
+              <span class="w-1 h-4 bg-[var(--mw-success)] rounded-full"></span>
+              <h2 class="text-base font-semibold text-[var(--mw-text-primary)]">加载完成态</h2>
+              <span class="text-xs text-[var(--mw-text-placeholder)]">— 数据已就绪，真实内容渲染</span>
+            </div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-[var(--mw-success)] bg-[var(--mw-success-light)] border border-[var(--mw-border-lighter)]">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+              Loaded
+            </span>
+          </div>
+
+          <!-- Dashboard preview frame -->
+          <div class="rounded-[var(--mw-radius-lg)] overflow-hidden border border-[var(--mw-border-light)] shadow-[var(--mw-shadow-card)] bg-[var(--mw-card)]">
+            <div class="flex items-stretch">
+              <!-- ===== Sidebar (loaded) ===== -->
+              <aside class="w-[220px] shrink-0 bg-[var(--mw-card)] border-r border-[var(--mw-border-lighter)] flex flex-col">
+                <!-- Logo -->
+                <div class="h-14 flex items-center px-5 border-b border-[var(--mw-border-lighter)] gap-2.5">
+                  <div class="w-7 h-7 rounded-[var(--mw-radius-sm)] bg-[var(--mw-gradient-primary)] flex items-center justify-center">
+                    <i data-lucide="brain-circuit" class="w-4 h-4 text-[var(--mw-primary-foreground)]"></i>
+                  </div>
+                  <span class="text-[15px] font-semibold text-[var(--mw-text-primary)] tracking-tight">Mindwatch</span>
+                </div>
+                <!-- Menu items -->
+                <nav class="flex-1 py-4 px-3 flex flex-col gap-1">
+                  <a class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mw-radius-sm)] bg-[var(--mw-primary-50)] text-[var(--mw-primary)] text-sm font-medium">
+                    <i data-lucide="layout-dashboard" class="w-[20px] h-[20px] shrink-0"></i>
+                    <span>工作台</span>
+                  </a>
+                  <a class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mw-radius-sm)] text-[var(--mw-text-regular)] text-sm hover:bg-[var(--mw-bg-hover)]">
+                    <i data-lucide="shield-alert" class="w-[20px] h-[20px] shrink-0"></i>
+                    <span>风险评估</span>
+                  </a>
+                  <a class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mw-radius-sm)] text-[var(--mw-text-regular)] text-sm hover:bg-[var(--mw-bg-hover)]">
+                    <i data-lucide="users" class="w-[20px] h-[20px] shrink-0"></i>
+                    <span>用户管理</span>
+                  </a>
+                  <a class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mw-radius-sm)] text-[var(--mw-text-regular)] text-sm hover:bg-[var(--mw-bg-hover)]">
+                    <i data-lucide="heart-handshake" class="w-[20px] h-[20px] shrink-0"></i>
+                    <span>干预管理</span>
+                  </a>
+                  <a class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mw-radius-sm)] text-[var(--mw-text-regular)] text-sm hover:bg-[var(--mw-bg-hover)]">
+                    <i data-lucide="bar-chart-3" class="w-[20px] h-[20px] shrink-0"></i>
+                    <span>报表统计</span>
+                  </a>
+                </nav>
+              </aside>
+
+              <!-- ===== Main column (loaded) ===== -->
+              <div class="flex-1 flex flex-col min-w-0">
+                <!-- Top header -->
+                <header class="h-14 bg-[var(--mw-card)] border-b border-[var(--mw-border-lighter)] flex items-center justify-between px-6 shrink-0">
+                  <!-- Breadcrumb -->
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="text-[var(--mw-text-placeholder)]">工作台</span>
+                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[var(--mw-text-placeholder)]"></i>
+                    <span class="text-[var(--mw-text-primary)] font-medium">总览</span>
+                  </div>
+                  <!-- User info -->
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-[var(--mw-primary-100)] flex items-center justify-center text-xs font-semibold text-[var(--mw-primary-700)]">陈</div>
+                    <span class="text-sm text-[var(--mw-text-regular)]">陈医生</span>
+                  </div>
+                </header>
+                <!-- Content area -->
+                <div class="flex-1 bg-[var(--mw-bg-page)] p-6 flex flex-col gap-4">
+                  <!-- 4 stat cards (grid 4 cols) -->
+                  <div class="grid grid-cols-4 gap-4">
+                    <!-- Card 1: 风险评估总数 -->
+                    <div class="relative bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] p-5 border border-[var(--mw-border-lighter)] shadow-[var(--mw-shadow-card)] overflow-hidden">
+                      <span class="mw-accent-bar" style="background: var(--mw-risk-none);"></span>
+                      <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[var(--mw-text-secondary)]">风险评估总数</span>
+                        <div class="w-8 h-8 rounded-[var(--mw-radius-sm)] bg-[var(--mw-info-light)] flex items-center justify-center">
+                          <i data-lucide="activity" class="w-4 h-4 text-[var(--mw-risk-none)]"></i>
+                        </div>
+                      </div>
+                      <div class="text-[28px] font-semibold text-[var(--mw-text-primary)] leading-none mb-2">1,284</div>
+                      <div class="flex items-center gap-1 text-xs">
+                        <i data-lucide="arrow-up" class="w-3 h-3 text-[var(--mw-success)]"></i>
+                        <span class="text-[var(--mw-success)] font-medium">12.5%</span>
+                        <span class="text-[var(--mw-text-placeholder)]">较上月</span>
+                      </div>
+                    </div>
+                    <!-- Card 2: 高风险用户 -->
+                    <div class="relative bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] p-5 border border-[var(--mw-border-lighter)] shadow-[var(--mw-shadow-card)] overflow-hidden">
+                      <span class="mw-accent-bar" style="background: var(--mw-risk-high);"></span>
+                      <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[var(--mw-text-secondary)]">高风险用户</span>
+                        <div class="w-8 h-8 rounded-[var(--mw-radius-sm)] bg-[var(--mw-danger-light)] flex items-center justify-center">
+                          <i data-lucide="alert-triangle" class="w-4 h-4 text-[var(--mw-risk-high)]"></i>
+                        </div>
+                      </div>
+                      <div class="text-[28px] font-semibold text-[var(--mw-text-primary)] leading-none mb-2">37</div>
+                      <div class="flex items-center gap-1 text-xs">
+                        <i data-lucide="arrow-up" class="w-3 h-3 text-[var(--mw-danger)]"></i>
+                        <span class="text-[var(--mw-danger)] font-medium">3</span>
+                        <span class="text-[var(--mw-text-placeholder)]">较昨日</span>
+                      </div>
+                    </div>
+                    <!-- Card 3: 干预进行中 -->
+                    <div class="relative bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] p-5 border border-[var(--mw-border-lighter)] shadow-[var(--mw-shadow-card)] overflow-hidden">
+                      <span class="mw-accent-bar" style="background: var(--mw-risk-mild);"></span>
+                      <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[var(--mw-text-secondary)]">干预进行中</span>
+                        <div class="w-8 h-8 rounded-[var(--mw-radius-sm)] bg-[var(--mw-success-light)] flex items-center justify-center">
+                          <i data-lucide="heart-handshake" class="w-4 h-4 text-[var(--mw-risk-mild)]"></i>
+                        </div>
+                      </div>
+                      <div class="text-[28px] font-semibold text-[var(--mw-text-primary)] leading-none mb-2">92</div>
+                      <div class="flex items-center gap-1 text-xs">
+                        <i data-lucide="arrow-down" class="w-3 h-3 text-[var(--mw-success)]"></i>
+                        <span class="text-[var(--mw-success)] font-medium">5</span>
+                        <span class="text-[var(--mw-text-placeholder)]">较上周</span>
+                      </div>
+                    </div>
+                    <!-- Card 4: 本月新增评估 -->
+                    <div class="relative bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] p-5 border border-[var(--mw-border-lighter)] shadow-[var(--mw-shadow-card)] overflow-hidden">
+                      <span class="mw-accent-bar" style="background: var(--mw-risk-moderate);"></span>
+                      <div class="flex items-start justify-between mb-3">
+                        <span class="text-xs text-[var(--mw-text-secondary)]">本月新增评估</span>
+                        <div class="w-8 h-8 rounded-[var(--mw-radius-sm)] bg-[var(--mw-warning-light)] flex items-center justify-center">
+                          <i data-lucide="trending-up" class="w-4 h-4 text-[var(--mw-risk-moderate)]"></i>
+                        </div>
+                      </div>
+                      <div class="text-[28px] font-semibold text-[var(--mw-text-primary)] leading-none mb-2">218</div>
+                      <div class="flex items-center gap-1 text-xs">
+                        <i data-lucide="arrow-up" class="w-3 h-3 text-[var(--mw-success)]"></i>
+                        <span class="text-[var(--mw-success)] font-medium">8.2%</span>
+                        <span class="text-[var(--mw-text-placeholder)]">较上月</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Chart area: 风险趋势分析 -->
+                  <div class="bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] border border-[var(--mw-border-lighter)] p-5">
+                    <div class="flex items-center justify-between mb-4">
+                      <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-semibold text-[var(--mw-text-primary)]">风险趋势分析</h3>
+                        <span class="text-xs text-[var(--mw-text-placeholder)]">近 7 天</span>
+                      </div>
+                      <div class="flex items-center gap-3 text-xs text-[var(--mw-text-secondary)]">
+                        <span class="flex items-center gap-1.5">
+                          <span class="w-2.5 h-2.5 rounded-full" style="background: var(--mw-primary);"></span>
+                          高风险用户
+                        </span>
+                      </div>
+                    </div>
+                    <!-- SVG line chart -->
+                    <svg viewBox="0 0 760 280" class="w-full" preserveAspectRatio="xMidYMid meet" style="height: 260px;">
+                      <defs>
+                        <linearGradient id="riskTrendArea" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" style="stop-color: var(--mw-primary); stop-opacity: 0.18;"></stop>
+                          <stop offset="100%" style="stop-color: var(--mw-primary); stop-opacity: 0;"></stop>
+                        </linearGradient>
+                      </defs>
+                      <!-- Grid lines -->
+                      <line x1="40" y1="30" x2="740" y2="30" style="stroke: var(--mw-border-lighter);" stroke-dasharray="4 4" stroke-width="1"/>
+                      <line x1="40" y1="80" x2="740" y2="80" style="stroke: var(--mw-border-lighter);" stroke-dasharray="4 4" stroke-width="1"/>
+                      <line x1="40" y1="130" x2="740" y2="130" style="stroke: var(--mw-border-lighter);" stroke-dasharray="4 4" stroke-width="1"/>
+                      <line x1="40" y1="180" x2="740" y2="180" style="stroke: var(--mw-border-lighter);" stroke-dasharray="4 4" stroke-width="1"/>
+                      <line x1="40" y1="230" x2="740" y2="230" style="stroke: var(--mw-border-light);" stroke-width="1"/>
+                      <!-- Y-axis labels -->
+                      <text x="28" y="34" fill="var(--mw-text-placeholder)" font-size="11" text-anchor="end">40</text>
+                      <text x="28" y="84" fill="var(--mw-text-placeholder)" font-size="11" text-anchor="end">30</text>
+                      <text x="28" y="134" fill="var(--mw-text-placeholder)" font-size="11" text-anchor="end">20</text>
+                      <text x="28" y="184" fill="var(--mw-text-placeholder)" font-size="11" text-anchor="end">10</text>
+                      <text x="28" y="234" fill="var(--mw-text-placeholder)" font-size="11" text-anchor="end">0</text>
+                      <!-- Area fill -->
+                      <path d="M 70 90 L 178 70 L 286 105 L 394 55 L 502 80 L 610 40 L 718 45 L 718 230 L 70 230 Z" fill="url(#riskTrendArea)"/>
+                      <!-- Line -->
+                      <path d="M 70 90 L 178 70 L 286 105 L 394 55 L 502 80 L 610 40 L 718 45" style="stroke: var(--mw-primary);" stroke-width="2.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+                      <!-- Data points -->
+                      <circle cx="70" cy="90" r="4" style="fill: var(--mw-card); stroke: var(--mw-primary);" stroke-width="2"/>
+                      <circle cx="178" cy="70" r="4" style="fill: var(--mw-card); stroke: var(--mw-primary);" stroke-width="2"/>
+                      <circle cx="286" cy="105" r="4" style="fill: var(--mw-card); stroke: var(--mw-primary);" stroke-width="2"/>
+                      <circle cx="394" cy="55" r="4" style="fill: var(--mw-card); stroke: var(--mw-primary);" stroke-width="2"/>
+                      <circle cx="502" cy="80" r="4" style="fill: var(--mw-card); stroke: var(--mw-primary);" stroke-width="2"/>
+                      <circle cx="610" cy="40" r="4" style="fill: var(--mw-card); stroke: var(--mw-primary);" stroke-width="2"/>
+                      <!-- Highlight peak point -->
+                      <circle cx="610" cy="40" r="7" style="fill: var(--mw-primary); fill-opacity: 0.15;"/>
+                      <text x="610" y="28" fill="var(--mw-primary)" font-size="11" font-weight="600" text-anchor="middle">38</text>
+                      <circle cx="718" cy="45" r="4" style="fill: var(--mw-card); stroke: var(--mw-primary);" stroke-width="2"/>
+                      <!-- X-axis labels -->
+                      <text x="70" y="255" fill="var(--mw-text-secondary)" font-size="11" text-anchor="middle">周一</text>
+                      <text x="178" y="255" fill="var(--mw-text-secondary)" font-size="11" text-anchor="middle">周二</text>
+                      <text x="286" y="255" fill="var(--mw-text-secondary)" font-size="11" text-anchor="middle">周三</text>
+                      <text x="394" y="255" fill="var(--mw-text-secondary)" font-size="11" text-anchor="middle">周四</text>
+                      <text x="502" y="255" fill="var(--mw-text-secondary)" font-size="11" text-anchor="middle">周五</text>
+                      <text x="610" y="255" fill="var(--mw-text-secondary)" font-size="11" text-anchor="middle">周六</text>
+                      <text x="718" y="255" fill="var(--mw-text-secondary)" font-size="11" text-anchor="middle">周日</text>
+                    </svg>
+                  </div>
+
+                  <!-- Data table: 最近预警 -->
+                  <div class="bg-[var(--mw-card)] rounded-[var(--mw-radius-md)] border border-[var(--mw-border-lighter)] overflow-hidden">
+                    <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--mw-border-lighter)]">
+                      <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-semibold text-[var(--mw-text-primary)]">最近预警</h3>
+                        <span class="text-xs text-[var(--mw-text-placeholder)]">3 条记录</span>
+                      </div>
+                      <button class="inline-flex items-center gap-1 text-xs text-[var(--mw-primary)] hover:underline">
+                        查看全部
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </div>
+                    <table class="w-full text-sm">
+                      <thead>
+                        <tr class="bg-[var(--mw-bg-page)]">
+                          <th class="text-left px-5 py-2.5 text-xs font-medium text-[var(--mw-text-secondary)]">用户</th>
+                          <th class="text-left px-5 py-2.5 text-xs font-medium text-[var(--mw-text-secondary)]">风险等级</th>
+                          <th class="text-left px-5 py-2.5 text-xs font-medium text-[var(--mw-text-secondary)]">评估时间</th>
+                          <th class="text-left px-5 py-2.5 text-xs font-medium text-[var(--mw-text-secondary)]">状态</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr class="border-t border-[var(--mw-border-lighter)]">
+                          <td class="px-5 py-3">
+                            <div class="flex items-center gap-2.5">
+                              <div class="w-7 h-7 rounded-full bg-[var(--mw-danger-light)] flex items-center justify-center text-xs font-medium text-[var(--mw-risk-high)]">张</div>
+                              <span class="text-[var(--mw-text-primary)]">张明</span>
+                            </div>
+                          </td>
+                          <td class="px-5 py-3">
+                            <span class="mw-risk-tag" style="color: var(--mw-risk-high); background: var(--mw-danger-light);">高</span>
+                          </td>
+                          <td class="px-5 py-3 text-[var(--mw-text-regular)]">2026-07-17 09:24</td>
+                          <td class="px-5 py-3">
+                            <span class="mw-status-tag" style="color: var(--mw-warning); background: var(--mw-warning-light);">待处理</span>
+                          </td>
+                        </tr>
+                        <tr class="border-t border-[var(--mw-border-lighter)]">
+                          <td class="px-5 py-3">
+                            <div class="flex items-center gap-2.5">
+                              <div class="w-7 h-7 rounded-full bg-[var(--mw-warning-light)] flex items-center justify-center text-xs font-medium text-[var(--mw-risk-moderate)]">李</div>
+                              <span class="text-[var(--mw-text-primary)]">李芳</span>
+                            </div>
+                          </td>
+                          <td class="px-5 py-3">
+                            <span class="mw-risk-tag" style="color: var(--mw-risk-moderate); background: var(--mw-warning-light);">中</span>
+                          </td>
+                          <td class="px-5 py-3 text-[var(--mw-text-regular)]">2026-07-17 08:15</td>
+                          <td class="px-5 py-3">
+                            <span class="mw-status-tag" style="color: var(--mw-primary); background: var(--mw-primary-50);">处理中</span>
+                          </td>
+                        </tr>
+                        <tr class="border-t border-[var(--mw-border-lighter)]">
+                          <td class="px-5 py-3">
+                            <div class="flex items-center gap-2.5">
+                              <div class="w-7 h-7 rounded-full bg-[var(--mw-success-light)] flex items-center justify-center text-xs font-medium text-[var(--mw-risk-mild)]">王</div>
+                              <span class="text-[var(--mw-text-primary)]">王浩</span>
+                            </div>
+                          </td>
+                          <td class="px-5 py-3">
+                            <span class="mw-risk-tag" style="color: var(--mw-risk-mild); background: var(--mw-success-light);">低</span>
+                          </td>
+                          <td class="px-5 py-3 text-[var(--mw-text-regular)]">2026-07-16 18:42</td>
+                          <td class="px-5 py-3">
+                            <span class="mw-status-tag" style="color: var(--mw-info); background: var(--mw-info-light);">已处理</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ Footer note ============================ -->
+      <footer class="border-t border-[var(--mw-border-light)] bg-[var(--mw-card)]">
+        <div class="max-w-[1440px] mx-auto px-8 py-5 flex items-center justify-between gap-6 flex-wrap">
+          <div class="flex items-center gap-2.5 text-xs text-[var(--mw-text-secondary)]">
+            <i data-lucide="info" class="w-3.5 h-3.5 text-[var(--mw-text-placeholder)]"></i>
+            <span>SkeletonScreen 组件设计参考 · 骨架基色 <code class="px-1.5 py-0.5 rounded bg-[var(--mw-bg-page)] text-[var(--mw-text-regular)] font-mono text-[11px]">--mw-skeleton-base</code> · 扫光色 <code class="px-1.5 py-0.5 rounded bg-[var(--mw-bg-page)] text-[var(--mw-text-regular)] font-mono text-[11px]">--mw-skeleton-wave</code></span>
+          </div>
+          <div class="flex items-center gap-4 text-xs text-[var(--mw-text-placeholder)]">
+            <span class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded" style="background: var(--mw-skeleton-base);"></span>
+              基色
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded" style="background: var(--mw-skeleton-wave);"></span>
+              扫光
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded bg-[var(--mw-primary)]"></span>
+              品牌主色
+            </span>
+          </div>
+        </div>
+      </footer>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
