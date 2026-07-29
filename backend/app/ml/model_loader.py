@@ -20,12 +20,35 @@ from app.utils.checksum import write_sha256_sidecar as write_sha256_sidecar
 logger = logging.getLogger(__name__)
 
 # Artifact paths
-ARTIFACTS_DIR = (
-    Path(__file__).resolve().parent.parent.parent.parent
-    / "models"
-    / "artifacts"
-    / "physiological_optimized"
-)
+# 修复：原实现使用 Path(__file__).resolve().parent.parent.parent.parent / "models"
+# 在容器内 __file__ = /app/app/ml/model_loader.py，4 个 parent = / (根目录)，
+# 拼接 /models/artifacts/... 实际不存在；模型在 /app/models/artifacts/...。
+# 改用 settings.model_dir (容器内 = /app/models，本地默认 = "models" 相对 CWD)，
+# 同时保留原相对路径作为 fallback 以兼容本地开发环境。
+def _resolve_artifacts_dir() -> Path:
+    """Resolve physiological model artifacts directory.
+
+    优先使用 settings.model_dir (生产环境配置)，fallback 到相对 __file__ 的路径
+    (本地开发环境兼容)。
+    """
+    try:
+        from app.core.config import settings
+
+        candidate = Path(settings.model_dir).resolve() / "artifacts" / "physiological_optimized"
+        if candidate.exists():
+            return candidate
+    except Exception:
+        pass
+    # Fallback: 本地开发环境 — e:\code\bysj\backend\app\ml\..\..\..\..\models
+    return (
+        Path(__file__).resolve().parent.parent.parent.parent
+        / "models"
+        / "artifacts"
+        / "physiological_optimized"
+    )
+
+
+ARTIFACTS_DIR = _resolve_artifacts_dir()
 MODEL_PATH = ARTIFACTS_DIR / "model.json"
 SCALER_PATH = ARTIFACTS_DIR / "scaler.json"
 FEATURE_NAMES_PATH = ARTIFACTS_DIR / "feature_names.json"

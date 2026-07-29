@@ -224,7 +224,7 @@ class AssessmentMixin:
         intervention_actions: list[str] = []
         dominant_modality = (
             "physiological"
-            if result.get("model_used") == "physiological_risk_model"
+            if result.get("model_used") == "physiological_model_v2_dl"
             else "structured"
         )
         if result["risk_level"] >= 2:

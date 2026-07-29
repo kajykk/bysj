@@ -298,6 +298,7 @@ def train_epoch(
     weight_decay: float,
     loss_fn: Callable,
     rng: np.random.RandomState | None = None,
+    input_noise_std: float = 0.0,
 ) -> tuple[float, dict]:
     """Train for one epoch.
 
@@ -311,6 +312,8 @@ def train_epoch(
         loss_fn: Loss function.
         rng: Optional NumPy RandomState for reproducible shuffling. If None,
             falls back to the global np.random (not reproducible).
+        input_noise_std: M3 输入噪声增强标准差。>0 时对每个 batch 的输入
+            添加高斯噪声 N(0, input_noise_std^2)，用于正则化与泛化提升。
 
     Returns:
         Tuple of (avg_loss, metrics).
@@ -328,6 +331,9 @@ def train_epoch(
     for i in range(0, n_samples, batch_size):
         batch_idx = indices[i : i + batch_size]
         X_batch = X_train[batch_idx]
+        # M3 输入噪声增强：训练时对输入添加高斯噪声
+        if input_noise_std > 0 and rng is not None:
+            X_batch = X_batch + rng.randn(*X_batch.shape).astype(np.float32) * input_noise_std
         y_batch = y_train[batch_idx]
 
         # Forward
@@ -390,6 +396,7 @@ def train_model(
     patience: int = 10,
     loss_fn: Callable | None = None,
     random_state: int | None = 42,
+    input_noise_std: float = 0.0,
 ) -> dict:
     """Train model with early stopping.
 
@@ -406,6 +413,7 @@ def train_model(
         patience: Early stopping patience.
         loss_fn: Loss function. Defaults to BCE.
         random_state: Random seed for reproducible batch shuffling.
+        input_noise_std: M3 输入噪声增强标准差。>0 时训练每个 batch 添加高斯噪声。
 
     Returns:
         Training history dictionary.
@@ -427,10 +435,11 @@ def train_model(
     }
 
     logger.info(
-        "Starting training: epochs=%d, lr=%.4f, wd=%.4f",
+        "Starting training: epochs=%d, lr=%.4f, wd=%.4f, noise_std=%.4f",
         epochs,
         learning_rate,
         weight_decay,
+        input_noise_std,
     )
 
     # Training gap monitoring
@@ -449,6 +458,7 @@ def train_model(
             weight_decay,
             loss_fn,
             rng=rng,
+            input_noise_std=input_noise_std,
         )
 
         # Validate

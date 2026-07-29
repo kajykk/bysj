@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path
 from threading import Lock
-from time import time
+from time import perf_counter, time
 from typing import Any
 from uuid import uuid4
 
@@ -565,9 +565,43 @@ class ModelPredictService:
         features: dict[str, float | int] | None = None,
         text: str | None = None,
         physiological: dict[str, float | int] | None = None,
+        user_id: int | None = None,
     ) -> dict:
+        # S4 金丝雀路由决策: 基于 user_id 稳定哈希决定是否路由到 M4
+        canary_routed = False
+        canary_version = None
+        canary_weights = None  # None = 默认权重, dict = M4 优化权重
+        if user_id is not None:
+            try:
+                from app.core.database import AsyncSessionLocal
+                from app.services.canary_manager import canary_manager
+
+                async with AsyncSessionLocal() as db:
+                    decision = await canary_manager.decide_version(
+                        db_session=db,
+                        user_id=user_id,
+                        stable_version="v1.16-risk-calibration",
+                    )
+                    if decision.use_canary:
+                        canary_routed = True
+                        canary_version = decision.canary_version
+                        # M4 stacking v3 优化权重 (structured=0.7, text=0.2, lexical=0.1)
+                        # 映射: lexical → physiological (三模态对齐)
+                        canary_weights = {
+                            "structured": 0.7,
+                            "text": 0.2,
+                            "physiological": 0.1,
+                        }
+                        logger.info(
+                            "[predict_fusion] canary routed: user=%s version=%s",
+                            user_id, canary_version,
+                        )
+            except Exception as exc:
+                logger.warning("[predict_fusion] canary routing failed: %s", exc)
+
         # PERF-P2-009: 60s Redis 缓存 (组合输入哈希)
-        if _ML_INFERENCE_CACHE_TTL > 0:
+        # 金丝雀用户不使用缓存 (避免金丝雀/稳定结果混淆)
+        if _ML_INFERENCE_CACHE_TTL > 0 and not canary_routed:
             cache_key = make_cache_key(
                 "ml:fusion",
                 {
@@ -582,17 +616,115 @@ class ModelPredictService:
                 return cached
 
         # STAB-P1-002: ML 推理熔断器 + asyncio.wait_for 超时保护
-        result = await call_with_ml_breaker(
-            model_engine.predict_fusion(
-                features=features, text=text, physiological=physiological
+        inference_start = perf_counter()
+        try:
+            result = await call_with_ml_breaker(
+                model_engine.predict_fusion(
+                    features=features, text=text, physiological=physiological
+                )
             )
-        )
+            inference_latency_ms = (perf_counter() - inference_start) * 1000
+        except Exception:
+            inference_latency_ms = (perf_counter() - inference_start) * 1000
+            # S4-P0 修复: 金丝雀推理失败, 写 fallback 事件供 auto_rollback_service 检测
+            if canary_routed and canary_version:
+                await self._log_canary_event(
+                    event_type="fallback",
+                    model_version=canary_version,
+                    user_id=user_id,
+                    latency_ms=inference_latency_ms,
+                    fallback_reason="ml_breaker_or_inference_error",
+                )
+            raise
 
-        # PERF-P2-009: 写入缓存
-        if _ML_INFERENCE_CACHE_TTL > 0:
+        # S4 金丝雀路由: 标记结果并记录指标
+        if canary_routed:
+            result["canary_routed"] = True
+            result["canary_version"] = canary_version
+            result["model_version"] = f"m4_stacking_v3 (canary)"
+            # 记录金丝雀推理指标
+            try:
+                from app.core.metrics import model_inference_total
+                model_inference_total.inc(
+                    1, model_name="fusion_canary", status="success"
+                )
+            except Exception:
+                pass
+            # S4-P0 修复: 写入 MonitoringLog, 供 auto_rollback_service 检测金丝雀流量
+            # model_version 必须等于 canary.version (即 "m4_stacking_v3", 不带后缀)
+            # 否则 auto_rollback_service.check_canary_health 查询匹配不到
+            await self._log_canary_event(
+                event_type="inference",
+                model_version=canary_version,
+                user_id=user_id,
+                latency_ms=inference_latency_ms,
+                response_summary={
+                    "risk_level": result.get("risk_level"),
+                    "risk_score": result.get("risk_score"),
+                    "canary_routed": True,
+                },
+            )
+        else:
+            result["canary_routed"] = False
+
+        # PERF-P2-009: 写入缓存 (仅非金丝雀)
+        if _ML_INFERENCE_CACHE_TTL > 0 and not canary_routed:
             await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
 
         return result
+
+    async def _log_canary_event(
+        self,
+        event_type: str,
+        model_version: str,
+        user_id: int | None,
+        latency_ms: float,
+        response_summary: dict | None = None,
+        fallback_reason: str | None = None,
+    ) -> None:
+        """写入金丝雀推理事件到 MonitoringLog, 供 auto_rollback_service 检测.
+
+        S4-P0 修复: predict_fusion 原本只更新 Prometheus Counter, 不写 MonitoringLog,
+        导致 auto_rollback_service.check_canary_health 查询不到金丝雀流量,
+        金丝雀回滚机制实际失效. 本方法用独立 session 写入 MonitoringLog,
+        失败不影响主推理流程.
+
+        Args:
+            event_type: "inference" 或 "fallback"
+            model_version: 金丝雀版本号 (如 "m4_stacking_v3", 不带后缀)
+            user_id: 用户 ID
+            latency_ms: 推理延迟 (毫秒)
+            response_summary: 响应摘要 (可选)
+            fallback_reason: 回退原因 (仅 fallback 事件)
+        """
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.models.monitoring import MonitoringEventType, MonitoringLog
+
+            # event_type 字符串转枚举 (MonitoringLog.event_type 存字符串值)
+            if event_type == "inference":
+                et = MonitoringEventType.INFERENCE
+            elif event_type == "fallback":
+                et = MonitoringEventType.FALLBACK
+            else:
+                et = event_type  # 透传, 兼容其他类型
+
+            async with AsyncSessionLocal() as db:
+                log = MonitoringLog(
+                    event_type=et,
+                    model_version=model_version,
+                    user_id=user_id,
+                    latency_ms=round(latency_ms, 2),
+                    response_summary=response_summary,
+                    fallback_reason=fallback_reason,
+                )
+                db.add(log)
+                await db.commit()
+        except Exception as exc:
+            logger.warning(
+                "[predict_fusion] log canary event failed (type=%s version=%s): %s",
+                event_type, model_version, exc,
+            )
 
 
 class ModelExperimentService:

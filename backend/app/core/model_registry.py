@@ -40,13 +40,8 @@ MODEL_PATHS: dict[str, str] = {
     "physiological_model_v2_dl": "models/artifacts/physiological_optimized/model.json",
     "physiological_scaler_v2_dl": "models/artifacts/physiological_optimized/scaler.json",
     "physiological_features_v2_dl": "models/artifacts/physiological_optimized/feature_names.json",
-    "structured_v1.21_binary_lr": "models/artifacts/structured_v1.21/model_binary_lr.pkl",
-    "structured_v1.21_binary_rf": "models/artifacts/structured_v1.21/model_binary_rf.pkl",
-    "structured_v1.21_scaler": "models/artifacts/structured_v1.21/scaler.pkl",
-    "structured_v1.21_multiclass_lr": "models/artifacts/structured_v1.21/model_multiclass_lr.pkl",
-    "structured_v1.21_multiclass_rf": "models/artifacts/structured_v1.21/model_multiclass_rf.pkl",
-    "structured_v1.21_scaler_mc": "models/artifacts/structured_v1.21/scaler_multiclass.pkl",
-    "structured_v1.21_manifest": "models/artifacts/structured_v1.21/manifest.json",
+    # S-03 (V4 ML 优化): v1.21 模型已清理并归档到 models/_archive/structured_v1.21/
+    # 4 个 v1.21 注册条目 (binary_lr/binary_rf/multiclass_lr/multiclass_rf) 及相关 scaler/manifest 已移除
     "structured_v1.23_external_lr": "models/v1.23_external_lr/model.pkl",
     "structured_v1.23_external_scaler": "models/v1.23_external_lr/scaler.pkl",
     "structured_v1.24_adapter": "models/v1.24_adapter/score_adapter.pkl",
@@ -115,118 +110,21 @@ MODEL_REGISTRY["structured_logistic_regression_v1.20"] = ModelMetadata(
         "test_roc_auc": 0.9991,
     },
 )
-# Register v1.21 real-data binary models (experimental)
-MODEL_REGISTRY["structured_v1.21_binary_lr"] = ModelMetadata(
-    name="structured_v1.21_binary_lr",
-    path="models/artifacts/structured_v1.21/model_binary_lr.pkl",
-    version="v1.21",
-    enabled=True,
-    supports_fusion=False,
-    lifecycle="deprecated",
-    feature_schema={
-        "features": [
-            "age",
-            "gender",
-            "study_year",
-            "cgpa",
-            "stress_level",
-            "sleep_duration",
-            "social_support",
-            "financial_pressure",
-            "family_history",
-            "academic_pressure",
-            "exercise_frequency",
-            "anxiety",
-            "panic_attack",
-            "treatment_seeking",
-        ],
-        "input_features": 14,
-        "model_type": "LogisticRegression",
-        "framework": "sklearn",
-        "class_weight": "balanced",
-        "training_data": "real (student_mental_health_enhanced.csv)",
-        "status": "experimental — Conditional Go",
-    },
-    artifact_metadata={
-        "training_date": "2026-05-01",
-        "random_seed": 42,
-        "dataset_size": 1000,
-        "test_f1": 0.6000,
-        "test_recall": 0.9130,
-        "test_roc_auc": 0.9401,
-    },
-)
-MODEL_REGISTRY["structured_v1.21_binary_rf"] = ModelMetadata(
-    name="structured_v1.21_binary_rf",
-    path="models/artifacts/structured_v1.21/model_binary_rf.pkl",
-    version="v1.21",
-    enabled=True,
-    supports_fusion=False,
-    lifecycle="deprecated",
-    feature_schema={
-        "input_features": 14,
-        "model_type": "RandomForestClassifier",
-        "training_data": "real",
-    },
-    artifact_metadata={
-        "training_date": "2026-05-01",
-        "test_f1": 0.6829,
-        "test_recall": 0.6087,
-    },
-)
-MODEL_REGISTRY["structured_v1.21_multiclass_lr"] = ModelMetadata(
-    name="structured_v1.21_multiclass_lr",
-    path="models/artifacts/structured_v1.21/model_multiclass_lr.pkl",
-    version="v1.21",
-    enabled=False,
-    supports_fusion=False,
-    lifecycle="disabled",
-    feature_schema={
-        "features": [
-            "age",
-            "gender",
-            "study_year",
-            "cgpa",
-            "sleep_duration",
-            "social_support",
-            "financial_pressure",
-            "family_history",
-            "academic_pressure",
-            "exercise_frequency",
-        ],
-        "input_features": 10,
-        "model_type": "LogisticRegression (Multinomial)",
-        "status": "No-Go — disabled due to poor performance",
-    },
-    artifact_metadata={
-        "test_accuracy": 0.1333,
-        "high_critical_recall": 0.6154,
-    },
-)
-MODEL_REGISTRY["structured_v1.21_multiclass_rf"] = ModelMetadata(
-    name="structured_v1.21_multiclass_rf",
-    path="models/artifacts/structured_v1.21/model_multiclass_rf.pkl",
-    version="v1.21",
-    enabled=False,
-    supports_fusion=False,
-    lifecycle="disabled",
-    feature_schema={
-        "input_features": 10,
-        "model_type": "RandomForestClassifier",
-        "status": "No-Go — disabled due to poor performance",
-    },
-    artifact_metadata={
-        "test_accuracy": 0.3200,
-        "high_critical_recall": 0.1154,
-    },
-)
+# S-03 (V4 ML 优化): v1.21 deprecated 模型已清理
+# 原 4 个注册条目 (structured_v1.21_binary_lr / _binary_rf / _multiclass_lr / _multiclass_rf)
+# 及其 scaler/manifest 路径已从 MODEL_PATHS 和 MODEL_REGISTRY 中移除。
+# 模型文件已归档到 models/_archive/structured_v1.21/。
+# _run_experimental_v121() 方法保留以维持 PERF-P0-002 并行机制，
+# 内部通过 get_model_info() 返回 None 走 deprecated 分支，记录 debug 日志并返回 None 字段。
 # Register v2 physiological model with detailed metadata
+# S-01 (V4 ML 优化): v2 已为生产默认，实际推理通过 app/ml/model_loader.py 加载
 MODEL_REGISTRY["physiological_model_v2_dl"] = ModelMetadata(
     name="physiological_model_v2_dl",
     path="models/artifacts/physiological_optimized/model.json",
     version="v1.2-depresjon-optimized",
     enabled=True,
     supports_fusion=True,
+    lifecycle="default",
     feature_schema={
         "input_features": 13,
         "hidden_dims": [64, 32, 16],
@@ -247,14 +145,40 @@ MODEL_REGISTRY["physiological_model_v2_dl"] = ModelMetadata(
         "loss_function": "BCE",
     },
 )
-# Register v1.23 external clinical-label LR model (experimental)
+# S-01 (V4 ML 优化): v1 模型标记为 deprecated，保留作为回退路径
+# 实际推理已通过 model_loader.py 加载 v2 (physiological_optimized/model.json)
+MODEL_REGISTRY["physiological_risk_model"] = ModelMetadata(
+    name="physiological_risk_model",
+    path="models/physiological/physiological_model.pkl",
+    version="v1.0",
+    enabled=False,
+    supports_fusion=False,
+    lifecycle="deprecated",
+    feature_schema={
+        "input_features": 13,
+        "architecture": "MLP",
+        "framework": "numpy",
+        "status": "deprecated — superseded by physiological_model_v2_dl (S-01)",
+    },
+    artifact_metadata={
+        "training_date": "2026-04",
+        "test_f1": 0.6936,
+        "test_accuracy": 0.6890,
+        "superseded_by": "physiological_model_v2_dl",
+        "superseded_date": "2026-07-19",
+    },
+)
+# Register v1.23 external clinical-label LR model
+# S-02 (V4 ML 优化): lifecycle 从 "experimental" 升级为 "default"
+# 通过 settings.structured_default_model 配置开关选择 v1.20 或 v1.23 作为默认
+# 金丝雀发布时通过环境变量 STRUCTURED_DEFAULT_MODEL=v1.23 切换
 MODEL_REGISTRY["structured_v1.23_external_lr"] = ModelMetadata(
     name="structured_v1.23_external_lr",
     path="models/v1.23_external_lr/model.pkl",
     version="v1.23",
     enabled=True,
     supports_fusion=False,
-    lifecycle="experimental",
+    lifecycle="default",
     feature_schema={
         "features": [
             "age",
@@ -271,10 +195,10 @@ MODEL_REGISTRY["structured_v1.23_external_lr"] = ModelMetadata(
             "panic_attack",
         ],
         "input_features": 12,
-        "model_type": "LogisticRegression",
+        "model_type": "Pipeline(ColumnTransformer + LogisticRegression)",
         "framework": "sklearn",
         "training_data": "external (Kaggle+Mendeley aligned, Mendeley sample_weight=5.0x)",
-        "status": "experimental — candidate model, not yet default",
+        "status": "default — candidate model, enable via STRUCTURED_DEFAULT_MODEL=v1.23",
     },
     artifact_metadata={
         "training_date": "2026-05-02",

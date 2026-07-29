@@ -123,12 +123,29 @@ class PredictMixin:
                 fallback_reason = "forced_by_config: STRUCTURED_MODEL_MODE=fallback"
                 logger.warning("Structured model forced to fallback by config")
 
+            # S-02: 根据 structured_default_model 配置选择默认结构化模型
+            # v1.20 (默认): structured_logistic_regression_quick + structured_scaler_v1.20
+            # v1.23: structured_v1.23_external_lr (Pipeline, 自带 preprocessor, 无需单独 scaler)
+            default_model_version = getattr(
+                settings, "structured_default_model", "v1.20"
+            )
+            if default_model_version == "v1.23":
+                primary_model_id = "structured_v1.23_external_lr"
+                primary_model_used = "structured_v1.23_external_lr"
+                primary_model_version = "v1.23"
+                primary_needs_scaler = False  # v1.23 是 Pipeline, 自带 preprocessor
+            else:
+                primary_model_id = "structured_logistic_regression_quick"
+                primary_model_used = "structured_logistic_regression_quick"
+                primary_model_version = "v1.20"
+                primary_needs_scaler = True
+
             if not force_fallback:
                 try:
-                    model = await self._load_model_async(
-                        "structured_logistic_regression_quick"
-                    )
+                    model = await self._load_model_async(primary_model_id)
                     self._patch_simple_imputer(model)
+                    model_used = primary_model_used
+                    model_version = primary_model_version
                 except (FileNotFoundError, ValueError) as exc:
                     fallback_reason = f"model_load_failed: {exc}"
                     logger.warning(
@@ -137,7 +154,7 @@ class PredictMixin:
                     )
 
             structured_scaler = None
-            if model is not None:
+            if model is not None and primary_needs_scaler:
                 try:
                     structured_scaler = await self._load_model_async(
                         "structured_scaler_v1.20"
@@ -163,7 +180,10 @@ class PredictMixin:
                             structured_scaler.transform, feature_df
                         )
                     else:
-                        feature_scaled = feature_df.values
+                        # S-02 修复: v1.23 是 Pipeline (ColumnTransformer + LogisticRegression),
+                        # 需要 DataFrame 而非 numpy array (ColumnTransformer 用字符串列名选列).
+                        # sklearn LogisticRegression 也接受 DataFrame, 所以统一传 feature_df.
+                        feature_scaled = feature_df
                 else:
                     feature_array = np.array(
                         [[float(raw.get(k, 0)) for k in self.feature_order]]
@@ -399,8 +419,13 @@ class PredictMixin:
             for feat in ext_feature_order:
                 val = raw.get(feat, _DEFAULTS.get(feat, 0))
                 ext_values.append(float(val) if val is not None else 0.0)
-            ext_array = np.array([ext_values], dtype=float)
-            ext_proba = await asyncio.to_thread(ext_model.predict_proba, ext_array)
+            # S-02 修复：v1.23 model.pkl 是 Pipeline(ColumnTransformer + LogisticRegression)，
+            # ColumnTransformer 用字符串列名选择列，必须传 DataFrame 而非 numpy array。
+            # 旧代码传 np.array 会触发 "Specifying the columns using strings is only supported for dataframes"。
+            import pandas as _pd
+
+            ext_df = _pd.DataFrame([ext_values], columns=ext_feature_order)
+            ext_proba = await asyncio.to_thread(ext_model.predict_proba, ext_df)
             experimental_external_probability = float(ext_proba[0][1])
             experimental_external_score = round(
                 experimental_external_probability * 100, 2
@@ -487,6 +512,9 @@ class PredictMixin:
             # 2. ML 模型预测 (已有)
             ml_result = await self._predict_text_ml(text)
 
+            # S3 P4 影子模式: 异步对拍 M2 BERT vs 生产结果 (fire-and-forget, 不阻塞)
+            self._maybe_fire_shadow_predict(text, ml_result)
+
             # 3. 文本风险分析 (新增)
             text_analysis = self.text_analyzer.analyze(text)
 
@@ -532,6 +560,27 @@ class PredictMixin:
                 result["crisis_override"] = True
 
             return result
+
+    def _maybe_fire_shadow_predict(
+        self,
+        text: str,
+        production_result: dict[str, Any],
+    ) -> None:
+        """S3 P4 影子模式: 异步触发 M2 BERT 对拍 (fire-and-forget).
+
+        生产请求仍用 TF-IDF (或现有 BERT) 结果, 此处仅异步触发 M2 BERT 推理
+        做对拍记录, 不阻塞主请求, 失败不影响生产.
+        """
+        if not getattr(settings, "shadow_mode_text_enabled", False):
+            return
+        try:
+            from app.services.shadow_mode_service import get_shadow_mode_service
+
+            service = get_shadow_mode_service()
+            sample_rate = getattr(settings, "shadow_mode_text_sample_rate", 1.0)
+            service.fire_shadow_predict(text, production_result, sample_rate=sample_rate)
+        except Exception as e:
+            logger.debug("[SHADOW] 触发失败 (不影响生产): %s", str(e)[:150])
 
     async def _predict_text_ml(self, text: str) -> dict[str, Any]:
         """ML 模型预测文本情感。
@@ -597,10 +646,52 @@ class PredictMixin:
         return await self._predict_text_bert_single(text)
 
     async def _predict_text_bert_single(self, text: str) -> dict[str, Any] | None:
-        """BERT 单条文本推理 (原 _predict_text_bert 逻辑)."""
+        """BERT 单条文本推理.
+
+        阶段三: 支持 feature extraction (冻结 BERT + LogReg) 和
+        fine_tune (AutoModelForSequenceClassification) 两种模式.
+        """
         try:
             bundle = await self._load_model_async("text_bert_classifier")
             tokenizer = bundle["tokenizer"]
+
+            if bundle.get("mode") == "feature_extraction":
+                # M2 部署模式: BERT feature extraction + LogReg
+                import torch
+
+                bert_model = bundle["bert_model"]
+                classifier = bundle["classifier"]
+                scaler = bundle["scaler"]
+                threshold = bundle["threshold"]
+                max_len = bundle.get("max_seq_len", 256)
+
+                inputs = await asyncio.to_thread(
+                    tokenizer,
+                    text,
+                    return_tensors="pt",
+                    truncation=True,
+                    padding=True,
+                    max_length=max_len,
+                )
+                with torch.no_grad():
+                    outputs = await asyncio.to_thread(bert_model, **inputs)
+                    cls_emb = outputs.last_hidden_state[:, 0, :].cpu().numpy()
+
+                emb_scaled = await asyncio.to_thread(scaler.transform, cls_emb)
+                proba = await asyncio.to_thread(
+                    classifier.predict_proba, emb_scaled
+                )
+                score = float(proba[0, 1])
+                prediction = int(score >= threshold)
+                return {
+                    "prediction": prediction,
+                    "probability": round(score, 4),
+                    "sentiment_label": "negative" if prediction == 1 else "positive",
+                    "sentiment_score": round(score, 4),
+                    "model_used": "text_bert_classifier",
+                }
+
+            # 原有 fine_tune 模式: AutoModelForSequenceClassification
             model = bundle["model"]
             inputs = await asyncio.to_thread(
                 tokenizer,
@@ -653,6 +744,48 @@ class PredictMixin:
         try:
             bundle = await self._load_model_async("text_bert_classifier")
             tokenizer = bundle["tokenizer"]
+
+            if bundle.get("mode") == "feature_extraction":
+                # M2 部署模式: BERT feature extraction + LogReg (batch)
+                import torch
+
+                bert_model = bundle["bert_model"]
+                classifier = bundle["classifier"]
+                scaler = bundle["scaler"]
+                threshold = bundle["threshold"]
+                max_len = bundle.get("max_seq_len", 256)
+
+                inputs = await asyncio.to_thread(
+                    tokenizer,
+                    texts,
+                    return_tensors="pt",
+                    truncation=True,
+                    padding=True,
+                    max_length=max_len,
+                )
+                with torch.no_grad():
+                    outputs = await asyncio.to_thread(bert_model, **inputs)
+                    cls_embs = outputs.last_hidden_state[:, 0, :].cpu().numpy()
+
+                embs_scaled = await asyncio.to_thread(scaler.transform, cls_embs)
+                probas = await asyncio.to_thread(
+                    classifier.predict_proba, embs_scaled
+                )
+
+                results: list[dict[str, Any] | None] = []
+                for i in range(len(texts)):
+                    score = float(probas[i, 1])
+                    prediction = int(score >= threshold)
+                    results.append({
+                        "prediction": prediction,
+                        "probability": round(score, 4),
+                        "sentiment_label": "negative" if prediction == 1 else "positive",
+                        "sentiment_score": round(score, 4),
+                        "model_used": "text_bert_classifier",
+                    })
+                return results
+
+            # 原有 fine_tune 模式: AutoModelForSequenceClassification
             model = bundle["model"]
             # tokenizer 支持 list[str] 输入, 一次处理整个 batch
             inputs = await asyncio.to_thread(
@@ -824,7 +957,7 @@ class PredictMixin:
                 "probability": probability,
                 "risk_score": round(score, 2),
                 "risk_level": self._score_to_level(score, "physiological"),
-                "model_used": "physiological_risk_model",
+                "model_used": "physiological_model_v2_dl",
                 "confidence": round(confidence, 2),
                 "data_quality": data_quality,
                 "calibrated": True,

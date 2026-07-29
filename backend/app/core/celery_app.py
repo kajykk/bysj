@@ -118,6 +118,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.canary_auto_rollback_check",
         "schedule": 30.0,  # Every 30 seconds
     },
+    # S4 P3: 漂移监测 — 每小时计算 PSI/KL, 写入 DriftAlert + Gauge
+    "drift-monitoring-check": {
+        "task": "app.tasks.scheduler.drift_monitoring_check",
+        "schedule": crontab(minute=0),  # Every hour at :00
+    },
     # v1.34: 告警升级 - 每分钟扫描
     "escalate-pending-alerts": {
         "task": "app.tasks.alerts.escalate_pending_alerts_task",

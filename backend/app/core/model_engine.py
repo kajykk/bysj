@@ -37,6 +37,7 @@ from app.core.crisis_detector import CrisisDetector
 # 此处通过别名导入保持内部 _ 前缀命名约定, 同时 re-export 供外部
 # `from app.core.model_engine import LITE_FEATURE_ORDER` 继续可用 (向后兼容)
 from app.core.feature_maps import DEFAULTS as _DEFAULTS
+from app.core.feature_maps import LITE_FEATURE_ORDER  # noqa: F401 — re-export for backward compat
 from app.core.feature_maps import STR_TO_NUM as _STR_TO_NUM
 from app.core.model_engine_fallback import FallbackMixin
 from app.core.model_engine_predict import PredictMixin
@@ -663,30 +664,52 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
     def _load_adapter(self) -> Any:
 
         try:
-            adapter_pkl = (
+            adapter_dir = (
                 Path(__file__).resolve().parents[2]
                 / "models"
                 / "v1.24_adapter"
-                / "score_adapter.pkl"
             )
-            if not adapter_pkl.exists():
-                logger.debug("v1.24 adapter pkl not found at %s", adapter_pkl)
-                return None
+            adapter_pkl = adapter_dir / "score_adapter.pkl"
+            adapter_config = adapter_dir / "score_adapter_config.json"
 
-            # ML-005 修复：使用安全加载器（路径校验 + 大小校验 + 审计日志）
-            from app.core.safe_pickle import safe_joblib_load
+            # S-02 (V4 ML 优化): 优先加载 .pkl，回退到 config.json 动态构建
+            # 这样即使 .pkl 文件缺失，adapter 仍能从 config.json 工作
+            if adapter_pkl.exists():
+                # ML-005 修复：使用安全加载器（路径校验 + 大小校验 + 审计日志）
+                from app.core.safe_pickle import safe_joblib_load
 
-            models_root = Path(__file__).resolve().parents[2] / "models"
-            adapter = safe_joblib_load(
-                adapter_pkl,
-                trusted_root=models_root,
-                model_id="v1.24_adapter",
+                models_root = Path(__file__).resolve().parents[2] / "models"
+                adapter = safe_joblib_load(
+                    adapter_pkl,
+                    trusted_root=models_root,
+                    model_id="v1.24_adapter",
+                )
+                logger.info(
+                    "v1.24 adapter loaded from pkl (version=%s)",
+                    getattr(adapter, "version", "unknown"),
+                )
+                return adapter
+
+            if adapter_config.exists():
+                # S-02: 从 config.json 动态构建 ScoreAdapter
+                import json
+
+                from app.core.score_adapter import ScoreAdapter as _ScoreAdapter
+
+                with open(adapter_config, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                adapter = _ScoreAdapter(config)
+                logger.info(
+                    "v1.24 adapter loaded from config.json (version=%s)",
+                    getattr(adapter, "version", "unknown"),
+                )
+                return adapter
+
+            logger.debug(
+                "v1.24 adapter not found (neither pkl nor config.json at %s)",
+                adapter_dir,
             )
-            logger.info(
-                "v1.24 adapter loaded (version=%s)",
-                getattr(adapter, "version", "unknown"),
-            )
-            return adapter
+            return None
         except Exception as exc:
             logger.warning("Failed to load v1.24 adapter: %s", exc)
             return None
@@ -888,11 +911,47 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                     logger.warning("Keras model load failed: %s", e)
                     return None
         elif model_path.is_dir():
-            from transformers import AutoModelForSequenceClassification, AutoTokenizer
+            # 阶段三: 支持 M2 BERT feature extraction + LogReg 部署模式
+            config_file = model_path / "config.json"
+            if config_file.exists():
+                import json as _json
+                with open(config_file, "r", encoding="utf-8") as f:
+                    bundle_config = _json.load(f)
+                if bundle_config.get("model_type") == "bert_feature_extraction":
+                    # M2 部署模式: 冻结 BERT + LogReg 分类头
+                    import pickle as _pickle
+                    from transformers import AutoModel, AutoTokenizer
 
-            tokenizer = AutoTokenizer.from_pretrained(model_path)  # nosec B615  (本地目录, 非 Hub 下载)
-            bert_model = AutoModelForSequenceClassification.from_pretrained(model_path)  # nosec B615
-            model = {"tokenizer": tokenizer, "model": bert_model}
+                    bert_name = bundle_config["bert_model_name"]
+                    logger.info("Loading BERT (feature extraction) %s", bert_name)
+                    tokenizer = AutoTokenizer.from_pretrained(bert_name)  # nosec B615
+                    bert_model = AutoModel.from_pretrained(bert_name)  # nosec B615
+                    bert_model.eval()
+                    with open(model_path / "classifier.pkl", "rb") as f:
+                        classifier = _pickle.load(f)  # nosec B301
+                    with open(model_path / "scaler.pkl", "rb") as f:
+                        scaler = _pickle.load(f)  # nosec B301
+                    model = {
+                        "tokenizer": tokenizer,
+                        "bert_model": bert_model,
+                        "classifier": classifier,
+                        "scaler": scaler,
+                        "threshold": bundle_config["threshold"],
+                        "max_seq_len": bundle_config.get("max_seq_len", 256),
+                        "mode": "feature_extraction",
+                    }
+                else:
+                    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+                    tokenizer = AutoTokenizer.from_pretrained(model_path)  # nosec B615
+                    bert_model = AutoModelForSequenceClassification.from_pretrained(model_path)  # nosec B615
+                    model = {"tokenizer": tokenizer, "model": bert_model}
+            else:
+                from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+                tokenizer = AutoTokenizer.from_pretrained(model_path)  # nosec B615  (本地目录, 非 Hub 下载)
+                bert_model = AutoModelForSequenceClassification.from_pretrained(model_path)  # nosec B615
+                model = {"tokenizer": tokenizer, "model": bert_model}
         else:
             from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -934,6 +993,13 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
 
     @staticmethod
     def _patch_simple_imputer(model: Pipeline) -> None:
+        """修复旧版 sklearn 训练的 SimpleImputer 在新版 sklearn (>=1.3.0) 下的兼容性。
+
+        S-02 修复：原逻辑反了——只在 hasattr(step, "_fill_dtype") 时设为 None，
+        但 sklearn 1.8.0 的 SimpleImputer.transform 仍引用 self._fill_dtype，
+        旧模型 pickle 加载后该属性不存在，导致 AttributeError。
+        正确做法：缺失 _fill_dtype 时从 _fit_dtype 复制（两者语义一致）。
+        """
         from sklearn.impute import SimpleImputer
 
         if hasattr(model, "named_steps") and "preprocessor" in model.named_steps:
@@ -947,27 +1013,27 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                             if not isinstance(step, SimpleImputer):
                                 continue
                             try:
-                                import sklearn
-                                from packaging import version
-
-                                current_ver = version.parse(sklearn.__version__)
-                                if current_ver >= version.parse("1.3.0"):
-                                    if hasattr(step, "_fill_dtype"):
-                                        step._fill_dtype = None  # type: ignore[attr-defined]
-                                    else:
-                                        logger.debug(
-                                            "SimpleImputer[%s] @ sklearn %s: no _fill_dtype patch needed",
-                                            step_name,
-                                            sklearn.__version__,
-                                        )
+                                # sklearn >= 1.3.0: 旧模型 pickle 缺失 _fill_dtype，
+                                # 从 _fit_dtype 复制以恢复 transform 兼容性
+                                if not hasattr(step, "_fill_dtype") and hasattr(
+                                    step, "_fit_dtype"
+                                ):
+                                    step._fill_dtype = step._fit_dtype  # type: ignore[attr-defined]
+                                    logger.debug(
+                                        "SimpleImputer[%s]: patched _fill_dtype=%s (from _fit_dtype)",
+                                        step_name,
+                                        step._fill_dtype,
+                                    )
                             except Exception:
                                 # M-L 修复：记录 sklearn 兼容性补丁失败，避免静默掩盖问题
                                 logger.debug(
                                     "model_engine: SimpleImputer _fill_dtype patch failed",
                                     exc_info=True,
                                 )
-                                if hasattr(step, "_fill_dtype"):
-                                    step._fill_dtype = None  # type: ignore[attr-defined]
+                                if not hasattr(step, "_fill_dtype") and hasattr(
+                                    step, "_fit_dtype"
+                                ):
+                                    step._fill_dtype = step._fit_dtype  # type: ignore[attr-defined]
 
     @staticmethod
     def _get_numeric_pipe_cols(model: Pipeline) -> set[str]:
@@ -1062,6 +1128,17 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
         else:
             age_group = "60+"
 
+        # D1 修复:推导 Working Professional or Student(从 profession 字段或 age 推断)
+        profession_str = str(raw.get("profession", raw.get("Profession", ""))).lower().strip()
+        if "student" in profession_str:
+            working_or_student = "Student"
+        elif profession_str and profession_str not in ("none", "nan", ""):
+            working_or_student = "Working Professional"
+        elif age <= 25:
+            working_or_student = "Student"
+        else:
+            working_or_student = "Working Professional"
+
         derived_map: dict[str, Any] = {
             "Gender": "Male" if int(gender) == 1 else "Female",
             "Age": age,
@@ -1081,6 +1158,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             "SleepDurationOrdinal": sleep_ordinal_map[sleep_duration_cat],
             "DietaryHabitsOrdinal": 1,
             "AgeGroup": age_group,
+            "Working Professional or Student": working_or_student,
         }
 
         for col, val in raw.items():

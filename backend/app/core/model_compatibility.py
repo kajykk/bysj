@@ -140,6 +140,28 @@ MODEL_COMPATIBILITY_REGISTRY: dict[str, ModelCompatibilityInfo] = {
         required_dependencies=["numpy>=1.26.4"],
         fallback_strategy="heuristic_rule",
     ),
+    # S-03 (V4 ML 优化): 新增 v1.23 和 mmpsy_lite 兼容性条目
+    # v1.21 已清理，不再列入兼容性矩阵
+    "structured_v1.23_external_lr": ModelCompatibilityInfo(
+        model_id="structured_v1.23_external_lr",
+        format="joblib",
+        sklearn_version="1.5.0",
+        torch_version=None,
+        transformers_version=None,
+        tensorflow_version=None,
+        required_dependencies=["scikit-learn>=1.5.0,<2.0.0", "joblib>=1.4.2", "pandas>=2.0.0"],
+        fallback_strategy="heuristic_rule",
+    ),
+    "mmpsy_lite_model": ModelCompatibilityInfo(
+        model_id="mmpsy_lite_model",
+        format="joblib",
+        sklearn_version="1.5.0",
+        torch_version=None,
+        transformers_version=None,
+        tensorflow_version=None,
+        required_dependencies=["scikit-learn>=1.5.0,<2.0.0", "joblib>=1.4.2"],
+        fallback_strategy="heuristic_rule",
+    ),
 }
 
 

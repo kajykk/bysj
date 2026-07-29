@@ -66,6 +66,16 @@ PERMISSION_MATRIX: dict[str, set[str]] = {
         "crisis_event.view",
         "crisis_event.handle",
         "crisis_event.export",
+        # admin 拥有 user 全部权限 (便于生产环境巡检/验证)
+        "user.warning.read",
+        "user.warning.track",
+        "user.assessment.read",
+        "user.export.risk",
+        "user.predict.use",
+        "user.dashboard.view",
+        "user.content.read",
+        "user.intervention.read",
+        "user.settings.manage",
     },
 }
 

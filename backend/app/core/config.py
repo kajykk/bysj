@@ -129,6 +129,13 @@ class Settings(BaseSettings):
     # PERF-P2-009: ML 推理结果 Redis 缓存 TTL (秒), 0 表示禁用缓存
     ml_inference_cache_ttl: int = 60
 
+    # ── S3 P4 影子模式: M2 BERT vs 生产 TF-IDF 双跑对拍 ──
+    # 影子模式开关 (默认关, 开启后异步对拍不影响生产结果)
+    shadow_mode_text_enabled: bool = False
+    # 采样率 (1.0 = 全量对拍, 0.1 = 10% 采样, 降低 M2 BERT 推理负载)
+    shadow_mode_text_sample_rate: float = 1.0
+
+
     # ── STAB-P1-004 修复：SMTP 邮件熔断器 ──
     # 是否启用 SMTP 熔断器 (关闭后邮件发送不再拦截)
     smtp_circuit_breaker_enabled: bool = True
@@ -317,6 +324,12 @@ class Settings(BaseSettings):
     enable_seed: bool = False
 
     structured_model_mode: str = "primary"  # "primary" | "fallback"
+
+    # ── S-02: 结构化预测默认模型版本 ──
+    # "v1.20" (默认): 合成数据训练的 LogisticRegression, 历史稳定但存在过拟合
+    # "v1.23": Mendeley PHQ-9 真实数据训练的 external LR Pipeline, 真实场景 AUC +5.3%
+    # 金丝雀发布时通过环境变量 STRUCTURED_DEFAULT_MODEL=v1.23 切换
+    structured_default_model: str = "v1.20"  # "v1.20" | "v1.23"
 
     # ── 结构化预测实验性路径开关 ──
     # True (默认): 执行 3 路实验性推理, 提供对比数据

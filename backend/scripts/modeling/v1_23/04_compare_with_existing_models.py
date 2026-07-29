@@ -35,8 +35,9 @@ V123_FEATURES = [
     "academic_pressure", "exercise_frequency", "anxiety", "panic_attack",
 ]
 V120_MODEL_PATH = "backend/models/artifacts/structured_v1.20/structured_model_v1.20.pkl"
-V121_MODEL_PATH = "backend/models/artifacts/structured_v1.21/model_binary_lr.pkl"
-V121_SCALER_PATH = "backend/models/artifacts/structured_v1.21/scaler.pkl"
+# S-03 (V4 ML 优化): v1.21 已归档到 _archive/，离线对比脚本仍可访问归档路径
+V121_MODEL_PATH = "backend/models/_archive/structured_v1.21/model_binary_lr.pkl"
+V121_SCALER_PATH = "backend/models/_archive/structured_v1.21/scaler.pkl"
 V123_MODEL_PATH = "backend/models/v1.23_external_lr/model.pkl"
 
 TARGET_COL = "depression_binary"
