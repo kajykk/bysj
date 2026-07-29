@@ -223,3 +223,21 @@ backend/NUL
 _*.py
 _*.txt
 _*.json
+
+# Editor session state
+.zcode/
+
+# Backend local runtime caches
+backend/.cache/
+backend/.local/
+
+# Security scan outputs
+trivy_scan_*.txt
+
+# ML test/coverage artifacts
+backend/ml_coverage_result.txt
+backend/ml_tests_result.txt
+backend/test_junit*.xml
+
+# Hotfix patch artifacts
+*.patch
