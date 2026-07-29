@@ -1,10 +1,10 @@
 apiVersion: 1
 
 # v1.39 Grafana Alert Rules
-# 10 条告警规则 (R1-R8 + R10 + R11)
-# - P0: 3 条 (R1, R3, R7) - 通道/AM/锁错误, 即时通知
-# - P1: 5 条 (R2, R4, R5, R6, R8) - 性能降级
-# - P2: 2 条 (R10, R11) - 批量告警 + Meta 自监控
+# 2026-07-25 修复 (recovery incident):
+#   - Grafana 11.5 alert rules 必须带 relativeTimeRange 字段
+#   - 11.5 schema 同时要求 instant 或 range 显式声明
+#   - 表达式 (refId: C) 也需要 relativeTimeRange (from: 0, to: 0 表示 instant)
 # 数据源: Prometheus (uid=PB0F7F7A2A1B0E0FA)
 # 评估周期: 60s (与 ObservabilityExporter 同步)
 # 时间窗口: 5min (与 _compute_* 函数一致)
@@ -27,18 +27,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 300
+              to: 0
             model:
               refId: A
               expr: 'observability_channel_success_rate{channel="all"}'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 300
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: lt
@@ -69,18 +82,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 300
+              to: 0
             model:
               refId: A
               expr: 'observability_channel_success_rate{channel="all"}'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 300
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: lt
@@ -111,18 +137,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 300
+              to: 0
             model:
               refId: A
               expr: 'observability_am_sync_success_rate'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 300
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: lt
@@ -153,18 +192,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               refId: A
               expr: 'observability_am_sync_success_rate'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 600
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: lt
@@ -195,18 +247,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 300
+              to: 0
             model:
               refId: A
               expr: 'observability_lock_acquire_rate'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 300
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: lt
@@ -237,18 +302,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 300
+              to: 0
             model:
               refId: A
               expr: 'observability_lock_fallback_rate'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 300
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: gt
@@ -279,18 +357,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 300
+              to: 0
             model:
               refId: A
               expr: 'observability_lock_error_rate > 0.00 and observability_lock_acquire_total > 0'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 300
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: gt
@@ -321,18 +412,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 3600
+              to: 0
             model:
               refId: A
               expr: 'observability_escalation_rate'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 3600
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: gt
@@ -363,18 +467,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 3600
+              to: 0
             model:
               refId: A
               expr: 'sum(increase(observability_alert_total[1h]))'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 3600
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: gt
@@ -405,18 +522,31 @@ groups:
         data:
           - refId: A
             datasourceUid: PB0F7F7A2A1B0E0FA
+            relativeTimeRange:
+              from: 300
+              to: 0
             model:
               refId: A
               expr: 'up{job="backend"}'
               instant: true
+              range: false
+              relativeTimeRange:
+                from: 300
+                to: 0
               intervalMs: 1000
               maxDataPoints: 43200
           - refId: C
             datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
             model:
               type: threshold
               refId: C
               expression: A
+              relativeTimeRange:
+                from: 0
+                to: 0
               conditions:
                 - evaluator:
                     type: lt

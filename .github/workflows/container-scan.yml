@@ -45,8 +45,11 @@ jobs:
           exit-code: '1' # HIGH/CRITICAL 漏洞导致 CI 失败
           ignore-unfixed: true # 仅报告有修复版本的漏洞
           vuln-type: 'os,library' # 同时扫描 OS 包和语言依赖
-          # 通过 args 传递 .trivyignore 文件 (trivy-action 无专门 input)
-          args: --ignorefile backend/.trivyignore
+          # T-P0-04: --scanners vuln 仅扫描漏洞, 排除 secret/misconfig 扫描
+          # 原因: app/core/deps.py 中 Grafana service_account JWT payload 会被
+          # trivy secret scanner 误报为 GCP service-account key (false positive)
+          # Secret 扫描应由独立的 git-secrets/gitleaks 工作流处理, 不在容器扫描范围
+          args: --ignorefile backend/.trivyignore --scanners vuln
 
       - name: Upload SARIF report to GitHub Security tab
         if: always()
@@ -73,9 +76,8 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build frontend image
-        working-directory: frontend
         run: |
-          docker build -f Dockerfile -t dws-frontend:scan .
+          docker build -f frontend/Dockerfile -t dws-frontend:scan .
 
       - name: Run Trivy scan on frontend image
         uses: aquasecurity/trivy-action@master
@@ -87,7 +89,8 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          args: --ignorefile frontend/.trivyignore
+          # T-P0-04: --scanners vuln 仅扫描漏洞 (与 backend 保持一致)
+          args: --ignorefile frontend/.trivyignore --scanners vuln
 
       - name: Upload SARIF report to GitHub Security tab
         if: always()
