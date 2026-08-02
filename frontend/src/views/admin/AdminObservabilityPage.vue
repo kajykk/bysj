@@ -14,13 +14,14 @@ function makeBlock<T>(): BlockState<T> {
 
 const range = reactive<ObservabilityTimeRange>({ start_time: undefined, end_time: undefined })
 const health = makeBlock<{ status: string }>()
-const trend = makeBlock<{ points: unknown[] }>()
-const responseTime = makeBlock<{ avg_ms: number }>()
+// H-AUDIT-01: 键名与后端 _compute_* 实际返回对齐 (buckets / response_time / success_rate / memory)
+const trend = makeBlock<{ buckets: unknown[]; total: number }>()
+const responseTime = makeBlock<{ response_time: { mean: number } }>()
 const escalation = makeBlock<{ escalation_rate: number }>()
 const channelStats = makeBlock<{ channels: unknown[] }>()
 const silenceHit = makeBlock<{ hit_rate: number }>()
-const amSync = makeBlock<{ last_sync: string }>()
-const lockStats = makeBlock<{ active_locks: number }>()
+const amSync = makeBlock<{ success_rate: number; total: number }>()
+const lockStats = makeBlock<{ memory: { total: number; acquire_rate: number; fallback_rate: number; error_rate: number } }>()
 
 const autoRefresh = ref(false)
 const refreshTimer = ref<ReturnType<typeof setInterval> | null>(null)
@@ -136,7 +137,7 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
             {{ responseTime.error }}
           </div>
           <div v-else>
-            {{ responseTime.data?.data?.avg_ms }} ms
+            {{ responseTime.data?.data?.response_time?.mean }} ms
           </div>
         </el-card>
       </el-col>
@@ -201,7 +202,7 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
             {{ trend.error }}
           </div>
           <div v-else>
-            {{ trend.data?.data?.points?.length }} {{ t('observability.points') }}
+            {{ trend.data?.data?.buckets?.length }} {{ t('observability.points') }}
           </div>
         </el-card>
       </el-col>
@@ -241,7 +242,7 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
             {{ amSync.error }}
           </div>
           <div v-else>
-            {{ amSync.data?.data?.last_sync }}
+            {{ amSync.data?.data?.success_rate }} ({{ amSync.data?.data?.total }})
           </div>
         </el-card>
       </el-col>
@@ -266,7 +267,7 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
             {{ lockStats.error }}
           </div>
           <div v-else>
-            {{ lockStats.data?.data?.active_locks }}
+            {{ lockStats.data?.data?.memory?.total }}
           </div>
         </el-card>
       </el-col>

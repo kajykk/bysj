@@ -44,8 +44,8 @@
           role="button"
           tabindex="0"
           :aria-label="t('layout.userMenuAria', { name: userName, role: roleLabel })"
-          @keydown.enter="$event.target.click()"
-          @keydown.space.prevent="$event.target.click()"
+          @keydown.enter="openDropdown($event)"
+          @keydown.space.prevent="openDropdown($event)"
         >
           <div
             class="user-avatar"
@@ -119,6 +119,12 @@ const emit = defineEmits<{
 }>()
 
 const BellIcon = Bell
+
+// H-AUDIT-01: 键盘可访问性 - 用合成的鼠标点击打开下拉 (原 $event.target.click() 类型报错)
+function openDropdown(event: KeyboardEvent) {
+  const el = event.currentTarget as HTMLElement | null
+  el?.click()
+}
 const { t } = useI18n()
 
 // 兼容旧 props: 优先使用 warningCount,回退到 hasNewWarning 的 0/1

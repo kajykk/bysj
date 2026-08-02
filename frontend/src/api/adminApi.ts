@@ -68,7 +68,12 @@ export const adminApi = {
     yesterday_templates: number
   }>(request.get('/admin/stats')),
 
-  getHealthStatus: () => requestData<{ status: string; checks: Record<string, string> }>(request.get('/health')),
+  // H-AUDIT-01: /health 是根路径探针 (nginx 已代理 /health -> backend /health),
+  // 且返回裸 JSON 而非 {code,data} 信封, 不能走 /api/v1 前缀或 requestData 解包
+  getHealthStatus: async (): Promise<{ status: string; checks: Record<string, string> }> => {
+    const res = await request.get<{ status: string; checks: Record<string, string> }>('/health', { baseURL: '' })
+    return res.data
+  },
 
   getCrisisEvents: (query?: PageQuery & { status?: string; start_date?: string; end_date?: string }) =>
     requestPageData<CrisisEventItem>(request.get('/reviews/crisis-events', {

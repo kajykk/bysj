@@ -13,6 +13,11 @@ COPY frontend/package.json frontend/package-lock.json* ./
 # 复制 .npmrc 配置 (中国镜像加速)
 COPY frontend/.npmrc ./
 # M-FE-17 修复：去掉 2>/dev/null，避免 npm ci 错误被静默吞掉
+# PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1: 跳过 Playwright Chromium 下载 (170MB),
+# PUPPETEER_SKIP_DOWNLOAD=true: 跳过 Puppeteer Chromium 下载 (类似 Playwright)
+# 生产镜像只需 npm run build 结果, 浏览器仅用于 E2E 测试, 不需在镜像中
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN npm ci --prefer-offline || npm install
 
 # 复制前端源码与共享 common 目录 (vite @common 别名指向 ../common)
