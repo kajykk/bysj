@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# =============================================================================
+# H-AUDIT-01: prometheus.yml 模板 (入库版本)
+#   - 真实配置文件含生产 METRICS_ACCESS_TOKEN, 不入库 (见 .gitignore)
+#   - 部署/CI 时从本模板生成真实文件并替换 bearer_token:
+#       cp infra/prometheus/prometheus.yml.example infra/prometheus/prometheus.yml
+#       sed -i "s|^    bearer_token: .*|    bearer_token: <real_token>|" infra/prometheus/prometheus.yml
+#   - 本地: bearer_token 必须与根目录 .env 的 METRICS_ACCESS_TOKEN 保持一致
+# =============================================================================
+scrape_configs:
+  - job_name: dws-backend
+    scrape_interval: 15s
+    metrics_path: /api/v1/metrics
+    bearer_token: CHANGE_ME
+    static_configs:
+      - targets: ["backend:8000"]
+        labels:
+          service: dws-backend
+          env: production

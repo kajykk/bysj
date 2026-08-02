@@ -191,6 +191,10 @@ backend/.pii_key
 # Infra runtime
 infra/*
 !infra/grafana/
+# H-AUDIT-01: prometheus 配置模板入库, 真实配置 (含生产 token) 保持忽略
+!infra/prometheus/
+infra/prometheus/prometheus.yml
+!infra/prometheus/prometheus.yml.example
 
 # Common (task-types.json is auto-generated, but required at runtime)
 /common/*
