@@ -315,15 +315,15 @@ describe('api/adminApi', () => {
   })
 
   describe('getHealthStatus', () => {
-    it('调用 GET /health', async () => {
-      (requestData as any).mockResolvedValueOnce({ status: 'ok', checks: { db: 'up' } })
+    it('调用 GET /health (根路径 + 裸 JSON, 无信封)', async () => {
+      (request.get as any).mockResolvedValueOnce({ data: { status: 'ok', checks: { db: 'up' } } })
       const res = await adminApi.getHealthStatus()
-      expect(request.get).toHaveBeenCalledWith('/health')
+      expect(request.get).toHaveBeenCalledWith('/health', { baseURL: '' })
       expect(res).toEqual({ status: 'ok', checks: { db: 'up' } })
     })
 
     it('错误透传', async () => {
-      (requestData as any).mockRejectedValueOnce(new Error('503'))
+      (request.get as any).mockRejectedValueOnce(new Error('503'))
       await expect(adminApi.getHealthStatus()).rejects.toThrow('503')
     })
   })

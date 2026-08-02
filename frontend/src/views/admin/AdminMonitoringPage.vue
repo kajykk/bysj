@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { monitoringApi, type MonitoringSummary, type RequestDetailsList, type RequestDetailItem } from '@/api/monitoringApi'
+import { monitoringApi, type MonitoringSummary, type RequestDetailsList, type RequestDetailItem, type ModelSuccessRatePoint } from '@/api/monitoringApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import BaseChart from '@/components/charts/BaseChart.vue'
 import type { EChartsCoreOption } from '@/utils/echarts'
@@ -11,10 +11,10 @@ import { maskSensitive } from './utils/monitoringUtils'
 const { t } = useI18n()
 
 const summary = ref<MonitoringSummary | null>(null)
-const successRate = ref<{ rate: number; points?: unknown[] } | null>(null)
-const fallbackStats = ref<{ count: number } | null>(null)
-const driftAlerts = ref<{ items: unknown[] } | null>(null)
-const engineSnapshot = ref<{ engines: unknown[] } | null>(null)
+const successRate = ref<{ data: ModelSuccessRatePoint[] } | null>(null)
+const fallbackStats = ref<{ total: number } | null>(null)
+const driftAlerts = ref<{ total: number } | null>(null)
+const engineSnapshot = ref<{ cache_size?: number } | null>(null)
 const details = ref<RequestDetailsList | null>(null)
 const detailRow = ref<RequestDetailItem | null>(null)
 const detailVisible = ref(false)
@@ -25,9 +25,10 @@ const loading = ref(false)
 
 const successOption = computed<EChartsCoreOption>(() => ({
   tooltip: { trigger: 'axis' },
-  xAxis: { type: 'category', data: (successRate.value?.points as { date?: string }[] || []).map((p) => p.date || '') },
-  yAxis: { type: 'value', max: 1 },
-  series: [{ type: 'line', data: (successRate.value?.points as { rate?: number }[] || []).map((p) => p.rate || 0), smooth: true }],
+  xAxis: { type: 'category', data: (successRate.value?.data || []).map((p) => p.time_bucket) },
+  // success_rate 后端为 0-100 百分比, yAxis max 须为 100
+  yAxis: { type: 'value', max: 100 },
+  series: [{ type: 'line', data: (successRate.value?.data || []).map((p) => p.success_rate), smooth: true }],
 }))
 
 async function loadAll() {
@@ -54,7 +55,7 @@ async function loadDetails() {
   catch (e) { showHttpFeedback(e, t('common.loadFailed')) }
 }
 
-async function showDetail(logId: string) {
+async function showDetail(logId: number) {
   try { detailRow.value = await monitoringApi.getRequestDetail(logId); detailVisible.value = true }
   catch (e) { showHttpFeedback(e, t('common.loadFailed')) }
 }
@@ -94,28 +95,28 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
         <el-card>
           <template #header>
             {{ t('monitoring.totalRequests') }}
-          </template>{{ summary?.total_requests }}
+          </template>{{ summary?.inference_count_24h }}
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card>
           <template #header>
             {{ t('monitoring.fallbackCount') }}
-          </template>{{ fallbackStats?.count }}
+          </template>{{ fallbackStats?.total }}
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card>
           <template #header>
             {{ t('monitoring.driftAlerts') }}
-          </template>{{ driftAlerts?.items?.length }}
+          </template>{{ driftAlerts?.total }}
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card>
           <template #header>
             {{ t('monitoring.engines') }}
-          </template>{{ engineSnapshot?.engines?.length }}
+          </template>{{ engineSnapshot?.cache_size ?? '—' }}
         </el-card>
       </el-col>
     </el-row>
@@ -134,10 +135,10 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
       <el-table
         :data="details?.items || []"
         stripe
-        @row-click="(row: RequestDetailItem) => showDetail(row.log_id)"
+        @row-click="(row: RequestDetailItem) => showDetail(row.id)"
       >
         <el-table-column
-          prop="log_id"
+          prop="id"
           :label="t('monitoring.logId')"
           width="180"
         />
@@ -156,7 +157,7 @@ onUnmounted(() => { if (refreshTimer.value) clearInterval(refreshTimer.value) })
               size="small"
               link
               type="primary"
-              @click.stop="showDetail(row.log_id)"
+              @click.stop="showDetail(row.id)"
             >
               {{ t('monitoring.requestDetail') }}
             </el-button>

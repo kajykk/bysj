@@ -15,5 +15,6 @@ export function validateBatchExcelInput(raw: string): { ok: boolean; data?: unkn
 }
 
 export function defaultPdfForm() {
-  return { user_id: 0, user_name: '', risk_level: 1, risk_trend: 'stable', recommendations: [] as string[] }
+  // 后端 UserRiskReportRequest: risk_level 为字符串, risk_trend 为 [{date, score, level}]
+  return { user_id: 0, user_name: '', risk_level: '0', risk_trend: [] as { date: string; score: number; level: string }[], recommendations: [] as string[] }
 }

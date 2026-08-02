@@ -3,20 +3,40 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { reportsApi, type ReportTemplate, type PdfJobItem, type UserRiskReportRequest } from '@/api/reportsApi'
+import { reportsApi, type ReportTemplate, type PdfJobItem, type UserRiskReportRequest, type RiskTrendItem } from '@/api/reportsApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { isTerminalStatus, validateBatchExcelInput } from './utils/reportsUtils'
 
 const { t } = useI18n()
 const templates = ref<ReportTemplate[]>([])
 const jobs = ref<PdfJobItem[]>([])
-const pdfForm = ref<UserRiskReportRequest>({ user_id: 0, user_name: '', risk_level: 1, risk_trend: 'stable', recommendations: [] })
+// 后端 UserRiskReportRequest: risk_level 为字符串, risk_trend 为 [{date, score, level}]
+const pdfForm = ref<UserRiskReportRequest>({ user_id: 0, user_name: '', risk_level: '0', risk_trend: [], recommendations: [] })
 const generating = ref(false)
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const currentJob = ref<{ job_id: string; status: string; progress: number } | null>(null)
 const excelInput = ref('[]')
 const excelCols = ref<string[]>([])
 const excelFilename = ref('batch-export.xlsx')
+
+const riskLevelNum = computed({
+  get: () => Number(pdfForm.value.risk_level) || 0,
+  set: (v: number) => { pdfForm.value.risk_level = String(v) },
+})
+
+const trendText = computed({
+  get: () => JSON.stringify(pdfForm.value.risk_trend),
+  set: (val: string) => {
+    try {
+      const parsed = JSON.parse(val)
+      pdfForm.value.risk_trend = Array.isArray(parsed) ? (parsed as RiskTrendItem[]) : []
+    } catch {
+      pdfForm.value.risk_trend = []
+    }
+  },
+})
+
+const trendPlaceholder = '[{"date":"2026-07-01","score":3.2,"level":"medium"}]'
 
 const recommendationsText = computed({
   get: () => pdfForm.value.recommendations.join(', '),
@@ -106,7 +126,12 @@ async function exportExcel() {
   if (!v.ok) { ElMessage.warning(v.error || ''); return }
   if (excelCols.value.length > 50) { ElMessage.warning(t('reports.columnsLimit')); return }
   try {
-    const blob = await reportsApi.batchExportExcel({ data: v.data as Record<string, unknown>[], columns: excelCols.value, filename: excelFilename.value })
+    const blob = await reportsApi.batchExportExcel({
+      // 后端 BatchExportRequest.data 每项需 {data: {...}} 包装
+      data: (v.data as Record<string, unknown>[]).map((d) => ({ data: d })),
+      columns: excelCols.value,
+      filename: excelFilename.value,
+    })
     triggerBlobDownload(blob, excelFilename.value)
     ElMessage.success(t('common.exportSuccess'))
   } catch (e) { showHttpFeedback(e, t('common.exportFailed')) }
@@ -158,13 +183,18 @@ onUnmounted(stopPolling)
         </el-form-item>
         <el-form-item :label="t('reports.riskLevel')">
           <el-input-number
-            v-model="pdfForm.risk_level"
+            v-model="riskLevelNum"
             :min="0"
             :max="4"
           />
         </el-form-item>
         <el-form-item :label="t('reports.riskTrend')">
-          <el-input v-model="pdfForm.risk_trend" />
+          <el-input
+            v-model="trendText"
+            type="textarea"
+            :rows="2"
+            :placeholder="trendPlaceholder"
+          />
         </el-form-item>
         <el-form-item :label="t('reports.recommendations')">
           <el-input

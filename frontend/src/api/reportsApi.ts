@@ -1,11 +1,17 @@
 // frontend/src/api/reportsApi.ts
 import request, { requestData } from './request'
 
+export interface RiskTrendItem {
+  date: string
+  score: number
+  level: string
+}
+
 export interface UserRiskReportRequest {
   user_id: number
   user_name: string
-  risk_level: number
-  risk_trend: string
+  risk_level: string
+  risk_trend: RiskTrendItem[]
   recommendations: string[]
 }
 
@@ -32,9 +38,13 @@ export interface PdfJobItem {
   created_at: string
 }
 
+export interface BatchExportDataItem {
+  data: Record<string, unknown>
+}
+
 export interface BatchExportRequest {
-  data: Record<string, unknown>[]
-  columns: string[]
+  data: BatchExportDataItem[]
+  columns?: string[]
   filters?: Record<string, unknown>
   filename?: string
 }

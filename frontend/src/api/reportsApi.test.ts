@@ -44,12 +44,12 @@ describe('api/reportsApi', () => {
     })
     it('generateUserRiskPdfSync POST /reports/user-risk/pdf 且 responseType=blob', async () => {
       (request.post as any).mockResolvedValueOnce({ data: new Blob() })
-      await reportsApi.generateUserRiskPdfSync({ user_id: 1, user_name: 'x', risk_level: 2, risk_trend: 'stable', recommendations: [] })
-      expect(request.post).toHaveBeenCalledWith('/reports/user-risk/pdf', { user_id: 1, user_name: 'x', risk_level: 2, risk_trend: 'stable', recommendations: [] }, { responseType: 'blob' })
+      await reportsApi.generateUserRiskPdfSync({ user_id: 1, user_name: 'x', risk_level: '2', risk_trend: [], recommendations: [] })
+      expect(request.post).toHaveBeenCalledWith('/reports/user-risk/pdf', { user_id: 1, user_name: 'x', risk_level: '2', risk_trend: [], recommendations: [] }, { responseType: 'blob' })
     })
     it('generateUserRiskPdfAsync POST 返回 job_id', async () => {
       (requestData as any).mockResolvedValueOnce({ job_id: 'j1', status: 'queued', message: 'ok' })
-      const res = await reportsApi.generateUserRiskPdfAsync({ user_id: 1, user_name: 'x', risk_level: 1, risk_trend: 'up', recommendations: [] })
+      const res = await reportsApi.generateUserRiskPdfAsync({ user_id: 1, user_name: 'x', risk_level: '1', risk_trend: [], recommendations: [] })
       expect(res.job_id).toBe('j1')
     })
     it('getPdfJobStatus GET /reports/pdf/{id}/status', async () => {
@@ -69,15 +69,15 @@ describe('api/reportsApi', () => {
     })
     it('batchExportExcel POST /reports/batch-export/excel responseType=blob', async () => {
       (request.post as any).mockResolvedValueOnce({ data: new Blob() })
-      await reportsApi.batchExportExcel({ data: [], columns: [], filename: 'r.xlsx' })
-      expect(request.post).toHaveBeenCalledWith('/reports/batch-export/excel', { data: [], columns: [], filename: 'r.xlsx' }, { responseType: 'blob' })
+      await reportsApi.batchExportExcel({ data: [{ data: { a: 1 } }], columns: ['a'], filename: 'r.xlsx' })
+      expect(request.post).toHaveBeenCalledWith('/reports/batch-export/excel', { data: [{ data: { a: 1 } }], columns: ['a'], filename: 'r.xlsx' }, { responseType: 'blob' })
     })
   })
 
   describe('celery 变体（仅接通）', () => {
     it('generateUserRiskPdfCeleryAsync POST celery-async', async () => {
       (requestData as any).mockResolvedValueOnce({ job_id: 'c1', status: 'queued', message: 'ok' })
-      await reportsApi.generateUserRiskPdfCeleryAsync({ user_id: 1, user_name: 'x', risk_level: 1, risk_trend: 'up', recommendations: [] })
+      await reportsApi.generateUserRiskPdfCeleryAsync({ user_id: 1, user_name: 'x', risk_level: '1', risk_trend: [], recommendations: [] })
       expect(request.post).toHaveBeenCalledWith('/reports/user-risk/pdf/celery-async', expect.any(Object))
     })
     it('getCeleryPdfJobStatus GET celery status', async () => {
