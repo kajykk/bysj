@@ -44,6 +44,9 @@ jobs:
       GRAFANA_SLACK_URL: https://hooks.slack.com/services/CI/CI/CI
       GRAFANA_SLACK_CHANNEL: '#sre-alerts-ci'
       # docker-compose.yml 中 ${VAR:?...} 必需变量 (缺失会导致 docker compose up 插值失败)
+      # H-AUDIT-01: 生产模式 Settings 硬性要求 PII_ENCRYPTION_KEY (>=32 字节且非弱密钥),
+      # 缺失会导致 backend/alembic_migrate 容器启动即退出 -> compose up 失败
+      PII_ENCRYPTION_KEY: Dzs6U9clCM8sqduuJLHmOi7vZpq6BvjHy9ZNU1-tsD4=
       ALERTMANAGER_WEBHOOK_SECRET: ci-alertmanager-secret
       METRICS_ACCESS_TOKEN: ci-metrics-token
       PASSWORD_RESET_BASE_URL: https://example.invalid/reset
