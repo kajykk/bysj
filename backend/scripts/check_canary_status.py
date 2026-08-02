@@ -58,7 +58,7 @@ async def main():
         # 2. running 的金丝雀
         running_sql = text(
             "SELECT id, version, traffic_percent, started_at, auto_rollback_thresholds "
-            "FROM canary_records WHERE status = 'RUNNING' ORDER BY started_at DESC LIMIT 1"
+            "FROM canary_records WHERE status = 'running' ORDER BY started_at DESC LIMIT 1"
         )
         running = (await db.execute(running_sql)).first()
         if not running:

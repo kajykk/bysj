@@ -42,6 +42,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.database import _is_sqlite
 from app.models.admin import OperationLog
 
 logger = logging.getLogger(__name__)
@@ -190,12 +191,23 @@ async def detect_off_hours(db: AsyncSession) -> list[AnomalyFinding]:
     scan_window = settings.anomaly_scan_interval_seconds + 60
     cutoff = _utcnow_naive() - timedelta(seconds=scan_window)
 
-    # SQLite 使用 strftime 提取小时; PostgreSQL 使用 to_char
-    # OperationLog.created_at 是 SQLite 默认 datetime 存储，使用 strftime 兼容
-    # 22:00~06:00 = hour >= 22 OR hour < 6
-    # 使用 group_by (兼容 SQLite/PostgreSQL), 每个用户取一条样本
-    hour_expr = func.strftime("%H", OperationLog.created_at)
-    stmt = (
+    # H-AUDIT-01: PostgreSQL 使用 to_char, SQLite 使用 strftime (与 monitoring.py 一致)
+    # 此前无条件使用 strftime, 在 PostgreSQL 生产环境抛 "function strftime does not exist"
+    if _is_sqlite:
+        hour_expr = func.strftime("%H", OperationLog.created_at)
+    else:
+        hour_expr = func.to_char(OperationLog.created_at, "HH24")
+    # H-AUDIT-01: 每用户取最近一条样本. 原实现依赖 SQLite 松散 GROUP BY
+    # (SELECT 非分组列), PostgreSQL 严格模式直接报错. 改用 window 函数, 双端兼容.
+    window_expr = (
+        func.row_number()
+        .over(
+            partition_by=[OperationLog.operator_id, OperationLog.operator_role],
+            order_by=OperationLog.created_at.desc(),
+        )
+        .label("_rn")
+    )
+    inner = (
         select(
             OperationLog.operator_id,
             OperationLog.operator_role,
@@ -203,6 +215,7 @@ async def detect_off_hours(db: AsyncSession) -> list[AnomalyFinding]:
             OperationLog.action_type,
             OperationLog.target_type,
             OperationLog.created_at,
+            window_expr,
         )
         .where(
             and_(
@@ -213,8 +226,18 @@ async def detect_off_hours(db: AsyncSession) -> list[AnomalyFinding]:
                 or_(hour_expr >= f"{start_hour:02d}", hour_expr < f"{end_hour:02d}"),
             )
         )
-        # 按 operator 分组, 取组内任意一条 (SQLite 不支持 DISTINCT ON)
-        .group_by(OperationLog.operator_id, OperationLog.operator_role)
+        .subquery()
+    )
+    stmt = (
+        select(
+            inner.c.operator_id,
+            inner.c.operator_role,
+            inner.c.ip_address,
+            inner.c.action_type,
+            inner.c.target_type,
+            inner.c.created_at,
+        )
+        .where(inner.c._rn == 1)
         .limit(MAX_FINDINGS_PER_SCAN)
     )
     rows = (await db.execute(stmt)).all()

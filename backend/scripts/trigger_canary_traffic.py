@@ -5,8 +5,8 @@
 生成 m4_stacking_v3 推理事件, 用于验证金丝雀健康指标.
 
 前置条件:
-- canary id=5 status=running, traffic_percent=25%
-- 至少有一个 user_id 的 hash < 25 (会被路由到金丝雀)
+- 存在运行中的金丝雀 (自动查找最新一条 RUNNING, 流量 >= 1%)
+- 至少有一个 user_id 的 hash < traffic_percent (会被路由到金丝雀)
 
 使用方式:
     docker cp e:\\code\\bysj\\backend\\scripts\\trigger_canary_traffic.py dws-backend:/tmp/trigger_canary_traffic.py

@@ -77,6 +77,9 @@ async def _canary_fallback_loop() -> None:
                         results = await auto_rollback_service.check_all_canaries(
                             db_session
                         )
+                        # H-AUDIT-01 修复: execute_rollback 仅 flush (C-Svc-1),
+                        # 必须 commit 否则回滚状态随 session 关闭丢失
+                        await db_session.commit()
                     rollback_count = sum(1 for r in results if r.should_rollback)
                     if rollback_count > 0:
                         logger.warning(

@@ -58,12 +58,13 @@ RUN pip install --no-cache-dir \
         "psycopg2>=2.9.9" \
         aiosqlite>=0.19.0 \
         alembic>=1.13.1 \
-        pydantic>=2.7.0 \
+        "pydantic[email]>=2.7.0" \
         pydantic-settings>=2.2.1 \
         "PyJWT[crypto]>=2.8.0" \
         "bcrypt>=4.0.0,<5.0.0" \
         python-multipart>=0.0.9 \
         redis>=5.0.4 \
+        requests>=2.31.0 \
         celery>=5.4.0 \
         "scikit-learn>=1.5.0,<2.0.0" \
         joblib>=1.4.2 \
