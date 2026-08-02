@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # CI 注入的占位 env var (TC-AT-017 会清空 GRAFANA_WEBHOOK_URL 验证 RISK-2 行为)
+      # CI 注入的占位 env var (prometheus/grafana 配置由模板生成, 见 Generate Prometheus 步骤)
       POSTGRES_PASSWORD: ci-postgres-pwd
       REDIS_PASSWORD: ci-redis-pwd
       JWT_SECRET_KEY: ci-jwt-secret-for-e2e-only
@@ -47,15 +47,19 @@ jobs:
       ALERTMANAGER_WEBHOOK_SECRET: ci-alertmanager-secret
       METRICS_ACCESS_TOKEN: ci-metrics-token
       PASSWORD_RESET_BASE_URL: https://example.invalid/reset
+      # Node 20 actions (upload-artifact@v4) 在 2026-06-16 后被强制 Node 24, 此开关保持兼容
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      # H-AUDIT-01: prometheus.yml 硬编码本地 token, CI 中需替换为 CI token,
-      # 否则 Prometheus 抓取 backend /api/v1/metrics 返回 403
-      - name: Sync Prometheus bearer token
+      # H-AUDIT-01: prometheus.yml 含真实 token 不入库, 仓库仅存 .example 模板。
+      # CI 中从模板生成并注入 CI token, 否则 (a) sed 找不到文件,
+      # (b) grafana depends_on prometheus 会把缺失路径挂载成空目录导致 prometheus 起不来
+      - name: Generate Prometheus config with CI token
         run: |
+          cp infra/prometheus/prometheus.yml.example infra/prometheus/prometheus.yml
           sed -i "s|^    bearer_token: .*|    bearer_token: ${METRICS_ACCESS_TOKEN}|" infra/prometheus/prometheus.yml
           grep -n "bearer_token" infra/prometheus/prometheus.yml
 
@@ -76,7 +80,7 @@ jobs:
           python -c "import yaml; assert yaml.safe_load(open('infra/grafana/provisioning/datasources/prometheus.yaml'))['datasources'][0]['uid']=='PB0F7F7A2A1B0E0FA', 'uid mismatch'"
           echo "PASS: 5 YAML validate OK"
 
-      - name: Start stack (postgres + redis + backend + grafana)
+      - name: Start stack (postgres + redis + backend + grafana + prometheus)
         run: |
           docker compose up -d postgres redis
           sleep 10
@@ -148,7 +152,8 @@ jobs:
           sleep 10
           RESP=$(curl -s -u admin:ci-grafana-admin \
             http://localhost:3000/api/v1/provisioning/alert-rules)
-          COUNT=$(echo "$RESP" | python -c "import sys,json; d=json.load(sys.stdin); print(sum(len(g.get('rules',[])) for g in d))")
+          # H-AUDIT-01: 该 API 返回扁平 rule 数组 (非 groups 结构), 原 g.get('rules') 恒为 0
+          COUNT=$(echo "$RESP" | python -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else sum(len(g.get('rules',[])) for g in d))")
           echo "Loaded $COUNT alert rules"
           if [ "$COUNT" -lt 9 ]; then
             echo "::error::TC-AT-016 FAIL: expected ≥ 9 rules, got $COUNT"
@@ -163,25 +168,23 @@ jobs:
           echo "PASS: TC-AT-016 $COUNT rules loaded in 'observability-alerts' group"
 
       # ============================================================
-      # TC-AT-017: 缺 GRAFANA_WEBHOOK_URL 时 contact point disabled
+      # TC-AT-017 (H-AUDIT-01, P0-2): 通知目的地不允许指向公网测试服务
+      # 原断言 (GRAFANA_WEBHOOK_URL 为空时 contact point disabled) 已失效:
+      # provisioning 文件使用字面量 URL (Grafana 11.5 不支持文件内 ${env:XXX}),
+      # 故改为验证 sre-webhook 不泄漏到公网
       # ============================================================
-      - name: TC-AT-017 contact point disabled when env var missing
+      - name: TC-AT-017 no public webhook leakage
         run: |
-          # 停止 grafana, 清空 GRAFANA_WEBHOOK_URL, 重启
-          docker compose stop grafana
-          docker compose rm -f grafana
-          GRAFANA_WEBHOOK_URL="" docker compose up -d grafana
-          sleep 30
-          # 验证 sre-webhook disabled
-          DISABLED=$(curl -s -u admin:ci-grafana-admin \
-            http://localhost:3000/api/v1/provisioning/contact-points | \
-            python -c "import sys,json; d=json.load(sys.stdin); cps=[c for c in d if c.get('name')=='sre-webhook']; print(cps[0].get('disabled', False) if cps else 'NOT_FOUND')")
-          echo "sre-webhook disabled=$DISABLED"
-          if [ "$DISABLED" != "True" ] && [ "$DISABLED" != "true" ]; then
-            echo "::error::TC-AT-017 FAIL: sre-webhook should be disabled, got '$DISABLED'"
+          sleep 5
+          RESP=$(curl -s -u admin:ci-grafana-admin \
+            http://localhost:3000/api/v1/provisioning/contact-points)
+          URL=$(echo "$RESP" | python -c "import sys,json; d=json.load(sys.stdin); cps=[c for c in d if c.get('name')=='sre-webhook']; print(cps[0]['receivers'][0]['settings'].get('url','') if cps else '')")
+          echo "sre-webhook url=$URL"
+          if [ -z "$URL" ] || echo "$URL" | grep -qE "httpbin|example\.com|webhook\.site|hooks\.slack\.com/services/CI"; then
+            echo "::error::TC-AT-017 FAIL: sre-webhook 指向公网测试地址或缺失: '$URL'"
             exit 1
           fi
-          echo "PASS: TC-AT-017 sre-webhook disabled when GRAFANA_WEBHOOK_URL empty"
+          echo "PASS: TC-AT-017 sre-webhook 不指向公网测试服务"
 
       - name: Upload logs on failure
         if: failure()
