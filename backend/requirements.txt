@@ -16,6 +16,7 @@ cryptography>=42.0.0  # pii_crypto.py 显式依赖 Fernet/HKDF, 不依赖 PyJWT 
 bcrypt>=4.0.0,<5.0.0
 python-multipart>=0.0.9
 redis>=5.0.4
+requests>=2.31.0  # app.monitoring.{notifier,am_sync,alerting} 顶层 import
 celery>=5.4.0
 scikit-learn>=1.5.0,<2.0.0
 scipy>=1.11.0

@@ -641,7 +641,7 @@ class ModelPredictService:
         if canary_routed:
             result["canary_routed"] = True
             result["canary_version"] = canary_version
-            result["model_version"] = f"m4_stacking_v3 (canary)"
+            result["model_version"] = f"{canary_version} (canary)"
             # 记录金丝雀推理指标
             try:
                 from app.core.metrics import model_inference_total

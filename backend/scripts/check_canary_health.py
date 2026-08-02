@@ -14,7 +14,7 @@
 
 使用方式:
     docker exec dws-backend python /app/scripts/check_canary_health.py
-    docker exec dws-backend python /app/scripts/check_canary_health.py --canary-id 5
+    docker exec dws-backend python /app/scripts/check_canary_health.py --canary-id 1
 """
 from __future__ import annotations
 
@@ -23,16 +23,10 @@ import asyncio
 import sys
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 
 from app.core.database import AsyncSessionLocal
-from app.models.monitoring import (
-    CanaryRecord,
-    CanaryStatus,
-    DriftAlert,
-    MonitoringEventType,
-    MonitoringLog,
-)
+from app.models.monitoring import CanaryRecord, CanaryStatus
 from app.services.auto_rollback_service import auto_rollback_service
 
 
@@ -82,16 +76,17 @@ async def check_canary_health(
 
 
 async def check_drift_alerts(db_session, canary_version: str) -> dict:
-    """检查 DriftAlert 持久化情况 (按 modality 分组)."""
-    # 按模态分组统计 (model_version 字段存储 modality 级别)
-    stmt = (
-        select(
-            DriftAlert.model_version,
-            DriftAlert.severity,
-            func.count().label("cnt"),
-        )
-        .group_by(DriftAlert.model_version, DriftAlert.severity)
-        .order_by(DriftAlert.model_version, DriftAlert.severity)
+    """检查 DriftAlert 持久化情况 (按 modality 分组).
+
+    model_version 字段存金丝雀版本, modality 归属在 details->>'modality'.
+    """
+    # 按模态分组统计 (modality 从 details JSON 中取)
+    stmt = text(
+        "SELECT COALESCE(details->>'modality', 'unknown') AS modality, "
+        "       severity, COUNT(*) AS cnt "
+        "FROM drift_alerts "
+        "GROUP BY COALESCE(details->>'modality', 'unknown'), severity "
+        "ORDER BY modality, severity"
     )
     result = await db_session.execute(stmt)
     rows = result.all()

@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.monitoring import DriftAlert, DriftSeverity
+from app.models.monitoring import CanaryRecord, CanaryStatus, DriftAlert, DriftSeverity
 from app.models.risk import RiskAssessment
 from app.services.drift_detector import DriftDetector
 
@@ -267,8 +267,22 @@ class DriftMonitoringService:
 
         severity = DriftSeverity.CRITICAL if psi > 0.5 else DriftSeverity.HIGH
 
+        # 查询当前运行中的金丝雀版本用于 model_version 归属.
+        # 修复: 此前将 modality 存入 model_version, 导致 auto_rollback_service 按
+        # canary.version 匹配时恒为 0, 漂移维度自动回滚静默失效.
+        # modality 归属仍在 details["modality"] 中.
+        running_canary_stmt = (
+            select(CanaryRecord.version)
+            .where(CanaryRecord.status == CanaryStatus.RUNNING)
+            .order_by(CanaryRecord.started_at.desc())
+            .limit(1)
+        )
+        canary_version = (
+            await db_session.execute(running_canary_stmt)
+        ).scalar_one_or_none()
+
         alert = DriftAlert(
-            model_version=modality,
+            model_version=canary_version,
             feature_name=feature,
             drift_type="prediction_drift",
             severity=severity,

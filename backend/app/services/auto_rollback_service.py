@@ -230,7 +230,9 @@ class AutoRollbackService:
                     check_result = await self.check_canary_health(db_session, canary.id)
 
                 if check_result.should_rollback:
-                    # execute_rollback 内部会 commit，使用独立 savepoint 隔离
+                    # H-AUDIT-01: execute_rollback 仅 flush 不 commit (C-Svc-1),
+                    # 事务提交由调用方 (scheduler / fallback monitor) 负责.
+                    # 用独立 savepoint 隔离单只金丝雀回滚失败.
                     try:
                         async with db_session.begin_nested():
                             await self.execute_rollback(

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-"""T-P0-02: 推进金丝雀 id=5 从 5% -> 25% (第二阶段).
+"""T-P0-02: 推进当前运行中金丝雀从 5% -> 25% (第二阶段).
 
 前置条件:
-- 金丝雀 id=5 status=running, traffic_percent=5
-- 运行时长 >= 24h (当前 27.82h)
+- 存在运行中的金丝雀 (自动查找最新一条 RUNNING), traffic_percent=5
+- 运行时长 >= 24h
 - 无回滚触发 (canary-auto-rollback-check 每 30s 检查, 未回滚)
 - 无新增 CRITICAL/HIGH 漂移告警 (守卫逻辑修复生效)
 
@@ -14,39 +14,51 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from datetime import datetime, timezone
 
 from sqlalchemy import select, text
 
 from app.core.database import AsyncSessionLocal
-from app.models.monitoring import CanaryRecord
+from app.models.monitoring import CanaryRecord, CanaryStatus
 from app.services.canary_manager import canary_manager
 
 
-CANARY_ID = 5
 OLD_PERCENT = 5
 NEW_PERCENT = 25
 MIN_HOURS_RUNNING = 24.0
 
 
-async def check_canary_health(db_session) -> dict:
+async def find_running_canary(db_session) -> CanaryRecord:
+    """查找当前运行中的金丝雀 (取最新一条)."""
+    result = await db_session.execute(
+        select(CanaryRecord)
+        .where(CanaryRecord.status == CanaryStatus.RUNNING)
+        .order_by(CanaryRecord.started_at.desc())
+        .limit(1)
+    )
+    canary = result.scalar_one_or_none()
+    if not canary:
+        raise RuntimeError("当前无 RUNNING 金丝雀")
+    return canary
+
+
+async def check_canary_health(db_session, canary_id: int) -> dict:
     """检查金丝雀健康指标 (回滚率/漂移告警/延迟/错误率)."""
     health = {}
 
     # 1. 金丝雀运行时长 (用 DB 的 NOW() 计算, 避免时区不一致)
     result = await db_session.execute(
-        select(CanaryRecord).where(CanaryRecord.id == CANARY_ID)
+        select(CanaryRecord).where(CanaryRecord.id == canary_id)
     )
     canary = result.scalar_one_or_none()
     if not canary:
-        raise RuntimeError(f"Canary {CANARY_ID} not found")
+        raise RuntimeError(f"Canary {canary_id} not found")
 
     hours_result = await db_session.execute(
         text(
             "SELECT EXTRACT(EPOCH FROM (NOW() - started_at)) / 3600.0 "
             "FROM canary_records WHERE id = :cid"
         ),
-        {"cid": CANARY_ID},
+        {"cid": canary_id},
     )
     hours_running = float(hours_result.scalar())
     health["hours_running"] = round(hours_running, 2)
@@ -66,7 +78,7 @@ async def check_canary_health(db_session) -> dict:
     health["drift_alerts_last_1h"] = drift_count_result.scalar()
     health["drift_alerts_ok"] = health["drift_alerts_last_1h"] < 10
 
-    # 3. 金丝雀是否曾被回滚 (id=5 不应有 rollback_reason)
+    # 3. 金丝雀是否曾被回滚 (不应有 rollback_reason)
     health["was_rolled_back"] = canary.rollback_reason is not None
 
     return health
@@ -74,13 +86,16 @@ async def check_canary_health(db_session) -> dict:
 
 async def main():
     """推进金丝雀 5% -> 25%."""
-    print(f"=== T-P0-02: Promote canary {CANARY_ID} {OLD_PERCENT}% -> {NEW_PERCENT}% ===")
-    print()
-
     async with AsyncSessionLocal() as db_session:
+        # 0. 动态定位运行中金丝雀
+        canary = await find_running_canary(db_session)
+        canary_id = canary.id
+        print(f"=== T-P0-02: Promote canary {canary_id} {OLD_PERCENT}% -> {NEW_PERCENT}% ===")
+        print()
+
         # 1. 健康检查
         print("[1/3] Health check...")
-        health = await check_canary_health(db_session)
+        health = await check_canary_health(db_session, canary_id)
         print(f"  status: {health['status']}")
         print(f"  current_percent: {health['current_percent']}%")
         print(f"  hours_running: {health['hours_running']}h (min: {MIN_HOURS_RUNNING}h)")
@@ -112,9 +127,9 @@ async def main():
         print("  All preconditions passed.")
 
         # 3. 推进流量
-        print(f"\n[3/3] Promoting canary {CANARY_ID}: {OLD_PERCENT}% -> {NEW_PERCENT}%...")
+        print(f"\n[3/3] Promoting canary {canary_id}: {OLD_PERCENT}% -> {NEW_PERCENT}%...")
         canary = await canary_manager.update_traffic_percent(
-            db_session, CANARY_ID, NEW_PERCENT
+            db_session, canary_id, NEW_PERCENT
         )
         await db_session.commit()
 
