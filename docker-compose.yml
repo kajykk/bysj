@@ -1,5 +1,5 @@
 # Docker Compose for Depression Warning System v1.39
-# Architecture: 7 services (postgres + redis + alembic_migrate + backend + celery_worker + celery_beat + frontend + grafana)
+# Architecture: 8 services (postgres + redis + alembic_migrate + backend + celery_worker + celery_beat + frontend + grafana + prometheus)
 # Usage: docker compose up -d
 # Docs: docs/DEPLOYMENT_GUIDE.md
 
@@ -284,6 +284,28 @@ services:
           cpus: "0.5"
           memory: 256M
 
+  # ── Prometheus (抓取 backend /api/v1/metrics, 供 Grafana Alert Rules) ──
+  # H-AUDIT-01: v1.39 告警链路依赖真实 Prometheus, 此前 datasource 误指向
+  # backend:8000 (backend 非 Prometheus 协议) 导致持续 405 与规则评估失败.
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: dws-prometheus
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - dws-net
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
   # ── Grafana (仪表盘 + 告警) ────────────────────────────────
   # T-P0-04: 11.6.0 在 Docker Desktop on Windows 上二进制为 0 字节 (exec format error),
   # 降级至 11.5.0 (项目记忆已验证可用). 待 11.6.x 修复后可再升级.
@@ -294,11 +316,19 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      prometheus:
+        condition: service_started
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SERVER_ROOT_URL: https://localhost/grafana
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # H-AUDIT-01: datasources provisioning 需要的 token
+      # (prometheus.yaml -> ${METRICS_ACCESS_TOKEN}, observability-api.yaml -> ${GRAFANA_SA_TOKEN})
+      METRICS_ACCESS_TOKEN: ${METRICS_ACCESS_TOKEN:?METRICS_ACCESS_TOKEN is required}
+      GRAFANA_SA_TOKEN: ${GRAFANA_SA_TOKEN:?GRAFANA_SA_TOKEN is required}
+      # H-AUDIT-01: simpod-json-datasource 插件必须在容器启动前安装
+      GF_PLUGINS_PREINSTALL: grafana-simple-json-datasource
       # contact-points.yaml 需要这些 env vars (Grafana 11.5 占位符 ${env:XXX})
       GRAFANA_WEBHOOK_URL: ${GRAFANA_WEBHOOK_URL:-}
       GRAFANA_SRE_EMAIL: ${GRAFANA_SRE_EMAIL:-}
@@ -307,6 +337,8 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      # H-AUDIT-01: 仪表盘 provider 加载路径 (alerts-overview.yaml 指向此目录)
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3000:3000"
     networks:

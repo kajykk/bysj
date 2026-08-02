@@ -9,6 +9,13 @@ apiVersion: 1
 # 2026-07-25 修复: Grafana 11.5 provisioning 文件不支持 ${env:XXX} 占位符
 # (Grafana 内部系统变量只能通过 GF_ 前缀环境变量注入, 不能用于 url/email)
 # 改为字面量值,与 .env 中的 GRAFANA_WEBHOOK_URL/GRAFANA_SRE_EMAIL 等保持同步
+#
+# H-AUDIT-01 (P0-2) 2026-08-02: 通知目的地暂禁, 规则保留。
+#   - 原 sre-webhook 指向公共测试服务 https://httpbin.org/post — 真实告警会外泄内部信息,
+#     已改为集群内 no-op 目标 (backend /health, POST 仅返回 405, 不产生外部流量)。
+#   - sre-email 的 example.invalid 为 RFC 2606 保留域, 本就不会投递, 无泄漏风险。
+#   - 收到真实运维通知地址 (企业微信/钉钉/Slack/自建 webhook) 后,
+#     将 sre-webhook 的 url 替换为真实地址, 重启 grafana 即恢复通知。
 
 contactPoints:
   - orgId: 1
@@ -17,7 +24,7 @@ contactPoints:
       - uid: cp-webhook
         type: webhook
         settings:
-          url: https://httpbin.org/post
+          url: http://backend:8000/health
           httpMethod: POST
         disableResolveMessage: false
   - orgId: 1

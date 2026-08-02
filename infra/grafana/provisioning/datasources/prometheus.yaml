@@ -2,7 +2,9 @@ apiVersion: 1
 
 # v1.39: Prometheus Datasource
 # 目的: 供 Grafana Alert Rules 查询 backend 暴露的 8 个 observability_* Gauge + 1 Counter
-# 设计: 复用 backend /api/v1/metrics 端点, 通过 ObservabilityExporter 60s 周期发布
+# 设计: 真实 Prometheus (docker-compose prometheus 服务) 抓取 backend /api/v1/metrics
+# H-AUDIT-01: 此前 url 误指向 http://backend:8000 (backend 无 Prometheus /api/v1/query),
+# 导致 Grafana Alert Rules 持续 405. 现指向 prometheus:9090.
 # 与 simpod-json (observability-api) 并存, isDefault=false
 # 固定 UID: PB0F7F7A2A1B0E0FA (告警规则硬引用, 见 rules.yaml)
 
@@ -11,7 +13,7 @@ datasources:
     name: Prometheus
     type: prometheus
     access: proxy
-    url: http://backend:8000
+    url: http://prometheus:9090
     isDefault: false
     editable: false
     jsonData:
@@ -19,7 +21,6 @@ datasources:
       httpMethod: POST
       # 允许 POST body 包含 time range 等参数
       manageAlerts: true
-      # S4 P3: /metrics 端点鉴权 (CRIT-007)
-      httpHeaderName1: Authorization
-    secureJsonData:
-      httpHeaderValue1: Bearer ${METRICS_ACCESS_TOKEN}
+      # S4 P3: /metrics 端点鉴权由 Prometheus scrape config 携带 Bearer, datasource 无需附加
+      # (Prometheus 抓取 backend 时附带 METRICS_ACCESS_TOKEN, 见 infra/prometheus/prometheus.yml)
+    secureJsonData: {}
