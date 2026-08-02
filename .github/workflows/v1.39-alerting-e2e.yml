@@ -124,12 +124,14 @@ jobs:
       # ============================================================
       - name: TC-AT-012 8 observability metrics exposed
         run: |
-          CURL="curl -s -H \"Authorization: Bearer ${METRICS_ACCESS_TOKEN}\" http://localhost:8001/api/v1/metrics"
-          METRICS=$($CURL | grep -c "^# HELP observability_")
+          # H-AUDIT-01: 不能把整条 curl 命令存入 $CURL 再展开 (内嵌引号会丢失导致 401),
+          # 用函数包装
+          get_metrics() { curl -s -H "Authorization: Bearer ${METRICS_ACCESS_TOKEN}" http://localhost:8001/api/v1/metrics; }
+          METRICS=$(get_metrics | grep -c "^# HELP observability_")
           echo "Found $METRICS observability metrics"
           if [ "$METRICS" -lt 8 ]; then
             echo "::error::TC-AT-012 FAIL: expected ≥ 8 metrics, got $METRICS"
-            $CURL | head -20
+            get_metrics | head -20
             exit 1
           fi
           for M in observability_channel_success_rate \
@@ -140,7 +142,7 @@ jobs:
                    observability_lock_acquire_total \
                    observability_escalation_rate \
                    observability_alert_total; do
-            if ! $CURL | grep -q "$M"; then
+            if ! get_metrics | grep -q "$M"; then
               echo "::error::TC-AT-012 FAIL: missing $M"
               exit 1
             fi
