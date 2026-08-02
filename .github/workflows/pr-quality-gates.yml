@@ -336,13 +336,17 @@ jobs:
     name: Container Image Scan
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      # H-AUDIT-01: upload-sarif 需要 security-events write
+      security-events: write
     if: |
       github.event_name == 'workflow_dispatch' ||
       contains(toJson(github.event.pull_request.files), 'Dockerfile') ||
       contains(toJson(github.event.pull_request.files), 'docker-compose.yml') ||
       contains(toJson(github.event.pull_request.files), '.trivyignore')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -352,11 +356,14 @@ jobs:
         run: docker build -f Dockerfile -t dws-backend:scan .
 
       - name: Build frontend image
-        working-directory: frontend
-        run: docker build -f Dockerfile -t dws-frontend:scan .
+        # H-AUDIT-01: frontend/Dockerfile 内 COPY frontend/... 与 common/...,
+        # 构建上下文必须是仓库根目录 (原 working-directory: frontend 导致 COPY 源不存在)
+        run: docker build -f frontend/Dockerfile -t dws-frontend:scan .
 
       - name: Scan backend image with trivy
-        uses: aquasecurity/trivy-action@master
+        # H-AUDIT-01: 固定安全版本 v0.35.0 (2026-03 供应链攻击中唯一未被污染的版本),
+        # args 输入已移除, 改用类型化 inputs
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: dws-backend:scan
           format: 'sarif'
@@ -365,10 +372,12 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          args: --ignorefile backend/.trivyignore
+          scanners: 'vuln'
+          trivyignores: 'backend/.trivyignore'
 
       - name: Scan frontend image with trivy
-        uses: aquasecurity/trivy-action@master
+        # H-AUDIT-01: 同上, 类型化 inputs
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: dws-frontend:scan
           format: 'sarif'
@@ -377,17 +386,18 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          args: --ignorefile frontend/.trivyignore
+          scanners: 'vuln'
+          trivyignores: 'frontend/.trivyignore'
 
       - name: Upload backend SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-backend-results.sarif
 
       - name: Upload frontend SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-frontend-results.sarif
 

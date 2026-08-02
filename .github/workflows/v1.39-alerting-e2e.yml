@@ -52,6 +52,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # H-AUDIT-01: prometheus.yml 硬编码本地 token, CI 中需替换为 CI token,
+      # 否则 Prometheus 抓取 backend /api/v1/metrics 返回 403
+      - name: Sync Prometheus bearer token
+        run: |
+          sed -i "s|^    bearer_token: .*|    bearer_token: ${METRICS_ACCESS_TOKEN}|" infra/prometheus/prometheus.yml
+          grep -n "bearer_token" infra/prometheus/prometheus.yml
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -104,13 +111,17 @@ jobs:
 
       # ============================================================
       # TC-AT-012: 8 metric 在 /metrics 端点暴露
+      # H-AUDIT-01: /api/v1/metrics 强制 Bearer 鉴权 (CRIT-007),
+      # 原裸 curl 无 token 必 401, 本步骤从未通过
       # ============================================================
       - name: TC-AT-012 8 observability metrics exposed
         run: |
-          METRICS=$(curl -s http://localhost:8000/api/v1/metrics | grep -c "^# HELP observability_")
+          CURL="curl -s -H \"Authorization: Bearer ${METRICS_ACCESS_TOKEN}\" http://localhost:8000/api/v1/metrics"
+          METRICS=$($CURL | grep -c "^# HELP observability_")
           echo "Found $METRICS observability metrics"
           if [ "$METRICS" -lt 8 ]; then
             echo "::error::TC-AT-012 FAIL: expected ≥ 8 metrics, got $METRICS"
+            $CURL | head -20
             exit 1
           fi
           for M in observability_channel_success_rate \
@@ -121,7 +132,7 @@ jobs:
                    observability_lock_acquire_total \
                    observability_escalation_rate \
                    observability_alert_total; do
-            if ! curl -s http://localhost:8000/api/v1/metrics | grep -q "$M"; then
+            if ! $CURL | grep -q "$M"; then
               echo "::error::TC-AT-012 FAIL: missing $M"
               exit 1
             fi
