@@ -178,7 +178,8 @@ jobs:
           sleep 5
           RESP=$(curl -s -u admin:ci-grafana-admin \
             http://localhost:3000/api/v1/provisioning/contact-points)
-          URL=$(echo "$RESP" | python -c "import sys,json; d=json.load(sys.stdin); cps=[c for c in d if c.get('name')=='sre-webhook']; print(cps[0]['receivers'][0]['settings'].get('url','') if cps else '')")
+          # H-AUDIT-01: provisioning API 返回扁平结构 (settings.url 在顶层, 无 receivers 数组)
+          URL=$(echo "$RESP" | python -c "import sys,json; d=json.load(sys.stdin); cps=[c for c in d if c.get('name')=='sre-webhook']; print(cps[0]['settings'].get('url','') if cps else '')")
           echo "sre-webhook url=$URL"
           if [ -z "$URL" ] || echo "$URL" | grep -qE "httpbin|example\.com|webhook\.site|hooks\.slack\.com/services/CI"; then
             echo "::error::TC-AT-017 FAIL: sre-webhook 指向公网测试地址或缺失: '$URL'"
