@@ -527,7 +527,8 @@ groups:
               to: 0
             model:
               refId: A
-              expr: 'up{job="backend"}'
+              # H-AUDIT-01: prometheus.yml job_name=dws-backend, up{job="backend"} 永远无数据
+              expr: 'up{job="dws-backend"}'
               instant: true
               range: false
               relativeTimeRange:
@@ -565,4 +566,4 @@ groups:
           meta: prometheus-up
         annotations:
           summary: "Prometheus 抓取 backend 失败"
-          description: "up{job=\"backend\"} = {{ $values.A }}, 持续 5 分钟"
+          description: "up{job=\"dws-backend\"} = {{ $values.A }}, 持续 5 分钟"

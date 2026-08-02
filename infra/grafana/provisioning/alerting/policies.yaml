@@ -9,6 +9,8 @@ apiVersion: 1
 #
 # 路由设计 (current):
 #   - 根 policy: sre-webhook (所有 alert 走此 receiver, 兜底)
+#   - H-AUDIT-01 (P0-2): receiver 目标暂为集群内 no-op, 通知不产生外部流量;
+#     恢复方式见 contact-points.yaml 头部注释
 #   - 复杂分级路由: 通过 UI 配置 (后续可参考 v1.39 R1 决策 Q2/Q3)
 #     - P0: webhook + email 并发, 即时通知, 24x7 不静音
 #     - P1: webhook + email 并发, 30s 延迟, 24x7 不静音
