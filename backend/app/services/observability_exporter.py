@@ -207,12 +207,18 @@ class ObservabilityExporter:
     async def _safe_set_channel(
         self, db: AsyncSession, start: datetime, end: datetime
     ) -> None:
-        """1. 通道成功率."""
+        """1. 通道成功率.
+
+        H-AUDIT-01: 无记录 (total==0) 时不发样本 — 缺样本 → Prometheus 无序列 →
+        Grafana NoData → 规则 noDataState=OK 不告警 (空闲误报修复)。
+        """
         try:
             from app.api.v1.observability import _compute_channel_stats
 
             # channel=None 表示聚合所有通道 (与 API 端点默认行为一致)
             cs = await _compute_channel_stats(db, start, end, None)
+            if not cs.get("total", 0):
+                return
             metrics.observability_channel_success_rate.set(
                 cs.get("overall_success_rate", 0.0), channel="all"
             )
@@ -222,24 +228,34 @@ class ObservabilityExporter:
     async def _safe_set_am_sync(
         self, db: AsyncSession, start: datetime, end: datetime
     ) -> None:
-        """2. AM 同步成功率."""
+        """2. AM 同步成功率.
+
+        H-AUDIT-01: 同 _safe_set_channel — 无记录不发样本 (NoData → OK)。
+        """
         try:
             from app.api.v1.observability import _compute_am_sync
 
             # operation=None 表示聚合所有操作 (与 API 端点默认行为一致)
             am = await _compute_am_sync(db, start, end, None)
+            if not am.get("total", 0):
+                return
             metrics.observability_am_sync_success_rate.set(am.get("success_rate", 0.0))
         except Exception as e:
             logger.warning("am_sync collect failed (FM-1 fallback): %s", e)
 
     async def _safe_set_lock(self, db: AsyncSession) -> None:
-        """3-6. 锁 4 个 metric."""
+        """3-6. 锁 4 个 metric.
+
+        H-AUDIT-01: 同 _safe_set_channel — 无记录不发样本 (NoData → OK)。
+        """
         try:
             from app.api.v1.observability import _compute_lock_stats
 
             lk = await _compute_lock_stats(db)
             # _compute_lock_stats 返回嵌套结构: {"memory": {...}, "historical_recent": {...}}
             mem = lk.get("memory", {})
+            if not mem.get("total", 0):
+                return
             metrics.observability_lock_acquire_rate.set(mem.get("acquire_rate", 0.0))
             metrics.observability_lock_fallback_rate.set(mem.get("fallback_rate", 0.0))
             metrics.observability_lock_error_rate.set(mem.get("error_rate", 0.0))
@@ -250,12 +266,17 @@ class ObservabilityExporter:
     async def _safe_set_escalation(
         self, db: AsyncSession, start: datetime, end: datetime
     ) -> None:
-        """7. 升级率."""
+        """7. 升级率.
+
+        H-AUDIT-01: 同 _safe_set_channel — 无 fired 记录不发样本 (NoData → OK)。
+        """
         try:
             from app.api.v1.observability import _compute_escalation
 
             # severity=None 表示聚合所有严重度 (与 API 端点默认行为一致)
             es = await _compute_escalation(db, start, end, None)
+            if not es.get("total_fired", 0):
+                return
             metrics.observability_escalation_rate.set(es.get("escalation_rate", 0.0))
         except Exception as e:
             logger.warning("escalation collect failed (FM-1 fallback): %s", e)

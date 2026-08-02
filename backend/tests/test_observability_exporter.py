@@ -67,8 +67,8 @@ async def test_collect_all_writes_gauges() -> None:
     # H-8 修复后首次调用仅初始化基线不累加 Counter，测试稳态行为时跳过初始化
     exporter._counter_initialized = True
 
-    channel_data = {"overall_success_rate": 0.95}
-    am_sync_data = {"success_rate": 0.88}
+    channel_data = {"overall_success_rate": 0.95, "total": 100}
+    am_sync_data = {"success_rate": 0.88, "total": 100}
     lock_data = {
         "memory": {
             "acquire_rate": 0.97,
@@ -77,7 +77,7 @@ async def test_collect_all_writes_gauges() -> None:
             "total": 100,
         }
     }
-    escalation_data = {"escalation_rate": 0.15}
+    escalation_data = {"escalation_rate": 0.15, "total_fired": 100}
     trend_data = {"by_status": {"firing": 10}}
 
     with patch(
@@ -131,7 +131,7 @@ async def test_collect_all_continues_on_error() -> None:
         new=AsyncMock(side_effect=Exception("DB down")),
     ), patch(
         "app.api.v1.observability._compute_am_sync",
-        new=AsyncMock(return_value={"success_rate": 0.50}),
+        new=AsyncMock(return_value={"success_rate": 0.50, "total": 100}),
     ), patch(
         "app.api.v1.observability._compute_lock_stats",
         new=AsyncMock(
@@ -146,7 +146,7 @@ async def test_collect_all_continues_on_error() -> None:
         ),
     ), patch(
         "app.api.v1.observability._compute_escalation",
-        new=AsyncMock(return_value={"escalation_rate": 0.20}),
+        new=AsyncMock(return_value={"escalation_rate": 0.20, "total_fired": 100}),
     ), patch(
         "app.api.v1.observability._compute_trend",
         new=AsyncMock(return_value={"by_status": {"firing": 5}}),
@@ -892,7 +892,7 @@ class TestSafeSetChannel:
         assert any("channel_stats collect failed" in r.message for r in caplog.records)
 
     async def test_default_when_key_missing(self) -> None:
-        """cs.get('overall_success_rate', 0.0) 默认值回退."""
+        """H-AUDIT-01: 无记录 (total==0) 时不发样本 — NoData → 规则 OK, 避免空闲误报."""
         _reset_metrics()
         exporter = ObservabilityExporter()
         db = _make_db_mock()
@@ -900,7 +900,22 @@ class TestSafeSetChannel:
 
         with patch(
             "app.api.v1.observability._compute_channel_stats",
-            new=AsyncMock(return_value={}),  # 缺少 overall_success_rate
+            new=AsyncMock(return_value={}),  # 无 total (无记录)
+        ):
+            await exporter._safe_set_channel(db, start, end)
+
+        assert ("all",) not in metrics.observability_channel_success_rate._values
+
+    async def test_emits_with_default_rate_when_total_present(self) -> None:
+        """有记录但缺 overall_success_rate 键时回退 0.0."""
+        _reset_metrics()
+        exporter = ObservabilityExporter()
+        db = _make_db_mock()
+        start, end = _time_window()
+
+        with patch(
+            "app.api.v1.observability._compute_channel_stats",
+            new=AsyncMock(return_value={"total": 10}),  # 缺 overall_success_rate
         ):
             await exporter._safe_set_channel(db, start, end)
 
@@ -935,7 +950,7 @@ class TestSafeSetAmSync:
         assert any("am_sync collect failed" in r.message for r in caplog.records)
 
     async def test_default_when_key_missing(self) -> None:
-        """am.get('success_rate', 0.0) 默认值回退."""
+        """H-AUDIT-01: 无记录 (total==0) 时不发样本 — NoData → 规则 OK, 避免空闲误报."""
         _reset_metrics()
         exporter = ObservabilityExporter()
         db = _make_db_mock()
@@ -943,7 +958,22 @@ class TestSafeSetAmSync:
 
         with patch(
             "app.api.v1.observability._compute_am_sync",
-            new=AsyncMock(return_value={}),  # 缺少 success_rate
+            new=AsyncMock(return_value={}),  # 无 total (无记录)
+        ):
+            await exporter._safe_set_am_sync(db, start, end)
+
+        assert () not in metrics.observability_am_sync_success_rate._values
+
+    async def test_emits_with_default_rate_when_total_present(self) -> None:
+        """有记录但缺 success_rate 键时回退 0.0."""
+        _reset_metrics()
+        exporter = ObservabilityExporter()
+        db = _make_db_mock()
+        start, end = _time_window()
+
+        with patch(
+            "app.api.v1.observability._compute_am_sync",
+            new=AsyncMock(return_value={"total": 10}),  # 缺 success_rate
         ):
             await exporter._safe_set_am_sync(db, start, end)
 
@@ -1006,7 +1036,7 @@ class TestSafeSetLock:
         assert metrics.observability_lock_acquire_total._values[()] == 250
 
     async def test_defaults_when_keys_missing(self) -> None:
-        """.get() 默认值回退."""
+        """H-AUDIT-01: 无记录 (memory.total==0) 时不发样本 — NoData → 规则 OK."""
         _reset_metrics()
         exporter = ObservabilityExporter()
         db = _make_db_mock()
@@ -1017,10 +1047,10 @@ class TestSafeSetLock:
         ):
             await exporter._safe_set_lock(db)
 
-        assert metrics.observability_lock_acquire_rate._values[()] == 0.0
-        assert metrics.observability_lock_fallback_rate._values[()] == 0.0
-        assert metrics.observability_lock_error_rate._values[()] == 0.0
-        assert metrics.observability_lock_acquire_total._values[()] == 0
+        assert not metrics.observability_lock_acquire_rate._values
+        assert not metrics.observability_lock_fallback_rate._values
+        assert not metrics.observability_lock_error_rate._values
+        assert not metrics.observability_lock_acquire_total._values
 
 
 # ============================================================================
@@ -1051,7 +1081,7 @@ class TestSafeSetEscalation:
         assert any("escalation collect failed" in r.message for r in caplog.records)
 
     async def test_default_when_key_missing(self) -> None:
-        """es.get('escalation_rate', 0.0) 默认值回退."""
+        """H-AUDIT-01: 无 fired 记录时不发样本 — NoData → 规则 OK."""
         _reset_metrics()
         exporter = ObservabilityExporter()
         db = _make_db_mock()
@@ -1063,4 +1093,4 @@ class TestSafeSetEscalation:
         ):
             await exporter._safe_set_escalation(db, start, end)
 
-        assert metrics.observability_escalation_rate._values[()] == 0.0
+        assert () not in metrics.observability_escalation_rate._values
