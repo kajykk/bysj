@@ -93,7 +93,8 @@ jobs:
       - name: Wait for backend healthy (TC-AT-012 前置)
         run: |
           for i in $(seq 1 60); do
-            if curl -s -f http://localhost:8000/health | grep -q '"status":"ok"'; then
+            # H-AUDIT-01: compose 将宿主端口映射为 8001:8000, 容器内才用 8000
+            if curl -s -f http://localhost:8001/health | grep -q '"status":"ok"'; then
               echo "Backend healthy after ${i}s"
               exit 0
             fi
@@ -123,7 +124,7 @@ jobs:
       # ============================================================
       - name: TC-AT-012 8 observability metrics exposed
         run: |
-          CURL="curl -s -H \"Authorization: Bearer ${METRICS_ACCESS_TOKEN}\" http://localhost:8000/api/v1/metrics"
+          CURL="curl -s -H \"Authorization: Bearer ${METRICS_ACCESS_TOKEN}\" http://localhost:8001/api/v1/metrics"
           METRICS=$($CURL | grep -c "^# HELP observability_")
           echo "Found $METRICS observability metrics"
           if [ "$METRICS" -lt 8 ]; then
@@ -163,8 +164,8 @@ jobs:
             echo "Response: $RESP"
             exit 1
           fi
-          # 验证 group name
-          if ! echo "$RESP" | grep -q "observability-alerts"; then
+          # 验证 group name (扁平结构字段为 ruleGroup, 非 group)
+          if ! echo "$RESP" | grep -q '"ruleGroup":"observability-alerts"'; then
             echo "::error::TC-AT-016 FAIL: group 'observability-alerts' not found"
             exit 1
           fi
