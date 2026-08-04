@@ -54,6 +54,16 @@ export const ROLE_FLOW_CONFIG: Record<RoleName, RoleFlowConfig> = {
   }
 }
 
+// 跨域直连后端时，route.fulfill 的响应默认不带 CORS 头，
+// 浏览器会拦截伪造的 401 响应（net::ERR_FAILED），axios 收到的是 network error 而非 401，
+// 导致 401 刷新拦截器不触发。所有模拟 401 的 fulfill 必须附带这些头。
+export const CORS_HEADERS = {
+  'access-control-allow-origin': 'http://localhost:5173',
+  'access-control-allow-credentials': 'true',
+  'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'access-control-allow-headers': 'Authorization, Content-Type, Accept',
+}
+
 export async function loginAsRole(page: Page, role: RoleName) {
   // 跳过新手引导 Tour：el-tour 遮罩会拦截页面点击，导致测试点击超时
   await page.addInitScript(() => {

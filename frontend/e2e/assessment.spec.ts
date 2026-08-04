@@ -32,7 +32,13 @@ test.describe('Assessment Flow', () => {
     }
     await structuredTab.click()
 
-    // 空表单直接提交，应触发必填校验错误
+    // 表单字段自带默认值，直接提交会通过校验；先清空必填的年龄字段再提交
+    const ageInput = page.locator('.el-input-number').first().locator('input')
+    await ageInput.click()
+    await ageInput.press('Control+A')
+    await ageInput.press('Backspace')
+
+    // 提交后应触发必填校验错误
     await page.getByRole('button', { name: /提交|submit/i }).click()
     await expect(page.locator('.el-form-item__error').first()).toBeVisible({ timeout: 10000 })
   })
