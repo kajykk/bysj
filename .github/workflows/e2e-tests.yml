@@ -69,6 +69,11 @@ jobs:
           DATABASE_URL: sqlite+aiosqlite:///./test_e2e.db
           REDIS_URL: redis://localhost:6379/0
           MODEL_DIR: ${{ github.workspace }}/models
+          # E2E 修复: enable_seed 默认 False, 未开启时无种子账户, 所有登录相关测试必挂
+          SEED_ENABLED: true
+          E2E_ADMIN_PASSWORD: E2E@Admin123
+          E2E_COUNSELOR_PASSWORD: E2E@Counselor123
+          E2E_USER_PASSWORD: E2E@User123
 
       - name: Wait for backend healthy
         run: |

@@ -36,6 +36,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# E2E 修复: 生产环境保持 5/min 防暴力破解, 开发/测试环境放宽到 60/min,
+# 避免共享 IP 的 E2E 套件 (~30 次登录) 触发 429 导致随机失败
+_AUTH_LIMIT = "5/minute" if settings.app_env.lower() == "production" else "60/minute"
+
 
 def _to_utc_naive(dt: datetime) -> datetime:
     if dt.tzinfo is None:
@@ -127,7 +131,7 @@ def _log_auth_operation(
         }
     },
 )
-@limiter.limit("5/minute")
+@limiter.limit(_AUTH_LIMIT)
 async def register(
     request: Request, payload: RegisterRequest, db: AsyncSession = Depends(get_db)
 ) -> dict:
@@ -142,7 +146,7 @@ async def register(
 
 
 @router.post("/login", responses=COMMON_ERROR_RESPONSES)
-@limiter.limit("5/minute")
+@limiter.limit(_AUTH_LIMIT)
 async def login(
     request: Request,
     response: Response,

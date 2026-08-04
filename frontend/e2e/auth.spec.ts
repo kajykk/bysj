@@ -3,7 +3,8 @@ import { test, expect } from '@playwright/test'
 test.describe('Login Page', () => {
   test('@smoke should display login form', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.locator('input')).toHaveCount(2)
+    // 登录表单包含用户名/密码两个输入 + "记住我" 复选框, 共 3 个 input
+    await expect(page.locator('input')).toHaveCount(3)
   })
 
   test('@smoke should show error on wrong credentials', async ({ page }) => {
@@ -11,7 +12,8 @@ test.describe('Login Page', () => {
     await page.getByPlaceholder('请输入用户名').fill('nonexistent')
     await page.getByPlaceholder('请输入密码').fill('wrongpass')
     await page.getByRole('button', { name: /登|login/i }).click()
-    await expect(page.getByText(/错误|失败|invalid/i)).toBeVisible({ timeout: 15000 })
+    // 错误提示可能同时出现多条 (拦截器 422 提示 + 页面 401 提示), 断言任一可见
+    await expect(page.getByText(/错误|失败|invalid/i).first()).toBeVisible({ timeout: 15000 })
   })
 
   test('@regression should navigate to register and back', async ({ page }) => {
