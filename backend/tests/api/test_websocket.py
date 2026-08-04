@@ -111,6 +111,52 @@ class TestWebSocketConnection:
         assert "缺少认证Token" in exc_info.value.reason
 
 
+class TestWebSocketQueryParamRoute:
+    """M-FE-1: /ws?user_id=N 兼容路由 (前端实际连接格式).
+
+    前端 useWebSocket 使用 ws://host/ws/?user_id={userId} 连接,
+    后端同时保留 /ws/{user_id} 旧路径供历史客户端与既有测试使用.
+    """
+
+    def test_ws_query_param_accepts_access_token(
+        self, client: TestClient, seeded_user_id: int
+    ):
+        """query 路由走与路径路由相同的 message-based 认证流"""
+        token = create_access_token({"sub": str(seeded_user_id), "role": "user"})
+        with client.websocket_connect(f"/ws?user_id={seeded_user_id}") as ws:
+            ws.send_text(_auth_message(token))
+            ws.send_text(_ping_message())
+            payload = ws.receive_json()
+            assert payload["type"] == "pong"
+
+    def test_ws_query_param_missing_user_id_rejected(self, client: TestClient):
+        """缺少 user_id 参数时直接拒绝连接"""
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            with client.websocket_connect("/ws") as ws:
+                ws.receive_json()
+        assert exc_info.value.code == 4001
+        assert "user_id" in exc_info.value.reason
+
+    def test_ws_query_param_invalid_user_id_rejected(self, client: TestClient):
+        """user_id 非数字时直接拒绝连接"""
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            with client.websocket_connect("/ws?user_id=abc") as ws:
+                ws.receive_json()
+        assert exc_info.value.code == 4001
+
+    def test_ws_query_param_mismatch_rejected(
+        self, client: TestClient, seeded_user_id: int
+    ):
+        """query user_id 与 token sub 不匹配时拒绝连接"""
+        token = create_access_token({"sub": "9999", "role": "user"})
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            with client.websocket_connect(f"/ws?user_id={seeded_user_id}") as ws:
+                ws.send_text(_auth_message(token))
+                ws.receive_json()
+        assert exc_info.value.code == 4001
+        assert "用户ID不匹配" in exc_info.value.reason
+
+
 class TestWebSocketBearerNormalization:
     """验证 bearer 前缀和空白在 auth 消息中可被容忍"""
 

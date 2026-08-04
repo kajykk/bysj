@@ -298,7 +298,8 @@ export default {
     },
     factorDirection: {
       unknown: '未知', positive: '增加风险', negative: '降低风险',
-      scoreUp: '分数上升', scoreDown: '分数下降'
+      scoreUp: '分数上升', scoreDown: '分数下降',
+      increase: '风险上升', decrease: '风险下降'
     },
     arrayEmpty: '暂无'
   },
