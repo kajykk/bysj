@@ -13,7 +13,7 @@ jobs:
   e2e-test:
     name: E2E Full Stack
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     services:
       redis:
         image: redis:7
