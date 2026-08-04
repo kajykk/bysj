@@ -21,6 +21,12 @@ test.describe('Key Flows - Token Refresh', () => {
 
     await page.route('**/api/v1/user/risk/report*', async (route) => {
       const url = route.request().url()
+      // 跨域直连后端（VITE_API_BASE_URL=127.0.0.1:8000/api/v1）带 Authorization 头会先发
+      // OPTIONS 预检；放行预检，仅拦截真实 GET，否则浏览器会因 CORS 拦截 401 响应
+      if (route.request().method() === 'OPTIONS') {
+        await route.continue()
+        return
+      }
       // 首次原请求：注入 401 触发 refresh
       if (!originalRequestRetried && !url.includes('refresh')) {
         originalRequestRetried = true
@@ -59,6 +65,11 @@ test.describe('Key Flows - Token Refresh', () => {
 
     // 拦截所有 auth/refresh 请求，返回 401（模拟 RT 失效）
     await page.route('**/api/v1/auth/refresh', async (route) => {
+      // 放行 OPTIONS 预检（跨域 withCredentials POST 会先发预检）
+      if (route.request().method() === 'OPTIONS') {
+        await route.continue()
+        return
+      }
       await route.fulfill({
         status: 401,
         contentType: 'application/json',
@@ -69,6 +80,11 @@ test.describe('Key Flows - Token Refresh', () => {
     // 拦截 risk/report 返回 401 触发 refresh 流程
     let firstHit = true
     await page.route('**/api/v1/user/risk/report*', async (route) => {
+      // 放行 OPTIONS 预检，仅拦截真实 GET
+      if (route.request().method() === 'OPTIONS') {
+        await route.continue()
+        return
+      }
       if (firstHit) {
         firstHit = false
         await route.fulfill({

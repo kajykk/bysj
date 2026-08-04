@@ -55,6 +55,12 @@ export const ROLE_FLOW_CONFIG: Record<RoleName, RoleFlowConfig> = {
 }
 
 export async function loginAsRole(page: Page, role: RoleName) {
+  // 跳过新手引导 Tour：el-tour 遮罩会拦截页面点击，导致测试点击超时
+  await page.addInitScript(() => {
+    for (const r of ['user', 'counselor', 'admin']) {
+      localStorage.setItem(`dws:onboarding:completed:${r}:v1`, 'true')
+    }
+  })
   const credentials = ROLE_FLOW_CONFIG[role]
   await page.goto('/login')
   await page.getByRole('tab', { name: '登录' }).click()
