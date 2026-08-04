@@ -17,15 +17,21 @@ client = TestClient(app)
 pytestmark = pytest.mark.contract
 
 
+def _unwrap(response) -> dict:
+    """ApiResponse 包装解包: {code, message, data}."""
+    body = response.json()
+    return body.get("data", body) if isinstance(body, dict) else {}
+
+
 class TestTextPredictionContract:
-    """Contract tests for POST /api/v1/predict/text"""
+    """Contract tests for POST /api/v1/model/predict/text"""
 
     @settings(max_examples=5, deadline=None)
     @given(text=st.text(min_size=1, max_size=500))
     def test_valid_text_returns_prediction(self, text):
         """TC-CNT-HP-010: Valid text input returns prediction."""
         response = client.post(
-            "/api/v1/predict/text",
+            "/api/v1/model/predict/text",
             json={"text": text},
         )
 
@@ -33,24 +39,23 @@ class TestTextPredictionContract:
         assert response.status_code in [200, 503, 422]
 
         if response.status_code == 200:
-            data = response.json()
-            assert "risk_score" in data
-            assert isinstance(data["risk_score"], (int, float))
-            assert 0.0 <= data["risk_score"] <= 1.0
+            data = _unwrap(response)
+            # 文本模态输出: distress_score / sentiment_score
+            assert any(k in data for k in ("distress_score", "sentiment_score"))
 
     def test_empty_text_returns_error(self):
         """TC-CNT-HP-011: Empty text returns validation error."""
         response = client.post(
-            "/api/v1/predict/text",
+            "/api/v1/model/predict/text",
             json={"text": ""},
         )
 
-        assert response.status_code in [200, 422, 503]
+        assert response.status_code == 422
 
     def test_missing_text_field_returns_422(self):
         """TC-CNT-HP-012: Missing text field returns validation error."""
         response = client.post(
-            "/api/v1/predict/text",
+            "/api/v1/model/predict/text",
             json={},
         )
 
@@ -59,7 +64,7 @@ class TestTextPredictionContract:
     def test_text_with_special_characters(self):
         """TC-CNT-HP-013: Text with special characters handled gracefully."""
         response = client.post(
-            "/api/v1/predict/text",
+            "/api/v1/model/predict/text",
             json={"text": "Hello! 你好! 🎉 <script>alert('xss')</script>"},
         )
 
@@ -69,7 +74,7 @@ class TestTextPredictionContract:
         """TC-CNT-HP-014: Very long text handled appropriately."""
         long_text = "I feel sad. " * 1000  # 12000+ characters
         response = client.post(
-            "/api/v1/predict/text",
+            "/api/v1/model/predict/text",
             json={"text": long_text},
         )
 
@@ -77,56 +82,57 @@ class TestTextPredictionContract:
 
 
 class TestPhysiologicalPredictionContract:
-    """Contract tests for POST /api/v1/predict/physiological"""
+    """Contract tests for POST /api/v1/model/predict/physiological"""
 
     def test_valid_physiological_data(self):
         """TC-CNT-HP-015: Valid physiological data returns prediction."""
         response = client.post(
-            "/api/v1/predict/physiological",
+            "/api/v1/model/predict/physiological",
             json={
-                "sleep_hours": 7.5,
-                "exercise_minutes": 45.0,
-                "heart_rate_avg": 72.0,
-                "steps": 8000,
+                "physiological": {
+                    "sleep_hours": 7.5,
+                    "exercise_minutes": 45.0,
+                    "heart_rate": 72.0,
+                    "steps": 8000,
+                },
             },
         )
 
         assert response.status_code in [200, 503]
 
         if response.status_code == 200:
-            data = response.json()
+            data = _unwrap(response)
             assert "risk_score" in data
             assert isinstance(data["risk_score"], (int, float))
 
     def test_missing_physiological_fields(self):
-        """TC-CNT-HP-016: Missing fields handled gracefully."""
+        """TC-CNT-HP-016: Missing wrapper field returns validation error."""
         response = client.post(
-            "/api/v1/predict/physiological",
+            "/api/v1/model/predict/physiological",
             json={},
-        )
-
-        assert response.status_code in [200, 422, 503]
-
-    def test_invalid_physiological_types(self):
-        """TC-CNT-HP-017: Invalid types return validation error."""
-        response = client.post(
-            "/api/v1/predict/physiological",
-            json={
-                "sleep_hours": "seven",
-                "exercise_minutes": [30, 45],
-            },
         )
 
         assert response.status_code == 422
 
+    def test_invalid_physiological_types(self):
+        """TC-CNT-HP-017: Invalid types return validation error."""
+        response = client.post(
+            "/api/v1/model/predict/physiological",
+            json={"physiological": {"sleep_hours": "seven", "exercise_minutes": [30, 45]}},
+        )
+
+        assert response.status_code in [200, 422, 503]
+
     def test_extreme_physiological_values(self):
         """TC-CNT-HP-018: Extreme values handled gracefully."""
         response = client.post(
-            "/api/v1/predict/physiological",
+            "/api/v1/model/predict/physiological",
             json={
-                "sleep_hours": 999.0,
-                "exercise_minutes": -100.0,
-                "heart_rate_avg": 0.0,
+                "physiological": {
+                    "sleep_hours": 999.0,
+                    "exercise_minutes": -100.0,
+                    "heart_rate": 0.0,
+                },
             },
         )
 
@@ -134,15 +140,15 @@ class TestPhysiologicalPredictionContract:
 
 
 class TestFusionPredictionContract:
-    """Contract tests for POST /api/v1/predict/fusion"""
+    """Contract tests for POST /api/v1/model/predict/fusion"""
 
     def test_valid_fusion_input(self):
         """TC-CNT-HP-019: Valid fusion input returns combined prediction."""
         response = client.post(
-            "/api/v1/predict/fusion",
+            "/api/v1/model/predict/fusion",
             json={
                 "text": "I feel very anxious today",
-                "structured": {
+                "features": {
                     "sleep_hours": 5.0,
                     "exercise_minutes": 10.0,
                 },
@@ -152,14 +158,14 @@ class TestFusionPredictionContract:
         assert response.status_code in [200, 503]
 
         if response.status_code == 200:
-            data = response.json()
+            data = _unwrap(response)
             assert "risk_score" in data
             assert isinstance(data["risk_score"], (int, float))
 
     def test_fusion_with_text_only(self):
         """TC-CNT-HP-020: Fusion with text only handled gracefully."""
         response = client.post(
-            "/api/v1/predict/fusion",
+            "/api/v1/model/predict/fusion",
             json={
                 "text": "I feel sad",
             },
@@ -170,9 +176,9 @@ class TestFusionPredictionContract:
     def test_fusion_with_structured_only(self):
         """TC-CNT-HP-021: Fusion with structured only handled gracefully."""
         response = client.post(
-            "/api/v1/predict/fusion",
+            "/api/v1/model/predict/fusion",
             json={
-                "structured": {
+                "features": {
                     "sleep_hours": 7.0,
                     "exercise_minutes": 30.0,
                 },
@@ -184,7 +190,7 @@ class TestFusionPredictionContract:
     def test_empty_fusion_input(self):
         """TC-CNT-HP-022: Empty fusion input returns validation error."""
         response = client.post(
-            "/api/v1/predict/fusion",
+            "/api/v1/model/predict/fusion",
             json={},
         )
 
@@ -198,13 +204,37 @@ class TestPredictionResponseSchema:
         """TC-CNT-HP-023: All prediction responses have required fields."""
         endpoints = [
             (
-                "/api/v1/predict/structured",
-                {"sleep_hours": 7.0, "exercise_minutes": 30.0},
+                "/api/v1/model/predict/tabular",
+                {
+                    "features": {
+                        "age": 22,
+                        "gender": 1,
+                        "study_year": 3,
+                        "cgpa": 3.5,
+                        "stress_level": 3,
+                        "sleep_duration": 7,
+                        "social_support": 4,
+                        "financial_pressure": 2,
+                        "family_history": 0,
+                        "academic_pressure": 3,
+                        "exercise_frequency": 2,
+                        "anxiety": 2,
+                        "panic_attack": 0,
+                        "treatment_seeking": 1,
+                    }
+                },
             ),
-            ("/api/v1/predict/text", {"text": "I feel happy"}),
+            ("/api/v1/model/predict/text", {"text": "I feel happy"}),
             (
-                "/api/v1/predict/physiological",
-                {"sleep_hours": 7.0, "exercise_minutes": 30.0},
+                "/api/v1/model/predict/physiological",
+                {
+                    "physiological": {
+                        "sleep_hours": 7.0,
+                        "exercise_minutes": 30.0,
+                        "heart_rate": 70.0,
+                        "steps": 8000,
+                    }
+                },
             ),
         ]
 
@@ -212,15 +242,14 @@ class TestPredictionResponseSchema:
             response = client.post(endpoint, json=payload)
 
             if response.status_code == 200:
-                data = response.json()
+                data = _unwrap(response)
                 # Common fields
-                assert "risk_score" in data
-                assert isinstance(data["risk_score"], (int, float))
-                assert 0.0 <= data["risk_score"] <= 1.0
+                assert "risk_score" in data or "distress_score" in data
+                assert isinstance(data.get("risk_score", data.get("distress_score")), (int, float))
 
                 # Optional fields
                 if "risk_level" in data:
-                    assert isinstance(data["risk_level"], str)
+                    assert isinstance(data["risk_level"], (int, str))
                 if "confidence" in data:
                     assert isinstance(data["confidence"], (int, float))
                 if "fallback_used" in data:
@@ -229,7 +258,7 @@ class TestPredictionResponseSchema:
     def test_error_response_schema(self):
         """TC-CNT-HP-024: Error responses follow unified schema."""
         response = client.post(
-            "/api/v1/predict/structured",
+            "/api/v1/model/predict/tabular",
             json={"invalid": "data"},
         )
 

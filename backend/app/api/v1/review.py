@@ -19,7 +19,9 @@ from app.schemas.review import (
     CrisisEventFilter,
     CrisisHandleRequest,
     ReviewEscalateRequest,
+    ReviewPriority,
     ReviewResolveRequest,
+    ReviewStatus,
     ReviewTaskFilter,
 )
 from app.services.review_service import CrisisEventService, ReviewService
@@ -174,8 +176,8 @@ async def list_reviews(
     request: Request,
     current_user: Annotated[User, Depends(require_permission("review.view"))],
     db: Annotated[AsyncSession, Depends(get_db)],
-    status: str | None = Query(None, description="筛选状态"),
-    priority: str | None = Query(None, description="筛选优先级"),
+    status: ReviewStatus | None = Query(None, description="筛选状态"),
+    priority: ReviewPriority | None = Query(None, description="筛选优先级"),
     assigned_to: int | None = Query(None, description="筛选分配给的咨询师"),
     user_id: int | None = Query(None, description="筛选用户"),
     page: int = Query(1, ge=1, description="页码"),

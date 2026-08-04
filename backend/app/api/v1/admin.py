@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_role
-from app.core.openapi_responses import COMMON_ERROR_RESPONSES
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES, CSV_EXPORT_RESPONSE
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.request_id import get_or_create_request_id
 from app.core.response import ok
@@ -305,7 +305,11 @@ async def register_model(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
-    model_id = await service.register_model(payload.model_dump())
+    try:
+        model_id = await service.register_model(payload.model_dump())
+    except ValueError as exc:
+        # model_id 重复 → 409 (业务冲突), 避免未处理异常返回 500
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return ok({"model_id": model_id})
 
 
@@ -323,7 +327,10 @@ async def update_model(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
-    await service.update_model(model_id_int, payload.model_dump(exclude_unset=True))
+    try:
+        await service.update_model(model_id_int, payload.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     # L-API-6 修复：记录 OperationLog 审计日志，与其他模型操作（register/activate）保持一致
     db.add(
         OperationLog(
@@ -354,7 +361,10 @@ async def activate_model(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
-    await service.activate_model(model_id_int)
+    try:
+        await service.activate_model(model_id_int)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return ok({"message": "模型已激活"})
 
 
@@ -375,7 +385,11 @@ async def archive_logs(
     )
 
 
-@router.get("/crisis-events/export", response_class=PlainTextResponse)
+@router.get(
+    "/crisis-events/export",
+    response_class=PlainTextResponse,
+    responses={**COMMON_ERROR_RESPONSES, **CSV_EXPORT_RESPONSE},
+)
 @limiter.limit("60/minute")
 async def export_crisis_events(
     request: Request,

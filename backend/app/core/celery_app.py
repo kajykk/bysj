@@ -81,6 +81,26 @@ celery_app.conf.update(
     },
     # RES-P2-001: 默认队列名 (向后兼容: 未匹配 task_routes 的任务进入默认队列)
     task_default_queue="celery",
+    # PERF-P2-001: Redis/Celery 不可用时快速失败返回 503
+    # kombu 默认 task_publish_retry_policy 为 20 次指数退避重试 (~100s 后才抛错),
+    # 会阻塞训练/评估/对比请求. 限制为 1 次快速重试, 故障时 ~1s 内返回 503.
+    task_publish_retry=True,
+    task_publish_retry_policy={
+        "max_retries": 1,
+        "interval_start": 0.5,
+        "interval_step": 0.5,
+        "interval_max": 1,
+    },
+    # Redis result store 同理: 默认 retry_policy 20 次重试 (~100s),
+    # Redis 故障时快速失败, 由 PERF-P2-001 统一转 503.
+    result_backend_transport_options={
+        "retry_policy": {
+            "max_retries": 1,
+            "interval_start": 0.5,
+            "interval_step": 0.5,
+            "interval_max": 1,
+        },
+    },
 )
 # PERF-P3-003 部署建议 (不在代码中强制, 由部署脚本配置):
 # 生产环境建议为不同队列启动独立 worker, 配置不同的 prefetch_multiplier:

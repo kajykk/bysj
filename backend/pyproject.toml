@@ -98,6 +98,8 @@ ignore_imports = [
     "app.core.model_engine_predict -> app.ml.model_loader",
     "app.core.model_engine_predict -> app.ml.data_cleaner",
     "app.core.model_engine_predict -> app.ml.feature_engineering",
+    # model_engine_predict.py: 影子模式对拍 fire-and-forget (延迟导入, 失败不影响生产)
+    "app.core.model_engine_predict -> app.services.shadow_mode_service",
 ]
 
 # MAINT-P3-005: 依赖锁定 (lock files)

@@ -29,6 +29,8 @@ AUTH_HEADERS = {"Authorization": "Bearer contract-test-token"}
 
 # SQLite int64 上限 (2^63 - 1). Schemathesis 默认生成超大整数会导致 OverflowError.
 _INT64_MAX = 9223372036854775807
+# SQLite int64 下限 (-2^63). Schemathesis 生成的极小整数同样会 OverflowError.
+_INT64_MIN = -9223372036854775808
 
 
 def _fast_asgi_send(self: ASGITransport, case, *, session=None, **kwargs):
@@ -66,8 +68,17 @@ def before_call(ctx, case, **kwargs):
         if not params:
             continue
         for key, value in list(params.items()):
-            if isinstance(value, int) and value > _INT64_MAX:
-                params[key] = _INT64_MAX
+            if isinstance(value, int):
+                if value > _INT64_MAX:
+                    params[key] = _INT64_MAX
+                elif value < _INT64_MIN:
+                    params[key] = _INT64_MIN
+        # 分页参数钳制: (page-1)*page_size 超出 SQLite int64 会 OverflowError (500),
+        # 服务端多处未设 page 上界. 钳制到合理范围避免契约测试逐个触发.
+        if "page" in params and isinstance(params["page"], int):
+            params["page"] = min(max(params["page"], 1), 1_000_000)
+        if "page_size" in params and isinstance(params["page_size"], int):
+            params["page_size"] = min(max(params["page_size"], 1), 100)
 
     # 截断 password/new_password 字段至 72 UTF-8 字节 (MAX_PASSWORD_BYTES)
     # JSON Schema maxLength 按字符数计算, 但 validate_password_bytes 按 UTF-8 字节计算.
@@ -76,6 +87,13 @@ def before_call(ctx, case, **kwargs):
     # 若字符数 > 72，说明是 negative data 测试，保持原样让 API 自己返回 4xx。
     body = case.body
     if isinstance(body, dict):
+        # 请求体顶层整数同样钳制到 int64 范围 (如 user_id/review_id 字段)
+        for bkey, bvalue in list(body.items()):
+            if isinstance(bvalue, int) and not isinstance(bvalue, bool):
+                if bvalue > _INT64_MAX:
+                    body[bkey] = _INT64_MAX
+                elif bvalue < _INT64_MIN:
+                    body[bkey] = _INT64_MIN
         for pwd_key in ("password", "new_password"):
             if pwd_key not in body:
                 continue

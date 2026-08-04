@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 
 class TabularPredictRequest(BaseModel):
@@ -194,12 +202,28 @@ class FusionPredictResult(BaseModel):
     )
 
 
+# H-CONTRACT-01: 数据集/模型名用于拼接文件路径 (experiment_data.py dataset_path),
+# 仅允许安全字符, 阻断路径穿越与非法文件名 (控制字符会触发 OSError → 500)
+_SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+$")
+
+
+def _validate_safe_name(v: str, field: str) -> str:
+    if not _SAFE_NAME_RE.fullmatch(v):
+        raise ValueError(f"{field} 只能包含字母、数字、点、下划线和连字符")
+    return v
+
+
 class DatasetImportRequest(BaseModel):
     dataset_name: str = Field(..., min_length=1, max_length=120)
     source_type: str = Field(default="local", max_length=30)
     train_ratio: float = Field(default=0.7, ge=0.5, le=0.9)
     val_ratio: float = Field(default=0.15, ge=0.05, le=0.3)
     test_ratio: float = Field(default=0.15, ge=0.05, le=0.3)
+
+    @field_validator("dataset_name")
+    @classmethod
+    def _dataset_name_safe(cls, v: str) -> str:
+        return _validate_safe_name(v, "dataset_name")
 
     # P1-F6 修复：原代码未校验 train_ratio + val_ratio + test_ratio 是否等于 1.0，
     # 用户可传入 0.7/0.15/0.15（正确）或 0.9/0.3/0.3（错误，总和 1.5），
@@ -225,6 +249,11 @@ class TrainRequest(BaseModel):
     learning_rate: float = Field(
         default=2e-5, gt=0, le=1.0
     )  # L-21 修复：限制学习率上限，防止训练不稳定
+
+    @field_validator("dataset_name", "model_name")
+    @classmethod
+    def _names_safe(cls, v: str, info: ValidationInfo) -> str:
+        return _validate_safe_name(v, info.field_name or "name")
 
 
 class EvaluateRequest(BaseModel):

@@ -14,7 +14,9 @@ COMMON_ERROR_RESPONSES = {
     404: {**ERROR_RESPONSE_SCHEMA, "description": "资源不存在"},
     409: {**ERROR_RESPONSE_SCHEMA, "description": "状态冲突"},
     422: {**ERROR_RESPONSE_SCHEMA, "description": "参数校验失败"},
+    429: {**ERROR_RESPONSE_SCHEMA, "description": "请求过于频繁 (限流)"},
     500: {**ERROR_RESPONSE_SCHEMA, "description": "服务内部错误"},
+    503: {**ERROR_RESPONSE_SCHEMA, "description": "服务暂不可用 (Celery/Redis/DB 故障)"},
 }
 
 AUTH_ERROR_RESPONSES = {
@@ -40,5 +42,24 @@ FILE_EXPORT_RESPONSE = {
             "application/pdf": {},
             "text/csv": {},
         },
+    },
+}
+
+# Excel 导出端点 200 响应: 文档化 xlsx content-type,
+# 避免 schemathesis contract 测试 UndefinedContentType 误报
+EXCEL_EXPORT_RESPONSE = {
+    200: {
+        "description": "Excel 文件",
+        "content": {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+        },
+    },
+}
+
+# CSV 导出端点 200 响应: 文档化 text/csv content-type
+CSV_EXPORT_RESPONSE = {
+    200: {
+        "description": "CSV 文件",
+        "content": {"text/csv": {}},
     },
 }
