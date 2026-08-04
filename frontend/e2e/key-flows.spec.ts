@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsRole } from './shared'
+import { CORS_HEADERS, loginAsRole } from './shared'
 
 /**
  * R-010 关键链路 E2E 实测：补充 token 刷新、预测、复核 3 条主链路。
@@ -32,6 +32,7 @@ test.describe('Key Flows - Token Refresh', () => {
         originalRequestRetried = true
         await route.fulfill({
           status: 401,
+          headers: CORS_HEADERS,
           contentType: 'application/json',
           body: JSON.stringify({ detail: 'token 已过期' }),
         })
@@ -72,6 +73,7 @@ test.describe('Key Flows - Token Refresh', () => {
       }
       await route.fulfill({
         status: 401,
+        headers: CORS_HEADERS,
         contentType: 'application/json',
         body: JSON.stringify({ detail: '无效或已过期的Refresh Token' }),
       })
@@ -89,6 +91,7 @@ test.describe('Key Flows - Token Refresh', () => {
         firstHit = false
         await route.fulfill({
           status: 401,
+          headers: CORS_HEADERS,
           contentType: 'application/json',
           body: JSON.stringify({ detail: 'token 已过期' }),
         })
