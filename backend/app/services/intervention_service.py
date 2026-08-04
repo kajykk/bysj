@@ -149,7 +149,8 @@ class InterventionService:
         }
 
     async def get_history(self, user_id: int, page: int, page_size: int) -> dict:
-        offset = (page - 1) * page_size
+        # 钳制 offset 防溢出: 超大 page × page_size 会超出 SQLite int64 (LIMIT/OFFSET 上限)
+        offset = min((page - 1) * page_size, 2**63 - 1)
         stmt = (
             select(InterventionPlan)
             .where(InterventionPlan.user_id == user_id)

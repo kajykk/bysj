@@ -13,7 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_permission
-from app.core.openapi_responses import COMMON_ERROR_RESPONSES, PDF_SUCCESS_RESPONSE
+from app.core.openapi_responses import (
+    COMMON_ERROR_RESPONSES,
+    EXCEL_EXPORT_RESPONSE,
+    PDF_SUCCESS_RESPONSE,
+)
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
 from app.models.admin import OperationLog
@@ -131,7 +135,7 @@ def _stream_bytes(buffer, chunk_size: int = 65536):
         buffer.close()
 
 
-@router.post("/batch-export/excel", responses=COMMON_ERROR_RESPONSES)
+@router.post("/batch-export/excel", responses={**COMMON_ERROR_RESPONSES, **EXCEL_EXPORT_RESPONSE})
 @limiter.limit("5/minute")
 async def batch_export_excel(
     request: Request,

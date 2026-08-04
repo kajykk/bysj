@@ -99,7 +99,12 @@ def _validate_extension(filename: str, category: str | None = None) -> str:
 
 async def _validate_mime_type(file_content: bytes, category: str | None = None) -> None:
     """验证文件MIME类型与扩展名匹配（使用 python-magic）。"""
-    mime = magic.from_buffer(file_content, mime=True)
+    try:
+        mime = magic.from_buffer(file_content, mime=True)
+    except (magic.MagicException, OSError) as exc:
+        # 环境缺少 libmagic 数据库时降级: 仅依赖扩展名白名单校验 (与 ClamAV 降级策略一致)
+        logger.warning("SEC-UPLOAD: libmagic unavailable, skipping MIME check: %s", exc)
+        return
 
     # 确定允许的MIME类型
     if category and category in ALLOWED_MIME_TYPES:

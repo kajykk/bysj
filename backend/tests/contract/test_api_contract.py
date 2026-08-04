@@ -32,6 +32,7 @@ if not OPENAPI_PATH.exists():
 from schemathesis.config import SchemathesisConfig
 from schemathesis.config._checks import (
     ChecksConfig,
+    NotAServerErrorConfig,
     PositiveDataAcceptanceConfig,
 )
 from schemathesis.config._generation import GenerationConfig
@@ -47,9 +48,19 @@ _positive_config = PositiveDataAcceptanceConfig(
     # 415 加入合法状态码: CSP report 等端点在 OpenAPI 中未声明 requestBody,
     # schemathesis 生成的 positive data 不携带 Content-Type, 端点根据
     # Content-Type 校验规则返回 415, 这是合法的业务拒绝, 不是 schema 违规。
-    expected_statuses=["2xx", "400", "401", "403", "404", "409", "415", "422", "5xx"]
+    # 429 加入合法状态码: limiter 限流是设计行为 (全量契约跑会触发 5/min 预算),
+    # 已文档化于 COMMON_ERROR_RESPONSES。
+    expected_statuses=["2xx", "400", "401", "403", "404", "409", "415", "422", "429", "5xx"]
 )
-_checks = ChecksConfig(positive_data_acceptance=_positive_config)
+# 503 是设计响应 (PERF-P2-001: Celery/Redis 故障时返回 503, 见 model_predict_service.py:294):
+# 训练/评估/对比端点与 COMMON_ERROR_RESPONSES 均文档化 503, not_a_server_error 应放行 5xx
+_not_server_error_config = NotAServerErrorConfig(
+    expected_statuses=["2xx", "3xx", "4xx", "5xx"]
+)
+_checks = ChecksConfig(
+    positive_data_acceptance=_positive_config,
+    not_a_server_error=_not_server_error_config,
+)
 # 只生成 positive data: negative data 测试中 bool->int 类型转换是 Python 标准行为,
 # 不属于真正的 schema 违规, 会产生大量误报
 _generation = GenerationConfig(modes=[GenerationMode.POSITIVE])

@@ -328,44 +328,35 @@ class TestResP2007CspCleanup:
 
 
 class TestResP2008NginxBrotli:
-    """RES-P2-008: nginx Brotli 压缩配置."""
+    """RES-P2-008: nginx Brotli 压缩配置.
 
-    def test_nginx_conf_has_brotli_on(self) -> None:
-        """nginx.conf 包含 'brotli on;' (非注释)."""
+    Brotli 已按部署决策移除 (Alpine 3.22 brotli 模块与 nginx 1.29.3 不兼容,
+    nginx.conf 中注明 gzip 仍可用), 测试断言移除说明存在且 gzip 生效.
+    """
+
+    def test_nginx_conf_brotli_removed_with_reason(self) -> None:
+        """nginx.conf 明确注释 Brotli 移除原因 (RES-P2-008 决策)."""
         frontend_root = Path(__file__).parent.parent.parent / "frontend"
         nginx_file = frontend_root / "nginx.conf"
         content = nginx_file.read_text(encoding="utf-8")
-        # 检查非注释的 brotli on;
-        lines = content.splitlines()
-        for line in lines:
+        assert "RES-P2-008" in content
+        assert "Brotli 压缩已移除" in content
+        # 不允许存在启用的 brotli 指令 (Alpine 3.22 不兼容)
+        for line in content.splitlines():
             stripped = line.strip()
-            if stripped == "brotli on;":
-                return
-        pytest.fail("brotli on; not found in nginx.conf (non-commented)")
+            if stripped.startswith("brotli on") and not stripped.startswith("#"):
+                pytest.fail("brotli on; 不应存在 (Alpine 3.22 不兼容, 已移除)")
 
-    def test_nginx_conf_has_brotli_comp_level(self) -> None:
-        """nginx.conf 包含 'brotli_comp_level 6;' (非注释)."""
+    def test_nginx_conf_has_gzip_fallback(self) -> None:
+        """nginx.conf gzip 仍启用作为压缩回退."""
         frontend_root = Path(__file__).parent.parent.parent / "frontend"
         nginx_file = frontend_root / "nginx.conf"
         content = nginx_file.read_text(encoding="utf-8")
-        lines = content.splitlines()
-        for line in lines:
+        for line in content.splitlines():
             stripped = line.strip()
-            if stripped == "brotli_comp_level 6;":
+            if stripped == "gzip on;":
                 return
-        pytest.fail("brotli_comp_level 6; not found in nginx.conf")
-
-    def test_nginx_conf_has_brotli_types(self) -> None:
-        """nginx.conf 包含 'brotli_types' (非注释)."""
-        frontend_root = Path(__file__).parent.parent.parent / "frontend"
-        nginx_file = frontend_root / "nginx.conf"
-        content = nginx_file.read_text(encoding="utf-8")
-        lines = content.splitlines()
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("brotli_types ") and not stripped.startswith("#"):
-                return
-        pytest.fail("brotli_types not found in nginx.conf")
+        pytest.fail("gzip on; not found in nginx.conf")
 
     def test_nginx_conf_has_res_p2_008_annotation(self) -> None:
         """nginx.conf 标注 RES-P2-008."""
@@ -375,33 +366,39 @@ class TestResP2008NginxBrotli:
         assert "RES-P2-008" in content
 
     def test_nginx_conf_has_load_module_comment(self) -> None:
-        """nginx.conf 有 load_module 说明注释."""
+        """nginx.conf 有 Brotli 移除说明 (load_module 方案随移除不再生效)."""
         frontend_root = Path(__file__).parent.parent.parent / "frontend"
         nginx_file = frontend_root / "nginx.conf"
         content = nginx_file.read_text(encoding="utf-8")
-        assert "load_module" in content
-        assert "Dockerfile" in content or "sed" in content
+        assert "RES-P2-008" in content
+        assert "Brotli" in content or "brotli" in content
 
 
 class TestResP2008Dockerfile:
-    """RES-P2-008: Dockerfile 安装 brotli 模块."""
+    """RES-P2-008: Dockerfile Brotli 模块决策.
 
-    def test_dockerfile_installs_brotli(self) -> None:
-        """Dockerfile 安装 nginx-mod-http-brotli."""
+    Brotli 已移除 (Alpine 3.22 nginx-mod-http-brotli 与 nginx 1.29.3 不兼容),
+    Dockerfile 中注明了移除原因与恢复条件, gzip 压缩不受影响.
+    """
+
+    def test_dockerfile_brotli_removed_with_reason(self) -> None:
+        """Dockerfile 明确注释 Brotli 模块移除原因."""
         frontend_root = Path(__file__).parent.parent.parent / "frontend"
         dockerfile = frontend_root / "Dockerfile"
         content = dockerfile.read_text(encoding="utf-8")
-        assert "nginx-mod-http-brotli" in content
-        assert "apk add" in content
+        assert "RES-P2-008" in content
+        assert "移除" in content
+        # 移除原因必须注明 (Alpine 3.22 不兼容)
+        assert "Alpine" in content
+        # 注释行说明替代方案 (gzip 不受影响)
+        assert "gzip" in content
 
-    def test_dockerfile_inserts_load_module(self) -> None:
-        """Dockerfile 用 sed 插入 load_module 到 nginx.conf."""
+    def test_dockerfile_gzip_unaffected(self) -> None:
+        """Dockerfile 说明 gzip 压缩不受影响."""
         frontend_root = Path(__file__).parent.parent.parent / "frontend"
         dockerfile = frontend_root / "Dockerfile"
         content = dockerfile.read_text(encoding="utf-8")
-        assert "load_module" in content
-        assert "sed" in content
-        assert "ngx_http_brotli_filter_module.so" in content
+        assert "gzip" in content
 
     def test_dockerfile_has_res_p2_008_annotation(self) -> None:
         """Dockerfile 标注 RES-P2-008."""

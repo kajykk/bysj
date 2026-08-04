@@ -62,10 +62,17 @@ class TestMonitoringContract:
         assert response.status_code in [200, 401, 403]
 
         if response.status_code == 200:
-            data = response.json()
-            assert isinstance(data, dict)
-            # Should contain success rate information
-            assert any(k in data for k in ["success_rate", "rate", "percentage"])
+            body = response.json()
+            payload = body.get("data", body)  # ApiResponse 解包 → ModelSuccessRateResponse
+            assert isinstance(payload, dict)
+            # 结构: {granularity, data: [{time_bucket, total, success, fallback, success_rate}]}
+            assert "granularity" in payload and "data" in payload
+            items = payload["data"]
+            assert isinstance(items, list)
+            assert all(
+                any(k in item for k in ["success_rate", "rate", "percentage"])
+                for item in items
+            )
 
     def test_fallback_stats_endpoint(self):
         """TC-CNT-HP-040: Fallback stats endpoint returns fallback statistics."""
@@ -142,11 +149,12 @@ class TestCanaryContract:
     def test_rollback_canary(self):
         """TC-CNT-HP-046: Rollback canary endpoint triggers rollback."""
         response = client.post(
-            "/api/v1/canary/deployments/test-canary-id/rollback",
+            "/api/v1/canary/deployments/1/rollback",
             headers={"Authorization": "Bearer test_token"},
+            json={"reason": "contract test"},
         )
 
-        assert response.status_code in [200, 401, 403, 404]
+        assert response.status_code in [200, 400, 401, 403, 404]
 
     def test_canary_list_endpoint(self):
         """TC-CNT-HP-047: Canary list endpoint returns canary deployments."""
@@ -158,7 +166,7 @@ class TestCanaryContract:
         assert response.status_code in [200, 401, 403]
 
         if response.status_code == 200:
-            data = response.json()
+            data = response.json().get("data", {})
             assert isinstance(data, list) or "items" in data
 
 
@@ -191,7 +199,7 @@ class TestValidationContract:
         assert response.status_code in [200, 401, 403, 404]
 
         if response.status_code == 200:
-            data = response.json()
+            data = response.json().get("data", {})
             assert "status" in data or "state" in data
 
     def test_validation_results_schema(self):

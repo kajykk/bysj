@@ -95,8 +95,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -198,8 +218,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -308,8 +348,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -411,8 +471,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -519,8 +599,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -622,8 +722,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -733,8 +853,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -841,8 +981,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -955,8 +1115,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1082,8 +1262,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1176,8 +1376,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1283,8 +1503,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1389,8 +1629,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1495,8 +1755,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1607,8 +1887,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1708,8 +2008,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1814,8 +2134,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1983,8 +2323,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2074,8 +2434,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2178,8 +2558,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2272,8 +2672,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2432,8 +2852,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2539,8 +2979,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2630,8 +3090,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2726,8 +3206,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2830,8 +3330,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2926,8 +3446,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3052,8 +3592,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3169,8 +3729,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3286,8 +3866,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3403,8 +4003,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3520,8 +4140,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3637,8 +4277,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3728,8 +4388,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3845,8 +4525,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3966,8 +4666,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4073,8 +4793,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4244,8 +4984,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4367,8 +5127,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4490,8 +5270,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4613,8 +5413,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4716,8 +5536,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4830,8 +5670,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4939,8 +5799,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5063,8 +5943,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5187,8 +6087,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5288,8 +6208,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5394,8 +6334,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5500,8 +6460,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5606,8 +6586,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5702,8 +6702,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5798,8 +6818,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5894,8 +6934,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6006,8 +7066,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6107,8 +7187,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6213,8 +7313,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6320,8 +7440,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6427,8 +7567,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6561,8 +7721,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6692,8 +7872,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6868,8 +8068,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6960,8 +8180,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7073,8 +8313,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7239,8 +8499,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7330,8 +8610,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7420,8 +8720,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7527,8 +8847,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7665,8 +9005,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7773,8 +9133,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7891,8 +9271,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7999,8 +9399,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8107,8 +9527,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8225,8 +9665,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8333,8 +9793,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8425,8 +9905,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8532,8 +10032,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8645,8 +10165,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8753,8 +10293,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8845,8 +10405,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8951,8 +10531,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -8989,11 +10589,12 @@
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Excel 文件",
             "content": {
               "application/json": {
                 "schema": {}
-              }
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
             }
           },
           "400": {
@@ -9056,8 +10657,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9153,8 +10774,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9260,8 +10901,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9373,8 +11034,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9480,8 +11161,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9572,8 +11273,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9679,8 +11400,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9792,8 +11533,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9899,8 +11660,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9991,8 +11772,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -10176,8 +11977,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -10294,8 +12115,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -10412,8 +12253,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -10530,8 +12391,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -10564,7 +12445,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "$ref": "#/components/schemas/ReviewStatus"
                 },
                 {
                   "type": "null"
@@ -10582,7 +12463,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "$ref": "#/components/schemas/ReviewPriority"
                 },
                 {
                   "type": "null"
@@ -10728,8 +12609,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -10836,8 +12737,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -10944,8 +12865,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11062,8 +13003,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11180,8 +13141,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11311,8 +13292,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11428,8 +13429,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11545,8 +13566,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11684,8 +13725,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11791,8 +13852,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11908,8 +13989,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12036,8 +14137,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12162,8 +14283,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12268,8 +14409,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12387,8 +14548,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12504,8 +14685,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12595,8 +14796,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12691,8 +14912,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12787,8 +15028,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -12883,8 +15144,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13009,8 +15290,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13113,8 +15414,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13221,8 +15542,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13312,8 +15653,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13416,8 +15777,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13542,8 +15923,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13633,8 +16034,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13737,8 +16158,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -13833,8 +16274,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -14026,8 +16487,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -14192,8 +16673,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -14403,8 +16904,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -14524,8 +17045,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -14628,8 +17169,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -14745,8 +17306,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -14852,8 +17433,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -14962,8 +17563,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15016,13 +17637,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "CSV 文件",
             "content": {
               "text/plain": {
                 "schema": {
                   "type": "string"
                 }
-              }
+              },
+              "text/csv": {}
             }
           },
           "400": {
@@ -15085,8 +17707,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15175,8 +17817,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15265,8 +17927,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15370,8 +18052,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15481,8 +18183,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15597,8 +18319,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15707,8 +18449,170 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/query": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "Prometheus Query",
+        "description": "Prometheus HTTP API 兼容端点 (/api/v1/query).\n\nS4 P3: Grafana Prometheus 数据源需要标准 HTTP API, 而非 exposition format.\n本端点解析 exposition format 输出, 返回 Prometheus JSON API 格式响应.\n\n支持基本查询: 指标名 + {label=value} 过滤 (如 model_auc{modality=\"structured\"}).",
+        "operationId": "prometheus_query_api_v1_query_get",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Query"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Prometheus Query Api V1 Query Get"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "业务处理失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "状态冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15802,8 +18706,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -15929,8 +18853,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -16121,8 +19065,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -16231,8 +19195,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -16440,8 +19424,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -16652,8 +19656,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -16805,8 +19829,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -16958,8 +20002,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17111,8 +20175,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17246,8 +20330,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17399,8 +20503,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17493,8 +20617,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17592,8 +20736,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17706,8 +20870,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17844,8 +21028,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17938,8 +21142,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18063,8 +21287,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18171,8 +21415,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18281,8 +21545,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18375,8 +21659,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18474,8 +21778,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18576,8 +21900,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18733,8 +22077,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18883,8 +22247,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -18987,8 +22371,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19092,8 +22496,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19197,8 +22621,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19292,8 +22736,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19391,8 +22855,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19507,8 +22991,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19627,8 +23131,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19747,8 +23271,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19867,8 +23411,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -19991,8 +23555,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -20101,8 +23685,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -20206,8 +23810,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -20340,8 +23964,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -20446,8 +24090,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -20560,8 +24224,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -20676,8 +24360,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -20792,8 +24496,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -20898,8 +24622,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21036,8 +24780,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21183,8 +24947,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21289,8 +25073,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21403,8 +25207,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21521,8 +25345,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21636,8 +25480,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21728,8 +25592,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21819,8 +25703,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -21910,8 +25814,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -22000,8 +25924,28 @@
               }
             }
           },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
             "content": {
               "application/json": {
                 "schema": {
@@ -23769,6 +27713,15 @@
         "title": "ReviewEscalateRequest",
         "description": "复核任务升级请求体."
       },
+      "ReviewPriority": {
+        "type": "string",
+        "enum": [
+          "normal_review",
+          "high_risk_review",
+          "crisis_review"
+        ],
+        "title": "ReviewPriority"
+      },
       "ReviewRequest": {
         "properties": {
           "reviewer_note": {
@@ -23809,6 +27762,17 @@
         ],
         "title": "ReviewResolveRequest",
         "description": "复核任务处理请求体."
+      },
+      "ReviewStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "in_review",
+          "resolved",
+          "escalated",
+          "archived"
+        ],
+        "title": "ReviewStatus"
       },
       "RiskTrendItem": {
         "properties": {
