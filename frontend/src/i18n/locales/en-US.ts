@@ -298,7 +298,8 @@ export default {
     },
     factorDirection: {
       unknown: 'Unknown', positive: 'Increases Risk', negative: 'Decreases Risk',
-      scoreUp: 'Score Up', scoreDown: 'Score Down'
+      scoreUp: 'Score Up', scoreDown: 'Score Down',
+      increase: 'Risk Rising', decrease: 'Risk Falling'
     },
     arrayEmpty: 'N/A'
   },

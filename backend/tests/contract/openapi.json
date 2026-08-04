@@ -28,7 +28,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Register Api V1 Auth Register Post"
                 }
@@ -151,7 +150,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Login Api V1 Auth Login Post"
                 }
@@ -281,7 +279,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Refresh Token Api V1 Auth Refresh Post"
                 }
@@ -404,7 +401,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Change Password Api V1 Auth Change Password Put"
                 }
@@ -532,7 +528,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Request Password Reset Api V1 Auth Request Reset Post"
                 }
@@ -655,7 +650,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Reset Password Api V1 Auth Reset Password Post"
                 }
@@ -786,7 +780,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Logout Api V1 Auth Logout Post"
                 }
@@ -914,7 +907,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Update Profile Api V1 Auth Profile Put"
                 }
@@ -1049,7 +1041,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Submit Events Api V1 Analytics Events Post"
                 }
               }
@@ -1196,7 +1187,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Query Events Api V1 Analytics Events Get"
                 }
               }
@@ -1309,7 +1299,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Consent Api V1 Analytics Consent Get"
                 }
@@ -1436,7 +1425,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Update Consent Api V1 Analytics Consent Put"
                 }
@@ -4459,7 +4447,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Risk Trend Api V1 User Risk Trend Get"
                 }
               }
@@ -4918,7 +4905,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response List Contents Api V1 User Content  Get"
                 }
               }
@@ -5061,7 +5047,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response List Favorites Api V1 User Content Favorites List Get"
                 }
               }
@@ -5204,7 +5189,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response List Recommendations Api V1 User Content Recommendations Get"
                 }
               }
@@ -5347,7 +5331,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response List Recent Views Api V1 User Content Recent Views Get"
                 }
               }
@@ -5469,7 +5452,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Meditation Log Api V1 User Content Meditation Log Post"
                 }
@@ -5604,7 +5586,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Content Detail Api V1 User Content  Content Id  Get"
                 }
               }
@@ -5733,7 +5714,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Toggle Favorite Api V1 User Content  Content Id  Favorite Post"
                 }
               }
@@ -11200,7 +11180,7 @@
           "reports"
         ],
         "summary": "List Pdf Jobs",
-        "description": "P1-4: 列出当前用户的 PDF 生成任务.",
+        "description": "P1-4: 列出当前用户的 PDF 生成任务.\n\n任务按 created_by 隔离，任何已登录用户仅能查看自己的任务，\n无需 admin.predict.audit（原权限过严导致用户端任务进度恢复 403）。",
         "operationId": "list_pdf_jobs_api_v1_reports_pdf_jobs_get",
         "responses": {
           "200": {
@@ -18525,7 +18505,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Prometheus Query Api V1 Query Get"
                 }
               }
@@ -18639,7 +18618,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Metrics Summary Api V1 Admin Metrics Summary Get"
                 }
@@ -18787,7 +18765,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Alertmanager Webhook Api V1 Alerts Webhook Post"
                 }
               }
@@ -18999,7 +18976,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response List Alert History Api V1 Alerts History Get"
                 }
               }
@@ -19129,7 +19105,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Acknowledge Alert Api V1 Alerts  Alert Id  Ack Post"
                 }
               }
@@ -19358,7 +19333,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response List Alert Archive Api V1 Alerts Archive Get"
                 }
               }
@@ -19590,7 +19564,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Alert Trend Api V1 Alerts Observability Trend Get"
                 }
               }
@@ -19763,7 +19736,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Response Time Api V1 Alerts Observability Response Time Get"
                 }
               }
@@ -19936,7 +19908,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Escalation Api V1 Alerts Observability Escalation Get"
                 }
               }
@@ -20109,7 +20080,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Channel Stats Api V1 Alerts Observability Channel Stats Get"
                 }
               }
@@ -20264,7 +20234,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Silence Hit Rate Api V1 Alerts Observability Silence Hit Rate Get"
                 }
               }
@@ -20437,7 +20406,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Am Sync Api V1 Alerts Observability Am Sync Get"
                 }
               }
@@ -20550,7 +20518,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Lock Stats Api V1 Alerts Observability Lock Stats Get"
                 }
@@ -20669,7 +20636,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Observability Health Api V1 Alerts Observability Health Get"
                 }
@@ -20804,7 +20770,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Create Silence Api V1 Alerts Silences Post"
                 }
               }
@@ -20962,7 +20927,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response List Silences Api V1 Alerts Silences Get"
                 }
               }
@@ -21075,7 +21039,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response List Active Silences Api V1 Alerts Silences Active Get"
                 }
@@ -21221,7 +21184,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Update Silence Api V1 Alerts Silences  Silence Id  Put"
                 }
               }
@@ -21349,7 +21311,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Delete Silence Api V1 Alerts Silences  Silence Id  Delete"
                 }
               }
@@ -21479,7 +21440,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Enable Silence Api V1 Alerts Silences  Silence Id  Enable Post"
                 }
               }
@@ -21592,7 +21552,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Grafana Root Api V1 Alerts Observability Grafana  Get"
                 }
@@ -21711,7 +21670,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Grafana Health Api V1 Alerts Observability Grafana Health Get"
                 }
@@ -21831,7 +21789,6 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
                     "type": "object"
                   },
                   "type": "array",
@@ -22179,8 +22136,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "type": "object"
                   },
                   "title": "Response Grafana Query Api V1 Alerts Observability Grafana Query Post"
                 }
@@ -22304,7 +22260,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Run Clinical Validation Api V1 Validation Clinical Post"
                 }
@@ -22788,7 +22743,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Ops Dashboard Overview Api V1 Ops Dashboard Overview Get"
                 }
@@ -22925,7 +22879,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Ops Review Metrics Api V1 Ops Dashboard Review Metrics Get"
                 }
               }
@@ -23065,7 +23018,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Review Content Api V1 Content Governance  Content Id  Review Post"
                 }
               }
@@ -23205,7 +23157,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Takedown Content Api V1 Content Governance  Content Id  Takedown Post"
                 }
               }
@@ -23345,7 +23296,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Restore Content Api V1 Content Governance  Content Id  Restore Post"
                 }
               }
@@ -23489,7 +23439,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response List Pending Content Api V1 Content Governance Pending Get"
                 }
               }
@@ -23619,7 +23568,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Get Content History Api V1 Content Governance History  Content Id  Get"
                 }
               }
@@ -25413,7 +25361,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Health Check Health Get"
                 }
@@ -25525,7 +25472,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Liveness Check Health Live Get"
                 }
@@ -25636,7 +25582,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Readiness Check Health Ready Get"
                 }
@@ -25747,7 +25692,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Startup Check Health Startup Get"
                 }
@@ -25857,7 +25801,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Seed Health Check Health Seed Get"
                 }
@@ -26197,7 +26140,6 @@
             "description": "客户端时间戳（毫秒）"
           },
           "metadata": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Metadata",
             "description": "非敏感分类元数据"
@@ -26239,7 +26181,6 @@
       "BatchExportDataItem": {
         "properties": {
           "data": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Data"
           }
@@ -26282,7 +26223,6 @@
           "filters": {
             "anyOf": [
               {
-                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -26333,7 +26273,7 @@
           "files": {
             "items": {
               "type": "string",
-              "contentMediaType": "application/octet-stream"
+              "format": "binary"
             },
             "type": "array",
             "title": "Files"
@@ -26349,7 +26289,7 @@
         "properties": {
           "file": {
             "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File"
           }
         },
@@ -26675,7 +26615,6 @@
             "title": "Config Key"
           },
           "config_value": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Config Value"
           },
@@ -26810,7 +26749,6 @@
           "config": {
             "anyOf": [
               {
-                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -26966,7 +26904,6 @@
             "title": "Draft Type"
           },
           "data_payload": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Data Payload"
           }
@@ -27024,7 +26961,6 @@
             "title": "Request Id"
           },
           "details": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Details"
           }
@@ -27084,7 +27020,6 @@
           "features": {
             "anyOf": [
               {
-                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -27109,7 +27044,6 @@
           "physiological": {
             "anyOf": [
               {
-                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -27139,7 +27073,6 @@
             "title": "Metric"
           },
           "params": {
-            "additionalProperties": true,
             "type": "object",
             "maxProperties": 50,
             "title": "Params"
@@ -27473,7 +27406,6 @@
       "PhysiologicalPredictRequest": {
         "properties": {
           "physiological": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Physiological",
             "description": "用于生理模型推理的特征字典"
@@ -27586,7 +27518,6 @@
             "title": "Steps"
           },
           "data_payload": {
-            "additionalProperties": true,
             "type": "object",
             "maxProperties": 5000,
             "title": "Data Payload"
@@ -27907,7 +27838,6 @@
             "default": "comprehensive"
           },
           "data_payload": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Data Payload"
           }
@@ -27938,7 +27868,6 @@
       "TabularPredictRequest": {
         "properties": {
           "features": {
-            "additionalProperties": true,
             "type": "object",
             "title": "Features",
             "description": "用于模型推理的特征字典"
@@ -28421,7 +28350,6 @@
           "config": {
             "anyOf": [
               {
-                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -28571,7 +28499,6 @@
           "notify_channels": {
             "anyOf": [
               {
-                "additionalProperties": true,
                 "type": "object"
               },
               {

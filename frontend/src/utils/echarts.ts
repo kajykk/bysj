@@ -21,6 +21,7 @@ import {
   ToolboxComponent,
   DataZoomComponent,
   VisualMapComponent,
+  GraphicComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 
@@ -37,6 +38,7 @@ echarts.use([
   ToolboxComponent,
   DataZoomComponent,
   VisualMapComponent,
+  GraphicComponent,
   CanvasRenderer,
 ])
 

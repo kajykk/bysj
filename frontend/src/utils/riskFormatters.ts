@@ -17,6 +17,9 @@ import { translate } from '@/i18n'
 const t = translate
 
 function tr(key: string, fallback: string): string {
+  // 后端会直接下发中文名称（如 持续焦虑/睡眠不足/数据质量）作为 feature/direction 值，
+  // 此类键无需 i18n 查找，直接原样返回，避免 vue-i18n 大量 missing-key 警告
+  if (/[\u4e00-\u9fff]/.test(key)) return key
   const translated = t(key)
   // vue-i18n 对不存在的 key 返回 key 路径本身
   return translated === key ? fallback : translated
@@ -138,10 +141,10 @@ export function getFactorDirectionLabel(direction: string | undefined): string {
 /** 因子方向标签颜色类型 */
 export function getFactorDirectionTagType(
   direction: string | undefined
-): 'success' | 'warning' | 'danger' | 'info' {
+): 'success' | 'warning' | 'info' | 'danger' {
   if (!direction) return 'info'
-  if (direction === 'negative' || direction === 'score_down') return 'success'
-  if (direction === 'positive' || direction === 'score_up') return 'danger'
+  if (direction === 'negative' || direction === 'score_down' || direction === 'decrease') return 'success'
+  if (direction === 'positive' || direction === 'score_up' || direction === 'increase') return 'danger'
   return 'warning'
 }
 

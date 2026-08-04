@@ -288,6 +288,23 @@ async def ws_endpoint(ws: WebSocket, user_id: int):
     await websocket_endpoint(ws, user_id)
 
 
+@app.websocket("/ws/")
+@app.websocket("/ws")
+async def ws_endpoint_query(ws: WebSocket):
+    """M-FE-1 兼容：前端通过 query 传递 user_id（避免 userId 出现在 URL 路径中被日志/代理记录）。
+
+    与 /ws/{user_id} 共存：旧路径形式保留兼容，新客户端统一使用 /ws/?user_id=N。
+    同时注册带尾斜杠的 /ws/ 变体：前端 useWebSocket 使用 /ws/ 形式，
+    Starlette 的 /ws 路由不匹配尾斜杠路径，缺失时 uvicorn 对未匹配 ws 路径返回 403。
+    """
+    raw = ws.query_params.get("user_id", "").strip()
+    if not raw.isdigit():
+        await ws.accept()
+        await ws.close(code=4001, reason="缺少有效的user_id参数")
+        return
+    await websocket_endpoint(ws, int(raw))
+
+
 @app.get("/health", responses=COMMON_ERROR_RESPONSES, deprecated=True)
 @limiter.exempt
 async def health_check() -> dict:

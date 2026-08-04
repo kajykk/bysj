@@ -170,6 +170,23 @@ class TestPdfAsyncQueue:
             pdf_job_store.delete("test-list-1")
             pdf_job_store.delete("test-list-2")
 
+    def test_async_pdf_list_jobs_non_admin_allowed(
+        self, client, auth_headers, as_role
+    ):
+        """M-FE-1: 非 admin 用户也可查询自己的 PDF 任务.
+
+        前端 TaskProgressNotification 在布局级全局调用 pdf/jobs 恢复任务进度,
+        原 admin.predict.audit 权限导致普通用户 403 且触发未捕获异常.
+        任务按 created_by 隔离, 登录用户仅能查看自己的任务.
+        """
+        as_role("user", 1)
+        from app.services.pdf_job_store import pdf_job_store
+
+        expected = len(pdf_job_store.list_jobs(created_by=1))
+        response = client.get("/api/v1/reports/pdf/jobs", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["data"]["total"] == expected
+
     def test_async_pdf_status_other_user_returns_404(
         self, client, auth_headers, as_role
     ):

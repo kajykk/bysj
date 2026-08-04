@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_permission
+from app.core.deps import get_current_user, require_permission
 from app.core.openapi_responses import (
     COMMON_ERROR_RESPONSES,
     EXCEL_EXPORT_RESPONSE,
@@ -440,9 +440,13 @@ async def download_pdf(
 @limiter.limit("30/minute")
 async def list_pdf_jobs(
     request: Request,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """P1-4: 列出当前用户的 PDF 生成任务."""
+    """P1-4: 列出当前用户的 PDF 生成任务.
+
+    任务按 created_by 隔离，任何已登录用户仅能查看自己的任务，
+    无需 admin.predict.audit（原权限过严导致用户端任务进度恢复 403）。
+    """
     jobs = pdf_job_store.list_jobs(created_by=current_user.id)
     return ok({"jobs": jobs, "total": len(jobs)})
 
