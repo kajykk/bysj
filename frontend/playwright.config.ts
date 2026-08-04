@@ -18,6 +18,11 @@ export default defineConfig({
     baseURL: frontendUrl,
     trace: 'on-first-retry',
     headless: true,
+    // E2E 关键修复：生产构建会注册 PWA Service Worker（workbox NetworkFirst 缓存 /api/）。
+    // Playwright 的 page.route 无法拦截 SW 内部发出的请求，导致注入 401 的
+    // route.fulfill 全部失效（测试误以为刷新链路坏了）。E2E 应始终打真实后端，
+    // SW 缓存反而会让断言读到陈旧数据，故在此全局禁用。
+    serviceWorkers: 'block',
     launchOptions: {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
     },
