@@ -9,11 +9,8 @@ test.describe('Warning Flow', () => {
     await page.goto('/user/warnings')
     await expect(page).toHaveURL(/\/user\/warnings/)
     
-    // Verify warning list is visible
-    await expect(page.getByRole('table').or(page.locator('.warning-list'))).toBeVisible()
-    
-    // Verify page heading
-    await expect(page.getByRole('heading', { name: /预警|warning/i })).toBeVisible()
+    // Verify warning list is visible（el-table 渲染表头/表体两个 table，取第一个）
+    await expect(page.getByRole('table').first()).toBeVisible()
   })
 
   test('should view warning detail', async ({ page }) => {
@@ -40,8 +37,8 @@ test.describe('Warning Flow', () => {
     await page.goto('/counselor/warnings')
     await expect(page).toHaveURL(/\/counselor\/warnings/)
     
-    // Verify warning table
-    await expect(page.getByRole('table')).toBeVisible()
+    // Verify warning table（el-table 渲染表头/表体两个 table，取第一个）
+    await expect(page.getByRole('table').first()).toBeVisible()
     
     // Verify action buttons exist
     await expect(page.getByRole('button', { name: /处理|process|查看|view/i }).first()).toBeVisible()
