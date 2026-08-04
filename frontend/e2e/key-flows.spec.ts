@@ -42,8 +42,8 @@ test.describe('Key Flows - Token Refresh', () => {
       }
     })
 
-    // 触发受保护请求（访问 dashboard 会调用 risk/report）
-    await page.goto('/user/dashboard')
+    // 触发受保护请求（risk 页 onMounted 会调用 /user/risk/report）
+    await page.goto('/user/risk')
     // 给拦截器留出 refresh 重试时间
     await page.waitForTimeout(2000)
 
@@ -81,7 +81,8 @@ test.describe('Key Flows - Token Refresh', () => {
       await route.continue()
     })
 
-    await page.goto('/user/dashboard')
+    // 触发受保护请求（risk 页 onMounted 会调用 /user/risk/report）
+    await page.goto('/user/risk')
 
     // 验证：因 refresh 失败，应跳转回 login 页
     await expect(page).toHaveURL(/login/, { timeout: 15000 })
@@ -235,8 +236,6 @@ test.describe('Key Flows - Review', () => {
     await expect(page).toHaveURL(/\/counselor\/reviews/, { timeout: 15000 })
 
     // 验证统计卡片存在（待处理/处理中/已解决/危机数）
-    await expect(page.locator('.el-card').or(page.getByText(/待处理|处理中|已解决|pending|in.review/i))).toBeVisible({
-      timeout: 10000,
-    })
+    await expect(page.locator('.stats-card')).toBeVisible({ timeout: 10000 })
   })
 })
