@@ -45,37 +45,43 @@ WORKDIR /build
 # Copy only requirements first to leverage layer caching
 COPY requirements.txt ./
 
+# ML-DEP-LOCK-01: 以下顶层依赖与 requirements.lock (uv pip-compile, 3.11) 的
+# 锁定版本逐一对齐, 消除 Docker 镜像与 CI/本地环境的依赖漂移.
+# 版本均来自 backend/requirements.lock, 升级时须同时更新两者.
+# torch/tensorflow/transformers/shap 等重型 ML 依赖仍按设计排除 (体积), 见上方注释.
+# psycopg2-binary: alembic 同步迁移容器需要 (与 requirements.txt 声明一致).
 # Install CPU-only PyTorch first (much smaller than the default CUDA build)
 # TensorFlow is heavy; install only if required by the deployment target.
 # We install the standard requirements without torch/tensorflow here for slim image;
 # the deep-learning layer is loaded lazily and can fall back to heuristic rules
 # (see app.core.model_engine: model loader degrades gracefully).
 RUN pip install --no-cache-dir \
-        fastapi>=0.110.0 \
-        "uvicorn[standard]>=0.29.0" \
-        "sqlalchemy[asyncio]>=2.0.29" \
-        asyncpg>=0.29.0 \
-        "psycopg2>=2.9.9" \
-        aiosqlite>=0.19.0 \
-        alembic>=1.13.1 \
-        "pydantic[email]>=2.7.0" \
-        pydantic-settings>=2.2.1 \
-        "PyJWT[crypto]>=2.8.0" \
-        "bcrypt>=4.0.0,<5.0.0" \
-        python-multipart>=0.0.9 \
-        redis>=5.0.4 \
-        requests>=2.31.0 \
-        celery>=5.4.0 \
-        "scikit-learn>=1.5.0,<2.0.0" \
-        joblib>=1.4.2 \
-        "numpy>=1.26.4" \
-        "pandas>=2.1.4" \
-        openpyxl>=3.1.2 \
-        reportlab>=4.1.0 \
-        python-dotenv>=1.0.1 \
-        slowapi>=0.1.9 \
-        python-magic>=0.4.27 \
-        "sentry-sdk[fastapi]>=2.0.0"
+        fastapi==0.136.1 \
+        "uvicorn[standard]==0.46.0" \
+        "sqlalchemy[asyncio]==2.0.49" \
+        asyncpg==0.31.0 \
+        "psycopg2-binary==2.9.11" \
+        aiosqlite==0.19.0 \
+        alembic==1.18.4 \
+        "pydantic[email]==2.13.3" \
+        pydantic-settings==2.14.0 \
+        "PyJWT[crypto]==2.13.0" \
+        "bcrypt==4.0.1" \
+        python-multipart==0.0.26 \
+        redis==7.4.0 \
+        requests==2.32.5 \
+        celery==5.6.3 \
+        "scikit-learn==1.8.0" \
+        scipy==1.16.2 \
+        joblib==1.5.3 \
+        "numpy==1.26.4" \
+        "pandas==2.1.4" \
+        openpyxl==3.1.5 \
+        reportlab==4.4.10 \
+        python-dotenv==1.2.2 \
+        slowapi==0.1.9 \
+        python-magic==0.4.27 \
+        "sentry-sdk[fastapi]==2.58.0"
 
 # ===============================================================
 # Stage 2: runtime — minimal image with only the application

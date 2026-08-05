@@ -6,11 +6,6 @@ prometheus_client 现已安装（ISS-02 期间补装），可正常导入。
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-from unittest.mock import MagicMock
-
-import pytest
-
 from app.core import slo
 
 
@@ -74,21 +69,21 @@ class TestComputeP99:
 
 
 class TestComputeAvailability:
-    def test_all_success(self):
+    def test_all_success(self, monkeypatch):
         import app.core.slo as slo_mod
 
         m = _fake_requests([("200", 1000), ("404", 50)])
-        monkeypatch_metric(slo_mod, "http_requests_total", m)
+        monkeypatch.setattr(slo_mod, "http_requests_total", m)
         avail, total, errs = slo_mod._compute_availability()
         assert avail == 1.0
         assert total == 1050
         assert errs == 0
 
-    def test_with_5xx(self):
+    def test_with_5xx(self, monkeypatch):
         import app.core.slo as slo_mod
 
         m = _fake_requests([("200", 900), ("500", 100)])
-        monkeypatch_metric(slo_mod, "http_requests_total", m)
+        monkeypatch.setattr(slo_mod, "http_requests_total", m)
         avail, total, errs = slo_mod._compute_availability()
         assert errs == 100
         assert abs(avail - (900 / 1000)) < 1e-9
@@ -124,10 +119,6 @@ class TestComputeSli:
         # 实际错误率 1%，允许 0.1% → burn_rate=10，remaining 下限 -1
         assert res.error_budget_burn_rate > 1
         assert res.error_budget_remaining_ratio <= 0
-
-
-def monkeypatch_metric(module, name, obj):
-    setattr(module, name, obj)
 
 
 def test_constants():

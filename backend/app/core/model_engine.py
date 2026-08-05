@@ -65,19 +65,43 @@ CHUNK_SIZE = 64 * 1024
 
 _KNOWN_MODEL_HASHES: dict[str, str] = {}
 
-_HASH_MISMATCH_POLICY: str = "warn"
+# SEC-AUDIT-06: 生产环境强制 reject (模型文件完整性不可妥协: 哈希不匹配即拒绝加载),
+# 开发/测试环境保留 warn 便于模型迭代 (本地 re-train 未更新侧车时仍可运行)
+_HASH_MISMATCH_POLICY: str = "reject" if settings.app_env == "production" else "warn"
+
+
+def _get_expected_hash(model_id: str, file_path: Path) -> str | None:
+    """获取模型预期哈希: 优先注册表 _KNOWN_MODEL_HASHES, 其次读取同目录 .sha256 侧车文件.
+
+    SEC-AUDIT-06: 侧车文件是真实的完整性锚点 (由训练/打包脚本经
+    app.utils.checksum.write_sha256_sidecar 生成, 兼容 sha256sum 格式
+    "<hash>  <filename>"). 即使注册表为空, 侧车存在时仍执行强校验.
+    """
+    if model_id in _KNOWN_MODEL_HASHES:
+        return _KNOWN_MODEL_HASHES[model_id]
+    sidecar = file_path.with_suffix(file_path.suffix + ".sha256")
+    if sidecar.exists():
+        try:
+            first_line = sidecar.read_text(encoding="utf-8").strip().splitlines()[0]
+            return first_line.split()[0]
+        except (OSError, UnicodeDecodeError, IndexError) as exc:
+            logger.warning("无法解析侧车校验文件 %s: %s", sidecar, exc)
+    return None
 
 
 def _verify_file_hash(model_id: str, file_path: Path, computed_hash: str) -> None:
-    if model_id not in _KNOWN_MODEL_HASHES:
+    expected = _get_expected_hash(model_id, file_path)
+    if expected is None:
         logger.info(
             "Model %s: no known hash on record (computed=%s). "
-            "Add to _KNOWN_MODEL_HASHES for strict verification.",
+            "Add .sha256 sidecar next to the model file "
+            "(sha256sum %s > %s) for strict verification.",
             model_id,
             computed_hash,
+            file_path.name,
+            f"{file_path.name}.sha256",
         )
         return
-    expected = _KNOWN_MODEL_HASHES[model_id]
     if computed_hash != expected:
         msg = (
             f"Model {model_id} hash mismatch! "
@@ -919,18 +943,37 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                     bundle_config = _json.load(f)
                 if bundle_config.get("model_type") == "bert_feature_extraction":
                     # M2 部署模式: 冻结 BERT + LogReg 分类头
-                    import pickle as _pickle
+                    # SEC-AUDIT-06: 使用 safe_joblib_load 替代裸 pickle.load
+                    # (路径白名单 + 大小上限 + SHA256 哈希校验, 防 pickle RCE)
                     from transformers import AutoModel, AutoTokenizer
+
+                    from app.core.safe_pickle import safe_joblib_load
 
                     bert_name = bundle_config["bert_model_name"]
                     logger.info("Loading BERT (feature extraction) %s", bert_name)
                     tokenizer = AutoTokenizer.from_pretrained(bert_name)  # nosec B615
                     bert_model = AutoModel.from_pretrained(bert_name)  # nosec B615
                     bert_model.eval()
-                    with open(model_path / "classifier.pkl", "rb") as f:
-                        classifier = _pickle.load(f)  # nosec B301
-                    with open(model_path / "scaler.pkl", "rb") as f:
-                        scaler = _pickle.load(f)  # nosec B301
+                    classifier_path = model_path / "classifier.pkl"
+                    scaler_path = model_path / "scaler.pkl"
+                    classifier_hash = _compute_file_sha256(classifier_path)
+                    scaler_hash = _compute_file_sha256(scaler_path)
+                    _verify_file_hash(f"{model_id}:classifier", classifier_path, classifier_hash)
+                    _verify_file_hash(f"{model_id}:scaler", scaler_path, scaler_hash)
+                    classifier = safe_joblib_load(
+                        classifier_path,
+                        trusted_root=model_path,
+                        model_id=f"{model_id}:classifier",
+                        expected_hash=classifier_hash,
+                        precomputed_hash=classifier_hash,
+                    )
+                    scaler = safe_joblib_load(
+                        scaler_path,
+                        trusted_root=model_path,
+                        model_id=f"{model_id}:scaler",
+                        expected_hash=scaler_hash,
+                        precomputed_hash=scaler_hash,
+                    )
                     model = {
                         "tokenizer": tokenizer,
                         "bert_model": bert_model,

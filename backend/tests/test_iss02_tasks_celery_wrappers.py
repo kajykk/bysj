@@ -124,7 +124,11 @@ def test_cleanup_training_jobs_error(monkeypatch):
 
 
 def test_cleanup_uploads_dir_success(monkeypatch):
-    monkeypatch.setattr(scheduler, "_cleanup_uploads_dir_impl", lambda: 2)
+    # SEC-AUDIT-07: wrapper 现在先加载 DB 引用集合再调用 impl (referenced kwarg)
+    def fake_impl(*, referenced=None):
+        return 2
+
+    monkeypatch.setattr(scheduler, "_cleanup_uploads_dir_impl", fake_impl)
     assert scheduler.cleanup_uploads_dir_task.__wrapped__.__func__(_make_task_self()) is None
 
 

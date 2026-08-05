@@ -505,5 +505,76 @@ _pdf_executor = ThreadPoolExecutor(
 
 ---
 
+## 八、2026-08-06 会话修复记录 (P1–P7 + 部署侧车 + 可观测性令牌)
+
+> 本会话在既有审核基础上, 针对深度审计发现的部署/供应链/运行时问题完成一轮
+> 集中修复, 全部经过本地测试与生产容器化冒烟验证。
+
+### P1 — 构建上下文安全
+- **根级 `.dockerignore` (白名单)** : 前端构建上下文为仓库根, 仅放行 `frontend/`
+  `common/` `docker-compose.yml`, 排除 `.env*`、TLS 私钥、`.pii_key`、`.git`、
+  `datasets/` `models/` 及二进制产物。已用 `docker build` 冒烟验证。
+
+### P2 — 模型产物哈希完整性 (真实校验)
+- `app.core.model_engine._verify_file_hash` 新增 `_get_expected_hash`
+  (`_KNOWN_MODEL_HASHES` 注册表 + `.sha256` 侧车双源); `_HASH_MISMATCH_POLICY`
+  = 生产 reject / 测试 warn。
+- M2 bundle 与 `text_m2_bert_predictor` 由裸 `pickle.load` 切换为
+  `safe_joblib_load` (路径白名单 + 大小上限 + SHA256, 防 pickle RCE)。
+- 部署目录 `backend/models/` 52 个产物补齐 `.sha256` 侧车 (新增脚本
+  `backend/scripts/generate_sidecars.py`, 幂等 + `--cleanup` + 不匹配报错)。
+- 验证: 生产策略下篡改侧车 → `ValueError` 拒绝; 容器日志显示每次加载均核验哈希。
+
+### P3 — CI 门禁修正
+- 删除 `pr-quality-gates.yml` 中永远不触发的 `dependency-scan`/`container-scan`
+  job (`pull_request` 负载无 `files` 字段), 真实扫描在独立 workflow
+  (`dependency-scan.yml` / `container-scan.yml`, 基于 paths 触发)。
+- `coverage.yml` 移除 `continue-on-error`, 测试失败阻塞 CI; 覆盖率阈值
+  CI 注入 (30/50), `pytest.ini` 不再硬编码 `--cov-fail-under`。
+
+### P4 — 端口暴露面收敛
+- backend/prometheus/grafana 端口全部回环绑定 (127.0.0.1:8001/9090/3000);
+  运行中容器已按新配置重建并验证。
+
+### P5 — 可观测性与状态持久化
+- `backend_uploads` 命名卷 (backend + worker); `celery_beat_data` 持久化
+  beat 调度文件 (beat 以容器内 root 运行以写入命名卷); prometheus TSDB
+  30 天保留期; redis healthcheck 经 `REDISCLI_AUTH` 传递密码。
+- **METRICS_ACCESS_TOKEN 修复**: 发现 prometheus 配置硬编码令牌且配置文件
+  不支持 `${VAR}` 展开; 改为 `bearer_token_file` (gitignored 令牌文件),
+  提供模板 `prometheus.yml.example` 与轮换流程, 抓取已恢复 `up`。
+
+### P6 — 供应链依赖锁定
+- backend Dockerfile deps 阶段 26 个包精确锁定至 `requirements.lock` 版本
+  (fastapi 0.136.1 / sklearn 1.8.0 / numpy 1.26.4 / pandas 2.1.4 等),
+  镜像内实测版本一致; ML 重依赖 (torch/tf/transformers) 按设计排除。
+
+### P7 — 定时任务并发与幂等
+- `_daily_risk_scan_impl` keyset 分页 (500/批) + 原子
+  `INSERT ... WHERE NOT EXISTS ... RETURNING` 消除 TOCTOU; sqlite/postgres
+  双方言编译验证。
+- `_cleanup_uploads_dir_task` 加载 DB 引用 (avatar/certificate/上传审计) 跳过
+  被引用文件。
+
+### 测试与运维修复
+- 修复 `test_iss02_slo.py` 裸 `setattr` 不还原导致的跨测试指标污染 (SLO 套件
+  全量回归 8 项失败根因)。
+- 修复 `test_auth_flow.py` 限流用例过期断言 (对齐 test 环境 60/min 契约)。
+- 修复 `test_fusion.py` 用例特征缺失导致结构化通道被路由丢弃。
+- frontend 健康检查恢复 HTTPS (wget --no-check-certificate), nginx 补 IPv6
+  监听解决健康检查环境 localhost→::1 落空。
+- 修复 grafana e2e 服务探测被非 Grafana 服务误导 (校验 /api/health 响应体)。
+
+### 验证结果
+- 后端: 根目录 3794 + api/tasks 529 + services 733 + ml/performance 373 +
+  expected_risk/stability 等 158 + e2e/harness/integration/contract 329 =
+  **~5916 用例通过, 0 失败** (离线环境, 需在线 BERT 基座的融合文本通道按
+  环境门控)。
+- 前端: vitest 1121 通过 / 4 跳过; `vue-tsc --noEmit` 零错误。
+- 生产栈: 8/8 服务 healthy, `/health` 全 ok, prometheus 抓取 `up`,
+  HTTPS 健康检查通过, 模型侧车哈希在生产策略下实际生效。
+
+---
+
 *审核人: CatPaw AI*  
 *审核工具: 静态代码分析 + 架构审查 + 模式匹配*

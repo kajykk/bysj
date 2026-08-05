@@ -332,6 +332,42 @@ curl -k https://localhost/health
 
 ---
 
+## 模型产物完整性校验 (.sha256 侧车, SEC-AUDIT-08)
+
+模型产物 (pkl/json) 必须与同目录 `.sha256` 侧车配对存在: `app/ml/model_loader` 的
+`_verify_integrity(require_checksum=True)`、`app/core/safe_pickle` 与 `app/core/model_engine`
+在加载前会按侧车哈希校验文件完整性. **生产环境 (APP_ENV=production) 侧车缺失或哈希不匹配
+将直接拒绝加载** (策略 `_HASH_MISMATCH_POLICY` = reject)。
+
+### 生成侧车
+
+`backend/models/` (部署目录) 的侧车已由脚本批量生成并随镜像 (`COPY models/`) 内嵌;
+新增/替换模型产物后, 在仓库根执行:
+
+```bash
+cd backend
+export PYTHONPATH=.
+python scripts/generate_sidecars.py            # 生成缺失侧车并核验已存在侧车
+python scripts/generate_sidecars.py --cleanup  # 清理无主文件产物侧的孤立侧车
+```
+
+支持 `--dry-run` 预演、`--cleanup` 清理孤立侧车, 可传入任意目标目录
+(如训练产物根 `models/`)。脚本会跳过已匹配的侧车并对不匹配项**报错退出**,
+提示文件可能被篡改。
+
+### 校验项 (强制哈希的加载路径)
+
+| 加载点 | require | 说明 |
+|--------|---------|------|
+| `app.ml.model_loader.load_model / load_scaler / load_feature_names / load_metrics / load_cleaner` | 是 | 结构化风险评估 v1.20 产物 |
+| `app.ml.fusion_engine` | 是 | 融合引擎产物 |
+| `app.core.model_engine` M2 bundle (classifier.pkl / scaler.pkl) | 是 | BERT 特征提取部署模式的分类头 |
+| `app.core.model_engine.load_adapter / text 模型` | 否 | 有侧车则核验, 无则警告 |
+
+> 校验策略: 生产环境 reject, 测试环境 warn (便于测试环境放行旧产物)。
+
+---
+
 ## 数据库迁移 (Alembic)
 
 ### 自动迁移 (推荐)
@@ -789,6 +825,19 @@ docker compose run test
 ---
 
 ## 变更日志
+
+### v1.39.1 (2026-08-05)
+
+- **新增** 模型产物 `.sha256` 侧车章节 (SEC-AUDIT-08): 部署目录 `backend/models/` 52 个产物
+  已生成侧车, 生产环境强制哈希校验 (缺失/篡改即拒绝加载)
+- **新增** `backend/scripts/generate_sidecars.py` 批量侧车生成/核验/清理脚本
+- **新增** 端口改为仅回环绑定 (backend 8001 / prometheus 9090 / grafana 3000)
+- **新增** 上传文件命名卷 `backend_uploads`、celery beat 持久化卷 `celery_beat_data`
+- **新增** Dockerfile 依赖精确锁定 (26 个包, 对齐 requirements.lock)
+- **新增** prometheus 抓取令牌 `bearer_token_file` 注入 (配置内不再硬编码;
+  轮换流程见 `infra/prometheus/prometheus.yml.example`)
+- **新增** 镜像 minor 固定: postgres:15.12 / redis:7.4-alpine
+- **修复** frontend HTTPS 健康检查 (wget --no-check-certificate) + nginx 双栈监听
 
 ### v1.39.0 (2026-07-03)
 

@@ -206,14 +206,18 @@ def _services_available() -> bool:
     """快速探测 (5s 超时) Grafana + Backend 是否可用.
 
     避免 pytest_configure 中 60s+60s 轮询导致 CI 卡住.
+    仅当 3000 端口返回真实 Grafana 健康响应 (含 "database":"ok") 时才判定可用,
+    防止其他服务 (如 Supabase Studio) 占用端口时误启动 e2e 用例.
     """
     try:
-        _wait_for_service(f"{GRAFANA_URL}/api/health", timeout=5)
+        r = requests.get(f"{GRAFANA_URL}/api/health", timeout=5)
+        if not r.ok or r.json().get("database") != "ok":
+            return False
         _wait_for_service(
             f"{BACKEND_URL}/api/v1/alerts/observability/grafana/health", timeout=5
         )
         return True
-    except RuntimeError:
+    except (requests.exceptions.RequestException, ValueError):
         return False
 
 

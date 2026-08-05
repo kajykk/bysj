@@ -165,19 +165,22 @@ FUSION_TEST_CASES: list[dict[str, Any]] = [
         "features": {
             "age": 21,
             "gender": 1,
+            "cgpa": 2.5,
             "stress_level": 5,
             "sleep_duration": 3,
             "social_support": 1,
+            "financial_pressure": 4,
+            "family_history": 1,
             "academic_pressure": 5,
+            "exercise_frequency": 0,
             "anxiety": 5,
             "panic_attack": 1,
             "treatment_seeking": 0,
         },
         "text": "最近有点累，但总体还好。",
-        # v1.31: 由于 sklearn 1.8.0 与训练环境版本差异, 模型输出偏移到 level 1
-        # level 1 不触发复核, 但 text 长度不匹配也不触发
+        # 特征补齐后结构化通道参与融合, 实际输出 level 3 (high) → 需要复核
         "expected_level_range": [1, 2, 3],
-        "review_required": False,
+        "review_required": True,
     },
 ]
 

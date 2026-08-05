@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import pickle
 from pathlib import Path
 from typing import Any
 
@@ -74,15 +73,27 @@ class TextM2BertPredictor:
             self._bert_model.eval()
 
             # 2. 加载 scaler + LogReg (M2 训练产物)
+            # SEC-AUDIT-06: safe_joblib_load 替代裸 pickle.load
+            # (路径白名单 + 大小上限 + .sha256 哈希校验, 防 pickle RCE / 文件篡改)
             if not _M2_CLS_MODEL_PATH.exists() or not _M2_SCALER_PATH.exists():
                 raise FileNotFoundError(
                     f"M2 模型产物缺失: cls_model={_M2_CLS_MODEL_PATH.exists()}, "
                     f"scaler={_M2_SCALER_PATH.exists()}"
                 )
-            with open(_M2_SCALER_PATH, "rb") as f:
-                self._scaler = pickle.load(f)
-            with open(_M2_CLS_MODEL_PATH, "rb") as f:
-                self._classifier = pickle.load(f)
+            from app.core.safe_pickle import safe_joblib_load
+
+            self._scaler = safe_joblib_load(
+                _M2_SCALER_PATH,
+                trusted_root=_M2_ARTIFACTS_DIR,
+                model_id="text_m2_bert:scaler",
+                require_hash=True,
+            )
+            self._classifier = safe_joblib_load(
+                _M2_CLS_MODEL_PATH,
+                trusted_root=_M2_ARTIFACTS_DIR,
+                model_id="text_m2_bert:classifier",
+                require_hash=True,
+            )
 
             self._initialized = True
             logger.info(
