@@ -1,0 +1,86 @@
+# SEC-AUDIT-01: 根级 .dockerignore (frontend/Dockerfile 构建上下文为仓库根)
+# 前端镜像仅需 frontend/ 与 common/ 两个目录, 其余一律排除:
+# - 防止 .env (DB/Redis/JWT/PII 密钥)、TLS 私钥、.git、模型/数据集等进入构建上下文
+# - 任何遗漏的敏感文件都不会被 COPY, 也不会上传到 Docker daemon
+
+# ── 白名单: 仅保留构建必需目录/文件 ──
+*
+!frontend/
+!common/
+!docker-compose.yml
+
+# ── 环境配置与密钥 (绝不进入构建上下文) ──
+.env
+.env.*
+!.env.example
+infra/nginx/certs/
+**/.pii_key
+**/jwt-private.pem
+**/jwt-public.pem
+
+# ── 版本控制 ──
+.git
+.gitignore
+
+# ── 数据与产物 (大文件/敏感数据) ──
+datasets/
+models/
+uploads/
+reports/
+outputs/
+data/
+model_assessment/
+superpowers-resources/
+原文/
+md/
+论文图表/
+
+# ── 日志与扫描报告 ──
+*.log
+trivy_scan_*.txt
+lighthouse*.json
+lighthouse*.html
+test-results/
+playwright-report/
+coverage.xml
+.coverage
+htmlcov/
+*.pytest_cache*
+
+# ── 二进制与数据库 ──
+*.pkl
+*.pt
+*.pth
+*.bin
+*.npy
+*.npz
+*.onnx
+*.keras
+*.h5
+*.db
+*.dll
+
+# ── 前端构建缓存 ──
+**/node_modules/
+**/dist/
+**/.vite/
+**/.cache/
+
+# ── Python 缓存 ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# ── IDE / 工具运行时状态 ──
+.vscode/
+.idea/
+.codegraph/
+.cursor/
+.qoder/
+.hypothesis/
+.zcode/
+.workbuddy/
+.trae/
+.superpowers/

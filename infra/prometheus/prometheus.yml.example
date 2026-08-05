@@ -4,17 +4,17 @@ global:
 
 # =============================================================================
 # H-AUDIT-01: prometheus.yml 模板 (入库版本)
-#   - 真实配置文件含生产 METRICS_ACCESS_TOKEN, 不入库 (见 .gitignore)
-#   - 部署/CI 时从本模板生成真实文件并替换 bearer_token:
-#       cp infra/prometheus/prometheus.yml.example infra/prometheus/prometheus.yml
-#       sed -i "s|^    bearer_token: .*|    bearer_token: <real_token>|" infra/prometheus/prometheus.yml
-#   - 本地: bearer_token 必须与根目录 .env 的 METRICS_ACCESS_TOKEN 保持一致
+#   - 真实配置文件从本模板生成, 令牌经 bearer_token_file 注入, 不入库:
+#     cp infra/prometheus/prometheus.yml.example infra/prometheus/prometheus.yml
+#     python -c "import re; s=open('.env',encoding='utf-8').read(); m=re.search(r'^METRICS_ACCESS_TOKEN=(.*)$', s, re.M); open('infra/prometheus/token','w').write(m.group(1).strip()+chr(10))"
+#   - docker-compose 挂载 ./infra/prometheus/token:/etc/prometheus/metrics_token:ro
+#   - 轮换: 更新 .env 的 METRICS_ACCESS_TOKEN → 重新生成 token 文件 → docker compose up -d prometheus
 # =============================================================================
 scrape_configs:
   - job_name: dws-backend
     scrape_interval: 15s
     metrics_path: /api/v1/metrics
-    bearer_token: CHANGE_ME
+    bearer_token_file: /etc/prometheus/metrics_token
     static_configs:
       - targets: ["backend:8000"]
         labels:

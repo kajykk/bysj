@@ -417,7 +417,11 @@ class TestDailyRiskScanImpl:
 
     @pytest.mark.asyncio
     async def test_high_risk_generates_warning_with_counselor(self):
-        """TC-COV-TASK-024: >7 天 + 风险等级 >=2 + 无重复告警 -> 创建告警并通知."""
+        """TC-COV-TASK-024: >7 天 + 风险等级 >=2 + 无重复告警 -> 创建告警并通知.
+
+        H-ML-7 修复: 告警创建改为原子 INSERT ... WHERE NOT EXISTS (returning id),
+        不再走 ORM add/flush; 重复检查由 DB 层完成.
+        """
         mock_user = MagicMock()
         mock_user.id = 1
         old_time = datetime.now(UTC) - timedelta(days=10)
@@ -430,6 +434,8 @@ class TestDailyRiskScanImpl:
         mock_setting.threshold_level = 2
         mock_binding = MagicMock()
         mock_binding.counselor_id = 42
+        insert_result = MagicMock()
+        insert_result.scalar_one_or_none.return_value = 999  # 原子插入成功, 返回自增 id
 
         mock_db = AsyncMock()
         users_result = MagicMock()
@@ -438,8 +444,6 @@ class TestDailyRiskScanImpl:
         risk_result.scalar_one_or_none.return_value = mock_risk
         setting_result = MagicMock()
         setting_result.scalar_one_or_none.return_value = mock_setting
-        existing_result = MagicMock()
-        existing_result.scalar_one_or_none.return_value = None
         bind_result = MagicMock()
         bind_result.scalar_one_or_none.return_value = mock_binding
         mock_db.execute = AsyncMock(
@@ -447,8 +451,8 @@ class TestDailyRiskScanImpl:
                 users_result,
                 risk_result,
                 setting_result,
-                existing_result,
                 bind_result,
+                insert_result,
             ]
         )
 
@@ -462,15 +466,23 @@ class TestDailyRiskScanImpl:
 
             await _daily_risk_scan_impl()
 
-        mock_db.add.assert_called_once()
-        mock_db.flush.assert_awaited_once()
+        # H-ML-7: 不再通过 ORM add/flush 写入
+        mock_db.add.assert_not_called()
+        mock_db.flush.assert_not_awaited()
         mock_db.commit.assert_awaited_once()
-        # H-ML-6: commit 成功后才发通知
+        # H-ML-6: commit 成功后才发通知 (带上原子插入返回的 id 与绑定咨询师)
         mock_notify.assert_awaited_once()
+        notify_args = mock_notify.await_args.args
+        assert notify_args[0] == 1  # user_id
+        assert notify_args[1] == 999  # warning_id
+        assert notify_args[4] == 42  # counselor_id
 
     @pytest.mark.asyncio
     async def test_existing_recent_warning_skipped(self):
-        """TC-COV-TASK-025: 已存在近 1 天的告警时不重复创建."""
+        """TC-COV-TASK-025: 已存在近 1 天的告警时不重复创建.
+
+        H-ML-7 修复: 原子 INSERT ... WHERE NOT EXISTS 返回 None (0 行插入) 即重复, 跳过.
+        """
         mock_user = MagicMock()
         mock_user.id = 1
         old_time = datetime.now(UTC) - timedelta(days=10)
@@ -487,14 +499,17 @@ class TestDailyRiskScanImpl:
         # setting 默认走 else 分支: threshold = 2
         setting_result = MagicMock()
         setting_result.scalar_one_or_none.return_value = None
-        existing_result = MagicMock()
-        existing_result.scalar_one_or_none.return_value = MagicMock()  # 已存在
+        bind_result = MagicMock()
+        bind_result.scalar_one_or_none.return_value = None
+        insert_result = MagicMock()
+        insert_result.scalar_one_or_none.return_value = None  # 重复, 0 行插入
         mock_db.execute = AsyncMock(
             side_effect=[
                 users_result,
                 risk_result,
                 setting_result,
-                existing_result,
+                bind_result,
+                insert_result,
             ]
         )
 
@@ -567,17 +582,17 @@ class TestDailyRiskScanImpl:
         risk_result.scalar_one_or_none.return_value = mock_risk
         setting_result = MagicMock()
         setting_result.scalar_one_or_none.return_value = None  # 走 else, threshold=2
-        existing_result = MagicMock()
-        existing_result.scalar_one_or_none.return_value = None
         bind_result = MagicMock()
         bind_result.scalar_one_or_none.return_value = None  # 无绑定
+        insert_result = MagicMock()
+        insert_result.scalar_one_or_none.return_value = 888  # 原子插入成功
         mock_db.execute = AsyncMock(
             side_effect=[
                 users_result,
                 risk_result,
                 setting_result,
-                existing_result,
                 bind_result,
+                insert_result,
             ]
         )
 
@@ -591,8 +606,10 @@ class TestDailyRiskScanImpl:
 
             await _daily_risk_scan_impl()
 
-        mock_db.add.assert_called_once()
         mock_notify.assert_awaited_once()
+        notify_args = mock_notify.await_args.args
+        assert notify_args[1] == 888
+        assert notify_args[4] is None  # 无咨询师绑定
 
     @pytest.mark.asyncio
     async def test_commit_failure_skips_notification(self):
@@ -613,17 +630,17 @@ class TestDailyRiskScanImpl:
         risk_result.scalar_one_or_none.return_value = mock_risk
         setting_result = MagicMock()
         setting_result.scalar_one_or_none.return_value = None
-        existing_result = MagicMock()
-        existing_result.scalar_one_or_none.return_value = None
         bind_result = MagicMock()
         bind_result.scalar_one_or_none.return_value = None
+        insert_result = MagicMock()
+        insert_result.scalar_one_or_none.return_value = 777
         mock_db.execute = AsyncMock(
             side_effect=[
                 users_result,
                 risk_result,
                 setting_result,
-                existing_result,
                 bind_result,
+                insert_result,
             ]
         )
 

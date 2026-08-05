@@ -55,9 +55,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
       - name: Run tests with coverage
         working-directory: backend
-        # continue-on-error: 预先存在的测试失败不阻塞 CI (覆盖率门禁仍生效)
-        # 生产前应移除此标记, 修复所有 xfail/skip 测试后恢复 fail-fast
-        continue-on-error: true
+        # CI-AUDIT-02: 移除 continue-on-error: true — 测试失败必须真实阻塞 CI
+        # (此前即使测试全挂 job 仍显示绿色, 形成假门禁). 失败时先输出摘要
+        # 到 GITHUB_STEP_SUMMARY, 再以非零码退出; coverage 上传由 if: always() 步骤承担.
         run: |
           # --maxfail=0: 跑完全部测试收集完整覆盖率 (不中途停)
           # 覆盖率门禁渐进提升: 30%(当前基线) → 40% → 50% → 60% → 70% → 85%
@@ -72,18 +72,21 @@ jobs:
           exit_code=${PIPESTATUS[0]}
           if [ $exit_code -ne 0 ]; then
             {
-              echo "## Backend tests had failures (non-blocking)"
+              echo "## Backend tests had failures (blocking)"
               echo ""
               echo '```'
               tail -150 /tmp/pytest_output.txt
               echo '```'
             } >> $GITHUB_STEP_SUMMARY
-            # 不 exit, 让 coverage 上传 + summary 继续
+            # CI-AUDIT-02: 真实失败必须让 job 变红, 不再吞掉退出码
+            exit $exit_code
           fi
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
           REDIS_URL: redis://localhost:6379/0
       - name: Upload coverage to Codecov
+        # CI-AUDIT-02: always() 保证测试失败时仍上传已收集的 coverage.xml
+        if: always()
         uses: codecov/codecov-action@v4
         with:
           files: backend/coverage.xml

@@ -321,12 +321,19 @@ class TestRegisterEdgeCases:
 
 class TestLoginRateLimit:
     def test_login_rate_limit_after_5_attempts(self, client: TestClient, clean_db):
+        # 登录限流阈值按环境配置 (production: 5/minute, dev/test: 60/minute),
+        # 用例自适应, 不硬编码尝试次数.
+        import re
+
+        from app.api.v1.auth import _AUTH_LIMIT
         from app.core.rate_limit import limiter
+
+        allowed = int(re.match(r"(\d+)/", _AUTH_LIMIT).group(1))
 
         original_enabled = limiter.enabled
         limiter.enabled = True
         try:
-            for i in range(5):
+            for i in range(allowed):
                 resp = client.post(
                     "/api/v1/auth/login",
                     json={

@@ -70,5 +70,7 @@ EXPOSE 80 443
 # L-FE-14 修复：HEALTHCHECK 改为检查 nginx 代理的后端 /health 端点，
 # 既验证 nginx 正常运行，又验证后端服务可达（分层架构：nginx 反代 backend:8000）
 # SEC-P1-006: 80 端口现在 301 跳转到 443, 直接检查 HTTPS (自签名证书需 --no-check-certificate)
+# T-P0-04 修正: nginx 已同时监听 IPv4+IPv6 (listen [::]:80/443), 解决健康检查环境
+# 中 localhost 解析为 ::1 而 nginx 仅监听 IPv4 导致 wget 失败的问题
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
-    CMD pgrep nginx >/dev/null 2>&1 || exit 1
+    CMD wget --spider -q --no-check-certificate https://localhost/health || exit 1

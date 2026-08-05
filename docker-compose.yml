@@ -8,7 +8,7 @@ name: dws
 services:
   # ── 数据库 ──────────────────────────────────────────────────
   postgres:
-    image: postgres:15
+    image: postgres:15.12
     container_name: dws-postgres
     restart: unless-stopped
     environment:
@@ -17,6 +17,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "14m"
+        max-file: "5"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U depress_admin -d depression_system"]
       interval: 10s
@@ -32,7 +37,7 @@ services:
 
   # ── Redis (Celery broker + cache + pubsub) ─────────────────
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     container_name: dws-redis
     restart: unless-stopped
     command: >
@@ -41,10 +46,13 @@ services:
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --appendonly yes
+    environment:
+      # SEC-AUDIT-02: 避免密码出现在进程参数 (ps/docker inspect 可见), 改用 REDISCLI_AUTH
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -136,13 +144,15 @@ services:
       # S-02: 切换默认结构化模型为 v1.23 (真实数据训练, F1=0.8955 vs v1.20 F1=0.8657)
       STRUCTURED_DEFAULT_MODEL: v1.23
     ports:
-      - "8001:8000"
+      # SEC-AUDIT-03: 仅绑定回环, 不直连公网 (绕过 nginx 的 TLS/限流/安全头)
+      - "127.0.0.1:8001:8000"
     volumes:
       - ./backend/models:/app/models:ro
       - ./common:/common:ro
       - ./backend/app:/app/app:ro
       - backend_logs:/app/logs
       - backend_tmp:/app/tmp
+      - backend_uploads:/app/uploads
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 30s
@@ -172,7 +182,7 @@ services:
       APP_ENV: production
       DATABASE_URL: postgresql+asyncpg://depress_admin:${POSTGRES_PASSWORD}@postgres:5432/depression_system
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
       MODEL_DIR: /app/models
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-2}
@@ -190,6 +200,7 @@ services:
       - ./backend/models:/app/models:ro
       - ./common:/common:ro
       - ./backend/app:/app/app:ro
+      - backend_uploads:/app/uploads
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
       interval: 60s
@@ -219,7 +230,7 @@ services:
       APP_ENV: production
       DATABASE_URL: postgresql+asyncpg://depress_admin:${POSTGRES_PASSWORD}@postgres:5432/depression_system
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
       MODEL_DIR: /app/models
       # SEC-P1-002: Settings() 校验需要
@@ -227,14 +238,20 @@ services:
       # P1-INFRA-003/004: 生产环境必填密钥
       ALERTMANAGER_WEBHOOK_SECRET: ${ALERTMANAGER_WEBHOOK_SECRET:?ALERTMANAGER_WEBHOOK_SECRET is required}
       METRICS_ACCESS_TOKEN: ${METRICS_ACCESS_TOKEN:?METRICS_ACCESS_TOKEN is required}
+    # SEC-AUDIT-04: celerybeat-schedule 持久化, 容器重建后不丢失调度状态.
+    # 命名卷初始为 root 属主, 镜像内 USER dws 无法写入 /var/lib/celery,
+    # 因此 beat 以容器内 root 运行 (无端口暴露, 仅调度器, 容器内 root 与宿主机隔离).
+    user: "0:0"
     command: >
       celery -A app.core.celery_app beat
       --loglevel=info
-      --schedule=/tmp/celerybeat-schedule
+      --schedule=/var/lib/celery/celerybeat-schedule
     volumes:
       - ./backend/models:/app/models:ro
       - ./common:/common:ro
       - ./backend/app:/app/app:ro
+      # SEC-AUDIT-04: celerybeat-schedule 持久化, 容器重建后不丢失调度状态
+      - celery_beat_data:/var/lib/celery
     healthcheck:
       # celery-beat 无 HTTP 服务，不能用 curl /health 检查
       # 改用进程检查：确认 celery beat 进程在运行
@@ -269,9 +286,10 @@ services:
       - ./infra/nginx/certs:/etc/nginx/certs:ro
       - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
-      # T-P0-04: 改用进程检查 (Docker 健康检查环境中 wget localhost 解析为 IPv6, nginx 只监听 IPv4)
-      # 功能验证通过外部 HTTPS 访问完成, 健康检查仅需确认 nginx 进程存活
-      test: ["CMD-SHELL", "pgrep nginx >/dev/null 2>&1 || exit 1"]
+      # SEC-P1-006: 通过 HTTPS 检查 nginx 代理的后端 /health 端点
+      # (自签名证书需 --no-check-certificate)
+      # T-P0-04 修正: nginx 已同时监听 IPv4+IPv6, 健康检查环境 wget localhost 不再落空
+      test: ["CMD", "wget", "--spider", "-q", "--no-check-certificate", "https://localhost/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -294,10 +312,21 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    command:
+      # SEC-AUDIT-05: TSDB 持久化, 30 天保留期 (与 Grafana 看板对齐)
+      # 注意: 显式指定 --config.file, 否则覆盖镜像默认 CMD 后配置丢失
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # SEC-AUDIT-02: 抓取令牌经文件注入 (prometheus.yml 不支持 ${VAR} 展开)
+      - ./infra/prometheus/token:/etc/prometheus/metrics_token:ro
+      - prometheus_data:/prometheus
     ports:
-      - "9090:9090"
+      # SEC-AUDIT-03: 仅绑定回环
+      - "127.0.0.1:9090:9090"
     networks:
       - dws-net
     deploy:
@@ -340,7 +369,8 @@ services:
       # H-AUDIT-01: 仪表盘 provider 加载路径 (alerts-overview.yaml 指向此目录)
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3000:3000"
+      # SEC-AUDIT-03: 仅绑定回环
+      - "127.0.0.1:3000:3000"
     networks:
       - dws-net
     deploy:
@@ -358,4 +388,7 @@ volumes:
   redis_data:
   backend_logs:
   backend_tmp:
+  backend_uploads:
+  prometheus_data:
+  celery_beat_data:
   grafana_data:

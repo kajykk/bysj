@@ -1,21 +1,27 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, insert, literal, not_, select
 
 from app.core.celery_app import celery_app
 from app.core.celery_async import get_celery_loop
 from app.core.celery_async import run_async as _run_async
 from app.core.database import AsyncSessionLocal
+from app.models.admin import OperationLog
+from app.models.counselor import CounselorProfile
 from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
 from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
 from app.models.user import User, UserCounselorBinding
 
 logger = logging.getLogger(__name__)
 _get_loop = get_celery_loop
+
+# RES-P3-002: 每日风险扫描分页大小 (keyset 游标分页, 避免一次性加载全部活跃用户)
+_RISK_SCAN_PAGE_SIZE = 500
 
 
 def _to_aware_utc(dt: datetime) -> datetime:
@@ -74,83 +80,125 @@ def daily_risk_scan(self):
 
 async def _daily_risk_scan_impl():
     async with AsyncSessionLocal() as db:
-        active_users_stmt = select(User).where(
-            User.role == "user", User.status == "active"
-        )
-        users = (await db.execute(active_users_stmt)).scalars().all()
-
-        # P1-E 修复：日志添加业务上下文（用户数、告警数）
+        # RES-P3-002 修复: keyset 游标分页 (每批 500), 替代一次性 .all() 全量加载.
+        # 用户规模大时全量加载会同时占满内存与连接; 分页后单批内存有界, 长列表可中断续跑.
         scanned_count = 0
         warning_count = 0
         # H-ML-6 修复：收集待发送的通知，commit 之后再发送
         # 原 flush 后立即 notify，若 commit 失败 rollback，用户收到告警但 DB 无记录
         pending_notifications: list[tuple[int, int, int, str, int | None]] = []
 
-        for user in users:
-            scanned_count += 1
-            # PERF-P2-002: 使用 is_latest 标志替代 ORDER BY created_at DESC LIMIT 1
-            latest_risk_stmt = (
-                select(RiskAssessment)
-                .where(
-                    RiskAssessment.user_id == user.id,
-                    RiskAssessment.is_latest.is_(True),
-                )
-                .limit(1)
+        last_user_id: int | None = None
+        while True:
+            conditions = [User.role == "user", User.status == "active"]
+            if last_user_id is not None:
+                conditions.append(User.id > last_user_id)
+            active_users_stmt = (
+                select(User)
+                .where(*conditions)
+                .order_by(User.id)
+                .limit(_RISK_SCAN_PAGE_SIZE)
             )
-            latest_risk = (await db.execute(latest_risk_stmt)).scalar_one_or_none()
+            users = (await db.execute(active_users_stmt)).scalars().all()
+            if not users:
+                break
+            last_user_id = users[-1].id
 
-            if latest_risk is None:
-                continue
-
-            days_since = (
-                datetime.now(UTC) - _to_aware_utc(latest_risk.created_at)
-            ).days
-            if days_since > 7 and latest_risk.risk_level >= 2:
-                setting_stmt = select(WarningSetting).where(
-                    WarningSetting.user_id == user.id
-                )
-                setting = (await db.execute(setting_stmt)).scalar_one_or_none()
-                threshold = setting.threshold_level if setting else 2
-
-                if latest_risk.risk_level >= threshold:
-                    existing_stmt = select(WarningNotification).where(
-                        WarningNotification.user_id == user.id,
-                        WarningNotification.trigger_reason.like("%超过7天未评估%"),
-                        # H-ML-5 修复：DB 列为 naive datetime，使用 naive UTC 比较
-                        # 原 datetime.now(UTC) 为 aware，与 naive 列比较在 SQLite 下可能字符串比较导致窗口偏移
-                        WarningNotification.created_at
-                        >= datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
+            for user in users:
+                scanned_count += 1
+                # PERF-P2-002: 使用 is_latest 标志替代 ORDER BY created_at DESC LIMIT 1
+                latest_risk_stmt = (
+                    select(RiskAssessment)
+                    .where(
+                        RiskAssessment.user_id == user.id,
+                        RiskAssessment.is_latest.is_(True),
                     )
-                    existing = (await db.execute(existing_stmt)).scalar_one_or_none()
-                    if existing is None:
-                        warning = WarningNotification(
-                            user_id=user.id,
-                            risk_assessment_id=latest_risk.id,
-                            previous_level=latest_risk.risk_level,
-                            current_level=latest_risk.risk_level,
-                            trigger_reason=f"用户风险等级{latest_risk.risk_level}级且超过{days_since}天未评估，建议关注",
-                        )
+                    .limit(1)
+                )
+                latest_risk = (await db.execute(latest_risk_stmt)).scalar_one_or_none()
+
+                if latest_risk is None:
+                    continue
+
+                days_since = (
+                    datetime.now(UTC) - _to_aware_utc(latest_risk.created_at)
+                ).days
+                if days_since > 7 and latest_risk.risk_level >= 2:
+                    setting_stmt = select(WarningSetting).where(
+                        WarningSetting.user_id == user.id
+                    )
+                    setting = (await db.execute(setting_stmt)).scalar_one_or_none()
+                    threshold = setting.threshold_level if setting else 2
+
+                    if latest_risk.risk_level >= threshold:
                         bind_stmt = select(UserCounselorBinding).where(
                             UserCounselorBinding.user_id == user.id,
                             UserCounselorBinding.status == "active",
                         )
                         binding = (await db.execute(bind_stmt)).scalar_one_or_none()
-                        if binding:
-                            warning.counselor_id = binding.counselor_id
-                        db.add(warning)
-                        await db.flush()
-                        warning_count += 1
-                        # H-ML-6 修复：先收集通知，等 commit 成功后再发送
-                        # 原 flush 后立即 notify，若 commit 失败 rollback，用户收到告警但 DB 无记录
-                        pending_notifications.append(
-                            (
-                                user.id,
-                                warning.id,
-                                latest_risk.risk_level,
-                                warning.trigger_reason,
-                                warning.counselor_id,
-                            )
+                        trigger_reason = (
+                            f"用户风险等级{latest_risk.risk_level}级且超过"
+                            f"{days_since}天未评估，建议关注"
                         )
+                        # H-ML-7 修复: 检查 + 插入合并为单条原子 INSERT ... WHERE NOT EXISTS,
+                        # 消除 TOCTOU 竞态 (原实现先 SELECT 再 INSERT, 两个并发扫描/重试窗口内
+                        # 会重复插入同原因告警). returning() 拿到自增 id, 空结果即重复, 跳过.
+                        dedupe_condition = and_(
+                            WarningNotification.user_id == user.id,
+                            WarningNotification.trigger_reason.like("%超过7天未评估%"),
+                            # H-ML-5 修复: DB 列为 naive datetime, 使用 naive UTC 比较
+                            WarningNotification.created_at
+                            >= datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
+                        )
+                        insert_stmt = (
+                            insert(WarningNotification)
+                            .from_select(
+                                [
+                                    WarningNotification.user_id,
+                                    WarningNotification.risk_assessment_id,
+                                    WarningNotification.previous_level,
+                                    WarningNotification.current_level,
+                                    WarningNotification.trigger_reason,
+                                    WarningNotification.counselor_id,
+                                    WarningNotification.is_read,
+                                    WarningNotification.is_handled,
+                                ],
+                                select(
+                                    literal(user.id),
+                                    literal(latest_risk.id),
+                                    literal(latest_risk.risk_level),
+                                    literal(latest_risk.risk_level),
+                                    literal(trigger_reason),
+                                    literal(binding.counselor_id if binding else None),
+                                    literal(False),
+                                    literal(False),
+                                ).where(
+                                    not_(
+                                        select(1).where(dedupe_condition).exists()
+                                    )
+                                ),
+                            )
+                            .returning(WarningNotification.id)
+                        )
+                        inserted_id = (
+                            await db.execute(insert_stmt)
+                        ).scalar_one_or_none()
+                        if inserted_id is not None:
+                            warning_count += 1
+                            # H-ML-6 修复：先收集通知，等 commit 成功后再发送
+                            # 原 flush 后立即 notify，若 commit 失败 rollback，用户收到告警但 DB 无记录
+                            pending_notifications.append(
+                                (
+                                    user.id,
+                                    inserted_id,
+                                    latest_risk.risk_level,
+                                    trigger_reason,
+                                    binding.counselor_id if binding else None,
+                                )
+                            )
+
+            if len(users) < _RISK_SCAN_PAGE_SIZE:
+                break
 
         await db.commit()
         logger.info(
@@ -521,6 +569,65 @@ def cleanup_training_jobs_task(self):
         raise self.retry(exc=exc)
 
 
+def _collect_upload_ref(raw: str | None, referenced: set[str]) -> None:
+    """从 URL/JSON 字符串中提取 ``{user_id}/{filename}`` 上传相对路径并加入集合.
+
+    SEC-AUDIT-07: 清理前保护仍被 DB 引用的文件. 只识别 ``/uploads/{数字}/{文件名}``
+    形态的私有文件引用; 公共目录 (audio/content) 不参与清理, 无需收集.
+    """
+    if not raw:
+        return
+    path = raw.split("?", 1)[0]
+    parts = path.split("/")
+    if len(parts) >= 4 and parts[1] == "uploads" and parts[2].isdigit():
+        referenced.add("/".join(parts[2:]))
+
+
+async def _load_referenced_upload_paths() -> set[str]:
+    """从 DB 加载仍被引用的上传文件相对路径集合 (``{user_id}/{filename}``).
+
+    引用来源:
+    1. ``User.avatar_url`` (头像)
+    2. ``CounselorProfile.certificate_url`` (咨询师证书)
+    3. ``OperationLog`` ``user_file_upload`` 审计日志 (detail JSON 内 url 字段)
+
+    SEC-AUDIT-07: 修复原实现"文档声称检查 DB 引用但实际未查询"的缺口.
+    查询失败时降级为空集合 (仅凭过期时间清理, 保证定时任务不中断), 记录 warning.
+    """
+    referenced: set[str] = set()
+    try:
+        async with AsyncSessionLocal() as db:
+            avatar_stmt = select(User.avatar_url).where(User.avatar_url.is_not(None))
+            for (avatar_url,) in (await db.execute(avatar_stmt)).all():
+                _collect_upload_ref(avatar_url, referenced)
+
+            cert_stmt = select(CounselorProfile.certificate_url).where(
+                CounselorProfile.certificate_url.is_not(None)
+            )
+            for (cert_url,) in (await db.execute(cert_stmt)).all():
+                _collect_upload_ref(cert_url, referenced)
+
+            log_stmt = select(OperationLog.detail).where(
+                OperationLog.action_type == "user_file_upload",
+                OperationLog.detail.is_not(None),
+            )
+            for (detail,) in (await db.execute(log_stmt)).all():
+                try:
+                    parsed = json.loads(detail)
+                    if isinstance(parsed, dict):
+                        _collect_upload_ref(parsed.get("url"), referenced)
+                    else:
+                        _collect_upload_ref(detail, referenced)
+                except (json.JSONDecodeError, TypeError):
+                    _collect_upload_ref(detail, referenced)
+    except Exception as exc:
+        logger.warning(
+            "upload 引用查询失败, 降级为无引用清理 (仅按过期时间): %s", exc,
+            exc_info=True,
+        )
+    return referenced
+
+
 @celery_app.task(
     bind=True,
     max_retries=1,
@@ -533,34 +640,37 @@ def cleanup_uploads_dir_task(self):
 
     删除 uploads/{user_id}/ 下超过 30 天未访问的文件 (基于 mtime).
     公共目录 (audio/content) 不清理.
-    用户目录中正在被引用的文件 (DB 中存在对应记录) 不清理.
-
-    ISS-050 已知限制: 基于 mtime 清理可被篡改（如 touch 命令重置 mtime），
-    攻击者可延长文件保留期。生产环境应改为基于 DB 创建时间或 ctime（inode 变更时间）。
+    SEC-AUDIT-07: 清理前先查询 DB 引用 (头像/证书/上传审计日志), 仍被引用的文件不清理.
     """
     logger.info("Starting uploads/ directory cleanup")
     try:
-        removed = _cleanup_uploads_dir_impl()
-        logger.info("uploads/ cleanup completed: removed=%d files", removed)
+        # SEC-AUDIT-07: 加载 DB 引用集合 (失败时 _load_referenced_upload_paths 降级为空集)
+        referenced = _run_async(_load_referenced_upload_paths())
+        removed = _cleanup_uploads_dir_impl(referenced=referenced)
+        logger.info(
+            "uploads/ cleanup completed: removed=%d files (db-referenced=%d)",
+            removed,
+            len(referenced),
+        )
     except Exception as exc:
         logger.warning("uploads/ cleanup failed: %s", exc, exc_info=True)
         raise self.retry(exc=exc)
 
 
-def _cleanup_uploads_dir_impl(max_age_days: int = 30) -> int:
+def _cleanup_uploads_dir_impl(max_age_days: int = 30, referenced: set[str] | None = None) -> int:
     """清理 uploads/ 目录的同步实现 (供 Celery 任务调用).
 
     Args:
         max_age_days: 文件最大保留天数 (默认 30 天)
+        referenced: DB 中仍被引用的文件相对路径集合 (``{user_id}/{filename}``);
+            None 或空集表示不启用 DB 引用保护.
 
     Returns:
         删除的文件数
 
-    ISS-050 TODO: 当前基于 st_mtime 清理，可被 touch 命令重置。
-    后续改进方案：
-    1. 改用 st_ctime（inode 变更时间，Linux 下不可被 touch 重置）
-    2. 或基于 DB 中文件上传记录的 created_at 字段判断
-    3. 或在文件上传时记录创建时间到独立元数据表
+    ISS-050 已知限制: 基于 st_mtime 清理，可被 touch 命令重置 (延长文件保留期)。
+    生产环境如需强一致, 应在文件上传时记录创建时间到独立元数据表, 或改用
+    DB 创建时间驱动清理 (SEC-AUDIT-07 已保证被引用的文件不会被误删).
     """
     from app.api.v1.uploads import PUBLIC_DIRS, _resolve_upload_dir
 
@@ -571,6 +681,7 @@ def _cleanup_uploads_dir_impl(max_age_days: int = 30) -> int:
 
     cutoff = datetime.now(UTC).timestamp() - max_age_days * 86400
     removed = 0
+    referenced = referenced or set()
 
     for entry in uploads_dir.iterdir():
         if not entry.is_dir():
@@ -586,6 +697,11 @@ def _cleanup_uploads_dir_impl(max_age_days: int = 30) -> int:
             if not file_path.is_file():
                 continue
             try:
+                rel_path = file_path.relative_to(uploads_dir).as_posix()
+                # SEC-AUDIT-07: 跳过仍被 DB 引用的文件 (头像/证书/上传记录)
+                if rel_path in referenced:
+                    logger.debug("skip DB-referenced upload: %s", rel_path)
+                    continue
                 stat = file_path.stat()
                 # 使用 mtime 作为删除依据 (atime 在很多 FS 上不可靠)
                 # ISS-050 已知限制: mtime 可被 touch 命令重置，见函数 docstring 中的 TODO
