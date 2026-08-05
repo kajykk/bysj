@@ -37,3 +37,6 @@ mkdocs-material>=9.5.0
 
 # Load Testing
 locust>=2.20.0,<3.0.0
+
+# MAINT-P2-003: import-linter (lint-imports) 供 test_importlinter_config 执行契约检查
+import-linter>=2.13.0

@@ -14,11 +14,9 @@ import ast
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
-
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_ROOT.parent
@@ -250,7 +248,7 @@ class TestMigrationChain:
 
     def test_no_duplicate_revision_ids(self):
         """revision id 唯一 (无重复)."""
-        revisions = self._parse_revisions()
+        self._parse_revisions()
         # dict key 本身就唯一, 这里验证文件数 == revision 数
         files = list(VERSIONS_DIR.glob("*.py"))
         # 跳过 __init__.py (如果存在)
@@ -307,6 +305,15 @@ class TestMigrationChain:
         )
 
 
+# 根 scripts/ 目录整体 gitignored, CI 检出不含该脚本 (仅本地开发/手工运维使用).
+# 缺失时跳过整个脚本测试类, 避免 CI 环境 FileNotFoundError.
+skip_if_script_missing = pytest.mark.skipif(
+    not COMPAT_SCRIPT.exists(),
+    reason="scripts/test_migration_compat.py 未入库 (根 scripts/ 被 gitignore), 本地存在时才会执行",
+)
+
+
+@skip_if_script_missing
 class TestMigrationCompatScript:
     """迁移兼容性测试脚本 (scripts/test_migration_compat.py) 测试."""
 

@@ -12,8 +12,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from app.core.config import BACKEND_DIR
@@ -22,7 +20,6 @@ from app.core.model_compatibility import (
     get_model_compatibility_info,
 )
 from app.core.model_registry import MODEL_PATHS, MODEL_REGISTRY, get_model_info
-
 
 V121_MODEL_IDS = [
     "structured_v1.21_binary_lr",
@@ -70,6 +67,16 @@ class TestV121RegistryCleanup:
         )
 
 
+# 归档目录 backend/models/_archive 被 gitignore (backend/models/*), CI 检出不含模型产物.
+# 仅当归档存在时才验证目录内容, 避免 CI 环境 FileNotFoundError.
+_ARCHIVE_DIR = BACKEND_DIR / "models" / "_archive" / "structured_v1.21"
+skip_if_archive_missing = pytest.mark.skipif(
+    not _ARCHIVE_DIR.is_dir(),
+    reason="backend/models/_archive 未入库 (gitignored), 本地归档存在时才会执行",
+)
+
+
+@skip_if_archive_missing
 class TestV121Archived:
     """验证 v1.21 模型文件已归档."""
 
