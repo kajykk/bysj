@@ -26,17 +26,24 @@ def test_observability_router_importable() -> None:
 
 def test_observability_registered_in_api_router() -> None:
     """v1.36 T2.1: observability 路由已注册到主 app."""
-    from app.main import app
+    import importlib
 
-    # 收集所有已注册的路由 (从 app.routes 而非 api_router.routes,
-    # 因为 CI 环境中 api_router.routes 可能因模块加载顺序而为空)
-    all_routes = []
-    for r in app.routes:
-        if hasattr(r, "path"):
-            all_routes.append(r.path)
-    # 应至少包含 /alerts/observability/health
+    # CI 全量套件下 api_router 可能因模块加载顺序为空 (见下注释),
+    # 重载 app.api.v1 强制重新执行 include_router, 保证断言确定性.
+    import app.api.v1 as v1_module
+
+    importlib.reload(v1_module)
+    api_router = v1_module.api_router
+    all_routes = [r.path for r in api_router.routes if hasattr(r, "path")]
     matching = [p for p in all_routes if "/alerts/observability" in p]
     assert len(matching) >= 1, f"observability routes not found in: {all_routes}"
+
+    # 双保险: 主 app 的已注册路由同样包含 observability (若 app 已创建)
+    from app.main import app
+
+    app_routes = [r.path for r in app.routes if hasattr(r, "path")]
+    app_matching = [p for p in app_routes if "/alerts/observability" in p]
+    assert len(app_matching) >= 1, f"observability routes not found in: {app_routes}"
 
 
 def test_observability_helpers_export() -> None:
