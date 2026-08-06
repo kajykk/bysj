@@ -565,10 +565,30 @@ _pdf_executor = ThreadPoolExecutor(
   监听解决健康检查环境 localhost→::1 落空。
 - 修复 grafana e2e 服务探测被非 Grafana 服务误导 (校验 /api/health 响应体)。
 
+### 后补修复 (2026-08-06 第二轮, commit d280ead)
+- **observability 查询在 PG 下 500**: `_validate_time_range` 返回 aware
+  datetime, 而 PG `timestamp` 列为 naive, asyncpg 绑定报 "can't subtract
+  offset-naive and offset-aware datetimes"。统一在 `_common._naive_utc`
+  归一化 (6 个 `_compute_*` 入口 + `_validate_time_range` 返回), 本地
+  SQLite 不受影响。`POST /grafana/query` 实测 200 (`alert_total` 空桶)。
+- **GF_PLUGINS_PREINSTALL 插件名拼错**: `grafana-simple-json-datasource`
+  是 Angular 旧插件 (Grafana 11.5 禁用, "Plugin not registered"), 应为
+  `simpod-json-datasource` (规划文档 11-research-r3.md 指定) → v0.6.7 注册成功。
+- **datasource provisioning URL 缺 `/grafana` 前缀**: simpod 插件 Test
+  connection 打数据源根路径, 应指向 v1.37 `grafana_adapter`
+  (`/alerts/observability/grafana`, T-GRAF-002), 而非 v1.36 `/alerts/observability`
+  (无根路由)。容器内带 token 直连 backend 两路径均 200 验证。
+- **e2e 断言修正**: `/api/datasources/:id/health` 对 frontend-only 插件
+  (simpod) 平台恒返回 500 "plugin unavailable" (无后端执行器), 非配置错误;
+  用例改为断言 provisioning 注册 + type/url 配置正确 (连通性由
+  `test_backend_grafana_endpoints_200` 用真 SA token 覆盖)。
+- Grafana e2e 全绿 **6/6** (此前 5 失败中 3 个为上述真实缺陷/测试误判,
+  2 个为旧栈漂移)。
+
 ### 验证结果
 - 后端: 根目录 3794 + api/tasks 529 + services 733 + ml/performance 373 +
   expected_risk/stability 等 158 + e2e/harness/integration/contract 329 =
-  **~5916 用例通过, 0 失败** (离线环境, 需在线 BERT 基座的融合文本通道按
+  **~5916 用例通过, 0 失败** (离线环境, 需在线 BERT 基座的融合/文本通道按
   环境门控)。
 - 前端: vitest 1121 通过 / 4 跳过; `vue-tsc --noEmit` 零错误。
 - 生产栈: 8/8 服务 healthy, `/health` 全 ok, prometheus 抓取 `up`,
