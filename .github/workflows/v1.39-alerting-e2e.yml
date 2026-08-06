@@ -57,14 +57,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      # H-AUDIT-01: prometheus.yml 含真实 token 不入库, 仓库仅存 .example 模板。
-      # CI 中从模板生成并注入 CI token, 否则 (a) sed 找不到文件,
-      # (b) grafana depends_on prometheus 会把缺失路径挂载成空目录导致 prometheus 起不来
-      - name: Generate Prometheus config with CI token
+      # H-AUDIT-01: prometheus.yml 不含真实 token, 仓库仅存 .example 模板。
+      # 令牌经 bearer_token_file 注入 (prometheus.yml 不支持 ${VAR} 展开,
+      # 模板用 bearer_token_file: /etc/prometheus/metrics_token, 由 compose
+      # 挂载 ./infra/prometheus/token)。CI 生成与本地一致的 token 文件。
+      - name: Generate Prometheus token file
         run: |
           cp infra/prometheus/prometheus.yml.example infra/prometheus/prometheus.yml
-          sed -i "s|^    bearer_token: .*|    bearer_token: ${METRICS_ACCESS_TOKEN}|" infra/prometheus/prometheus.yml
-          grep -n "bearer_token" infra/prometheus/prometheus.yml
+          printf '%s\n' "${METRICS_ACCESS_TOKEN}" > infra/prometheus/token
+          grep -n "bearer_token_file" infra/prometheus/prometheus.yml
 
       - name: Set up Python
         uses: actions/setup-python@v5
