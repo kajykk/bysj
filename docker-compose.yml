@@ -357,7 +357,9 @@ services:
       METRICS_ACCESS_TOKEN: ${METRICS_ACCESS_TOKEN:?METRICS_ACCESS_TOKEN is required}
       GRAFANA_SA_TOKEN: ${GRAFANA_SA_TOKEN:?GRAFANA_SA_TOKEN is required}
       # H-AUDIT-01: simpod-json-datasource 插件必须在容器启动前安装
-      GF_PLUGINS_PREINSTALL: grafana-simple-json-datasource
+      # (grafana-simple-json-datasource 是 Angular 旧插件, Grafana 11.5 禁用;
+      #  规划文档 11-research-r3.md 指定的是 simpod-json-datasource)
+      GF_PLUGINS_PREINSTALL: simpod-json-datasource
       # contact-points.yaml 需要这些 env vars (Grafana 11.5 占位符 ${env:XXX})
       GRAFANA_WEBHOOK_URL: ${GRAFANA_WEBHOOK_URL:-}
       GRAFANA_SRE_EMAIL: ${GRAFANA_SRE_EMAIL:-}

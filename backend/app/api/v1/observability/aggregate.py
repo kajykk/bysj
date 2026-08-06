@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.observability._common import (
     _json_loads,
     _JsonExtract,
+    _naive_utc,
     _norm_json_value,
 )
 from app.models.admin import OperationLog
@@ -50,6 +51,7 @@ async def _compute_channel_stats(
     PERF-P1-001: SQL GROUP BY 下推 — 从 5000 行 detail 全文拉取改为
     GROUP BY (channel, action_type) + COUNT + AVG + MAX，返回行数从 5000 降至 ~8。
     """
+    start_time, end_time = _naive_utc(start_time), _naive_utc(end_time)
     ch_expr = _JsonExtract(OperationLog.detail, "channel")
     dur_expr = cast(_JsonExtract(OperationLog.detail, "duration_ms"), Float)
 
@@ -154,6 +156,7 @@ async def _compute_silence_hit_rate(
     PERF-P1-001: SQL GROUP BY 下推 — fired 从 5000 行 detail 改为 COUNT(*) 单行；
     silenced 从 5000 行 detail 改为 GROUP BY (silence_name, severity)，返回几十行。
     """
+    start_time, end_time = _naive_utc(start_time), _naive_utc(end_time)
     matcher_expr = _JsonExtract(OperationLog.detail, "silence_name")
     sev_expr = _JsonExtract(OperationLog.detail, "severity")
 
@@ -257,6 +260,7 @@ async def _compute_am_sync(
     拉取改为 GROUP BY (operation, action_type) + COUNT + AVG，返回行数从 10000 降至 ~6；
     recent_failures 从 5000 行改为 LIMIT 10。
     """
+    start_time, end_time = _naive_utc(start_time), _naive_utc(end_time)
     op_expr = _JsonExtract(OperationLog.detail, "operation")
     dur_expr = cast(_JsonExtract(OperationLog.detail, "duration_ms"), Float)
 

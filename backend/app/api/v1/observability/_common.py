@@ -26,6 +26,23 @@ logger = logging.getLogger(__name__)
 DEFAULT_LIMIT = 5000
 
 
+def _naive_utc(dt: "datetime | None") -> "datetime | None":
+    """v1.41: PG timestamp 列是 naive (无时区), asyncpg 绑定 aware 参数报
+    "can't subtract offset-naive and offset-aware datetimes".
+
+    在 SQL 比较前统一转为 naive UTC (UTC 值不变, 仅去 tzinfo)。
+    覆盖 observability 主端点 (经 _validate_time_range)、grafana_adapter
+    直连 _compute_*、以及测试直接调用等所有路径。
+    """
+    from datetime import timezone
+
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 # ===== PERF-P1-001: 跨方言 JSON 提取 + 时间桶分组工具 =====
 # OperationLog.detail 列为 Text 类型 (非 JSONB)，业务维度嵌在 JSON 字符串中。
 # 不同方言的 JSON 提取语法不同:

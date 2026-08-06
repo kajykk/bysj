@@ -13,7 +13,9 @@ datasources:
   - name: Observability API
     type: simpod-json-datasource
     access: proxy
-    url: http://backend:8000/api/v1/alerts/observability
+    # 指向 v1.37 grafana_adapter 根路径 (T-GRAF-002, Test connection 兼容).
+    # 注意: 不能是 v1.36 /alerts/observability (无根路由, simpod 测试连接会 500)
+    url: http://backend:8000/api/v1/alerts/observability/grafana
     isDefault: true
     editable: true
     jsonData:

@@ -110,7 +110,9 @@ def _validate_time_range(
     - naive datetime 视为 UTC，避免 aware/naive 混用比较报错
 
     Returns:
-        (start_time, end_time) - 均为 aware UTC datetime
+        (start_time, end_time) - 均为 naive UTC datetime
+        (PG timestamp 列为 naive, 绑定 aware 参数字节对齐时报
+        "can't subtract offset-naive and offset-aware datetimes")
     """
     now = datetime.now(timezone.utc)
     if end_time is None:
@@ -135,7 +137,10 @@ def _validate_time_range(
             status_code=400,
             detail=f"时间范围不能超过 {MAX_TIME_RANGE_DAYS} 天",
         )
-    return start_time, end_time
+    # PG timestamp 列是 naive (无时区), asyncpg 绑定 aware 参数报
+    # "can't subtract offset-naive and offset-aware datetimes".
+    # 统一去 tzinfo (UTC 值不变), cache key 由 _cache_key_dt 统一处理.
+    return start_time.replace(tzinfo=None), end_time.replace(tzinfo=None)
 
 
 def _jittered_ttl() -> int:
