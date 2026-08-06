@@ -60,7 +60,14 @@ def test_grafana_container_healthy() -> None:
 
 
 def test_datasource_provisioning_loaded() -> None:
-    """T-GRAF-016-2: DataSource provisioning 已加载 (Test connection)."""
+    """T-GRAF-016-2: DataSource provisioning 已加载.
+
+    simpod-json-datasource 是 frontend-only 插件, Grafana 后端
+    /api/datasources/:id/health 与 /api/ds/query 对其恒返回
+    "plugin unavailable" (无后端执行器, 平台预期行为).
+    故本用例校验 provisioning 注册 + 配置正确性; 后端连通性
+    由 test_backend_grafana_endpoints_200 用真实 SA token 直接验证.
+    """
     r = requests.get(
         f"{GRAFANA_URL}/api/datasources",
         auth=(GRAFANA_USER, GRAFANA_PASSWORD),
@@ -73,13 +80,12 @@ def test_datasource_provisioning_loaded() -> None:
     assert (
         "Observability API" in ds_names
     ), f"Observability API datasource missing: {ds_names}"
-    # Test connection (id=1 if first provisioned)
-    ds_id = next(ds["id"] for ds in datasources if ds["name"] == "Observability API")
-    r = requests.get(
-        f"{GRAFANA_URL}/api/datasources/{ds_id}/health",
-        timeout=10,
-    )
-    assert r.status_code == 200, f"Datasource {ds_id} unhealthy: {r.text}"
+    ds = next(d for d in datasources if d["name"] == "Observability API")
+    # 配置正确性: type 必须是 simpod-json-datasource, url 指向 v1.37 grafana_adapter
+    assert ds["type"] == "simpod-json-datasource", f"Unexpected type: {ds['type']}"
+    assert ds["url"].endswith(
+        "/api/v1/alerts/observability/grafana"
+    ), f"URL 应指向 grafana_adapter 根路径: {ds['url']}"
 
 
 def test_dashboard_provisioning_loaded() -> None:

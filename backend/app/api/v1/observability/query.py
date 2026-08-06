@@ -22,6 +22,7 @@ from app.api.v1.observability._common import (
     DEFAULT_LIMIT,
     _BucketExpr,
     _JsonExtract,
+    _naive_utc,
     _norm_json_value,
 )
 from app.models.admin import OperationLog
@@ -92,6 +93,7 @@ async def _compute_trend(
     PERF-P1-001: SQL GROUP BY 下推 — 将 Python Counter 聚合 + 5000 行 detail
     全文拉取改为 SQL 侧 json_extract + GROUP BY，返回行数从 5000 降至几十/几百。
     """
+    start_time, end_time = _naive_utc(start_time), _naive_utc(end_time)
     sev_expr = _JsonExtract(OperationLog.detail, "severity")
     rule_expr = _JsonExtract(OperationLog.detail, "rule")
     bucket_secs = _BUCKET_SECONDS[bucket]
@@ -231,6 +233,7 @@ async def _compute_response_time(
     改为 (created_at, fingerprint, severity) 3 小字段；acked 从全量拉取改为
     GROUP BY fingerprint + MIN(created_at)，返回行数从 5000 降至几十/几百。
     """
+    start_time, end_time = _naive_utc(start_time), _naive_utc(end_time)
     fp_expr = _JsonExtract(OperationLog.detail, "fingerprint")
     sev_expr = _JsonExtract(OperationLog.detail, "severity")
 
@@ -356,6 +359,7 @@ async def _compute_escalation(
     拉取改为 GROUP BY (rule, severity) / GROUP BY (rule, severity, to_level)，
     返回行数从 10000 降至几十/几百。
     """
+    start_time, end_time = _naive_utc(start_time), _naive_utc(end_time)
     sev_expr = _JsonExtract(OperationLog.detail, "severity")
     rule_expr = _JsonExtract(OperationLog.detail, "rule")
     to_level_expr = _JsonExtract(OperationLog.detail, "to_level")
