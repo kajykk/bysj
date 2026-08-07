@@ -23,6 +23,36 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
 
+def ensure_default_tenant(sync_conn) -> None:
+    """幂等引导默认租户 (DEFAULT_TENANT_ID=1).
+
+    多租户字段 (users.tenant_id 等) 外键指向 tenants.id。
+    旧库升级 / 全新建库后都必须存在默认租户行, 否则注册/任何插入
+    都违反外键约束 → 409 INTEGRITY_ERROR "数据冲突"。
+    """
+    from app.core.contracts import (
+        DEFAULT_TENANT_ID,
+        TENANT_STATUS_ACTIVE,
+    )
+    from app.models.tenant import Tenant
+
+    existing = sync_conn.execute(
+        text("SELECT id FROM tenants WHERE id = :tid"),
+        {"tid": DEFAULT_TENANT_ID},
+    ).first()
+    if existing:
+        return
+    sync_conn.execute(
+        Tenant.__table__.insert().values(
+            id=DEFAULT_TENANT_ID,
+            name="默认租户",
+            code="default",
+            status=TENANT_STATUS_ACTIVE,
+        )
+    )
+    print(f"[OK] 引导默认租户 id={DEFAULT_TENANT_ID} (code=default)")
+
+
 async def db_has_tables() -> bool:
     """检查数据库中是否已有任何表 (区分全新库与旧库)."""
     from app.core.database import engine
@@ -69,6 +99,8 @@ async def init_database() -> None:
     if await db_has_tables():
         print("[INFO] 检测到已存在的数据库, 执行 alembic upgrade head 应用未应用迁移...")
         run_alembic(["upgrade", "head"])
+        async with engine.begin() as conn:
+            await conn.run_sync(ensure_default_tenant)
     else:
         # 全新空库: 从 SQLAlchemy 模型创建全部表
         async with engine.begin() as conn:
@@ -77,6 +109,10 @@ async def init_database() -> None:
 
         # 标记所有迁移为已应用 (仅对刚创建的全新 schema 正确)
         run_alembic(["stamp", "head"])
+
+        # 引导默认租户, 否则 users.tenant_id 外键违反导致注册 409
+        async with engine.begin() as conn:
+            await conn.run_sync(ensure_default_tenant)
 
     await engine.dispose()
 
