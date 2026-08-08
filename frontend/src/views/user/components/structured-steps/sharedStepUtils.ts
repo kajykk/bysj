@@ -1,4 +1,6 @@
 // StructuredForm 接口（14 字段）
+import i18n from '@/i18n'
+
 export interface StructuredForm {
   identity_type: string
   age: number
@@ -49,4 +51,22 @@ export function formatSliderValue(value: number, unit: string, max: number): str
   if (unit === '小时') return `${value} 小时`
   if (unit === '次/周') return `${value} 次/周`
   return `${value} / ${max}`
+}
+
+// PERF-P1-004 三态：warning_generated 为 boolean|null。
+// - true → csvYes, false → csvNo, null → csvPending(处理中)
+// 供结果面板、历史表格、CSV 导出三处共用，确保展示一致。
+const t = i18n.global.t.bind(i18n.global)
+
+export function formatWarningGenerated(
+  value: boolean | null | undefined,
+  kind: 'option' | 'csv' = 'option',
+): string {
+  const yes = kind === 'csv' ? t('structuredAssess.csvYes') : t('structuredAssess.yesOption')
+  const no = kind === 'csv' ? t('structuredAssess.csvNo') : t('structuredAssess.noOption')
+  const pending =
+    kind === 'csv' ? t('structuredAssess.csvPending') : t('structuredAssess.warningPending')
+  if (value === true) return yes
+  if (value === false) return no
+  return pending
 }

@@ -49,11 +49,11 @@
           class="warning-item"
         >
           <el-tag
-            :type="w.risk_level >= 3 ? 'danger' : w.risk_level === 2 ? 'warning' : 'info'"
+            :type="riskLevelOf(w) >= 3 ? 'danger' : riskLevelOf(w) === 2 ? 'warning' : 'info'"
             size="small"
             effect="light"
           >
-            {{ w.risk_level >= 3 ? t('userDashboard.warningHigh') : w.risk_level === 2 ? t('userDashboard.warningMedium') : t('userDashboard.warningLow') }}
+            {{ riskLevelOf(w) >= 3 ? t('userDashboard.warningHigh') : riskLevelOf(w) === 2 ? t('userDashboard.warningMedium') : t('userDashboard.warningLow') }}
           </el-tag>
           <span class="warning-title">{{ w.title }}</span>
           <span class="warning-time tabular-nums">{{ formatDate(w.created_at, 'MM/DD HH:mm') }}</span>
@@ -84,6 +84,7 @@ import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { formatDate } from '@/utils/formatUtils'
+import { normalizeWarningRiskLevel } from '@/utils/warning'
 import type { WarningItem } from '@/api/userTypes'
 
 defineProps<{
@@ -96,6 +97,8 @@ const emit = defineEmits<{ reload: [] }>()
 
 const { t } = useI18n()
 const router = useRouter()
+
+const riskLevelOf = (w: WarningItem) => normalizeWarningRiskLevel(w.risk_level)
 </script>
 
 <style scoped>

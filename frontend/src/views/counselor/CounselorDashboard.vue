@@ -319,14 +319,15 @@ onMounted(() => {
 
 <style scoped>
 .layout {
-  padding: var(--spacing-xl);
+  /* BLANK-02 修复：外层 padding 交由 .layout-main 统一管控，避免双重内边距 */
   max-width: var(--layout-content-max-width);
   margin: 0 auto;
 }
 
 /* ===== 头部 ===== */
 .layout__header {
-  margin-bottom: var(--spacing-2xl);
+  /* BLANK-04 修复：头部下方间距由 48px 收敛为 32px，减少大块留白 */
+  margin-bottom: var(--spacing-xl);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -387,7 +388,8 @@ onMounted(() => {
 
 .bento-stat-stack {
   display: grid;
-  grid-template-rows: 1fr 1fr;
+  /* BLANK-08 修复：auto 1fr 让绑定码卡吸收与 Hero 的高度差，避免两张统计卡被均分拉伸产生内部留白 */
+  grid-template-rows: auto 1fr;
   gap: var(--spacing-lg);
 }
 
@@ -449,11 +451,18 @@ onMounted(() => {
   gap: var(--spacing-sm);
 }
 
-/* 快捷操作 */
+/* 快捷操作
+   BLANK-09 修复：全宽卡内仅 2 个按钮导致大面积空白，
+   改为自适应网格 + 按钮撑满轨道，形成两个等宽的大动作区块 */
 .quick-actions {
-  display: flex;
-  gap: var(--spacing-sm);
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.quick-actions .el-button {
+  width: 100%;
+  margin-left: 0;
 }
 
 /* ===== 响应式 ===== */
@@ -468,10 +477,6 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .layout {
-    padding: var(--spacing-md);
-  }
-
   .layout__header {
     flex-direction: column;
     align-items: flex-start;

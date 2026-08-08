@@ -2,14 +2,16 @@ import type { AssessmentType, BindingStatus, UserStatus } from '@/types/contract
 
 export interface WarningItem {
   id: number
-  risk_level: number
+  // 兼容真实后端值：/user/warnings 与 /counselor/warnings 返回字符串标签
+  // (normalize_risk_level: none/low/medium/high/critical/unknown)
+  risk_level: number | string
   title: string
   content: string
-  is_read: boolean
+  is_read?: boolean
   status: string
   created_at: string
   handled_at?: string | null
-  handled_by?: number | null
+  handled_by?: number | string | null
   handled_note?: string | null
   physiological_score?: number | null
   fusion_detail?: Record<string, unknown> | null

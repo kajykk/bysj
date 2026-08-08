@@ -13,7 +13,7 @@
 
       <el-form
         :model="form"
-        label-width="120px"
+        inline
         class="report-form"
       >
         <el-form-item :label="$t('report.reportType')">
@@ -126,7 +126,7 @@
         <el-table-column
           prop="createdAt"
           :label="$t('report.createdAt')"
-          width="180"
+          min-width="180"
         >
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
@@ -385,7 +385,8 @@ onMounted(() => {
 
 <style scoped>
 .report-center {
-  padding: 20px;
+  /* BLANK-02 修复：外层 padding 交由 .layout-main 统一管控，避免双重内边距 */
+  padding: 0;
 }
 
 .page-header {
@@ -406,7 +407,11 @@ onMounted(() => {
 }
 
 .report-form {
-  max-width: 600px;
+  /* BLANK-05 修复：inline 表单横向铺开，去除 600px 上限导致的卡片右半空白 */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm) 0;
 }
 
 .history-section {
@@ -423,11 +428,5 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-}
-
-@media (max-width: 768px) {
-  .report-form {
-    max-width: 100%;
-  }
 }
 </style>

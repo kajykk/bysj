@@ -323,12 +323,35 @@ async def generate_user_risk_pdf_async(
 
 async def _execute_pdf_generation(job_id: str, payload: UserRiskReportRequest) -> None:
     """P1-4: 后台执行 PDF 生成 (在专用线程池中运行 reportlab)."""
+    # M-FIX-005: 与 celery 变体 (tasks/pdf_report.py:_notify_progress) 对齐,
+    # 通过 WebSocket 实时推送 task_progress, 供 useTaskProgress 前端订阅.
+    job_record = pdf_job_store.get(job_id)
+    user_id = job_record.created_by if job_record else None
+
+    async def _notify(status: str, progress: int, error: str | None = None):
+        if user_id is None:
+            return
+        try:
+            from app.core.ws import notify_task_progress
+
+            await notify_task_progress(
+                user_id=user_id,
+                job_id=job_id,
+                status=status,
+                progress=progress,
+                job_type="pdf",
+                error=error,
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.debug("notify_task_progress failed for job %s: %s", job_id, exc)
+
     pdf_job_store.update(
         job_id,
         status="running",
         started_at=datetime.now(timezone.utc).isoformat(),
         progress=10,
     )
+    await _notify("running", 10)
     try:
         result = await asyncio.to_thread(
             pdf_report_service.generate_user_risk_report,
@@ -339,13 +362,15 @@ async def _execute_pdf_generation(job_id: str, payload: UserRiskReportRequest) -
         )
 
         if not result.success:
+            error_message = result.error_message or "PDF generation failed"
             pdf_job_store.update(
                 job_id,
                 status="failed",
                 completed_at=datetime.now(timezone.utc).isoformat(),
-                error=result.error_message or "PDF generation failed",
+                error=error_message,
                 progress=100,
             )
+            await _notify("failed", 100, error_message)
             return
 
         # 存储 PDF 字节到任务 (内存中, 供下载端点读取)
@@ -358,6 +383,7 @@ async def _execute_pdf_generation(job_id: str, payload: UserRiskReportRequest) -
             file_size=result.file_size,
             page_count=result.page_count,
         )
+        await _notify("completed", 100)
         logger.info(
             "PDF job %s completed: size=%d bytes, pages=%d",
             job_id,
@@ -366,13 +392,15 @@ async def _execute_pdf_generation(job_id: str, payload: UserRiskReportRequest) -
         )
     except Exception as exc:
         logger.error("PDF job %s failed: %s", job_id, exc, exc_info=True)
+        error_message = str(exc)
         pdf_job_store.update(
             job_id,
             status="failed",
             completed_at=datetime.now(timezone.utc).isoformat(),
-            error=str(exc),
+            error=error_message,
             progress=100,
         )
+        await _notify("failed", 100, error_message)
 
 
 @router.get(

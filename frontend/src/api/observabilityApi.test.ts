@@ -24,8 +24,8 @@ describe('api/observabilityApi', () => {
 
   it('getTrend 传 bucket/severity/time range', async () => {
     (request.get as any).mockResolvedValueOnce({ data: { data: { points: [] }, instance_id: 'i', cached: false, generated_at: 't' } })
-    await observabilityApi.getTrend({ start_time: '2026-07-01', end_time: '2026-07-08', bucket: 'day', severity: 'high' })
-    expect(request.get).toHaveBeenCalledWith('/alerts/observability/trend', { params: { start_time: '2026-07-01', end_time: '2026-07-08', bucket: 'day', severity: 'high' } })
+    await observabilityApi.getTrend({ start_time: '2026-07-01', end_time: '2026-07-08', bucket: '6h', severity: 'high' })
+    expect(request.get).toHaveBeenCalledWith('/alerts/observability/trend', { params: { start_time: '2026-07-01', end_time: '2026-07-08', bucket: '6h', severity: 'high' } })
   })
 
   it('八个端点路径正确', async () => {

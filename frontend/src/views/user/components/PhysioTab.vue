@@ -190,12 +190,14 @@
             />
           </template>
         </el-table-column>
+        <!-- BLANK-06 修复：空状态合并进表格 #empty 插槽，避免表格默认占位与独立 el-empty 叠加出双重空白 -->
+        <template #empty>
+          <el-empty
+            :description="t('physioAssess.emptyHistory')"
+            :image-size="60"
+          />
+        </template>
       </el-table>
-      <el-empty
-        v-if="!physioHistory.length"
-        :description="t('physioAssess.emptyHistory')"
-        :image-size="60"
-      />
     </el-card>
   </div>
 </template>

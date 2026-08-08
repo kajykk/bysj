@@ -7,7 +7,12 @@
   >
     <template v-if="report">
       <el-row :gutter="16">
-        <el-col :span="8">
+        <!-- BLANK-07 修复：补充响应式断点，窄屏整行堆叠，避免 8 栅列放不下 140px 仪表盘 -->
+        <el-col
+          :xs="24"
+          :sm="24"
+          :md="8"
+        >
           <el-card>
             <div class="report-score-wrap">
               <el-progress
@@ -117,7 +122,11 @@
           </el-card>
         </el-col>
 
-        <el-col :span="16">
+        <el-col
+          :xs="24"
+          :sm="24"
+          :md="16"
+        >
           <el-card>
             <template #header>
               <span class="card-title">{{ t('riskReport.factorsAdviceTitle') }}</span>
@@ -430,6 +439,12 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* MOBILE-01 修复：窄屏下带边框 el-descriptions 的标签列被压缩、
+   中文标签逐字竖排；为标签单元格保留最小宽度，保证可读性 */
+:deep(.el-descriptions__label) {
+  min-width: 88px;
+}
+
 .report-score-wrap {
   display: flex;
   justify-content: center;

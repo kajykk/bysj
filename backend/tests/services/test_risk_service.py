@@ -140,7 +140,8 @@ class TestRiskService:
         service = RiskService(db_session)
         from datetime import datetime, timezone
 
-        now = datetime.now(timezone.utc)
+        # TZ-01 同步：_since_datetime 返回 naive UTC（与无时区列约定一致）
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         since = service._since_datetime(7)
         assert since < now
         # Should be approximately 7 days ago
@@ -154,7 +155,7 @@ class TestRiskService:
         # Should clamp to 0 days
         from datetime import datetime, timezone
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         diff = now - since
         assert diff.days == 0
 

@@ -45,7 +45,11 @@ class PdfJob:
     def to_status_dict(self) -> dict[str, Any]:
         """返回状态信息 (不含 PDF 字节, 避免响应体过大)."""
         return {
+            # M-FIX-003: 同时提供 id 与 job_id 别名.
+            # 旧字段: PdfJobStore 内部与 /reports/pdf/jobs 列表使用 id;
+            # 前端 PdfJobStatus 契约 (reportsApi.ts) 使用 job_id, 与 celery 变体保持一致.
             "id": self.id,
+            "job_id": self.id,
             "status": self.status,
             "user_name": self.user_name,
             "progress": self.progress,

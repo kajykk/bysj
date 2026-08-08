@@ -44,6 +44,18 @@ RISK_LEVEL_MAP: dict[int, str] = {
 
 RISK_LEVELS: frozenset[str] = frozenset(RISK_LEVEL_MAP.values())
 
+# I18N-03 修复：后端拼接的中文用户可见文案（如预警标题“风险等级X预警”）
+# 原先直接内嵌英文标签（风险等级high预警）。提供中文展示映射，
+# 键为 normalize_risk_level 的字符串输出。
+RISK_LEVEL_DISPLAY_ZH: dict[str, str] = {
+    "none": "无",
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "critical": "危急",
+    "unknown": "未知",
+}
+
 
 # =========================================================================
 # 2. 预警动作与状态 (Warning Action & Status)

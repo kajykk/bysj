@@ -132,7 +132,7 @@ onMounted(() => {
 
 <style scoped>
 .layout {
-  padding: var(--spacing-xl);
+  /* BLANK-02 修复：外层 padding 交由 .layout-main 统一管控，避免双重内边距 */
   max-width: var(--layout-content-max-width);
   margin: 0 auto;
 }
@@ -142,7 +142,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: var(--spacing-2xl);
+  /* BLANK-04 修复：头部下方间距由 48px 收敛为 32px，减少大块留白 */
+  margin-bottom: var(--spacing-xl);
   gap: var(--spacing-lg);
 }
 
@@ -210,7 +211,9 @@ onMounted(() => {
 
 .bento-cell-stack {
   display: grid;
-  grid-template-rows: 1fr 1fr;
+  /* BLANK-08 修复：由 1fr 1fr 改为 auto 1fr，首卡保持自然高度，
+     仅底部卡（内容可伸缩、按钮贴底）吸收与 Hero 卡的高度差，消除两张小卡内部留白 */
+  grid-template-rows: auto 1fr;
   gap: var(--spacing-lg);
 }
 
@@ -227,10 +230,6 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .layout {
-    padding: var(--spacing-md);
-  }
-
   .layout__header {
     flex-direction: column;
     align-items: flex-start;

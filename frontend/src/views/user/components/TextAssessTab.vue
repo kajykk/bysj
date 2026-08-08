@@ -188,7 +188,12 @@
           :gutter="16"
           class="result-grid"
         >
-          <el-col :span="12">
+          <!-- BLANK-07 修复：补充响应式断点，窄屏下两张结果卡整行堆叠 -->
+          <el-col
+            :xs="24"
+            :sm="24"
+            :md="12"
+          >
             <el-card
               shadow="never"
               class="mini-result-card"
@@ -209,7 +214,11 @@
               </el-result>
             </el-card>
           </el-col>
-          <el-col :span="12">
+          <el-col
+            :xs="24"
+            :sm="24"
+            :md="12"
+          >
             <el-card
               shadow="never"
               class="mini-result-card"

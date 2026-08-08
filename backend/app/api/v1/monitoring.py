@@ -57,6 +57,34 @@ def _time_bucket_expr(granularity: str):
     return func.to_char(MonitoringLog.created_at, fmt).label("time_bucket")
 
 
+def _time_range_filter(
+    start_time: datetime | None, end_time: datetime | None
+) -> list | None:
+    """M-FIX-002: 构造 created_at 时间范围过滤条件.
+
+    前端 monitoringApi 对 success-rate/fallback-stats/drift-alerts/request-details
+    均传入 start_time/end_time；此前后端不接收这些参数，过滤一直被静默忽略。
+    显式传入时使用用户指定范围，未传入时返回 None（由各端点回退到默认窗口）。
+    """
+    if start_time is None and end_time is None:
+        return None
+    if start_time is not None and end_time is not None and start_time > end_time:
+        raise HTTPException(status_code=422, detail="start_time 不能晚于 end_time")
+    conditions = []
+    if start_time is not None:
+        conditions.append(MonitoringLog.created_at >= start_time)
+    if end_time is not None:
+        conditions.append(MonitoringLog.created_at <= end_time)
+    return conditions
+
+
+def _naive_utc(value: datetime) -> datetime:
+    """将 aware datetime 规范化为 naive UTC，避免与数据库 naive 列比较报错."""
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 @router.get(
     "/model-success-rate", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
@@ -65,17 +93,21 @@ async def model_success_rate(
     db: Annotated[AsyncSession, Depends(get_db)],
     granularity: Annotated[str, Query(description="时间粒度: hour, day, week")] = "day",
     model_version: Annotated[str | None, Query(description="模型版本过滤")] = None,
+    start_time: Annotated[datetime | None, Query(description="起始时间 (ISO)")] = None,
+    end_time: Annotated[datetime | None, Query(description="结束时间 (ISO)")] = None,
 ) -> dict:
     """Get model success rate over time."""
     now = datetime.now(timezone.utc)
     if granularity == "hour":
-        start_time = now - timedelta(hours=24)
+        start_time = start_time or now - timedelta(hours=24)
     elif granularity == "day":
-        start_time = now - timedelta(days=30)
+        start_time = start_time or now - timedelta(days=30)
     elif granularity == "week":
-        start_time = now - timedelta(weeks=12)
+        start_time = start_time or now - timedelta(weeks=12)
     else:
-        start_time = now - timedelta(days=30)
+        start_time = start_time or now - timedelta(days=30)
+    start_time = _naive_utc(start_time)
+    end_time = _naive_utc(end_time) if end_time is not None else None
     # H-07 修复：跨数据库兼容的时间分桶表达式（SQLite/PostgreSQL）
     time_expr = _time_bucket_expr(granularity)
 
@@ -105,6 +137,8 @@ async def model_success_rate(
     )
     if model_version:
         stmt = stmt.where(MonitoringLog.model_version == model_version)
+    if end_time is not None:
+        stmt = stmt.where(MonitoringLog.created_at <= end_time)
 
     result = await db.execute(stmt)
     rows = result.all()
@@ -133,12 +167,21 @@ async def fallback_stats(
     days: Annotated[
         int, Query(ge=1, le=365, description="时间范围（天），默认30天")
     ] = 30,
+    start_time: Annotated[datetime | None, Query(description="起始时间 (ISO)")] = None,
+    end_time: Annotated[datetime | None, Query(description="结束时间 (ISO)")] = None,
 ) -> dict:
     """Get fallback statistics grouped by reason."""
     # P0-P1 修复：原实现无时间过滤，会加载全部 fallback 日志到内存聚合，
     # 生产环境可能导致 OOM。添加时间范围过滤（默认30天），并将聚合下推到 SQL。
     now = datetime.now(timezone.utc)
-    start_time = now - timedelta(days=days)
+    if start_time is not None and end_time is not None and start_time > end_time:
+        raise HTTPException(status_code=422, detail="start_time 不能晚于 end_time")
+    start_time = (
+        _naive_utc(start_time)
+        if start_time is not None
+        else _naive_utc(now - timedelta(days=days))
+    )
+    end_time = _naive_utc(end_time) if end_time is not None else None
 
     # 使用 SQL GROUP BY 聚合，避免加载原始记录到内存
     fallback_reason_col = func.coalesce(MonitoringLog.fallback_reason, "unknown")
@@ -153,6 +196,8 @@ async def fallback_stats(
     )
     if model_version:
         stmt = stmt.where(MonitoringLog.model_version == model_version)
+    if end_time is not None:
+        stmt = stmt.where(MonitoringLog.created_at <= end_time)
 
     result = await db.execute(stmt)
     rows = result.all()
@@ -183,6 +228,8 @@ async def drift_alerts(
     model_version: Annotated[str | None, Query(description="模型版本过滤")] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    start_time: Annotated[datetime | None, Query(description="起始时间 (ISO)")] = None,
+    end_time: Annotated[datetime | None, Query(description="结束时间 (ISO)")] = None,
 ) -> dict:
     """Get drift alerts with filtering."""
     stmt = select(DriftAlert)
@@ -196,6 +243,12 @@ async def drift_alerts(
             stmt = stmt.where(DriftAlert.resolved_at.is_(None))
     if model_version:
         stmt = stmt.where(DriftAlert.model_version == model_version)
+    if start_time is not None and end_time is not None and start_time > end_time:
+        raise HTTPException(status_code=422, detail="start_time 不能晚于 end_time")
+    if start_time is not None:
+        stmt = stmt.where(DriftAlert.created_at >= _naive_utc(start_time))
+    if end_time is not None:
+        stmt = stmt.where(DriftAlert.created_at <= _naive_utc(end_time))
 
     # Get total count
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -358,6 +411,8 @@ async def request_details_list(
     model_version: Annotated[str | None, Query(description="模型版本过滤")] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    start_time: Annotated[datetime | None, Query(description="起始时间 (ISO)")] = None,
+    end_time: Annotated[datetime | None, Query(description="结束时间 (ISO)")] = None,
 ) -> dict:
     """Get list of request details with filtering."""
     stmt = select(MonitoringLog)
@@ -366,6 +421,12 @@ async def request_details_list(
         stmt = stmt.where(MonitoringLog.event_type == event_type)
     if model_version:
         stmt = stmt.where(MonitoringLog.model_version == model_version)
+    if start_time is not None and end_time is not None and start_time > end_time:
+        raise HTTPException(status_code=422, detail="start_time 不能晚于 end_time")
+    if start_time is not None:
+        stmt = stmt.where(MonitoringLog.created_at >= _naive_utc(start_time))
+    if end_time is not None:
+        stmt = stmt.where(MonitoringLog.created_at <= _naive_utc(end_time))
 
     # Get total count
     count_stmt = select(func.count()).select_from(stmt.subquery())

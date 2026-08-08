@@ -1134,9 +1134,48 @@ export default {
     deleteSuccess: '模板已删除',
     deleteFailed: '删除失败'
   },
+  /* I18N-02 修复：补充新手引导步骤词条（useOnboarding.ts 引用，原先缺失导致界面显示原始键） */
+  onboarding: {
+    steps: {
+      user: {
+        navMenuTitle: '导航菜单',
+        navMenuDesc: '点击左侧导航，可在风险评估、干预计划、内容中心等功能间快速切换。',
+        warningBadgeTitle: '预警通知',
+        warningBadgeDesc: '当生成新的风险预警时，这里会出现数量角标，提醒你及时查看。',
+        dashboardTitle: '用户仪表盘',
+        dashboardDesc: '仪表盘汇聚风险状态、最近测评与干预计划等关键信息，一目了然。',
+        riskAssessTitle: '风险评估',
+        riskAssessDesc: '在此发起结构化问卷、文本评估与生理数据记录，多模态融合生成风险报告。',
+        warningsTitle: '我的预警',
+        warningsDesc: '查看历史风险预警记录与处理建议，跟踪自身状态变化。',
+      },
+      counselor: {
+        navMenuTitle: '导航菜单',
+        navMenuDesc: '点击左侧导航，可在预警处理、用户管理、个人设置等功能间切换。',
+        warningBadgeTitle: '预警通知',
+        warningBadgeDesc: '当有新的预警待处理时，这里会出现数量角标，便于及时介入。',
+        userMgmtTitle: '用户管理',
+        userMgmtDesc: '查看已绑定用户列表与风险概览，点击用户可进入详情。',
+        warningMgmtTitle: '预警处理',
+        warningMgmtDesc: '在队列中处理待办预警，填写干预记录，形成闭环。',
+      },
+      admin: {
+        navMenuTitle: '导航菜单',
+        navMenuDesc: '点击左侧导航，可在模板、告警、监控等系统功能间切换。',
+        warningBadgeTitle: '预警通知',
+        warningBadgeDesc: '当系统出现新的预警时，这里会出现数量角标。',
+        dashboardTitle: '管理员仪表盘',
+        dashboardDesc: '仪表盘汇聚用户、预警、评估等核心指标与系统运行状态。',
+        observabilityTitle: '可观测性监控',
+        observabilityDesc: '查看系统指标与告警事件，保障平台稳定运行。',
+      },
+    },
+  },
   counselorDashboard: {
     eyebrow: '咨询台',
     title: '咨询师工作台',
+    /* I18N-02 修复：补充缺失的 lede 词条 */
+    lede: '处理待办预警，管理已绑定用户。',
     welcome: '欢迎，{name}',
     defaultCounselorName: '咨询师',
     tagCounselor: '咨询师端',
@@ -1811,6 +1850,8 @@ export default {
     businessOverviewTitle: '业务概览',
     severityLabel: '严重程度：',
     warningTriggeredLabel: '预警触发：',
+    // PERF-P1-004: 预警生成异步化，同步响应为 null 时展示"处理中"
+    warningPending: '处理中',
     viewReportBtn: '查看概览报告',
     copyResultBtn: '复制结果',
     historyTitle: '概览历史',
@@ -1848,6 +1889,7 @@ export default {
     csvHeaderWarningTriggered: '预警触发',
     csvYes: '是',
     csvNo: '否',
+    csvPending: '处理中',
     historyCsvExported: '预测历史 CSV 已导出',
     stepIncomplete: '请完善当前步骤的信息后再继续',
     copiedToClipboard: '已复制到剪贴板',

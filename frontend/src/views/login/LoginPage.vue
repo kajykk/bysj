@@ -484,17 +484,17 @@ const handleRegister = async () => {
   margin-bottom: var(--spacing-md);
 }
 
-/* ===== 响应式：移动端隐藏品牌面板，单列表单 ===== */
-/* ISS-085 修复：断点统一为 768px，与全局 useBreakpoint (isMobile < 768px) 保持一致 */
-@media (max-width: 768px) {
+/* ===== 响应式：品牌面板隐藏时同步收为单列 =====
+   BLANK-01 修复：AuthBrandPanel 在 ≤960px 时 display:none，
+   原网格断点为 768px，导致 769–960px 区间左侧 1.1fr 列成为空白死列（约占半屏）。
+   现将折叠断点与面板隐藏断点对齐为 960px，消除平板竖屏下的半屏空白。 */
+@media (max-width: 960px) {
   .auth-shell {
     grid-template-columns: 1fr;
   }
+}
 
-  .auth-brand {
-    display: none;
-  }
-
+@media (max-width: 768px) {
   .auth-form-panel {
     min-height: 100dvh;
     padding: 2rem 1.25rem;

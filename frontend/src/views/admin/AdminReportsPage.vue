@@ -157,7 +157,7 @@ onUnmounted(stopPolling)
             <h4>{{ tp.name }}</h4>
             <p>{{ tp.description }}</p>
             <el-tag size="small">
-              {{ tp.format }}
+              {{ tp.formats.join('/') }}
             </el-tag>
           </el-card>
         </el-col>

@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import type { StructuredCollectResult } from '@/api/userRiskApi'
 import { sanitizeCellForExcel } from '@/utils/exportUtils'
+import { formatWarningGenerated } from './sharedStepUtils'
 
 export type PredictionHistoryEntry = StructuredCollectResult & { time: string }
 
@@ -78,7 +79,7 @@ export function usePredictionHistory() {
       row.risk_score,
       row.risk_level,
       row.severity,
-      row.warning_generated ? t('structuredAssess.csvYes') : t('structuredAssess.csvNo')
+      formatWarningGenerated(row.warning_generated, 'csv')
     ])
 
     const csv = [headers, ...rows]

@@ -148,7 +148,7 @@
             <template #sub-title>
               <p>{{ t('structuredAssess.riskScoreLabel') }}{{ structuredResult ? structuredResult.risk_score : '-' }}</p>
               <p>{{ t('structuredAssess.severityLabel') }}{{ structuredResult ? structuredResult.severity : '-' }}</p>
-              <p>{{ t('structuredAssess.warningTriggeredLabel') }}{{ structuredResult ? (structuredResult.warning_generated ? t('structuredAssess.yesOption') : t('structuredAssess.noOption')) : '-' }}</p>
+              <p>{{ t('structuredAssess.warningTriggeredLabel') }}{{ structuredResult ? formatWarningGenerated(structuredResult.warning_generated, 'option') : '-' }}</p>
             </template>
           </el-result>
         </el-card>
@@ -185,6 +185,7 @@ import {
   confidenceLabel,
   formatArrayText,
 } from '@/utils/riskFormatters'
+import { formatWarningGenerated } from './sharedStepUtils'
 
 interface Props {
   structuredResult: StructuredCollectResult | null

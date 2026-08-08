@@ -360,7 +360,8 @@ onMounted(() => {
 
 <style scoped>
 .review-list-page {
-  padding: 16px;
+  /* BLANK-02 修复：外层 padding 交由 .layout-main 统一管控，避免双重内边距 */
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);

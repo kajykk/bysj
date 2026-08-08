@@ -61,7 +61,7 @@
         width="100"
       >
         <template #default="{ row }">
-          {{ row.warning_generated ? t('structuredAssess.csvYes') : t('structuredAssess.csvNo') }}
+          {{ formatWarningGenerated(row.warning_generated, 'csv') }}
         </template>
       </el-table-column>
     </el-table>
@@ -77,6 +77,7 @@
 import { useI18n } from 'vue-i18n'
 import { severityFromLevel, severityLabel } from '@/utils/riskFormatters'
 import type { PredictionHistoryEntry } from './usePredictionHistory'
+import { formatWarningGenerated } from './sharedStepUtils'
 
 interface Props {
   predictionHistory: PredictionHistoryEntry[]

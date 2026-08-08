@@ -75,14 +75,15 @@ const handleLogout = async () => {
 
 <style scoped>
 .layout {
-  padding: var(--spacing-xl);
+  /* BLANK-02 修复：外层 padding 交由 .layout-main 统一管控，避免双重内边距 */
   max-width: var(--layout-content-max-width);
   margin: 0 auto;
 }
 
 /* ===== 头部 ===== */
 .layout__header {
-  margin-bottom: var(--spacing-2xl);
+  /* BLANK-04 修复：头部下方间距由 48px 收敛为 32px，减少大块留白 */
+  margin-bottom: var(--spacing-xl);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -148,10 +149,6 @@ const handleLogout = async () => {
 }
 
 @media (max-width: 768px) {
-  .layout {
-    padding: var(--spacing-md);
-  }
-
   .layout__header {
     flex-direction: column;
     align-items: flex-start;
