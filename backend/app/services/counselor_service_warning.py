@@ -66,6 +66,9 @@ class WarningMixin:
                     "content": r.trigger_reason,
                     "risk_level": normalize_risk_level(r.current_level),
                     "status": resolve_warning_status(r.is_handled, r.handle_action),
+                    # M-FIX-006: 补充 is_read 字段. 用户端 WarningService 已返回该字段,
+                    # 咨询师端缺失导致前端 WarningsTable/DetailDrawer 的已读/未读标签恒为"未读".
+                    "is_read": r.is_read,
                     "handled_at": r.handled_at.isoformat() if r.handled_at else None,
                     "handled_by": (
                         f"counselor#{r.counselor_id}" if r.is_handled else None

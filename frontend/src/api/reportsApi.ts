@@ -16,14 +16,19 @@ export interface UserRiskReportRequest {
 }
 
 export interface ReportTemplate {
+  // M-FIX-003: 与后端 REPORT_TEMPLATES (reports.py:42-71) 对齐:
+  // id/name/description/formats[]/permissions[]，无 format/required_permission
+  id: string
   name: string
   description: string
-  format: string
-  required_permission?: string
+  formats: string[]
+  permissions: string[]
 }
 
 export interface PdfJobStatus {
-  job_id: string
+  // M-FIX-003: 兼容进程内 PdfJobStore (id) 与 celery 变体 (job_id) 两种键
+  id?: string
+  job_id?: string
   status: 'queued' | 'running' | 'completed' | 'failed'
   progress: number
   message?: string
@@ -32,10 +37,12 @@ export interface PdfJobStatus {
 
 export interface PdfJobItem {
   id: string
+  job_id?: string
   user_name?: string
   status: string
   progress: number
   created_at: string
+  error?: string | null
 }
 
 export interface BatchExportDataItem {

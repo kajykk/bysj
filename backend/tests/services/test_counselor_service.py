@@ -75,6 +75,7 @@ async def _make_warning(
     trigger_reason: str = "risk up",
     is_handled: bool = False,
     handle_action: str | None = None,
+    is_read: bool = False,
 ) -> WarningNotification:
     warning = WarningNotification(
         user_id=user_id,
@@ -84,6 +85,7 @@ async def _make_warning(
         trigger_reason=trigger_reason,
         is_handled=is_handled,
         handle_action=handle_action,
+        is_read=is_read,
     )
     db_session.add(warning)
     await db_session.commit()
@@ -212,16 +214,23 @@ class TestListWarningsExtended:
     async def test_with_warnings(self, db_session, seeded_user_id):
         """TC-COV-COUN-101: 返回告警列表 + 字段映射 (覆盖 49-68)."""
         await _make_warning(db_session, 1, 2, current_level=3, trigger_reason="risk up")
+        await _make_warning(
+            db_session, 1, 2, current_level=1, is_handled=True, handle_action="handle", is_read=True
+        )
         service = CounselorService(db_session)
         result = await service.list_warnings(2, 1, 10, False)
-        assert result["total"] == 1
+        assert result["total"] == 2
         item = result["items"][0]
         assert item["user_id"] == 1
         assert item["risk_level"] == "high"
         assert item["status"] == "pending"
         assert item["handled_at"] is None
         assert item["handled_by"] is None
+        assert item["is_read"] is False
         assert "title" in item and "content" in item
+        # M-FIX-006: 咨询师端 list_warnings 需透传 is_read (前端已读/未读标签依赖)
+        handled_item = result["items"][1]
+        assert handled_item["is_read"] is True
 
     async def test_only_unhandled_filter(self, db_session, seeded_user_id):
         """TC-COV-COUN-102: only_unhandled=True 过滤已处理告警 (覆盖 41-42)."""

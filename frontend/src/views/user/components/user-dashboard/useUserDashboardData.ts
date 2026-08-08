@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { userApi } from '@/api/userApi'
 import { getRiskScoreColor } from '@/utils/riskFormatters'
+import { normalizeWarningRiskLevel } from '@/utils/warning'
 import type { ActiveIntervention, RiskReport, RiskTrend } from '@/api/userRiskApi'
 import type { WarningItem, DataHistoryItem } from '@/api/userTypes'
 import {
@@ -111,7 +112,7 @@ export function useUserDashboardData() {
 
     for (const w of unreadWarnings.value) {
       if (!w.created_at) continue
-      const level = w.risk_level
+      const level = normalizeWarningRiskLevel(w.risk_level)
       const color =
         level >= 3 ? 'var(--danger-color)'
           : level === 2 ? 'var(--warning-color)'

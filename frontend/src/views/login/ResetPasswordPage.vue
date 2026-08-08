@@ -257,13 +257,16 @@ const handleSubmit = async () => {
   height: 36px;
 }
 
-/* ===== 响应式：移动端隐藏品牌面板，单列表单 ===== */
-/* ISS-085 修复：断点统一为 768px，与全局 useBreakpoint (isMobile < 768px) 保持一致 */
-@media (max-width: 768px) {
+/* ===== 响应式：品牌面板隐藏时同步收为单列 =====
+   BLANK-01 修复：与登录页同步，AuthBrandPanel 在 ≤960px 时隐藏，
+   网格折叠断点由 768px 对齐为 960px，消除平板竖屏下左侧空白死列。 */
+@media (max-width: 960px) {
   .auth-shell {
     grid-template-columns: 1fr;
   }
+}
 
+@media (max-width: 768px) {
   .auth-form-panel {
     min-height: 100dvh;
     padding: 2rem 1.25rem;

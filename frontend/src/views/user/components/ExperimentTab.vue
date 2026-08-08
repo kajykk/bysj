@@ -10,7 +10,12 @@
         </div>
       </template>
       <el-row :gutter="16">
-        <el-col :span="14">
+        <!-- BLANK-07 修复：补充响应式断点，窄屏下堆叠为整行，避免列被压缩成窄条 -->
+        <el-col
+          :xs="24"
+          :sm="24"
+          :md="14"
+        >
           <el-form
             :model="experimentForm"
             label-width="120px"
@@ -106,7 +111,11 @@
             </el-form-item>
           </el-form>
         </el-col>
-        <el-col :span="10">
+        <el-col
+          :xs="24"
+          :sm="24"
+          :md="10"
+        >
           <el-card
             shadow="never"
             class="template-card"
@@ -139,13 +148,21 @@
       :gutter="16"
       style="margin-top: 16px"
     >
-      <el-col :span="12">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="12"
+      >
         <LossChart
           :data="lossChartData"
           :loading="experimentLoading"
         />
       </el-col>
-      <el-col :span="12">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="12"
+      >
         <AccuracyChart
           :data="accuracyChartData"
           :loading="experimentLoading"
@@ -157,13 +174,21 @@
       :gutter="16"
       style="margin-top: 16px"
     >
-      <el-col :span="14">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="14"
+      >
         <CompareChart
           :data="compareChartData"
           :loading="experimentLoading"
         />
       </el-col>
-      <el-col :span="10">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="10"
+      >
         <ConfusionChart
           :data="confusionChartData"
           :loading="experimentLoading"

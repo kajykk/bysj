@@ -18,8 +18,10 @@ const t = translate
 
 function tr(key: string, fallback: string): string {
   // 后端会直接下发中文名称（如 持续焦虑/睡眠不足/数据质量）作为 feature/direction 值，
-  // 此类键无需 i18n 查找，直接原样返回，避免 vue-i18n 大量 missing-key 警告
-  if (/[\u4e00-\u9fff]/.test(key)) return key
+  // 此类键无需 i18n 查找，直接原样返回，避免 vue-i18n 大量 missing-key 警告。
+  // I18N-01 修复：原实现检测的是拼接后的完整路径，中文键会连前缀整串返回，
+  // 导致界面显示 riskFormatter.features.持续焦虑 之类的原始路径；改为检测原始键。
+  if (/[\u4e00-\u9fff]/.test(fallback)) return fallback
   const translated = t(key)
   // vue-i18n 对不存在的 key 返回 key 路径本身
   return translated === key ? fallback : translated

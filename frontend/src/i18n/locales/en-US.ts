@@ -1134,9 +1134,48 @@ export default {
     deleteSuccess: 'Template deleted',
     deleteFailed: 'Delete failed'
   },
+  /* I18N-02 fix: add onboarding step messages used by useOnboarding.ts (were missing, raw keys shown) */
+  onboarding: {
+    steps: {
+      user: {
+        navMenuTitle: 'Navigation Menu',
+        navMenuDesc: 'Use the sidebar to switch between risk assessment, intervention plans, the content center and more.',
+        warningBadgeTitle: 'Warning Notifications',
+        warningBadgeDesc: 'When a new risk warning is generated, a badge appears here so you can check it in time.',
+        dashboardTitle: 'User Dashboard',
+        dashboardDesc: 'The dashboard summarizes your risk status, latest assessment and intervention plan at a glance.',
+        riskAssessTitle: 'Risk Assessment',
+        riskAssessDesc: 'Start structured questionnaires, text assessment and physiological records here; multimodal fusion produces your risk report.',
+        warningsTitle: 'My Warnings',
+        warningsDesc: 'Review historical risk warnings and suggestions, and track changes over time.',
+      },
+      counselor: {
+        navMenuTitle: 'Navigation Menu',
+        navMenuDesc: 'Use the sidebar to switch between warning handling, user management and settings.',
+        warningBadgeTitle: 'Warning Notifications',
+        warningBadgeDesc: 'A badge appears here when new warnings await your handling.',
+        userMgmtTitle: 'User Management',
+        userMgmtDesc: 'View bound users and their risk overview; click a user for details.',
+        warningMgmtTitle: 'Warning Handling',
+        warningMgmtDesc: 'Process pending warnings in the queue and record interventions.',
+      },
+      admin: {
+        navMenuTitle: 'Navigation Menu',
+        navMenuDesc: 'Use the sidebar to switch between templates, alerts, monitoring and other system functions.',
+        warningBadgeTitle: 'Warning Notifications',
+        warningBadgeDesc: 'A badge appears here when new warnings occur in the system.',
+        dashboardTitle: 'Admin Dashboard',
+        dashboardDesc: 'The dashboard summarizes core metrics for users, warnings and assessments, plus system health.',
+        observabilityTitle: 'Observability',
+        observabilityDesc: 'Inspect system metrics and alert events to keep the platform stable.',
+      },
+    },
+  },
   counselorDashboard: {
     eyebrow: 'Counselor Desk',
     title: 'Counselor Workspace',
+    /* I18N-02 fix: add missing lede entry */
+    lede: 'Handle pending warnings and manage bound users.',
     welcome: 'Welcome, {name}',
     defaultCounselorName: 'Counselor',
     tagCounselor: 'Counselor',
@@ -1811,6 +1850,8 @@ export default {
     businessOverviewTitle: 'Business Overview',
     severityLabel: 'Severity: ',
     warningTriggeredLabel: 'Warning Triggered: ',
+    // PERF-P1-004: warning generation is async; null means pending
+    warningPending: 'Processing',
     viewReportBtn: 'View Overview Report',
     copyResultBtn: 'Copy Result',
     historyTitle: 'Overview History',
@@ -1848,6 +1889,7 @@ export default {
     csvHeaderWarningTriggered: 'Warning Triggered',
     csvYes: 'Yes',
     csvNo: 'No',
+    csvPending: 'Processing',
     historyCsvExported: 'Prediction history CSV exported',
     stepIncomplete: 'Please complete the current step before continuing',
     copiedToClipboard: 'Copied to clipboard',

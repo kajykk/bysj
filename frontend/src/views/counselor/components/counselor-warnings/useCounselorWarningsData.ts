@@ -23,7 +23,7 @@ import {
   type RowActionContext
 } from './sharedCounselorWarningsUtils'
 
-export function useCounselorWarningsData() {
+export function useCounselorWarningsData(refreshStats?: () => void) {
   const { t } = useI18n()
   const auth = useAuthStore()
   // P1-5 埋点与隐私：预警处理追踪（不采集预警内容）
@@ -55,7 +55,6 @@ export function useCounselorWarningsData() {
 
   const filters = reactive({ onlyUnhandled: queryState.getString('only_unhandled', '1') !== '0' })
 
-  const isRowActionPending = (id: number, action: RowAction) => rowActionPending.value[id] === action
   const isAnyActionPending = (id: number) => !!rowActionPending.value[id]
   const setRowActionPending = (id: number, action?: RowAction) => { rowActionPending.value = { ...rowActionPending.value, [id]: action } }
 
@@ -147,6 +146,7 @@ export function useCounselorWarningsData() {
       await counselorApi.handleCounselorWarning(row.id, action, note)
       highlightRowFor2s(row.id)
       ElMessage.success(action === 'handle' ? t('counselorWarnings.warnHandled') : t('counselorWarnings.warnIgnored'))
+      refreshStats?.()
     } catch (error) {
       row.status = previousStatus
       row.is_read = previousIsRead
@@ -188,6 +188,7 @@ export function useCounselorWarningsData() {
       await counselorApi.escalateCounselorWarning(row.id, { reason })
       highlightRowFor2s(row.id)
       ElMessage.success(t('counselorWarnings.warnEscalated'))
+      refreshStats?.()
     } catch (error) {
       row.status = previousStatus
       row.is_read = previousIsRead
@@ -215,6 +216,7 @@ export function useCounselorWarningsData() {
         await Promise.all(snapshot.map(({ row }) => counselorApi.handleCounselorWarning(row.id, action)))
         snapshot.forEach(({ row }) => highlightRowFor2s(row.id))
         ElMessage.success(t('counselorWarnings.batchAtomicSuccess', { count: snapshot.length }))
+        refreshStats?.()
       } catch (error) {
         const detail = getErrorDetail(error, action === 'handle' ? t('counselorWarnings.batchAtomicFailedHandle') : t('counselorWarnings.batchAtomicFailedIgnore'))
         snapshot.forEach(({ row, prevStatus, prevIsRead, prevHandledAt, prevHandledBy, prevHandledNote }) => { row.status = prevStatus; row.is_read = prevIsRead; row.handled_at = prevHandledAt; row.handled_by = prevHandledBy; row.handled_note = prevHandledNote; setRowError(row.id, detail) })
@@ -236,6 +238,7 @@ export function useCounselorWarningsData() {
         }
       })
       ElMessage.success(t('counselorWarnings.batchPartialSummary', { success: successCount, failPart: failCount > 0 ? t('counselorWarnings.batchPartialFailPart', { count: failCount }) : '' }))
+      if (successCount > 0) refreshStats?.()
     }
 
     snapshot.forEach(({ row }) => setRowActionPending(row.id, undefined))

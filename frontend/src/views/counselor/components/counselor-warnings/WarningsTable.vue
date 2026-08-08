@@ -87,7 +87,7 @@
       width="120"
     >
       <template #default="{ row }">
-        {{ row.handled_by || '—' }}
+        {{ formatHandledBy(row.handled_by) }}
       </template>
     </el-table-column>
     <el-table-column
@@ -172,7 +172,7 @@ import PageTable from '@/components/common/PageTable.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import ErrorCell from '@/components/common/ErrorCell.vue'
 import type { WarningItem } from '@/api/userTypes'
-import { formatWarningDateTime, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
+import { formatWarningDateTime, formatHandledBy, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
 import {
   isRowActionDisabled,
   getRowDisabledReason,

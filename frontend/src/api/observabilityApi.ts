@@ -14,7 +14,8 @@ export interface ObservabilityTimeRange {
 }
 
 export interface ObservabilityTrendQuery extends ObservabilityTimeRange {
-  bucket?: 'hour' | 'day'
+  // M-FIX-002: 与后端 bucket 枚举对齐 (observability/__init__.py 仅接受 5m/15m/1h/6h/1d)
+  bucket?: '5m' | '15m' | '1h' | '6h' | '1d'
   severity?: string
   status?: string
   group_by?: string

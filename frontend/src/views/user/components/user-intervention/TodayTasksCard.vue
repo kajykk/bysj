@@ -48,7 +48,7 @@
             {{ t('userIntervention.btnSkip') }}
           </el-button>
           <el-button
-            v-if="task.today_status === 'pending' || task.today_status === 'postponed'"
+            v-if="task.today_status === 'pending'"
             size="small"
             :loading="taskPendingIds.has(task.id) && taskActionType[task.id] === 'postpone'"
             @click="emit('postpone', task)"

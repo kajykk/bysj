@@ -1,6 +1,6 @@
 <template>
   <div class="warnings-page">
-    <WarningStatsCard />
+    <WarningStatsCard ref="statsCardRef" />
     <BentoCell
       :title="t('userWarnings.title')"
       class="warnings-card bento-item"
@@ -132,7 +132,7 @@
           >
             <template #default="{ row }">
               <div class="row-meta">
-                <span>{{ t('userWarnings.handlerLabel') }}{{ row.handled_by || '—' }}</span>
+                <span>{{ t('userWarnings.handlerLabel') }}{{ formatHandledBy(row.handled_by) }}</span>
                 <span>{{ t('userWarnings.handleTimeLabel') }}{{ formatWarningDateTime(row.handled_at) }}</span>
                 <span>{{ t('userWarnings.handleNoteLabel') }}{{ row.handled_note || '—' }}</span>
               </div>
@@ -212,7 +212,7 @@ import { normalizeHttpError } from '@/utils/errorPolicy'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { useListQueryState } from '@/composables/useListQueryState'
-import { formatWarningDateTime, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
+import { formatWarningDateTime, formatHandledBy, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -223,6 +223,9 @@ const rows = ref<WarningItem[]>([])
 const total = ref(0)
 const pageError = ref('')
 const bulkLoading = ref(false)
+// M3: 统计卡片为 mount-only；读操作(mark read)后需主动刷新未读计数
+const statsCardRef = ref<{ loadStats: () => Promise<void> } | null>(null)
+const refreshStats = () => statsCardRef.value?.loadStats()
 
 const page = computed(() => queryState.page.value)
 const pageSize = computed(() => queryState.pageSize.value)
@@ -329,6 +332,7 @@ const handleMarkRead = async (row: WarningItem) => {
     await userApi.markUserWarningRead(row.id)
     highlightRowFor2s(row.id)
     ElMessage.success(t('userWarnings.markReadSuccess'))
+    refreshStats()
   } catch (error) {
     row.is_read = previousIsRead
     setRowError(row.id, getErrorDetail(error, t('userWarnings.markReadFailed')))
@@ -347,6 +351,7 @@ const handleMarkAllRead = async () => {
     unread.forEach((row) => { row.is_read = true; highlightRowFor2s(row.id) })
     ElMessage.success(t('userWarnings.markAllReadSuccess'))
     await fetchData()
+    refreshStats()
   } catch (error) {
     ElMessage.error(normalizeHttpError(error, t('userWarnings.bulkMarkFailed')).detail)
   } finally {

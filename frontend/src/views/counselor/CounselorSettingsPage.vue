@@ -1,11 +1,9 @@
 <template>
   <div class="settings-page">
-    <el-row :gutter="16">
-      <el-col
-        :xs="24"
-        :md="12"
-      >
-        <el-card>
+    <!-- BLANK-11 修复：绑定码卡内容少，原本独占左半列导致下方大面积空白；
+         改为全宽横幅卡，下方两张等高表单卡并排 -->
+    <div class="settings-banner">
+      <el-card>
           <template #header>
             <span class="card-title">{{ t('counselorSettings.bindCodeCardTitle') }}</span>
           </template>
@@ -53,8 +51,9 @@
             </div>
           </template>
         </el-card>
-      </el-col>
+    </div>
 
+    <el-row :gutter="16">
       <el-col
         :xs="24"
         :md="12"
@@ -102,8 +101,13 @@
             </el-form-item>
           </el-form>
         </el-card>
+      </el-col>
 
-        <el-card class="section-card">
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card>
           <template #header>
             <span class="card-title">{{ t('counselorSettings.passwordCardTitle') }}</span>
           </template>
@@ -299,6 +303,11 @@ onMounted(() => {
   padding: 0;
 }
 
+/* BLANK-11 修复：横幅卡与下方表单行之间的间距 */
+.settings-banner {
+  margin-bottom: var(--spacing-md);
+}
+
 .card-title {
   font-weight: var(--font-weight-semibold);
 }
@@ -311,6 +320,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  /* 全宽横幅下：绑定码居左，状态与复制操作靠右，撑满卡片宽度 */
+  justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .bind-code-text {
@@ -338,9 +350,5 @@ onMounted(() => {
 
 .refresh-row {
   margin-top: var(--spacing-md);
-}
-
-.section-card {
-  margin-top: var(--spacing-lg);
 }
 </style>

@@ -10,6 +10,7 @@ from app.core.contracts import (
     ACTION_TYPE_WARNING_READ,
     ACTION_TYPE_WARNING_READ_ALL,
     NOTIFY_CHANNELS,
+    RISK_LEVEL_DISPLAY_ZH,
     normalize_risk_level,
     resolve_warning_status,
 )
@@ -67,7 +68,8 @@ class WarningService:
                 "id": row.id,
                 "risk_level": normalize_risk_level(row.current_level),
                 "risk_level_label": normalize_risk_level(row.current_level),
-                "title": f"风险等级{normalize_risk_level(row.current_level)}预警",
+                # I18N-03 修复：标题等级改用中文展示标签，避免“风险等级high预警”式英嵌中文案
+                "title": f"风险等级{RISK_LEVEL_DISPLAY_ZH.get(normalize_risk_level(row.current_level), normalize_risk_level(row.current_level))}预警",
                 "content": row.trigger_reason,
                 "is_read": row.is_read,
                 "status": resolve_warning_status(row.is_handled, row.handle_action),

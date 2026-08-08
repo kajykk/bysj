@@ -420,7 +420,11 @@ class ReportMixin:
     @staticmethod
     def _since_datetime(days: int) -> datetime:
         days_safe = max(0, int(days))
-        return datetime.now(timezone.utc) - timedelta(days=days_safe)
+        # TZ-01 修复：created_at 为无时区 DateTime 列（写入侧存 UTC naive），
+        # 传入 aware datetime 会触发 asyncpg DataError（naive/aware 不可比较），
+        # 导致 /user/risk/trend 与 /user/risk/export 500。此处剥离时区信息，
+        # 保持与列约定一致的 naive UTC。
+        return datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_safe)
 
     @staticmethod
     def _level_to_severity(level: int) -> str:

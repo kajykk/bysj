@@ -54,7 +54,9 @@ export interface StructuredCollectResult {
   risk_level: number
   severity: string
   risk_factors: { feature: string; importance: number; direction: string }[]
-  warning_generated: boolean
+  // PERF-P1-004: 后端将预警生成 fire-and-forget 异步化，同步响应恒为 null。
+  // 前端需三态渲染: true=已生成 / false=未生成 / null=处理中(异步待定)
+  warning_generated: boolean | null
   warning_id: number | null
 }
 

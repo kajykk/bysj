@@ -77,8 +77,17 @@ const { t } = useI18n()
 }
 
 .quick-actions {
+  /* BLANK-09 修复：窄列被拉伸至与系统状态卡同高时，
+     按钮改为纵向全宽排列并均匀分布，填满卡片高度，消除底部空白 */
   display: flex;
+  flex-direction: column;
   gap: var(--spacing-sm);
-  flex-wrap: wrap;
+  flex: 1;
+  justify-content: space-evenly;
+}
+
+.quick-actions .el-button {
+  width: 100%;
+  margin-left: 0;
 }
 </style>

@@ -74,7 +74,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/userApi'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
-import { isWarningHandled } from '@/utils/warning'
+import { isWarningHandled, normalizeWarningRiskLevel } from '@/utils/warning'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 
@@ -103,9 +103,9 @@ const loadStats = async () => {
     const data = await userApi.getUserWarnings({ page: 1, page_size: 200 })
     const items = data.items || []
     stats.total = data.total ?? items.length
-    stats.highRisk = items.filter((i) => i.risk_level === 3).length
-    stats.mediumRisk = items.filter((i) => i.risk_level === 2).length
-    stats.lowRisk = items.filter((i) => i.risk_level === 1).length
+    stats.highRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 3).length
+    stats.mediumRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 2).length
+    stats.lowRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 1).length
     stats.handled = items.filter((i) => isWarningHandled(i)).length
     stats.unread = items.filter((i) => !i.is_read).length
   } catch {
@@ -116,6 +116,7 @@ const loadStats = async () => {
 }
 
 onMounted(loadStats)
+defineExpose({ loadStats })
 </script>
 
 <style scoped>

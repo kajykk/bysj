@@ -421,7 +421,8 @@ onUnmounted(() => {
 
 <style scoped>
 .monitoring-dashboard {
-  padding: 20px;
+  /* BLANK-02 修复：外层 padding 交由 .layout-main 统一管控，避免双重内边距 */
+  padding: 0;
 }
 
 .page-header {

@@ -48,7 +48,7 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item :label="t('counselorWarnings.colHandledBy')">
-          {{ detailRow.handled_by || '—' }}
+          {{ formatHandledBy(detailRow.handled_by) }}
         </el-descriptions-item>
         <el-descriptions-item :label="t('counselorWarnings.colHandledAt')">
           {{ formatWarningDateTime(detailRow.handled_at) }}
@@ -98,7 +98,7 @@
 import { useI18n } from 'vue-i18n'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import type { WarningItem } from '@/api/userTypes'
-import { formatWarningDateTime, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
+import { formatWarningDateTime, formatHandledBy, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
 import {
   isHandled,
   isRowActionDisabled,

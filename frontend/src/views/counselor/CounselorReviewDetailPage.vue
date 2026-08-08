@@ -314,7 +314,8 @@ onMounted(() => {
 
 <style scoped>
 .review-detail-page {
-  padding: var(--spacing-lg);
+  /* BLANK-02 修复：外层 padding 交由 .layout-main 统一管控，避免双重内边距 */
+  padding: 0;
 }
 
 .actions {

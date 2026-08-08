@@ -1,6 +1,6 @@
 <template>
   <div class="counselor-warnings-page">
-    <CounselorWarningStatsCard />
+    <CounselorWarningStatsCard ref="statsCardRef" />
 
     <ListPageScaffold
       :title="t('counselorWarnings.title')"
@@ -102,6 +102,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { ref } from 'vue'
 import type { WarningItem } from '@/api/userTypes'
 import FilterBar from '@/components/common/FilterBar.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
@@ -111,6 +112,10 @@ import CounselorWarningStatsCard from './components/counselor-warnings/Counselor
 import { useCounselorWarningsData } from './components/counselor-warnings/useCounselorWarningsData'
 
 const { t } = useI18n()
+
+// M3: 统计卡片为 mount-only；处理/忽略/升级/批量操作成功后需主动刷新统计
+const statsCardRef = ref<{ loadStats: () => Promise<void> } | null>(null)
+const refreshStats = () => statsCardRef.value?.loadStats()
 
 const {
   loading, rows, total, pageError,
@@ -122,7 +127,7 @@ const {
   fetchData, handleWarning, escalateWarning, handleBatch,
   onPageChange, onPageSizeChange, handleReset,
   openDetail, onSelectionChange
-} = useCounselorWarningsData()
+} = useCounselorWarningsData(refreshStats)
 </script>
 
 <style scoped>

@@ -74,6 +74,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { counselorApi } from '@/api/counselorApi'
 import { isHandled } from './sharedCounselorWarningsUtils'
+import { normalizeWarningRiskLevel } from '@/utils/warning'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 
 const { t } = useI18n()
@@ -97,9 +98,9 @@ const loadStats = async () => {
     stats.total = data.total ?? items.length
     stats.unhandled = items.filter((i) => !isHandled(i)).length
     stats.handled = items.filter((i) => isHandled(i)).length
-    stats.highRisk = items.filter((i) => i.risk_level === 3).length
-    stats.mediumRisk = items.filter((i) => i.risk_level === 2).length
-    stats.lowRisk = items.filter((i) => i.risk_level === 1).length
+    stats.highRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 3).length
+    stats.mediumRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 2).length
+    stats.lowRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 1).length
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {
@@ -108,6 +109,7 @@ const loadStats = async () => {
 }
 
 onMounted(loadStats)
+defineExpose({ loadStats })
 </script>
 
 <style scoped>

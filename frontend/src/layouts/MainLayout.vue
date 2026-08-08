@@ -216,9 +216,26 @@ const handleLogout = async () => {
   min-height: 100dvh;
 }
 
+/* BLANK-12 修复：Element Plus 的 el-container 仅在直接子组件为 ElHeader/ElFooter 时
+   自动切换纵向布局；LayoutHeader 为自定义包装组件导致检测失败，内层容器呈横向 row，
+   页头变成左侧窄列、主内容被挤到右侧，所有页面左侧出现空白竖带。
+   此处显式声明纵向布局。 */
+.layout-root > .el-container {
+  flex-direction: column;
+}
+
 .layout-main {
   background: var(--bg-page);
   position: relative;
+  /* BLANK-02 修复：主内容区内边距统一由布局层管控（桌面 20px / 移动 16px），
+     各页面不再叠加自身外层 padding，消除 40–52px 双重内边距造成的大面积空白边框 */
+  padding: 20px;
+}
+
+@media (max-width: 768px) {
+  .layout-main {
+    padding: 16px;
+  }
 }
 
 .layout-main::before {
