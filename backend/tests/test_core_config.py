@@ -174,6 +174,53 @@ class TestSettingsValidation:
                 exc_info.value
             )
 
+    def test_production_rs256_skips_secret_check(self):
+        """TC-COV-CONFIG-019: ISS-040 - RS256 模式豁免 JWT_SECRET_KEY 生产校验.
+
+        非对称签名模式下 secret key 不参与签名/验证，仅需密钥对路径。
+        """
+        from app.core.config import Settings
+
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "production",
+                "JWT_ALGORITHM": "RS256",
+                "JWT_SECRET_KEY": "change-this-to-a-random-secret-key",
+                "JWT_PRIVATE_KEY_PATH": "/secrets/private.pem",
+                "JWT_PUBLIC_KEY_PATH": "/secrets/public.pem",
+                "DATABASE_URL": "postgresql+asyncpg://user:pass@db/prod",
+                "PASSWORD_RESET_BASE_URL": "https://example.com/reset-password",
+            },
+            clear=False,
+        ):
+            settings = Settings()
+            assert settings.jwt_algorithm == "RS256"
+            assert settings.jwt_private_key_path == "/secrets/private.pem"
+            assert settings.jwt_public_key_path == "/secrets/public.pem"
+
+    def test_production_rs256_still_requires_key_paths(self):
+        """TC-COV-CONFIG-020: ISS-040 - RS256 但未配置密钥路径时报错.
+
+        切换到 RS256 必须同时配置私钥/公钥，否则拒绝启动。
+        """
+        from app.core.config import Settings
+
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "production",
+                "JWT_ALGORITHM": "RS256",
+                "JWT_SECRET_KEY": "change-this-to-a-random-secret-key",
+                "DATABASE_URL": "postgresql+asyncpg://user:pass@db/prod",
+                "PASSWORD_RESET_BASE_URL": "https://example.com/reset-password",
+            },
+            clear=False,
+        ):
+            with pytest.raises(ValueError) as exc_info:
+                Settings()
+            assert "RS256" in str(exc_info.value) or "JWT" in str(exc_info.value)
+
 
 class TestDependencyDetection:
     """Test runtime dependency detection helpers."""

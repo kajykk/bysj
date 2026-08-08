@@ -177,7 +177,7 @@
 | ISS-037 | P3 | 后端/middleware | metrics 中间件路径回退高基数标签，归一化为 {id}/截断模板 | 已修复 (test_audit_iss_fixes.py) |
 | ISS-038 | P3 | 后端/version | /version 无鉴权暴露版本信息 | 已修复（2026-08-08，加 get_current_user）|
 | ISS-039 | P3 | 后端/config | access_token 过期 120 分钟过长 | 已修复（2026-08-08，120→60；见 tests/api/test_p3_fixes_20260705.py）|
-| ISS-040 | P4 | 后端/config | JWT 使用 HS256 对称签名 | 建议级，待后续迭代（涉及密钥体系改造）|
+| ISS-040 | P4 | 后端/config | JWT 使用 HS256 对称签名 | 已修复（2026-08-08: RS256 切换路径完整化——生产豁免 secret 校验 + 密钥路径启动校验 + .env.example 指引，E2E 验证签发/验证/HS256 攻击阻断）|
 | ISS-042/043 | P3 | 前端/router | guard 未校验 JWT exp + isUnauthorizedRedirecting onError 未复位 | 已修复（2026-08-08，router/index.ts + httpError.ts）|
 | ISS-046 | P3 | 前端/UserDashboard | handleLogout 未捕获 auth.logout() 异常 | 已修复（try/catch + i18n key）|
 | ISS-047 | P3 | 前端/UserRiskPage | 结构化评估结果缺危机关键词提示 | 已修复（StructuredResultPanel + requires_human_review/risk_level）|
@@ -277,7 +277,7 @@
 | P4 | 12 | 12 | 0 | 0 | 0 | 0 | 0 | 0 |
 | **合计** | **164** | **43** | **0** | **0** | **0** | **121** | **0** | **0** |
 
-> **说明**：原 P0/P1/P2 共 107 项已全部修复关闭；2026-07-10 增量审查发现 14 项新问题（ISS-151~ISS-164），全部 14 项已修复关闭（ISS-151 P0 + ISS-152~157 P1 + ISS-158~162 P2 + ISS-163/164 P3）。P3(31)/P4(12) 共 43 项为低优先级建议，保持"新建"状态待后续迭代。
+> **说明**：原 P0/P1/P2 共 107 项已全部修复关闭；2026-07-10 增量审查发现 14 项新问题（ISS-151~ISS-164），全部 14 项已修复关闭（ISS-151 P0 + ISS-152~157 P1 + ISS-158~162 P2 + ISS-163/164 P3）。P3(31)/P4(12) 共 43 项为低优先级建议；2026-08-08 视觉/交互收口后 P3 全部关闭（见 07 文档）。ISS-040（JWT RS256）已收口关闭，见上表。
 > **P2 修复明细**：67 项中实际代码修复 42 项、已存在无需修改 12 项、TODO 标注 13 项（架构性改进，已记录待后续迭代）。
 
 ---
