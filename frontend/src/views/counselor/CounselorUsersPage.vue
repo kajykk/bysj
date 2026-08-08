@@ -178,6 +178,7 @@ import FilterBar from '@/components/common/FilterBar.vue'
 import { mockUsers } from '@/mocks/business'
 import { withMockFallback } from '@/utils/mockFallback'
 import { normalizeHttpError } from '@/utils/errorPolicy'
+import { EXTENDED_SERIES_COLORS } from '@/utils/chartPalette'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { useListQueryState } from '@/composables/useListQueryState'
@@ -222,7 +223,8 @@ const getInitials = (name: string) => {
 }
 
 const getAvatarColor = (username: string) => {
-  const colors = ['#2e6fa8', '#5a9e3a', '#d4923a', '#d65a5a', '#7a8290', '#9254de', '#ff85c0']
+  // VIS-P4-01 修复：复用统一图表色板（扩展色含追加的两枚高区分度色），消除硬编码 hex
+  const colors = EXTENDED_SERIES_COLORS
   let hash = 0
   for (let i = 0; i < username.length; i++) {
     hash = username.charCodeAt(i) + ((hash << 5) - hash)

@@ -42,8 +42,23 @@ const localeLoaders: Partial<Record<AppLocale, () => Promise<{ default: Record<s
   'en-US': () => import('./locales/en-US'),
 }
 
+// A11Y-P3-03 修复：<html lang> 跟随 i18n 语言切换，保持语义与读屏/翻译工具一致
+// zh-CN → 'zh-CN'，en-US → 'en'
+const HTML_LANG_MAP: Record<AppLocale, string> = {
+  'zh-CN': 'zh-CN',
+  'en-US': 'en',
+}
+
+function applyHtmlLang(locale: string) {
+  if (typeof document === 'undefined') return
+  const lang = isAllowedLocale(locale) ? HTML_LANG_MAP[locale] : 'zh-CN'
+  document.documentElement.lang = lang
+}
+
 export async function loadLocaleMessages(locale: AppLocale | string) {
   const target: AppLocale = isAllowedLocale(locale) ? locale : 'zh-CN'
+  // A11Y-P3-03 修复：无论语言包是否已加载（含切回静态 zh-CN 的路径），都先同步 lang 属性
+  applyHtmlLang(target)
   // 避免重复加载
   if (i18nGlobal.availableLocales.includes(target)) return
 
@@ -63,6 +78,7 @@ export async function loadLocaleMessages(locale: AppLocale | string) {
 
 // 初始化加载当前语言（zh-CN 已同步加载，其他语言异步加载）
 const defaultLocale = String(i18nGlobal.locale.value || 'zh-CN')
+applyHtmlLang(defaultLocale)
 if (defaultLocale !== 'zh-CN') {
   loadLocaleMessages(defaultLocale)
 }

@@ -2,7 +2,6 @@
   <div>
     <!-- ISS-083 TODO：小屏下表格列过多时可考虑横向滚动优化或列优先级隐藏策略 -->
     <!-- ISS-088 TODO：批量操作时建议补充进度条/Toast 反馈（如"已处理 X/Y 条"），增强长时间任务的可感知性 -->
-    <!-- ISS-105 TODO：分页器在小屏可考虑精简 layout（如 total, prev, pager, next），避免 sizes 选择器挤压 -->
     <el-table
       ref="tableRef"
       v-loading="loading"
@@ -25,7 +24,7 @@
       </span>
       <el-pagination
         background
-        layout="total, sizes, prev, pager, next"
+        :layout="paginationLayout"
         :total="total"
         :page-size="pageSize"
         :current-page="page"
@@ -38,8 +37,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+// RSP-P3-09 修复：复用全局断点监听，小屏切换精简分页 layout，避免 375px 屏挤压
+import { useBreakpoint } from '@/composables/useBreakpoint'
 
 const props = defineProps<{
   loading: boolean
@@ -58,6 +59,12 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// RSP-P3-09 修复：<768px 精简为 "prev, pager, next"，去掉 total/sizes 避免挤压
+const { isMobile } = useBreakpoint()
+const paginationLayout = computed(() =>
+  isMobile.value ? 'prev, pager, next' : 'total, sizes, prev, pager, next'
+)
 
 // ISS-087 修复：跟踪选中行数量，供分页区显示
 const selectedCount = ref(0)

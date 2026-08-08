@@ -353,7 +353,7 @@ class DriftMonitoringService:
     def _push_to_gauge(self, results: list[DriftCheckResult]) -> None:
         """将 PSI/KL 推送到 Prometheus Gauge (供 Grafana 展示)."""
         try:
-            from app.core.metrics import model_drift_psi, model_drift_kl
+            from app.core.metrics import model_drift_kl, model_drift_psi
 
             for r in results:
                 model_drift_psi.set(

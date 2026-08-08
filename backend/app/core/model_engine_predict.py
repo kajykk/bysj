@@ -391,8 +391,6 @@ class PredictMixin:
     async def _run_experimental_v123(
         self, raw: dict[str, Any], default_score: float
     ) -> dict[str, Any]:
-        import numpy as np
-
         experimental_external_score = None
         experimental_external_level = None
         experimental_external_model = None

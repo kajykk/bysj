@@ -12,6 +12,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
 import { readChartVar } from '@/utils/chartTheme'
+import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
 import type { EChartsCoreOption } from 'echarts/core'
 
 const { t } = useI18n()
@@ -49,12 +50,12 @@ const handleChartReady = (instance: unknown) => {
 }
 
 const chartOption = computed<EChartsCoreOption>(() => {
-  // 图表配色读取 CSS 变量令牌，与 variables.scss 统一（回退值同步为当前品牌色）
-  const colorPrimary = readChartVar('--chart-color-primary', '#2e6fa8')
-  const colorDanger = readChartVar('--chart-color-danger', '#d65a5a')
-  const colorSuccess = readChartVar('--chart-color-success', '#5a9e3a')
-  const areaStart = readChartVar('--chart-color-primary-area', 'rgba(46, 111, 168, 0.25)')
-  const areaEnd = readChartVar('--chart-color-primary-area-end', 'rgba(46, 111, 168, 0.04)')
+  // 图表配色读取 CSS 变量令牌，与 variables.scss 统一（回退值统一取自 chartPalette）
+  const colorPrimary = readChartVar('--chart-color-primary', CHART_PALETTE.primary)
+  const colorDanger = readChartVar('--chart-color-danger', CHART_PALETTE.danger)
+  const colorSuccess = readChartVar('--chart-color-success', CHART_PALETTE.success)
+  const areaStart = readChartVar('--chart-color-primary-area', withAlpha(CHART_PALETTE.primary, 0.25))
+  const areaEnd = readChartVar('--chart-color-primary-area-end', withAlpha(CHART_PALETTE.primary, 0.04))
 
   const dates = props.data.map((d) => d.date)
   const values = props.data.map((d) => d.value)

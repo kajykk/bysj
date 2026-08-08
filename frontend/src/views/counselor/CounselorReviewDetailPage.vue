@@ -47,7 +47,7 @@
         <el-descriptions-item :label="t('counselorReviews.detailColRiskScore')">
           <el-progress
             :percentage="review.risk_score"
-            :color="getScoreColor(review.risk_score)"
+            :color="getRiskScoreColor(review.risk_score)"
             :stroke-width="16"
           />
         </el-descriptions-item>
@@ -178,6 +178,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { counselorApi, type ReviewItem } from '@/api/counselorApi'
 // P2-A 修复：使用共享的 formatDate 替代本地重复实现
 import { formatDate } from '@/utils/formatUtils'
+// VIS-P4-02 修复：风险分数配色复用 riskFormatters.getRiskScoreColor，消除本地硬编码阈值/色板
+import { getRiskScoreColor } from '@/utils/riskFormatters'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -240,13 +242,6 @@ const handleEscalate = async () => {
       ElMessage.error(t('counselorReviews.escalateFailed'))
     }
   }
-}
-
-const getScoreColor = (score: number) => {
-  if (score >= 80) return '#d65a5a'
-  if (score >= 60) return '#d4923a'
-  if (score >= 40) return '#2e6fa8'
-  return '#5a9e3a'
 }
 
 type ElTagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'

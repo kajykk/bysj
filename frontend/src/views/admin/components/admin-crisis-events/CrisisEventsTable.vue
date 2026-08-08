@@ -138,6 +138,7 @@
       prop="handled_action"
       :label="t('adminCrisisEvents.colHandledAction')"
       min-width="120"
+      show-overflow-tooltip
     >
       <template #default="{ row }">
         {{ row.handled_action || '-' }}

@@ -240,8 +240,7 @@ async def get_metrics(
 
     # S4 P3: 采集漂移监测指标 (PSI/KL) — 从 DB 查询最近 DriftAlert
     try:
-        from sqlalchemy import select
-        from sqlalchemy import desc
+        from sqlalchemy import desc, select
 
         from app.core.database import AsyncSessionLocal
         from app.models.monitoring import DriftAlert
@@ -274,8 +273,8 @@ async def get_metrics(
         from sqlalchemy import select
 
         from app.core.database import AsyncSessionLocal
-        from app.models.monitoring import CanaryRecord
         from app.core.metrics import canary_rollback_triggered
+        from app.models.monitoring import CanaryRecord
 
         async with AsyncSessionLocal() as canary_session:
             stmt = select(CanaryRecord).where(CanaryRecord.status == "running")
@@ -329,10 +328,11 @@ async def prometheus_query(
 
     # 触发指标采集 (复用 /metrics 端点的采集逻辑)
     try:
+        from sqlalchemy import desc, select
+
         from app.core.database import AsyncSessionLocal
-        from app.models.monitoring import CanaryRecord, DriftAlert
-        from sqlalchemy import select, desc
         from app.core.metrics import canary_rollback_triggered
+        from app.models.monitoring import CanaryRecord, DriftAlert
 
         # ML 质量指标
         _ML_QUALITY = {
@@ -391,7 +391,6 @@ async def prometheus_query(
 
     # 解析 exposition format, 返回 Prometheus JSON API 格式
     import re
-    import time
 
     body = render_exposition()
     results = []

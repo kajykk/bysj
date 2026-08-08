@@ -100,6 +100,12 @@
   --ring-focus: 0 0 0 3px rgba(46, 111, 168, 0.28);
   --ring-focus-strong: 0 0 0 4px rgba(46, 111, 168, 0.36);
 
+  /* ===== 状态指示点光晕（VIS-P3-03：live-dot/状态点辉光收敛，替代组件内硬编码 box-shadow） ===== */
+  --glow-primary: 0 0 8px rgba(46, 111, 168, 0.6);
+  --glow-success: 0 0 8px rgba(90, 158, 58, 0.6);
+  --glow-danger: 0 0 8px rgba(214, 90, 90, 0.6);
+  --glow-success-soft: 0 0 8px rgba(90, 158, 58, 0.5);
+
   /* ===== 表格行高亮 ===== */
   /* ISS-031 修复：PageTable 行高亮颜色令牌化，深色模式在 theme.scss 中重写 */
   --row-highlight-bg: #ecf5ff;

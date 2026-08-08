@@ -107,7 +107,7 @@ const handleLogout = async () => {
   height: 6px;
   border-radius: 50%;
   background: var(--danger-color);
-  box-shadow: 0 0 8px rgba(214, 90, 90, 0.6);
+  box-shadow: var(--glow-danger);
 }
 
 .layout__header h2 {

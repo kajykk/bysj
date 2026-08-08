@@ -277,6 +277,7 @@ import {
   getRiskScoreColor,
   RISK_SCORE_COLORS,
 } from '@/utils/riskFormatters'
+import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
 import { subscribeResize } from '@/utils/sharedResize'
 
 interface Props {
@@ -405,21 +406,22 @@ const renderReportTrend = async () => {
           top: 'middle',
           style: {
             text: t('riskReport.noTrendData'),
-            fill: '#7a8290',
+            fill: CHART_PALETTE.info,
             fontSize: 14
           }
         }],
     series: [
       {
         name: t('riskReport.legendComprehensive'), type: 'line', data: points.map(p => p.risk_score), smooth: true,
+        // VIS-P4-01 修复：主色渐变/系列色统一取自 chartPalette
         areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(46,111,168,0.3)' }, { offset: 1, color: 'rgba(46,111,168,0.02)' }
+          { offset: 0, color: withAlpha(CHART_PALETTE.primary, 0.3) }, { offset: 1, color: withAlpha(CHART_PALETTE.primary, 0.02) }
         ]) },
-        lineStyle: { color: '#2e6fa8', width: 2 }, itemStyle: { color: '#2e6fa8' }
+        lineStyle: { color: CHART_PALETTE.primary, width: 2 }, itemStyle: { color: CHART_PALETTE.primary }
       },
-      { name: t('riskReport.legendStructured'), type: 'line', data: points.map(p => valueOrNull(p.structured_score)), smooth: true, connectNulls: true, lineStyle: { color: '#5a9e3a', width: 1.8 }, itemStyle: { color: '#5a9e3a' } },
-      { name: t('riskReport.legendText'), type: 'line', data: points.map(p => valueOrNull(p.text_score)), smooth: true, connectNulls: true, lineStyle: { color: '#d4923a', width: 1.8 }, itemStyle: { color: '#d4923a' } },
-      { name: t('riskReport.legendPhysiological'), type: 'line', data: points.map(p => valueOrNull(p.physiological_score)), smooth: true, connectNulls: true, lineStyle: { color: '#d65a5a', width: 1.8 }, itemStyle: { color: '#d65a5a' } },
+      { name: t('riskReport.legendStructured'), type: 'line', data: points.map(p => valueOrNull(p.structured_score)), smooth: true, connectNulls: true, lineStyle: { color: CHART_PALETTE.success, width: 1.8 }, itemStyle: { color: CHART_PALETTE.success } },
+      { name: t('riskReport.legendText'), type: 'line', data: points.map(p => valueOrNull(p.text_score)), smooth: true, connectNulls: true, lineStyle: { color: CHART_PALETTE.warning, width: 1.8 }, itemStyle: { color: CHART_PALETTE.warning } },
+      { name: t('riskReport.legendPhysiological'), type: 'line', data: points.map(p => valueOrNull(p.physiological_score)), smooth: true, connectNulls: true, lineStyle: { color: CHART_PALETTE.danger, width: 1.8 }, itemStyle: { color: CHART_PALETTE.danger } },
     ]
   })
 }

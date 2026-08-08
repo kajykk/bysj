@@ -16,7 +16,6 @@ import {
   ChatLineRound,
   Calendar,
   Reading,
-  BellFilled,
   Monitor,
   Promotion,
 } from '@element-plus/icons-vue'
@@ -64,7 +63,7 @@ const roleMenus: Record<string, MenuItem[]> = {
     { titleKey: 'nav.admin.templates', path: '/admin/templates', icon: Document },
     { titleKey: 'nav.admin.settings', path: '/admin/settings', icon: Setting },
     { titleKey: 'nav.admin.operationLogs', path: '/admin/operation-logs', icon: Reading },
-    { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: BellFilled },
+    { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: Bell },
     { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell },
     { titleKey: 'nav.admin.crisisEvents', path: '/admin/crisis-events', icon: Warning },
     { titleKey: 'nav.admin.reports', path: '/admin/reports', icon: Document },

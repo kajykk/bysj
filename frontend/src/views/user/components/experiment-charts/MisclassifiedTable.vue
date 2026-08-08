@@ -1,18 +1,18 @@
 <template>
   <el-card
     v-if="filteredMisclassifiedRows.length"
-    style="margin-top: 16px"
+    class="card-gap"
   >
     <template #header>
       <div class="header-row">
         <span class="card-title">{{ t('experimentAssess.misclassifiedTitle') }}</span>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <div class="header-actions">
           <el-select
             v-model="misclassifiedTrueLabel"
             size="small"
             clearable
             :placeholder="t('experimentAssess.trueLabelPlaceholder')"
-            style="width: 110px"
+            class="filter-select"
           >
             <el-option
               :label="t('experimentAssess.trueLabelOption', { value: 0 })"
@@ -28,7 +28,7 @@
             size="small"
             clearable
             :placeholder="t('experimentAssess.predLabelPlaceholder')"
-            style="width: 110px"
+            class="filter-select"
           >
             <el-option
               :label="t('experimentAssess.predLabelOption', { value: 0 })"
@@ -44,7 +44,7 @@
             size="small"
             clearable
             :placeholder="t('experimentAssess.scoreRangePlaceholder')"
-            style="width: 130px"
+            class="filter-select-wide"
           >
             <el-option
               label="0.0 - 0.3"
@@ -68,7 +68,7 @@
             size="small"
             :placeholder="t('experimentAssess.searchPlaceholder')"
             clearable
-            style="width: 180px"
+            class="search-input"
           />
           <el-button
             size="small"
@@ -224,6 +224,30 @@ watch([misclassifiedSearchText, misclassifiedPageSize, misclassifiedTrueLabel, m
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* VIS-P3-01 修复：内联样式收敛为样式类 + 设计令牌 */
+.card-gap {
+  margin-top: var(--spacing-md);
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  width: 110px;
+}
+
+.filter-select-wide {
+  width: 130px;
+}
+
+.search-input {
+  width: 180px;
 }
 
 .table-footer {

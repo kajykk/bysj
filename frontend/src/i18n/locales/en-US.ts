@@ -1458,6 +1458,7 @@ export default {
     emptyNoTrend: 'No Trend Data',
     emptyNoTrendDesc: 'Complete more assessments to generate a risk trend chart',
     unreadWarningsTitle: 'Unread Warnings',
+    unreadWarningItemAria: 'View warning: {title}',
     warningHigh: 'High',
     warningMedium: 'Medium',
     warningLow: 'Low',

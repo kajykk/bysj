@@ -129,13 +129,13 @@ const { t } = useI18n()
   height: 7px;
   border-radius: 50%;
   background: var(--success-color);
-  box-shadow: 0 0 8px rgba(90, 158, 58, 0.6);
+  box-shadow: var(--glow-success);
   flex-shrink: 0;
 }
 
 .bento-cell__live-dot--alert {
   background: var(--danger-color);
-  box-shadow: 0 0 8px rgba(214, 90, 90, 0.6);
+  box-shadow: var(--glow-danger);
 }
 
 .bento-cell__status-text {
@@ -182,7 +182,7 @@ const { t } = useI18n()
 
 .component-dot--healthy {
   background: var(--success-color);
-  box-shadow: 0 0 8px rgba(90, 158, 58, 0.5);
+  box-shadow: var(--glow-success-soft);
 }
 
 .component-name {

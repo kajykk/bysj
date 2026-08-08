@@ -295,8 +295,13 @@ function handleCommand(command: string) {
     gap: var(--spacing-sm);
   }
 
-  /* 移动端隐藏用户名/角色,仅保留头像 */
+  /* RSP-P3-10 修复：移动端不再整体隐藏用户名；保留可见性，仅隐藏次要的角色行与箭头，
+     姓名通过 max-width + ellipsis 收缩防挤压（悬停/聚焦仍可通过 user-menu 获取完整信息） */
   .user-meta {
+    display: flex;
+  }
+
+  .user-role {
     display: none;
   }
 
@@ -304,8 +309,12 @@ function handleCommand(command: string) {
     display: none;
   }
 
+  .user-name {
+    max-width: 72px;
+  }
+
   .user-chip {
-    padding: 0;
+    padding: 0 4px;
   }
 }
 

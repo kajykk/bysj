@@ -351,7 +351,7 @@ onMounted(() => {
   height: 6px;
   border-radius: 50%;
   background: var(--success-color);
-  box-shadow: 0 0 8px rgba(90, 158, 58, 0.6);
+  box-shadow: var(--glow-success);
 }
 
 .layout__header h2 {

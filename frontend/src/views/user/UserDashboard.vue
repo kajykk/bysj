@@ -168,7 +168,7 @@ onMounted(() => {
   height: 6px;
   border-radius: 50%;
   background: var(--primary-color);
-  box-shadow: 0 0 8px rgba(46, 111, 168, 0.6);
+  box-shadow: var(--glow-primary);
 }
 
 .layout__header h2 {

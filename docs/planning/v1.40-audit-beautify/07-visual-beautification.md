@@ -8,10 +8,11 @@
 > **Phase 5/6 状态同步 (2026-07-15)**：
 > - P1 高优先级 (18 项)：✅ 全部已关闭 (Phase 5 ISS-023~ISS-040 修复)
 > - P2 中优先级 (32 项)：✅ 全部已关闭 (Phase 5 ISS-076~ISS-102 + Phase 6 补充修复)
-> - P3 低优先级 (13 项)：⏸️ 延期至后续迭代 (不影响交付)
-> - P4 建议级 (3 项)：⏸️ 延期至后续版本 (不影响交付)
+> - P3 低优先级 (13 项)：✅ 全部已关闭 (2026-08-08 v1.40-followup 视觉收口)
+> - P4 建议级 (3 项)：✅ 全部已关闭 (2026-08-08 v1.40-followup；VIS-P4-03 经核查
+>   全项目 label-width 已统一 120px，判定实质符合，不再新建 FormCard 组件)
 > - Delta 增量 (7 项)：✅ 全部已关闭 (2026-07-10 ISS-151~ISS-164 修复)
-> - **合计**：57 已关闭 + 16 延期 = 73 项 (原统计 67 项 + Delta 7 项 - 重复 1 项)
+> - **合计**：73 项 全部已关闭 (原统计 67 项 + Delta 7 项 - 重复 1 项)
 
 ---
 
@@ -51,18 +52,18 @@
 
 ### P3 低优先级（4 项）
 
-| 编号 | 分类 | 问题 |
-|------|------|------|
-| VIS-P3-01 | 内联样式 | UserRiskPage/TextAssessTab/MisclassifiedTable 等大量内联 style |
-| VIS-P3-02 | 图标 | MainLayout 侧边栏混用线性/填充图标 |
-| VIS-P3-03 | 阴影 | BentoCell/UserDashboard/AdminDashboard 硬编码 box-shadow |
-| VIS-P3-04 | 性能 | utilities.scss 全局 body::before 噪点纹理影响渲染性能 |
+| 编号 | 分类 | 问题 | 状态 |
+|------|------|------|------|
+| VIS-P3-01 | 内联样式 | UserRiskPage/TextAssessTab/MisclassifiedTable 等大量内联 style | ✅ 已关闭 (2026-08-08: 收敛为语义类 + 设计令牌) |
+| VIS-P3-02 | 图标 | MainLayout 侧边栏混用线性/填充图标 | ✅ 已关闭 (2026-08-08: 统一线性图标) |
+| VIS-P3-03 | 阴影 | BentoCell/UserDashboard/AdminDashboard 硬编码 box-shadow | ✅ 已关闭 (2026-08-08: 改为 --glow-primary/--glow-danger 令牌) |
+| VIS-P3-04 | 性能 | utilities.scss 全局 body::before 噪点纹理影响渲染性能 | ✅ 已关闭 (2026-08-08: 触摸/窄屏/减少动效下关闭噪点层) |
 
 ### P4 建议（3 项）
 
-- VIS-P4-01：抽离 chartPalette.ts 统一管理图表色板
-- VIS-P4-02：getScoreColor/getStatusTag 等通用映射函数抽到 utils/riskFormatters.ts
-- VIS-P4-03：统一表单布局组件 FormCard，固化 label-width 和提交按钮位置
+- VIS-P4-01：抽离 chartPalette.ts 统一管理图表色板 → ✅ 已关闭 (2026-08-08: 新建 src/utils/chartPalette.ts 并迁移 5 处)
+- VIS-P4-02：getScoreColor/getStatusTag 等通用映射函数抽到 utils/riskFormatters.ts → ✅ 已关闭 (2026-08-08: riskFormatters 已在多处复用)
+- VIS-P4-03：统一表单布局组件 FormCard，固化 label-width 和提交按钮位置 → ✅ 已关闭 (2026-08-08: 经核查全项目 label-width 已统一 120px，实质符合，不再新建组件)
 
 ---
 
@@ -88,10 +89,10 @@
 
 ### P3 低优先级（2 项）
 
-| 编号 | 问题 |
-|------|------|
-| RSP-P3-09 | PageTable 分页 layout="total, sizes, prev, pager, next" 在 375px 屏被挤压 |
-| RSP-P3-10 | MainLayout header-right 在 768px 时用户名直接消失 |
+| 编号 | 问题 | 状态 |
+|------|------|------|
+| RSP-P3-09 | PageTable 分页 layout="total, sizes, prev, pager, next" 在 375px 屏被挤压 | ✅ 已关闭 (2026-08-08: 分页 layout 随断点收缩) |
+| RSP-P3-10 | MainLayout header-right 在 768px 时用户名直接消失 | ✅ 已关闭 (2026-08-08: 保留用户名, max-width+ellipsis 收缩) |
 
 ---
 
@@ -120,12 +121,12 @@
 
 ### P3 低优先级（4 项）
 
-| 编号 | 问题 |
-|------|------|
-| UX-P3-12 | CounselorUserDetailPage 操作区不固定（滚动后顶部 Tab 操作不在视口） |
-| UX-P3-13 | CounselorUserDetailPage 无时间线视图（风险轨迹/干预记录） |
-| UX-P3-14 | 错误提示位置不一致（toast vs 页面中部 vs 字段下） |
-| UX-P3-15 | 长文案无折叠（description/note 等字段未配置 show-overflow-tooltip） |
+| 编号 | 问题 | 状态 |
+|------|------|------|
+| UX-P3-12 | CounselorUserDetailPage 操作区不固定（滚动后顶部 Tab 操作不在视口） | ✅ 已关闭 (2026-08-08: 操作区 sticky + 背景色) |
+| UX-P3-13 | CounselorUserDetailPage 无时间线视图（风险轨迹/干预记录） | ✅ 已关闭 (2026-08-08: 风险轨迹/干预改为 el-timeline，后端补全数据源) |
+| UX-P3-14 | 错误提示位置不一致（toast vs 页面中部 vs 字段下） | ✅ 已关闭 (2026-08-08: showHttpFeedback 统一由 httpError.ts 映射) |
+| UX-P3-15 | 长文案无折叠（description/note 等字段未配置 show-overflow-tooltip） | ✅ 已关闭 (2026-08-08: 相关表格列补 show-overflow-tooltip) |
 
 ---
 
@@ -152,11 +153,11 @@
 
 ### P3 低优先级（3 项）
 
-| 编号 | 问题 |
-|------|------|
-| A11Y-P3-10 | focus-visible 仅全局 outline，el-button 内部元素可能覆盖 |
-| A11Y-P3-11 | UserDashboard .warning-item li 可点击但不可键盘聚焦 |
-| A11Y-P3-12 | 未审查 index.html 的 <html lang> 是否随 i18n 切换更新 |
+| 编号 | 问题 | 状态 |
+|------|------|------|
+| A11Y-P3-10 | focus-visible 仅全局 outline，el-button 内部元素可能覆盖 | ✅ 已关闭 (2026-08-08: utilities.scss 补全局 :focus-visible 规则) |
+| A11Y-P3-11 | UserDashboard .warning-item li 可点击但不可键盘聚焦 | ✅ 已关闭 (2026-08-08: tabindex + Enter/Space + aria-label) |
+| A11Y-P3-12 | 未审查 index.html 的 <html lang> 是否随 i18n 切换更新 | ✅ 已关闭 (2026-08-08: i18n 切换时同步 document.documentElement.lang) |
 
 ---
 
@@ -197,8 +198,7 @@
 
 ## 📊 美化问题统计 (Visual Beautification Statistics)
 
-> 更新时间：2026-07-15（Phase 6 全量闭环验证）
-> 含 2026-07-10 增量审查发现 7 项（Delta Audit），全部 7 项已关闭
+> 更新时间：2026-08-08（v1.40-followup 视觉收口：P3 13 项 + P4 3 项全部关闭）
 
 ### 按优先级统计
 
@@ -206,10 +206,10 @@
 |--------|------|--------|------|------|
 | P1 高优先级 | 18 | 18 | 0 | ✅ 全部关闭 (Phase 5 ISS-023~ISS-040) |
 | P2 中优先级 | 32 | 32 | 0 | ✅ 全部关闭 (Phase 5 ISS-076~ISS-102 + Phase 6 补充) |
-| P3 低优先级 | 13 | 0 | 13 | ⏸️ 延期 (不影响交付) |
-| P4 建议级 | 3 | 0 | 3 | ⏸️ 延期 (不影响交付) |
+| P3 低优先级 | 13 | 13 | 0 | ✅ 全部关闭 (2026-08-08 v1.40-followup) |
+| P4 建议级 | 3 | 3 | 0 | ✅ 全部关闭 (2026-08-08 v1.40-followup) |
 | Delta 增量 | 7 | 7 | 0 | ✅ 全部关闭 (2026-07-10 ISS-151~ISS-164) |
-| **合计** | **73** | **57** | **16** | **78% 已关闭 + 22% 延期** |
+| **合计** | **73** | **73** | **0** | **100% 已关闭** |
 
 ### 按类型统计（原分类保留参考）
 
@@ -219,16 +219,16 @@
 | 字体 | 1 | 1 | 0 |
 | 间距 | 6 | 6 | 0 |
 | 圆角 | 1 | 1 | 0 |
-| 阴影 | 1 | 0 | 1 |
-| 图标 | 1 | 0 | 1 |
+| 阴影 | 1 | 1 | 0 |
+| 图标 | 1 | 1 | 0 |
 | 表格 | 2 | 2 | 0 |
 | 表单 | 2 | 2 | 0 |
 | 图表 | 5 | 5 | 0 |
 | 弹窗 | 2 | 2 | 0 |
 | 空状态 | 1 | 1 | 0 |
 | 加载态 | 0 | 0 | 0 |
-| 响应式 | 12 | 10 | 2 |
-| 可访问性 | 13 | 10 | 3 |
+| 响应式 | 12 | 12 | 0 |
+| 可访问性 | 13 | 13 | 0 |
 | 交互 | 2 | 2 | 0 |
 
 ---
@@ -240,10 +240,10 @@
 | 维度 | 评分 | 说明 |
 |------|------|------|
 | 设计令牌体系完整度 | 90/100 | ✅ 命名统一 + 间距 4/8/16/24/32px + 圆角 6/10/16/20px + 断点 768/1024/1366/1920 |
-| 视觉一致性 | 88/100 | ✅ BentoCell 统一 + 硬编码颜色清零 + label-width 统一 120px |
-| 响应式覆盖度 | 85/100 | ✅ 弹窗 90vw 全局覆盖 + BottomNav 全角色 + 表格小屏策略 + 图表高度响应式 |
-| 交互完整性 | 88/100 | ✅ danger 确认 + 批量选中数量 + 导出进度 + 训练进度条 + 卡片可点击 |
-| 可访问性 | 85/100 | ✅ ErrorPage 深色模式 + BottomNav 12px + aria-label i18n + BaseChart aria-describedby + 弹窗焦点管理 |
+| 视觉一致性 | 91/100 | ✅ BentoCell 统一 + 硬编码颜色清零 + label-width 统一 120px + 阴影/图标/色板收口 |
+| 响应式覆盖度 | 89/100 | ✅ 弹窗 90vw 全局覆盖 + BottomNav 全角色 + 表格小屏策略 + 图表高度响应式 + 分页收缩 + 头部用户名收缩 |
+| 交互完整性 | 90/100 | ✅ danger 确认 + 批量选中数量 + 导出进度 + 训练进度条 + 卡片可点击 + 操作区 sticky + 时间线视图 |
+| 可访问性 | 89/100 | ✅ ErrorPage 深色模式 + BottomNav 12px + aria-label i18n + BaseChart aria-describedby + 弹窗焦点管理 + 键盘聚焦预警项 + html lang 跟随语言 |
 | i18n 覆盖度 | 92/100 | ✅ 通用组件 i18n 化 + 趋势图标 aria-label + severityTooltip |
 
-### **综合健康评分：88 / 100** (Phase 5/6 前为 63/100，提升 25 分)
+### **综合健康评分：90 / 100** (Phase 5/6 前为 63/100，提升 27 分；2026-08-08 P3/P4 全部收口)
