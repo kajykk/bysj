@@ -114,6 +114,22 @@ docker-compose up -d
 
 ## 测试
 
+### 后端前置条件
+
+- **Redis**：后端测试依赖本地 Redis（`redis://localhost:6379`）。未启动时会因连接重试/退避导致 pytest 挂起：
+
+  ```bash
+  docker run -d --name bysj-redis -p 6379:6379 redis:7-alpine   # 之后用 docker start bysj-redis
+  ```
+
+- **离线环境**：本机无法访问 HuggingFace 时，文本模型相关用例会因 `from_pretrained` 超时阻塞，运行前需设置：
+
+  ```powershell
+  $env:HF_HUB_OFFLINE="1"; $env:TRANSFORMERS_OFFLINE="1"
+  ```
+
+### 运行
+
 ```bash
 cd backend
 pytest -v
@@ -122,6 +138,17 @@ cd frontend
 npm test
 npm run test:e2e
 npm run lighthouse:ci
+```
+
+### Grafana E2E（tests/e2e/test_grafana_e2e.py）
+
+需对接运行中的 Grafana 与后端实例（默认 `localhost:3000` / `localhost:8000`）。本机 8000 端口被其他项目容器占用时，指向 dws 后端（本仓库容器在 8001），并注入凭证：
+
+```powershell
+$env:GRAFANA_PASSWORD="<Grafana admin 密码，区别于容器默认 admin/admin>"
+$env:BACKEND_URL="http://localhost:8001"
+$env:GRAFANA_SA_TOKEN="<从 Grafana API Keys 或 dws-backend 容器环境变量 GRAFANA_SERVICE_TOKEN 获取>"
+python -m pytest tests/e2e/test_grafana_e2e.py -v
 ```
 
 ## 项目规模与成果
