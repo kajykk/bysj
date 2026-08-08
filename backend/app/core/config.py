@@ -188,11 +188,33 @@ class Settings(BaseSettings):
             )
         if (
             self.app_env.lower() == "production"
+            and self.jwt_algorithm.upper() != "RS256"
             and self.jwt_secret_key in _INSECURE_KEYS
         ):
             raise ValueError(
-                "JWT_SECRET_KEY is required and must be secure in production. "
+                "JWT_SECRET_KEY is required and must be secure in production "
+                "(or switch to RS256 with JWT_PRIVATE_KEY_PATH/JWT_PUBLIC_KEY_PATH). "
                 'Generate a strong key with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
+        # ISS-040 修复：RS256 模式必须配置私钥/公钥（路径或内联 PEM），
+        # 启动时快速失败，避免运行时 _load_private_key 才抛错
+        if (
+            self.jwt_algorithm.upper() == "RS256"
+            and not self.jwt_private_key_pem
+            and not self.jwt_private_key_path
+        ):
+            raise ValueError(
+                "JWT_ALGORITHM=RS256 requires JWT_PRIVATE_KEY_PEM or JWT_PRIVATE_KEY_PATH. "
+                "Generate with: openssl genrsa -out private.pem 2048"
+            )
+        if (
+            self.jwt_algorithm.upper() == "RS256"
+            and not self.jwt_public_key_pem
+            and not self.jwt_public_key_path
+        ):
+            raise ValueError(
+                "JWT_ALGORITHM=RS256 requires JWT_PUBLIC_KEY_PEM or JWT_PUBLIC_KEY_PATH. "
+                "Generate with: openssl rsa -in private.pem -pubout -out public.pem"
             )
         # SEC-P1-002 修复：生产环境强制密码重置链接使用 HTTPS
         # 原问题: password_reset_base_url 默认 http://localhost:5173/reset-password
@@ -465,30 +487,35 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# 启动时检查：如果 JWT 密钥为空或不安全，在生产环境下阻止启动
+# 启动时检查：HS256 模式下 JWT 密钥为空或不安全，在生产环境下阻止启动；
+# RS256 模式下签名/验证走非对称密钥对（JWT_PRIVATE_KEY_PATH/JWT_PUBLIC_KEY_PATH），secret 不参与
 if (
     settings.jwt_secret_key in _INSECURE_KEYS
     and settings.app_env.lower() == "production"
+    and settings.jwt_algorithm.upper() != "RS256"
 ):
     # P1-E 修复：使用 logger.critical 替代 print()，便于生产环境统一日志收集
     logger.critical(
-        "JWT_SECRET_KEY is missing or using a default/insecure value in production mode. "
+        "JWT_SECRET_KEY is missing or using a default/insecure value in production mode "
+        "(HS256 requires a shared secret; consider RS256 with JWT_PRIVATE_KEY_PATH). "
         "The application cannot start without a secure JWT secret key. "
         'Generate a strong key with: python -c "import secrets; print(secrets.token_urlsafe(32))" '
         "and set it in your .env file.",
     )
     sys.exit(1)
 
-# 开发环境下仅发出警告
+# 开发环境下仅发出警告（RS256 模式同样豁免）
 if (
     settings.jwt_secret_key in _INSECURE_KEYS
     and settings.app_env.lower() != "production"
+    and settings.jwt_algorithm.upper() != "RS256"
 ):
     warnings.warn(
         "⚠️  安全警告: JWT_SECRET_KEY 使用默认值或不安全值!\n"
         "   请立即生成安全密钥并更新 .env 文件:\n"
         '   python -c "import secrets; print(secrets.token_urlsafe(32))"\n'
-        "   生产环境下使用不安全密钥将导致应用无法启动!",
+        "   生产环境下使用不安全密钥将导致应用无法启动!\n"
+        "   (RS256 模式可豁免该检查，改用 JWT_PRIVATE_KEY_PATH/JWT_PUBLIC_KEY_PATH)",
         UserWarning,
         stacklevel=2,
     )

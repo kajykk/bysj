@@ -338,6 +338,11 @@
 - 证据：`JWT_ALGORITHM: str = "HS256"`
 - 影响：HS256 要求签名方与验证方共享同一密钥，多服务部署时密钥分发风险高
 - 建议：后续多服务部署时迁移到 RS256（公钥验证 + 私钥签名）
+- **状态：已关闭（2026-08-08）** — RS256 基础设施（SEC-P2-001 `_get_signing_key`/`_load_private_key` 等）已完备；本次收口：
+  1. 生产环境 RS256 模式豁免 JWT_SECRET_KEY 强制校验（model_validator + 模块级检查）
+  2. RS256 模式启动时校验私钥/公钥路径（快速失败，杜绝运行时才报错）
+  3. `.env.example` 补充 JWT_ALGORITHM/JWT_PRIVATE_KEY_PATH/JWT_PUBLIC_KEY_PATH/PEM/ISSUER/AUDIENCE 与 openssl 生成命令
+  4. 新增 TC-COV-CONFIG-019/020 测试；E2E 验证 access/refresh/reset 三类 token 签发验证 + HS256 伪造签名被拒绝
 
 ### 2.5 错误处理机制（计划三.2.5）
 
