@@ -4,6 +4,8 @@ from sqlalchemy import func, select
 
 from app.core.contracts import normalize_risk_level
 from app.core.states import BindingStatus
+from app.models.assessment import StructuredAssessment
+from app.models.intervention import InterventionPlan
 from app.models.risk import RiskAssessment
 from app.models.user import User, UserCounselorBinding
 
@@ -121,6 +123,57 @@ class UserMixin:
             .limit(1)
         )
         latest_risk = (await self.db.execute(latest_risk_stmt)).scalar_one_or_none()
+        # UX-P3-02 修复：返回风险历史/评估/干预记录，支撑咨询师用户详情时间线视图
+        risk_history_stmt = (
+            select(
+                RiskAssessment.id,
+                RiskAssessment.risk_level,
+                RiskAssessment.risk_score,
+                RiskAssessment.created_at,
+            )
+            .where(RiskAssessment.user_id == user_id)
+            .order_by(RiskAssessment.created_at.desc())
+            .limit(100)
+        )
+        risk_history = [
+            {
+                "id": row.id,
+                "risk_level": row.risk_level,
+                "risk_score": row.risk_score,
+                "created_at": row.created_at.isoformat(sep=" ") if row.created_at else None,
+            }
+            for row in (await self.db.execute(risk_history_stmt)).all()
+        ]
+        assessments_stmt = (
+            select(StructuredAssessment)
+            .where(StructuredAssessment.user_id == user_id)
+            .order_by(StructuredAssessment.created_at.desc())
+            .limit(100)
+        )
+        assessments = [
+            {
+                "id": row.id,
+                "type": row.assessment_type,
+                "score": row.score,
+                "created_at": row.created_at.isoformat(sep=" ") if row.created_at else None,
+            }
+            for row in (await self.db.execute(assessments_stmt)).scalars().all()
+        ]
+        interventions_stmt = (
+            select(InterventionPlan)
+            .where(InterventionPlan.user_id == user_id)
+            .order_by(InterventionPlan.created_at.desc())
+            .limit(100)
+        )
+        interventions = [
+            {
+                "id": row.id,
+                "type": row.plan_name,
+                "status": row.status,
+                "created_at": row.created_at.isoformat(sep=" ") if row.created_at else None,
+            }
+            for row in (await self.db.execute(interventions_stmt)).scalars().all()
+        ]
         return {
             "id": user.id,
             "username": user.username,
@@ -134,4 +187,7 @@ class UserMixin:
             ),
             "risk_level": latest_risk.risk_level if latest_risk else 0,
             "risk_score": latest_risk.risk_score if latest_risk else None,
+            "risk_history": risk_history,
+            "assessments": assessments,
+            "interventions": interventions,
         }

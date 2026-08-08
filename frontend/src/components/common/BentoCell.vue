@@ -153,14 +153,14 @@ withDefaults(
   height: 7px;
   border-radius: 50%;
   background: var(--primary-color);
-  box-shadow: 0 0 8px rgba(46, 111, 168, 0.6);
+  box-shadow: var(--glow-primary);
   flex-shrink: 0;
 }
 
 .bento-cell--live-alert .bento-cell__live-dot,
 .bento-cell__live-dot--alert {
   background: var(--danger-color);
-  box-shadow: 0 0 8px rgba(214, 90, 90, 0.6);
+  box-shadow: var(--glow-danger);
 }
 
 /* ===== 主体 ===== */

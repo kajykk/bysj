@@ -7,6 +7,7 @@ import { userRiskApi } from '@/api/userRiskApi'
 import { reportsApi } from '@/api/reportsApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import BaseChart from '@/components/charts/BaseChart.vue'
+import { CHART_SERIES_COLORS } from '@/utils/chartPalette'
 import type { EChartsCoreOption } from '@/utils/echarts'
 import type { RiskReport, RiskTrend } from '@/api/userRiskApi'
 
@@ -36,7 +37,8 @@ const trendOption = computed<EChartsCoreOption>(() => {
   }
 })
 
-const FACTOR_COLORS = ['#2e6fa8', '#5a9e3a', '#d4923a', '#d65a5a', '#7a8290', '#82a9cb']
+// VIS-P4-01 修复：复用统一图表色板，消除硬编码 hex
+const FACTOR_COLORS = CHART_SERIES_COLORS
 const factorOption = computed<EChartsCoreOption>(() => {
   const factors = (report.value?.main_factors || []).slice(0, 6)
   const data = factors.map((f) => ({ name: f.feature, value: Number(f.importance) || 0 }))

@@ -241,7 +241,7 @@ const riskIcon = computed(() => RISK_ICONS[riskLevel.value] || '')
   height: 7px;
   border-radius: 50%;
   background: var(--primary-color);
-  box-shadow: 0 0 8px rgba(46, 111, 168, 0.6);
+  box-shadow: var(--glow-primary);
   flex-shrink: 0;
 }
 

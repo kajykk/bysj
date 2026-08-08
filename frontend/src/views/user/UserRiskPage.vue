@@ -55,7 +55,7 @@
           <el-form
             :model="fusionForm"
             label-width="120px"
-            style="max-width: 760px"
+            class="fusion-form"
           >
             <el-form-item :label="t('userRisk.fusionTextLabel')">
               <el-input
@@ -95,12 +95,12 @@
 
         <el-card
           v-if="fusionResult"
-          style="margin-top: 16px"
+          class="card-gap"
         >
           <template #header>
             <div class="header-row">
               <span class="card-title">{{ t('userRisk.fusionResultTitle') }}</span>
-              <div style="display: flex; gap: 8px;">
+              <div class="header-actions">
                 <el-tag
                   v-if="fusionResult.crisis_override"
                   type="danger"
@@ -132,7 +132,7 @@
           <el-descriptions
             :column="2"
             border
-            style="margin-top: 12px"
+            class="desc-gap"
           >
             <el-descriptions-item :label="t('userRisk.labelReviewStatus')">
               {{ fusionResult.review_required ? t('userRisk.reviewRequired') : t('userRisk.reviewNotRequired') }}
@@ -149,7 +149,7 @@
                 :key="reason"
                 type="warning"
                 size="small"
-                style="margin-right: 4px; margin-bottom: 4px"
+                class="tag-inline"
               >
                 {{ reason }}
               </el-tag>
@@ -276,7 +276,7 @@
       <el-alert
         type="warning"
         :closable="false"
-        style="margin-top: 12px"
+        class="alert-gap"
       >
         <template #title>
           {{ t('crisis.contactNearby') }}
@@ -485,6 +485,33 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* VIS-P3-01 修复：内联样式收敛为样式类 + 设计令牌 */
+.fusion-form {
+  max-width: 760px;
+}
+
+.card-gap {
+  margin-top: var(--spacing-md);
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.desc-gap {
+  margin-top: var(--spacing-md);
+}
+
+.tag-inline {
+  margin-right: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+
+.alert-gap {
+  margin-top: var(--spacing-md);
 }
 
 .crisis-alert-content {

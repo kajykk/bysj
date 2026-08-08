@@ -13,6 +13,7 @@
       prop="template_name"
       :label="t('adminTemplates.colTemplateName')"
       min-width="160"
+      show-overflow-tooltip
     />
     <el-table-column
       prop="applicable_levels"

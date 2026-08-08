@@ -1458,6 +1458,7 @@ export default {
     emptyNoTrend: '暂无趋势数据',
     emptyNoTrendDesc: '完成更多评估后将生成风险趋势图',
     unreadWarningsTitle: '未读预警',
+    unreadWarningItemAria: '查看预警：{title}',
     warningHigh: '高',
     warningMedium: '中',
     warningLow: '低',

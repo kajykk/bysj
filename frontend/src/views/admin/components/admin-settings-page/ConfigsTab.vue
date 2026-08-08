@@ -126,7 +126,7 @@ import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import { adminApi, type ConfigItem } from '@/api/adminApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 
-const props = defineProps<{
+defineProps<{
   configs: ConfigItem[]
   loading: boolean
   error: string

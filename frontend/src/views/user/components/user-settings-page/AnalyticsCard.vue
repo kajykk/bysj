@@ -58,7 +58,6 @@ const { t } = useI18n()
 
 // P1-5 埋点与隐私闭环：分析同意管理
 const { consented, refreshConsent, setConsent } = useAnalytics()
-const analyticsConsentLoading = ref(false)
 const analyticsConsentSaving = ref(false)
 
 const handleAnalyticsConsentChange = async (value: string | number | boolean) => {

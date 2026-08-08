@@ -47,6 +47,12 @@
           v-for="w in unreadWarnings.slice(0, 5)"
           :key="w.id"
           class="warning-item"
+          role="button"
+          tabindex="0"
+          :aria-label="t('userDashboard.unreadWarningItemAria', { title: w.title })"
+          @click="goWarnings"
+          @keydown.enter="goWarnings"
+          @keydown.space.prevent="goWarnings"
         >
           <el-tag
             :type="riskLevelOf(w) >= 3 ? 'danger' : riskLevelOf(w) === 2 ? 'warning' : 'info'"
@@ -99,6 +105,11 @@ const { t } = useI18n()
 const router = useRouter()
 
 const riskLevelOf = (w: WarningItem) => normalizeWarningRiskLevel(w.risk_level)
+
+// A11Y-P3-02 修复：预警项可点击跳转预警列表，同时支持键盘 Enter/Space 触发
+const goWarnings = () => {
+  router.push('/user/warnings')
+}
 </script>
 
 <style scoped>
@@ -147,13 +158,13 @@ const riskLevelOf = (w: WarningItem) => normalizeWarningRiskLevel(w.risk_level)
   height: 7px;
   border-radius: 50%;
   background: var(--primary-color);
-  box-shadow: 0 0 8px rgba(46, 111, 168, 0.6);
+  box-shadow: var(--glow-primary);
   flex-shrink: 0;
 }
 
 .bento-cell__live-dot--alert {
   background: var(--danger-color);
-  box-shadow: 0 0 8px rgba(214, 90, 90, 0.6);
+  box-shadow: var(--glow-danger);
 }
 
 .warning-count {
@@ -188,14 +199,22 @@ const riskLevelOf = (w: WarningItem) => normalizeWarningRiskLevel(w.risk_level)
   padding: 0.625rem 0;
   border-bottom: 1px solid var(--border-extra-light);
   transition: background var(--transition-fast) var(--transition-timing);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
 }
 
 .warning-item:last-child {
   border-bottom: none;
 }
 
-.warning-item:hover {
+.warning-item:hover,
+.warning-item:focus-visible {
   background: var(--bg-hover);
+}
+
+.warning-item:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
 }
 
 .warning-title {

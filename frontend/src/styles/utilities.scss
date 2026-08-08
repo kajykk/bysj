@@ -443,6 +443,10 @@ html::-webkit-scrollbar-track {
 }
 
 /* ===== 全局噪点纹理覆盖 ===== */
+/* VIS-P3-04 修复：噪点 SVG (feTurbulence) 以 fixed + mix-blend-mode 全屏常驻，
+   会迫使页面内容与该合成层每帧混合，低端/移动设备开销明显。
+   保留桌面端视觉质感（multiply/screen 仅作用于静态背景），
+   但在触摸设备（hover: none）、窄屏与减少动效偏好下关闭该装饰层。 */
 body::before {
   content: '';
   position: fixed;
@@ -451,6 +455,12 @@ body::before {
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
   mix-blend-mode: multiply;
+}
+
+@media (hover: none), (max-width: 767px), (prefers-reduced-motion: reduce) {
+  body::before {
+    display: none;
+  }
 }
 
 html.dark body::before {

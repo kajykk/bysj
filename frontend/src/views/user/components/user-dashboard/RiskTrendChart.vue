@@ -65,6 +65,7 @@ import { useI18n } from 'vue-i18n'
 import { echarts, type ECharts } from '@/utils/echarts'
 import { subscribeResize } from '@/utils/sharedResize'
 import { readChartVar } from '@/utils/chartTheme'
+import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { RiskTrend } from '@/api/userRiskApi'
@@ -108,7 +109,8 @@ const renderTrendChart = () => {
 
   // ISS-077 修复：图表配色读取 CSS 变量令牌，与 variables.scss 统一
   // VIS-P2-02 修复：tooltip 背景与边框改用主题令牌，深色模式下自动适配
-  const chartDanger = readChartVar('--chart-color-danger', '#d65a5a')
+  // VIS-P4-01 修复：回退值与渐变/光晕统一取自 chartPalette 常量
+  const chartDanger = readChartVar('--chart-color-danger', CHART_PALETTE.danger)
   const chartTextPrimary = readChartVar('--text-primary', '#2c3340')
   const chartTextSecondary = readChartVar('--text-secondary', '#8a929e')
   const chartTooltipBg = readChartVar('--bg-primary', '#ffffff')
@@ -121,7 +123,7 @@ const renderTrendChart = () => {
       borderColor: chartTooltipBorder,
       borderWidth: 1,
       textStyle: { color: chartTextPrimary, fontSize: 13 },
-      extraCssText: 'box-shadow: 0 4px 16px rgba(46, 111, 168, 0.08); border-radius: 8px;',
+      extraCssText: `box-shadow: var(--shadow-dropdown); border-radius: 8px;`,
       formatter: (params: unknown) => {
         const p = (params as Array<{ dataIndex: number }>)[0]
         const point = points[p.dataIndex]
@@ -157,13 +159,13 @@ const renderTrendChart = () => {
       data: points.map((p) => p.risk_score),
       smooth: true,
       areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: 'rgba(214,90,90,0.25)' },
-        { offset: 1, color: 'rgba(214,90,90,0.02)' }
+        { offset: 0, color: withAlpha(CHART_PALETTE.danger, 0.25) },
+        { offset: 1, color: withAlpha(CHART_PALETTE.danger, 0.02) }
       ]) },
       lineStyle: { color: chartDanger, width: 2 },
       itemStyle: { color: chartDanger },
       emphasis: {
-        itemStyle: { borderWidth: 2, borderColor: '#fff', shadowBlur: 8, shadowColor: 'rgba(214,90,90,0.5)' },
+        itemStyle: { borderWidth: 2, borderColor: '#fff', shadowBlur: 8, shadowColor: withAlpha(CHART_PALETTE.danger, 0.5) },
         scale: 1.5
       }
     }]

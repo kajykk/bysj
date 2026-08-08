@@ -570,7 +570,6 @@ class ModelPredictService:
         # S4 金丝雀路由决策: 基于 user_id 稳定哈希决定是否路由到 M4
         canary_routed = False
         canary_version = None
-        canary_weights = None  # None = 默认权重, dict = M4 优化权重
         if user_id is not None:
             try:
                 from app.core.database import AsyncSessionLocal
@@ -585,13 +584,6 @@ class ModelPredictService:
                     if decision.use_canary:
                         canary_routed = True
                         canary_version = decision.canary_version
-                        # M4 stacking v3 优化权重 (structured=0.7, text=0.2, lexical=0.1)
-                        # 映射: lexical → physiological (三模态对齐)
-                        canary_weights = {
-                            "structured": 0.7,
-                            "text": 0.2,
-                            "physiological": 0.1,
-                        }
                         logger.info(
                             "[predict_fusion] canary routed: user=%s version=%s",
                             user_id, canary_version,

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import inspect as _inspect
 import logging
+import typing as _typing
 
 from fastapi import Request, Response
 from slowapi import Limiter
@@ -111,9 +113,6 @@ limiter = _build_limiter()
 # 修复: 在包装函数上设置 __signature__, 其中参数注解已用原函数的 __globals__
 # (正确的命名空间) 预解析为实际类型对象。inspect.signature() 优先返回 __signature__,
 # FastAPI 的 get_typed_annotation 看到非字符串注解直接返回, 不再需要 __globals__ 解析。
-import inspect as _inspect
-import typing as _typing
-
 _original_limit = limiter.limit
 
 

@@ -64,21 +64,25 @@
             prop="main_topics"
             :label="t('counselorUserDetail.consultationColTopics')"
             min-width="180"
+            show-overflow-tooltip
           />
           <el-table-column
             prop="client_status"
             :label="t('counselorUserDetail.consultationColStatus')"
             min-width="160"
+            show-overflow-tooltip
           />
           <el-table-column
             prop="interventions"
             :label="t('counselorUserDetail.consultationColInterventions')"
             min-width="180"
+            show-overflow-tooltip
           />
           <el-table-column
             prop="next_plan"
             :label="t('counselorUserDetail.consultationColNextPlan')"
             min-width="180"
+            show-overflow-tooltip
           />
           <el-table-column
             prop="created_at"
@@ -156,36 +160,39 @@
         </el-table>
       </el-tab-pane>
 
-      <!-- ISS-057: 风险轨迹 -->
+      <!-- UX-P3-02 修复：风险轨迹改时间线视图，替代原纯表格，突出时间顺序 -->
       <el-tab-pane
         :label="t('counselorUserDetail.tabRiskHistory')"
         name="risk_history"
       >
-        <el-table
-          :data="riskHistoryRows"
-          border
+        <el-timeline
+          v-loading="loading"
+          class="detail-timeline"
         >
-          <el-table-column
-            prop="id"
-            :label="t('counselorUserDetail.historyColId')"
-            width="100"
-          />
-          <el-table-column
-            prop="risk_level"
-            :label="t('counselorUserDetail.historyColRiskLevel')"
-            min-width="120"
-          />
-          <el-table-column
-            prop="risk_score"
-            :label="t('counselorUserDetail.historyColRiskScore')"
-            min-width="120"
-          />
-          <el-table-column
-            prop="created_at"
-            :label="t('counselorUserDetail.historyColTime')"
-            min-width="180"
-          />
-        </el-table>
+          <el-timeline-item
+            v-for="item in riskHistoryRows"
+            :key="item.id"
+            :type="getRiskTimelineType(item)"
+            :timestamp="item.created_at"
+            placement="top"
+          >
+            <div class="timeline-title">
+              <el-tag
+                size="small"
+                :type="getWarningRiskLevelTagType(item.risk_level ?? 0)"
+              >
+                {{ getWarningRiskLevelLabel(item.risk_level ?? 0) }}
+              </el-tag>
+            </div>
+            <div class="timeline-text">
+              {{ t('counselorUserDetail.historyColRiskScore') }}: {{ item.risk_score }}
+            </div>
+          </el-timeline-item>
+        </el-timeline>
+        <el-empty
+          v-if="!loading && !riskHistoryRows.length"
+          :description="t('common.noData')"
+        />
       </el-tab-pane>
 
       <!-- ISS-057: 评估记录 -->
@@ -220,36 +227,31 @@
         </el-table>
       </el-tab-pane>
 
-      <!-- ISS-057: 干预记录 -->
+      <!-- UX-P3-02 修复：干预记录改时间线视图 -->
       <el-tab-pane
         :label="t('counselorUserDetail.tabInterventions')"
         name="interventions"
       >
-        <el-table
-          :data="interventionRows"
-          border
-        >
-          <el-table-column
-            prop="id"
-            :label="t('counselorUserDetail.interventionColId')"
-            width="100"
-          />
-          <el-table-column
-            prop="type"
-            :label="t('counselorUserDetail.interventionColType')"
-            min-width="120"
-          />
-          <el-table-column
-            prop="status"
-            :label="t('counselorUserDetail.interventionColStatus')"
-            min-width="120"
-          />
-          <el-table-column
-            prop="created_at"
-            :label="t('counselorUserDetail.interventionColTime')"
-            min-width="180"
-          />
-        </el-table>
+        <el-timeline class="detail-timeline">
+          <el-timeline-item
+            v-for="item in interventionRows"
+            :key="item.id"
+            :type="item.status === 'completed' ? 'success' : item.status === 'active' ? 'primary' : 'warning'"
+            :timestamp="item.created_at"
+            placement="top"
+          >
+            <div class="timeline-title">
+              {{ item.type }}
+            </div>
+            <div class="timeline-text">
+              {{ item.status }}
+            </div>
+          </el-timeline-item>
+        </el-timeline>
+        <el-empty
+          v-if="!interventionRows.length"
+          :description="t('common.noData')"
+        />
       </el-tab-pane>
     </el-tabs>
 
@@ -356,6 +358,7 @@ import { counselorApi, type ConsultationGroupItem, type ConsultationItem, type U
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import { showHttpFeedback } from '@/utils/httpFeedback'
+import { getWarningRiskLevelLabel, getWarningRiskLevelTagType } from '@/utils/warning'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 // ISS-082 修复：引入 useBreakpoint 实现 el-descriptions 列数响应式
@@ -490,11 +493,43 @@ const addCurrentUserToGroup = async (row: ConsultationGroupItem) => {
 
 const goBack = () => router.push({ path: '/counselor/users', query: route.query })
 
+const getRiskTimelineType = (item: UserRiskHistoryItem) => {
+  const tag = getWarningRiskLevelTagType(item.risk_level ?? 0)
+  return tag === 'danger' ? 'danger' : tag === 'warning' ? 'warning' : 'primary'
+}
+
 onMounted(fetchAll)
 </script>
 
 <style scoped>
 .user-descriptions {
   margin-bottom: var(--spacing-md);
+}
+
+/* UX-P3-01 修复：操作区滚动后保持可见 - sticky 定位 + 背景色 + z-index，
+   避免长列表滚动时"新建咨询/新建分组"按钮脱离视口 */
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  background: var(--bg-page);
+  padding: var(--spacing-sm) 0;
+}
+
+/* UX-P3-02 修复：时间线视图留白与节点排版 */
+.detail-timeline {
+  padding: var(--spacing-sm) 0 0 6px;
+}
+
+.detail-timeline .timeline-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.detail-timeline .timeline-text {
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 </style>

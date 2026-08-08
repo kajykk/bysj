@@ -8,9 +8,11 @@ import pytest
 
 from app.core.pii_crypto import compute_blind_index
 from app.core.states import BindingStatus
+from app.models.assessment import StructuredAssessment
 from app.models.counselor import (
     ClientGroupMember,
 )
+from app.models.intervention import InterventionPlan
 from app.models.risk import RiskAssessment, WarningNotification
 from app.models.user import User, UserCounselorBinding
 from app.services.counselor_service import CounselorService
@@ -638,6 +640,63 @@ class TestGetUserDetailExtended:
         assert result["latest_risk_label"] == "critical"
         assert result["risk_level"] == 4
         assert result["risk_score"] == 80
+        # UX-P3-02 修复：详情返回历史/评估/干预记录（时间线视图数据源）
+        assert isinstance(result["risk_history"], list)
+        assert len(result["risk_history"]) == 1
+        assert result["risk_history"][0]["risk_level"] == 4
+        assert isinstance(result["assessments"], list)
+        assert result["assessments"] == []
+        assert isinstance(result["interventions"], list)
+        assert result["interventions"] == []
+
+    async def test_timeline_data_sources(self, db_session, seeded_user_id):
+        """TC-COV-COUN-603: get_user_detail 返回风险历史/评估/干预记录."""
+        await _make_binding(
+            db_session, 1, 2, "B001", BindingStatus.ACTIVE, bound_at=_now()
+        )
+        db_session.add(
+            RiskAssessment(
+                user_id=1,
+                risk_score=70,
+                risk_level=3,
+                structured_score=70,
+                models_used=["m"],
+                risk_factors=[],
+                assessment_type="structured",
+                is_latest=True,
+            )
+        )
+        db_session.add(
+            StructuredAssessment(
+                user_id=1,
+                assessment_type="SAS",
+                score=65,
+                data_payload={},
+            )
+        )
+        db_session.add(
+            InterventionPlan(
+                user_id=1,
+                plan_name="认知行为干预",
+                risk_level=3,
+                status="active",
+                start_date=_now().date(),
+            )
+        )
+        await db_session.commit()
+
+        service = CounselorService(db_session)
+        result = await service.get_user_detail(2, 1)
+        assert result is not None
+        assert len(result["risk_history"]) == 1
+        assert result["risk_history"][0]["risk_level"] == 3
+        assert result["risk_history"][0]["risk_score"] == 70
+        assert len(result["assessments"]) == 1
+        assert result["assessments"][0]["type"] == "SAS"
+        assert result["assessments"][0]["score"] == 65
+        assert len(result["interventions"]) == 1
+        assert result["interventions"][0]["type"] == "认知行为干预"
+        assert result["interventions"][0]["status"] == "active"
 
     async def test_no_risk_assessment(self, db_session, seeded_user_id):
         """TC-COV-COUN-602: 用户无风险评估返回 none."""

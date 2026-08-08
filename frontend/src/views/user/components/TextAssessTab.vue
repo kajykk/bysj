@@ -4,12 +4,12 @@
       <el-form
         :model="textForm"
         label-width="100px"
-        style="max-width: 600px"
+        class="form-max-width"
       >
         <el-form-item :label="t('textAssess.entryTypeLabel')">
           <el-select
             v-model="textForm.entry_type"
-            style="width: 100%"
+            class="full-width"
           >
             <el-option
               :label="t('textAssess.entryTypeDiary')"
@@ -40,7 +40,7 @@
             v-model="textForm.emotion_tags"
             multiple
             allow-create
-            style="width: 100%"
+            class="full-width"
             :placeholder="t('textAssess.emotionTagsPlaceholder')"
           >
             <el-option
@@ -131,7 +131,7 @@
           </el-button>
           <el-button
             v-if="canUse"
-            style="margin-left: 8px"
+            class="btn-ml"
             type="success"
             :loading="textPredictSubmitting"
             :disabled="!textForm.content.trim()"
@@ -146,7 +146,7 @@
     <Transition name="fade-slide">
       <el-card
         v-if="textResult"
-        style="margin-top: 16px"
+        class="card-gap"
       >
         <template #header>
           <span class="card-title">{{ t('textAssess.analysisTitle') }}</span>
@@ -170,8 +170,7 @@
     <Transition name="fade-slide">
       <el-card
         v-if="textPredictResult"
-        style="margin-top: 16px"
-        class="result-panel"
+        class="card-gap result-panel"
       >
         <template #header>
           <div class="header-row">
@@ -253,11 +252,11 @@
       </el-card>
     </Transition>
 
-    <el-card style="margin-top: 16px">
+    <el-card class="card-gap">
       <template #header>
         <div class="header-row">
           <span class="card-title">{{ t('textAssess.historyTitle') }}</span>
-          <div style="display:flex; gap:8px;">
+          <div class="header-actions">
             <el-button
               size="small"
               :disabled="!textPredictionHistory.length"
@@ -495,6 +494,28 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* VIS-P3-01 修复：内联样式收敛为样式类 + 设计令牌 */
+.form-max-width {
+  max-width: 600px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.btn-ml {
+  margin-left: var(--spacing-sm);
+}
+
+.card-gap {
+  margin-top: var(--spacing-md);
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--spacing-sm);
 }
 
 .result-panel {
