@@ -484,20 +484,16 @@ class ModelPredictService:
     async def predict_tabular(
         self, features: dict[str, float | int | str | bool]
     ) -> dict:
-        sanitized: dict[str, float | int | str | bool] = {}
-        for key, value in features.items():
-            sanitized[key] = value
-
         # PERF-P2-009: 60s Redis 缓存, 相同输入直接返回缓存结果
         if _ML_INFERENCE_CACHE_TTL > 0:
-            cache_key = make_cache_key("ml:tabular", sanitized)
+            cache_key = make_cache_key("ml:tabular", features)
             cached = await cache_get(cache_key)
             if cached is not None:
                 logger.debug("[predict_tabular] cache hit key=%s", cache_key)
                 return cached
 
         # STAB-P1-002: ML 推理熔断器 + asyncio.wait_for 超时保护
-        result = await call_with_ml_breaker(model_engine.predict_structured(sanitized))
+        result = await call_with_ml_breaker(model_engine.predict_structured(features))
 
         routing_info = result.get("routing_info", {})
         if routing_info:
