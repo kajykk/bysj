@@ -22,6 +22,32 @@ from app.core.tracing import (
 logger = logging.getLogger(__name__)
 
 
+def _normalize_metrics_path(path: str) -> str:
+    """ISS-037: 无路由模板时的标签路径归一化, 防止高基数标签.
+
+    数字段折叠为 {id}, 连续重复段合并, 长度超限截断.
+    """
+    if not path:
+        return "unknown"
+    parts: list[str] = []
+    for seg in path.split("/"):
+        if seg == "":
+            continue
+        if seg.isdigit():
+            seg = "{id}"
+        if parts and parts[-1] == seg:
+            continue
+        parts.append(seg)
+    if len(parts) > 6:
+        parts = parts[:6] + ["..."]
+    normalized = "/".join(parts)
+    if not normalized:
+        return "unknown"
+    if path.startswith("/") and not normalized.startswith("/"):
+        normalized = "/" + normalized
+    return normalized
+
+
 async def request_id_middleware(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
@@ -69,7 +95,11 @@ async def metrics_middleware(
 
     # 提取 path 模板 (如果可用)
     route = request.scope.get("route")
-    path_template = getattr(route, "path", None) or request.url.path
+    path_template = getattr(route, "path", None)
+    if not path_template:
+        # ISS-037 修复：无路由模板 (404/中间件直接响应) 时归一化路径,
+        # 避免完整 URL path 成为高基数标签
+        path_template = _normalize_metrics_path(request.url.path)
 
     # 排除 /metrics 自身以避免自激
     if path_template != "/api/v1/metrics":

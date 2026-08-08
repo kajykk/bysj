@@ -10,7 +10,7 @@
         name="browse"
       >
         <FilterBar
-          @search="loadContents"
+          @search="handleSearchBrowse"
           @reset="handleResetBrowse"
         >
           <el-form-item :label="t('userContent.filterCategory')">
@@ -95,6 +95,16 @@
               />
             </el-col>
           </el-row>
+          <el-pagination
+            v-if="browseTotal > 0"
+            class="content-pager"
+            background
+            layout="total, prev, pager, next"
+            :total="browseTotal"
+            :current-page="browsePage"
+            :page-size="browsePageSize"
+            @current-change="onBrowsePageChange"
+          />
         </StatefulContainer>
       </el-tab-pane>
 
@@ -184,17 +194,23 @@ const { t } = useI18n()
 
 const {
   activeTab,
-  browseFilters, browseRows, browseLoading, browseError,
+  browseFilters, browseRows, browseLoading, browseError, browseTotal, browsePage, browsePageSize,
   favRows, favLoading, favError,
   recRows, recLoading, recError,
   detailVisible, detailData, detailLoading, sanitizedDetailHtml,
   loadContents, loadFavorites, loadRecommendations,
   handleTabChange, closeDetail, handleResetBrowse, handleToggleFavorite, openDetail,
+  onBrowsePageChange, handleSearchBrowse,
 } = useUserContentData()
 </script>
 
 <style scoped>
 .content-col {
   margin-bottom: var(--spacing-lg);
+}
+
+.content-pager {
+  margin-top: var(--spacing-md);
+  justify-content: flex-end;
 }
 </style>

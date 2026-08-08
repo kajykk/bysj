@@ -177,10 +177,12 @@ const handleDeleteAccount = async () => {
     await userApi.deleteAccount({ password: deleteForm.password, confirm: true })
     deleteDialogVisible.value = false
     ElMessage.success(t('userSettings.gdpr.anonymized'))
-    // 账户已被匿名化 (status=deleted)，后续携带 token 的请求都会 401，
-    // 因此直接清理本地认证状态并跳转登录页，不再调用 authApi.logout
-    auth.persistAuth({ token: '', refreshToken: '', user: null })
-    auth.broadcastAuthSync({ token: '', refreshToken: '', user: null })
+    try {
+      await auth.logout()
+    } catch {
+      // 账户已匿名化，后端可能拒绝 logout 请求（401），
+      // 但 store 的 finally 已清理本地认证状态，不阻塞跳转
+    }
     await router.replace('/login')
   } catch (error) {
     ElMessage.error(normalizeHttpError(error, t('userSettings.gdpr.deleteFailed')).detail)

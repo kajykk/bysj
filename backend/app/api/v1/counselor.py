@@ -67,8 +67,21 @@ async def handle_warning(
         request_id=request_id,
     )
     if not success:
-        raise HTTPException(status_code=404, detail="预警不存在")
-    return ok({"message": "预警已处理"})
+        # ISS-070: 区分"不存在"与"已处理但 action 不一致"两类失败语义,
+        # 已处理的预警不应被当作不存在 (404), 应返回其真实状态。
+        warning = await service.get_warning_for_counselor(
+            current_user.id, warning_id
+        )
+        if warning is None:
+            raise HTTPException(status_code=404, detail="预警不存在")
+        return ok(
+            {
+                "message": "预警已处理",
+                "warning_id": warning["id"],
+                "status": warning["status"],
+            }
+        )
+    return ok({"message": "预警已处理", "warning_id": warning_id})
 
 
 # ISS-058: 预警升级端点 - 需 counselor.warning.handle 权限

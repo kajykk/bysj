@@ -17,7 +17,7 @@
     </template>
 
     <div
-      v-if="modelTabResult?.requires_human_review"
+      v-if="showCrisisHint"
       style="margin-bottom: 12px"
     >
       <el-alert
@@ -26,7 +26,10 @@
         show-icon
       >
         <template #title>
-          {{ t('structuredAssess.crisisDetectedAlert') }}<span v-if="modelTabResult?.crisis_keywords_matched?.length">：{{ modelTabResult.crisis_keywords_matched.join('、') }}</span>
+          <span v-if="modelTabResult?.requires_human_review">
+            {{ t('structuredAssess.crisisDetectedAlert') }}<span v-if="modelTabResult?.crisis_keywords_matched?.length">：{{ modelTabResult.crisis_keywords_matched.join('、') }}</span>
+          </span>
+          <span v-else>{{ t('structuredAssess.highRiskHint') }}</span>
         </template>
       </el-alert>
     </div>
@@ -172,6 +175,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import type { ModelPredictResponse } from '@/api/modelApi'
@@ -198,6 +202,10 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const showCrisisHint = computed(
+  () => !!(props.modelTabResult?.requires_human_review || (props.modelTabResult?.risk_level ?? 0) >= 3)
+)
 
 const copyJson = async (value: unknown) => {
   try {

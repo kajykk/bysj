@@ -64,17 +64,42 @@ vi.mock('@/layouts/MainLayout.vue', () => ({ default: { template: '<div><router-
 // R-003 修复：ElMessage 现在通过显式 import + vi.mock 拦截，无需 globalThis 注入
 
 import { useAuthStore } from '@/stores/auth'
+import { resetUnauthorizedRedirecting } from '@/api/request'
 import { ElMessage } from 'element-plus'
 import router from './index'
 
 // 抑制 jsdom "Not implemented: Window's scrollTo() method" 警告，减少测试输出噪声
 window.scrollTo = (() => {}) as typeof window.scrollTo
 
-/** 设置 auth store 的返回值，控制 beforeEach 守卫行为 */
+/** 构造非标准 base64url JWT（ISS-097 测试辅助） */
+function makeJwt(payload: Record<string, unknown>): string {
+  const encode = (json: string) => btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  return `${encode(JSON.stringify({ alg: 'none' }))}.${encode(JSON.stringify(payload))}.${encode('signature')}`
+}
+
+/**
+ * 设置 auth store 的返回值，控制 beforeEach 守卫行为。
+ * ISS-097 修复后守卫会读取 getStoredToken() 校验 token 是否过期：
+ * - isLoggedIn=true 时同步写入存储中的 token，保持"已登录 ⇔ 存储有 token"的一致约束
+ * - restore() 模拟真实 store 行为：存储无有效 token 时复位内存登录态
+ */
 function setAuthState(isLoggedIn: boolean, role: string): void {
+  if (isLoggedIn) {
+    sessionStorage.setItem('token', 'test-token')
+    localStorage.setItem('user', JSON.stringify({ id: 1, username: 'tester', role }))
+  } else {
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('token_expiry')
+    localStorage.removeItem('user')
+  }
+  const state = { isLoggedIn, role }
   vi.mocked(useAuthStore).mockReturnValue({
-    isLoggedIn,
-    role,
+    get isLoggedIn() { return state.isLoggedIn },
+    get role() { return state.role },
+    restore: () => {
+      state.isLoggedIn = false
+      state.role = ''
+    },
   } as any)
 }
 
@@ -316,6 +341,30 @@ describe('Router - index.ts 集成测试', () => {
       expect(ElMessage.warning).not.toHaveBeenCalled()
     })
 
+    it('ISS-097: JWT exp 已过期时访问受保护路由应清理会话并跳转 /login', async () => {
+      setAuthState(true, 'user')
+      // 覆盖为已过期的 JWT（exp 在 1 小时前，无 token_expiry 字段）
+      sessionStorage.setItem('token', makeJwt({ exp: Math.floor(Date.now() / 1000) - 3600 }))
+
+      await router.push('/user/dashboard')
+
+      expect(router.currentRoute.value.path).toBe('/login')
+      expect(router.currentRoute.value.query.redirect).toBe('/user/dashboard')
+      // 过期 token 已被清理（authStorage ISS-097）
+      expect(sessionStorage.getItem('token')).toBeNull()
+      expect(ElMessage.warning).toHaveBeenCalledWith('登录已失效，请重新登录')
+    })
+
+    it('ISS-097: JWT 未过期时访问受保护路由应正常放行', async () => {
+      setAuthState(true, 'user')
+      sessionStorage.setItem('token', makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 }))
+
+      await router.push('/user/dashboard')
+
+      expect(router.currentRoute.value.path).toBe('/user/dashboard')
+      expect(ElMessage.warning).not.toHaveBeenCalled()
+    })
+
     it('未登录访问 /forbidden 不应弹警告', async () => {
       setAuthState(false, '')
       await router.push('/forbidden')
@@ -538,6 +587,28 @@ describe('Router - index.ts 集成测试', () => {
 
       router.removeRoute('/__test-other-error__')
       restore()
+    })
+
+    it('ISS-108: 导航出错时 onError 应复位 isUnauthorizedRedirecting 标志', async () => {
+      setAuthState(true, 'user')
+
+      const navError = new Error('ISS-108 navigation failure')
+      const route = makeRouteThatThrows('/__test-iss108-reset__', navError)
+      router.addRoute(route)
+
+      try {
+        // 清空 beforeEach 中 replace() 产生的 afterEach 复位调用记录
+        vi.clearAllMocks()
+        await router.push('/__test-iss108-reset__')
+      } catch {
+        // 预期抛错
+      }
+      await new Promise((r) => setTimeout(r, 0))
+
+      // 导航异常时 afterEach 不会执行，复位必须由 onError 完成（ISS-108）
+      expect(resetUnauthorizedRedirecting).toHaveBeenCalledTimes(1)
+
+      router.removeRoute('/__test-iss108-reset__')
     })
 
     it('ISS-011: ChunkLoadError 5 秒内第二次不应刷新（时间窗口防循环）', async () => {

@@ -286,7 +286,7 @@ class Settings(BaseSettings):
     # 留空则不添加/不验证 iss/aud 声明 (向后兼容模式)
     jwt_issuer: str = ""
     jwt_audience: str = ""
-    access_token_expire_minutes: int = 120
+    access_token_expire_minutes: int = 60
     # SEC-P2-003: 上传文件安全处理
     # EXIF 剥离: 用 Pillow 重编码图片, 删除 GPS/设备信息等敏感元数据
     enable_exif_strip: bool = True
@@ -434,6 +434,11 @@ class Settings(BaseSettings):
     anomaly_lateral_target_type_threshold: int = 5
     # 异常检测扫描间隔 (秒), Celery beat 调度使用
     anomaly_scan_interval_seconds: int = 300
+
+    # ── ISS-112 修复：结构化评估是否启用 SHAP 特征解释 ──
+    # SHAP explain_prediction 在请求路径耗时 200-500ms, 默认关闭,
+    # 关闭时使用轻量启发式 risk_factors (不加载 SHAP 模型)
+    risk_assessment_shap_explain_enabled: bool = False
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -239,6 +239,53 @@ class TestReviewService:
         assert stats.total >= 2
         assert stats.crisis_count >= 1
 
+    async def test_get_review_stats_assigned_scope(self, review_service):
+        """ISS-071: 统计卡口径与咨询师列表一致 (assigned_to 范围过滤)."""
+        data1 = ReviewTaskCreate(user_id=1, risk_level=3, risk_score=75.0)
+        task1 = await review_service.create_review_task(data1)
+        data2 = ReviewTaskCreate(user_id=2, risk_level=2, risk_score=50.0)
+        await review_service.create_review_task(data2)
+
+        await review_service.assign_review(task1.id, 2)
+
+        stats_all = await review_service.get_review_stats()
+        stats_scope = await review_service.get_review_stats(assigned_to=2)
+
+        assert stats_all.total == 2
+        assert stats_scope.total == 1
+        assert stats_scope.pending == 0
+        assert stats_scope.in_review == 1
+        assert stats_scope.resolved == 0
+
+    async def test_get_review_stats_assigned_scope_crisis(
+        self, review_service
+    ):
+        """ISS-071: 范围过滤同样作用于危机/高风险统计."""
+        data1 = ReviewTaskCreate(
+            user_id=1, risk_level=4, risk_score=95.0, crisis_override=True
+        )
+        task1 = await review_service.create_review_task(data1)
+        data2 = ReviewTaskCreate(
+            user_id=2,
+            risk_level=3,
+            risk_score=80.0,
+            priority=ReviewPriority.HIGH_RISK_REVIEW,
+        )
+        task2 = await review_service.create_review_task(data2)
+
+        await review_service.assign_review(task1.id, 2)
+        await review_service.assign_review(task2.id, 3)
+
+        stats_crisis = await review_service.get_review_stats(assigned_to=2)
+        stats_high = await review_service.get_review_stats(assigned_to=3)
+
+        assert stats_crisis.total == 1
+        assert stats_crisis.crisis_count == 1
+        assert stats_crisis.high_risk_count == 0
+        assert stats_high.total == 1
+        assert stats_high.crisis_count == 0
+        assert stats_high.high_risk_count == 1
+
     async def test_create_review_task_postgresql_advisory_lock(
         self, review_service, db_session, monkeypatch
     ):

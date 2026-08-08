@@ -48,7 +48,10 @@
           </el-form-item>
 
           <el-form-item>
-            <el-button @click="handleExport">
+            <el-button
+              :loading="exporting"
+              @click="handleExport"
+            >
               {{ t('userAssessments.btnExport') }}
             </el-button>
           </el-form-item>
@@ -147,6 +150,7 @@ const pageError = ref('')
 
 const page = computed(() => queryState.page.value)
 const pageSize = computed(() => queryState.pageSize.value)
+const exporting = ref(false)
 
 const filters = reactive<{ type?: 'structured' | 'text' | 'physiological'; range: string[] }>({
   type: (queryState.getString('type') as 'structured' | 'text' | 'physiological') || undefined,
@@ -233,6 +237,7 @@ const handleSearch = async () => {
 }
 
 const handleExport = async () => {
+  exporting.value = true
   try {
     const res = await userFileApi.exportRiskData('csv', 3650)
     const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' })
@@ -245,6 +250,8 @@ const handleExport = async () => {
     ElMessage.success(t('userAssessments.exportSuccess'))
   } catch (error) {
     ElMessage.error(normalizeHttpError(error, t('userAssessments.exportFailed')).detail)
+  } finally {
+    exporting.value = false
   }
 }
 

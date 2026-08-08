@@ -17,6 +17,8 @@ import {
   POLL_MAX_MS,
 } from './sharedModelTrainingUtils'
 
+const MAX_POLL_ATTEMPTS = 60
+
 export function useModelTrainingData() {
   const { t } = useI18n()
   const router = useRouter()
@@ -48,6 +50,8 @@ export function useModelTrainingData() {
   })
   // ISS-002 修复：轮询改为指数退避（初始 5s，最大 30s），原固定 2s 产生大量无效请求
   let pollCurrentMs = POLL_INITIAL_MS
+  let pollAttempts = 0
+  let lastSyncedEpoch = 0
 
   const pushTrainingLog = (stage: string, message: string, level: TrainingLogRow['level'] = 'info') => {
     trainingLogRows.value.unshift({
@@ -93,6 +97,22 @@ export function useModelTrainingData() {
       const job = await modelApi.getTrainingJob(activeJobId.value)
       activeJob.value = job
       pushTrainingLog(job.stage || 'job', `${job.message} (${job.progress ?? 0}%)`, job.status === 'failed' ? 'error' : job.status === 'completed' ? 'success' : 'info')
+      const history = job.train_history || []
+      const maxEpoch = history.reduce((acc, row) => Math.max(acc, row.epoch ?? 0), 0)
+      if (maxEpoch > lastSyncedEpoch) {
+        for (const row of history) {
+          const epoch = row.epoch ?? 0
+          if (epoch <= lastSyncedEpoch) continue
+          pushTrainingLog('epoch', t('userModelTraining.logEpochProgress', {
+            epoch,
+            total: job.epochs ?? maxEpoch,
+            trainLoss: row.train_loss != null ? Number(row.train_loss).toFixed(4) : '—',
+            valLoss: row.val_loss != null ? Number(row.val_loss).toFixed(4) : '—',
+            valAcc: row.val_accuracy != null ? Number(row.val_accuracy).toFixed(4) : '—',
+          }), 'info')
+        }
+        lastSyncedEpoch = maxEpoch
+      }
       if (job.status === 'completed' || job.status === 'failed') {
         stopJobPolling()
         if (job.status === 'completed') {
@@ -116,6 +136,7 @@ export function useModelTrainingData() {
       if (!latest) return
       activeJobId.value = latest.job_id || ''
       activeJob.value = latest
+      lastSyncedEpoch = 0
       if (latest.job_id) {
         pushTrainingLog(latest.stage || 'job', t('userModelTraining.logFoundJob', { jobId: latest.job_id }), 'info')
         if (latest.status === 'running' || latest.status === 'pending') {
@@ -131,8 +152,16 @@ export function useModelTrainingData() {
   const startJobPolling = () => {
     stopJobPolling()
     pollCurrentMs = POLL_INITIAL_MS
+    pollAttempts = 0
     const scheduleNext = () => {
       jobPollTimer = window.setTimeout(async () => {
+        if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+          stopJobPolling()
+          pushTrainingLog('job', t('userModelTraining.pollLimitReached'), 'warning')
+          ElMessage.warning(t('userModelTraining.pollLimitReached'))
+          return
+        }
+        pollAttempts++
         await syncJobState()
         // 仅在任务仍进行中时继续调度
         if (activeJob.value && (activeJob.value.status === 'running' || activeJob.value.status === 'pending')) {
@@ -158,6 +187,7 @@ export function useModelTrainingData() {
       })
       activeJobId.value = task.job_id || ''
       activeJob.value = task
+      lastSyncedEpoch = 0
       pushTrainingLog('train', t('userModelTraining.logJobCreated', { jobId: activeJobId.value || 'unknown' }), 'success')
       startJobPolling()
       await syncJobState()

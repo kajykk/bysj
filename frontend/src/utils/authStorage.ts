@@ -43,11 +43,46 @@ function _safeRemoveItem(key: string, useSession: boolean = false): void {
   storage.removeItem(key)
 }
 
+// ISS-097 修复：解析 JWT 的 exp 字段（Unix 秒 → 毫秒时间戳）。
+// 兼容非标准 base64url 编码：缺失 padding、-/_ 与 +// 混用，以及 "Bearer x.y.z" 前缀。
+// 非 JWT 或解析失败返回 null（交由 token_expiry / 调用方判定）。
+export function parseJwtExpiry(token: string): number | null {
+  const compact = token.trim().replace(/^Bearer\s+/i, '')
+  const parts = compact.split('.')
+  if (parts.length < 3) return null
+
+  let raw = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+  raw += '='.repeat((4 - (raw.length % 4)) % 4)
+
+  let decoded: string | null = null
+  try {
+    decoded = typeof atob === 'function' ? atob(raw) : Buffer.from(raw, 'base64').toString('utf-8')
+  } catch {
+    return null
+  }
+  if (!decoded) return null
+
+  try {
+    const payload = JSON.parse(decoded) as { exp?: unknown }
+    return typeof payload.exp === 'number' && Number.isFinite(payload.exp)
+      ? payload.exp * 1000
+      : null
+  } catch {
+    return null
+  }
+}
+
 function _isTokenExpired(): boolean {
   // ISS-008: token_expiry 也存入 sessionStorage
   const expiry = _safeGetItem(TOKEN_EXPIRY_KEY, true)
-  if (!expiry) return false
-  return Date.now() > parseInt(expiry, 10)
+  if (expiry && Date.now() > parseInt(expiry, 10)) return true
+
+  // ISS-097 修复：token_expiry 缺失时（旧会话 / 后端未下发 expires_in），
+  // 回退解析 JWT payload 的 exp，避免携带已过期 token
+  const token = _safeGetItem(TOKEN_KEY, true) ?? _safeGetItem(TOKEN_KEY, false)
+  if (!token) return false
+  const jwtExpiry = parseJwtExpiry(token)
+  return jwtExpiry !== null && Date.now() >= jwtExpiry
 }
 
 /**

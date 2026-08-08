@@ -4,6 +4,7 @@ import csv
 import io
 import logging
 from datetime import date, datetime, time, timezone
+from typing import AsyncIterator
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,19 +49,17 @@ class CrisisExportService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def export_crisis_events(
+    def build_filename(self, start_date: date, end_date: date) -> str:
+        return f"crisis_events_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
+
+    async def iter_export_crisis_csv(
         self,
         start_date: date,
         end_date: date,
-    ) -> tuple[str, str]:
-        """导出危机事件为 CSV 格式。
+    ) -> AsyncIterator[str]:
+        """ISS-110: 逐行生成 CSV 文本 (每行单独 yield), 供 StreamingResponse 流式输出.
 
-        Args:
-            start_date: 开始日期
-            end_date: 结束日期
-
-        Returns:
-            (csv_content, filename) 元组
+        内存占用 O(1): 每行写入独立 io.StringIO 后立即 yield, 不累积全量字符串.
         """
         # 查询数据
         # M-4 修复：使用 aware UTC datetime，避免与 aware 列比较时抛 TypeError 或时区偏移
@@ -78,12 +77,17 @@ class CrisisExportService:
         )
         result = await self.db.stream(stmt)
 
-        # 生成 CSV
-        output = io.StringIO()
-        writer = csv.writer(output)
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+
+        def _emit(row: list) -> str:
+            buffer.seek(0)
+            buffer.truncate(0)
+            writer.writerow(row)
+            return buffer.getvalue()
 
         # 写入表头
-        writer.writerow(
+        yield _emit(
             [
                 "id",
                 "user_id",
@@ -99,7 +103,7 @@ class CrisisExportService:
         # 写入数据（脱敏 + P1-SEC-029 CSV 注入防护）- M-Svc-1 修复：流式遍历，避免 .all() 全量加载
         event_count = 0
         async for event in result.scalars():
-            writer.writerow(
+            yield _emit(
                 [
                     _sanitize_csv_cell(event.id),
                     _sanitize_csv_cell(self._mask_user_id(event.user_id)),
@@ -117,12 +121,27 @@ class CrisisExportService:
             )
             event_count += 1
 
-        csv_content = output.getvalue()
-        output.close()
+        logger.info("Exported %d crisis events to %s", event_count, self.build_filename(start_date, end_date))
 
-        filename = f"crisis_events_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
-        logger.info("Exported %d crisis events to %s", event_count, filename)
-        return csv_content, filename
+    async def export_crisis_events(
+        self,
+        start_date: date,
+        end_date: date,
+    ) -> tuple[str, str]:
+        """导出危机事件为 CSV 格式 (聚合全量字符串, 兼容旧调用方).
+
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+
+        Returns:
+            (csv_content, filename) 元组
+        """
+        chunks: list[str] = []
+        async for chunk in self.iter_export_crisis_csv(start_date, end_date):
+            chunks.append(chunk)
+
+        return "".join(chunks), self.build_filename(start_date, end_date)
 
     @staticmethod
     def _mask_user_id(user_id: int) -> str:

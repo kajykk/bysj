@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { resolveGuardResult, type GuardRouteMeta } from '@/router/guard'
 import { ROUTE_PERMISSIONS } from '@/config/routeAccess'
 import { resetUnauthorizedRedirecting } from '@/api/request'
+import { getStoredToken } from '@/utils/authStorage'
 import i18n from '@/i18n'
 
 // H-FE-1 修复：使用顶部进度条替代全屏 loading，避免路由切换时锁定整个 UI
@@ -218,7 +219,19 @@ router.beforeEach((to, from) => {
     startProgress()
   }
 
+  const t = i18n.global.t.bind(i18n.global)
   const auth = useAuthStore()
+
+  // ISS-097 修复：路由守卫不再仅依赖 token 存在性，token 过期（token_expiry
+  // 或 JWT payload exp 已过期，见 utils/authStorage.ts）时清除会话并跳转登录页。
+  // 先于 resolveGuardResult 判定，避免携带失效凭证导航到受保护页面。
+  if (auth.isLoggedIn && to.path !== '/login' && !getStoredToken()) {
+    // restore() 重新读取存储（已自动按 token_expiry/JWT exp 清除过期 token），
+    // 同步清空内存态，后续导航不会再命中该分支（避免登录页与首页间反复横跳）
+    auth.restore()
+    ElMessage.warning(t('errorPolicy.loginExpired'))
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
 
   const meta: GuardRouteMeta = {
     role: typeof to.meta.role === 'string' ? to.meta.role : undefined,
@@ -237,8 +250,6 @@ router.beforeEach((to, from) => {
   if (result === true) {
     return true
   }
-
-  const t = i18n.global.t.bind(i18n.global)
 
   if (result === '/forbidden' && to.path !== '/forbidden') {
     ElMessage.warning(t('router.noPermissionAccess'))
@@ -262,6 +273,9 @@ router.afterEach(() => {
 // 导航被取消或抛出异常时 afterEach 不会触发，需在此清理 loading 状态避免卡死
 router.onError((error, to) => {
   stopProgress()
+  // ISS-108 修复：导航异常时 afterEach 不会触发，主动复位 401 跳转标志，
+  // 避免标志永久置位导致后续合法 401 跳转被抑制
+  resetUnauthorizedRedirecting()
   // H-11 修复：处理 chunk 加载失败（部署后旧 chunk hash 失效）。
   // 检测 ChunkLoadError / 动态 import 失败，自动刷新页面以加载最新资源。
   // R-001 修复：收窄错误判定，移除宽泛的 SyntaxError 名称匹配，

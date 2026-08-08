@@ -177,32 +177,39 @@ class ObservabilityExporter:
         """采集 8 个 metric, 写入 Gauge + Counter.
 
         每个 _compute_* 调用独立 try/except (FM-1 fallback),
-        单个失败不阻塞其他.
+        单个失败不阻塞其他 (ISS-111: 各采集项使用独立 session, asyncio.gather 并发执行).
         """
-        async with AsyncSessionLocal() as db:
-            # DB 列为 TIMESTAMP WITHOUT TIME ZONE (naive),
-            # 传 aware datetime 给 asyncpg 会触发
-            # "can't subtract offset-naive and offset-aware datetimes" 错误.
-            # 取 UTC 时间后剥离 tzinfo 以匹配 DB 列类型.
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
-            start = now - timedelta(minutes=5)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        start = now - timedelta(minutes=5)
 
-            # 1. channel_stats → observability_channel_success_rate
-            await self._safe_set_channel(db, start, now)
+        async def _with_session(collector) -> None:
+            async with AsyncSessionLocal() as db:
+                await collector(db)
 
-            # 2. am_sync → observability_am_sync_success_rate
-            await self._safe_set_am_sync(db, start, now)
-
-            # 3-6. lock_stats → 4 个 metric (acquire_rate, fallback_rate, error_rate, acquire_total)
-            await self._safe_set_lock(db)
-
-            # 7. escalation → observability_escalation_rate
-            await self._safe_set_escalation(db, start, now)
-
-            # 8. trend → observability_alert_total (Counter, 累加增量)
-            await self._safe_set_alert_total(db, start, now)
+        await asyncio.gather(
+            _with_session(lambda db: self._safe_set_channel(db, start, now)),
+            _with_session(lambda db: self._safe_set_am_sync(db, start, now)),
+            _with_session(lambda db: self._safe_set_lock(db)),
+            _with_session(lambda db: self._safe_set_escalation(db, start, now)),
+            _with_session(lambda db: self._safe_set_alert_total(db, start, now)),
+        )
 
         logger.debug("ObservabilityExporter collected 8 metrics")
+
+    def _record_export_failure(self, metric: str, exc: Exception) -> None:
+        """ISS-103: 记录导出失败, 递增 observability_export_errors_total.
+
+        指标递增自身异常时仅记录日志, 避免递归失败.
+        """
+        try:
+            metrics.observability_export_errors_total.inc(metric=metric)
+        except Exception as inc_exc:
+            logger.warning(
+                "observability_export_errors_total.inc failed for %s: %s",
+                metric,
+                inc_exc,
+            )
+        logger.warning("%s collect failed (FM-1 fallback): %s", metric, exc)
 
     async def _safe_set_channel(
         self, db: AsyncSession, start: datetime, end: datetime
@@ -223,7 +230,7 @@ class ObservabilityExporter:
                 cs.get("overall_success_rate", 0.0), channel="all"
             )
         except Exception as e:
-            logger.warning("channel_stats collect failed (FM-1 fallback): %s", e)
+            self._record_export_failure("channel_stats", e)
 
     async def _safe_set_am_sync(
         self, db: AsyncSession, start: datetime, end: datetime
@@ -241,7 +248,7 @@ class ObservabilityExporter:
                 return
             metrics.observability_am_sync_success_rate.set(am.get("success_rate", 0.0))
         except Exception as e:
-            logger.warning("am_sync collect failed (FM-1 fallback): %s", e)
+            self._record_export_failure("am_sync", e)
 
     async def _safe_set_lock(self, db: AsyncSession) -> None:
         """3-6. 锁 4 个 metric.
@@ -261,7 +268,7 @@ class ObservabilityExporter:
             metrics.observability_lock_error_rate.set(mem.get("error_rate", 0.0))
             metrics.observability_lock_acquire_total.set(mem.get("total", 0))
         except Exception as e:
-            logger.warning("lock_stats collect failed (FM-1 fallback): %s", e)
+            self._record_export_failure("lock_stats", e)
 
     async def _safe_set_escalation(
         self, db: AsyncSession, start: datetime, end: datetime
@@ -279,7 +286,7 @@ class ObservabilityExporter:
                 return
             metrics.observability_escalation_rate.set(es.get("escalation_rate", 0.0))
         except Exception as e:
-            logger.warning("escalation collect failed (FM-1 fallback): %s", e)
+            self._record_export_failure("escalation", e)
 
     async def _safe_set_alert_total(
         self, db: AsyncSession, start: datetime, end: datetime
@@ -312,4 +319,4 @@ class ObservabilityExporter:
             if delta > 0:
                 metrics.observability_alert_total.inc(delta, severity="total")
         except Exception as e:
-            logger.warning("alert_total collect failed (FM-1 fallback): %s", e)
+            self._record_export_failure("alert_total", e)

@@ -73,6 +73,10 @@ const changePassword = async () => {
     ElMessage.warning(t('userSettings.password.tooShort'))
     return
   }
+  if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(passwordForm.new_password)) {
+    ElMessage.warning(t('userSettings.password.needLetterAndDigit'))
+    return
+  }
   const byteError = checkPasswordBytes(passwordForm.new_password)
   if (byteError) {
     ElMessage.warning(byteError)

@@ -55,7 +55,9 @@ async def get_review_stats(
 ) -> dict:
     """获取复核统计"""
     service = ReviewService(db)
-    stats = await service.get_review_stats()
+    # ISS-071 修复：统计口径与 list_reviews 对齐——咨询师仅统计分配给自己的任务
+    assigned_to = current_user.id if current_user.role == "counselor" else None
+    stats = await service.get_review_stats(assigned_to=assigned_to)
     return ok(stats.model_dump())
 
 

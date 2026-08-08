@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearStoredAuth, getStoredRefreshToken, getStoredToken, getStoredUser, setStoredAuth } from './authStorage'
+import { clearStoredAuth, getStoredRefreshToken, getStoredToken, getStoredUser, parseJwtExpiry, setStoredAuth } from './authStorage'
+
+// ISS-097 测试辅助：构造非标准 base64url JWT（无 padding、URL-safe 字符）
+function makeJwt(payload: Record<string, unknown>): string {
+  const encode = (json: string) => btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  return `${encode(JSON.stringify({ alg: 'none' }))}.${encode(JSON.stringify(payload))}.${encode('signature')}`
+}
 
 describe('authStorage', () => {
   beforeEach(() => {
@@ -293,5 +299,74 @@ describe('authStorage', () => {
     const stored = getStoredUser()
     expect(stored).toEqual(user)
     expect(stored).not.toHaveProperty('email')
+  })
+})
+
+// ===== ISS-097 回归测试：JWT exp 校验（守卫不再仅检查 token 存在性） =====
+
+describe('authStorage JWT exp (ISS-097)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  describe('parseJwtExpiry', () => {
+    it('应解析标准 JWT payload 的 exp 并转换为毫秒', () => {
+      const expSec = Math.floor(Date.now() / 1000) + 3600
+      expect(parseJwtExpiry(makeJwt({ exp: expSec }))).toBe(expSec * 1000)
+    })
+
+    it('兼容 "Bearer x.y.z" 前缀', () => {
+      const expSec = Math.floor(Date.now() / 1000) + 3600
+      expect(parseJwtExpiry(`Bearer ${makeJwt({ exp: expSec })}`)).toBe(expSec * 1000)
+    })
+
+    it('兼容缺失 padding 的非标准 base64url 编码', () => {
+      const header = btoa(JSON.stringify({ alg: 'none' })).replace(/=+$/, '')
+      const payload = btoa(JSON.stringify({ exp: 9999999999 })).replace(/=+$/, '')
+      const token = `${header}.${payload}.sig`
+      expect(parseJwtExpiry(token)).toBe(9999999999 * 1000)
+    })
+
+    it('payload 无 exp 字段时返回 null', () => {
+      expect(parseJwtExpiry(makeJwt({ sub: 'user-1' }))).toBeNull()
+    })
+
+    it('非 JWT 字符串返回 null', () => {
+      expect(parseJwtExpiry('plain-token')).toBeNull()
+      expect(parseJwtExpiry('')).toBeNull()
+      expect(parseJwtExpiry('a.b')).toBeNull()
+    })
+
+    it('损坏的 base64 / JSON 返回 null 不抛异常', () => {
+      expect(parseJwtExpiry('x.!!not-base64!!.y')).toBeNull()
+      expect(parseJwtExpiry('header.eyJpbnZhbGlkIjogeA==.sig')).toBeNull()
+    })
+  })
+
+  describe('getStoredToken JWT exp 校验', () => {
+    it('JWT exp 已过期且 token_expiry 缺失时应清除并返回空字符串', () => {
+      const expired = makeJwt({ exp: Math.floor(Date.now() / 1000) - 3600 })
+      sessionStorage.setItem('token', expired)
+
+      expect(getStoredToken()).toBe('')
+      expect(sessionStorage.getItem('token')).toBeNull()
+    })
+
+    it('JWT exp 未过期且 token_expiry 缺失时应正常返回 token', () => {
+      const fresh = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 })
+      sessionStorage.setItem('token', fresh)
+
+      expect(getStoredToken()).toBe(fresh)
+      expect(sessionStorage.getItem('token')).toBe(fresh)
+    })
+
+    it('token_expiry 未过期但 JWT exp 已过期时应视为过期', () => {
+      const expired = makeJwt({ exp: Math.floor(Date.now() / 1000) - 3600 })
+      sessionStorage.setItem('token', expired)
+      sessionStorage.setItem('token_expiry', String(Date.now() + 999999))
+
+      expect(getStoredToken()).toBe('')
+    })
   })
 })

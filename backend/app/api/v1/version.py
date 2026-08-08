@@ -1,7 +1,11 @@
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 
 from app.core.config import RELEASE_VERSION, settings
+from app.core.deps import get_current_user
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
+from app.models.user import User
 
 router = APIRouter(tags=["version"])
 RELEASE_DATE = "2026-06-03"
@@ -9,7 +13,9 @@ RELEASE_STATUS = "OBSERVABILITY-ENHANCED"
 
 
 @router.get("/version", responses=COMMON_ERROR_RESPONSES)
-async def get_version():
+async def get_version(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
     """版本端点 - 单一事实来源。
 
     返回项目发布版本(Release Version)与 FastAPI 应用版本(App Version),
