@@ -217,7 +217,7 @@
 | ISS-055 | P4 | 前端/UserSettingsPage | 邮箱格式前端校验缺失 | 已修复（见上表）|
 | ISS-056 | P4 | 前端/UserSettingsPage | 匿名化后未调用 auth.logout | 已修复（见上表）|
 | ISS-113 | P4 | 前端/build | terser 未启用 | 已修复（见上表）|
-| ISS-139~150 | P4 | 多模块 | 命名规范/维护性建议 | 建议（待后续迭代）|
+| ISS-139~150 | P4 | 多模块 | 命名规范/维护性建议 | 已收口（2026-08-08: sanitized 命名误导修复，其余核查后属架构约束/有意保留，详见 08-delivery-report）|
 
 ---
 
