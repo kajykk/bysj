@@ -1,6 +1,6 @@
 <template>
   <div
-    v-loading.fullscreen.lock="loadingStore.isLoading"
+    v-loading.fullscreen="loadingStore.isLoading"
     class="app-root"
     :element-loading-text="loadingStore.loadingText"
   >
@@ -44,5 +44,12 @@ usePerformanceMonitor({ autoReport: true })
 <style scoped>
 .app-root {
   min-height: 100dvh;
+}
+
+/* ISS-123 修复：全屏 loading 遮罩不再阻塞输入（INP）。
+   移除 .lock（不再锁定 body 滚动），遮罩 pointer-events: none，
+   加载动画仍完整显示，但点击/滚动事件可穿透到页面。 */
+.app-root :deep(.el-loading-mask) {
+  pointer-events: none;
 }
 </style>

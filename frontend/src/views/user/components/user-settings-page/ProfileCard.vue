@@ -4,7 +4,9 @@
       <span class="card-title">{{ t('userSettings.profile.title') }}</span>
     </template>
     <el-form
+      ref="profileFormRef"
       :model="profileForm"
+      :rules="profileRules"
       label-width="100px"
     >
       <el-form-item :label="t('userSettings.profile.username')">
@@ -25,7 +27,10 @@
           :placeholder="t('userSettings.profile.nicknamePlaceholder')"
         />
       </el-form-item>
-      <el-form-item :label="t('userSettings.profile.email')">
+      <el-form-item
+        :label="t('userSettings.profile.email')"
+        prop="email"
+      >
         <el-input
           v-model="profileForm.email"
           :placeholder="t('userSettings.profile.emailPlaceholder')"
@@ -55,6 +60,7 @@ defineOptions({ name: 'ProfileCard' })
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
@@ -73,9 +79,15 @@ const profileForm = reactive({
   nickname: auth.user?.nickname || '',
   email: auth.user?.email || ''
 })
+const profileFormRef = ref<FormInstance>()
+const profileRules: FormRules = {
+  email: [{ type: 'email', message: t('userSettings.profile.invalidEmail'), trigger: 'blur' }]
+}
 const profileSaving = ref(false)
 
 const saveProfile = async () => {
+  const valid = await profileFormRef.value?.validate().catch(() => false)
+  if (!valid) return
   profileSaving.value = true
   try {
     const data = await authApi.updateProfile({

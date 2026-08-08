@@ -1,13 +1,20 @@
 import json
 from datetime import date, datetime
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_role
+from app.core.idempotency import (
+    begin_idempotent_call,
+    dismiss_idempotent_call,
+    make_idempotency_key,
+    settle_idempotent_call,
+)
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES, CSV_EXPORT_RESPONSE
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.request_id import get_or_create_request_id
@@ -36,6 +43,36 @@ def _sanitize_filename(name: str) -> str:
     import re
 
     return re.sub(r"[^A-Za-z0-9_\-.]", "_", name)
+
+
+def _map_value_error(exc: ValueError) -> HTTPException:
+    """ISS-093 修复：业务参数类 ValueError → 400，资源不存在才 404."""
+    detail = str(exc)
+    if "不存在" in detail or "not found" in detail:
+        return HTTPException(status_code=404, detail=detail)
+    return HTTPException(status_code=400, detail=detail)
+
+
+async def _begin_idempotent(
+    request: Request, actor_id: int
+) -> tuple[str | None, dict | None]:
+    """ISS-094: 读取 Idempotency-Key 头并开始幂等调用.
+
+    返回 (idem_key, replay_data); 未带幂等头时返回 (None, None) 保持原行为;
+    重复提交 (处理中) 直接抛 409。
+    """
+    header = request.headers.get("Idempotency-Key")
+    if not header:
+        return None, None
+    key = make_idempotency_key(actor_id, header)
+    proceed, replay = await begin_idempotent_call(key)
+    if proceed:
+        return key, None
+    if replay is not None:
+        return key, replay
+    raise HTTPException(
+        status_code=409, detail="重复提交：相同请求正在处理中，请稍后重试"
+    )
 
 
 @router.get("/dashboard", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
@@ -85,6 +122,9 @@ async def upsert_template(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
+    idem_key, replay = await _begin_idempotent(request, current_user.id)
+    if replay is not None:
+        return ok(replay)
     try:
         # ISS-076: 传入 operator_id 和 operator_role 以写入 OperationLog 审计日志
         template_id = await service.upsert_template(
@@ -93,8 +133,14 @@ async def upsert_template(
             operator_role=current_user.role,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return ok({"template_id": template_id})
+        # ISS-093: 模板不存在 → 404, 业务参数问题 → 400
+        if idem_key:
+            await dismiss_idempotent_call(idem_key)
+        raise _map_value_error(exc) from exc
+    result = {"template_id": template_id}
+    if idem_key:
+        await settle_idempotent_call(idem_key, result)
+    return ok(result)
 
 
 @router.delete(
@@ -114,7 +160,7 @@ async def delete_template(
     try:
         await service.delete_template(template_id, current_user.id, current_user.role)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise _map_value_error(exc) from exc
     return ok({"message": "模板已删除"})
 
 
@@ -141,6 +187,9 @@ async def upsert_threshold(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
+    idem_key, replay = await _begin_idempotent(request, current_user.id)
+    if replay is not None:
+        return ok(replay)
     request_id = get_or_create_request_id(request)
     threshold_id = await service.upsert_threshold(
         current_user.id,
@@ -148,7 +197,10 @@ async def upsert_threshold(
         ip_address=get_real_client_ip(request),
         request_id=request_id,
     )
-    return ok({"threshold_id": threshold_id})
+    result = {"threshold_id": threshold_id}
+    if idem_key:
+        await settle_idempotent_call(idem_key, result)
+    return ok(result)
 
 
 @router.get(
@@ -188,8 +240,20 @@ async def upsert_config(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
-    config_id = await service.upsert_config(current_user.id, payload.model_dump())
-    return ok({"config_id": config_id})
+    idem_key, replay = await _begin_idempotent(request, current_user.id)
+    if replay is not None:
+        return ok(replay)
+    try:
+        config_id = await service.upsert_config(current_user.id, payload.model_dump())
+    except ValueError as exc:
+        # ISS-093: 不支持的配置键属业务参数错误 → 400 (原为未捕获 → 500)
+        if idem_key:
+            await dismiss_idempotent_call(idem_key)
+        raise _map_value_error(exc) from exc
+    result = {"config_id": config_id}
+    if idem_key:
+        await settle_idempotent_call(idem_key, result)
+    return ok(result)
 
 
 @router.get("/settings", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
@@ -330,7 +394,7 @@ async def update_model(
     try:
         await service.update_model(model_id_int, payload.model_dump(exclude_unset=True))
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise _map_value_error(exc) from exc
     # L-API-6 修复：记录 OperationLog 审计日志，与其他模型操作（register/activate）保持一致
     db.add(
         OperationLog(
@@ -364,7 +428,7 @@ async def activate_model(
     try:
         await service.activate_model(model_id_int)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise _map_value_error(exc) from exc
     return ok({"message": "模型已激活"})
 
 
@@ -413,35 +477,46 @@ async def export_crisis_events(
         )
 
     service = CrisisExportService(db)
-    csv_content, filename = await service.export_crisis_events(start_date, end_date)
-
     # M-API-14 修复：对 filename 做注入防护（CSV 单元格已由 CrisisExportService._sanitize_csv_cell 防护）
-    safe_filename = _sanitize_filename(filename)
+    safe_filename = _sanitize_filename(service.build_filename(start_date, end_date))
 
-    # SEC-P1-003 修复：记录危机事件 CSV 导出审计日志
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="admin.crisis.export",
-            target_type="crisis_event",
-            target_id=None,
-            detail=json.dumps(
-                {
-                    "start_date": start_date.isoformat(),
-                    "end_date": end_date.isoformat(),
-                    "filename": safe_filename,
-                    "content_size": len(csv_content),
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
+    # ISS-110 修复：CSV 改为 StreamingResponse + 逐行生成器, 避免全量字符串驻留内存
+    async def _stream_csv():
+        # SEC-P1-003 修复：记录危机事件 CSV 导出审计日志 (流式完成后写入)
+        content_size = 0
+        async for chunk in service.iter_export_crisis_csv(start_date, end_date):
+            content_size += len(chunk)
+            yield chunk
+        db.add(
+            OperationLog(
+                operator_id=current_user.id,
+                operator_role=current_user.role,
+                action_type="admin.crisis.export",
+                target_type="crisis_event",
+                target_id=None,
+                detail=json.dumps(
+                    {
+                        "start_date": start_date.isoformat(),
+                        "end_date": end_date.isoformat(),
+                        "filename": safe_filename,
+                        "content_size": content_size,
+                    },
+                    ensure_ascii=False,
+                ),
+                ip_address=get_real_client_ip(request),
+            )
         )
-    )
-    await db.commit()
+        await db.commit()
 
-    return PlainTextResponse(
-        content=csv_content,
+    return StreamingResponse(
+        _stream_csv(),
         media_type="text/csv; charset=utf-8-sig",
-        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
+        headers={
+            # ISS-092 修复: filename* 按 RFC 5987 (UTF-8 百分号编码) 提供非 ASCII 文件名,
+            # ASCII fallback 保留在 filename= 中, 兼容不支持 filename* 的旧客户端
+            "Content-Disposition": (
+                f'attachment; filename="{safe_filename}"; '
+                f"filename*=UTF-8''{quote(safe_filename)}"
+            )
+        },
     )

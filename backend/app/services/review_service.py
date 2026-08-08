@@ -274,30 +274,50 @@ class ReviewService:
         await self.db.refresh(task)
         return task
 
-    async def get_review_stats(self, days: int = 30) -> ReviewStats:
-        """获取复核统计"""
+    async def get_review_stats(
+        self, days: int = 30, *, assigned_to: int | None = None
+    ) -> ReviewStats:
+        """获取复核统计.
+
+        ISS-071 修复: 支持 assigned_to 范围过滤, 使统计卡口径与
+        list_reviews (咨询师仅看分配给自己的任务) 一致; 为 None 时统计全部。
+        """
+        scope_filters = []
+        if assigned_to is not None:
+            scope_filters.append(ReviewTask.assigned_to == assigned_to)
+
         # 总数
-        total_result = await self.db.execute(
-            select(func.count()).select_from(ReviewTask)
-        )
+        total_query = select(func.count()).select_from(ReviewTask)
+        if scope_filters:
+            total_query = total_query.where(*scope_filters)
+        total_result = await self.db.execute(total_query)
         total = total_result.scalar() or 0
 
         # 各状态数量 - M14 修复：使用一次 GROUP BY 聚合替代循环查询
-        status_result = await self.db.execute(
-            select(ReviewTask.status, func.count()).group_by(ReviewTask.status)
+        status_query = select(ReviewTask.status, func.count()).group_by(
+            ReviewTask.status
         )
+        if scope_filters:
+            status_query = status_query.where(*scope_filters)
+        status_result = await self.db.execute(status_query)
         status_counts = {status: count for status, count in status_result.all()}
 
         # 危机数量
-        crisis_result = await self.db.execute(
-            select(func.count()).where(ReviewTask.crisis_override.is_(True))
+        crisis_query = select(func.count()).where(
+            ReviewTask.crisis_override.is_(True)
         )
+        if scope_filters:
+            crisis_query = crisis_query.where(*scope_filters)
+        crisis_result = await self.db.execute(crisis_query)
         crisis_count = crisis_result.scalar() or 0
 
         # 高风险数量
-        high_risk_result = await self.db.execute(
-            select(func.count()).where(ReviewTask.priority == "high_risk_review")
+        high_risk_query = select(func.count()).where(
+            ReviewTask.priority == "high_risk_review"
         )
+        if scope_filters:
+            high_risk_query = high_risk_query.where(*scope_filters)
+        high_risk_result = await self.db.execute(high_risk_query)
         high_risk_count = high_risk_result.scalar() or 0
 
         return ReviewStats(

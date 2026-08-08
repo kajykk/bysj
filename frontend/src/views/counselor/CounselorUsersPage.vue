@@ -85,11 +85,6 @@
           </template>
         </el-table-column>
         <el-table-column
-          prop="email"
-          :label="t('counselorUsers.colEmail')"
-          min-width="220"
-        />
-        <el-table-column
           :label="t('counselorUsers.colRiskLevel')"
           width="120"
         >
@@ -153,9 +148,6 @@
         >
           <el-descriptions-item :label="t('counselorUsers.detailColId')">
             {{ detailRow.id }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('counselorUsers.detailColEmail')">
-            {{ detailRow.email || '—' }}
           </el-descriptions-item>
           <el-descriptions-item :label="t('counselorUsers.detailColRiskLevel')">
             <el-tag

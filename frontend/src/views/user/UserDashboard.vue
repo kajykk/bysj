@@ -87,7 +87,7 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import NextStepCard from './components/user-dashboard/NextStepCard.vue'
 import RiskStatusCard from './components/user-dashboard/RiskStatusCard.vue'
@@ -121,7 +121,11 @@ const handleLogout = async () => {
   } catch {
     return
   }
-  await auth.logout()
+  try {
+    await auth.logout()
+  } catch {
+    ElMessage.warning(t('userDashboard.logoutFailed'))
+  }
   await router.push('/login')
 }
 

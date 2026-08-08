@@ -19,6 +19,9 @@ export function useUserContentData() {
   const browseRows = ref<ContentItem[]>([])
   const browseLoading = ref(false)
   const browseError = ref('')
+  const browseTotal = ref(0)
+  const browsePage = ref(1)
+  const browsePageSize = ref(9)
 
   const favRows = ref<ContentItem[]>([])
   const favLoading = ref(false)
@@ -37,13 +40,19 @@ export function useUserContentData() {
     browseLoading.value = true
     browseError.value = ''
     try {
-      const data = await userApi.listContents({ page: 1, page_size: 9, category: browseFilters.category || undefined, content_type: browseFilters.content_type || undefined, keyword: browseFilters.keyword || undefined })
+      const data = await userApi.listContents({ page: browsePage.value, page_size: browsePageSize.value, category: browseFilters.category || undefined, content_type: browseFilters.content_type || undefined, keyword: browseFilters.keyword || undefined })
       browseRows.value = data.items
+      browseTotal.value = data.total
     } catch (error) {
       browseError.value = showHttpFeedback(error, t('userContent.loadFailed')).detail
     } finally {
       browseLoading.value = false
     }
+  }
+
+  const onBrowsePageChange = async (value: number) => {
+    browsePage.value = value
+    await loadContents()
   }
 
   const loadFavorites = async () => {
@@ -83,10 +92,16 @@ export function useUserContentData() {
     sanitizedDetailHtml.value = ''
   }
 
+  const handleSearchBrowse = async () => {
+    browsePage.value = 1
+    await loadContents()
+  }
+
   const handleResetBrowse = () => {
     browseFilters.category = ''
     browseFilters.content_type = ''
     browseFilters.keyword = ''
+    browsePage.value = 1
     loadContents()
   }
 
@@ -113,6 +128,7 @@ export function useUserContentData() {
       sanitizedDetailHtml.value = DOMPurify.sanitize(detailData.value.content || '', DOMPURIFY_CONFIG) as string
     } catch (error) {
       showHttpFeedback(error, t('userContent.detailLoadFailed'))
+      closeDetail()
     } finally {
       detailLoading.value = false
     }
@@ -122,11 +138,12 @@ export function useUserContentData() {
 
   return {
     activeTab,
-    browseFilters, browseRows, browseLoading, browseError,
+    browseFilters, browseRows, browseLoading, browseError, browseTotal, browsePage, browsePageSize,
     favRows, favLoading, favError,
     recRows, recLoading, recError,
     detailVisible, detailData, detailLoading, sanitizedDetailHtml,
     loadContents, loadFavorites, loadRecommendations,
     handleTabChange, closeDetail, handleResetBrowse, handleToggleFavorite, openDetail,
+    onBrowsePageChange, handleSearchBrowse,
   }
 }

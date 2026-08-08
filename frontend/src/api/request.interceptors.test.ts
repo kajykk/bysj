@@ -168,6 +168,26 @@ describe('request module - 响应拦截器与辅助函数', () => {
       await expect(responseErrorHandler(error)).rejects.toBe(error)
       expect(ElMessage.error).toHaveBeenCalledWith('请求失败')
     })
+
+    it('ISS-106: 请求超时展示中文提示而非 axios 英文消息', async () => {
+      const error: any = new Error('timeout of 60000ms exceeded')
+      error.code = 'ECONNABORTED'
+      error.config = { headers: {} }
+      error.isAxiosError = true
+
+      await expect(responseErrorHandler(error)).rejects.toBe(error)
+      expect(ElMessage.error).toHaveBeenCalledWith('请求超时，请重试')
+    })
+
+    it('ISS-106: ERR_NETWORK 断网展示中文提示而非英文消息', async () => {
+      const error: any = new Error('Network Error')
+      error.code = 'ERR_NETWORK'
+      error.config = { headers: {} }
+      error.isAxiosError = true
+
+      await expect(responseErrorHandler(error)).rejects.toBe(error)
+      expect(ElMessage.error).toHaveBeenCalledWith('网络连接失败，请检查网络设置')
+    })
   })
 
   describe('response 错误处理器 - 401 场景', () => {

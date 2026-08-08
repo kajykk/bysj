@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 WS_PUBSUB_CHANNEL_PREFIX = "ws:user:"
 
 
+def _inc_ws_auth_failure(reason: str) -> None:
+    """ISS-104: 认证失败时递增 ws_auth_failures_total (按原因分标签)."""
+    try:
+        from app.core.metrics import ws_auth_failures_total
+
+        ws_auth_failures_total.inc(reason=reason)
+    except Exception as exc:
+        logger.warning("ws_auth_failures_total.inc failed: %s", exc)
+
+
 class ConnectionManager:
     # STAB-P3-002: 从 settings 读取,不再硬编码
     def __init__(self) -> None:
@@ -334,6 +344,7 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
     # M8 修复：先检查 URL 参数中的 token（禁止通过 URL 传递），
     # 再 accept 连接，避免在认证前分配服务器资源
     if ws.query_params.get("token"):
+        _inc_ws_auth_failure("url_token")
         await ws.accept()
         await ws.close(code=4001, reason="Token禁止通过URL参数传递")
         return
@@ -344,11 +355,13 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
         # M8 修复：认证阶段增加 10 秒超时，防止 DoS 攻击
         token = await _receive_auth_token(ws, timeout_seconds=10.0)
     except asyncio.TimeoutError:
+        _inc_ws_auth_failure("timeout")
         await ws.close(code=4001, reason="认证超时")
         return
     except WebSocketDisconnect:
         return
     if not token:
+        _inc_ws_auth_failure("missing_token")
         await ws.close(code=4001, reason="缺少认证Token")
         return
 
@@ -356,19 +369,23 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
         token_data = decode_token(token)
         token_type = token_data.get("type")
         if token_type != "access":
+            _inc_ws_auth_failure("invalid_token_type")
             await ws.close(
                 code=4001,
                 reason=f"无效的Token类型: 需要access，实际为{token_type or 'unknown'}",
             )
             return
         if token_data.get("sub") != str(user_id):
+            _inc_ws_auth_failure("user_mismatch")
             await ws.close(code=4001, reason="Token用户ID不匹配")
             return
     except (PyJWTError, ValueError, TypeError):
+        _inc_ws_auth_failure("invalid_token")
         await ws.close(code=4001, reason="无效的Token")
         return
     except Exception:
         logger.exception("websocket.auth.unexpected_error user_id=%s", user_id)
+        _inc_ws_auth_failure("unexpected_error")
         await ws.close(code=4001, reason="WebSocket认证失败")
         return
 
@@ -376,6 +393,7 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
         stmt = select(User).where(User.id == user_id)
         user = (await db.execute(stmt)).scalar_one_or_none()
         if user is None or user.status != "active":
+            _inc_ws_auth_failure("user_inactive")
             await ws.close(code=4003, reason="用户不存在或已被禁用")
             return
 

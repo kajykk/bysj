@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import update
 
+from app.core.config import settings
 from app.core.model_engine import model_engine
 from app.core.risk_thresholds import get_threshold_by_modality
 from app.models.assessment import StructuredAssessment
@@ -64,6 +65,50 @@ class AssessmentMixin:
             return 1
         return 0
 
+    @staticmethod
+    def _heuristic_risk_factors(model_features: dict) -> list[dict]:
+        """ISS-112: SHAP 关闭或失败时的轻量特征因子 (无模型加载开销)."""
+        # M-Svc-18 修复：使用显式 None 检查替代 `or`，避免合法的 0 值
+        # （如 0 小时睡眠）被替换为默认值，错误降低风险分
+        # （与 _calculate_heuristic_score 的 C-01 修复保持一致）
+        stress_val = model_features.get("stress_level")
+        stress = float(stress_val) if stress_val is not None else 0.0
+        anxiety_val = model_features.get("anxiety")
+        anxiety = float(anxiety_val) if anxiety_val is not None else 0.0
+        sleep_val = model_features.get("sleep_duration")
+        sleep = float(sleep_val) if sleep_val is not None else 7.0
+        financial_val = model_features.get("financial_pressure")
+        financial = float(financial_val) if financial_val is not None else 0.0
+        social_val = model_features.get("social_support")
+        social = float(social_val) if social_val is not None else 3.0
+        return [
+            {
+                "feature": "anxiety",
+                "importance": round(abs(anxiety), 4),
+                "direction": "positive",
+            },
+            {
+                "feature": "stress_level",
+                "importance": round(abs(stress), 4),
+                "direction": "positive",
+            },
+            {
+                "feature": "financial_pressure",
+                "importance": round(abs(financial), 4),
+                "direction": "positive",
+            },
+            {
+                "feature": "sleep_duration",
+                "importance": round(abs(7 - sleep), 4),
+                "direction": "negative" if sleep >= 7 else "positive",
+            },
+            {
+                "feature": "social_support",
+                "importance": round(abs(5 - social), 4),
+                "direction": "negative",
+            },
+        ]
+
     async def assess_structured(self, user_id: int, payload: dict) -> dict:
         normalized_payload = dict(payload)
 
@@ -119,9 +164,13 @@ class AssessmentMixin:
 
         try:
             result = await model_engine.predict_structured(model_features)
-            risk_factors = await model_engine.explain_prediction(
-                model_features, "structured_logistic_regression_quick"
-            )
+            if settings.risk_assessment_shap_explain_enabled:
+                risk_factors = await model_engine.explain_prediction(
+                    model_features, "structured_logistic_regression_quick"
+                )
+            else:
+                # ISS-112: SHAP 默认关闭, 用轻量启发式因子替代 200-500ms 的 SHAP 调用
+                risk_factors = self._heuristic_risk_factors(model_features)
         except Exception as exc:
             logger.exception(
                 "risk.model.predict_failed user_id=%s, fallback_heuristic_enabled",
@@ -137,46 +186,7 @@ class AssessmentMixin:
                 "model_used": "heuristic_fallback",
                 "error": str(exc),
             }
-            # M-Svc-18 修复：使用显式 None 检查替代 `or`，避免合法的 0 值
-            # （如 0 小时睡眠）被替换为默认值，错误降低风险分
-            # （与 _calculate_heuristic_score 的 C-01 修复保持一致）
-            stress_val = model_features.get("stress_level")
-            stress = float(stress_val) if stress_val is not None else 0.0
-            anxiety_val = model_features.get("anxiety")
-            anxiety = float(anxiety_val) if anxiety_val is not None else 0.0
-            sleep_val = model_features.get("sleep_duration")
-            sleep = float(sleep_val) if sleep_val is not None else 7.0
-            financial_val = model_features.get("financial_pressure")
-            financial = float(financial_val) if financial_val is not None else 0.0
-            social_val = model_features.get("social_support")
-            social = float(social_val) if social_val is not None else 3.0
-            risk_factors = [
-                {
-                    "feature": "anxiety",
-                    "importance": round(abs(anxiety), 4),
-                    "direction": "positive",
-                },
-                {
-                    "feature": "stress_level",
-                    "importance": round(abs(stress), 4),
-                    "direction": "positive",
-                },
-                {
-                    "feature": "financial_pressure",
-                    "importance": round(abs(financial), 4),
-                    "direction": "positive",
-                },
-                {
-                    "feature": "sleep_duration",
-                    "importance": round(abs(7 - sleep), 4),
-                    "direction": "negative" if sleep >= 7 else "positive",
-                },
-                {
-                    "feature": "social_support",
-                    "importance": round(abs(5 - social), 4),
-                    "direction": "negative",
-                },
-            ]
+            risk_factors = self._heuristic_risk_factors(model_features)
 
         logger.info(
             "risk.assessment.submitted user_id=%s assessment_type=%s total_score=%s predicted_level=%s predicted_score=%s",

@@ -7,7 +7,7 @@ import { ElMessage } from 'element-plus/es/components/message/index'
 import type { ApiResponse } from '@/types/api'
 import { normalizePageResult, type UnifiedPageResult } from '@/types/contracts'
 import { clearStoredAuth, getStoredToken, setStoredAuth } from '@/utils/authStorage'
-import { normalizeHttpErrorInfo } from '@/utils/httpError'
+import { normalizeHttpErrorInfo, getNetworkErrorMessage } from '@/utils/httpError'
 import { API_BASE_URL, buildApiUrl } from './base'
 import i18n from '@/i18n'
 
@@ -221,6 +221,14 @@ request.interceptors.response.use(
 
     if (status >= 500) {
       ElMessage.error(detail || t('errorPolicy.serverError'))
+      return Promise.reject(error)
+    }
+
+    if (status === 0) {
+      // ISS-106 修复：网络层错误（超时/断网/连接拒绝等）映射为中文提示，
+      // 统一在此抛出给 UI 展示，不再暴露 axios 英文原文。
+      // 401 刷新拦截器与 403/404/5xx 处理逻辑保持不变。
+      ElMessage.error(getNetworkErrorMessage(error) || t('errorPolicy.requestFailed'))
       return Promise.reject(error)
     }
 

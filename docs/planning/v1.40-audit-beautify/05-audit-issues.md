@@ -170,15 +170,54 @@
 
 ### P3 低优先级（31 项，详见各专项报告）
 
-| 编号范围 | 级别 | 数量 | 主要模块 |
-|----------|------|------|----------|
-| ISS-108 ~ ISS-138 | P3 | 31 | 后端代码质量、前端代码质量、视觉细节、响应式细节、UX 细节、A11Y 细节 |
+> **2026-08-08 后续迭代清理**：下表中 21 项已在 v1.41+ 迭代修复关闭（`docs/planning/v1.40-audit-beautify/08-delivery-report.md` 延期项对应问题已在代码中处理并新增测试）；4 项经核实代码现状已符合（ISS-105/109/115，ISS-052 已走 i18n）。剩余 6 项属架构性改进（流式导出全量重构等）保持延期。
+
+| 编号 | 级别 | 模块 | 标题 | 状态 |
+|------|------|------|------|------|
+| ISS-037 | P3 | 后端/middleware | metrics 中间件路径回退高基数标签，归一化为 {id}/截断模板 | 已修复 (test_audit_iss_fixes.py) |
+| ISS-038 | P3 | 后端/version | /version 无鉴权暴露版本信息 | 已修复（2026-08-08，加 get_current_user）|
+| ISS-039 | P3 | 后端/config | access_token 过期 120 分钟过长 | 已修复（2026-08-08，120→60；见 tests/api/test_p3_fixes_20260705.py）|
+| ISS-040 | P4 | 后端/config | JWT 使用 HS256 对称签名 | 建议级，待后续迭代（涉及密钥体系改造）|
+| ISS-042/043 | P3 | 前端/router | guard 未校验 JWT exp + isUnauthorizedRedirecting onError 未复位 | 已修复（2026-08-08，router/index.ts + httpError.ts）|
+| ISS-046 | P3 | 前端/UserDashboard | handleLogout 未捕获 auth.logout() 异常 | 已修复（try/catch + i18n key）|
+| ISS-047 | P3 | 前端/UserRiskPage | 结构化评估结果缺危机关键词提示 | 已修复（StructuredResultPanel + requires_human_review/risk_level）|
+| ISS-048 | P3 | 前端/UserAssessmentsPage | 导出按钮无 loading | 已修复（exporting ref）|
+| ISS-049 | P3 | 前端/UserContentPage | 内容中心分页写死 page=1/page_size=9 无分页控件 | 已修复（el-pagination + browsePage/Total）|
+| ISS-050 | P3 | 前端/UserContentPage | openDetail 失败时 dialog 不关闭 | 已修复（catch 中 closeDetail）|
+| ISS-051 | P3 | 前端/UserModelTrainingPage | 训练状态轮询无最大次数限制 | 已修复（MAX_POLL_ATTEMPTS=60）|
+| ISS-052 | P3 | 前端/UserModelTrainingPage | "模型就绪"标签硬编码 | 已符合（现状已走 i18n）|
+| ISS-053 | P3 | 前端/UserModelTrainingPage | 训练日志仅前端本地 push | 已修复（后端 train_history 真实日志按 epoch 追加）|
+| ISS-054 | P3 | 前端/UserSettingsPage | 密码修改前端校验不强制强度 | 已修复（PasswordCard 字母+数字正则）|
+| ISS-055 | P4 | 前端/UserSettingsPage | 个人信息保存无邮箱格式校验 | 已修复（ProfileCard el-form email rule）|
+| ISS-056 | P4 | 前端/UserSettingsPage | 账户匿名化成功后未 logout | 已修复（GdprCard auth.logout + router.replace）|
+| ISS-069 | P3 | 前端/CounselorUsersPage | 邮箱列与后端返回字段不匹配（后端 PII 越权不发 email）| 已修复（删除邮箱列及 i18n keys）|
+| ISS-070 | P3 | 后端/counselor | 已处理预警被报告为 404 | 已修复（get_warning_for_counselor 回退不再限 is_handled=False）|
+| ISS-071 | P3 | 后端/review | 复核统计与列表范围不一致 | 已修复（get_review_stats 按角色范围过滤）|
+| ISS-092 | P3 | 后端/admin | CSV Content-Disposition 未 RFC 5987 编码 | 已修复（filename* UTF-8 百分号编码 + ASCII fallback）|
+| ISS-093 | P3 | 后端/admin | ValueError 统一映射 404 语义不准确 | 已修复（_map_value_error：不存在→404，参数→400）|
+| ISS-094 | P3 | 后端/admin | upsert 端点无幂等键 | 已修复（app/core/idempotency.py + 409 幂等控制）|
+| ISS-097 | P3 | 前端/router | guard 未校验 JWT exp | 已修复（authStorage.parseJwtExpiry）|
+| ISS-103 | P3 | 后端/exporter | _safe_set_* 静默吞异常无失败指标 | 已修复（observability_export_errors_total 计数器）|
+| ISS-104 | P3 | 后端/ws | WS 认证失败无指标 | 已修复（ws_auth_failures_total{reason}）|
+| ISS-105 | P3 | 后端/observability | hostname 降级 "unknown" 多实例冲突 | 已符合（get_instance_id 降级 hostname+PID）|
+| ISS-106 | P3 | 前端/request | 网络错误回显英文 axios 消息 | 已修复（httpError.ts 中文映射 + status===0 分支）|
+| ISS-108 | P3 | 前端/router | isUnauthorizedRedirecting onError 未复位 | 已修复（resetUnauthorizedRedirecting）|
+| ISS-109 | P3 | 后端/alert | webhook 失败无重试 | 已符合（notifier.py 已有 3 次指数退避）|
+| ISS-110 | P3 | 后端/export | CSV/PDF 伪流式全量内存 | 已修复（crisis_export_service iter 逐行 + StreamingResponse）|
+| ISS-111 | P3 | 后端/exporter | 60s 串行 8 个 DB 查询 | 已修复（asyncio.gather 并发独立 session）|
+| ISS-112 | P3 | 后端/risk | SHAP 同步调用阻塞请求 | 已修复（RISK_ASSESSMENT_SHAP_EXPLAIN_ENABLED 默认 off，启发式回退）|
+| ISS-113 | P4 | 前端/build | terser 未启用 | 已修复（删除 terser 依赖，锁定 esbuild minify）|
+| ISS-115 | P3 | 前端/LoginPage | 登录按钮未显式 type=primary | 已符合（现状已有）|
+| ISS-123 | P3 | 前端/App.vue | 全屏 loading 遮罩阻塞 INP | 已修复（pointer-events:none 非阻塞）|
 
 ### P4 建议级（12 项，详见各专项报告）
 
-| 编号范围 | 级别 | 数量 | 主要模块 |
-|----------|------|------|----------|
-| ISS-139 ~ ISS-150 | P4 | 12 | 代码质量、命名规范、维护性建议 |
+| 编号 | 级别 | 模块 | 标题 | 状态 |
+|------|------|------|------|------|
+| ISS-055 | P4 | 前端/UserSettingsPage | 邮箱格式前端校验缺失 | 已修复（见上表）|
+| ISS-056 | P4 | 前端/UserSettingsPage | 匿名化后未调用 auth.logout | 已修复（见上表）|
+| ISS-113 | P4 | 前端/build | terser 未启用 | 已修复（见上表）|
+| ISS-139~150 | P4 | 多模块 | 命名规范/维护性建议 | 建议（待后续迭代）|
 
 ---
 

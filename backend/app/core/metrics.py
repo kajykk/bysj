@@ -267,6 +267,13 @@ websocket_messages_total = Counter(
     labelnames=("direction", "type"),
 )
 
+# ISS-104 修复: WebSocket 认证失败计数 (按失败原因分标签)
+ws_auth_failures_total = Counter(
+    "ws_auth_failures_total",
+    "Total WebSocket authentication failures, labeled by reason.",
+    labelnames=("reason",),
+)
+
 db_pool_size = Gauge(
     "db_pool_size",
     "Current SQLAlchemy connection pool size.",
@@ -339,6 +346,13 @@ event_reviews_submitted_total = Counter(
 event_bus_dropped_total = Counter(
     "event_bus_dropped_total",
     "Total events dropped due to EventBus queue full (R-C).",
+)
+
+# ISS-103 修复: ObservabilityExporter 导出失败计数 (按 metric 名分标签)
+observability_export_errors_total = Counter(
+    "observability_export_errors_total",
+    "Total ObservabilityExporter metric collection failures, labeled by metric name.",
+    labelnames=("metric",),
 )
 
 

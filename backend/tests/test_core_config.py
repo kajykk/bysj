@@ -69,7 +69,7 @@ class TestSettingsDefaults:
         from app.core.config import Settings
 
         settings = Settings()
-        assert settings.access_token_expire_minutes == 120
+        assert settings.access_token_expire_minutes == 60
         assert settings.refresh_token_expire_days == 7
         assert settings.password_reset_token_expire_minutes == 30
 

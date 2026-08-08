@@ -134,6 +134,37 @@ class WarningMixin:
         await self.db.commit()
         return True
 
+    async def get_warning_for_counselor(
+        self, counselor_id: int, warning_id: int
+    ) -> dict | None:
+        """查询属于咨询师的单条告警 (含 status 字段).
+
+        ISS-070 修复: 路由层在 handle_warning 返回失败时用于区分
+        "真正不存在/未归属"与"已处理但 action 不一致"两类语义, 避免
+        已处理的预警被误报为 404。
+        """
+        warning = await self.db.get(WarningNotification, warning_id)
+        if warning is None or warning.counselor_id != counselor_id:
+            return None
+        return {
+            "id": warning.id,
+            "user_id": warning.user_id,
+            "risk_assessment_id": warning.risk_assessment_id,
+            "title": f"用户#{warning.user_id}风险预警",
+            "content": warning.trigger_reason,
+            "risk_level": normalize_risk_level(warning.current_level),
+            "status": resolve_warning_status(warning.is_handled, warning.handle_action),
+            "is_read": warning.is_read,
+            "handled_at": (
+                warning.handled_at.isoformat() if warning.handled_at else None
+            ),
+            "handled_by": f"counselor#{warning.counselor_id}"
+            if warning.is_handled
+            else None,
+            "handled_note": warning.handle_note,
+            "created_at": warning.created_at.isoformat(),
+        }
+
     async def escalate_warning(
         self,
         counselor_id: int,
