@@ -83,7 +83,9 @@ MODEL_COMPATIBILITY_REGISTRY: dict[str, ModelCompatibilityInfo] = {
     "text_improved_bilingual_model": ModelCompatibilityInfo(
         model_id="text_improved_bilingual_model",
         format="joblib",
-        sklearn_version="1.8.0",
+        # 统一声明最低支持版本 (与全注册表一致); 实际训练版本 1.8.0,
+        # 位于支持范围 [1.5.0, 2.0.0) 内, 由 check_sklearn_version 校验
+        sklearn_version="1.5.0",
         torch_version=None,
         transformers_version=None,
         tensorflow_version=None,
