@@ -1,7 +1,4 @@
-name: Container Image Security Scan
-
-env:
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+﻿name: Container Image Security Scan
 
 # SEC-B: 容器镜像 trivy 扫描
 # - PR 修改 Dockerfile / docker-compose.yml 时触发
@@ -69,7 +66,7 @@ jobs:
 
       - name: Upload scan artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: trivy-backend-report
           path: trivy-backend-results.sarif
@@ -116,7 +113,7 @@ jobs:
 
       - name: Upload scan artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: trivy-frontend-report
           path: trivy-frontend-results.sarif
