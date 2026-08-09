@@ -58,6 +58,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _contains_cjk(text: str) -> bool:
+    """检测文本是否包含中日韩统一表意字符 (用于语言路由)."""
+    for ch in text:
+        o = ord(ch)
+        if 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF or 0xF900 <= o <= 0xFAFF:
+            return True
+    return False
+
+
 class PredictMixin:
     """核心预测方法集合.
 
@@ -583,38 +592,39 @@ class PredictMixin:
     async def _predict_text_ml(self, text: str) -> dict[str, Any]:
         """ML 模型预测文本情感。
 
-        三级回退策略：
-        1. BERT 文本模型（若可用）
-        2. TF-IDF + LR 主文本模型 -> 双语回退模型
-        3. 启发式回退（基于 TextAnalyzer 启发式情感分数）
+        四级回退策略 (v1.41: 按语言路由):
+        1. BERT 文本模型 (中文域模型, 仅对含中文文本启用; 纯英文走 TF-IDF 避免误判)
+        2. 双语 TF-IDF + LR（中英双语，jieba 中文分词）
+        3. 英文主 TF-IDF + LR -> 启发式回退（基于 TextAnalyzer 启发式情感分数）
 
         Returns:
             包含 prediction/probability/sentiment_score/model_used 的字典。
         """
-        # Level 1: BERT 文本模型
-        bert_result = await self._predict_text_bert(text)
-        if bert_result is not None:
-            return bert_result
+        # Level 1: BERT 文本模型 (中文域专用; 纯英文文本跳过, 避免中文 BERT 英文误判)
+        if _contains_cjk(text):
+            bert_result = await self._predict_text_bert(text)
+            if bert_result is not None:
+                return bert_result
 
-        # Level 2: TF-IDF + LR 主文本模型 -> 双语回退模型
-        model_used = "text_depression_model"
+        # Level 2: 双语 TF-IDF + LR (中英双语, 覆盖中文流量)
+        model_used = "text_improved_bilingual_model"
         try:
-            tfidf = await self._load_model_async("text_depression_tfidf")
-            model = await self._load_model_async("text_depression_model")
+            tfidf = await self._load_model_async("text_improved_bilingual_tfidf")
+            model = await self._load_model_async("text_improved_bilingual_model")
         except Exception as exc:
-            # P1-E 修复：主文本模型加载失败回退到改进版双语模型，必须记录日志便于排查
+            # Level 3: 双语模型不可用 -> 英文主模型
             logger.warning(
-                "Primary text model unavailable, falling back to bilingual: %s", exc
+                "Bilingual text model unavailable, falling back to primary: %s", exc
             )
             try:
-                tfidf = await self._load_model_async("text_improved_bilingual_tfidf")
-                model = await self._load_model_async("text_improved_bilingual_model")
-                model_used = "text_improved_bilingual_model"
-            except Exception as bilingual_exc:
+                tfidf = await self._load_model_async("text_depression_tfidf")
+                model = await self._load_model_async("text_depression_model")
+                model_used = "text_depression_model"
+            except Exception as primary_exc:
                 # 三级回退：所有 ML 模型不可用时，使用启发式分数
                 logger.warning(
                     "All text ML models unavailable, using heuristic fallback: %s",
-                    bilingual_exc,
+                    primary_exc,
                 )
                 return self._text_heuristic_fallback(text)
 
