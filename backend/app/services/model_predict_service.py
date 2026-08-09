@@ -151,6 +151,30 @@ cleanup_old_training_jobs()
 
 
 class ModelPredictService:
+    def _fire_shadow_check(
+        self, result: dict[str, Any], raw_input: dict[str, Any]
+    ) -> None:
+        """R1: fire-and-forget 影子对拍 (候选产物 vs 生产模型).
+
+        fire-and-forget, 不阻塞主请求; 候选不存在或格式不支持时静默跳过.
+        同时记录 R2 生产健康事件 (回退率监控).
+        """
+        try:
+            model_used = result.get("model_used")
+            if not model_used or "fallback" in str(model_used):
+                return
+            from app.services.shadow_comparison_service import (
+                get_shadow_comparison_service,
+            )
+
+            service = get_shadow_comparison_service()
+            service.record_inference(
+                str(model_used), fallback_used=bool(result.get("fallback_used", False))
+            )
+            service.fire_shadow_check(str(model_used), raw_input, result)
+        except Exception as exc:
+            logger.debug("[shadow] fire failed (non-blocking): %s", exc)
+
     def get_model_status(self) -> dict[str, Any]:
         model_dir = Path(settings.model_dir)
         status: list[dict[str, Any]] = []
@@ -509,6 +533,9 @@ class ModelPredictService:
         if _ML_INFERENCE_CACHE_TTL > 0:
             await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
 
+        # R1 影子对拍: 候选产物与生产模型异步对比 (fire-and-forget, 不阻塞)
+        self._fire_shadow_check(result, features)
+
         return result
 
     async def predict_text(self, text: str) -> dict:
@@ -532,6 +559,9 @@ class ModelPredictService:
         if _ML_INFERENCE_CACHE_TTL > 0:
             await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
 
+        # R1 影子对拍: 候选产物与生产模型异步对比 (fire-and-forget, 不阻塞)
+        self._fire_shadow_check(result, {"text": cleaned})
+
         return result
 
     async def predict_physiological(
@@ -553,6 +583,9 @@ class ModelPredictService:
         # PERF-P2-009: 写入缓存
         if _ML_INFERENCE_CACHE_TTL > 0:
             await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
+
+        # R1 影子对拍: 候选产物与生产模型异步对比 (fire-and-forget, 不阻塞)
+        self._fire_shadow_check(result, physiological)
 
         return result
 

@@ -135,6 +135,26 @@ class Settings(BaseSettings):
     # 采样率 (1.0 = 全量对拍, 0.1 = 10% 采样, 降低 M2 BERT 推理负载)
     shadow_mode_text_sample_rate: float = 1.0
 
+    # ── R1 训练产物影子对拍: 候选产物 vs 生产模型 ──
+    # 激活训练产物的最低影子一致率 (低于则拒绝切换, 除非 force)
+    shadow_production_min_agreement: float = 0.75
+    # 影子对拍所需最小样本数 (不足则视为证据不足, 不阻塞激活)
+    shadow_production_min_samples: int = 20
+    # 影子对拍采样率 (1.0 = 全量, 0.1 = 10% 采样)
+    shadow_production_sample_rate: float = 1.0
+
+    # ── R2 训练产物自动回退监控 ──
+    # 自动回退开关 (开启后后台任务定期检查 PRODUCTION 训练产物健康度)
+    registry_auto_rollback_enabled: bool = True
+    # 检查间隔 (秒)
+    registry_auto_rollback_interval: int = 60
+    # 触发自动回退的最低回退率阈值 (回退次数 / 总推理)
+    registry_auto_rollback_max_fallback_rate: float = 0.05
+    # 触发自动回退所需最小推理样本数 (少于则不判定)
+    registry_auto_rollback_min_samples: int = 20
+    # 评估时间窗口 (秒, 仅统计最近窗口内的推理/回退)
+    registry_auto_rollback_window_seconds: int = 3600
+
 
     # ── STAB-P1-004 修复：SMTP 邮件熔断器 ──
     # 是否启用 SMTP 熔断器 (关闭后邮件发送不再拦截)
