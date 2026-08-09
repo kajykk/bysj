@@ -191,6 +191,12 @@ async def lifespan(app: FastAPI):
     await record_step_async(
         "canary_fallback", start_canary_fallback_monitor(app), fatal=False
     )
+    # R2: 启动训练产物自动回退监控 (PRODUCTION 回退率超阈值自动降级)
+    from app.services.registry_auto_rollback import start_auto_rollback_monitor
+
+    await record_step_async(
+        "auto_rollback", start_auto_rollback_monitor(app), fatal=False
+    )
     # R-006: 标记启动序列完成 (供 /health/startup 端点使用)
     startup_status.mark_completed()
     # P0-1.1: 标记应用启动完成, /health/startup 探针返回 ok
@@ -212,6 +218,10 @@ async def lifespan(app: FastAPI):
         from app.services.canary_fallback_monitor import stop_canary_fallback_monitor
 
         await stop_canary_fallback_monitor()
+        # R2: 停止训练产物自动回退监控
+        from app.services.registry_auto_rollback import stop_auto_rollback_monitor
+
+        await stop_auto_rollback_monitor()
         # P0-1.1: 关闭后台健康监控任务
         await stop_health_monitor()
         # STAB-P2-009: 关闭 OpenTelemetry, 刷新待导出的 span

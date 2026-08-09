@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class ModelLifecycle(StrEnum):
@@ -312,6 +316,32 @@ def get_model_info(model_id: str) -> ModelMetadata | None:
 
 
 def resolve_model_path(model_id: str) -> str:
+    normalized = normalize_model_id(model_id)
+
+    # 训练产物注册表 (V2) 优先: PRODUCTION 记录且产物存在时覆盖静态路径,
+    # 使推理链可切换到经过验证的训练产物.
+    try:
+        from app.core.model_registry_v2 import ModelStatus, get_registry
+
+        record = get_registry().get_model(normalized)
+        if (
+            record is not None
+            and record.status == ModelStatus.PRODUCTION
+            and record.artifact_path
+        ):
+            artifact = Path(record.artifact_path)
+            # artifact_path 支持绝对路径或相对项目根路径 (backend/)
+            candidates = [artifact]
+            if not artifact.is_absolute():
+                candidates.append(Path(__file__).resolve().parents[2] / artifact)
+            for candidate in candidates:
+                if candidate.exists():
+                    return str(candidate)
+    except Exception as exc:  # pragma: no cover - 注册表异常不应阻断推理
+        logger.warning(
+            "resolve_model_path: V2 registry lookup failed for %s: %s", model_id, exc
+        )
+
     metadata = get_model_info(model_id)
     if metadata is not None:
         return metadata.path

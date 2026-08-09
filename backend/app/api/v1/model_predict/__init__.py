@@ -20,11 +20,13 @@ router = APIRouter(prefix="/model", tags=["model"])
 # 导入子模块 router 并 include (路由路径在子模块内定义, prefix 在此统一加)
 from .experiment import router as experiment_router
 from .predict import router as predict_router
+from .registry import router as registry_router
 from .status import router as status_router
 
 router.include_router(predict_router)
 router.include_router(status_router)
 router.include_router(experiment_router)
+router.include_router(registry_router)
 
 # re-export 被 test 直接 import 的符号 (来自 _common)
 # re-export AsyncSessionLocal (test patch 路径 app.api.v1.model_predict.AsyncSessionLocal 依赖)

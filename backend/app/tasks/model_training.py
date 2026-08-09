@@ -113,6 +113,61 @@ def list_jobs_from_redis() -> list[dict[str, Any]]:
         return []
 
 
+def _register_training_artifact(
+    model_name: str,
+    dataset_name: str,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    evaluation: dict,
+) -> None:
+    """训练/评估完成后将产物注册进 ModelRegistryV2 (CANDIDATE).
+
+    注册失败不阻断训练任务: 仅记录日志, 训练状态保持 completed.
+    Registry 写入异常时会回滚内存状态并向上抛出, 在此兜底处理.
+    """
+    from app.core.model_registry_v2 import ModelType, register_training_artifact
+    from app.services.experiment_trainer import TRAINED_ROOT
+
+    try:
+        artifact_dir = TRAINED_ROOT / model_name
+        if not artifact_dir.exists():
+            logger.warning(
+                "[training_task] artifact dir missing, skip registry: %s", artifact_dir
+            )
+            return
+        metrics = {}
+        if isinstance(evaluation, dict):
+            eval_metrics = evaluation.get("metrics") or {}
+            if isinstance(eval_metrics, dict):
+                for key in ("accuracy", "precision", "recall", "f1", "auc"):
+                    value = eval_metrics.get(key)
+                    if isinstance(value, (int, float)):
+                        metrics[key] = float(value)
+        register_training_artifact(
+            model_id=model_name,
+            artifact_path=str(artifact_dir),
+            version="v1",
+            metrics=metrics,
+            training_config={
+                "dataset_name": dataset_name,
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "learning_rate": learning_rate,
+            },
+            model_type=ModelType.LOGISTIC_REGRESSION,
+        )
+        logger.info(
+            "[training_task] registered artifact in registry: model=%s path=%s",
+            model_name,
+            artifact_dir,
+        )
+    except Exception as exc:
+        logger.warning(
+            "[training_task] failed to register artifact %s: %s", model_name, exc
+        )
+
+
 def update_job_in_redis(job_id: str, **updates: Any) -> None:
     """ISS-009 修复: 使用 HSET 原子更新字段, 替代非原子的 get-modify-set.
 
@@ -209,6 +264,10 @@ def train_bert_model_task(
             job_id, progress=75, stage="evaluate", message="开始评估模型"
         )
         evaluation = service.evaluate_model(dataset_name, model_name, "validation")
+
+        _register_training_artifact(
+            model_name, dataset_name, epochs, batch_size, learning_rate, evaluation
+        )
 
         update_job_in_redis(
             job_id,

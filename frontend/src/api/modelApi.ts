@@ -140,6 +140,59 @@ export interface CompareResult {
   message: string
 }
 
+// ---- Model Registry V2 (训练产物注册/激活/回退) ----
+
+export type RegistryStatus = 'candidate' | 'staging' | 'production' | 'retired'
+
+export interface ModelRegistryRecord {
+  model_id: string
+  name: string
+  version: string
+  model_type: string
+  status: RegistryStatus
+  fallback_id: string | null
+  performance_threshold: Record<string, number>
+  metrics: Record<string, number>
+  artifact_path: string
+  training_config: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface RegistryListResult {
+  models: ModelRegistryRecord[]
+}
+
+export interface ShadowStatsResult {
+  model_id: string
+  total: number
+  agreement: number
+  agreement_rate: number
+  max_prob_diff: number
+  registry_metrics?: {
+    shadow_total?: number
+    shadow_agreement_rate?: number
+    shadow_max_prob_diff?: number
+  }
+}
+
+export interface AutoRollbackResultItem {
+  model_id: string
+  rolled_back?: boolean
+  reason?: string
+  fallback_rate?: number
+  [key: string]: unknown
+}
+
+export interface AutoRollbackResult {
+  results: AutoRollbackResultItem[]
+}
+
+export interface ActivateRegistryResult {
+  model: ModelRegistryRecord
+  shadow_decision: string
+}
+
 export const modelApi = {
   getRiskReport: () => requestData<RiskReport>(request.get('/user/risk/report')),
   getRiskTrend: (days = 30) => requestData<RiskTrend>(request.get('/user/risk/trend', { params: { days } })),
@@ -158,4 +211,11 @@ export const modelApi = {
     requestData<EvaluateResult>(request.post('/model/experiment/evaluate', payload)),
   compareModels: (payload: { dataset_name: string; model_names: string[] }) =>
     requestData<CompareResult>(request.post('/model/experiment/compare', payload)),
+  getModelRegistry: () => requestData<RegistryListResult>(request.get('/model/model-registry')).then((res) => res.models ?? []),
+  getShadowStats: (modelId: string) => requestData<ShadowStatsResult>(request.get(`/model/model-registry/${modelId}/shadow`)),
+  activateRegistryModel: (modelId: string, force = false) =>
+    requestData<ActivateRegistryResult>(request.post(`/model/model-registry/${modelId}/activate`, undefined, { params: { force } })),
+  rollbackRegistryModel: (modelId: string) =>
+    requestData<ModelRegistryRecord>(request.post(`/model/model-registry/${modelId}/rollback`)),
+  runAutoRollbackCheck: () => requestData<AutoRollbackResult>(request.post('/model/model-registry/auto-rollback')),
 }

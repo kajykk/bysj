@@ -376,3 +376,93 @@ def get_registry() -> ModelRegistryV2:
     if _registry_instance is None:
         _registry_instance = ModelRegistryV2()
     return _registry_instance
+
+
+def register_training_artifact(
+    model_id: str,
+    artifact_path: str,
+    *,
+    version: str = "v1",
+    metrics: dict[str, float] | None = None,
+    training_config: dict[str, Any] | None = None,
+    model_type: ModelType = ModelType.LOGISTIC_REGRESSION,
+    fallback_id: str | None = None,
+) -> ModelRecord:
+    """注册训练产物为候选模型 (CANDIDATE).
+
+    训练任务在产物保存成功后调用: 产物进入注册表, 便于后续激活上线.
+    """
+    return get_registry().register_model(
+        model_id=model_id,
+        name=model_id,
+        version=version,
+        model_type=model_type,
+        status=ModelStatus.CANDIDATE,
+        fallback_id=fallback_id,
+        metrics=metrics or {},
+        artifact_path=artifact_path,
+        training_config=training_config or {},
+    )
+
+
+def activate_training_model(model_id: str) -> ModelRecord | None:
+    """将 CANDIDATE 训练产物提升为 PRODUCTION, 使其接入推理链.
+
+    返回提升后的记录; 找不到模型或转换不合法时返回 None.
+    """
+    registry = get_registry()
+    record = registry.get_model(model_id)
+    if record is None:
+        logger.error("activate_training_model: model %s not found", model_id)
+        return None
+
+    # CANDIDATE -> STAGING -> PRODUCTION 逐级提升, 任一级失败即中止
+    for interim in (
+        ModelStatus.STAGING if record.status == ModelStatus.CANDIDATE else None,
+        ModelStatus.PRODUCTION,
+    ):
+        if interim is None:
+            continue
+        current = registry.get_model(model_id)
+        if current is None:
+            return None
+        if current.status == ModelStatus.PRODUCTION:
+            break
+        if current.status == interim:
+            continue
+        promoted = registry.promote_model(model_id, interim)
+        if promoted is None:
+            return None
+    return registry.get_model(model_id)
+
+
+def rollback_training_model(model_id: str) -> ModelRecord | None:
+    """将 PRODUCTION 训练产物降级为 CANDIDATE, 推理链回退静态模型.
+
+    自动回退 (R2) 与人工回退共用. PRODUCTION -> STAGING -> CANDIDATE
+    逐级降级; 已是 STAGING/CANDIDATE/缺失时返回 None (无需回退).
+    """
+    registry = get_registry()
+    record = registry.get_model(model_id)
+    if record is None:
+        logger.error("rollback_training_model: model %s not found", model_id)
+        return None
+
+    # PRODUCTION -> STAGING -> CANDIDATE 逐级降级
+    for interim in (
+        ModelStatus.STAGING if record.status == ModelStatus.PRODUCTION else None,
+        ModelStatus.CANDIDATE,
+    ):
+        if interim is None:
+            continue
+        current = registry.get_model(model_id)
+        if current is None:
+            return None
+        if current.status == ModelStatus.CANDIDATE:
+            break
+        if current.status == interim:
+            continue
+        demoted = registry.promote_model(model_id, interim)
+        if demoted is None:
+            return None
+    return registry.get_model(model_id)

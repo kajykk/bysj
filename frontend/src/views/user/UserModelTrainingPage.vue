@@ -86,6 +86,8 @@
             :training-log-rows="trainingLogRows"
             :latest-log="latestLog"
           />
+
+          <TrainingRegistryCard :can-train="canTrain" />
         </el-card>
       </el-col>
 
@@ -114,6 +116,7 @@ import TrainingJobCard from './components/user-model-training/TrainingJobCard.vu
 import TrainingActionCard from './components/user-model-training/TrainingActionCard.vue'
 import TrainingArtifactsCard from './components/user-model-training/TrainingArtifactsCard.vue'
 import TrainingLogCard from './components/user-model-training/TrainingLogCard.vue'
+import TrainingRegistryCard from './components/user-model-training/TrainingRegistryCard.vue'
 import TrainingSidePanel from './components/user-model-training/TrainingSidePanel.vue'
 import { useModelTrainingData } from './components/user-model-training/useModelTrainingData'
 
