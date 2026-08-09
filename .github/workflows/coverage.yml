@@ -87,6 +87,7 @@ jobs:
           flags: backend
           name: backend-coverage
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v5
@@ -118,6 +119,7 @@ jobs:
           flags: frontend
           name: frontend-coverage
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v5
