@@ -11,14 +11,14 @@ on:
       - 'backend/alembic/**'
       - 'backend/alembic.ini'
       - 'backend/app/models/**'
-      - 'scripts/test_migration_compat.py'
+      - 'backend/tests/test_stab_p2_008_migration_compat.py'
       - '.github/workflows/migration-tests.yml'
   pull_request:
     paths:
       - 'backend/alembic/**'
       - 'backend/alembic.ini'
       - 'backend/app/models/**'
-      - 'scripts/test_migration_compat.py'
+      - 'backend/tests/test_stab_p2_008_migration_compat.py'
       - '.github/workflows/migration-tests.yml'
 
 jobs:
@@ -39,7 +39,9 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run migration compatibility test (STAB-P2-008)
-        run: python scripts/test_migration_compat.py
+        # 根 scripts/ 整体 gitignored (设计), CI 检出不包含 scripts/test_migration_compat.py.
+        # 端到端 upgrade/downgrade/upgrade 循环由下方 pytest 承担 (SQLite 临时库, 无 PG 也跑).
+        run: echo "standalone script not tracked; e2e covered by pytest step"
 
       - name: Run pytest migration structure tests (STAB-P2-008)
         working-directory: backend
