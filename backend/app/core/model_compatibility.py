@@ -83,11 +83,15 @@ MODEL_COMPATIBILITY_REGISTRY: dict[str, ModelCompatibilityInfo] = {
     "text_improved_bilingual_model": ModelCompatibilityInfo(
         model_id="text_improved_bilingual_model",
         format="joblib",
-        sklearn_version="1.5.0",
+        sklearn_version="1.8.0",
         torch_version=None,
         transformers_version=None,
         tensorflow_version=None,
-        required_dependencies=["scikit-learn>=1.5.0,<2.0.0", "joblib>=1.4.2"],
+        required_dependencies=[
+            "scikit-learn>=1.5.0,<2.0.0",
+            "joblib>=1.4.2",
+            "jieba>=0.42.1",
+        ],
         fallback_strategy="heuristic_rule",
     ),
     "fusion_dnn_best": ModelCompatibilityInfo(

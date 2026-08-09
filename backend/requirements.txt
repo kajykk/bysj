@@ -26,6 +26,7 @@ transformers>=5.3.0
 shap>=0.45.0
 statsmodels>=0.14.0
 joblib>=1.4.2
+jieba>=0.42.1  # 双语文本模型 tokenizer (bilingual_v1, 2026-08)
 numpy>=1.26.4
 pandas>=2.1.4
 openpyxl>=3.1.2

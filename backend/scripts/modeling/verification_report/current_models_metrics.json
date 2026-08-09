@@ -1,0 +1,227 @@
+{
+  "generated_at": "2026-08-09T10:09:38.174454+00:00",
+  "models": {
+    "structured_v1.20": {
+      "samples": 28552,
+      "positive_rate": 0.5824,
+      "accuracy": 0.8022,
+      "balanced_accuracy": 0.7832,
+      "precision": 0.7906,
+      "recall": 0.8983,
+      "specificity": 0.6681,
+      "f1": 0.841,
+      "roc_auc": 0.8798,
+      "brier": 0.1835,
+      "confusion_matrix": {
+        "tn": 7966,
+        "fp": 3957,
+        "fn": 1692,
+        "tp": 14937
+      }
+    },
+    "structured_v1.23_external": {
+      "samples": 4318,
+      "positive_rate": 0.5813,
+      "accuracy": 0.8333,
+      "balanced_accuracy": 0.8255,
+      "precision": 0.845,
+      "recall": 0.8733,
+      "specificity": 0.7777,
+      "f1": 0.8589,
+      "roc_auc": 0.9131,
+      "brier": 0.1152,
+      "confusion_matrix": {
+        "tn": 1406,
+        "fp": 402,
+        "fn": 318,
+        "tp": 2192
+      }
+    },
+    "text_depression_classifier[en]": {
+      "samples": 7649,
+      "positive_rate": 0.4916,
+      "accuracy": 0.9736,
+      "balanced_accuracy": 0.9739,
+      "precision": 0.9566,
+      "recall": 0.9912,
+      "specificity": 0.9565,
+      "f1": 0.9736,
+      "roc_auc": 0.9975,
+      "brier": 0.0291,
+      "confusion_matrix": {
+        "tn": 3720,
+        "fp": 169,
+        "fn": 33,
+        "tp": 3727
+      },
+      "n_texts": 7649,
+      "domain": "english_in-domain",
+      "dataset": "depression_dataset_reddit_cleaned"
+    },
+    "text_improved_bilingual[en]": {
+      "samples": 7649,
+      "positive_rate": 0.4916,
+      "accuracy": 0.9729,
+      "balanced_accuracy": 0.973,
+      "precision": 0.9691,
+      "recall": 0.9761,
+      "specificity": 0.9699,
+      "f1": 0.9726,
+      "roc_auc": 0.9957,
+      "brier": 0.0484,
+      "confusion_matrix": {
+        "tn": 3772,
+        "fp": 117,
+        "fn": 90,
+        "tp": 3670
+      },
+      "n_texts": 7649,
+      "domain": "english_in-domain",
+      "dataset": "depression_dataset_reddit_cleaned"
+    },
+    "text_depression_classifier": {
+      "samples": 1275,
+      "positive_rate": 0.2024,
+      "accuracy": 0.7827,
+      "balanced_accuracy": 0.4936,
+      "precision": 0.087,
+      "recall": 0.0078,
+      "specificity": 0.9794,
+      "f1": 0.0142,
+      "roc_auc": 0.4957,
+      "brier": 0.1807,
+      "confusion_matrix": {
+        "tn": 996,
+        "fp": 21,
+        "fn": 256,
+        "tp": 2
+      },
+      "n_texts": 1275,
+      "domain": "chinese_cross-domain",
+      "dataset": "chinese_depression_corpus_v2_clean (original)"
+    },
+    "text_improved_bilingual": {
+      "samples": 1275,
+      "positive_rate": 0.2024,
+      "accuracy": 0.989,
+      "balanced_accuracy": 0.9729,
+      "precision": 1.0,
+      "recall": 0.9457,
+      "specificity": 1.0,
+      "f1": 0.9721,
+      "roc_auc": 0.996,
+      "brier": 0.0346,
+      "confusion_matrix": {
+        "tn": 1017,
+        "fp": 0,
+        "fn": 14,
+        "tp": 244
+      },
+      "n_texts": 1275,
+      "domain": "chinese_cross-domain",
+      "dataset": "chinese_depression_corpus_v2_clean (original)"
+    },
+    "text_m2_bert": {
+      "samples": 1275,
+      "positive_rate": 0.2024,
+      "accuracy": 0.9992,
+      "balanced_accuracy": 0.9981,
+      "precision": 1.0,
+      "recall": 0.9961,
+      "specificity": 1.0,
+      "f1": 0.9981,
+      "roc_auc": 1.0,
+      "brier": 0.0036,
+      "confusion_matrix": {
+        "tn": 1017,
+        "fp": 0,
+        "fn": 1,
+        "tp": 257
+      },
+      "threshold": 0.627,
+      "domain": "chinese_original_full",
+      "dataset": "chinese_depression_corpus_v2_clean (original)",
+      "leakage_note": "M2 训练语料 (chinese_depression_corpus_v2) 与 original 同源, 此值偏乐观; 真实域外见 ood 行"
+    },
+    "text_m2_bert[ood]": {
+      "samples": 2523,
+      "positive_rate": 0.2033,
+      "accuracy": 0.914,
+      "balanced_accuracy": 0.8771,
+      "precision": 0.7741,
+      "recall": 0.8148,
+      "specificity": 0.9393,
+      "f1": 0.7939,
+      "roc_auc": 0.9553,
+      "brier": 0.0728,
+      "confusion_matrix": {
+        "tn": 1888,
+        "fp": 122,
+        "fn": 95,
+        "tp": 418
+      },
+      "threshold": 0.627,
+      "domain": "chinese_ood_dedup",
+      "dataset": "ood_test_set_v2 (去重训练语料)",
+      "leakage_note": "OOD 原文 2523 条, 与训练语料文本级去重"
+    },
+    "mmpsy_lite_lr": {
+      "samples": 192,
+      "positive_rate": 0.2031,
+      "accuracy": 0.9062,
+      "balanced_accuracy": 0.817,
+      "precision": 0.8387,
+      "recall": 0.6667,
+      "specificity": 0.9673,
+      "f1": 0.7429,
+      "roc_auc": 0.938,
+      "brier": 0.071,
+      "confusion_matrix": {
+        "tn": 148,
+        "fp": 5,
+        "fn": 13,
+        "tp": 26
+      }
+    },
+    "mmpsy_lite_gbdt": {
+      "samples": 192,
+      "positive_rate": 0.2031,
+      "accuracy": 0.9167,
+      "balanced_accuracy": 0.8426,
+      "precision": 0.8485,
+      "recall": 0.7179,
+      "specificity": 0.9673,
+      "f1": 0.7778,
+      "roc_auc": 0.9279,
+      "brier": 0.0693,
+      "confusion_matrix": {
+        "tn": 148,
+        "fp": 5,
+        "fn": 11,
+        "tp": 28
+      }
+    },
+    "physiological_v2_dl": {
+      "samples": 1029,
+      "positive_rate": 0.3489,
+      "accuracy": 0.829,
+      "balanced_accuracy": 0.7575,
+      "precision": 0.9791,
+      "recall": 0.5209,
+      "specificity": 0.994,
+      "f1": 0.68,
+      "roc_auc": 0.9624,
+      "brier": 0.1462,
+      "confusion_matrix": {
+        "tn": 666,
+        "fp": 4,
+        "fn": 172,
+        "tp": 187
+      }
+    }
+  },
+  "production_artifacts": {
+    "production_models": 0,
+    "note": "当前注册表无 PRODUCTION 训练产物"
+  }
+}
