@@ -1,7 +1,4 @@
-name: contract-tests
-
-env:
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+﻿name: contract-tests
 
 on:
   push:
@@ -26,8 +23,8 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install backend dependencies
@@ -65,7 +62,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
       - name: Upload contract test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: contract-test-results
           path: backend/tests/contract/

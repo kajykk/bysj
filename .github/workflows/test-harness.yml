@@ -1,9 +1,5 @@
 name: harness-tests
 
-env:
-  # 同上: 恢复 bundles Node 20 的 actions/upload-artifact@v4 在 Node 24 runner 上的正常行为
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
 on:
   push:
     branches: [main]
@@ -35,11 +31,11 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
@@ -170,7 +166,7 @@ jobs:
           Path('harness-report.json').write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding='utf-8')
           PY
       - name: Publish merged harness report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: harness-report
           path: |

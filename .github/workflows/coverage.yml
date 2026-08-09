@@ -1,11 +1,5 @@
 name: Coverage
 
-env:
-  # GitHub Runner 自 2026-07 起默认 Node 24; actions/upload-artifact@v4 与
-  # download-artifact@v4 仍捆绑 Node 20, 在 Node 24 上上传会"假成功"导致
-  # 下游下载 artifact 报 "not found"。此变量恢复 Node 20 action 正常运行。
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
 on:
   push:
     branches: [main, develop]
@@ -38,8 +32,8 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install backend dependencies
@@ -87,7 +81,7 @@ jobs:
       - name: Upload coverage to Codecov
         # CI-AUDIT-02: always() 保证测试失败时仍上传已收集的 coverage.xml
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: backend/coverage.xml
           flags: backend
@@ -95,7 +89,7 @@ jobs:
           fail_ci_if_error: false
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-coverage-report
           path: backend/htmlcov/
@@ -103,8 +97,8 @@ jobs:
   frontend-coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -118,7 +112,7 @@ jobs:
         # MAINT-P3-002: 移除 continue-on-error: true, 测试失败必须阻塞 CI
         # MAINT-P3-001: 覆盖率门禁由 vitest.config.ts thresholds 控制 (50% 起点)
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: frontend/coverage/lcov.info
           flags: frontend
@@ -126,7 +120,7 @@ jobs:
           fail_ci_if_error: false
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-coverage-report
           path: frontend/coverage/
@@ -138,13 +132,13 @@ jobs:
     steps:
       - name: Download backend coverage
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: backend-coverage-report
           path: backend-coverage
       - name: Download frontend coverage
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: frontend-coverage-report
           path: frontend-coverage
