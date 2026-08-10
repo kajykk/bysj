@@ -60,17 +60,32 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
       - name: Install safety
-        run: python -m pip install --upgrade "safety>=3.2.0"
+        run: |
+          # 无 SAFETY_API_KEY secret 时安装 2.x (check 免登录, 公共漏洞库),
+          # 避免 safety 3.x 在 CI 无 TTY 下强制注册提示导致 EOF 崩溃 (pyupio/safety#857)
+          if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
+            python -m pip install --upgrade "safety>=3.2.0"
+          else
+            python -m pip install --upgrade "safety>=2.3.5,<3.0.0"
+          fi
       - name: Scan with safety
         working-directory: backend
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
         run: |
-          # safety 3.x 命令格式: safety scan --file <requirements>
-          # --output json: 输出 JSON 报告
-          # exit-code 非零表示发现漏洞 (与 pip-audit 交叉验证)
-          safety scan \
-            --file requirements.txt \
-            --output json \
-            --save-safety-report safety-report.json
+          # safety 3.x 命令格式: safety scan --file <requirements> (需 API key)
+          # 无 key 时回退 2.x check: --json -o 输出 JSON 报告
+          if [ -n "$SAFETY_API_KEY" ]; then
+            safety scan \
+              --file requirements.txt \
+              --output json \
+              --save-safety-report safety-report.json
+          else
+            safety check \
+              -r requirements.txt \
+              --json \
+              -o safety-report.json
+          fi
       - name: Upload safety report
         if: always()
         uses: actions/upload-artifact@v5
