@@ -83,8 +83,8 @@ jobs:
           else
             safety check \
               -r requirements.txt \
-              --json \
-              -o safety-report.json
+              --output json \
+              > safety-report.json
           fi
       - name: Upload safety report
         if: always()
