@@ -114,12 +114,10 @@ class TestCheckModels:
         ) as mock_settings:
             mock_settings.model_dir = "/fake/models"
             mock_resolve.side_effect = lambda mid: f"/fake/{mid}.pkl"
-            # 第一个模型不存在, 后续存在
-            exists_call_count = {"n": 0}
 
             def fake_exists(self):
-                exists_call_count["n"] += 1
-                return exists_call_count["n"] > 1  # 第一次 False, 后续 True
+                # 按路径判定: 首个核心模型 (及其所有解析候选) 缺失, 其余存在
+                return "structured_logistic_regression_quick" not in str(self)
 
             with patch.object(Path, "exists", new=fake_exists):
                 result = await check_models()
@@ -150,12 +148,10 @@ class TestCheckModels:
     @pytest.mark.asyncio
     async def test_settings_import_exception_returns_false(self):
         """settings 异常时应返回 False 不抛出."""
-        with patch("app.core.config.settings", side_effect=ImportError("no config")):
-            # 注意: check_models 内部 from app.core.config import settings 是模块级导入
-            # 这里 mock 模块属性 settings 抛异常
+        # 模拟 settings.model_dir 类型非法 (Path 构造抛异常), 应有 try/except 兜底
+        with patch("app.core.config.settings") as mock_settings:
+            mock_settings.model_dir = None  # Path(None) 抛出 TypeError
             result = await check_models()
-            # 由于内部使用 from app.core.config import settings, mock side_effect 不一定生效
-            # 但 check_models 有 try/except 兜底, 任何异常都返回 False
             assert result is False
 
     @pytest.mark.asyncio
