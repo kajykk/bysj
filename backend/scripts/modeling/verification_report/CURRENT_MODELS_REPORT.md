@@ -35,3 +35,18 @@
 ## V2 注册表 PRODUCTION 训练产物
 
 (无 PRODUCTION 训练产物接入推理链, resolve_model_path 全部走静态路径)
+
+## 新数据域外探针 (external OOD probe)
+
+见 [NEW_DATA_PROBE_REPORT.md](NEW_DATA_PROBE_REPORT.md) (datasets/combined/combined_data.csv,
+从未参与任何训练/验证, 2026-08 盘点确认):
+
+| 模型 | 二分类 N | F1 | AUC | 误判 |
+|------|---------|-----|-----|------|
+| text_depression_classifier | 42343 | 0.8817 | 0.9403 | 6753 |
+| text_improved_bilingual | 42343 | 0.9287 | 0.9659 | 3771 |
+
+- 双语模型真实域外泛化优于英文主模型 (+0.047 F1, 误判减半)
+- 中间症状类 (Anxiety/Bipolar/Stress/PD) 判阳率 84.7%-97.0% (行为观测)
+- 其余候选渠道 (AA PHQ-9 / 疫情问卷 / sentiment140) 因无目标标签或
+  特征体系不匹配而排除, 排除理由见探针报告
