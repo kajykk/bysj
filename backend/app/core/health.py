@@ -166,21 +166,30 @@ async def check_models() -> bool:
         from app.core.model_registry import resolve_model_path
 
         model_dir = Path(settings.model_dir)
+        backend_root = Path(__file__).resolve().parents[2]
         for model_id in _CORE_MODEL_IDS:
             path = Path(resolve_model_path(model_id))
-            # 路径解析逻辑与 ModelPredictService.get_model_status 一致
+            # 路径解析逻辑与 ModelPredictService.get_model_status 一致,
+            # 并补充 ModelEngine._abs_path 的 CWD 相对 / backend 根候选,
+            # 避免本地开发 (CWD=backend, 产物在 backend/models) 时误报缺失
+            candidates: list[Path] = []
             if not path.is_absolute():
                 if path.parts and path.parts[0] == "models":
-                    abs_path = model_dir.parent / path
+                    candidates.append(model_dir.parent / path)
                 else:
-                    abs_path = model_dir / path
+                    candidates.append(model_dir / path)
+                candidates.append(Path(path))  # CWD 相对 (backend/ 下即 backend/models/...)
+                if path.parts and path.parts[0] == "models":
+                    candidates.append(backend_root / path)
+                else:
+                    candidates.append(backend_root / "models" / path)
             else:
-                abs_path = path
-            if not abs_path.exists():
+                candidates.append(path)
+            if not any(c.exists() for c in candidates):
                 logger.warning(
                     "Model health check failed: core model missing id=%s path=%s",
                     model_id,
-                    abs_path,
+                    candidates[0],
                 )
                 return False
         return True
