@@ -114,6 +114,7 @@ export default {
     themeSwitchedTitle: 'Theme Switched'
   },
   role: {
+    superAdmin: 'Super Admin',
     admin: 'Administrator',
     counselor: 'Counselor',
     user: 'User'
@@ -449,6 +450,7 @@ export default {
       deleteFailed: 'Deletion failed'
     },
     roles: {
+      superAdmin: 'Super Admin',
       admin: 'Administrator',
       counselor: 'Counselor',
       user: 'User'

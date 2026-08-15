@@ -7,6 +7,10 @@ describe('resolveRoleHome', () => {
     expect(resolveRoleHome('admin')).toBe('/admin/dashboard')
   })
 
+  it('returns admin home for super_admin role', () => {
+    expect(resolveRoleHome('super_admin')).toBe('/admin/dashboard')
+  })
+
   it('returns counselor home for counselor role', () => {
     expect(resolveRoleHome('counselor')).toBe('/counselor/dashboard')
   })
@@ -46,16 +50,19 @@ describe('resolveGuardResult', () => {
   })
 
   it('allows array roles when any matches (SEC-FIX H5)', () => {
-    // /user/model-training: user 与 admin 均可访问
+    // /user/model-training: user / admin / super_admin 均可访问
     expect(
-      resolveGuardResult('/user/model-training', { role: ['user', 'admin'] }, { isLoggedIn: true, role: 'user' })
+      resolveGuardResult('/user/model-training', { role: ['user', 'admin', 'super_admin'] }, { isLoggedIn: true, role: 'user' })
     ).toBe(true)
     expect(
-      resolveGuardResult('/user/model-training', { role: ['user', 'admin'] }, { isLoggedIn: true, role: 'admin' })
+      resolveGuardResult('/user/model-training', { role: ['user', 'admin', 'super_admin'] }, { isLoggedIn: true, role: 'admin' })
+    ).toBe(true)
+    expect(
+      resolveGuardResult('/user/model-training', { role: ['user', 'admin', 'super_admin'] }, { isLoggedIn: true, role: 'super_admin' })
     ).toBe(true)
     // counselor 不在白名单 -> forbidden
     expect(
-      resolveGuardResult('/user/model-training', { role: ['user', 'admin'] }, { isLoggedIn: true, role: 'counselor' })
+      resolveGuardResult('/user/model-training', { role: ['user', 'admin', 'super_admin'] }, { isLoggedIn: true, role: 'counselor' })
     ).toBe('/forbidden')
   })
 })

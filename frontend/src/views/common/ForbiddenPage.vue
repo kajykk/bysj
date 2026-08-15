@@ -33,7 +33,7 @@ const { t } = useI18n()
 
 const goHome = () => {
   const role = auth.role
-  const homePath = role === 'admin'
+  const homePath = role === 'admin' || role === 'super_admin'
     ? '/admin/dashboard'
     : role === 'counselor'
       ? '/counselor/dashboard'

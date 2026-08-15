@@ -108,7 +108,7 @@ const toggleTheme = () => {
 
 // UI 升级 v3.2: 跳转个人设置
 const goSettings = () => {
-  const settingsPath = auth.role === 'admin' ? '/admin/settings'
+  const settingsPath = auth.role === 'admin' || auth.role === 'super_admin' ? '/admin/settings'
     : auth.role === 'counselor' ? '/counselor/settings'
     : '/user/settings'
   router.push(settingsPath)

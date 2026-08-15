@@ -38,10 +38,16 @@ export const OPERATION_PERMISSIONS = {
   adminSilences: []
 } as const satisfies Record<string, readonly PermissionKey[]>
 
+const ADMIN_PERMISSIONS = [...PAGE_PERMISSIONS.adminDashboard, ...PAGE_PERMISSIONS.adminTemplates, ...PAGE_PERMISSIONS.adminSettings, ...PAGE_PERMISSIONS.adminOperationLogs, ...PAGE_PERMISSIONS.adminAlerts, ...PAGE_PERMISSIONS.adminSilences, ...PAGE_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.adminTemplates, ...OPERATION_PERMISSIONS.adminSettings, ...OPERATION_PERMISSIONS.adminOperationLogs, ...OPERATION_PERMISSIONS.adminAlerts, ...OPERATION_PERMISSIONS.adminSilences, ...OPERATION_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.userReports, ...PAGE_PERMISSIONS.adminReports, ...PAGE_PERMISSIONS.adminObservability, ...PAGE_PERMISSIONS.adminMonitoring, ...PAGE_PERMISSIONS.adminCanary, 'admin.predict.audit'] as const satisfies readonly PermissionKey[]
+
+const COUNSELOR_PERMISSIONS = [...PAGE_PERMISSIONS.counselorDashboard, ...PAGE_PERMISSIONS.counselorWarnings, ...PAGE_PERMISSIONS.counselorUsers, ...PAGE_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.counselorSettings, ...OPERATION_PERMISSIONS.counselorWarnings, ...OPERATION_PERMISSIONS.counselorUsers, ...OPERATION_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.counselorSettings, 'counselor.predict.use'] as const satisfies readonly PermissionKey[]
+
 export const ROLE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
   user: [...PAGE_PERMISSIONS.userDashboard, ...PAGE_PERMISSIONS.userContent, ...PAGE_PERMISSIONS.userIntervention, ...PAGE_PERMISSIONS.userWarnings, ...PAGE_PERMISSIONS.userAssessments, ...OPERATION_PERMISSIONS.userWarnings, ...OPERATION_PERMISSIONS.userAssessments, 'user.predict.use', 'user.export.risk', ...PAGE_PERMISSIONS.userReports],
-  counselor: [...PAGE_PERMISSIONS.counselorDashboard, ...PAGE_PERMISSIONS.counselorWarnings, ...PAGE_PERMISSIONS.counselorUsers, ...PAGE_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.counselorSettings, ...OPERATION_PERMISSIONS.counselorWarnings, ...OPERATION_PERMISSIONS.counselorUsers, ...OPERATION_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.counselorSettings, 'counselor.predict.use'],
-  admin: [...PAGE_PERMISSIONS.adminDashboard, ...PAGE_PERMISSIONS.adminTemplates, ...PAGE_PERMISSIONS.adminSettings, ...PAGE_PERMISSIONS.adminOperationLogs, ...PAGE_PERMISSIONS.adminAlerts, ...PAGE_PERMISSIONS.adminSilences, ...PAGE_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.adminTemplates, ...OPERATION_PERMISSIONS.adminSettings, ...OPERATION_PERMISSIONS.adminOperationLogs, ...OPERATION_PERMISSIONS.adminAlerts, ...OPERATION_PERMISSIONS.adminSilences, ...OPERATION_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.userReports, ...PAGE_PERMISSIONS.adminReports, ...PAGE_PERMISSIONS.adminObservability, ...PAGE_PERMISSIONS.adminMonitoring, ...PAGE_PERMISSIONS.adminCanary, 'admin.predict.audit']
+  counselor: COUNSELOR_PERMISSIONS,
+  admin: ADMIN_PERMISSIONS,
+  // 平台管理员: 平台级全量权限 = admin + counselor 并集 (与后端 PERMISSION_MATRIX 对齐)
+  super_admin: [...ADMIN_PERMISSIONS, ...COUNSELOR_PERMISSIONS]
 }
 
 /**

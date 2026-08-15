@@ -41,6 +41,10 @@
                 :label="t('role.admin')"
                 value="admin"
               />
+              <el-option
+                :label="t('role.superAdmin')"
+                value="super_admin"
+              />
             </el-select>
           </el-form-item>
 
@@ -231,14 +235,15 @@ const getActionTypeTag = (actionType: string) => {
 }
 
 const getRoleTagType = (role: string): 'success' | 'warning' | 'danger' | 'info' | 'primary' => {
-  const map: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'primary'> = { user: 'success', counselor: 'warning', admin: 'danger' }
+  const map: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'primary'> = { user: 'success', counselor: 'warning', admin: 'danger', super_admin: 'primary' }
   return map[role] || 'info'
 }
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
   user: 'role.user',
   counselor: 'role.counselor',
-  admin: 'role.admin'
+  admin: 'role.admin',
+  super_admin: 'role.superAdmin'
 }
 
 const getRoleLabel = (role: string): string => {

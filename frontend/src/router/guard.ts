@@ -14,7 +14,8 @@ export interface GuardRouteMeta {
 }
 
 export const resolveRoleHome = (role: string): string => {
-  if (role === 'admin') return '/admin/dashboard'
+  // 平台管理员 (super_admin) 复用管理端首页
+  if (role === 'admin' || role === 'super_admin') return '/admin/dashboard'
   if (role === 'counselor') return '/counselor/dashboard'
   if (role === 'user') return '/user/dashboard'
   // L-FE-6 修复：未知角色不默认跳转用户首页，返回 /403 拒绝访问

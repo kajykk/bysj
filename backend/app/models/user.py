@@ -8,6 +8,7 @@ from app.core.contracts import (
     DEFAULT_TENANT_ID,
     USER_ROLE_ADMIN,
     USER_ROLE_COUNSELOR,
+    USER_ROLE_SUPER_ADMIN,
     USER_ROLE_USER,
     USER_STATUS_ACTIVE,
     USER_STATUS_DELETED,
@@ -36,9 +37,9 @@ class User(Base):
         CheckConstraint("LENGTH(role) <= 20", name="ck_users_role_length"),
         CheckConstraint("LENGTH(status) <= 20", name="ck_users_status_length"),
         CheckConstraint("avatar_url IS NULL OR LENGTH(avatar_url) <= 500", name="ck_users_avatar_url_length"),
-        # P1-D-8: 枚举约束 - 防止权限提升 (role 只允许 user/admin/counselor)
+        # P1-D-8: 枚举约束 - 防止权限提升 (role 只允许 user/admin/counselor/super_admin)
         CheckConstraint(
-            f"role IN ('{USER_ROLE_USER}', '{USER_ROLE_ADMIN}', '{USER_ROLE_COUNSELOR}')",
+            f"role IN ('{USER_ROLE_USER}', '{USER_ROLE_ADMIN}', '{USER_ROLE_COUNSELOR}', '{USER_ROLE_SUPER_ADMIN}')",
             name="ck_users_role_values",
         ),
         # P1-D-8: 枚举约束 - status 只允许 active/inactive/deleted
