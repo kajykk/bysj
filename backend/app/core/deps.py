@@ -11,6 +11,7 @@ from app.core.cache import CacheUnavailableError
 from app.core.contracts import (
     USER_ROLE_ADMIN,
     USER_ROLE_COUNSELOR,
+    USER_ROLE_SUPER_ADMIN,
     USER_ROLE_USER,
     USER_STATUS_ACTIVE,
 )
@@ -23,6 +24,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 # MAINT-P1-003: 角色与状态字面量统一引用 contracts.py 契约常量 (Single Source of Truth)
 ROLE_HIERARCHY: dict[str, set[str]] = {
+    USER_ROLE_SUPER_ADMIN: {
+        USER_ROLE_SUPER_ADMIN,
+        USER_ROLE_ADMIN,
+        USER_ROLE_COUNSELOR,
+        USER_ROLE_USER,
+    },
     USER_ROLE_ADMIN: {USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_USER},
     USER_ROLE_COUNSELOR: {USER_ROLE_COUNSELOR},
     USER_ROLE_USER: {USER_ROLE_USER},
@@ -79,6 +86,12 @@ PERMISSION_MATRIX: dict[str, set[str]] = {
         "user.settings.manage",
     },
 }
+
+# 平台管理员 (super_admin): 平台级全量权限 = admin + counselor 权限并集.
+# 定义在 PERMISSION_MATRIX 之后, 便于引用前两个角色的集合字面量.
+PERMISSION_MATRIX[USER_ROLE_SUPER_ADMIN] = (
+    PERMISSION_MATRIX[USER_ROLE_ADMIN] | PERMISSION_MATRIX[USER_ROLE_COUNSELOR]
+)
 
 
 async def get_current_user(

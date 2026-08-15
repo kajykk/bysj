@@ -284,7 +284,7 @@ async def list_operation_logs(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     action_type: str | None = Query(default=None),
-    operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin)$"),
+    operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin|super_admin)$"),
     # SEC-FIX (M4): 操作员用户名模糊筛选
     operator_name: str | None = Query(default=None, max_length=64),
     start_time: datetime | None = Query(default=None),
@@ -308,7 +308,7 @@ async def export_operation_logs(
     current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     action_type: str | None = Query(default=None),
-    operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin)$"),
+    operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin|super_admin)$"),
     operator_name: str | None = Query(default=None, max_length=64),
     start_time: datetime | None = Query(default=None),
     end_time: datetime | None = Query(default=None),
@@ -333,7 +333,7 @@ async def list_audit_logs(
     action_types: list[str] | None = Query(
         default=None, description="按 action_type 过滤（可多个）"
     ),
-    operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin)$"),
+    operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin|super_admin)$"),
     target_type: str | None = Query(default=None, max_length=50),
     start_time: datetime | None = Query(default=None),
     end_time: datetime | None = Query(default=None),

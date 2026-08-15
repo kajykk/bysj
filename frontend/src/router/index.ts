@@ -81,7 +81,7 @@ const routes = [
       // User routes - lazy loaded
       { path: 'user/dashboard', alias: '/user/dashboard', component: () => import('@/views/user/UserDashboard.vue'), meta: { role: 'user', title: 'nav.user.home' } },
       { path: 'user/risk', alias: ['/user/risk', '/user/risk-report'], component: () => import('@/views/user/UserRiskPage.vue'), meta: { role: 'user', title: 'nav.user.risk' } },
-      { path: 'user/model-training', alias: '/user/model-training', component: () => import('@/views/user/UserModelTrainingPage.vue'), meta: { role: ['user', 'admin'], title: 'nav.user.modelTraining' } },
+      { path: 'user/model-training', alias: '/user/model-training', component: () => import('@/views/user/UserModelTrainingPage.vue'), meta: { role: ['user', 'admin', 'super_admin'], title: 'nav.user.modelTraining' } },
       { path: 'user/intervention', alias: '/user/intervention', component: () => import('@/views/user/UserInterventionPage.vue'), meta: { role: 'user', title: 'nav.user.intervention' } },
       { path: 'user/content', alias: ['/user/content', '/user/education'], component: () => import('@/views/user/UserContentPage.vue'), meta: { role: 'user', title: 'nav.user.content' } },
       { path: 'user/settings', alias: '/user/profile', component: () => import('@/views/user/UserSettingsPage.vue'), meta: { role: 'user', title: 'nav.user.settings', keepAlive: true } },
@@ -140,32 +140,32 @@ const routes = [
         meta: { role: 'counselor', permissions: ROUTE_PERMISSIONS.counselorReviews, title: 'nav.counselor.reviewDetail' }
       },
       // Admin routes - lazy loaded
-      { path: 'admin/dashboard', alias: '/admin/dashboard', component: () => import('@/views/admin/AdminDashboard.vue'), meta: { role: 'admin', title: 'nav.admin.home' } },
-      { path: 'admin/templates', alias: ['/admin/templates', '/admin/intervention-library'], component: () => import('@/views/admin/AdminTemplatesPage.vue'), meta: { role: 'admin', title: 'nav.admin.templates' } },
-      { path: 'admin/settings', alias: '/admin/settings', component: () => import('@/views/admin/AdminSettingsPage.vue'), meta: { role: 'admin', title: 'nav.admin.settings', keepAlive: true } },
+      { path: 'admin/dashboard', alias: '/admin/dashboard', component: () => import('@/views/admin/AdminDashboard.vue'), meta: { role: ['admin', 'super_admin'], title: 'nav.admin.home' } },
+      { path: 'admin/templates', alias: ['/admin/templates', '/admin/intervention-library'], component: () => import('@/views/admin/AdminTemplatesPage.vue'), meta: { role: ['admin', 'super_admin'], title: 'nav.admin.templates' } },
+      { path: 'admin/settings', alias: '/admin/settings', component: () => import('@/views/admin/AdminSettingsPage.vue'), meta: { role: ['admin', 'super_admin'], title: 'nav.admin.settings', keepAlive: true } },
       {
         path: 'admin/operation-logs',
         alias: '/admin/logs',
         component: () => import('@/views/admin/AdminOperationLogsPage.vue'),
-        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminOperationLogs, title: 'nav.admin.operationLogs' }
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminOperationLogs, title: 'nav.admin.operationLogs' }
       },
       {
         path: 'admin/crisis-events',
         alias: '/admin/crisis-events',
         component: () => import('@/views/admin/AdminCrisisEventsPage.vue'),
-        meta: { role: 'admin', title: 'nav.admin.crisisEvents' }
+        meta: { role: ['admin', 'super_admin'], title: 'nav.admin.crisisEvents' }
       },
       {
         path: 'admin/alerts',
         alias: '/admin/alerts',
         component: () => import('@/views/admin/AdminAlertsPage.vue'),
-        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminAlerts, title: 'nav.admin.alerts' }
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminAlerts, title: 'nav.admin.alerts' }
       },
       {
         path: 'admin/silences',
         alias: '/admin/silences',
         component: () => import('@/views/admin/AdminSilencesPage.vue'),
-        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminSilences, title: 'nav.admin.silences' }
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminSilences, title: 'nav.admin.silences' }
       },
       {
         path: 'user/reports',
@@ -177,25 +177,25 @@ const routes = [
         path: 'admin/reports',
         alias: '/admin/reports',
         component: () => import('@/views/admin/AdminReportsPage.vue'),
-        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminReports, title: 'nav.admin.reports' }
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminReports, title: 'nav.admin.reports' }
       },
       {
         path: 'admin/observability',
         alias: '/admin/observability',
         component: () => import('@/views/admin/AdminObservabilityPage.vue'),
-        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminObservability, title: 'nav.admin.observability' }
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminObservability, title: 'nav.admin.observability' }
       },
       {
         path: 'admin/monitoring',
         alias: '/admin/monitoring',
         component: () => import('@/views/admin/AdminMonitoringPage.vue'),
-        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminMonitoring, title: 'nav.admin.monitoring' }
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminMonitoring, title: 'nav.admin.monitoring' }
       },
       {
         path: 'admin/canary',
         alias: '/admin/canary',
         component: () => import('@/views/admin/AdminCanaryPage.vue'),
-        meta: { role: 'admin', permissions: ROUTE_PERMISSIONS.adminCanary, title: 'nav.admin.canary' }
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminCanary, title: 'nav.admin.canary' }
       },
       // Common routes
       { path: 'forbidden', alias: '/403', component: () => import('@/views/common/ForbiddenPage.vue') }

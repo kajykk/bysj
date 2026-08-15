@@ -50,7 +50,7 @@ const authStore = useAuthStore()
 // admin 角色补充专属导航项，原仅 user/counselor 共用 5 项
 const navItems = computed(() => {
   const role = authStore.role
-  if (role === 'admin') {
+  if (role === 'admin' || role === 'super_admin') {
     return [
       { path: '/admin/dashboard', icon: DataLine, label: 'nav.admin.home' },
       { path: '/admin/crisis-events', icon: Warning, label: 'nav.admin.crisisEvents' },

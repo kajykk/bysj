@@ -114,6 +114,7 @@ export default {
     themeSwitchedTitle: '主题已切换'
   },
   role: {
+    superAdmin: '超级管理员',
     admin: '管理员',
     counselor: '咨询师',
     user: '普通用户'
@@ -449,6 +450,7 @@ export default {
       deleteFailed: '删除失败'
     },
     roles: {
+      superAdmin: '超级管理员',
       admin: '管理员',
       counselor: '咨询师',
       user: '普通用户'

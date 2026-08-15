@@ -48,6 +48,14 @@
           {{ t('role.admin') }}
         </div>
       </div>
+      <div class="stat-tile stat-tile--super-admin">
+        <div class="stat-value">
+          {{ stats.superAdmin }}
+        </div>
+        <div class="stat-label">
+          {{ t('role.superAdmin') }}
+        </div>
+      </div>
     </div>
   </el-card>
 </template>
@@ -66,7 +74,8 @@ const stats = reactive({
   total: 0,
   user: 0,
   counselor: 0,
-  admin: 0
+  admin: 0,
+  superAdmin: 0
 })
 
 const loadStats = async () => {
@@ -79,6 +88,7 @@ const loadStats = async () => {
     stats.user = items.filter((i) => i.operator_role === 'user').length
     stats.counselor = items.filter((i) => i.operator_role === 'counselor').length
     stats.admin = items.filter((i) => i.operator_role === 'admin').length
+    stats.superAdmin = items.filter((i) => i.operator_role === 'super_admin').length
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {
@@ -126,6 +136,10 @@ onMounted(loadStats)
   border-left-color: var(--danger-color);
 }
 
+.stat-tile--super-admin {
+  border-left-color: var(--primary-color);
+}
+
 .stat-value {
   font-size: var(--font-size-stat);
   font-weight: var(--font-weight-bold);
@@ -143,6 +157,10 @@ onMounted(loadStats)
 
 .stat-tile--admin .stat-value {
   color: var(--danger-color);
+}
+
+.stat-tile--super-admin .stat-value {
+  color: var(--primary-color);
 }
 
 .stat-label {

@@ -444,3 +444,59 @@ class TestPlatformAdminSplit:
             headers={**auth_headers, "X-Tenant-ID": "1"},
         )
         assert response.status_code == 403
+
+    def test_super_admin_can_access_platform_endpoints(
+        self, client, auth_headers, as_role
+    ):
+        """平台管理员 (super_admin, 默认租户) 访问 /admin/dashboard → 200."""
+        as_role("super_admin", 1, tenant_id=1)
+        response = client.get(
+            "/api/v1/admin/dashboard",
+            headers={**auth_headers, "X-Tenant-ID": "1"},
+        )
+        assert response.status_code == 200
+
+    def test_super_admin_non_default_tenant_blocked(
+        self, client, auth_headers, as_role
+    ):
+        """super_admin 位于非默认租户 → 403 (平台管理员必须属于平台租户)."""
+        as_role("super_admin", 1, tenant_id=2)
+        response = client.get(
+            "/api/v1/admin/dashboard",
+            headers={**auth_headers, "X-Tenant-ID": "2"},
+        )
+        assert response.status_code == 403
+        assert "仅平台管理员" in response.json()["message"]
+
+    def test_super_admin_requiring_admin_role_endpoint(
+        self, client, auth_headers, as_role
+    ):
+        """super_admin 通过 require_role("admin") 端点 (层级含 admin) → 200."""
+        as_role("super_admin", 1, tenant_id=1)
+        response = client.get(
+            "/api/v1/admin/metrics-summary",
+            headers={**auth_headers, "X-Tenant-ID": "1"},
+        )
+        assert response.status_code == 200
+
+
+class TestSuperAdminRoleMatrix:
+    """super_admin 角色在权限矩阵中的位置 (单元级)."""
+
+    def test_hierarchy_includes_admin(self):
+        """ROLE_HIERARCHY[super_admin] 应覆盖 admin/counselor/user."""
+        from app.core.deps import ROLE_HIERARCHY
+
+        assert ROLE_HIERARCHY["super_admin"] >= {"admin", "counselor", "user"}
+
+    def test_permission_matrix_superset_of_admin(self):
+        """PERMISSION_MATRIX[super_admin] ⊇ PERMISSION_MATRIX[admin]."""
+        from app.core.deps import PERMISSION_MATRIX
+
+        assert PERMISSION_MATRIX["super_admin"] >= PERMISSION_MATRIX["admin"]
+
+    def test_role_in_contracts_enum(self):
+        """USER_ROLES 契约枚举应包含 super_admin."""
+        from app.core.contracts import USER_ROLES
+
+        assert "super_admin" in USER_ROLES

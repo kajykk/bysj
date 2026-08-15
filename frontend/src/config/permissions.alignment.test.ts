@@ -23,6 +23,12 @@ describe('alignment permissions', () => {
     expect(admin).toContain('admin.predict.audit')
     expect(admin).toContain('admin.alerts.view')
   })
+  it('super_admin 角色覆盖 admin ∪ counselor 权限', () => {
+    // 与后端 PERMISSION_MATRIX[super_admin] = admin ∪ counselor 对齐
+    for (const perm of [...ROLE_PERMISSIONS.admin, ...ROLE_PERMISSIONS.counselor]) {
+      expect(ROLE_PERMISSIONS.super_admin).toContain(perm)
+    }
+  })
   it('user 角色含 user.export.risk', () => {
     expect(ROLE_PERMISSIONS.user).toContain('user.export.risk')
   })

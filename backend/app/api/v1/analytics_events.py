@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.rate_limit import get_real_client_ip
@@ -241,7 +242,7 @@ async def query_events(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """查询已存储的分析事件（仅管理员）."""
-    if current_user.role != "admin":
+    if current_user.role not in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN):
         raise HTTPException(status_code=403, detail="仅管理员可查询分析事件")
 
     # 清理过期事件

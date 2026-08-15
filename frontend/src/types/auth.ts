@@ -11,7 +11,7 @@
 export interface UserInfo {
   id: number
   username: string
-  role: 'user' | 'counselor' | 'admin'
+  role: 'user' | 'counselor' | 'admin' | 'super_admin'
   nickname?: string
   email?: string
 }

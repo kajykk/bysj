@@ -200,7 +200,7 @@ const faqList = computed(() => {
     { q: t('help.faq.q5'), a: t('help.faq.a5') },
     { q: t('help.faq.q6'), a: t('help.faq.a6') },
   ]
-  const roleKey = authStore.role === 'admin' ? 'help.faqAdmin'
+  const roleKey = authStore.role === 'admin' || authStore.role === 'super_admin' ? 'help.faqAdmin'
     : authStore.role === 'counselor' ? 'help.faqCounselor'
     : 'help.faqUser'
   const roleFaq = [

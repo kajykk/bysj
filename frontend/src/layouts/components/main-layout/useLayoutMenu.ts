@@ -39,6 +39,20 @@ export interface MenuSection {
   items: MenuItem[]
 }
 
+const adminMenus: MenuItem[] = [
+  { titleKey: 'nav.admin.home', path: '/admin/dashboard', icon: HomeFilled, tourTarget: 'admin-dashboard' },
+  { titleKey: 'nav.admin.templates', path: '/admin/templates', icon: Document },
+  { titleKey: 'nav.admin.settings', path: '/admin/settings', icon: Setting },
+  { titleKey: 'nav.admin.operationLogs', path: '/admin/operation-logs', icon: Reading },
+  { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: Bell },
+  { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell },
+  { titleKey: 'nav.admin.crisisEvents', path: '/admin/crisis-events', icon: Warning },
+  { titleKey: 'nav.admin.reports', path: '/admin/reports', icon: Document },
+  { titleKey: 'nav.admin.observability', path: '/admin/observability', icon: DataLine, tourTarget: 'admin-observability' },
+  { titleKey: 'nav.admin.monitoring', path: '/admin/monitoring', icon: Monitor },
+  { titleKey: 'nav.admin.canary', path: '/admin/canary', icon: Promotion }
+]
+
 const roleMenus: Record<string, MenuItem[]> = {
   user: [
     { titleKey: 'nav.user.home', path: '/user/dashboard', icon: HomeFilled, tourTarget: 'user-dashboard' },
@@ -58,19 +72,9 @@ const roleMenus: Record<string, MenuItem[]> = {
     { titleKey: 'nav.counselor.reviews', path: '/counselor/reviews', icon: ChatLineRound },
     { titleKey: 'nav.counselor.settings', path: '/counselor/settings', icon: Setting }
   ],
-  admin: [
-    { titleKey: 'nav.admin.home', path: '/admin/dashboard', icon: HomeFilled, tourTarget: 'admin-dashboard' },
-    { titleKey: 'nav.admin.templates', path: '/admin/templates', icon: Document },
-    { titleKey: 'nav.admin.settings', path: '/admin/settings', icon: Setting },
-    { titleKey: 'nav.admin.operationLogs', path: '/admin/operation-logs', icon: Reading },
-    { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: Bell },
-    { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell },
-    { titleKey: 'nav.admin.crisisEvents', path: '/admin/crisis-events', icon: Warning },
-    { titleKey: 'nav.admin.reports', path: '/admin/reports', icon: Document },
-    { titleKey: 'nav.admin.observability', path: '/admin/observability', icon: DataLine, tourTarget: 'admin-observability' },
-    { titleKey: 'nav.admin.monitoring', path: '/admin/monitoring', icon: Monitor },
-    { titleKey: 'nav.admin.canary', path: '/admin/canary', icon: Promotion }
-  ]
+  admin: adminMenus,
+  // 平台管理员 (super_admin): 与 admin 共用平台级菜单
+  super_admin: adminMenus
 }
 
 export function useLayoutMenu() {
@@ -99,6 +103,7 @@ export function useLayoutMenu() {
   const activePath = computed(() => route.path)
 
   const roleLabel = computed(() => {
+    if (auth.role === 'super_admin') return t('role.superAdmin')
     if (auth.role === 'admin') return t('role.admin')
     if (auth.role === 'counselor') return t('role.counselor')
     return t('role.user')

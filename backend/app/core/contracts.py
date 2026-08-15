@@ -98,12 +98,13 @@ ACTION_TYPE_WARNING_ESCALATE = "warning_escalate"
 # =========================================================================
 # 4. 用户角色 (User Role) — 集中 deps.py/models/user.py 散落的 inline 字符串
 # =========================================================================
+USER_ROLE_SUPER_ADMIN = "super_admin"
 USER_ROLE_ADMIN = "admin"
 USER_ROLE_COUNSELOR = "counselor"
 USER_ROLE_USER = "user"
 
 USER_ROLES: frozenset[str] = frozenset(
-    {USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_USER}
+    {USER_ROLE_SUPER_ADMIN, USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_USER}
 )
 
 
@@ -217,6 +218,7 @@ __all__ = [
     "ACTION_TYPE_WARNING_READ_ALL",
     "ACTION_TYPE_WARNING_ESCALATE",
     # 用户角色
+    "USER_ROLE_SUPER_ADMIN",
     "USER_ROLE_ADMIN",
     "USER_ROLE_COUNSELOR",
     "USER_ROLE_USER",

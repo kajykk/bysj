@@ -44,12 +44,13 @@ class TestUserEnumConstraints:
         assert "ck_users_role_values" in constraints
 
     def test_user_role_values_constraint_content(self) -> None:
-        """role 约束应只允许 user/admin/counselor."""
+        """role 约束应只允许 user/admin/counselor/super_admin."""
         constraints = _get_check_constraints(User.__table__)
         sqltext = constraints.get("ck_users_role_values", "")
         assert "user" in sqltext
         assert "admin" in sqltext
         assert "counselor" in sqltext
+        assert "super_admin" in sqltext
 
     def test_user_status_values_constraint_exists(self) -> None:
         """User 应有 status 枚举约束."""

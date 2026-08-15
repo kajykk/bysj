@@ -28,6 +28,7 @@ from app.core.contracts import (
     DEFAULT_TENANT_ID,
     TENANT_STATUS_SUSPENDED,
     USER_ROLE_ADMIN,
+    USER_ROLE_SUPER_ADMIN,
 )
 from app.core.database import get_db
 from app.core.deps import ROLE_HIERARCHY, get_current_user
@@ -279,7 +280,7 @@ def require_role_tenant_scoped(*roles: str):
 
 
 def require_platform_admin():
-    """平台级管理员依赖: 仅允许平台默认租户 (DEFAULT_TENANT_ID) 的 admin.
+    """平台级管理员依赖: 仅允许平台默认租户 (DEFAULT_TENANT_ID) 的 admin/super_admin.
 
     与 ``require_role_tenant_scoped("admin")`` 的区别:
     后者只校验"请求租户 == 用户租户", 未来多租户部署时, 租户 B 的 admin
@@ -287,6 +288,8 @@ def require_platform_admin():
     (模板/模型注册/操作日志/全局配置/导出等).
 
     本依赖在角色校验基础上再限定: 用户必须属于平台默认租户.
+    super_admin 为平台管理员 (平台级角色); admin 为租户管理员, 仅当
+    其位于平台默认租户 (单租户部署现状) 时视为平台管理员, 向后兼容.
 
     防御场景: 租户 B 的 admin 伪造 X-Tenant-ID: B 头调用 /api/v1/admin/* 全局端点.
     """
@@ -294,13 +297,13 @@ def require_platform_admin():
         request: Request,
         current_user: Annotated[User, Depends(get_current_user)],
     ) -> User:
-        # 1. 角色校验: 仅 admin 角色可进入平台级端点
+        # 1. 角色校验: admin/super_admin 可进入平台级端点
         if current_user.role not in ROLE_HIERARCHY:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
             )
         effective = ROLE_HIERARCHY[current_user.role]
-        if not effective.intersection({USER_ROLE_ADMIN}):
+        if not effective.intersection({USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN}):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
             )

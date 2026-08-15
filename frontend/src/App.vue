@@ -28,7 +28,7 @@ watch(
   () => auth.role,
   (role) => {
     if (typeof document === 'undefined') return
-    if (role && ['user', 'counselor', 'admin'].includes(role)) {
+    if (role && ['user', 'counselor', 'admin', 'super_admin'].includes(role)) {
       document.body.dataset.role = role
     } else {
       delete document.body.dataset.role

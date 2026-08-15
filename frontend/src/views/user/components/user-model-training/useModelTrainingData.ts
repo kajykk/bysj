@@ -22,9 +22,9 @@ const MAX_POLL_ATTEMPTS = 60
 export function useModelTrainingData() {
   const { t } = useI18n()
   const router = useRouter()
-  // ISS-041 修复：引入 auth store 判断角色，仅 admin 可运行训练流水线
+  // ISS-041 修复：引入 auth store 判断角色，仅 admin/super_admin 可运行训练流水线
   const authStore = useAuthStore()
-  const canTrain = computed(() => authStore.role === 'admin')
+  const canTrain = computed(() => authStore.role === 'admin' || authStore.role === 'super_admin')
   const statusLoading = ref(false)
   const modelStatusLoadedAt = ref(t('userModelTraining.notLoaded'))
   const modelStatus = reactive<ModelStatusResult>({

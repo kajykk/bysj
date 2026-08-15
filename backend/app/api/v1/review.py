@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN
 from app.core.database import get_db
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
@@ -276,7 +277,7 @@ async def resolve_review(
             review_id,
             current_user.id,
             payload.resolution_note,
-            is_admin=current_user.role == "admin",
+            is_admin=current_user.role in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN),
         )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:
@@ -310,7 +311,7 @@ async def escalate_review(
             review_id,
             current_user.id,
             payload.reason,
-            is_admin=current_user.role == "admin",
+            is_admin=current_user.role in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN),
         )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:

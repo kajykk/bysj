@@ -70,6 +70,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 
 const roleLabel = computed(() => {
+  if (auth.role === 'super_admin') return t('userSettings.roles.superAdmin')
   if (auth.role === 'admin') return t('userSettings.roles.admin')
   if (auth.role === 'counselor') return t('userSettings.roles.counselor')
   return t('userSettings.roles.user')

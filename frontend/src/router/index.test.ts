@@ -242,18 +242,24 @@ describe('Router - index.ts 集成测试', () => {
       expect(dash?.meta?.role).toBe('counselor')
     })
 
-    it('admin 路由应配置 role=admin', () => {
+    it('admin 路由应配置 role=[admin, super_admin]', () => {
       const root = router.options.routes.find((r) => r.path === '/')
       const dash = root?.children?.find((c) => c.path === 'admin/dashboard')
-      expect(dash?.meta?.role).toBe('admin')
+      expect(dash?.meta?.role).toEqual(['admin', 'super_admin'])
     })
 
     it('admin/operation-logs 应同时配置 role 和 permissions', () => {
       const root = router.options.routes.find((r) => r.path === '/')
       const logs = root?.children?.find((c) => c.path === 'admin/operation-logs')
-      expect(logs?.meta?.role).toBe('admin')
+      expect(logs?.meta?.role).toEqual(['admin', 'super_admin'])
       expect(logs?.meta?.title).toBe('nav.admin.operationLogs')
       expect(Array.isArray(logs?.meta?.permissions)).toBe(true)
+    })
+
+    it('user/model-training 应包含 user/admin/super_admin 三角色', () => {
+      const root = router.options.routes.find((r) => r.path === '/')
+      const mt = root?.children?.find((c) => c.path === 'user/model-training')
+      expect(mt?.meta?.role).toEqual(['user', 'admin', 'super_admin'])
     })
 
     it('forbidden 路由应支持 /403 alias', () => {
