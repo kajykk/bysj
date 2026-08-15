@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.ext.compiler import compiles
@@ -34,8 +35,6 @@ def _naive_utc(dt: "datetime | None") -> "datetime | None":
     覆盖 observability 主端点 (经 _validate_time_range)、grafana_adapter
     直连 _compute_*、以及测试直接调用等所有路径。
     """
-    from datetime import timezone
-
     if dt is None:
         return None
     if dt.tzinfo is None:
