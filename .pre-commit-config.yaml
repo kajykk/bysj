@@ -76,8 +76,9 @@ repos:
         types: [file]
 
 # ===== 全局配置 =====
+# SEC-FIX (P2): python 3.12 与 CI (workflows 统一 python-version: '3.12') 对齐
 default_language_version:
-  python: python3.11
+  python: python3.12
 
 # 排除目录 (不需要检查的文件)
 exclude: |
