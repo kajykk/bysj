@@ -26,6 +26,13 @@ repos:
       - id: check-docstring-first
         name: 确保 docstring 在文件开头
 
+  # ===== 密钥泄漏扫描 (P0-1 修复的缺口: 无此钩子时硬编码 token 可穿过所有钩子) =====
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: Gitleaks 密钥泄漏扫描
+
   # ===== Backend: Ruff (lint + format) =====
   # MAINT-P3-003: ruff 替代 black + isort + flake8, 统一 Python 代码风格
   - repo: https://github.com/astral-sh/ruff-pre-commit

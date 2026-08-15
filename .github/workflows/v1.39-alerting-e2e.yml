@@ -23,6 +23,10 @@ on:
       - '.github/workflows/v1.39-alerting-e2e.yml'
   workflow_dispatch:
 
+# SEC-FIX (P2): 最小权限声明
+permissions:
+  contents: read
+
 jobs:
   alerting-e2e:
     name: v1.39 Alerting E2E

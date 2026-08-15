@@ -5,6 +5,10 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
+# SEC-FIX (P2): 最小权限声明 (lint/测试/构建/覆盖率上传均只需读仓库内容)
+permissions:
+  contents: read
+
 jobs:
   sklearn-compat-check:
     name: sklearn & Model Compatibility
@@ -201,7 +205,8 @@ jobs:
         working-directory: backend
         run: |
           # MAINT-P3-002: --maxfail=1 fail-fast, 第一个失败即停止避免吞掉错误
-          # MAINT-P3-001: 覆盖率门禁 40% → 50% 统一 (略高于基线 46.13%, 渐进提升路线图: 50% → 60% → 70% → 85%)
+          # CI-AUDIT-03: 门禁分工——本 job 跑 unit+integration 子集, 门禁 50% (快速反馈);
+          # coverage.yml 跑全量测试 (除 contract), 全仓基线门禁 40%。单一路线图: 50% → 60% → 70% → 85%
           pytest tests/ -m "unit or integration" \
             --maxfail=1 \
             --cov=app \
@@ -211,7 +216,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        # SEC-FIX (P2): 钉到 commit SHA (v5 -> 0fb7174)
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
           files: backend/coverage.xml
           flags: backend

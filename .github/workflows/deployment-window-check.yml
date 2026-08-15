@@ -15,6 +15,10 @@ on:
         type: boolean
         default: false
 
+# SEC-FIX (P2): 最小权限声明
+permissions:
+  contents: read
+
 jobs:
   check-deployment-window:
     name: Check Deployment Window (STAB-P2-007)

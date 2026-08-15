@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+# SEC-FIX (P2): 最小权限声明
+permissions:
+  contents: read
+
 jobs:
   e2e-test:
     name: E2E Full Stack

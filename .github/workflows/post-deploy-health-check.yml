@@ -14,6 +14,10 @@ on:
         type: boolean
         default: false
 
+# SEC-FIX (P2): 最小权限声明
+permissions:
+  contents: read
+
 jobs:
   health-check:
     runs-on: ubuntu-latest
