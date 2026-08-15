@@ -34,9 +34,15 @@ if [ ! -f "${SRC_DIR}/contact-points.yaml" ]; then
 fi
 
 mkdir -p "$DST_DIR"
-if [ ! -f "$TARGET" ]; then
-  cp "${SRC_DIR}/contact-points.yaml" "$TARGET"
-fi
+# H-AUDIT-01 修复: 供给目录整体入卷 (rules/policies/mute-timings 与
+# contact-points 同级, 只拷 contact-points 会导致规则/策略不装载)
+for f in "${SRC_DIR}"/*; do
+  [ -f "$f" ] || continue
+  dest="${DST_DIR}/$(basename "$f")"
+  if [ ! -f "$dest" ]; then
+    cp "$f" "$dest"
+  fi
+done
 
 WEBHOOK_URL="${ALERT_WEBHOOK_URL:-http://backend:8000/api/v1/alerts/webhook}"
 WEBHOOK_SECRET="${ALERTMANAGER_WEBHOOK_SECRET:-dev-only-webhook-secret}"
