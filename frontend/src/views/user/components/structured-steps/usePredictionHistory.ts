@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import type { StructuredCollectResult } from '@/api/userRiskApi'
 import { sanitizeCellForExcel } from '@/utils/exportUtils'
+import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 import { formatWarningGenerated } from './sharedStepUtils'
 
 export type PredictionHistoryEntry = StructuredCollectResult & { time: string }
@@ -13,26 +14,9 @@ export function usePredictionHistory() {
   const auth = useAuthStore()
 
   // ISS-058 修复：匿名用户（id=0 或未登录）使用会话级随机 ID，避免共享 localStorage 导致历史相互覆盖
-  const anonSessionId = (() => {
-    const key = 'structured_anon_session_id'
-    try {
-      let id = sessionStorage.getItem(key)
-      if (!id) {
-        id = 'anon_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-        sessionStorage.setItem(key, id)
-      }
-      return id
-    } catch {
-      // sessionStorage 不可用时回退到内存随机 ID
-      return 'anon_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-    }
-  })()
-
-  const historyKey = (base: string) => {
-    const userId = auth.user?.id
-    if (userId && userId > 0) return `${base}_u${userId}`
-    return `${base}_${anonSessionId}`
-  }
+  // SEC-FIX (H4 补强): 统一走 sensitiveStorage.historyKeyWithUser 生成 key,
+  // 保证 clearSensitiveLocalStorage 的清理模式覆盖所有匿名/登录 key
+  const historyKey = (base: string) => historyKeyWithUser(base, auth.user?.id)
 
   const PREDICTION_HISTORY_KEY = historyKey('prediction_history_v1')
 

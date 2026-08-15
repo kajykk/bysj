@@ -163,6 +163,26 @@ describe('i18n 语言包完整性测试（T-306）', () => {
       }
       expect(placeholders).toEqual([])
     })
+
+    it('所有消息不应包含未转义的花括号（JSON 示例等需用字面量转义语法，避免 vue-i18n 编译错误）', () => {
+      // {name} 命名占位符 与 {''} 字面量转义 为合法语法，其余裸花括号会导致编译失败
+      const stripValid = (msg: string) =>
+        msg
+          .replace(/\{\s*[\w.:@+-]+\s*\}/g, 'XX')
+          .replace(/\{'(?:\\'|[^'])*'\}/g, 'X')
+      const invalid: string[] = []
+      for (const [path, value] of getEntries(zhCNObj)) {
+        if (typeof value === 'string' && (stripValid(value).includes('{') || stripValid(value).includes('}'))) {
+          invalid.push(`zh-CN: ${path}`)
+        }
+      }
+      for (const [path, value] of getEntries(enUSObj)) {
+        if (typeof value === 'string' && (stripValid(value).includes('{') || stripValid(value).includes('}'))) {
+          invalid.push(`en-US: ${path}`)
+        }
+      }
+      expect(invalid).toEqual([])
+    })
   })
 
   describe('4. 翻译内容差异验证（防止未翻译直接复制）', () => {

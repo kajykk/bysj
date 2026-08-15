@@ -206,7 +206,11 @@ const handleLogout = async () => {
     return
   }
   wsClient.disconnect()
-  await auth.logout()
+  try {
+    await auth.logout()
+  } catch {
+    // SEC-FIX (H1): 拦截器不再对业务错误弹提示, 登出失败也静默 (本地态已在 finally 中清除)
+  }
   await router.push('/login')
 }
 </script>

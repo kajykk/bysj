@@ -12,7 +12,10 @@ let sentryModule: SentryModule | null = null
 export function initSentry(app: App, router: Router): Promise<void> {
   const dsn = import.meta.env.VITE_SENTRY_DSN
   if (!dsn) {
-    console.warn('Sentry DSN not configured')
+    // 开发环境未配置 DSN 属正常现象，静默避免控制台噪音；生产环境缺失需提示
+    if (!import.meta.env.DEV) {
+      console.warn('Sentry DSN not configured')
+    }
     return Promise.resolve()
   }
 

@@ -332,6 +332,7 @@ import type { TextAnalyzeResult } from '@/api/userRiskApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { sanitizeCellForExcel } from '@/utils/exportUtils'
+import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 
 interface Props {
   canUse: boolean
@@ -346,7 +347,9 @@ const { t } = useI18n()
 const auth = useAuthStore()
 let isUnmounted = false
 
-const historyKey = (base: string) => `${base}_u${auth.user?.id ?? 0}`
+// SEC-FIX (H4 补强): 匿名用户不再共享 `_u0` key (互相覆盖/可读),
+// 改为会话级隔离, 且与 clearSensitiveLocalStorage 清理模式对齐
+const historyKey = (base: string) => historyKeyWithUser(base, auth.user?.id)
 const TEXT_PREDICTION_HISTORY_KEY = historyKey('text_prediction_history_v1')
 
 const textForm = reactive({
@@ -356,6 +359,12 @@ const textSubmitting = ref(false)
 const textPredictSubmitting = ref(false)
 const textResult = ref<TextAnalyzeResult | null>(null)
 const textPredictResult = ref<TextPredictModelResult | null>(null)
+// SEC-FIX (M8): 提交成功后清空输入, 避免误触重复提交
+const resetTextForm = () => {
+  textForm.content = ''
+  textForm.emotion_tags = []
+  textForm.mood_score = 3
+}
 // ISS-017 修复：历史记录增加 source 字段，区分文本分析伪造记录与真实模型预测记录
 const textPredictionHistory = ref<Array<TextPredictModelResult & { time: string; content_preview: string; source: 'text' | 'model' }>>([])
 
@@ -442,6 +451,8 @@ const submitText = async () => {
     if (!isUnmounted) {
       emit('submitted', { text: textForm.content.trim() })
     }
+    // SEC-FIX (M8): 提交成功后重置输入 (emit 在重置前, 确保父组件拿到原文)
+    resetTextForm()
   } catch (error) {
     ElMessage.error(normalizeHttpError(error, t('textAssess.analyzeFailed')).detail)
   } finally {
@@ -469,6 +480,8 @@ const submitTextPredict = async () => {
     saveTextPredictionHistory()
 
     ElMessage.success(t('textAssess.predictSuccess'))
+    // SEC-FIX (M8): 提交成功后重置输入
+    resetTextForm()
   } catch (error) {
     ElMessage.error(normalizeHttpError(error, t('textAssess.predictFailed')).detail)
   } finally {

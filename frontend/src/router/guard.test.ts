@@ -44,4 +44,18 @@ describe('resolveGuardResult', () => {
       )
     ).toBe(true)
   })
+
+  it('allows array roles when any matches (SEC-FIX H5)', () => {
+    // /user/model-training: user 与 admin 均可访问
+    expect(
+      resolveGuardResult('/user/model-training', { role: ['user', 'admin'] }, { isLoggedIn: true, role: 'user' })
+    ).toBe(true)
+    expect(
+      resolveGuardResult('/user/model-training', { role: ['user', 'admin'] }, { isLoggedIn: true, role: 'admin' })
+    ).toBe(true)
+    // counselor 不在白名单 -> forbidden
+    expect(
+      resolveGuardResult('/user/model-training', { role: ['user', 'admin'] }, { isLoggedIn: true, role: 'counselor' })
+    ).toBe('/forbidden')
+  })
 })

@@ -151,7 +151,7 @@
                 size="small"
                 class="tag-inline"
               >
-                {{ reason }}
+                {{ featureLabel(reason) }}
               </el-tag>
               <span v-if="!fusionResult.review_triggers?.length">{{ t('userRisk.notAvailable') }}</span>
             </el-descriptions-item>
@@ -210,9 +210,8 @@
         />
       </el-tab-pane>
     </el-tabs>
-  </div>
 
-  <!-- 危机预警弹窗 -->
+    <!-- 危机预警弹窗 -->
   <el-dialog
     v-model="crisisDialogVisible"
     :title="t('crisis.dialogTitle')"
@@ -293,6 +292,7 @@
       </el-button>
     </template>
   </el-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -306,7 +306,7 @@ import { userApi } from '@/api/userApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { hasPermission } from '@/config/permissions'
-import { severityFromLevel, formatArrayText } from '@/utils/riskFormatters'
+import { severityFromLevel, formatArrayText, featureLabel } from '@/utils/riskFormatters'
 import { useAnalytics } from '@/composables/useAnalytics'
 import RiskReportTab from './components/RiskReportTab.vue'
 import StructuredAssessTab from './components/StructuredAssessTab.vue'

@@ -64,6 +64,7 @@ import { nextTick, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { echarts, type ECharts } from '@/utils/echarts'
 import { subscribeResize } from '@/utils/sharedResize'
+import { initChartWhenReady, type ChartInitHandle } from '@/utils/chartInit'
 import { readChartVar } from '@/utils/chartTheme'
 import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -88,10 +89,14 @@ const { t } = useI18n()
 
 const trendChartRef = ref<HTMLElement>()
 let trendChart: ECharts | null = null
+// SEC-FIX (P1-6): 记录 init 句柄, 卸载时取消未完成的重试链
+let trendInitHandle: ChartInitHandle | null = null
 // R-009 修复：使用 subscribeResize 共享全局节流 resize 监听，避免独立注册
 let unsubscribeTrendResize: (() => void) | null = null
 
 const disposeTrendChart = () => {
+  trendInitHandle?.cancel()
+  trendInitHandle = null
   unsubscribeTrendResize?.()
   unsubscribeTrendResize = null
   trendChart?.dispose()
@@ -101,9 +106,19 @@ const disposeTrendChart = () => {
 const renderTrendChart = () => {
   if (!trendChartRef.value) return
   if (!trendChart) {
-    trendChart = echarts.init(trendChartRef.value)
-    // R-009 修复：通过 subscribeResize 注册共享监听
-    unsubscribeTrendResize = subscribeResize(() => trendChart?.resize())
+    // 容器尺寸就绪后才 init（避免 0 尺寸初始化警告）；就绪后回调内再次渲染主体
+    trendInitHandle = initChartWhenReady(trendChartRef.value, {}, (instance) => {
+      // SEC-FIX (P1-6): 已存在实例 (重复 init 竞态) → 释放新实例
+      if (trendChart) {
+        instance.dispose()
+        return
+      }
+      trendChart = instance
+      // R-009 修复：通过 subscribeResize 注册共享监听
+      unsubscribeTrendResize = subscribeResize(() => trendChart?.resize())
+      renderTrendChart()
+    })
+    return
   }
   const points = props.riskTrend.points
 

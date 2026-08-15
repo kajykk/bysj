@@ -343,6 +343,8 @@ const submitStructured = async () => {
         structuredFormData: { ...structuredForm }
       })
     }
+    // SEC-FIX (M8): 提交成功后重置表单 (emit 在重置前, 确保父组件拿到原表单数据)
+    resetStructuredForm()
   } catch (error) {
     ElMessage.error(normalizeHttpError(error, t('structuredAssess.submitFailed')).detail)
   } finally {

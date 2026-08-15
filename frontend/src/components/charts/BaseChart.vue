@@ -27,7 +27,8 @@ import { useI18n } from 'vue-i18n'
 // ISS-097 已修复：图表容器已具备 role="img" 与 aria-label（默认值取自 i18n charts.baseAriaLabel）
 // ISS-098 TODO：复杂多系列图表可补充 aria-describedby 关联数据摘要文本，提升屏幕阅读器信息完整性
 // ISS-100 已修复：图表容器已具备 role="img" 与 aria-label，并支持键盘 Enter/Space 触发 highlight
-import { echarts, type ECharts, type EChartsCoreOption } from '@/utils/echarts'
+import { type ECharts, type EChartsCoreOption } from '@/utils/echarts'
+import { initChartWhenReady, type ChartInitHandle } from '@/utils/chartInit'
 
 const { t } = useI18n()
 
@@ -81,33 +82,55 @@ const hasDescription = computed(() => Boolean(props.description))
 
 const validExportTypes = ['png', 'svg', 'jpeg'] as const
 
+// SEC-FIX (P1-6): 记录 init 句柄, disposeChart 时 cancel 未完成的重试链,
+// 防止对已卸载 DOM 创建无人 dispose 的"僵尸" ECharts 实例
+let initHandle: ChartInitHandle | null = null
+
 const initChart = () => {
   if (!chartRef.value) return
+  if (chartInstance.value) return
+  if (initHandle) return
+  // 容器尺寸就绪后才 init，避免 tab 切换/布局未稳定时 0 尺寸初始化警告
+  initHandle = initChartWhenReady(chartRef.value, { theme: props.theme }, (instance) => {
+    // SEC-FIX (P1-6): 极端竞态下回调到达时组件已卸载 → 立即释放实例
+    if (!chartRef.value) {
+      instance.dispose()
+      return
+    }
+    // SEC-FIX (P2-6): 幂等防护——重复 init 不重复 emit/注册 ResizeObserver
+    if (chartInstance.value) {
+      instance.dispose()
+      return
+    }
+    initHandle = null
+    chartInstance.value = instance
+    // L-07 修复：处理空 option，避免渲染空白图表
+    if (props.option && Object.keys(props.option).length > 0) {
+      instance.setOption(props.option, true)
+    }
+    emit('chartReady', instance)
 
-  chartInstance.value = echarts.init(chartRef.value, props.theme)
-  // L-07 修复：处理空 option，避免渲染空白图表
-  if (props.option && Object.keys(props.option).length > 0) {
-    chartInstance.value.setOption(props.option, true)
-  }
-  emit('chartReady', chartInstance.value)
-
-  // 响应式调整
-  if (props.autoResize) {
-    resizeObserver.value = new ResizeObserver(() => {
-      // R-009 修复：ResizeObserver 在布局变化时高频回调（含 sidebar 折叠、flex 变化等），
-      // 直接调用 chart.resize() 会同步触发 ECharts 布局重计算。
-      // 使用 requestAnimationFrame 将 resize 合并到下一帧，同一帧内多次回调只执行一次。
-      if (resizeRafId !== null) return
-      resizeRafId = requestAnimationFrame(() => {
-        resizeRafId = null
-        chartInstance.value?.resize()
+    // 响应式调整
+    if (props.autoResize && chartRef.value) {
+      resizeObserver.value = new ResizeObserver(() => {
+        // R-009 修复：ResizeObserver 在布局变化时高频回调（含 sidebar 折叠、flex 变化等），
+        // 直接调用 chart.resize() 会同步触发 ECharts 布局重计算。
+        // 使用 requestAnimationFrame 将 resize 合并到下一帧，同一帧内多次回调只执行一次。
+        if (resizeRafId !== null) return
+        resizeRafId = requestAnimationFrame(() => {
+          resizeRafId = null
+          chartInstance.value?.resize()
+        })
       })
-    })
-    resizeObserver.value.observe(chartRef.value)
-  }
+      resizeObserver.value.observe(chartRef.value)
+    }
+  })
 }
 
 const disposeChart = () => {
+  // SEC-FIX (P1-6): 取消未完成的重试链/ResizeObserver 兜底
+  initHandle?.cancel()
+  initHandle = null
   if (resizeRafId !== null) {
     cancelAnimationFrame(resizeRafId)
     resizeRafId = null
@@ -127,6 +150,11 @@ watch(
   (newOption) => {
     if (chartInstance.value && newOption && Object.keys(newOption).length > 0) {
       chartInstance.value.setOption(newOption, true)
+      return
+    }
+    // SEC-FIX (P1-7): 实例尚未创建 (容器此前为 0 尺寸) 时, 数据到达即补一次 init
+    if (!chartInstance.value && newOption && Object.keys(newOption).length > 0) {
+      initChart()
     }
   },
   { deep: true }

@@ -123,7 +123,6 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { userApi, type AssessmentRecordItem } from '@/api/userApi'
-import { userFileApi } from '@/api/userFileApi'
 import { type DataHistoryItem } from '@/api/userTypes'
 import { type UnifiedPageResult } from '@/types/contracts'
 import FilterBar from '@/components/common/FilterBar.vue'
@@ -136,6 +135,7 @@ import { withMockFallback } from '@/utils/mockFallback'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
+import { exportToCSV } from '@/utils/exportUtils'
 import { useListQueryState } from '@/composables/useListQueryState'
 
 const { t } = useI18n()
@@ -237,16 +237,63 @@ const handleSearch = async () => {
 }
 
 const handleExport = async () => {
+  // SEC-FIX (M3): 原实现调用 /user/risk/export 导出风险趋势数据,
+  // 与本页展示的评估历史不一致。改为导出当前筛选条件下的全部评估历史记录。
   exporting.value = true
   try {
-    const res = await userFileApi.exportRiskData('csv', 3650)
-    const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.href = url
-    link.download = `assessment_export_${Date.now()}.csv`
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    const allItems: DataHistoryItem[] = []
+    const exportPageSize = 100
+    let currentPage = 1
+    let fetchedTotal = 0
+    do {
+      const data = await withMockFallback<UnifiedPageResult<DataHistoryItem>>(
+        () =>
+          userApi.getUserAssessmentHistory({
+            page: currentPage,
+            page_size: exportPageSize,
+            type: filters.type,
+            start_date: filters.range?.[0],
+            end_date: filters.range?.[1]
+          }),
+        async () => {
+          const mock = await mockAssessments(currentPage, exportPageSize)
+          return {
+            items: mock.items as unknown as DataHistoryItem[],
+            total: mock.total,
+            page: mock.page,
+            page_size: mock.page_size
+          }
+        }
+      )
+      allItems.push(...data.items)
+      fetchedTotal = data.total
+      currentPage += 1
+    } while (allItems.length < fetchedTotal && currentPage <= 50)
+
+    // SEC-FIX (P2): 超过 50 页 × 100 条上限时明确告知截断, 不再静默缺数据
+    if (allItems.length < fetchedTotal) {
+      ElMessage.warning(
+        t('userAssessments.exportTruncated', {
+          exported: allItems.length,
+          total: fetchedTotal
+        })
+      )
+    }
+
+    exportToCSV(
+      allItems as unknown as Record<string, unknown>[],
+      [
+        { key: 'id', label: t('userAssessments.colId') },
+        { key: 'type', label: t('userAssessments.colType') },
+        { key: 'created_at', label: t('userAssessments.colTime') },
+        {
+          key: 'data',
+          label: t('userAssessments.colDetail'),
+          formatter: (value: unknown) => (value == null ? '' : JSON.stringify(value))
+        }
+      ],
+      `assessment_history_${new Date().toISOString().slice(0, 10)}.csv`
+    )
     ElMessage.success(t('userAssessments.exportSuccess'))
   } catch (error) {
     ElMessage.error(normalizeHttpError(error, t('userAssessments.exportFailed')).detail)

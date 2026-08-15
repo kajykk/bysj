@@ -36,7 +36,13 @@ export default {
     createFailed: 'Creation failed',
     updateSuccess: 'Updated successfully',
     updateFailed: 'Update failed',
-    failed: 'Operation failed'
+    failed: 'Operation failed',
+    days7: 'Last 7 days',
+    days30: 'Last 30 days',
+    days90: 'Last 90 days',
+    days365: 'Last 365 days',
+    csv: 'Export CSV',
+    json: 'Export JSON'
   },
   nav: {
     sectionDaily: 'Daily Work',
@@ -159,6 +165,10 @@ export default {
       resolved: 'Resolved',
       closed: 'Closed'
     },
+    alertLevelLabel: 'Alert Level',
+    alertStatusLabel: 'Alert Status',
+    logId: 'Log ID',
+    input: 'Input',
     refresh: 'Refresh Data',
     autoRefresh: 'Auto Refresh',
     timeRange: {
@@ -175,7 +185,13 @@ export default {
     silenceHitRate: 'Silence Hit Rate',
     trend: 'Trend',
     amSync: 'AlertManager Sync',
-    lockStats: 'Lock Stats'
+    lockStats: 'Lock Stats',
+    startDate: 'Start Date',
+    endDate: 'End Date',
+    cached: 'Cached',
+    points: 'data points',
+    channelStats: 'Channel Stats',
+    channels: 'channels'
   },
   report: {
     title: 'Report Center',
@@ -195,6 +211,7 @@ export default {
       completed: 'Completed',
       failed: 'Failed'
     },
+    exportStatusLabel: 'Export Status',
     createdAt: 'Created At',
     completedAt: 'Completed At',
     fileSize: 'File Size',
@@ -208,7 +225,21 @@ export default {
     pdfReady: 'PDF Ready',
     pdfGenerating: 'PDF Generating',
     jobList: 'Job List',
-    batchExcel: 'Batch Excel'
+    batchExcel: 'Batch Excel',
+    userId: 'User ID',
+    userName: 'Username',
+    riskLevel: 'Risk Level',
+    riskTrend: 'Risk Trend',
+    recommendations: 'Recommendations',
+    commaSeparated: 'Separate multiple values with commas',
+    jobId: 'Job ID',
+    status: 'Status',
+    progress: 'Progress',
+    createdAt: 'Created At',
+    columnsLimit: 'Up to 50 export columns',
+    placeholderJson: 'Enter JSON',
+    excelColsPlaceholder: 'e.g. risk_score,severity',
+    excelFilenamePlaceholder: 'e.g. risk_report_2024'
   },
   canary: {
     running: 'Running',
@@ -227,7 +258,13 @@ export default {
       total: 'Total',
       completed: 'Completed',
       rolledBack: 'Rolled Back'
-    }
+    },
+    version: 'Version',
+    trafficPercent: 'Traffic Share (%)',
+    status: 'Status',
+    startedAt: 'Start Time',
+    versionRequired: 'Version is required',
+    trafficRangeInvalid: 'Traffic share must be between 1-100'
   },
   taskProgress: {
     defaultTitle: 'Task Progress',
@@ -274,7 +311,11 @@ export default {
       stressLevel: 'Stress Level', sleepDuration: 'Sleep Duration', socialSupport: 'Social Support',
       financialPressure: 'Financial Pressure', familyHistory: 'Family History', academicPressure: 'Academic Pressure',
       exerciseFrequency: 'Exercise Frequency', anxiety: 'Anxiety Level', panicAttack: 'Panic Attack',
-      treatmentSeeking: 'Treatment Seeking', isStudent: 'Is Student'
+      treatmentSeeking: 'Treatment Seeking', isStudent: 'Is Student',
+      singleModalityHighRisk: 'Single-modality high risk, manual review recommended',
+      crisisOverride: 'Crisis Expression Override',
+      modelDisagreement: 'Large model score disagreement',
+      lowConfidenceHighRisk: 'High risk with low confidence'
     },
     severity: {
       none: 'None', mild: 'Mild', moderate: 'Moderate', high: 'High', critical: 'Critical',
@@ -288,10 +329,10 @@ export default {
       anxietyOnly: 'Anxiety Only', insufficient: 'Insufficient Info'
     },
     routeReason: {
-      fullFeatures: 'Full feature coverage, using complete structured model',
-      liteFallback: 'Insufficient structured features, falling back to lite model (GAD-7 + text)',
-      anxietyOnlyFallback: 'Only GAD-7 available, using anxiety experience mapping',
-      insufficientData: 'Insufficient data, unable to generate risk prediction'
+      featureCoverageSufficient: 'Full feature coverage, using complete structured model',
+      featureCoverageInsufficientTextAvailable: 'Insufficient structured features, using GAD-7 + text lite model',
+      onlyGad7Available: 'Only GAD-7 available, using anxiety experience mapping',
+      insufficientInformation: 'Insufficient data, unable to generate risk prediction'
     },
     confidence: {
       unknown: 'Unknown Confidence', high: 'High Confidence', medium: 'Medium Confidence', low: 'Low Confidence'
@@ -611,7 +652,7 @@ export default {
     formNameRequired: 'Please enter a rule name',
     formNameMaxLength: 'Name cannot exceed 200 characters',
     formMatcher: 'Matcher',
-    formMatcherPlaceholder: 'JSON format, e.g. {"alertname":"HighCpuUsage","severity":"P0"}',
+    formMatcherPlaceholder: "JSON format, e.g. {'{'}\"alertname\":\"HighCpuUsage\",\"severity\":\"P0\"{'}'}",
     formMatcherRequired: 'Please enter matcher JSON',
     formMatcherNotObject: 'Matcher must be a JSON object',
     formMatcherEmpty: 'Matcher must have at least one key-value pair',
@@ -1631,6 +1672,9 @@ export default {
     postponeSuccess: 'Task postponed',
     loadFailed: 'Load failed',
     operationFailed: 'Operation failed',
+    notScheduledToday: 'This task is not scheduled today and cannot be updated',
+    alreadyCompleted: 'Task status was updated elsewhere, list refreshed',
+    statusConflict: 'Task status changed, action not allowed, list refreshed',
     submitFailed: 'Submit failed',
     postponeFailed: 'Postpone failed',
     historyLoadFailed: 'Failed to load history',
@@ -1715,11 +1759,13 @@ export default {
     colSummary: 'Summary',
     colTime: 'Time',
     colOperation: 'Action',
+    colDetail: 'Detail Data',
     btnViewDetail: 'View Details',
     noPermission: 'No permission',
     loadFailed: 'Failed to load assessment records',
     exportSuccess: 'Export succeeded',
     exportFailed: 'Export failed',
+    exportTruncated: 'Export limit reached: only the first {exported} of {total} records exported. Narrow the filters and retry.',
     stats: {
       title: 'Assessment Overview',
       total: 'Total',
@@ -1759,9 +1805,9 @@ export default {
     fusionTextLabel: 'Fusion Text',
     fusionTextPlaceholder: 'Enter text content for fusion prediction',
     fusionFeaturesLabel: 'Questionnaire Features',
-    fusionFeaturesPlaceholder: 'e.g. {"age":20,"stress_level":3,"sleep_duration":6}',
+    fusionFeaturesPlaceholder: "e.g. {'{'}\"age\":20,\"stress_level\":3,\"sleep_duration\":6{'}'}",
     fusionPhysiologicalLabel: 'Physiological Features',
-    fusionPhysiologicalPlaceholder: 'e.g. {"sleep_hours":6.5,"heart_rate":78,"steps":4200}',
+    fusionPhysiologicalPlaceholder: "e.g. {'{'}\"sleep_hours\":6.5,\"heart_rate\":78,\"steps\":4200{'}'}",
     btnFusion: 'One-Click Fusion Overview',
     fusionResultTitle: 'Fusion Overview Result',
     fusionCrisisOverride: 'Crisis Override',
@@ -1872,6 +1918,17 @@ export default {
     crisisKeywordsLabel: 'Crisis Keywords',
     systemWarningLabel: 'System Warning',
     dataQualityLabel: 'Data Quality',
+    qualityComplete: 'Complete',
+    qualityPartial: 'Partial',
+    qualityPoor: 'Poor',
+    fallbackModelNotFound: 'Model file not found',
+    fallbackDependencyMissing: 'Dependency not installed',
+    fallbackPredictionError: 'Model inference failed',
+    fallbackBreakerError: 'Circuit breaker or inference error, degraded',
+    fallbackInsufficientInformation: 'Insufficient information to predict',
+    fallbackForcedConfig: 'Fallback mode forced by configuration',
+    fallbackModelLoadFailed: 'Model load failed, degraded',
+    safetyCrisisKeyword: 'Crisis keyword detected',
     missingFieldsPrefix: ', missing fields: ',
     routingInfoTag: 'Routing Info',
     selectedModelIdLabel: 'Selected Model ID: ',

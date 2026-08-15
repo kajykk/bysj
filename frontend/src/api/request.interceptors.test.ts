@@ -98,95 +98,93 @@ describe('request module - 响应拦截器与辅助函数', () => {
   })
 
   describe('response 错误处理器 - 非 401 状态码', () => {
-    it('403 弹出 warning 并 reject', async () => {
+    // SEC-FIX (H1): 拦截器不再对业务错误弹全局提示 (反馈收敛到页面层),
+    // 以下用例改为断言 reject 且不弹提示
+    it('403 reject 且不弹全局提示', async () => {
       const error = makeError(403, { detail: '无权限' })
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.warning).toHaveBeenCalledWith('无权限')
+      expect(ElMessage.warning).not.toHaveBeenCalled()
     })
 
-    it('403 detail 缺失时回退到 error.message', async () => {
-      // 注：源码 `detail || '无权限执行该操作'` 中的默认提示不可达，
-      // 因为 normalizeHttpErrorInfo 总会用 error.message 作为 fallback，detail 永远非空。
-      // 此处验证 error.message fallback 行为（非源码注释中预期的默认提示）。
+    it('403 detail 缺失同样 reject 且不弹提示', async () => {
       const error = makeError(403, {})
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.warning).toHaveBeenCalledWith('Request failed with status 403')
+      expect(ElMessage.warning).not.toHaveBeenCalled()
     })
 
-    it('404 弹出 warning 并 reject', async () => {
+    it('404 reject 且不弹全局提示', async () => {
       const error = makeError(404, { detail: '资源不存在' })
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.warning).toHaveBeenCalledWith('资源不存在')
+      expect(ElMessage.warning).not.toHaveBeenCalled()
     })
 
-    it('404 detail 缺失时回退到 error.message', async () => {
+    it('404 detail 缺失同样 reject 且不弹提示', async () => {
       const error = makeError(404, {})
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.warning).toHaveBeenCalledWith('Request failed with status 404')
+      expect(ElMessage.warning).not.toHaveBeenCalled()
     })
 
-    it('422 弹出 warning 并 reject', async () => {
+    it('422 reject 且不弹全局提示', async () => {
       const error = makeError(422, { detail: '参数错误' })
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.warning).toHaveBeenCalledWith('参数错误')
+      expect(ElMessage.warning).not.toHaveBeenCalled()
     })
 
-    it('422 detail 缺失时回退到 error.message', async () => {
+    it('422 detail 缺失同样 reject 且不弹提示', async () => {
       const error = makeError(422, {})
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.warning).toHaveBeenCalledWith('Request failed with status 422')
+      expect(ElMessage.warning).not.toHaveBeenCalled()
     })
 
-    it('500 弹出 error 并 reject', async () => {
+    it('500 reject 且不弹全局提示', async () => {
       const error = makeError(500, { detail: '服务异常' })
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.error).toHaveBeenCalledWith('服务异常')
+      expect(ElMessage.error).not.toHaveBeenCalled()
     })
 
-    it('502 detail 缺失时回退到 error.message', async () => {
+    it('502 detail 缺失同样 reject 且不弹提示', async () => {
       const error = makeError(502, {})
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.error).toHaveBeenCalledWith('Request failed with status 502')
+      expect(ElMessage.error).not.toHaveBeenCalled()
     })
 
-    it('503 detail 优先使用后端返回的 message', async () => {
+    it('503 reject 且不弹全局提示', async () => {
       const error = makeError(503, { message: '维护中' })
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.error).toHaveBeenCalledWith('维护中')
+      expect(ElMessage.error).not.toHaveBeenCalled()
     })
 
-    it('其他状态码（如 400）detail 缺失时回退到 error.message', async () => {
+    it('其他状态码（如 400）reject 且不弹提示', async () => {
       const error = makeError(400, {})
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.error).toHaveBeenCalledWith('Request failed with status 400')
+      expect(ElMessage.error).not.toHaveBeenCalled()
     })
 
-    it('无 response 字段的网络异常使用 fallback 提示', async () => {
-      // 显式构造无 message 的 Error，确保 normalizeHttpErrorInfo 全部 fallback 失败后使用 fallback '请求失败'
+    it('无 response 字段的网络异常 reject 且不弹提示', async () => {
       const error: any = new Error('')
       error.config = { headers: {} }
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.error).toHaveBeenCalledWith('请求失败')
+      expect(ElMessage.error).not.toHaveBeenCalled()
     })
 
-    it('ISS-106: 请求超时展示中文提示而非 axios 英文消息', async () => {
+    it('ISS-106: 请求超时 reject (提示由页面层展示)', async () => {
       const error: any = new Error('timeout of 60000ms exceeded')
       error.code = 'ECONNABORTED'
       error.config = { headers: {} }
       error.isAxiosError = true
 
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.error).toHaveBeenCalledWith('请求超时，请重试')
+      expect(ElMessage.error).not.toHaveBeenCalled()
     })
 
-    it('ISS-106: ERR_NETWORK 断网展示中文提示而非英文消息', async () => {
+    it('ISS-106: ERR_NETWORK 断网 reject (提示由页面层展示)', async () => {
       const error: any = new Error('Network Error')
       error.code = 'ERR_NETWORK'
       error.config = { headers: {} }
       error.isAxiosError = true
 
       await expect(responseErrorHandler(error)).rejects.toBe(error)
-      expect(ElMessage.error).toHaveBeenCalledWith('网络连接失败，请检查网络设置')
+      expect(ElMessage.error).not.toHaveBeenCalled()
     })
   })
 
@@ -215,6 +213,41 @@ describe('request module - 响应拦截器与辅助函数', () => {
       const error: any = makeError(401, { detail: 'expired' })
       await expect(responseErrorHandler(error)).rejects.toBe(error)
       expect(ElMessage.warning).toHaveBeenCalledWith('expired')
+    })
+
+    it('SEC-FIX H2: /auth/login 的 401 不触发 refresh/清空 auth, 直接透传', async () => {
+      // 登录失败 (密码错误) 属于业务错误: 不应发起 refresh 请求、
+      // 不应清除登录态、不应弹"会话过期"跳转
+      request.defaults.adapter = async () => {
+        throw new Error('should not be called: no refresh for auth endpoints')
+      }
+      setStoredAuth({ token: 'stale-token' })
+
+      const error = makeError(401, { detail: '用户名或密码错误' }, {
+        url: '/auth/login',
+        method: 'post',
+        headers: {}
+      })
+
+      await expect(responseErrorHandler(error)).rejects.toBe(error)
+      // 登录态未被清空 (这是页面层自行处理业务错误的前提)
+      expect(getStoredToken()).toBe('stale-token')
+      // 未弹任何全局提示 (错误交由页面层展示)
+      expect(ElMessage.warning).not.toHaveBeenCalled()
+      expect(ElMessage.error).not.toHaveBeenCalled()
+    })
+
+    it('SEC-FIX H2: /auth/request-reset 的 401 同样透传', async () => {
+      request.defaults.adapter = async () => {
+        throw new Error('should not be called')
+      }
+      const error = makeError(401, { detail: 'bad' }, {
+        url: '/auth/request-reset',
+        method: 'post',
+        headers: {}
+      })
+      await expect(responseErrorHandler(error)).rejects.toBe(error)
+      expect(ElMessage.warning).not.toHaveBeenCalled()
     })
 
     it('401 触发 refresh 成功后重试原请求', async () => {

@@ -1,5 +1,5 @@
 // frontend/src/api/reportsApi.ts
-import request, { requestData } from './request'
+import request, { LONG_RUNNING_API_TIMEOUT_MS, requestData } from './request'
 
 export interface RiskTrendItem {
   date: string
@@ -76,9 +76,9 @@ export const reportsApi = {
   listReportTemplates: () =>
     requestData<{ templates: ReportTemplate[]; total: number }>(request.get('/reports/templates')),
   generateUserRiskPdfSync: (payload: UserRiskReportRequest) =>
-    request.post<Blob>('/reports/user-risk/pdf', payload, { responseType: 'blob' }).then((res) => res.data),
+    request.post<Blob>('/reports/user-risk/pdf', payload, { responseType: 'blob', timeout: LONG_RUNNING_API_TIMEOUT_MS }).then((res) => res.data),
   generateUserRiskPdfAsync: (payload: UserRiskReportRequest) =>
-    requestData<{ job_id: string; status: string; message: string }>(request.post('/reports/user-risk/pdf/async', payload)),
+    requestData<{ job_id: string; status: string; message: string }>(request.post('/reports/user-risk/pdf/async', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   getPdfJobStatus: (jobId: string) =>
     requestData<PdfJobStatus>(request.get(`/reports/pdf/${jobId}/status`)),
   downloadPdf: (jobId: string) =>
@@ -86,11 +86,11 @@ export const reportsApi = {
   listPdfJobs: () =>
     requestData<{ jobs: PdfJobItem[]; total: number }>(request.get('/reports/pdf/jobs')),
   batchExportExcel: (payload: BatchExportRequest) =>
-    request.post<Blob>('/reports/batch-export/excel', payload, { responseType: 'blob' }).then((res) => res.data),
+    request.post<Blob>('/reports/batch-export/excel', payload, { responseType: 'blob', timeout: LONG_RUNNING_API_TIMEOUT_MS }).then((res) => res.data),
 
   // celery 变体（仅 API 接通，第一版 UI 不暴露）
   generateUserRiskPdfCeleryAsync: (payload: UserRiskReportRequest) =>
-    requestData<{ job_id: string; status: string; message: string; backend?: string }>(request.post('/reports/user-risk/pdf/celery-async', payload)),
+    requestData<{ job_id: string; status: string; message: string; backend?: string }>(request.post('/reports/user-risk/pdf/celery-async', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   getCeleryPdfJobStatus: (jobId: string) =>
     requestData<PdfJobStatus>(request.get(`/reports/pdf/celery/${jobId}/status`)),
   downloadCeleryPdf: (jobId: string) =>

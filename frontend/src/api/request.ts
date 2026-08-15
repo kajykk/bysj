@@ -7,7 +7,7 @@ import { ElMessage } from 'element-plus/es/components/message/index'
 import type { ApiResponse } from '@/types/api'
 import { normalizePageResult, type UnifiedPageResult } from '@/types/contracts'
 import { clearStoredAuth, getStoredToken, setStoredAuth } from '@/utils/authStorage'
-import { normalizeHttpErrorInfo, getNetworkErrorMessage } from '@/utils/httpError'
+import { normalizeHttpErrorInfo } from '@/utils/httpError'
 import { API_BASE_URL, buildApiUrl } from './base'
 import i18n from '@/i18n'
 
@@ -47,6 +47,9 @@ let isRefreshing = false
 // pending 请求也会在 DEFENSIVE_PENDING_TIMEOUT_MS 后被拒绝，避免无限挂起。
 // C-FE-3 修复：原值 15000 短于 DEFAULT_API_TIMEOUT_MS(60s)/LONG_RUNNING_API_TIMEOUT_MS(420s)，
 // 导致长超时任务在 15s 后被拒绝但 refresh 仍在进行，后续重试永远无法完成。设为 65000 对齐默认超时。
+// 注意: 420s 长超时请求若恰在 refresh 期间进入 pending 队列, 理论上会在 65s 时被防御性拒绝;
+// 由于 refreshAccessToken 自身有 10s 独立超时, 该窗口仅在 refresh 异常挂起 (不应发生) 时出现,
+// 属可接受的故障路径 (宁可快速失败也不无限挂起), 故不按 420s 对齐。
 const DEFENSIVE_PENDING_TIMEOUT_MS = 65000
 type PendingEntry = {
   resolve: (value: unknown) => void
@@ -163,6 +166,17 @@ request.interceptors.response.use(
     const { status, detail } = normalizeHttpErrorInfo(error, '')
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
+    // SEC-FIX (H2): 认证类端点的 401 是业务错误（如密码错误），
+    // 不应触发静默刷新、清除登录态或“会话过期”跳转，直接透传给页面层展示真实错误。
+    // 允许可选尾斜杠 (/auth/login/ 也视为认证业务端点), 防止 URL 风格变化时误判。
+    // 注意: change-password 不在此列——该端点的 401 只会来自过期 access token
+    // (旧密码错误返回 400), 应正常走刷新流程而非透传。
+    const AUTH_BUSINESS_ENDPOINT_PATTERN = /\/auth\/(login|register|logout|refresh|request-reset|reset-password)\/?(\?|$)/
+    const isAuthBusinessEndpoint = AUTH_BUSINESS_ENDPOINT_PATTERN.test(originalRequest?.url ?? '')
+    if (status === 401 && isAuthBusinessEndpoint) {
+      return Promise.reject(error)
+    }
+
     if (status === 401 && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
         // 修复：为 pending 请求设置 _retry 标志，防止重试后再次 401 时触发重复刷新循环
@@ -204,35 +218,41 @@ request.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // SEC-FIX (H1): 业务错误 (403/404/422/5xx/网络) 不再由拦截器弹全局提示。
+    // 原实现拦截器与页面层 (showHttpFeedback/ElMessage(normalizeHttpError)) 各弹一次,
+    // 用户看到两条重复消息。反馈责任统一收敛到页面层:
+    // - 页面 action handler 用 showHttpFeedback / normalizeHttpError 弹上下文相关提示
+    // - 页面列表加载用 pageError 内联展示
+    // 拦截器仅记录日志便于排查 fire-and-forget 调用的静默失败。
+    const url = originalRequest?.url ?? ''
     if (status === 403) {
-      ElMessage.warning(detail || t('errorPolicy.noPermission'))
+      console.warn(`[request] 403 forbidden: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
     if (status === 404) {
-      ElMessage.warning(detail || t('errorPolicy.notFound'))
+      console.warn(`[request] 404 not found: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
     if (status === 422) {
-      ElMessage.warning(detail || t('errorPolicy.validationFailed'))
+      console.warn(`[request] 422 validation failed: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
     if (status >= 500) {
-      ElMessage.error(detail || t('errorPolicy.serverError'))
+      console.warn(`[request] ${status} server error: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
     if (status === 0) {
-      // ISS-106 修复：网络层错误（超时/断网/连接拒绝等）映射为中文提示，
-      // 统一在此抛出给 UI 展示，不再暴露 axios 英文原文。
-      // 401 刷新拦截器与 403/404/5xx 处理逻辑保持不变。
-      ElMessage.error(getNetworkErrorMessage(error) || t('errorPolicy.requestFailed'))
+      // ISS-106 修复：网络层错误（超时/断网/连接拒绝等）由页面层经
+      // getNetworkErrorMessage / normalizeHttpErrorInfo 映射为中文提示后展示
+      console.warn(`[request] network error: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
-    ElMessage.error(detail || t('errorPolicy.requestFailed'))
+    console.warn(`[request] request failed: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
     return Promise.reject(error)
   }
 )

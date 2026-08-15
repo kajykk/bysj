@@ -47,6 +47,9 @@ export function useInterventionData() {
       taskActionType.value = { ...taskActionType.value, [id]: action }
     } else {
       next.delete(id)
+      // SEC-FIX (M7/L7): 操作结束后移除 actionType 记录, 防止任务累积导致无界增长
+      const { [id]: _removed, ...rest } = taskActionType.value
+      taskActionType.value = rest
     }
     taskPendingIds.value = next
   }
@@ -85,6 +88,27 @@ export function useInterventionData() {
     }
   }
 
+  // 409 状态冲突处理：任务状态已被其他端变更（重复完成/已跳过/未排期），
+  // 提示友好文案后自动重拉列表恢复真实状态，避免用户反复点到过期快照
+  const handleTaskConflict = async (error: unknown, actionFallbackKey: string) => {
+    const { status, detail } = normalizeHttpError(error, t(actionFallbackKey))
+    if (status === 409) {
+      // SEC-FIX (P2): 优先匹配后端机器可读 code (task_not_scheduled_today /
+      // task_status_conflict), 中文文案正则仅作旧版本后端兼容回退
+      const message = /task_not_scheduled_today/.test(detail)
+        ? t('userIntervention.notScheduledToday')
+        : /task_status_conflict/.test(detail)
+          ? t('userIntervention.alreadyCompleted')
+          : /无需重复提交|重复提交/.test(detail)
+            ? t('userIntervention.alreadyCompleted')
+            : t('userIntervention.statusConflict')
+      ElMessage.warning(message)
+      await loadActive()
+      return
+    }
+    ElMessage.error(detail)
+  }
+
   const handleComplete = async (task: InterventionTaskItem) => {
     try {
       await ElMessageBox.confirm(t('userIntervention.completeConfirm', { name: task.task_name }), t('common.confirm'), { type: 'success' })
@@ -97,7 +121,7 @@ export function useInterventionData() {
       ElMessage.success(t('userIntervention.completeSuccess'))
       await loadActive()
     } catch (error) {
-      ElMessage.error(normalizeHttpError(error, t('userIntervention.operationFailed')).detail)
+      await handleTaskConflict(error, 'userIntervention.operationFailed')
     } finally {
       setTaskPending(task.id, 'complete', false)
     }
@@ -115,7 +139,7 @@ export function useInterventionData() {
       ElMessage.success(t('userIntervention.skipSuccess'))
       await loadActive()
     } catch (error) {
-      ElMessage.error(normalizeHttpError(error, t('userIntervention.operationFailed')).detail)
+      await handleTaskConflict(error, 'userIntervention.operationFailed')
     } finally {
       setTaskPending(task.id, 'skip', false)
     }
@@ -147,7 +171,7 @@ export function useInterventionData() {
       feedbackVisible.value = false
       await loadActive()
     } catch (error) {
-      ElMessage.error(normalizeHttpError(error, t('userIntervention.submitFailed')).detail)
+      await handleTaskConflict(error, 'userIntervention.submitFailed')
     } finally {
       feedbackSubmitting.value = false
     }
@@ -176,7 +200,7 @@ export function useInterventionData() {
       postponeVisible.value = false
       await loadActive()
     } catch (error) {
-      ElMessage.error(normalizeHttpError(error, t('userIntervention.postponeFailed')).detail)
+      await handleTaskConflict(error, 'userIntervention.postponeFailed')
     } finally {
       postponeSubmitting.value = false
     }

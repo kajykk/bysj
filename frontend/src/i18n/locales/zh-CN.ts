@@ -36,7 +36,13 @@ export default {
     createFailed: '创建失败',
     updateSuccess: '更新成功',
     updateFailed: '更新失败',
-    failed: '操作失败'
+    failed: '操作失败',
+    days7: '近 7 天',
+    days30: '近 30 天',
+    days90: '近 90 天',
+    days365: '近 365 天',
+    csv: '导出 CSV',
+    json: '导出 JSON'
   },
   nav: {
     sectionDaily: '日常工作',
@@ -159,6 +165,10 @@ export default {
       resolved: '已解决',
       closed: '已关闭'
     },
+    alertLevelLabel: '告警级别',
+    alertStatusLabel: '告警状态',
+    logId: '日志 ID',
+    input: '输入内容',
     refresh: '刷新数据',
     autoRefresh: '自动刷新',
     timeRange: {
@@ -175,7 +185,13 @@ export default {
     silenceHitRate: '静默命中率',
     trend: '趋势',
     amSync: 'AlertManager 同步',
-    lockStats: '锁统计'
+    lockStats: '锁统计',
+    startDate: '开始日期',
+    endDate: '结束日期',
+    cached: '已缓存',
+    points: '个数据点',
+    channelStats: '通道统计',
+    channels: '个通道'
   },
   report: {
     title: '报告中心',
@@ -195,6 +211,7 @@ export default {
       completed: '已完成',
       failed: '失败'
     },
+    exportStatusLabel: '导出状态',
     createdAt: '创建时间',
     completedAt: '完成时间',
     fileSize: '文件大小',
@@ -208,7 +225,21 @@ export default {
     pdfReady: 'PDF 已就绪',
     pdfGenerating: 'PDF 生成中',
     jobList: '任务列表',
-    batchExcel: '批量 Excel'
+    batchExcel: '批量 Excel',
+    userId: '用户 ID',
+    userName: '用户名',
+    riskLevel: '风险等级',
+    riskTrend: '风险趋势',
+    recommendations: '建议',
+    commaSeparated: '多个值用英文逗号分隔',
+    jobId: '任务 ID',
+    status: '状态',
+    progress: '进度',
+    createdAt: '创建时间',
+    columnsLimit: '导出列数最多 50 列',
+    placeholderJson: '请输入 JSON',
+    excelColsPlaceholder: '如：risk_score,severity',
+    excelFilenamePlaceholder: '如：risk_report_2024'
   },
   canary: {
     running: '运行中',
@@ -227,7 +258,13 @@ export default {
       total: '总数',
       completed: '已完成',
       rolledBack: '已回滚'
-    }
+    },
+    version: '版本',
+    trafficPercent: '流量占比 (%)',
+    status: '状态',
+    startedAt: '开始时间',
+    versionRequired: '版本号必填',
+    trafficRangeInvalid: '流量占比需在 1-100 之间'
   },
   taskProgress: {
     defaultTitle: '任务进度',
@@ -274,7 +311,11 @@ export default {
       stressLevel: '压力水平', sleepDuration: '睡眠时长', socialSupport: '社会支持',
       financialPressure: '经济压力', familyHistory: '家族史', academicPressure: '学业压力',
       exerciseFrequency: '运动频率', anxiety: '焦虑程度', panicAttack: '恐慌发作',
-      treatmentSeeking: '寻求治疗', isStudent: '是否在校'
+      treatmentSeeking: '寻求治疗', isStudent: '是否在校',
+      singleModalityHighRisk: '单一模态高风险，建议人工复核',
+      crisisOverride: '危机表达覆盖',
+      modelDisagreement: '模型评分分歧较大',
+      lowConfidenceHighRisk: '低置信度高风险评估'
     },
     severity: {
       none: '无风险', mild: '轻度', moderate: '中度', high: '较高', critical: '严重',
@@ -288,10 +329,10 @@ export default {
       anxietyOnly: '仅焦虑评估', insufficient: '信息不足'
     },
     routeReason: {
-      fullFeatures: '特征覆盖充足，使用完整结构化模型',
-      liteFallback: '结构化特征不足，降级至轻量模型 (GAD-7 + 文本)',
-      anxietyOnlyFallback: '仅 GAD-7 可用，使用焦虑经验映射',
-      insufficientData: '数据不足，无法生成风险预测'
+      featureCoverageSufficient: '特征覆盖充足，使用完整结构化模型',
+      featureCoverageInsufficientTextAvailable: '结构化特征不足，使用 GAD-7 + 文本轻量模型',
+      onlyGad7Available: '仅 GAD-7 可用，使用焦虑经验映射',
+      insufficientInformation: '数据不足，无法生成风险预测'
     },
     confidence: {
       unknown: '未知置信度', high: '高置信度', medium: '中等置信度', low: '低置信度'
@@ -611,7 +652,7 @@ export default {
     formNameRequired: '请输入规则名称',
     formNameMaxLength: '名称不能超过 200 字符',
     formMatcher: '匹配器',
-    formMatcherPlaceholder: 'JSON 格式，例如 {"alertname":"HighCpuUsage","severity":"P0"}',
+    formMatcherPlaceholder: "JSON 格式，例如 {'{'}\"alertname\":\"HighCpuUsage\",\"severity\":\"P0\"{'}'}",
     formMatcherRequired: '请输入匹配器 JSON',
     formMatcherNotObject: '匹配器必须是 JSON 对象',
     formMatcherEmpty: '匹配器至少需要一个键值对',
@@ -1631,6 +1672,9 @@ export default {
     postponeSuccess: '任务已延期',
     loadFailed: '加载失败',
     operationFailed: '操作失败',
+    notScheduledToday: '该任务今日未排期，无法操作',
+    alreadyCompleted: '任务状态已更新（可能已在其他设备完成），已刷新列表',
+    statusConflict: '任务状态已变更，无法执行该操作，已刷新列表',
     submitFailed: '提交失败',
     postponeFailed: '延期失败',
     historyLoadFailed: '历史记录加载失败',
@@ -1715,11 +1759,13 @@ export default {
     colSummary: '摘要',
     colTime: '时间',
     colOperation: '操作',
+    colDetail: '数据详情',
     btnViewDetail: '查看详情',
     noPermission: '无权限',
     loadFailed: '评估记录加载失败',
     exportSuccess: '导出成功',
     exportFailed: '导出失败',
+    exportTruncated: '导出数据超过上限，仅导出前 {exported} 条（共 {total} 条），请缩小筛选范围',
     stats: {
       title: '测评概览',
       total: '测评总数',
@@ -1759,9 +1805,9 @@ export default {
     fusionTextLabel: '融合文本',
     fusionTextPlaceholder: '请输入用于融合预测的文本内容',
     fusionFeaturesLabel: '问卷特征',
-    fusionFeaturesPlaceholder: '例如 {"age":20,"stress_level":3,"sleep_duration":6}',
+    fusionFeaturesPlaceholder: "例如 {'{'}\"age\":20,\"stress_level\":3,\"sleep_duration\":6{'}'}",
     fusionPhysiologicalLabel: '生理特征',
-    fusionPhysiologicalPlaceholder: '例如 {"sleep_hours":6.5,"heart_rate":78,"steps":4200}',
+    fusionPhysiologicalPlaceholder: "例如 {'{'}\"sleep_hours\":6.5,\"heart_rate\":78,\"steps\":4200{'}'}",
     btnFusion: '一键融合概览',
     fusionResultTitle: '融合概览结果',
     fusionCrisisOverride: '危机覆盖',
@@ -1872,6 +1918,17 @@ export default {
     crisisKeywordsLabel: '危机关键词',
     systemWarningLabel: '系统提示',
     dataQualityLabel: '数据质量',
+    qualityComplete: '完整',
+    qualityPartial: '部分',
+    qualityPoor: '较差',
+    fallbackModelNotFound: '模型文件不存在',
+    fallbackDependencyMissing: '依赖组件未安装',
+    fallbackPredictionError: '模型推理失败',
+    fallbackBreakerError: '熔断器或推理异常，已降级',
+    fallbackInsufficientInformation: '信息不足，无法预测',
+    fallbackForcedConfig: '配置强制启用回退模式',
+    fallbackModelLoadFailed: '模型加载失败，已降级',
+    safetyCrisisKeyword: '检测到危机关键词',
     missingFieldsPrefix: '，缺失字段：',
     routingInfoTag: '路由信息',
     selectedModelIdLabel: '选中模型 ID：',

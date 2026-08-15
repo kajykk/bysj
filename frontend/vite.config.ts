@@ -44,18 +44,13 @@ export default defineConfig(({ command }) => ({
         globDirectory: 'dist',
         runtimeCaching: [
           {
-            // P1-P5 修复：原 urlPattern 仅匹配 localhost，生产环境 API 请求不会被缓存。
-            // 改为匹配任意 origin 下的 /api/ 路径，兼容本地开发、局域网和生产部署。
+            // SEC-FIX: 移除原 /api/ 运行时缓存（NetworkFirst 24h）。
+            // API 响应包含风险评估、预警、日记等敏感健康数据，落盘到 Cache Storage
+            // 可被任意 XSS / 共享浏览器配置读取，违反 PII 最小化原则。
+            // API 请求保持默认网络直连，由 navigateFallbackDenylist 保证 SW 不拦截导航。
             urlPattern: /^https?:\/\/[^/]+\/api\/.*$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24,
-              },
-              networkTimeoutSeconds: 3,
-            },
+            handler: 'NetworkOnly',
+            options: {},
           },
           {
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif)$/,

@@ -210,6 +210,7 @@ import { userApi } from '@/api/userApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { sanitizeCellForExcel } from '@/utils/exportUtils'
+import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 import TrendArrow from '@/components/common/TrendArrow.vue'
 
 interface Props {
@@ -225,7 +226,9 @@ const auth = useAuthStore()
 const { t } = useI18n()
 let isUnmounted = false
 
-const historyKey = (base: string) => `${base}_u${auth.user?.id ?? 0}`
+// SEC-FIX (H4 补强): 匿名用户不再共享 `_u0` key (互相覆盖/可读),
+// 改为会话级隔离, 且与 clearSensitiveLocalStorage 清理模式对齐
+const historyKey = (base: string) => historyKeyWithUser(base, auth.user?.id)
 const PHYSIO_HISTORY_KEY = historyKey('physio_history_v1')
 
 interface PhysioHistoryItem {
