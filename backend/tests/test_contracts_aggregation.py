@@ -146,18 +146,20 @@ class TestUserRoles:
         from app.core.contracts import (
             USER_ROLE_ADMIN,
             USER_ROLE_COUNSELOR,
+            USER_ROLE_SUPER_ADMIN,
             USER_ROLE_USER,
         )
 
         assert USER_ROLE_ADMIN == "admin"
         assert USER_ROLE_COUNSELOR == "counselor"
         assert USER_ROLE_USER == "user"
+        assert USER_ROLE_SUPER_ADMIN == "super_admin"
 
     def test_user_roles_frozenset(self):
         from app.core.contracts import USER_ROLES
 
         assert isinstance(USER_ROLES, frozenset)
-        assert USER_ROLES == frozenset({"admin", "counselor", "user"})
+        assert USER_ROLES == frozenset({"admin", "counselor", "user", "super_admin"})
 
     def test_roles_match_deps_hierarchy_keys(self):
         """USER_ROLES 应与 deps.py ROLE_HIERARCHY 的 key 一致."""
@@ -173,6 +175,7 @@ class TestUserRoles:
         assert "admin" in USER_ROLES
         assert "counselor" in USER_ROLES
         assert "user" in USER_ROLES
+        assert "super_admin" in USER_ROLES
 
 
 # ===== 5. 用户状态 =====
