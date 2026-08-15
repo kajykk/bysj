@@ -17,6 +17,10 @@ on:
     - cron: '0 2 * * 1'
   workflow_dispatch: # 支持手动触发
 
+# SEC-FIX (P2): 最小权限声明
+permissions:
+  contents: read
+
 jobs:
   pip-audit:
     name: pip-audit Scan
@@ -60,10 +64,14 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
       - name: Install safety
+        env:
+          # SEC-FIX (P2): secret 经 env 注入后判断, 不再直接内插进 bash 脚本
+          # (值含引号/反引号时构成脚本注入面)
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
         run: |
           # 无 SAFETY_API_KEY secret 时安装 2.x (check 免登录, 公共漏洞库),
           # 避免 safety 3.x 在 CI 无 TTY 下强制注册提示导致 EOF 崩溃 (pyupio/safety#857)
-          if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
+          if [ -n "$SAFETY_API_KEY" ]; then
             python -m pip install --upgrade "safety>=3.2.0"
           else
             python -m pip install --upgrade "safety>=2.3.5,<3.0.0"

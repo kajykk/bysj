@@ -21,6 +21,10 @@ on:
       - 'backend/tests/test_stab_p2_008_migration_compat.py'
       - '.github/workflows/migration-tests.yml'
 
+# SEC-FIX (P2): 最小权限声明
+permissions:
+  contents: read
+
 jobs:
   migration-compat:
     runs-on: ubuntu-latest

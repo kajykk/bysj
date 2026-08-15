@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+# SEC-FIX (P2): 最小权限声明 (测试/上传类 workflow 只需读仓库内容)
+permissions:
+  contents: read
+
 jobs:
   backend-coverage:
     runs-on: ubuntu-latest
@@ -54,13 +58,15 @@ jobs:
         # 到 GITHUB_STEP_SUMMARY, 再以非零码退出; coverage 上传由 if: always() 步骤承担.
         run: |
           # --maxfail=0: 跑完全部测试收集完整覆盖率 (不中途停)
-          # 覆盖率门禁渐进提升: 30%(当前基线) → 40% → 50% → 60% → 70% → 85%
+          # CI-AUDIT-03: 门禁对齐——本 job 跑全量测试 (除 contract), 是全仓基线门禁 (40%);
+          # pr-quality-gates.yml 跑 unit+integration 子集, 门禁 50% (更快反馈)。
+          # 渐进提升路线图: 40%(当前基线) → 50% → 60% → 70% → 85%
           pytest tests/ -m "not contract" \
             --maxfail=0 \
             --cov=app \
             --cov-report=xml:coverage.xml \
             --cov-report=html:htmlcov \
-            --cov-fail-under=30 \
+            --cov-fail-under=40 \
             --tb=short \
             -q 2>&1 | tee /tmp/pytest_output.txt
           exit_code=${PIPESTATUS[0]}
@@ -81,7 +87,8 @@ jobs:
       - name: Upload coverage to Codecov
         # CI-AUDIT-02: always() 保证测试失败时仍上传已收集的 coverage.xml
         if: always()
-        uses: codecov/codecov-action@v5
+        # SEC-FIX (P2): 钉到 commit SHA (v5 -> 0fb7174), 防可变 tag 被劫持
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
           files: backend/coverage.xml
           flags: backend
@@ -113,7 +120,8 @@ jobs:
         # MAINT-P3-002: 移除 continue-on-error: true, 测试失败必须阻塞 CI
         # MAINT-P3-001: 覆盖率门禁由 vitest.config.ts thresholds 控制 (50% 起点)
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        # SEC-FIX (P2): 钉到 commit SHA (v5 -> 0fb7174)
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
           files: frontend/coverage/lcov.info
           flags: frontend

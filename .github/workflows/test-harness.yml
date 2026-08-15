@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# SEC-FIX (P2): 最小权限声明
+permissions:
+  contents: read
+
 jobs:
   harness:
     runs-on: ubuntu-latest
@@ -49,29 +53,9 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Run backend tests with coverage
-        working-directory: backend
-        continue-on-error: true
-        run: |
-          # --maxfail=0: 跑完全部测试 (不中途停); continue-on-error: 预先存在的失败不阻塞
-          python -m pytest -m "not contract" --maxfail=0 -o "addopts=" --tb=short 2>&1 | tee /tmp/pytest_output.txt
-          exit_code=${PIPESTATUS[0]}
-          if [ $exit_code -ne 0 ]; then
-            {
-              echo "## Backend tests had failures (non-blocking)"
-              echo ""
-              echo '```'
-              tail -150 /tmp/pytest_output.txt
-              echo '```'
-            } >> $GITHUB_STEP_SUMMARY
-          fi
-        env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
-          REDIS_URL: redis://localhost:6379/0
-      - name: Run frontend tests with coverage
-        working-directory: frontend
-        run: |
-          npm run test:coverage
+      # CI-AUDIT-07: 移除与 coverage.yml 重复的全量 backend pytest 与
+      # frontend test:coverage 步骤 (原 continue-on-error 假门禁 + 双倍 CI 时间)。
+      # 本 workflow 收敛为单一职责: 运行 harness 测试 → 生成/合并报告 → 发布。
       - name: Run harnesses and merge report
         shell: bash
         env:
@@ -80,9 +64,17 @@ jobs:
         run: |
           python -m pytest backend/tests/test_harness.py backend/tests/test_harness_integration.py --maxfail=1 --disable-warnings --cov-fail-under=0
           # 前端 harness 报告在 CI 中默认不生成 (vitest/playwright 无对应 reporter),
-          # 且其结果不进入合并报告 (合并脚本对缺失报告做了容错), 故失败不阻断合并步骤
-          npm --prefix frontend run test -- --no-file-parallelism || true
-          npm --prefix frontend run test:e2e || true
+          # 且其结果不进入合并报告 (合并脚本对缺失报告做了容错), 故失败不阻断合并步骤。
+          # SEC-FIX (P2): 不再静默吞掉失败——运行结果写入 step summary 显式记录
+          frontend_vitest_status=skipped
+          npm --prefix frontend run test -- --no-file-parallelism && frontend_vitest_status=passed || frontend_vitest_status=failed
+          frontend_e2e_status=skipped
+          npm --prefix frontend run test:e2e && frontend_e2e_status=passed || frontend_e2e_status=failed
+          {
+            echo "## Frontend harness (non-blocking, 有意不阻断)"
+            echo "- vitest: ${frontend_vitest_status}"
+            echo "- e2e: ${frontend_e2e_status}"
+          } >> "$GITHUB_STEP_SUMMARY"
           python - <<'PY'
           import json
           from pathlib import Path

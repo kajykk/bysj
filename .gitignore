@@ -119,7 +119,9 @@ data/
 git
 git1
 download_kaggle.py
-/scripts/
+# CI-AUDIT-04: 目录级忽略改为通配, 仅放行证书引导脚本 (部署必需, 见 DEPLOYMENT_GUIDE)
+/scripts/*
+!/scripts/generate-self-signed-cert.sh
 
 # User notes (not part of project)
 md/
