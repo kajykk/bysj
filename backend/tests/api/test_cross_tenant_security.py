@@ -17,10 +17,8 @@ from app.core.contracts import DEFAULT_TENANT_ID
 from app.core.tenant_context import (
     enforce_tenant_match,
     get_request_tenant_id,
-    require_role_tenant_scoped,
 )
 from app.core.tenant_query import tenant_scoped_query
-
 
 # =========================================================================
 # require_role_tenant_scoped 单元测试
@@ -387,3 +385,62 @@ class TestCrossTenantApiIntegration:
         assert branding["display_name"] == "更新名称"
         # primary_color 应保持不变
         assert branding["primary_color"] == "#ff0000"
+
+# =========================================================================
+# 平台级 admin 端点租户二分 (2026-08 拍板项)
+# =========================================================================
+
+
+class TestPlatformAdminSplit:
+    """/api/v1/admin/* 平台级端点仅限默认租户 (平台) 管理员.
+
+    背景: require_role_tenant_scoped 只校验"请求租户 == 用户租户",
+    未来多租户部署时租户 B 的 admin 伪造 X-Tenant-ID: B 头即可访问
+    平台级全局资源 (模板/模型注册/操作日志/导出等).
+    require_platform_admin 在租户一致性之上再限定平台默认租户.
+    """
+
+    def test_platform_admin_can_access_admin_endpoints(
+        self, client, auth_headers, as_role
+    ):
+        """平台管理员 (默认租户) 访问 /admin/dashboard → 200."""
+        as_role("admin", 1, tenant_id=1)
+        response = client.get(
+            "/api/v1/admin/dashboard",
+            headers={**auth_headers, "X-Tenant-ID": "1"},
+        )
+        assert response.status_code == 200
+
+    def test_tenant_admin_blocked_from_platform_endpoints(
+        self, client, auth_headers, as_role
+    ):
+        """租户 B 管理员 (tenant_id=2) 访问平台端点 → 403."""
+        as_role("admin", 1, tenant_id=2)
+        response = client.get(
+            "/api/v1/admin/dashboard",
+            headers={**auth_headers, "X-Tenant-ID": "2"},
+)
+        assert response.status_code == 403
+        assert "仅平台管理员" in response.json()["message"]
+
+    def test_tenant_admin_cross_tenant_header_still_blocked(
+        self, client, auth_headers, as_role
+    ):
+        """租户 B 管理员伪造平台租户头 (X-Tenant-ID: 1) → 403 (租户一致性先拦截)."""
+        as_role("admin", 1, tenant_id=2)
+        response = client.get(
+            "/api/v1/admin/dashboard",
+            headers={**auth_headers, "X-Tenant-ID": "1"},
+        )
+        assert response.status_code == 403
+
+    def test_non_admin_blocked_from_platform_endpoints(
+        self, client, auth_headers, as_role
+    ):
+        """非管理员访问平台端点 → 403."""
+        as_role("user", 1, tenant_id=1)
+        response = client.get(
+            "/api/v1/admin/dashboard",
+            headers={**auth_headers, "X-Tenant-ID": "1"},
+        )
+        assert response.status_code == 403

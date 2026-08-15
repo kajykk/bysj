@@ -20,7 +20,7 @@ from app.core.openapi_responses import COMMON_ERROR_RESPONSES, CSV_EXPORT_RESPON
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.request_id import get_or_create_request_id
 from app.core.response import ok
-from app.core.tenant_context import require_role_tenant_scoped
+from app.core.tenant_context import require_platform_admin
 from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.admin import (
@@ -83,7 +83,7 @@ async def _begin_idempotent(
 @limiter.limit("60/minute")
 async def admin_dashboard(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -95,7 +95,7 @@ async def admin_dashboard(
 @limiter.limit("60/minute")
 async def get_admin_stats(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -107,7 +107,7 @@ async def get_admin_stats(
 @limiter.limit("60/minute")
 async def list_templates(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -122,7 +122,7 @@ async def list_templates(
 async def upsert_template(
     request: Request,
     payload: TemplateUpsertRequest,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -156,7 +156,7 @@ async def upsert_template(
 async def delete_template(
     request: Request,
     template_id: int,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """ISS-075: 删除干预模板."""
@@ -172,7 +172,7 @@ async def delete_template(
 @limiter.limit("60/minute")
 async def list_thresholds(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -187,7 +187,7 @@ async def list_thresholds(
 async def upsert_threshold(
     payload: ThresholdUpsertRequest,
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -213,7 +213,7 @@ async def upsert_threshold(
 @limiter.limit("60/minute")
 async def list_feedbacks(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -227,7 +227,7 @@ async def list_feedbacks(
 @limiter.limit("60/minute")
 async def list_configs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -240,7 +240,7 @@ async def list_configs(
 async def upsert_config(
     request: Request,
     payload: ConfigUpsertRequest,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -264,7 +264,7 @@ async def upsert_config(
 @limiter.limit("60/minute")
 async def get_admin_settings(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -279,7 +279,7 @@ async def get_admin_settings(
 @limiter.limit("60/minute")
 async def list_operation_logs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -305,7 +305,7 @@ async def list_operation_logs(
 @limiter.limit("10/minute")
 async def export_operation_logs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     action_type: str | None = Query(default=None),
     operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin)$"),
@@ -325,7 +325,7 @@ async def export_operation_logs(
 @limiter.limit("60/minute")
 async def list_audit_logs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     # M-API-3 修复：统一 page_size 上限为 100，与其他端点一致（原为 200）
@@ -357,7 +357,7 @@ async def list_audit_logs(
 @limiter.limit("60/minute")
 async def list_models(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -372,7 +372,7 @@ async def list_models(
 async def register_model(
     request: Request,
     payload: ModelRegistryRequest,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -394,7 +394,7 @@ async def update_model(
     request: Request,
     model_id_int: int,
     payload: ModelUpdateRequest,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -428,7 +428,7 @@ async def update_model(
 async def activate_model(
     request: Request,
     model_id_int: int,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -445,7 +445,7 @@ async def activate_model(
 @limiter.limit("10/minute")
 async def archive_logs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     days: int = Query(default=90, ge=30, le=365),
 ) -> dict:
@@ -464,7 +464,7 @@ async def archive_logs(
 @limiter.limit("60/minute")
 async def export_crisis_events(
     request: Request,
-    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     start_date: date = Query(..., description="开始日期 (YYYY-MM-DD)"),
     end_date: date = Query(..., description="结束日期 (YYYY-MM-DD)"),

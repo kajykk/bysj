@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.contracts import (
     DEFAULT_TENANT_ID,
     TENANT_STATUS_SUSPENDED,
+    USER_ROLE_ADMIN,
 )
 from app.core.database import get_db
 from app.core.deps import ROLE_HIERARCHY, get_current_user
@@ -272,6 +273,69 @@ def require_role_tenant_scoped(*roles: str):
                 detail="用户租户与请求租户不匹配",
             )
 
+        return current_user
+
+    return checker
+
+
+def require_platform_admin():
+    """平台级管理员依赖: 仅允许平台默认租户 (DEFAULT_TENANT_ID) 的 admin.
+
+    与 ``require_role_tenant_scoped("admin")`` 的区别:
+    后者只校验"请求租户 == 用户租户", 未来多租户部署时, 租户 B 的 admin
+    伪造 ``X-Tenant-ID: B`` 头即可通过校验, 从而访问平台级全局资源
+    (模板/模型注册/操作日志/全局配置/导出等).
+
+    本依赖在角色校验基础上再限定: 用户必须属于平台默认租户.
+
+    防御场景: 租户 B 的 admin 伪造 X-Tenant-ID: B 头调用 /api/v1/admin/* 全局端点.
+    """
+    async def checker(
+        request: Request,
+        current_user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        # 1. 角色校验: 仅 admin 角色可进入平台级端点
+        if current_user.role not in ROLE_HIERARCHY:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
+            )
+        effective = ROLE_HIERARCHY[current_user.role]
+        if not effective.intersection({USER_ROLE_ADMIN}):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
+            )
+
+        # 2. 租户上下文一致性校验 (防串租, 与 require_role_tenant_scoped 相同)
+        request_tenant_id = get_request_tenant_id(request)
+        user_tenant_id = (
+            current_user.tenant_id
+            if current_user.tenant_id is not None
+            else DEFAULT_TENANT_ID
+        )
+        if user_tenant_id != request_tenant_id:
+            logger.warning(
+                "Tenant confusion blocked: user_tenant=%s, request_tenant=%s, user_id=%s",
+                user_tenant_id,
+                request_tenant_id,
+                current_user.id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="用户租户与请求租户不匹配",
+            )
+
+        # 3. 平台管理员限定: 用户必须属于平台默认租户
+        if user_tenant_id != DEFAULT_TENANT_ID:
+            logger.warning(
+                "Platform-only endpoint blocked: user_tenant=%s, user_id=%s, path=%s",
+                user_tenant_id,
+                current_user.id,
+                request.url.path,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="仅平台管理员可执行该操作",
+            )
         return current_user
 
     return checker
