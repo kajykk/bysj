@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -41,6 +42,40 @@ async def _async_noop(func):
     """将同步函数包装为协程，用于 record_step_async 调用同步函数."""
     func()
     return None
+
+
+def _warn_redis_missing_for_multiworker() -> None:
+    """拍板项: 无 REDIS_URL 多 worker 启动告警.
+
+    单进程开发模式无 Redis 时可静默回退内存缓存; 但多 worker 部署
+    (WEB_CONCURRENCY>1) 下跨进程能力会静默降级:
+    - 速率限制仅限本进程 (redis 后端共享计数失效)
+    - token 撤销/登出黑名单无法跨 worker 同步
+    - WebSocket 跨 worker 广播退化为本地投递
+    - 金丝雀回滚/kill switch 状态无法跨进程一致
+
+    仅记录告警不阻塞启动 (与 rate_limit.py 生产环境告警互补).
+    """
+    try:
+        from app.core.cache import _get_redis_url
+
+        url = _get_redis_url()
+    except Exception:
+        url = None
+    if url:
+        return
+    concurrency_raw = os.getenv("WEB_CONCURRENCY", "0") or "0"
+    try:
+        concurrency = int(concurrency_raw)
+    except ValueError:
+        concurrency = 0
+    if concurrency > 1:
+        logger.warning(
+            "REDIS_URL 未配置但 WEB_CONCURRENCY=%s (>1, 多 worker 部署): "
+            "跨进程能力降级 — 速率限制/token 撤销/WS 广播/金丝雀状态将无法跨 worker "
+            "同步, 请在部署环境配置 redis:// 协议的 REDIS_URL",
+            concurrency_raw,
+        )
 
 
 @asynccontextmanager
@@ -197,6 +232,8 @@ async def lifespan(app: FastAPI):
     await record_step_async(
         "auto_rollback", start_auto_rollback_monitor(app), fatal=False
     )
+    # 拍板项: 无 REDIS_URL 多 worker 启动告警 — 跨进程能力降级提示
+    _warn_redis_missing_for_multiworker()
     # R-006: 标记启动序列完成 (供 /health/startup 端点使用)
     startup_status.mark_completed()
     # P0-1.1: 标记应用启动完成, /health/startup 探针返回 ok
