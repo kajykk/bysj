@@ -68,7 +68,11 @@ const handleLogout = async () => {
   } catch {
     return
   }
-  await auth.logout()
+  try {
+    await auth.logout()
+  } catch {
+    // SEC-FIX (H1): logout API 失败不阻塞跳转 (本地态已在 auth.logout finally 中清除)
+  }
   await router.push('/login')
 }
 </script>

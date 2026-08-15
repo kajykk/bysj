@@ -14,6 +14,9 @@ export interface TaskProgressItem {
 
 const taskProgressMap = ref<Map<string, TaskProgressItem>>(new Map())
 let subscribed = false
+// SEC-FIX (C3): 保存 WS 监听器的取消函数，登出重置时移除监听器，
+// 避免 A 用户登出后 B 用户仍收到 A 的任务进度事件。
+let unsubscribeTaskProgress: (() => void) | null = null
 let cleanupTimer: ReturnType<typeof setInterval> | null = null
 // M-FIX-005: 活动任务 (recoverJobs 恢复的 running/queued) 轮询刷新间隔
 const POLL_INTERVAL_MS = 5000
@@ -113,7 +116,7 @@ function ensureSubscribed() {
   subscribed = true
   // P1-1 核心体验：页面加载时从后端恢复任务状态
   recoverJobs()
-  wsClient.onTaskProgress((msg: WsTaskProgressMessage) => {
+  unsubscribeTaskProgress = wsClient.onTaskProgress((msg: WsTaskProgressMessage) => {
     const item: TaskProgressItem = {
       job_id: msg.data.job_id,
       job_type: msg.data.job_type,
@@ -211,10 +214,15 @@ export function useTaskProgress() {
 }
 
 // 供测试使用: 重置内部状态
+// SEC-FIX (C3): 登出时调用，清除跨会话残留的任务状态与 WS 监听器
 export function resetTaskProgress() {
   taskProgressMap.value.clear()
   taskProgressMap.value = new Map(taskProgressMap.value)
   subscribed = false
+  if (unsubscribeTaskProgress) {
+    unsubscribeTaskProgress()
+    unsubscribeTaskProgress = null
+  }
   if (cleanupTimer) {
     clearInterval(cleanupTimer)
     cleanupTimer = null

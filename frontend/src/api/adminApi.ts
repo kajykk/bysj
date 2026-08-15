@@ -41,15 +41,16 @@ export const adminApi = {
 
   listAdminFeedbacks: (query?: PageQuery) => requestPageData<ModelFeedbackItem>(request.get('/admin/model-feedbacks', { params: buildPageParams(query) })),
 
-  listAdminOperationLogs: (query?: PageQuery & { action_type?: string; operator_role?: string; start_time?: string; end_time?: string }) =>
+  // SEC-FIX (M4): 补充 operator_name 筛选 (后端 /admin/operation-logs 已支持)
+  listAdminOperationLogs: (query?: PageQuery & { action_type?: string; operator_role?: string; operator_name?: string; start_time?: string; end_time?: string }) =>
     requestPageData<OperationLogItem>(request.get('/admin/operation-logs', {
-      params: { ...buildPageParams(query), action_type: query?.action_type, operator_role: query?.operator_role, start_time: query?.start_time, end_time: query?.end_time }
+      params: { ...buildPageParams(query), action_type: query?.action_type, operator_role: query?.operator_role, operator_name: query?.operator_name, start_time: query?.start_time, end_time: query?.end_time }
     })),
 
   // ISS-080: 导出全部筛选条件下的操作日志（不分页）
-  exportAdminOperationLogs: (query?: { action_type?: string; operator_role?: string; start_time?: string; end_time?: string }) =>
+  exportAdminOperationLogs: (query?: { action_type?: string; operator_role?: string; operator_name?: string; start_time?: string; end_time?: string }) =>
     requestData<{ items: OperationLogItem[]; total: number }>(request.get('/admin/operation-logs/export', {
-      params: { action_type: query?.action_type, operator_role: query?.operator_role, start_time: query?.start_time, end_time: query?.end_time }
+      params: { action_type: query?.action_type, operator_role: query?.operator_role, operator_name: query?.operator_name, start_time: query?.start_time, end_time: query?.end_time }
     })),
 
   getAdminStats: () => requestData<{

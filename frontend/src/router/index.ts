@@ -81,7 +81,7 @@ const routes = [
       // User routes - lazy loaded
       { path: 'user/dashboard', alias: '/user/dashboard', component: () => import('@/views/user/UserDashboard.vue'), meta: { role: 'user', title: 'nav.user.home' } },
       { path: 'user/risk', alias: ['/user/risk', '/user/risk-report'], component: () => import('@/views/user/UserRiskPage.vue'), meta: { role: 'user', title: 'nav.user.risk' } },
-      { path: 'user/model-training', alias: '/user/model-training', component: () => import('@/views/user/UserModelTrainingPage.vue'), meta: { role: 'user', title: 'nav.user.modelTraining' } },
+      { path: 'user/model-training', alias: '/user/model-training', component: () => import('@/views/user/UserModelTrainingPage.vue'), meta: { role: ['user', 'admin'], title: 'nav.user.modelTraining' } },
       { path: 'user/intervention', alias: '/user/intervention', component: () => import('@/views/user/UserInterventionPage.vue'), meta: { role: 'user', title: 'nav.user.intervention' } },
       { path: 'user/content', alias: ['/user/content', '/user/education'], component: () => import('@/views/user/UserContentPage.vue'), meta: { role: 'user', title: 'nav.user.content' } },
       { path: 'user/settings', alias: '/user/profile', component: () => import('@/views/user/UserSettingsPage.vue'), meta: { role: 'user', title: 'nav.user.settings', keepAlive: true } },
@@ -234,7 +234,7 @@ router.beforeEach((to, from) => {
   }
 
   const meta: GuardRouteMeta = {
-    role: typeof to.meta.role === 'string' ? to.meta.role : undefined,
+    role: typeof to.meta.role === 'string' || Array.isArray(to.meta.role) ? to.meta.role : undefined,
     permissions: Array.isArray(to.meta.permissions) ? to.meta.permissions : undefined
   }
 

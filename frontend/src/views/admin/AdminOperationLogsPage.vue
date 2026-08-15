@@ -258,6 +258,7 @@ const fetchData = async () => {
       page_size: pageSize.value,
       action_type: filters.actionType,
       operator_role: filters.operatorRole || undefined,
+      operator_name: filters.operatorName || undefined,
       start_time: filters.range?.[0],
       end_time: filters.range?.[1]
     })
@@ -282,6 +283,7 @@ const exportLogs = async () => {
     const data = await adminApi.exportAdminOperationLogs({
       action_type: filters.actionType,
       operator_role: filters.operatorRole || undefined,
+      operator_name: filters.operatorName || undefined,
       start_time: filters.range?.[0],
       end_time: filters.range?.[1]
     })

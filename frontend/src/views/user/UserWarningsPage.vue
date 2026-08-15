@@ -57,8 +57,8 @@
           :page="page"
           :page-size="pageSize"
           :row-class-name="rowClassName"
-          @update:page="(value: number) => { queryState.setQuery({ page: value }); fetchData() }"
-          @update:page-size="(value: number) => { queryState.setQuery({ page_size: value, page: 1 }); fetchData() }"
+          @update:page="onPageChange"
+          @update:page-size="onPageSizeChange"
         >
           <el-table-column
             prop="id"
@@ -312,6 +312,18 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// SEC-FIX (M2): 翻页事件先 await setQuery 再取数——原实现不 await 导致
+// fetchData 读取到未更新的旧 page 值, 两次 router.replace 相互抵消, 翻页失效
+const onPageChange = async (value: number) => {
+  await queryState.setQuery({ page: value })
+  await fetchData()
+}
+
+const onPageSizeChange = async (value: number) => {
+  await queryState.setQuery({ page_size: value, page: 1 })
+  await fetchData()
 }
 
 const handleMarkRead = async (row: WarningItem) => {

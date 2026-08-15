@@ -10,6 +10,7 @@ vi.mock('./request', () => ({
     const response = await promise
     return response.data
   }),
+  LONG_RUNNING_API_TIMEOUT_MS: 420000,
 }))
 
 import request, { requestData } from './request'
@@ -45,7 +46,7 @@ describe('api/reportsApi', () => {
     it('generateUserRiskPdfSync POST /reports/user-risk/pdf 且 responseType=blob', async () => {
       (request.post as any).mockResolvedValueOnce({ data: new Blob() })
       await reportsApi.generateUserRiskPdfSync({ user_id: 1, user_name: 'x', risk_level: '2', risk_trend: [], recommendations: [] })
-      expect(request.post).toHaveBeenCalledWith('/reports/user-risk/pdf', { user_id: 1, user_name: 'x', risk_level: '2', risk_trend: [], recommendations: [] }, { responseType: 'blob' })
+      expect(request.post).toHaveBeenCalledWith('/reports/user-risk/pdf', { user_id: 1, user_name: 'x', risk_level: '2', risk_trend: [], recommendations: [] }, { responseType: 'blob', timeout: 420000 })
     })
     it('generateUserRiskPdfAsync POST 返回 job_id', async () => {
       (requestData as any).mockResolvedValueOnce({ job_id: 'j1', status: 'queued', message: 'ok' })
@@ -70,7 +71,7 @@ describe('api/reportsApi', () => {
     it('batchExportExcel POST /reports/batch-export/excel responseType=blob', async () => {
       (request.post as any).mockResolvedValueOnce({ data: new Blob() })
       await reportsApi.batchExportExcel({ data: [{ data: { a: 1 } }], columns: ['a'], filename: 'r.xlsx' })
-      expect(request.post).toHaveBeenCalledWith('/reports/batch-export/excel', { data: [{ data: { a: 1 } }], columns: ['a'], filename: 'r.xlsx' }, { responseType: 'blob' })
+      expect(request.post).toHaveBeenCalledWith('/reports/batch-export/excel', { data: [{ data: { a: 1 } }], columns: ['a'], filename: 'r.xlsx' }, { responseType: 'blob', timeout: 420000 })
     })
   })
 
@@ -78,7 +79,7 @@ describe('api/reportsApi', () => {
     it('generateUserRiskPdfCeleryAsync POST celery-async', async () => {
       (requestData as any).mockResolvedValueOnce({ job_id: 'c1', status: 'queued', message: 'ok' })
       await reportsApi.generateUserRiskPdfCeleryAsync({ user_id: 1, user_name: 'x', risk_level: '1', risk_trend: [], recommendations: [] })
-      expect(request.post).toHaveBeenCalledWith('/reports/user-risk/pdf/celery-async', expect.any(Object))
+      expect(request.post).toHaveBeenCalledWith('/reports/user-risk/pdf/celery-async', expect.any(Object), { timeout: 420000 })
     })
     it('getCeleryPdfJobStatus GET celery status', async () => {
       (requestData as any).mockResolvedValueOnce({ status: 'running' })

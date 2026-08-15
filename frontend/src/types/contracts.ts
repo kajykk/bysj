@@ -1,4 +1,6 @@
-export const WARNING_STATUS = ['pending', 'handled', 'ignored'] as const
+// SEC-FIX (M5): 补充 escalated 状态——后端 core/contracts.py WARNING_STATUS_ESCALATED
+// 已支持该状态 (counselor 升级预警), 原 union 缺失导致升级行落入默认分支
+export const WARNING_STATUS = ['pending', 'handled', 'ignored', 'escalated'] as const
 export type WarningStatus = (typeof WARNING_STATUS)[number]
 
 export const RISK_LEVEL = ['low', 'medium', 'high'] as const

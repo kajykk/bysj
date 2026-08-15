@@ -118,19 +118,30 @@ export function useUserContentData() {
     }
   }
 
+  // SEC-FIX (M6): 请求序号守卫——快速点击不同内容卡片时,
+  // 慢的旧响应可能覆盖新卡片详情, 导致标题与正文错配。
+  // 参考 RiskReportTab 的 reportRenderSeq 模式, 仅接受最新一次请求的结果。
+  let detailRequestSeq = 0
+
   const openDetail = async (item: ContentItem) => {
+    const requestSeq = ++detailRequestSeq
     detailVisible.value = true
     detailLoading.value = true
     detailData.value = null
     sanitizedDetailHtml.value = ''
     try {
-      detailData.value = await userApi.getContentDetail(item.id)
+      const data = await userApi.getContentDetail(item.id)
+      if (requestSeq !== detailRequestSeq) return
+      detailData.value = data
       sanitizedDetailHtml.value = DOMPurify.sanitize(detailData.value.content || '', DOMPURIFY_CONFIG) as string
     } catch (error) {
+      if (requestSeq !== detailRequestSeq) return
       showHttpFeedback(error, t('userContent.detailLoadFailed'))
       closeDetail()
     } finally {
-      detailLoading.value = false
+      if (requestSeq === detailRequestSeq) {
+        detailLoading.value = false
+      }
     }
   }
 

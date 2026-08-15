@@ -9,6 +9,7 @@ import {
   getStoredUser,
   setStoredAuth,
 } from '@/utils/authStorage'
+import { clearSensitiveLocalStorage } from '@/utils/sensitiveStorage'
 
 interface AuthSyncDetail {
   token?: string
@@ -113,6 +114,8 @@ export const useAuthStore = defineStore('auth', () => {
     const data = await authApi.login({ username, password })
     // 安全修复：refresh_token 由后端 HttpOnly Cookie 管理，前端不存储也不保留在内存
     persistAuth({ token: data.access_token, user: data.user })
+    // SEC-FIX (H4): 登录成功后清理上一位用户残留的敏感 localStorage 数据
+    clearSensitiveLocalStorage()
     return data
   }
 
@@ -159,6 +162,17 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = ''
       refreshToken.value = ''
       user.value = null
+      // SEC-FIX (C3): 清除会话级内存状态，防止 A 用户的任务进度/分析同意状态泄漏给 B 用户
+      try {
+        const { resetTaskProgress } = await import('@/composables/useTaskProgress')
+        resetTaskProgress()
+        const { resetAnalyticsConsent } = await import('@/composables/useAnalytics')
+        resetAnalyticsConsent()
+      } catch {
+        // 模块动态加载失败时静默降级（状态已由下一次登录前的 restore 流程兜底）
+      }
+      // SEC-FIX (H4): 清除 localStorage 中的敏感健康数据 (日记预览/生理记录/评估历史)
+      clearSensitiveLocalStorage()
     }
   }
 

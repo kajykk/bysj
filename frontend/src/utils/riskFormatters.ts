@@ -69,11 +69,18 @@ export function getRiskScoreColor(score: number): string {
 
 /** 特征字段标签查找（i18n 化，替代原 featureLabelMap 常量） */
 export function featureLabel(key: string): string {
-  return tr(`riskFormatter.features.${snakeToCamel(key)}`, key)
+  const camel = snakeToCamel(key)
+  // 归一化动态复核触发词：model_disagreement_43_points → modelDisagreement，
+  // low_confidence_high_risk_text → lowConfidenceHighRisk，避免为数字/模态后缀枚举 key
+  const normalized = camel
+    .replace(/^modelDisagreement_\d+Points$/, 'modelDisagreement')
+    .replace(/^lowConfidenceHighRisk.+$/, 'lowConfidenceHighRisk')
+  return tr(`riskFormatter.features.${normalized}`, key)
 }
 
 /** 严重程度标签查找（i18n 化，替代原 severityLabelMap 常量） */
-export function severityLabel(key: string): string {
+export function severityLabel(key: string | null | undefined): string {
+  if (!key) return tr('riskFormatter.severity.unknown', 'Unknown')
   return tr(`riskFormatter.severity.${key}`, key)
 }
 

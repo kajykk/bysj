@@ -42,25 +42,25 @@ describe('Sentry Plugin - T-COV-SEN-FE-001', () => {
   })
 
   describe('initSentry', () => {
-    it('DSN 未配置（空字符串）时应早返回并输出 console.warn', async () => {
+    it('DSN 未配置（空字符串）时应早返回；开发环境静默不输出警告', async () => {
       vi.stubEnv('VITE_SENTRY_DSN', '')
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       await initSentry(createMockApp(), createMockRouter())
 
       expect(Sentry.init).not.toHaveBeenCalled()
-      expect(warnSpy).toHaveBeenCalledWith('Sentry DSN not configured')
+      expect(warnSpy).not.toHaveBeenCalledWith('Sentry DSN not configured')
       warnSpy.mockRestore()
     })
 
-    it('DSN 为 undefined 时也应早返回并输出 console.warn', async () => {
+    it('DSN 为 undefined 时也应早返回；开发环境静默不输出警告', async () => {
       // 不 stub VITE_SENTRY_DSN，默认 undefined
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       await initSentry(createMockApp(), createMockRouter())
 
       expect(Sentry.init).not.toHaveBeenCalled()
-      expect(warnSpy).toHaveBeenCalledWith('Sentry DSN not configured')
+      expect(warnSpy).not.toHaveBeenCalledWith('Sentry DSN not configured')
       warnSpy.mockRestore()
     })
 

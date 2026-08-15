@@ -95,13 +95,13 @@
               {{ modelTabResult.fallback_used ? t('structuredAssess.yesOption') : t('structuredAssess.noOption') }}
             </el-descriptions-item>
             <el-descriptions-item :label="t('structuredAssess.fallbackReasonLabel')">
-              {{ modelTabResult.fallback_reason || t('structuredAssess.notAvailable') }}
+              {{ fallbackReasonLabel(modelTabResult.fallback_reason) || t('structuredAssess.notAvailable') }}
             </el-descriptions-item>
             <el-descriptions-item :label="t('structuredAssess.humanReviewLabel')">
               {{ modelTabResult.requires_human_review ? t('structuredAssess.reviewRequired') : t('structuredAssess.reviewNotRequired') }}
             </el-descriptions-item>
             <el-descriptions-item :label="t('structuredAssess.safetyFlagsLabel')">
-              {{ formatArrayText(modelTabResult.safety_flags, '、') }}
+              {{ formatArrayText(modelTabResult.safety_flags?.map(safetyFlagLabel), '、') }}
             </el-descriptions-item>
             <el-descriptions-item :label="t('structuredAssess.crisisKeywordsLabel')">
               {{ formatArrayText(modelTabResult.crisis_keywords_matched, '、') }}
@@ -110,7 +110,7 @@
               {{ modelTabResult.warning || t('structuredAssess.notAvailable') }}
             </el-descriptions-item>
             <el-descriptions-item :label="t('structuredAssess.dataQualityLabel')">
-              {{ modelTabResult.data_quality?.quality_level || 'unknown' }}
+              {{ qualityLevelLabel(modelTabResult.data_quality?.quality_level) }}
               <span v-if="modelTabResult.data_quality?.missing_fields?.length">{{ t('structuredAssess.missingFieldsPrefix') }}{{ formatArrayText(modelTabResult.data_quality.missing_fields, '、') }}</span>
             </el-descriptions-item>
           </el-descriptions>
@@ -202,6 +202,36 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// 回退原因标签：后端下发枚举 code 或动态前缀字符串（forced_by_config: / model_load_failed:），
+// 动态前缀仅显示通用文案，未知 code 回退原文（排障信息保留可读性）
+function fallbackReasonLabel(reason: string | null | undefined): string {
+  if (!reason) return ''
+  if (reason.startsWith('forced_by_config')) return t('structuredAssess.fallbackForcedConfig')
+  if (reason.startsWith('model_load_failed')) return t('structuredAssess.fallbackModelLoadFailed')
+  const map: Record<string, string> = {
+    model_not_found: t('structuredAssess.fallbackModelNotFound'),
+    dependency_not_installed: t('structuredAssess.fallbackDependencyMissing'),
+    prediction_error: t('structuredAssess.fallbackPredictionError'),
+    ml_breaker_or_inference_error: t('structuredAssess.fallbackBreakerError'),
+    insufficient_information: t('structuredAssess.fallbackInsufficientInformation'),
+  }
+  return map[reason] ?? reason
+}
+
+function qualityLevelLabel(level: string | null | undefined): string {
+  if (!level) return t('structuredAssess.notAvailable')
+  const map: Record<string, string> = {
+    complete: t('structuredAssess.qualityComplete'),
+    partial: t('structuredAssess.qualityPartial'),
+    poor: t('structuredAssess.qualityPoor'),
+  }
+  return map[level] ?? level
+}
+
+function safetyFlagLabel(flag: string): string {
+  return flag === 'crisis_keyword_detected' ? t('structuredAssess.safetyCrisisKeyword') : flag
+}
 
 const showCrisisHint = computed(
   () => !!(props.modelTabResult?.requires_human_review || (props.modelTabResult?.risk_level ?? 0) >= 3)

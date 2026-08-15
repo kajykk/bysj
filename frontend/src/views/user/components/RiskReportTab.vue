@@ -279,6 +279,7 @@ import {
 } from '@/utils/riskFormatters'
 import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
 import { subscribeResize } from '@/utils/sharedResize'
+import { initChartWhenReady, type ChartInitHandle } from '@/utils/chartInit'
 
 interface Props {
   report: RiskReport | null
@@ -299,10 +300,16 @@ const { t } = useI18n()
 let isUnmounted = false
 const reportTrendRef = ref<HTMLElement>()
 let reportTrendChart: ECharts | null = null
+// 渲染序号：dispose 后过期的延迟 init 回调通过序号比对失效
+let reportRenderSeq = 0
+// SEC-FIX (P1-6): 记录 init 句柄, dispose 时取消未完成的重试链
+let reportTrendInitHandle: ChartInitHandle | null = null
 // R-009 修复：使用 subscribeResize 共享全局节流 resize 监听，避免独立注册
 let unsubscribeReportTrendResize: (() => void) | null = null
 
 const disposeReportTrend = () => {
+  reportTrendInitHandle?.cancel()
+  reportTrendInitHandle = null
   unsubscribeReportTrendResize?.()
   unsubscribeReportTrendResize = null
   reportTrendChart?.dispose()
@@ -332,16 +339,35 @@ const handleExport = (format: 'json' | 'csv' | 'pdf') => {
 
 const renderReportTrend = async () => {
   await nextTick()
-  if (!reportTrendRef.value) return
-  if (isUnmounted || !reportTrendRef.value) return
+  const el = reportTrendRef.value
+  if (!el || isUnmounted) return
 
   if (reportTrendChart) {
     disposeReportTrend()
+  } else {
+    // SEC-FIX (P1-6): 无实例但可能存在未完成的重试链, 取消后重建
+    reportTrendInitHandle?.cancel()
+    reportTrendInitHandle = null
   }
-  reportTrendChart = echarts.init(reportTrendRef.value)
-  // R-009 修复：通过 subscribeResize 注册共享监听
-  unsubscribeReportTrendResize = subscribeResize(() => reportTrendChart?.resize())
+  // 容器尺寸就绪后才 init（避免 0 尺寸初始化警告）；
+  // seq 防止 dispose 后过期的延迟 init 回调覆盖新实例
+  const seq = ++reportRenderSeq
+  reportTrendInitHandle = initChartWhenReady(el, { retries: 5, intervalMs: 100 }, (instance) => {
+    // SEC-FIX (P1-6): 回调到达时组件已卸载/已过期 → 立即释放实例
+    // (原实现仅 return, 实例已创建却无人 dispose)
+    if (isUnmounted || seq !== reportRenderSeq) {
+      instance.dispose()
+      return
+    }
+    reportTrendChart = instance
+    // R-009 修复：通过 subscribeResize 注册共享监听
+    unsubscribeReportTrendResize = subscribeResize(() => reportTrendChart?.resize())
+    paintReportTrend()
+  })
+}
 
+const paintReportTrend = () => {
+  if (!reportTrendChart) return
   const trend = props.trendData
   const points = Array.isArray(trend.points) ? trend.points : []
   const dates = points.map(p => p.date)

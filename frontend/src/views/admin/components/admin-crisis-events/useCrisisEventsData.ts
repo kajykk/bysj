@@ -98,7 +98,8 @@ export function useCrisisEventsData() {
       if (err?.response?.status === 403) {
         ElMessage.error(t('adminCrisisEvents.exportNoPermission'))
       } else {
-        ElMessage.error(showHttpFeedback(error, t('adminCrisisEvents.exportFailed')).detail)
+        // SEC-FIX (H1): showHttpFeedback 已弹提示, 不再重复 ElMessage.error
+        showHttpFeedback(error, t('adminCrisisEvents.exportFailed'))
       }
     } finally {
       exporting.value = false

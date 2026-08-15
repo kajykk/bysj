@@ -7,7 +7,9 @@ export interface GuardAuthState {
 }
 
 export interface GuardRouteMeta {
-  role?: string
+  // SEC-FIX (H5): 支持多角色路由（如 /user/model-training 允许 user 与 admin 访问），
+  // 数组语义为“任一角色匹配即可”
+  role?: string | string[]
   permissions?: PermissionKey[]
 }
 
@@ -35,8 +37,12 @@ export const resolveGuardResult = (toPath: string, meta: GuardRouteMeta, auth: G
   // finer-grained check used for pages that expose sensitive operations.
   // FM-05 修复：角色不匹配时重定向到 /forbidden 而非首页，让用户明确知道访问被拒绝，
   // 而非困惑地被跳转到首页。与下方权限检查的行为保持一致。
-  if (meta.role && meta.role !== auth.role) {
-    return '/forbidden'
+  // SEC-FIX (H5)：meta.role 支持数组，任一角色命中即放行
+  if (meta.role) {
+    const roles = Array.isArray(meta.role) ? meta.role : [meta.role]
+    if (!roles.includes(auth.role)) {
+      return '/forbidden'
+    }
   }
 
   const routePermissions = meta.permissions || []

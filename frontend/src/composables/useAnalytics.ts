@@ -104,7 +104,11 @@ async function updateConsent(consent: boolean): Promise<boolean> {
 }
 
 /**
- * 发送事件到后端（使用 sendBeacon 非阻塞上传）
+ * 发送事件到后端
+ *
+ * SEC-FIX: 原实现无条件优先 sendBeacon —— 但 sendBeacon 无法携带 Authorization 头，
+ * 所有事件实际都以未认证请求到达后端（要么被拒导致埋点失效，要么成为未认证写入通道）。
+ * 现改为始终使用带 Bearer token 的 fetch；keepalive: true 可保证页面卸载时仍能发送。
  */
 function sendEvents(events: Array<{ event_type: string; timestamp: number; metadata: Record<string, unknown> }>): void {
   const token = useAuthStore().token
@@ -112,17 +116,6 @@ function sendEvents(events: Array<{ event_type: string; timestamp: number; metad
 
   const payload = JSON.stringify({ events })
 
-  // 优先使用 sendBeacon（页面卸载时也能发送）
-  if (navigator.sendBeacon) {
-    const blob = new Blob([payload], { type: 'application/json' })
-    // sendBeacon 不支持自定义 header，用 URL 参数传递 token 不可取（安全风险）
-    // 因此 sendBeacon 仅用于 unload 场景，常规场景用 fetch
-    if (navigator.sendBeacon(ANALYTICS_ENDPOINT, blob)) {
-      return
-    }
-  }
-
-  // 常规 fetch（带 Authorization header）
   fetch(ANALYTICS_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -188,4 +181,13 @@ export function useAnalytics() {
     refreshConsent,
     setConsent,
   }
+}
+
+/**
+ * SEC-FIX (C3/M7): 登出时重置模块级同意缓存，
+ * 避免 A 用户的同意状态在同标签页内被 B 用户继承。
+ */
+export function resetAnalyticsConsent() {
+  _consented = null
+  _consentLoading = null
 }

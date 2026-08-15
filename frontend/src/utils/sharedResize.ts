@@ -27,5 +27,11 @@ export function subscribeResize(cb: () => void): () => void {
   ensureListener()
   return () => {
     subscribers.delete(cb)
+    // SEC-FIX (M7/L8): 最后一位订阅者退订时移除全局监听器,
+    // 避免页面销毁后全局 resize 监听空转
+    if (subscribers.size === 0 && dispatchHandler) {
+      window.removeEventListener('resize', dispatchHandler)
+      dispatchHandler = null
+    }
   }
 }

@@ -1,4 +1,4 @@
-import request, { requestData } from './request'
+import request, { LONG_RUNNING_API_TIMEOUT_MS, requestData } from './request'
 import type { RiskReport, RiskTrend, TextPredictModelResult } from './userRiskApi'
 
 export type { RiskReport, RiskTrend, TextPredictModelResult }
@@ -202,15 +202,15 @@ export const modelApi = {
   predictTextModel: (text: string) => requestData<TextPredictModelResult>(request.post('/model/predict/text', { text })),
   predictFusionModel: (payload: FusionPredictRequest) => requestData<FusionPredictResult>(request.post('/model/predict/fusion', payload)),
   importDataset: (payload: { dataset_name: string; source_type?: string; train_ratio?: number; val_ratio?: number; test_ratio?: number }) =>
-    requestData<DatasetImportResult>(request.post('/model/experiment/import', payload)),
+    requestData<DatasetImportResult>(request.post('/model/experiment/import', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   trainModel: (payload: { dataset_name: string; model_name: string; epochs?: number; batch_size?: number; learning_rate?: number }) =>
-    requestData<TrainResult>(request.post('/model/experiment/train', payload)),
+    requestData<TrainResult>(request.post('/model/experiment/train', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   getTrainingJobs: () => requestData<{ jobs: TrainResult[] }>(request.get('/model/training/jobs')),
   getTrainingJob: (jobId: string) => requestData<TrainResult>(request.get(`/model/training/jobs/${jobId}`)),
   evaluateModel: (payload: { dataset_name: string; model_name: string; split?: 'validation' | 'test' }) =>
-    requestData<EvaluateResult>(request.post('/model/experiment/evaluate', payload)),
+    requestData<EvaluateResult>(request.post('/model/experiment/evaluate', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   compareModels: (payload: { dataset_name: string; model_names: string[] }) =>
-    requestData<CompareResult>(request.post('/model/experiment/compare', payload)),
+    requestData<CompareResult>(request.post('/model/experiment/compare', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   getModelRegistry: () => requestData<RegistryListResult>(request.get('/model/model-registry')).then((res) => res.models ?? []),
   getShadowStats: (modelId: string) => requestData<ShadowStatsResult>(request.get(`/model/model-registry/${modelId}/shadow`)),
   activateRegistryModel: (modelId: string, force = false) =>

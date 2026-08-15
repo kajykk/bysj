@@ -147,6 +147,9 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
   // M-FE-9 修复：按 interactionId 分组记录每次交互的最大 duration，
   // 避免同一交互的多个事件（pointerdown/click/pointerup）被重复计入导致 INP 高估
   const interactionMaxDuration = new Map<number, number>()
+  // SEC-FIX (M7/L6): 交互记录有界——超过上限后清理最早条目,
+  // 防止长时间 SPA 会话下 Map 无界增长
+  const INTERACTION_MAX_ENTRIES = 500
 
   /**
    * 采集 INP (Interaction to Next Paint)
@@ -169,6 +172,11 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
           const prev = interactionMaxDuration.get(id)
           if (prev === undefined || duration > prev) {
             interactionMaxDuration.set(id, duration)
+            // SEC-FIX (M7/L6): 有界清理最早条目
+            if (interactionMaxDuration.size > INTERACTION_MAX_ENTRIES) {
+              const oldestKey = interactionMaxDuration.keys().next().value
+              if (oldestKey !== undefined) interactionMaxDuration.delete(oldestKey)
+            }
           }
           // INP 取所有交互中最大的 duration
           const worst = Math.max(...interactionMaxDuration.values())
