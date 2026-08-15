@@ -98,9 +98,9 @@ class TestResourceUsage:
 
     def test_drift_detector_no_memory_leak(self) -> None:
         """验证 DriftDetector 无内存泄漏"""
-        from app.services.drift_detector import DriftDetector
+        from app.services.drift_detector import PsiKlCalculator
 
-        detector = DriftDetector()
+        detector = PsiKlCalculator()
 
         gc.collect()
         tracemalloc.start()
@@ -358,13 +358,13 @@ class TestResourceUsage:
 
     def test_overall_resource_efficiency(self) -> None:
         """综合验证资源使用效率"""
-        from app.services.drift_detector import DriftDetector
+        from app.services.drift_detector import PsiKlCalculator
         from app.services.input_validator import InputValidator
         from app.services.validation_engine import ValidationEngine
 
         validator = InputValidator()
         engine = ValidationEngine()
-        detector = DriftDetector()
+        detector = PsiKlCalculator()
 
         gc.collect()
         tracemalloc.start()

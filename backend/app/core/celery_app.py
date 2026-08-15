@@ -21,7 +21,14 @@ celery_app.conf.update(
     accept_content=["json"],
     result_serializer="json",
     timezone="Asia/Shanghai",
-    enable_utc=True,
+    # SEC-FIX (M8): 原 enable_utc=True 与 timezone="Asia/Shanghai" 组合时,
+    # 所有 crontab 按 UTC 解释——注释里"每日 03:30 掩码 IP"等实际在 UTC 03:30
+    # (北京时间 11:30) 执行, 与文档/审计预期偏差 8 小时。
+    # 改为 enable_utc=False 后, crontab 按 Asia/Shanghai 解释, 与注释一致。
+    # 部署注意: 滚动升级期间新 beat (本地时区) 与旧 worker (UTC) 混跑会再次
+    # 偏差 8 小时, beat 与 worker 必须同步升级; 升级窗口内避免依赖精确时刻的
+    # 一次性任务 (如掩码/归档) 触发。
+    enable_utc=False,
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,

@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import CacheUnavailableError
 from app.core.contracts import (
     USER_ROLE_ADMIN,
     USER_ROLE_COUNSELOR,
@@ -111,13 +112,27 @@ async def get_current_user(
         ) from exc
 
     # SEC-P1-001: 检查 jti 是否在 blocklist 中 (登出撤销)
+    # SEC-FIX (H1): Redis 不可用时失败关闭——is_token_revoked 抛出
+    # CacheUnavailableError, 此处转为 503 (基础设施故障), 与 401
+    # "Token已被撤销" (真实撤销) 语义区分。
     from app.core.token_blocklist import is_token_revoked
 
     jti = payload.get("jti")
-    if jti and await is_token_revoked(jti):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token已被撤销"
-        )
+    if jti:
+        try:
+            revoked = await is_token_revoked(jti)
+        except CacheUnavailableError:
+            logger.error(
+                "deps: token blocklist unavailable, rejecting request (fail-closed)"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="认证服务暂时不可用，请稍后重试",
+            )
+        if revoked:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token已被撤销"
+            )
 
     user = await db.get(User, user_id)
     if not user or user.status != USER_STATUS_ACTIVE:

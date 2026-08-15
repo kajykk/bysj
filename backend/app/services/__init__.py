@@ -52,8 +52,8 @@ from .counselor_service import CounselorService
 # ── Crisis Export ──
 from .crisis_export_service import CrisisExportService
 
-# ── Drift Detector ──
-from .drift_detector import DriftDetector
+# ── Drift Detector (轻量 PSI/KL 工具; 全功能漂移检测在 app.ml.drift_detector) ──
+from .drift_detector import PsiKlCalculator
 
 # ── Email ──
 from .email_service import EmailService
@@ -177,8 +177,8 @@ __all__ = [
     "CounselorService",
     # Crisis Export
     "CrisisExportService",
-    # Drift Detector
-    "DriftDetector",
+    # Drift Detector (轻量 PSI/KL)
+    "PsiKlCalculator",
     # Email
     "EmailService",
     # Excel Export

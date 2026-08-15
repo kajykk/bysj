@@ -15,12 +15,12 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.monitoring import CanaryRecord, CanaryStatus, DriftAlert, DriftSeverity
 from app.models.risk import RiskAssessment
-from app.services.drift_detector import DriftDetector
+from app.services.drift_detector import PsiKlCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,9 @@ class DriftCheckResult:
     baseline_n: int
     current_n: int
     alert_created: bool
+    # SEC-FIX (异常语义): 检测失败时置 True, Gauge 推送跳过该模态,
+    # 避免把瞬时 DB 故障呈现为 "漂移消失" (psi=0.0 的假象)
+    failed: bool = False
 
 
 class DriftMonitoringService:
@@ -59,8 +62,8 @@ class DriftMonitoringService:
     由 celery beat 每小时触发, 计算 4 个模态的预测分布漂移.
     """
 
-    def __init__(self, detector: DriftDetector | None = None) -> None:
-        self.detector = detector or DriftDetector()
+    def __init__(self, detector: PsiKlCalculator | None = None) -> None:
+        self.detector = detector or PsiKlCalculator()
 
     async def check_all_modalities(
         self,
@@ -101,6 +104,11 @@ class DriftMonitoringService:
                 logger.exception(
                     "漂移检测失败 modality=%s column=%s", modality, column_name
                 )
+                # SEC-FIX (异常语义): 先回滚会话——若异常源于前一个模态的
+                # flush() 失败, session 已进入 PendingRollback 状态, 不回滚
+                # 则后续所有模态查询与任务层 commit 全部失败, 且原始异常
+                # 会被 PendingRollbackError 掩盖
+                await db_session.rollback()
                 results.append(
                     DriftCheckResult(
                         modality=modality,
@@ -110,6 +118,7 @@ class DriftMonitoringService:
                         baseline_n=0,
                         current_n=0,
                         alert_created=False,
+                        failed=True,
                     )
                 )
 
@@ -218,14 +227,16 @@ class DriftMonitoringService:
         T-P0-03: 当 PSI > PSI_SUSPECTED_VERSION_MISMATCH (2.0) 时, 极可能是
         模型版本切换导致的跨版本比较 (如 v2.0 优化后基线窗口含旧模型预测),
         而非真实数据漂移. 此时:
-        - **不创建 DriftAlert** (避免告警风暴, 每小时检测会重复触发)
+        - 创建单条 MEDIUM 人工复核告警 (details 标注 possible_model_version_mismatch),
+          去重逻辑与真实漂移告警一致 (避免告警风暴)
+        - model_version=None, auto_rollback_service 按 canary.version 统计
+          drift_alerts_per_hour, 本告警不匹配任何 canary 版本, 不触发回滚
         - PSI/KL 仍推送到 Prometheus Gauge (Grafana 可视化不受影响)
         - 记录 warning 日志供人工排查
-        - 不触发 AutoRollbackService 回滚 (DriftAlert 表无新增记录)
 
         根因: PSI > 2.0 在统计学上意味着分布根本性变化 (真实数据漂移 PSI 通常
-        在 0.25-1.0 之间), 几乎必然是版本切换/数据管道问题. 真实漂移由 0.25 < PSI ≤ 2.0
-        区间的告警覆盖, 不需要 PSI > 2.0 的告警.
+        在 0.25-1.0 之间), 几乎必然是版本切换/数据管道问题, 但也有小概率是
+        灾难性分布突变——保留单条复核告警作为人工介入入口。
 
         治理历史:
         - 2026-07-24: id=4,5,6 CRITICAL 告警 (PSI 8.39/3.95/12.41) 已 resolved
@@ -233,18 +244,12 @@ class DriftMonitoringService:
         - 2026-07-24: id=7,8,9 HIGH 告警 (PSI 8.34/3.92/12.42) 为守卫降级产物,
           本应不创建. 本次修复后此类告警不再产生.
         """
-        # T-P0-03: 检测可能的模型版本失配 — 直接跳过告警创建
+        # T-P0-03: 疑似模型版本失配 — 创建单条人工复核告警, 不触发自动回滚。
+        # SEC-FIX (告警闭环): 原实现直接 return 不建任何告警, PSI>2.0 的灾难性
+        # 分布突变 (如评分体系整体异常) 完全脱离告警/复核闭环。
         suspected_version_mismatch = psi > PSI_SUSPECTED_VERSION_MISMATCH
-        if suspected_version_mismatch:
-            logger.warning(
-                "T-P0-03: 检测到疑似模型版本失配 modality=%s PSI=%.4f (>%.1f), "
-                "不创建 DriftAlert (避免告警风暴). PSI/KL 仍推送 Gauge 供 Grafana 可视化. "
-                "需人工排查基线窗口是否含旧模型预测.",
-                modality, psi, PSI_SUSPECTED_VERSION_MISMATCH,
-            )
-            return False
 
-        # 检查是否已有未解决的告警 (仅对真实漂移 PSI ≤ 2.0 启用去重)
+        # 检查是否已有未解决的告警 (对所有 PSI > 0.25 启用去重)
         existing_stmt = (
             select(DriftAlert)
             .where(
@@ -264,6 +269,39 @@ class DriftMonitoringService:
                 modality, feature, existing.id,
             )
             return False
+
+        if suspected_version_mismatch:
+            logger.warning(
+                "T-P0-03: 检测到疑似模型版本失配 modality=%s PSI=%.4f (>%.1f), "
+                "创建 MEDIUM 人工复核告警 (不参与自动回滚). "
+                "需人工排查基线窗口是否含旧模型预测.",
+                modality, psi, PSI_SUSPECTED_VERSION_MISMATCH,
+            )
+            # model_version=None: auto_rollback_service 按 canary.version 统计
+            # drift_alerts_per_hour, 本告警不匹配任何 canary 版本, 不触发回滚
+            alert = DriftAlert(
+                model_version=None,
+                feature_name=feature,
+                drift_type="prediction_drift",
+                severity=DriftSeverity.MEDIUM,
+                metric_value=round(psi, 4),
+                threshold=PSI_SUSPECTED_VERSION_MISMATCH,
+                details={
+                    "psi": round(psi, 4),
+                    "kl": round(kl, 4),
+                    "baseline_n": baseline_n,
+                    "current_n": current_n,
+                    "modality": modality,
+                    "possible_model_version_mismatch": True,
+                },
+            )
+            db_session.add(alert)
+            await db_session.flush()
+            logger.warning(
+                "版本失配复核告警已创建 modality=%s feature=%s PSI=%.4f alert_id=%d",
+                modality, feature, psi, alert.id,
+            )
+            return True
 
         severity = DriftSeverity.CRITICAL if psi > 0.5 else DriftSeverity.HIGH
 
@@ -316,6 +354,12 @@ class DriftMonitoringService:
 
         T-P0-03: 用于模型升级后清理跨版本比较导致的误报告警.
 
+        SEC-FIX (P2-1): 告警写入修复后 modality 存于 details["modality"],
+        model_version 存 canary 版本——原实现按 model_version == modality
+        过滤永远匹配不到新告警. 现在同时匹配:
+        - details["modality"] == modality (新告警)
+        - model_version == modality (历史遗留告警)
+
         Args:
             db_session: 数据库会话.
             modality: 模态名 (structured/text/physiological/fusion).
@@ -327,9 +371,12 @@ class DriftMonitoringService:
         stmt = (
             select(DriftAlert)
             .where(
-                DriftAlert.model_version == modality,
                 DriftAlert.drift_type == "prediction_drift",
                 DriftAlert.resolved_at.is_(None),
+                or_(
+                    DriftAlert.details["modality"].as_string() == modality,
+                    DriftAlert.model_version == modality,
+                ),
             )
         )
         result = await db_session.execute(stmt)
@@ -351,11 +398,20 @@ class DriftMonitoringService:
         return len(alerts)
 
     def _push_to_gauge(self, results: list[DriftCheckResult]) -> None:
-        """将 PSI/KL 推送到 Prometheus Gauge (供 Grafana 展示)."""
+        """将 PSI/KL 推送到 Prometheus Gauge (供 Grafana 展示).
+
+        SEC-FIX (异常语义): failed=True 的模态跳过推送 (保持上次值),
+        而不是推送 psi=0.0 制造"漂移消失"的假象.
+        """
         try:
             from app.core.metrics import model_drift_kl, model_drift_psi
 
             for r in results:
+                if r.failed:
+                    logger.warning(
+                        "Gauge 推送跳过失败模态 modality=%s (保持上次值)", r.modality
+                    )
+                    continue
                 model_drift_psi.set(
                     float(r.psi), modality=r.modality, feature=r.feature
                 )

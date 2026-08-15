@@ -17,11 +17,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.tenant_admin import _get_tenant_or_404, _serialize_tenant
+from app.core.contracts import DEFAULT_TENANT_ID
 from app.core.database import get_db
-from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_role_tenant_scoped
 from app.models.admin import OperationLog
 from app.models.user import User
 
@@ -39,7 +40,7 @@ router = APIRouter(prefix="/tenants", tags=["tenants-export"])
 async def export_tenant_data(
     request: Request,
     tenant_id: int,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     format: str = Query(default="summary", description="导出格式: summary"),
 ) -> dict[str, Any]:
@@ -52,6 +53,21 @@ async def export_tenant_data(
         raise HTTPException(
             status_code=400,
             detail=f"不支持的导出格式: {format}，目前仅支持 summary",
+        )
+
+    # SEC-FIX (租户越权): 路径 tenant_id 必须归属操作者租户。
+    # require_role_tenant_scoped 只校验"请求头租户 == 用户租户",
+    # 与路径参数脱钩, 必须在此显式校验。默认租户管理员保留平台级放行
+    # (当前无独立平台管理员角色, 与 tenant_admin 的全局管理语义一致)。
+    user_tenant = current_user.tenant_id or DEFAULT_TENANT_ID
+    if tenant_id != user_tenant and user_tenant != DEFAULT_TENANT_ID:
+        logger.warning(
+            "Tenant export blocked (IDOR): admin_tenant=%s, target_tenant=%s, admin_id=%s",
+            user_tenant, tenant_id, current_user.id,
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="只能导出本租户的数据",
         )
 
     tenant = await _get_tenant_or_404(db, tenant_id)
@@ -109,6 +125,9 @@ async def export_tenant_data(
     }
 
     # 记录导出操作
+    # SEC-FIX (租户审计归属): 审计日志归属目标租户 (tenant_id), 使目标租户的
+    # 管理员能在 tenant-audit 中看到针对本租户的导出操作; 操作者信息在
+    # operator_id/operator_role 中保留。
     db.add(
         OperationLog(
             operator_id=current_user.id,
@@ -117,7 +136,7 @@ async def export_tenant_data(
             target_type="tenant",
             target_id=tenant_id,
             detail=f"format={format}",
-            tenant_id=current_user.tenant_id,
+            tenant_id=tenant_id,
         )
     )
     await db.commit()

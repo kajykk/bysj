@@ -6,8 +6,13 @@ from typing import Iterable
 import numpy as np
 
 
-class DriftDetector:
-    """Lightweight drift detector utilities.
+# SEC-FIX (死代码治理): 原类名 DriftDetector 与 app/ml/drift_detector.py 的
+# DriftDetector 同名但 API 语义完全不同 (本类返回纯 float, 对退化输入返回 0.0
+# 而非抛错; ml 版返回 {psi, interpretation, is_drift} 字典)。
+# 更名为 PsiKlCalculator 以明确职责: 轻量 PSI/KL 数值工具, 供监控/回退路径
+# 使用; 全功能漂移检测 (KS/特征/预测/性能漂移) 统一走 app.ml.drift_detector。
+class PsiKlCalculator:
+    """Lightweight PSI/KL distribution utilities.
 
     Provides a stable Population Stability Index implementation that is safe for
     empty, single-valued, and extreme distributions.

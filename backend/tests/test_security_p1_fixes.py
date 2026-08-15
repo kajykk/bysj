@@ -3,12 +3,12 @@
 覆盖的安全加固点 (按修复顺序):
 1. _safe_resolve_path 防止路径遍历
 2. _validate_extension 拒绝包含路径分隔符的文件名
-3. XSS middleware opt-in: 自由文本不被错误转义
-4. XSS middleware 检查 query string 中的 XSS payload
-5. CSP: 生产环境使用强制 header; 非生产使用 Report-Only
-6. CORS: 生产环境未显式配置时返回空列表
-7. Rate limit: 开发环境也启用（更宽松限制）
-8. _role_for_request: 优先使用 request.state.token_payload 缓存
+3. (已删除) XSS middleware - SEC-FIX 死代码清理: middleware/xss.py 未被注册且
+   辅助函数仅被测试引用, 已随模块一并移除; 前端 XSS 防护由 DOMPurify + nginx CSP 承担
+4. CSP: 生产环境使用强制 header; 非生产使用 Report-Only
+5. CORS: 生产环境未显式配置时返回空列表
+6. Rate limit: 开发环境也启用（更宽松限制）
+7. _role_for_request: 优先使用 request.state.token_payload 缓存
 """
 
 from __future__ import annotations
@@ -22,12 +22,6 @@ from fastapi.testclient import TestClient
 
 from app.core.deps import _role_for_request
 from app.core.middlewares import security_headers_middleware
-from app.middleware.xss import (
-    XSSProtectionMiddleware,
-    looks_like_xss,
-    sanitize_html,
-    strip_html_tags,
-)
 
 
 class TestPathTraversalFix:
@@ -79,56 +73,6 @@ class TestPathTraversalFix:
 
         result = _safe_resolve_path(tmp_path, "1", "abc123.jpg")
         assert result == (tmp_path / "1" / "abc123.jpg").resolve()
-
-
-class TestXSSMiddlewareOptIn:
-    """测试 XSS 中间件不再误转纯文本 (P1 #3)."""
-
-    def test_sanitize_html_escapes(self):
-        """sanitize_html 仍可转义."""
-        assert "&lt;script&gt;" in sanitize_html("<script>alert(1)</script>")
-
-    def test_strip_html_tags(self):
-        """strip_html_tags 移除标签."""
-        assert strip_html_tags("<b>hello</b>") == "hello"
-
-    def test_looks_like_xss_detects_script(self):
-        """XSS payload 应被识别."""
-        assert looks_like_xss("<script>alert(1)</script>") is True
-
-    def test_looks_like_xss_detects_event(self):
-        """事件属性应被识别."""
-        assert looks_like_xss('" onerror="alert(1)"') is True
-
-    def test_looks_like_xss_detects_javascript_uri(self):
-        """javascript: URI 应被识别."""
-        assert looks_like_xss("javascript:alert(1)") is True
-
-    def test_looks_like_xss_allows_plain(self):
-        """普通文本不应误判."""
-        assert looks_like_xss("今天天气真好") is False
-        assert looks_like_xss("hello world") is False
-        assert looks_like_xss("user.name@example.com") is False
-        assert looks_like_xss("数学公式: x < 5 && y > 3") is False
-
-    def test_middleware_does_not_sanitize_in_dev(self):
-        """开发环境中间件不主动转义 body 字符串."""
-        app = FastAPI()
-
-        @app.middleware("http")
-        async def _add_mw(request, call_next):
-            return await XSSProtectionMiddleware(app, enabled=False).dispatch(
-                request, call_next
-            )
-
-        @app.post("/echo")
-        async def _echo(payload: dict):
-            return payload
-
-        client = TestClient(app)
-        resp = client.post("/echo", json={"text": "<user diary entry>"})
-        # 字符串保持原样, 不被转义
-        assert resp.json() == {"text": "<user diary entry>"}
 
 
 class TestCSPModeByEnvironment:

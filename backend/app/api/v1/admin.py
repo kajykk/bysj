@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 from datetime import date, datetime
 from typing import Annotated
 from urllib.parse import quote
@@ -8,7 +10,6 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_role
 from app.core.idempotency import (
     begin_idempotent_call,
     dismiss_idempotent_call,
@@ -19,6 +20,7 @@ from app.core.openapi_responses import COMMON_ERROR_RESPONSES, CSV_EXPORT_RESPON
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.request_id import get_or_create_request_id
 from app.core.response import ok
+from app.core.tenant_context import require_role_tenant_scoped
 from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.admin import (
@@ -31,6 +33,8 @@ from app.schemas.admin import (
 from app.schemas.common import ApiResponse
 from app.services.admin_service import AdminService
 from app.services.crisis_export_service import CrisisExportService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -79,7 +83,7 @@ async def _begin_idempotent(
 @limiter.limit("60/minute")
 async def admin_dashboard(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -91,7 +95,7 @@ async def admin_dashboard(
 @limiter.limit("60/minute")
 async def get_admin_stats(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -103,7 +107,7 @@ async def get_admin_stats(
 @limiter.limit("60/minute")
 async def list_templates(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -118,7 +122,7 @@ async def list_templates(
 async def upsert_template(
     request: Request,
     payload: TemplateUpsertRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -152,7 +156,7 @@ async def upsert_template(
 async def delete_template(
     request: Request,
     template_id: int,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """ISS-075: 删除干预模板."""
@@ -168,7 +172,7 @@ async def delete_template(
 @limiter.limit("60/minute")
 async def list_thresholds(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -183,7 +187,7 @@ async def list_thresholds(
 async def upsert_threshold(
     payload: ThresholdUpsertRequest,
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -209,7 +213,7 @@ async def upsert_threshold(
 @limiter.limit("60/minute")
 async def list_feedbacks(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -223,7 +227,7 @@ async def list_feedbacks(
 @limiter.limit("60/minute")
 async def list_configs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -236,7 +240,7 @@ async def list_configs(
 async def upsert_config(
     request: Request,
     payload: ConfigUpsertRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -260,7 +264,7 @@ async def upsert_config(
 @limiter.limit("60/minute")
 async def get_admin_settings(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -275,18 +279,20 @@ async def get_admin_settings(
 @limiter.limit("60/minute")
 async def list_operation_logs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     action_type: str | None = Query(default=None),
     operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin)$"),
+    # SEC-FIX (M4): 操作员用户名模糊筛选
+    operator_name: str | None = Query(default=None, max_length=64),
     start_time: datetime | None = Query(default=None),
     end_time: datetime | None = Query(default=None),
 ) -> dict:
     service = AdminService(db)
     data = await service.list_operation_logs(
-        page, page_size, action_type, operator_role, start_time, end_time
+        page, page_size, action_type, operator_role, operator_name, start_time, end_time
     )
     return ok(data)
 
@@ -299,17 +305,18 @@ async def list_operation_logs(
 @limiter.limit("10/minute")
 async def export_operation_logs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     action_type: str | None = Query(default=None),
     operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin)$"),
+    operator_name: str | None = Query(default=None, max_length=64),
     start_time: datetime | None = Query(default=None),
     end_time: datetime | None = Query(default=None),
 ) -> dict:
     """ISS-080: 导出全部筛选条件下的操作日志（不分页），供前端生成 CSV."""
     service = AdminService(db)
     items = await service.export_operation_logs(
-        action_type, operator_role, start_time, end_time
+        action_type, operator_role, operator_name, start_time, end_time
     )
     return ok({"items": items, "total": len(items)})
 
@@ -318,7 +325,7 @@ async def export_operation_logs(
 @limiter.limit("60/minute")
 async def list_audit_logs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     # M-API-3 修复：统一 page_size 上限为 100，与其他端点一致（原为 200）
@@ -350,7 +357,7 @@ async def list_audit_logs(
 @limiter.limit("60/minute")
 async def list_models(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -365,7 +372,7 @@ async def list_models(
 async def register_model(
     request: Request,
     payload: ModelRegistryRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -387,7 +394,7 @@ async def update_model(
     request: Request,
     model_id_int: int,
     payload: ModelUpdateRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -421,7 +428,7 @@ async def update_model(
 async def activate_model(
     request: Request,
     model_id_int: int,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = AdminService(db)
@@ -438,7 +445,7 @@ async def activate_model(
 @limiter.limit("10/minute")
 async def archive_logs(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     days: int = Query(default=90, ge=30, le=365),
 ) -> dict:
@@ -457,7 +464,7 @@ async def archive_logs(
 @limiter.limit("60/minute")
 async def export_crisis_events(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_role_tenant_scoped("admin"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     start_date: date = Query(..., description="开始日期 (YYYY-MM-DD)"),
     end_date: date = Query(..., description="结束日期 (YYYY-MM-DD)"),
@@ -482,31 +489,53 @@ async def export_crisis_events(
 
     # ISS-110 修复：CSV 改为 StreamingResponse + 逐行生成器, 避免全量字符串驻留内存
     async def _stream_csv():
-        # SEC-P1-003 修复：记录危机事件 CSV 导出审计日志 (流式完成后写入)
+        # SEC-P1-003 修复：记录危机事件 CSV 导出审计日志
+        # SEC-FIX (P2): 流开始前先写入审计日志——客户端中途断开时生成器收到
+        # GeneratorExit, 原"流式完成后写入"的分支永远不执行, 导出已部分发生
+        # 却无任何审计记录。content_size 改为流结束后 UPDATE 回填。
+        audit_log = OperationLog(
+            operator_id=current_user.id,
+            operator_role=current_user.role,
+            action_type="admin.crisis.export",
+            target_type="crisis_event",
+            target_id=None,
+            detail=json.dumps(
+                {
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                    "filename": safe_filename,
+                    "content_size": 0,
+                    "completed": False,
+                },
+                ensure_ascii=False,
+            ),
+            ip_address=get_real_client_ip(request),
+        )
+        db.add(audit_log)
+        await db.commit()
+
         content_size = 0
-        async for chunk in service.iter_export_crisis_csv(start_date, end_date):
-            content_size += len(chunk)
-            yield chunk
-        db.add(
-            OperationLog(
-                operator_id=current_user.id,
-                operator_role=current_user.role,
-                action_type="admin.crisis.export",
-                target_type="crisis_event",
-                target_id=None,
-                detail=json.dumps(
+        try:
+            async for chunk in service.iter_export_crisis_csv(start_date, end_date):
+                content_size += len(chunk)
+                yield chunk
+        finally:
+            # 流结束/中断均尝试回填实际传输字节数与完成状态
+            # (shield: 客户端断开触发任务取消时, 回填 commit 仍尽力完成)
+            try:
+                audit_log.detail = json.dumps(
                     {
                         "start_date": start_date.isoformat(),
                         "end_date": end_date.isoformat(),
                         "filename": safe_filename,
                         "content_size": content_size,
+                        "completed": True,
                     },
                     ensure_ascii=False,
-                ),
-                ip_address=get_real_client_ip(request),
-            )
-        )
-        await db.commit()
+                )
+                await asyncio.shield(db.commit())
+            except Exception:  # noqa: BLE001
+                logger.exception("回填危机事件导出审计日志失败 (log_id=%s)", audit_log.id)
 
     return StreamingResponse(
         _stream_csv(),

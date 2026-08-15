@@ -24,16 +24,15 @@ async def main() -> int:
     # 1. 验证导入链
     print("\n[1/4] 验证导入链...")
     try:
+        from app.core.metrics import model_drift_kl, model_drift_psi
+        from app.models.monitoring import DriftAlert
+        from app.services.drift_detector import PsiKlCalculator
         from app.services.drift_monitoring_service import (
-            DriftMonitoringService,
-            drift_monitoring_service,
             MODALITY_COLUMNS,
             PSI_DRIFT,
+            DriftMonitoringService,
         )
-        from app.services.drift_detector import DriftDetector
-        from app.core.metrics import model_drift_psi, model_drift_kl
-        from app.models.monitoring import DriftAlert, DriftSeverity
-        print(f"  ✓ DriftMonitoringService 导入成功")
+        print("  ✓ DriftMonitoringService 导入成功")
         print(f"  ✓ 模态列映射: {MODALITY_COLUMNS}")
         print(f"  ✓ PSI 漂移阈值: {PSI_DRIFT}")
         print(f"  ✓ model_drift_psi Gauge: {model_drift_psi.name}")
@@ -56,14 +55,14 @@ async def main() -> int:
         # celery_app.tasks 需要任务模块被导入后才包含任务, 离线验证时可能为空
         # 在生产 celery worker 中, app.tasks.scheduler 被自动导入, 任务会注册
         if "app.tasks.scheduler.drift_monitoring_check" in celery_app.tasks:
-            print(f"  ✓ celery 任务已注册: drift_monitoring_check")
+            print("  ✓ celery 任务已注册: drift_monitoring_check")
         else:
             # 手动导入触发注册
             import app.tasks.scheduler  # noqa: F401
             if "app.tasks.scheduler.drift_monitoring_check" in celery_app.tasks:
-                print(f"  ✓ celery 任务已注册 (导入后): drift_monitoring_check")
+                print("  ✓ celery 任务已注册 (导入后): drift_monitoring_check")
             else:
-                print(f"  ⚠ celery 任务未注册 (需 celery worker 环境)")
+                print("  ⚠ celery 任务未注册 (需 celery worker 环境)")
     except Exception as e:
         import traceback
         print(f"  ⚠ celery 验证失败: {e}")
@@ -79,7 +78,7 @@ async def main() -> int:
     current_stable = rng.normal(50, 10, 500).tolist()
     current_drifted = rng.normal(70, 15, 500).tolist()
 
-    detector = DriftDetector()
+    detector = PsiKlCalculator()
     psi_stable = detector.calculate_psi(baseline, current_stable)
     kl_stable = detector.calculate_kl(baseline, current_stable)
     psi_drifted = detector.calculate_psi(baseline, current_drifted)
@@ -89,7 +88,7 @@ async def main() -> int:
     print(f"  漂移场景: PSI={psi_drifted:.4f} KL={kl_drifted:.4f} (应 > 0.25)")
     assert psi_stable < 0.15, f"稳定场景 PSI 应 < 0.15, 实际 {psi_stable:.4f}"
     assert psi_drifted > 0.25, f"漂移场景 PSI 应 > 0.25, 实际 {psi_drifted:.4f}"
-    print(f"  ✓ PSI/KL 计算正确 (稳定 < 0.15, 漂移 > 0.25)")
+    print("  ✓ PSI/KL 计算正确 (稳定 < 0.15, 漂移 > 0.25)")
 
     # 4. 验证 Gauge 推送 (离线)
     print("\n[4/4] 验证 PSI/KL Gauge 推送 (离线)...")
@@ -118,13 +117,13 @@ async def main() -> int:
         print(f"    KL[{labels}] = {value}")
     assert len(psi_collected) >= 2, f"应至少有 2 条 PSI 指标, 实际 {len(psi_collected)}"
     assert len(kl_collected) >= 2, f"应至少有 2 条 KL 指标, 实际 {len(kl_collected)}"
-    print(f"  ✓ Gauge 推送成功")
+    print("  ✓ Gauge 推送成功")
 
     # 5. 输出闭环验证总结
     print("\n" + "=" * 60)
     print("S4 P3 漂移监测闭环验证总结:")
     print("=" * 60)
-    print("  ✓ 漂移检测: DriftDetector.calculate_psi/calculate_kl")
+    print("  ✓ 漂移检测: PsiKlCalculator.calculate_psi/calculate_kl")
     print("  ✓ 指标暴露: model_drift_psi/model_drift_kl → /metrics → Grafana")
     print("  ✓ 告警写入: DriftAlert 表 (PSI > 0.25)")
     print("  ✓ 自动回滚: AutoRollbackService.check_all_canaries 检查 DriftAlert")

@@ -76,29 +76,27 @@ class ReportMixin:
 
         advice = self._build_advice(primary.risk_level)
 
+        # SEC-FIX (P2-3): 模态贡献仅取 primary 记录本身, 不再从近 20 条混合
+        # 类型记录中"各取最新非空值"跨记录拼接——structured/text/physiological
+        # 分数可能来自不同日期、不同评估轮次, 对人工复核 (临床场景) 有误导
         modality_contributions: dict[str, float | None] = {
-            "structured": None,
-            "text": None,
-            "physiological": None,
+            "structured": (
+                round(primary.structured_score, 2)
+                if primary.structured_score is not None
+                else None
+            ),
+            "text": (
+                round(primary.text_score, 2)
+                if primary.text_score is not None
+                else None
+            ),
+            "physiological": (
+                round(primary.physiological_score, 2)
+                if primary.physiological_score is not None
+                else None
+            ),
         }
-        physiological_score = None
-
-        for record in recent_rows:
-            if (
-                modality_contributions["structured"] is None
-                and record.structured_score is not None
-            ):
-                modality_contributions["structured"] = round(record.structured_score, 2)
-            if modality_contributions["text"] is None and record.text_score is not None:
-                modality_contributions["text"] = round(record.text_score, 2)
-            if (
-                modality_contributions["physiological"] is None
-                and record.physiological_score is not None
-            ):
-                modality_contributions["physiological"] = round(
-                    record.physiological_score, 2
-                )
-                physiological_score = round(record.physiological_score, 2)
+        physiological_score = modality_contributions["physiological"]
 
         if (
             modality_contributions["structured"] is None
@@ -184,6 +182,18 @@ class ReportMixin:
                     "feature": "多模态结果存在冲突",
                     "importance": max(importance, 0.75),
                     "type": "disagreement",
+                }
+            if feature == "single_modality_high_risk":
+                return {
+                    "feature": "单一模态高风险，建议人工复核",
+                    "importance": max(importance, 0.8),
+                    "type": "modality",
+                }
+            if feature.startswith("low_confidence_high_risk_"):
+                return {
+                    "feature": "低置信度高风险评估，疑似不稳定",
+                    "importance": max(importance, 0.7),
+                    "type": "confidence",
                 }
             return None
 

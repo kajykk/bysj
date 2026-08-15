@@ -524,7 +524,8 @@ async def generate_user_risk_pdf_celery_async(
             user_name=payload.user_name,
             created_by=current_user.id,
         )
-        save_job_to_redis(job_id, job_data)
+        # SEC-FIX (M3): 同步 redis-py 调用阻塞事件循环, 移入线程池
+        await asyncio.to_thread(save_job_to_redis, job_id, job_data)
 
         # 派发到 Celery 队列
         generate_pdf_report.delay(
@@ -596,7 +597,8 @@ async def get_celery_pdf_job_status(
     """P-D: 查询 Celery PDF 任务状态."""
     from app.tasks.pdf_report import get_job_from_redis
 
-    job = get_job_from_redis(job_id)
+    # SEC-FIX (M3): 同步 Redis 读移入线程池, 避免阻塞事件循环
+    job = await asyncio.to_thread(get_job_from_redis, job_id)
     if not job:
         raise HTTPException(
             status_code=404, detail="PDF job not found in Celery backend"
@@ -620,7 +622,8 @@ async def download_celery_pdf(
     """
     from app.tasks.pdf_report import get_job_from_redis, get_pdf_bytes_from_redis
 
-    job = get_job_from_redis(job_id)
+    # SEC-FIX (M3): 同步 Redis 读移入线程池, 避免阻塞事件循环
+    job = await asyncio.to_thread(get_job_from_redis, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="PDF job not found")
     if job.get("created_by") != current_user.id:
@@ -631,7 +634,7 @@ async def download_celery_pdf(
             detail=f"PDF job is {job.get('status')}, cannot download yet",
         )
 
-    pdf_bytes = get_pdf_bytes_from_redis(job_id)
+    pdf_bytes = await asyncio.to_thread(get_pdf_bytes_from_redis, job_id)
     if not pdf_bytes:
         raise HTTPException(status_code=410, detail="PDF bytes expired or missing")
 

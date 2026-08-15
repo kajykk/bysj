@@ -1454,6 +1454,30 @@ class TestClassifyReportFactors:
         assert len(review) == 1
         assert review[0]["type"] == "disagreement"
 
+    def test_single_modality_high_risk_review_flag(self):
+        """TC-CRF-014: single_modality_high_risk → review_flag type=modality."""
+        records = [
+            self._make_record(
+                [{"feature": "single_modality_high_risk", "importance": 0.5}]
+            )
+        ]
+        _, _, review = RiskService._classify_report_factors(records)
+        assert len(review) == 1
+        assert review[0]["type"] == "modality"
+        assert review[0]["importance"] == 0.8  # 下限提升
+
+    def test_low_confidence_high_risk_review_flag(self):
+        """TC-CRF-015: low_confidence_high_risk_* → review_flag type=confidence."""
+        records = [
+            self._make_record(
+                [{"feature": "low_confidence_high_risk_text", "importance": 0.5}]
+            )
+        ]
+        _, _, review = RiskService._classify_report_factors(records)
+        assert len(review) == 1
+        assert review[0]["type"] == "confidence"
+        assert review[0]["importance"] == 0.7  # 下限提升
+
     def test_deduplication(self):
         """TC-CRF-012: 同 feature 多记录只保留首条."""
         records = [

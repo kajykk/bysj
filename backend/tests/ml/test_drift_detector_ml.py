@@ -196,6 +196,27 @@ class TestComputePsi:
         # 单值相同返回 psi=0
         assert result["psi"] == 0.0
 
+    def test_psi_out_of_range_current_detected_as_drift(self):
+        """SEC-FIX (PSI 越界): current 完全移出 reference 范围应判 major_drift,
+        原实现因越界样本被 np.histogram 丢弃而误判 no_drift."""
+        det = DriftDetector()
+        ref = np.array([1.0, 2.0, 3.0, 4.0])
+        curr = np.array([100.0, 101.0, 102.0, 103.0])
+        result = det.compute_psi(ref, curr)
+        assert result["interpretation"] == "major_drift"
+        assert result["is_drift"] is True
+        assert result["psi"] > 0.25
+
+    def test_psi_partially_out_of_range_still_detected(self):
+        """SEC-FIX (PSI 越界): 部分越界样本不再被丢弃, 漂移不被系统性低估."""
+        det = DriftDetector()
+        rng = np.random.RandomState(0)
+        ref = rng.randn(200)
+        curr = np.concatenate([rng.randn(150), rng.randn(50) + 10.0])
+        result = det.compute_psi(ref, curr)
+        assert result["psi"] >= 0.25
+        assert result["is_drift"] is True
+
 
 class TestDetectFeatureDrift:
     """Test detect_feature_drift."""

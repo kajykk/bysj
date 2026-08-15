@@ -864,8 +864,14 @@ class TestTrainerCoverageExtras:
         y = np.array([[1]])
         output, caches = model.forward(X)
         loss, grad = binary_cross_entropy_loss(output, y)
+        # 记录更新前参数, 验证 SGD 确实更新了权重
+        before = [layer["W"].copy() for layer in model.layers]
         sgd_optimizer(model, caches, grad, learning_rate=0.1, weight_decay=0.01)
-        assert True
+        # 无 dropout mask 也应正常更新参数 (原 assert True 空断言)
+        assert any(
+            not np.array_equal(b, layer["W"])
+            for b, layer in zip(before, model.layers)
+        )
 
     def test_train_model_overfitting_detection(self):
         """TC-COV-TRAINER-018: Train model overfitting detection."""

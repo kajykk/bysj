@@ -2,6 +2,53 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
+from app.api.v1.model_validation import ClinicalValidationRequest
+
+
+class TestClinicalValidationRequestShape:
+    """SEC-FIX (M7 补强): y_score 内层结构校验 (防内存上限绕过 + ragged 数组 500)."""
+
+    def test_ragged_y_score_rejected(self):
+        with pytest.raises(ValidationError):
+            ClinicalValidationRequest(
+                y_true=[0, 1, 0],
+                y_pred=[0, 1, 0],
+                y_score=[[0.9, 0.1], [0.2], [0.8, 0.2]],
+            )
+
+    def test_inner_list_over_limit_rejected(self):
+        with pytest.raises(ValidationError):
+            ClinicalValidationRequest(
+                y_true=[0, 1],
+                y_pred=[0, 1],
+                y_score=[[0.01] * 101, [0.01] * 101],
+            )
+
+    def test_mixed_scalar_and_list_rejected(self):
+        with pytest.raises(ValidationError):
+            ClinicalValidationRequest(
+                y_true=[0, 1],
+                y_pred=[0, 1],
+                y_score=[0.9, [0.2, 0.8]],
+            )
+
+    def test_empty_inner_list_rejected(self):
+        with pytest.raises(ValidationError):
+            ClinicalValidationRequest(
+                y_true=[0, 1],
+                y_pred=[0, 1],
+                y_score=[[], []],
+            )
+
+    def test_valid_2d_accepted(self):
+        req = ClinicalValidationRequest(
+            y_true=[0, 1], y_pred=[0, 1], y_score=[[0.9, 0.1], [0.2, 0.8]]
+        )
+        assert req.to_arrays()["y_score"].shape == (2, 2)
+
 
 class TestValidationApi:
     """Test validation API endpoints."""

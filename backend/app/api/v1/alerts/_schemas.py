@@ -27,8 +27,14 @@ _ALERT_MAX_MSG_LEN = 4096
 def _validate_url_safety(url: str | None, field_name: str = "url") -> str | None:
     """C-API-3 修复：校验 URL 安全性，防止 SSRF.
 
-    - 必须以 http:// 或 https:// 开头（拒绝 javascript:, data:, file: 等）
-    - 不指向内网/元数据地址（169.254.169.254, 127.0.0.1, 10.x, 192.168.x, 172.16-31.x）
+    策略:
+    - 必须以 http:// 或 https:// 开头（拒绝 javascript:, data:, file: 等, 直接 422）
+    - 指向本机/内网/元数据地址的 http(s) URL 会被中性化 (置为 None):
+      这些字段 (generatorURL/externalURL) 仅用于展示与审计, 后端从不抓取;
+      中性化而非整包拒绝, 是因为内部自部署的 Grafana/AlertManager
+      (本项目即如此, GF_SERVER_ROOT_URL=https://localhost/grafana) 发出的
+      payload 必然携带内网地址, 整包拒绝会让告警链路在真实部署中彻底失效.
+      置 None 后即使未来代码错误地尝试抓取该 URL, 也没有可抓取的目标.
     """
     if not url:
         return url
@@ -42,15 +48,15 @@ def _validate_url_safety(url: str | None, field_name: str = "url") -> str | None
         hostname = parsed.hostname
         if not hostname:
             return url
-        # 拒绝 localhost 和云元数据地址
+        # 本机/云元数据地址 -> 中性化
         if hostname in ("localhost", "0.0.0.0", "::1") or hostname.startswith(  # nosec B104  security check, not actual bind
             "169.254."
         ):
-            raise ValueError(f"{field_name} 不允许指向本机或元数据地址")
+            return None
         try:
             ip = ipaddress.ip_address(hostname)
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                raise ValueError(f"{field_name} 不允许指向内网/保留 IP 地址")
+                return None
         except ValueError:
             # 非 IP 格式（域名），允许通过
             pass
