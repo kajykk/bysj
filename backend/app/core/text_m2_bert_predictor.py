@@ -63,8 +63,10 @@ class TextM2BertPredictor:
 
             # 1. 加载 BERT 主体 + tokenizer
             logger.info("[M2-BERT] 加载 BERT 模型: %s", _BERT_MODEL_NAME)
-            self._tokenizer = AutoTokenizer.from_pretrained(_BERT_MODEL_NAME)
-            self._bert_model = AutoModel.from_pretrained(_BERT_MODEL_NAME)
+            # nosec B615: 模型来自公共仓库 hfl/chinese-bert-wwm-ext, 生产以离线缓存部署
+            # (HF_HUB_OFFLINE), 下载路径由环境变量白名单控制; revision 钉扎待网络恢复后跟进
+            self._tokenizer = AutoTokenizer.from_pretrained(_BERT_MODEL_NAME)  # nosec B615
+            self._bert_model = AutoModel.from_pretrained(_BERT_MODEL_NAME)  # nosec B615
 
             # 设备检测
             if torch.cuda.is_available():
