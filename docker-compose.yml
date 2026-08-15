@@ -1,5 +1,5 @@
 # Docker Compose for Depression Warning System v1.39
-# Architecture: 8 services (postgres + redis + alembic_migrate + backend + celery_worker + celery_beat + frontend + grafana + prometheus)
+# Architecture: 9 services (postgres + redis + alembic_migrate + backend + celery_worker + celery_beat + frontend + grafana + prometheus)
 # Usage: docker compose up -d
 # Docs: docs/DEPLOYMENT_GUIDE.md
 
@@ -273,7 +273,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    image: dws-frontend:scan-p0-04-v4
+    image: dws-frontend:v1.42
     container_name: dws-frontend
     restart: unless-stopped
     depends_on:
@@ -327,6 +327,13 @@ services:
     ports:
       # SEC-AUDIT-03: 仅绑定回环
       - "127.0.0.1:9090:9090"
+    # CI-AUDIT-05: 补健康检查 (原缺失, depends_on 无法感知就绪状态)
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - dws-net
     deploy:
@@ -347,32 +354,53 @@ services:
         condition: service_healthy
       prometheus:
         condition: service_started
+    # H-AUDIT-01 修复: 启动前渲染告警投递配置 (占位符 -> 环境变量),
+    # 将告警接入 backend 的 /api/v1/alerts/webhook, 密钥不进 git.
+    # 渲染发生在独立命名卷, 宿主仓库模板文件只读, 不会被回写.
+    entrypoint: ["/bin/sh", "/opt/init-alerting.sh"]
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_SERVER_ROOT_URL: https://localhost/grafana
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://localhost/grafana}
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       # H-AUDIT-01: datasources provisioning 需要的 token
       # (prometheus.yaml -> ${METRICS_ACCESS_TOKEN}, observability-api.yaml -> ${GRAFANA_SA_TOKEN})
       METRICS_ACCESS_TOKEN: ${METRICS_ACCESS_TOKEN:?METRICS_ACCESS_TOKEN is required}
       GRAFANA_SA_TOKEN: ${GRAFANA_SA_TOKEN:?GRAFANA_SA_TOKEN is required}
+      # H-AUDIT-01 修复: 告警 webhook 鉴权密钥 (与 backend 的
+      # ALERTMANAGER_WEBHOOK_SECRET 一致), 由 init-alerting.sh 渲染进 contact-points.
+      # 必填: 弱默认值会导致 Grafana->backend 告警静默 401
+      ALERTMANAGER_WEBHOOK_SECRET: ${ALERTMANAGER_WEBHOOK_SECRET:?ALERTMANAGER_WEBHOOK_SECRET is required}
       # H-AUDIT-01: simpod-json-datasource 插件必须在容器启动前安装
       # (grafana-simple-json-datasource 是 Angular 旧插件, Grafana 11.5 禁用;
       #  规划文档 11-research-r3.md 指定的是 simpod-json-datasource)
       GF_PLUGINS_PREINSTALL: simpod-json-datasource
-      # contact-points.yaml 需要这些 env vars (Grafana 11.5 占位符 ${env:XXX})
-      GRAFANA_WEBHOOK_URL: ${GRAFANA_WEBHOOK_URL:-}
+      # contact-points.yaml 渲染所需 env vars (init-alerting.sh 读取)
+      ALERT_WEBHOOK_URL: ${GRAFANA_WEBHOOK_URL:-}
       GRAFANA_SRE_EMAIL: ${GRAFANA_SRE_EMAIL:-}
       GRAFANA_SLACK_URL: ${GRAFANA_SLACK_URL:-}
       GRAFANA_SLACK_CHANNEL: ${GRAFANA_SLACK_CHANNEL:-}
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      # H-AUDIT-01 修复: 模板只读挂载 + 渲染产物存独立命名卷,
+      # init-alerting.sh 永不回写宿主机仓库文件 (防止密钥进入 git)
+      - grafana_provisioning_alerting:/etc/grafana/provisioning/alerting
+      - ./infra/grafana/provisioning/alerting:/etc/grafana/provisioning-src/alerting:ro
+      - ./infra/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./infra/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infra/grafana/init-alerting.sh:/opt/init-alerting.sh:ro
       # H-AUDIT-01: 仪表盘 provider 加载路径 (alerts-overview.yaml 指向此目录)
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       # SEC-AUDIT-03: 仅绑定回环
       - "127.0.0.1:3000:3000"
+    # CI-AUDIT-05: 补健康检查 (原缺失)
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     networks:
       - dws-net
     deploy:
@@ -394,3 +422,4 @@ volumes:
   prometheus_data:
   celery_beat_data:
   grafana_data:
+  grafana_provisioning_alerting:

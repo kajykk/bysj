@@ -4,19 +4,21 @@ apiVersion: 1
 # 3 个通知渠道:
 #   - sre-webhook (P0/P1 即时通道, R1 决策 Q2: 优先)
 #   - sre-email (P0/P1 存档通道)
-#   - slack-alerts (P0/P1 协同通道)
+#   - slack-alerts (P0/P1 协同通道, 未配置时注释)
 #
 # 2026-07-25 修复: Grafana 11.5 provisioning 文件不支持 ${env:XXX} 占位符
 # (Grafana 内部系统变量只能通过 GF_ 前缀环境变量注入, 不能用于 url/email)
-# 改为字面量值,与 .env 中的 GRAFANA_WEBHOOK_URL/GRAFANA_SRE_EMAIL 等保持同步
 #
-# H-AUDIT-01 (P0-2) 2026-08-02: 通知目的地暂禁, 规则保留。
-#   - 原 sre-webhook 指向公共测试服务 https://httpbin.org/post — 真实告警会外泄内部信息,
-#     已改为集群内 no-op 目标 (backend /health, POST 仅返回 405, 不产生外部流量)。
-#   - sre-email 的 example.invalid 为 RFC 2606 保留域, 本就不会投递, 无泄漏风险。
-#   - 收到真实运维通知地址 (企业微信/钉钉/Slack/自建 webhook) 后,
-#     将 sre-webhook 的 url 替换为真实地址, 重启 grafana 即恢复通知。
-
+# H-AUDIT-01 修复 (2026-08-13): 告警不再静默丢弃。
+#   1. sre-webhook 目标改为 backend 的告警接入端点 POST /api/v1/alerts/webhook,
+#      该端点校验 ALERTMANAGER_WEBHOOK_SECRET 后进入系统自身告警管线
+#      (去重/静默/持久化审计/CompositeNotifier 通知)。
+#   2. 本文件中的 __WEBHOOK_URL__ / __WEBHOOK_SECRET__ / __SRE_EMAIL__ 占位符
+#      由容器启动脚本 infra/grafana/init-alerting.sh 在启动时用环境变量
+#      (ALERT_WEBHOOK_URL / ALERTMANAGER_WEBHOOK_SECRET / GRAFANA_SRE_EMAIL) 渲染替换,
+#      密钥不进 git、不出现在镜像层。
+#   3. 收到真实运维通知地址后, 配置 CompositeNotifier 通道 (webhook/slack/
+#      dingtalk/email 环境变量) 即可获得系统外的最终投递。
 contactPoints:
   - orgId: 1
     name: sre-webhook
@@ -24,8 +26,10 @@ contactPoints:
       - uid: cp-webhook
         type: webhook
         settings:
-          url: http://backend:8000/health
+          url: __WEBHOOK_URL__
           httpMethod: POST
+          authorization_scheme: Bearer
+          authorization_credentials: __WEBHOOK_SECRET__
         disableResolveMessage: false
   - orgId: 1
     name: sre-email
@@ -33,7 +37,7 @@ contactPoints:
       - uid: cp-email
         type: email
         settings:
-          addresses: sre-alerts@example.invalid
+          addresses: __SRE_EMAIL__
           singleEmail: false
         disableResolveMessage: false
   # slack-alerts 已禁用: GRAFANA_SLACK_URL 在 .env 中为空,无效 URL 会导致 provisioning 失败
