@@ -61,12 +61,14 @@ class TextM2BertPredictor:
             import torch
             from transformers import AutoModel, AutoTokenizer
 
+            from app.core.config import settings
+
             # 1. 加载 BERT 主体 + tokenizer
             logger.info("[M2-BERT] 加载 BERT 模型: %s", _BERT_MODEL_NAME)
             # nosec B615: 模型来自公共仓库 hfl/chinese-bert-wwm-ext, 生产以离线缓存部署
-            # (HF_HUB_OFFLINE), 下载路径由环境变量白名单控制; revision 钉扎待网络恢复后跟进
-            self._tokenizer = AutoTokenizer.from_pretrained(_BERT_MODEL_NAME)  # nosec B615
-            self._bert_model = AutoModel.from_pretrained(_BERT_MODEL_NAME)  # nosec B615
+            # (HF_HUB_OFFLINE), 下载路径由环境变量白名单控制; revision 由 MODEL_BERT_REVISION 钉扎
+            self._tokenizer = AutoTokenizer.from_pretrained(_BERT_MODEL_NAME, revision=settings.model_bert_revision)  # nosec B615
+            self._bert_model = AutoModel.from_pretrained(_BERT_MODEL_NAME, revision=settings.model_bert_revision)  # nosec B615
 
             # 设备检测
             if torch.cuda.is_available():
@@ -79,8 +81,7 @@ class TextM2BertPredictor:
             # (路径白名单 + 大小上限 + .sha256 哈希校验, 防 pickle RCE / 文件篡改)
             if not _M2_CLS_MODEL_PATH.exists() or not _M2_SCALER_PATH.exists():
                 raise FileNotFoundError(
-                    f"M2 模型产物缺失: cls_model={_M2_CLS_MODEL_PATH.exists()}, "
-                    f"scaler={_M2_SCALER_PATH.exists()}"
+                    f"M2 模型产物缺失: cls_model={_M2_CLS_MODEL_PATH.exists()}, " f"scaler={_M2_SCALER_PATH.exists()}"
                 )
             from app.core.safe_pickle import safe_joblib_load
 
@@ -138,9 +139,7 @@ class TextM2BertPredictor:
             # 2. BERT 前向 → [CLS] embedding (768-dim)
             with torch.no_grad():
                 outputs = await asyncio.to_thread(self._bert_model, **inputs)
-                cls_embedding = (
-                    outputs.last_hidden_state[:, 0, :].cpu().numpy()
-                )  # shape=(1, 768)
+                cls_embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy()  # shape=(1, 768)
 
             # 3. scaler.transform → LogReg.predict_proba
             scaled = await asyncio.to_thread(self._scaler.transform, cls_embedding)

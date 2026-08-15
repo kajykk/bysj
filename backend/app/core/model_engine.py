@@ -224,23 +224,15 @@ class LiteFeatureExtractor:
 
     # RES-P1-002: 预编译关键词正则 + 关键词到类别映射, 替代 O(n*k) 嵌套 str.count
     # 一次 re.finditer 扫描替代 60 次独立 count, 时间复杂度 O(n+k) → O(n*m) 改善为 O(n+m)
-    _KEYWORD_TO_CATEGORY: dict[str, str] = {
-        kw: cat for cat, kws in KEYWORD_CATEGORIES.items() for kw in kws
-    }
+    _KEYWORD_TO_CATEGORY: dict[str, str] = {kw: cat for cat, kws in KEYWORD_CATEGORIES.items() for kw in kws}
     # 按长度降序排列, 优先匹配更长关键词, 避免短关键词覆盖长关键词的子串
-    _SORTED_KEYWORDS: list[str] = sorted(
-        _KEYWORD_TO_CATEGORY.keys(), key=len, reverse=True
-    )
-    _COMPILED_PATTERN: re.Pattern[str] = re.compile(
-        "|".join(re.escape(kw) for kw in _SORTED_KEYWORDS)
-    )
+    _SORTED_KEYWORDS: list[str] = sorted(_KEYWORD_TO_CATEGORY.keys(), key=len, reverse=True)
+    _COMPILED_PATTERN: re.Pattern[str] = re.compile("|".join(re.escape(kw) for kw in _SORTED_KEYWORDS))
 
     @staticmethod
     def extract(transcript: str) -> dict:
         # RES-P1-002: 使用预编译正则一次扫描, 替代 O(n*k) 嵌套 count
-        counts: dict[str, int] = {
-            cat: 0 for cat in LiteFeatureExtractor.KEYWORD_CATEGORIES
-        }
+        counts: dict[str, int] = {cat: 0 for cat in LiteFeatureExtractor.KEYWORD_CATEGORIES}
         for m in LiteFeatureExtractor._COMPILED_PATTERN.finditer(transcript):
             cat = LiteFeatureExtractor._KEYWORD_TO_CATEGORY.get(m.group())
             if cat is not None:
@@ -283,9 +275,7 @@ class _BertMicroBatchCollector:
         self._engine = engine
         self._max_batch_size = max_batch_size
         self._max_wait_seconds = max_wait_ms / 1000.0
-        self._queue: asyncio.Queue[
-            tuple[str, asyncio.Future[dict[str, Any] | None]]
-        ] = asyncio.Queue()
+        self._queue: asyncio.Queue[tuple[str, asyncio.Future[dict[str, Any] | None]]] = asyncio.Queue()
         self._worker_task: asyncio.Task[None] | None = None
         self._running = False
 
@@ -296,8 +286,7 @@ class _BertMicroBatchCollector:
         self._running = True
         self._worker_task = asyncio.create_task(self._worker_loop())
         logger.info(
-            "PERF-P3-007: BERT micro-batch collector started "
-            "(max_batch_size=%d, max_wait_ms=%.0f)",
+            "PERF-P3-007: BERT micro-batch collector started " "(max_batch_size=%d, max_wait_ms=%.0f)",
             self._max_batch_size,
             self._max_wait_seconds * 1000,
         )
@@ -351,9 +340,7 @@ class _BertMicroBatchCollector:
                 if remaining <= 0:
                     break
                 try:
-                    text, fut = await asyncio.wait_for(
-                        self._queue.get(), timeout=remaining
-                    )
+                    text, fut = await asyncio.wait_for(self._queue.get(), timeout=remaining)
                     batch_texts.append(text)
                     batch_futs.append(fut)
                 except asyncio.TimeoutError:
@@ -400,9 +387,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
         # RES-P0-001 修复: 使用 OrderedDict 实现 LRU 缓存, 防止大模型无界累积导致 OOM
         # 访问时移到末尾 (MRU), 超过 maxsize 时弹出最旧 (LRU)
         self.models: OrderedDict[str, Any] = OrderedDict()
-        self._cache_maxsize: int = max(
-            int(getattr(settings, "model_cache_maxsize", 20)), 0
-        )
+        self._cache_maxsize: int = max(int(getattr(settings, "model_cache_maxsize", 20)), 0)
         # 缓存操作锁: _load_model 通过 asyncio.to_thread 在线程池执行, 需保护缓存读改写
         self._cache_lock = threading.Lock()
         # LRU 淘汰计数器 (监控用)
@@ -469,9 +454,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
         # PERF-P3-007: BERT micro-batch collector (lazy init, None = 未启用)
         self._bert_batch_collector: _BertMicroBatchCollector | None = None
 
-    async def start_bert_batch_collector(
-        self, max_batch_size: int = 8, max_wait_ms: float = 50.0
-    ) -> None:
+    async def start_bert_batch_collector(self, max_batch_size: int = 8, max_wait_ms: float = 50.0) -> None:
         """PERF-P3-007: 启动 BERT micro-batch collector.
 
         启动后 _predict_text_bert 会自动走 batch 路径,
@@ -520,9 +503,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             self.monitoring_score_deltas.append(delta)
 
     @asynccontextmanager
-    async def _timed_async(
-        self, metric: str, label: str
-    ) -> AsyncIterator[dict[str, float | int]]:
+    async def _timed_async(self, metric: str, label: str) -> AsyncIterator[dict[str, float | int]]:
         started = perf_counter()
         bucket = self.predict_stats[label]
         try:
@@ -553,22 +534,18 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                 )
             except PermissionError as exc:
                 logger.critical(
-                    "Permission denied loading %s (NON-RECOVERABLE): %s. "
-                    "Check file permissions and process user.",
+                    "Permission denied loading %s (NON-RECOVERABLE): %s. " "Check file permissions and process user.",
                     model_id,
                     exc,
                 )
             except OSError as exc:
                 logger.critical(
-                    "Disk/system error loading %s (NON-RECOVERABLE): %s. "
-                    "Check disk space and hardware status.",
+                    "Disk/system error loading %s (NON-RECOVERABLE): %s. " "Check disk space and hardware status.",
                     model_id,
                     exc,
                 )
             except Exception as exc:
-                logger.warning(
-                    "Failed to preload model %s (recoverable): %s", model_id, exc
-                )
+                logger.warning("Failed to preload model %s (recoverable): %s", model_id, exc)
 
     def get_metrics_snapshot(self) -> dict[str, Any]:
         # M-03 修复：在锁内一次性快照所有监控计数器，避免读取过程中被并发修改
@@ -615,12 +592,8 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                 },
                 "score_delta_recent": {
                     "count": len(deltas),
-                    "mean_abs_delta": round(
-                        sum(abs(d) for d in deltas) / max(len(deltas), 1), 2
-                    ),
-                    "max_abs_delta": (
-                        round(max(abs(d) for d in deltas), 2) if deltas else 0
-                    ),
+                    "mean_abs_delta": round(sum(abs(d) for d in deltas) / max(len(deltas), 1), 2),
+                    "max_abs_delta": (round(max(abs(d) for d in deltas), 2) if deltas else 0),
                 },
                 "experimental_external": {
                     "hit_ratio": round(ext_hit / ext_total, 4),
@@ -628,15 +601,9 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                     "miss_count": ext_miss,
                     "delta_recent": {
                         "mean_abs_delta": round(ext_delta_sum / max(ext_hit, 1), 2),
-                        "delta_gt_15_ratio": round(
-                            counters.get("external_delta_gt_15", 0) / max(ext_hit, 1), 4
-                        ),
-                        "delta_gt_30_ratio": round(
-                            counters.get("external_delta_gt_30", 0) / max(ext_hit, 1), 4
-                        ),
-                        "delta_gt_40_ratio": round(
-                            counters.get("external_delta_gt_40", 0) / max(ext_hit, 1), 4
-                        ),
+                        "delta_gt_15_ratio": round(counters.get("external_delta_gt_15", 0) / max(ext_hit, 1), 4),
+                        "delta_gt_30_ratio": round(counters.get("external_delta_gt_30", 0) / max(ext_hit, 1), 4),
+                        "delta_gt_40_ratio": round(counters.get("external_delta_gt_40", 0) / max(ext_hit, 1), 4),
                     },
                 },
                 "delta_by_level": {
@@ -686,13 +653,8 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
         return candidate_paths[1]
 
     def _load_adapter(self) -> Any:
-
         try:
-            adapter_dir = (
-                Path(__file__).resolve().parents[2]
-                / "models"
-                / "v1.24_adapter"
-            )
+            adapter_dir = Path(__file__).resolve().parents[2] / "models" / "v1.24_adapter"
             adapter_pkl = adapter_dir / "score_adapter.pkl"
             adapter_config = adapter_dir / "score_adapter_config.json"
 
@@ -774,23 +736,13 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             monitoring = snapshot.get("monitoring", {})
             metrics.model_cache_size.set(snapshot.get("cache_size", 0))
             metrics.model_uptime_seconds.set(snapshot.get("uptime_seconds", 0))
-            metrics.model_high_critical_ratio.set(
-                monitoring.get("high_critical_ratio", 0)
-            )
-            metrics.model_high_critical_count.set(
-                monitoring.get("high_critical_count", 0)
-            )
+            metrics.model_high_critical_ratio.set(monitoring.get("high_critical_ratio", 0))
+            metrics.model_high_critical_count.set(monitoring.get("high_critical_count", 0))
             metrics.model_fallback_count.set(monitoring.get("fallback_count", 0))
             metrics.model_fallback_rate.set(monitoring.get("fallback_ratio", 0))
-            metrics.model_experimental_hit_count.set(
-                monitoring.get("experimental_hit_count", 0)
-            )
-            metrics.model_experimental_miss_count.set(
-                monitoring.get("experimental_miss_count", 0)
-            )
-            metrics.model_structured_total.set(
-                monitoring.get("structured_total", 0)
-            )
+            metrics.model_experimental_hit_count.set(monitoring.get("experimental_hit_count", 0))
+            metrics.model_experimental_miss_count.set(monitoring.get("experimental_miss_count", 0))
+            metrics.model_structured_total.set(monitoring.get("structured_total", 0))
         except Exception as exc:
             logger.warning("RES-P2-006: Publish to Prometheus failed: %s", exc)
 
@@ -846,7 +798,6 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                     )
 
     def _load_model(self, model_id: str) -> Any:
-
         # RES-P0-001: 使用 LRU 缓存读取
         cached = self._cache_get(model_id)
         if cached is not None:
@@ -893,9 +844,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                     precomputed_hash=file_hash,
                 )
             except Exception as exc:
-                raise ValueError(
-                    f"Failed to load model {model_id}: corrupted or invalid file"
-                ) from exc
+                raise ValueError(f"Failed to load model {model_id}: corrupted or invalid file") from exc
         elif model_path.suffix == ".keras":
             import tensorflow as tf
 
@@ -906,10 +855,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                 model = tf.keras.models.load_model(model_path)
             except (TypeError, ValueError) as exc:
                 message = str(exc)
-                if (
-                    "quantization_config" not in message
-                    and "Could not locate class" not in message
-                ):
+                if "quantization_config" not in message and "Could not locate class" not in message:
                     raise
                 # C-Core-2 修复：改用 custom_objects 传递兼容 Dense 子类，
                 # 避免修改全局 Dense.from_config（原实现即使加 _keras_load_lock 仍有并发风险：
@@ -928,9 +874,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                     model_id,
                 )
                 try:
-                    model = tf.keras.models.load_model(
-                        model_path, custom_objects={"Dense": _CompatDense}
-                    )
+                    model = tf.keras.models.load_model(model_path, custom_objects={"Dense": _CompatDense})
                 except Exception as e:
                     logger.warning("Keras model load failed: %s", e)
                     return None
@@ -939,6 +883,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             config_file = model_path / "config.json"
             if config_file.exists():
                 import json as _json
+
                 with open(config_file, "r", encoding="utf-8") as f:
                     bundle_config = _json.load(f)
                 if bundle_config.get("model_type") == "bert_feature_extraction":
@@ -951,8 +896,9 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
 
                     bert_name = bundle_config["bert_model_name"]
                     logger.info("Loading BERT (feature extraction) %s", bert_name)
-                    tokenizer = AutoTokenizer.from_pretrained(bert_name)  # nosec B615
-                    bert_model = AutoModel.from_pretrained(bert_name)  # nosec B615
+                    # ISS-13 (B615): 显式固定 Hub 下载 revision, 避免供应链漂移
+                    tokenizer = AutoTokenizer.from_pretrained(bert_name, revision=settings.model_bert_revision)  # nosec B615
+                    bert_model = AutoModel.from_pretrained(bert_name, revision=settings.model_bert_revision)  # nosec B615
                     bert_model.eval()
                     classifier_path = model_path / "classifier.pkl"
                     scaler_path = model_path / "scaler.pkl"
@@ -1058,9 +1004,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                             try:
                                 # sklearn >= 1.3.0: 旧模型 pickle 缺失 _fill_dtype，
                                 # 从 _fit_dtype 复制以恢复 transform 兼容性
-                                if not hasattr(step, "_fill_dtype") and hasattr(
-                                    step, "_fit_dtype"
-                                ):
+                                if not hasattr(step, "_fill_dtype") and hasattr(step, "_fit_dtype"):
                                     step._fill_dtype = step._fit_dtype  # type: ignore[attr-defined]
                                     logger.debug(
                                         "SimpleImputer[%s]: patched _fill_dtype=%s (from _fit_dtype)",
@@ -1073,9 +1017,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                                     "model_engine: SimpleImputer _fill_dtype patch failed",
                                     exc_info=True,
                                 )
-                                if not hasattr(step, "_fill_dtype") and hasattr(
-                                    step, "_fit_dtype"
-                                ):
+                                if not hasattr(step, "_fill_dtype") and hasattr(step, "_fit_dtype"):
                                     step._fill_dtype = step._fit_dtype  # type: ignore[attr-defined]
 
     @staticmethod
@@ -1088,9 +1030,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
                     if _trans in ("drop", "passthrough"):
                         continue
                     if _tname == "num":
-                        numeric_pipe_cols.update(
-                            _cols if isinstance(_cols, list) else list(_cols)
-                        )
+                        numeric_pipe_cols.update(_cols if isinstance(_cols, list) else list(_cols))
         return numeric_pipe_cols
 
     @staticmethod
@@ -1116,28 +1056,12 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
         stress_level = _get_num("stress_level", 2)
         _social_support = _get_num("social_support", 3)  # noqa: F841
         financial_pressure = _get_num("financial_pressure", 2)
-        family_history = (
-            int(raw.get("family_history", 0))
-            if raw.get("family_history") is not None
-            else 0
-        )
+        family_history = int(raw.get("family_history", 0)) if raw.get("family_history") is not None else 0
         academic_pressure = _get_num("academic_pressure", 2)
         _anxiety = _get_num("anxiety", 1)  # noqa: F841
-        _panic_attack = (
-            int(raw.get("panic_attack", 0))
-            if raw.get("panic_attack") is not None
-            else 0
-        )  # noqa: F841
-        _treatment_seeking = (
-            int(raw.get("treatment_seeking", 0))
-            if raw.get("treatment_seeking") is not None
-            else 0
-        )  # noqa: F841
-        suicidal_thoughts = (
-            int(raw.get("suicidal_thoughts", 0))
-            if raw.get("suicidal_thoughts") is not None
-            else 0
-        )
+        _panic_attack = int(raw.get("panic_attack", 0)) if raw.get("panic_attack") is not None else 0  # noqa: F841
+        _treatment_seeking = int(raw.get("treatment_seeking", 0)) if raw.get("treatment_seeking") is not None else 0  # noqa: F841
+        suicidal_thoughts = int(raw.get("suicidal_thoughts", 0)) if raw.get("suicidal_thoughts") is not None else 0
         cgpa_src = _get_num("cgpa", 3.0)
         _gpa_scale_default = 4.0 if cgpa_src <= 4 else 10.0
         gpa_scale = _get_num("gpa_scale", _gpa_scale_default)
@@ -1192,9 +1116,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             "Job Satisfaction": 0.0,
             "Sleep Duration": sleep_duration_cat,
             "Dietary Habits": "Moderate",
-            "Have you ever had suicidal thoughts ?": (
-                "Yes" if suicidal_thoughts == 1 else "No"
-            ),
+            "Have you ever had suicidal thoughts ?": ("Yes" if suicidal_thoughts == 1 else "No"),
             "Work/Study Hours": float(8 + academic_pressure * 1.5),
             "Financial Stress": max(0.0, min(5.0, financial_pressure)),
             "Family History of Mental Illness": "Yes" if family_history == 1 else "No",
@@ -1222,9 +1144,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
 
         return input_dict
 
-    def _route_structured(
-        self, raw: dict[str, Any]
-    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _route_structured(self, raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         STRUCTURED_FEATURE_SET = {
             "age",
             "gender",
@@ -1241,11 +1161,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             "panic_attack",
             "treatment_seeking",
         }
-        available = sum(
-            1
-            for f in STRUCTURED_FEATURE_SET
-            if f in raw and raw[f] is not None and raw[f] != ""
-        )
+        available = sum(1 for f in STRUCTURED_FEATURE_SET if f in raw and raw[f] is not None and raw[f] != "")
         f_coverage = available / len(STRUCTURED_FEATURE_SET)
 
         gad7 = raw.get("gad7_score", None)
@@ -1263,17 +1179,13 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             routing_info["selected_model_id"] = "structured_logistic_regression_v1.20"
             routing_info["selected_model_family"] = "structured"
             routing_info["routing_reason"] = "feature_coverage_sufficient"
-            routing_info["prediction_confidence_band"] = (
-                "high" if f_coverage >= 0.90 else "medium"
-            )
+            routing_info["prediction_confidence_band"] = "high" if f_coverage >= 0.90 else "medium"
             self._incr_routing("structured")
             return routing_info, None
 
         if gad7 is not None and transcript and len(str(transcript)) >= 20:
             routing_info["selected_model_family"] = "lite"
-            routing_info["routing_reason"] = (
-                "feature_coverage_insufficient_text_available"
-            )
+            routing_info["routing_reason"] = "feature_coverage_insufficient_text_available"
             routing_info["prediction_confidence_band"] = "medium"
             self._incr_routing("lite")
             return routing_info, "lite"
@@ -1318,11 +1230,7 @@ class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
             self._record_score_delta(delta)
         if experimental_external_available:
             self._incr_counter("external_hit")
-            ext_delta = (
-                abs(experimental_external_score - risk_score)
-                if experimental_external_score is not None
-                else 0
-            )
+            ext_delta = abs(experimental_external_score - risk_score) if experimental_external_score is not None else 0
             # external_delta_sum 累积 float 差值，单独在锁内更新
             with self._monitoring_lock:
                 self.monitoring_counters["external_delta_sum"] += ext_delta  # type: ignore[operator]
