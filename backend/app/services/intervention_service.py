@@ -477,11 +477,13 @@ class InterventionService:
     def _ensure_transition(
         cls, current_status: str, target_status: str
     ) -> tuple[bool, str | None]:
+        # SEC-FIX (P2): 状态冲突类错误统一加机器可读前缀 task_status_conflict:,
+        # 前端据此精确映射文案, 不再依赖中文 detail 正则 (后端文案改动即失效)
         if current_status == target_status:
-            return False, f"当前状态已是{target_status}，无需重复提交"
+            return False, f"task_status_conflict: 当前状态已是{target_status}，无需重复提交"
 
         if current_status in cls.TERMINAL_STATUSES:
-            return False, f"当前状态为{current_status}，不允许变更为{target_status}"
+            return False, f"task_status_conflict: 当前状态为{current_status}，不允许变更为{target_status}"
 
         allowed_map = {
             "pending": {"completed", "missed", "skipped", "postponed"},
@@ -489,7 +491,7 @@ class InterventionService:
         }
         allowed = allowed_map.get(current_status, set())
         if target_status not in allowed:
-            return False, f"不支持从{current_status}变更为{target_status}"
+            return False, f"task_status_conflict: 不支持从{current_status}变更为{target_status}"
         return True, None
 
     @staticmethod

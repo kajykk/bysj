@@ -1,15 +1,20 @@
-"""Tests for 9 zero-coverage ML modules.
+"""ML 核心模块专项测试套件 (原 test_ml_zero_coverage_modules.py).
 
-覆盖模块:
-- app.ml.canary_controller
-- app.ml.cross_validation
-- app.ml.dataset
-- app.ml.data_split
-- app.ml.feature_analysis
-- app.ml.feature_importance_validator
-- app.ml.hyperparameter_tuning
-- app.ml.smote
-- app.ml.statistical_tests
+SEC-FIX (测试治理): 原文件名暗示"仅补零覆盖", 但经覆盖率对比验证
+(2026-08 以/不含本文件分别运行 tests/ml + 根级 test_ml_*.py):
+本文件是以下模块的**主要** (多数为唯一) 覆盖来源, 删除会导致这些模块
+覆盖率归零:
+- app.ml.canary_controller         (99%, 无其他测试文件)
+- app.ml.cross_validation          (100%, 无其他测试文件)
+- app.ml.dataset                   (100%, 无其他测试文件)
+- app.ml.data_split                (97% vs 根级 test_ml_data_split.py 仅 75%, 互补)
+- app.ml.feature_analysis          (96%, 无其他测试文件)
+- app.ml.feature_importance_validator (89%, 无其他测试文件)
+- app.ml.hyperparameter_tuning     (100%, 无其他测试文件)
+- app.ml.smote                     (93%, 无其他测试文件)
+- app.ml.statistical_tests         (100%, 无其他测试文件)
+
+故更名以反映真实职责, 不删除 (此前审核建议删除属于误判)。
 """
 
 from __future__ import annotations

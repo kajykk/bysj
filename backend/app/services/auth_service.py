@@ -146,7 +146,11 @@ class AuthService:
         }
 
     async def change_password(
-        self, user_id: int, payload: ChangePasswordRequest
+        self,
+        user_id: int,
+        payload: ChangePasswordRequest,
+        access_token_jti: str | None = None,
+        access_token_exp: int | None = None,
     ) -> None:
         user = await self.db.get(User, user_id)
         if user is None:
@@ -164,6 +168,20 @@ class AuthService:
         user.password_hash = get_password_hash(payload.new_password)
         # P1-SEC-002 修复：密码修改后撤销所有 refresh token，强制重新登录
         await self._revoke_all_user_refresh_tokens(user_id)
+        # SEC-FIX (P2-4): 改密后同时撤销当前 access token——原实现 access token
+        # 最长 2h 内仍有效, 攻击者 (窃取 access token) 可在改密后继续访问。
+        # 复用已有 jti blocklist 机制, 撤销失败仅记录告警 (Redis 故障时
+        # 其余会话已被强制下线, 风险窗口可控).
+        if access_token_jti and access_token_exp:
+            from app.core.token_blocklist import revoke_token
+
+            now_ts = int(datetime.now(timezone.utc).timestamp())
+            revoked = await revoke_token(access_token_jti, ttl=max(1, access_token_exp - now_ts))
+            if not revoked:
+                logger.error(
+                    "change_password: access token revocation failed (jti=%s)",
+                    access_token_jti[:12],
+                )
         await self.db.commit()
 
     async def request_password_reset(self, email: str) -> None:
@@ -231,7 +249,13 @@ class AuthService:
 
             now = datetime.now(timezone.utc)
             ttl = max(1, access_token_exp - int(now.timestamp()))
-            await revoke_token(access_token_jti, ttl=ttl)
+            # SEC-FIX (H1): 撤销失败 (Redis 不可用) 时记录告警日志, 避免静默假装成功
+            revoked = await revoke_token(access_token_jti, ttl=ttl)
+            if not revoked:
+                logger.error(
+                    "logout: access_token revocation failed (jti=%s), "
+                    "token may remain valid until exp", access_token_jti[:12]
+                )
 
         if refresh_token:
             try:
@@ -254,8 +278,17 @@ class AuthService:
                         tzinfo=None
                     )
                 revoked_count = 1
-            except (PyJWTError, ValueError, TypeError) as exc:
-                raise ValueError("无效或已过期的Refresh Token") from exc
+            except (PyJWTError, ValueError, TypeError):
+                # SEC-FIX (P2-4): refresh token 无效/未登记时不再整体失败——
+                # 攻击者可用"有效 access + 篡改 refresh"阻断正常登出 (access 已
+                # 撤销但用户收到 400, 且其余 refresh 会话全部保留)。
+                # 降级为撤销该用户全部 refresh 会话。
+                logger.warning(
+                    "logout: refresh_token invalid (user_id=%s), "
+                    "falling back to revoke all refresh sessions",
+                    user_id,
+                )
+                revoked_count = await self._revoke_all_user_refresh_tokens(user_id)
         else:
             revoked_count = await self._revoke_all_user_refresh_tokens(user_id)
 
@@ -315,7 +348,13 @@ class AuthService:
             user.email = payload.email
             user.email_hash = new_email_hash
 
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            # SEC-FIX (P3): 并发创建 profile / 邮箱盲索引并发冲突时优雅降级
+            # (与 register 的竞态处理风格一致), 不再以 500 暴露
+            await self.db.rollback()
+            raise ValueError("邮箱已存在") from None
 
         return {
             "id": user.id,

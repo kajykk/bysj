@@ -226,20 +226,25 @@ class TestAuthService:
 
     @pytest.mark.asyncio
     async def test_logout_with_invalid_token(self, db_session, seeded_user_id):
-        """TC-COV-AUTH-008b: Logout with invalid token raises error."""
+        """TC-COV-AUTH-008b: Logout with invalid token degrades to revoke-all.
+        SEC-FIX (P2-4): 原实现整体失败 (400) 会被"有效 access + 篡改 refresh"
+        阻断正常登出; 现降级为撤销全部 refresh 会话, 登出依然成功."""
         service = AuthService(db_session)
-        with pytest.raises(ValueError, match="无效或已过期的Refresh Token"):
-            await service.logout(1, refresh_token="invalid.token.here")
+        result = await service.logout(1, refresh_token="invalid.token.here")
+        assert "revoked_count" in result
+        assert result["revoked_count"] >= 0
 
     @pytest.mark.asyncio
     async def test_logout_with_access_token(self, db_session, seeded_user_id):
-        """TC-COV-AUTH-008c: Logout with access token raises error."""
+        """TC-COV-AUTH-008c: Logout with access token (非 refresh) degrades to revoke-all.
+        SEC-FIX (P2-4): 同上, 降级撤销全部会话而非 400."""
         service = AuthService(db_session)
         from app.core.security import create_access_token
 
         access_token = create_access_token({"sub": "1"})
-        with pytest.raises(ValueError, match="无效或已过期的Refresh Token"):
-            await service.logout(1, refresh_token=access_token)
+        result = await service.logout(1, refresh_token=access_token)
+        assert "revoked_count" in result
+        assert result["revoked_count"] >= 0
 
     @pytest.mark.asyncio
     async def test_update_profile_user_not_found(self, db_session):

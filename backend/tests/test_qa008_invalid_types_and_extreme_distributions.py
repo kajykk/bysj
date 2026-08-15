@@ -268,9 +268,9 @@ class TestInvalidTypesAndExtremeDistributions:
 
     def test_drift_detector_empty_distribution(self) -> None:
         """验证空分布输入不抛异常"""
-        from app.services.drift_detector import DriftDetector
+        from app.services.drift_detector import PsiKlCalculator
 
-        detector = DriftDetector()
+        detector = PsiKlCalculator()
         # 空分布应返回 0 或 null，不抛异常
         try:
             result = detector.calculate_psi([], [])
@@ -280,9 +280,9 @@ class TestInvalidTypesAndExtremeDistributions:
 
     def test_drift_detector_single_value_distribution(self) -> None:
         """验证单值分布输入不抛异常"""
-        from app.services.drift_detector import DriftDetector
+        from app.services.drift_detector import PsiKlCalculator
 
-        detector = DriftDetector()
+        detector = PsiKlCalculator()
         try:
             result = detector.calculate_psi([1.0, 1.0, 1.0], [1.0, 1.0, 1.0])
             assert result == 0 or result is None or math.isfinite(result)
@@ -291,9 +291,9 @@ class TestInvalidTypesAndExtremeDistributions:
 
     def test_drift_detector_extreme_values(self) -> None:
         """验证漂移检测处理极端数值不抛 RuntimeWarning"""
-        from app.services.drift_detector import DriftDetector
+        from app.services.drift_detector import PsiKlCalculator
 
-        detector = DriftDetector()
+        detector = PsiKlCalculator()
         import warnings
 
         with warnings.catch_warnings(record=True) as w:

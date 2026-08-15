@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.shadow_mode_service import ShadowModeService, get_shadow_mode_service
+from app.services.shadow_mode_service import ShadowModeService
 
 
 @pytest.fixture
@@ -191,22 +191,25 @@ class TestShadowModeIntegration:
         from app.core.model_engine_predict import PredictMixin
 
         engine = MagicMock(spec=PredictMixin)
-        # 模拟 settings.shadow_mode_text_enabled = False
-        with patch("app.core.config.settings") as mock_settings:
+        # model_engine_predict 在模块级绑定 settings, 需 patch 其自身引用
+        with patch("app.core.model_engine_predict.settings") as mock_settings:
             mock_settings.shadow_mode_text_enabled = False
-            # 调用未绑定方法 (手动传 self)
-            PredictMixin._maybe_fire_shadow_predict(
-                engine, "test", {"prediction": 0}
-            )
-            # 不应有任何调用
-            assert True  # 未抛异常即通过
+            with patch(
+                "app.services.shadow_mode_service.get_shadow_mode_service"
+            ) as mock_get_service:
+                # 调用未绑定方法 (手动传 self)
+                PredictMixin._maybe_fire_shadow_predict(
+                    engine, "test", {"prediction": 0}
+                )
+                # 禁用时不应加载/调用影子服务
+                mock_get_service.assert_not_called()
 
     def test_maybe_fire_shadow_predict_exception_safe(self):
         """钩子内部异常不影响生产 (logger.debug 记录)."""
         from app.core.model_engine_predict import PredictMixin
 
         engine = MagicMock(spec=PredictMixin)
-        with patch("app.core.config.settings") as mock_settings:
+        with patch("app.core.model_engine_predict.settings") as mock_settings:
             mock_settings.shadow_mode_text_enabled = True
             mock_settings.shadow_mode_text_sample_rate = 1.0
             # 让 get_shadow_mode_service 抛异常
@@ -214,8 +217,7 @@ class TestShadowModeIntegration:
                 "app.services.shadow_mode_service.get_shadow_mode_service",
                 side_effect=RuntimeError("import fail"),
             ):
-                # 不应抛异常
+                # 不应抛异常 (异常被吞掉)
                 PredictMixin._maybe_fire_shadow_predict(
                     engine, "test", {"prediction": 0}
                 )
-                assert True  # 未抛异常即通过

@@ -23,6 +23,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_CACHE_TTL = 300  # 5min
 
 
+class CacheUnavailableError(RuntimeError):
+    """缓存后端不可用 (strict 模式专用).
+
+    SEC-FIX (H1): 普通缓存读写遇到 Redis 故障时回退内存缓存 (尽力而为);
+    但对认证关键数据 (如 token blocklist) 必须区分"后端确认未命中"与
+    "后端不可用、无法确认"两种语义——后者应让调用方失败关闭 (fail-closed),
+    而不是静默放行。strict=True 时后端不可用即抛出本异常。
+    """
+
+
 class _MemoryTTLCache:
     """P1-3: 进程内 LRU + TTL 缓存, 作为 Redis 不可用时的回退层.
 
@@ -287,46 +297,54 @@ def _get_redis_url() -> str | None:
     return None
 
 
-async def _safe_aclose(client: Any, key: str, op: str) -> None:
-    """v1.36: 关闭 Redis client, 异常仅日志不抛错.
-
-    防止 aclose 自身异常覆盖正常的 cache_get/set 返回值.
-    """
-    try:
-        await client.aclose()
-    except Exception as exc:
-        logger.warning("[cache] %s aclose failed (key=%s): %s", op, key, exc)
-
-
-async def cache_get(key: str) -> Any | None:
+async def cache_get(key: str, *, strict: bool = False) -> Any | None:
     """v1.36: 读缓存.
 
     P1-3: Redis 不可用 (断路器开启/无 URL/操作异常) 时回退到内存缓存,
     避免缓存击穿导致后端雪崩. Redis 可用时走 Redis, 不检查内存缓存.
 
+    SEC-FIX (H1): strict=True 时, Redis 已配置但不可用 (断路器开启/连接失败/
+    操作异常) 不再回退内存缓存, 而是抛出 CacheUnavailableError, 供认证关键
+    调用方失败关闭. 未配置 Redis (单进程开发模式) 仍回退内存缓存.
+
     Args:
         key: cache key
+        strict: 认证关键数据失败关闭模式
 
     Returns:
-        解析后的 Python 对象, 缓存未命中或失败返回 None
+        解析后的 Python 对象, 缓存未命中返回 None
+
+    Raises:
+        CacheUnavailableError: strict=True 且 Redis 配置了但不可用
     """
     if not key:
         return None
+    url = _get_redis_url()
+    if url is None:
+        # P1-3: 无 Redis 配置 (单进程模式), 回退到内存缓存
+        logger.debug("[cache] no redis_url, fallback to memory cache")
+        return _memory_cache.get(key)
     # H-Core-3 修复：断路器开启时直接跳过，不重置客户端也不尝试连接
     if _should_skip_redis():
+        if strict:
+            raise CacheUnavailableError("[cache] redis circuit open")
         # P1-3: 断路器开启, 回退到内存缓存
         logger.debug("[cache] circuit open, fallback to memory cache")
         return _memory_cache.get(key)
     client = await _get_redis_client()
     if client is None:
-        # P1-3: 无 Redis 配置, 回退到内存缓存
-        logger.debug("[cache] no redis_url, fallback to memory cache")
+        if strict:
+            raise CacheUnavailableError("[cache] redis client unavailable")
+        # P1-3: Redis 客户端创建失败, 回退到内存缓存
+        logger.debug("[cache] redis client unavailable, fallback to memory cache")
         return _memory_cache.get(key)
     try:
         value = await client.get(key)
     except Exception as exc:
         logger.warning("[cache] get failed (key=%s): %s", key, exc)
         _record_redis_failure(exc)
+        if strict:
+            raise CacheUnavailableError(f"[cache] redis get failed: {exc}") from exc
         # P1-3: Redis 操作失败, 回退到内存缓存
         return _memory_cache.get(key)
     _record_redis_success()
@@ -335,38 +353,65 @@ async def cache_get(key: str) -> Any | None:
     try:
         return json.loads(value)
     except (TypeError, ValueError) as exc:
+        # SEC-FIX (strict 语义): strict 模式下数据损坏不能静默返回 None
+        # (对 blocklist 语义即"未撤销"的 fail-open)。解析失败按后端不可用
+        # 处理, 由认证调用方失败关闭。
+        if strict:
+            logger.error(
+                "[cache] get parse failed (key=%s), strict mode failing closed: %s",
+                key, exc,
+            )
+            raise CacheUnavailableError(f"[cache] corrupt value for key: {exc}") from exc
         logger.warning("[cache] get parse failed (key=%s): %s", key, exc)
         return None
 
 
-async def cache_set(key: str, value: Any, ttl: int = DEFAULT_CACHE_TTL) -> bool:
+async def cache_set(key: str, value: Any, ttl: int = DEFAULT_CACHE_TTL, *, strict: bool = False) -> bool:
     """v1.36: 写缓存.
 
     P1-3: Redis 不可用时回退写入内存缓存, 返回 True (避免上游误判写入失败).
     Redis 可用时走 Redis, 不写入内存缓存 (避免双写不一致).
 
+    SEC-FIX (H1): strict=True 时, Redis 已配置但不可用不静默回退内存缓存,
+    而是抛出 CacheUnavailableError 并返回 False 语义不可达——
+    调用方 (如 token 撤销) 借此获知撤销未全局生效.
+
     Args:
         key: cache key
         value: 任意可序列化为 JSON 的对象
         ttl: 过期秒数 (默认 300s = 5min)
+        strict: 认证关键数据失败关闭模式
 
     Returns:
         成功 True, 失败 False (仅当 key/value 非法时)
+
+    Raises:
+        CacheUnavailableError: strict=True 且 Redis 配置了但不可用
     """
     if not key or value is None:
         return False
     if ttl <= 0:
         ttl = DEFAULT_CACHE_TTL
+    url = _get_redis_url()
+    if url is None:
+        # P1-3: 无 Redis 配置 (单进程模式), 回退写入内存缓存
+        logger.debug("[cache] no redis_url, fallback set to memory cache")
+        _memory_cache.set(key, value, ttl)
+        return True
     # H-Core-3 修复：断路器开启时直接跳过，不重置客户端也不尝试连接
     if _should_skip_redis():
+        if strict:
+            raise CacheUnavailableError("[cache] redis circuit open")
         # P1-3: 断路器开启, 回退写入内存缓存
         logger.debug("[cache] circuit open, fallback set to memory cache")
         _memory_cache.set(key, value, ttl)
         return True
     client = await _get_redis_client()
     if client is None:
-        # P1-3: 无 Redis 配置, 回退写入内存缓存
-        logger.debug("[cache] no redis_url, fallback set to memory cache")
+        if strict:
+            raise CacheUnavailableError("[cache] redis client unavailable")
+        # P1-3: Redis 客户端创建失败, 回退写入内存缓存
+        logger.debug("[cache] redis client unavailable, fallback set to memory cache")
         _memory_cache.set(key, value, ttl)
         return True
     try:
@@ -374,6 +419,8 @@ async def cache_set(key: str, value: Any, ttl: int = DEFAULT_CACHE_TTL) -> bool:
     except Exception as exc:
         logger.warning("[cache] set failed (key=%s): %s", key, exc)
         _record_redis_failure(exc)
+        if strict:
+            raise CacheUnavailableError(f"[cache] redis set failed: {exc}") from exc
         # P1-3: Redis 写入失败, 回退写入内存缓存 (尽力而为)
         _memory_cache.set(key, value, ttl)
         return True

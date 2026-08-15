@@ -11,8 +11,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import pytest
-
 from app.core.log_sanitizer import SanitizingFilter, sanitize_text
 
 
@@ -363,8 +361,9 @@ class TestLoggingConfigIntegration:
 
     def test_sanitizer_filter_registered_in_config(self):
         """dictConfig 中注册了 sanitizer filter."""
-        from app.core.logging_config import _build_dict_config
         from pathlib import Path
+
+        from app.core.logging_config import _build_dict_config
 
         config = _build_dict_config(
             log_dir=Path("/tmp"),
@@ -380,8 +379,9 @@ class TestLoggingConfigIntegration:
 
     def test_all_handlers_have_sanitizer_filter(self):
         """所有 handler 都注册了 sanitizer filter."""
-        from app.core.logging_config import _build_dict_config
         from pathlib import Path
+
+        from app.core.logging_config import _build_dict_config
 
         config = _build_dict_config(
             log_dir=Path("/tmp"),
@@ -397,9 +397,10 @@ class TestLoggingConfigIntegration:
 
     def test_configure_logging_loads_sanitizer(self):
         """configure_logging 后 logger 链路包含 SanitizingFilter."""
-        from app.core.logging_config import configure_logging, reset_logging_state
-        from app.core import config as _config
         from unittest.mock import patch
+
+        from app.core import config as _config
+        from app.core.logging_config import configure_logging, reset_logging_state
 
         reset_logging_state()
         with patch.object(_config.settings, "log_to_file", False), patch.object(
@@ -419,9 +420,11 @@ class TestLoggingConfigIntegration:
 
     def test_end_to_end_pii_not_in_logs(self, caplog):
         """端到端: 含 PII 的日志记录被脱敏."""
-        from app.core.logging_config import configure_logging, reset_logging_state
-        from app.core import config as _config
         from unittest.mock import patch
+
+        from app.core import config as _config
+        from app.core.log_sanitizer import SanitizingFilter
+        from app.core.logging_config import configure_logging, reset_logging_state
 
         reset_logging_state()
         with patch.object(_config.settings, "log_to_file", False), patch.object(
@@ -434,10 +437,17 @@ class TestLoggingConfigIntegration:
             logger.addHandler(logging.NullHandler())
             logger.info("user login password=secret123")
 
-        # 检查 caplog 捕获的记录
-        # 注意: caplog 使用 propagation, 不一定经过我们的 filter
-        # 此测试主要验证 configure_logging 不抛异常
-        assert True
+        # SEC-FIX: 原 assert True 空断言。改为验证 configure_logging 生效且
+        # 根 logger 上挂载了 SanitizingFilter (SEC-P2-007 的核心契约)
+        root = logging.getLogger()
+        has_sanitizing_filter = any(
+            isinstance(f, SanitizingFilter) for f in root.filters
+        ) or any(
+            isinstance(f, SanitizingFilter)
+            for h in root.handlers
+            for f in getattr(h, "filters", [])
+        )
+        assert has_sanitizing_filter, "SanitizingFilter 未注册到根 logger 或其 handler"
 
 
 class TestLogSanitizerSourceStructure:

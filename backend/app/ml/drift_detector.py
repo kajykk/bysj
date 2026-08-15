@@ -261,21 +261,18 @@ class DriftDetector:
                     "bins": 1,
                 }
 
-        # Create bins based on reference data
-        min_val = np.min(reference)
-        max_val = np.max(reference)
+        # SEC-FIX (PSI 越界样本): 分箱必须覆盖 reference 与 current 的并集区间,
+        # 且首尾边缘设为 ±inf——原实现仅取 reference 的 min/max, current 中
+        # 越界样本会被 np.histogram 静默丢弃: current 完全移出 reference 范围时
+        # curr_sum == 0, 极端漂移被误判为 "no_drift"; 部分越界时 curr_dist 仅按
+        # 落界内样本归一, 系统性低估漂移。
+        combined_min = min(np.min(reference), np.min(current))
+        combined_max = max(np.max(reference), np.max(current))
 
-        # Handle case where min == max (should be caught above, but double-check)
-        if min_val == max_val:
-            return {
-                "psi": 0.0,
-                "interpretation": "no_drift",
-                "is_drift": False,
-                "bins": 1,
-                "error": "constant_distribution",
-            }
-
-        bin_edges = np.linspace(min_val, max_val, bins + 1)
+        # 走到这里 reference 至少有 2 个唯一值 (上面 single-value 分支已处理),
+        # 因此 combined 区间必然非零
+        inner_edges = np.linspace(combined_min, combined_max, bins + 1)
+        bin_edges = np.concatenate(([-np.inf], inner_edges[1:-1], [np.inf]))
 
         # Compute histograms
         ref_hist, _ = np.histogram(reference, bins=bin_edges)

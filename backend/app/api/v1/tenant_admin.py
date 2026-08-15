@@ -20,6 +20,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -131,7 +132,12 @@ async def create_tenant(
         config=payload.config,
     )
     db.add(tenant)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # SEC-FIX (P2): 并发创建同 code 租户时唯一约束兜底, 返回 409 而非 500
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"租户编码已存在: {payload.code}")
 
     db.add(
         OperationLog(
@@ -141,7 +147,9 @@ async def create_tenant(
             target_type="tenant",
             target_id=tenant.id,
             detail=f"name={payload.name}; code={payload.code}",
-            tenant_id=current_user.tenant_id,
+            # SEC-FIX (租户审计归属): 归属目标租户, 目标租户管理员可在
+            # tenant-audit 中看到本操作; 操作者信息保留在 operator_id
+            tenant_id=tenant.id,
         )
     )
     await db.commit()
@@ -247,7 +255,8 @@ async def update_tenant(
             target_type="tenant",
             target_id=tenant_id,
             detail="; ".join(changes),
-            tenant_id=current_user.tenant_id,
+            # SEC-FIX (租户审计归属): 归属目标租户
+            tenant_id=tenant_id,
         )
     )
     await db.commit()
@@ -291,7 +300,8 @@ async def suspend_tenant(
             target_type="tenant",
             target_id=tenant_id,
             detail=f"reason={payload.reason}; previous_status={previous_status}",
-            tenant_id=current_user.tenant_id,
+            # SEC-FIX (租户审计归属): 归属目标租户
+            tenant_id=tenant_id,
         )
     )
     await db.commit()
@@ -341,7 +351,8 @@ async def activate_tenant(
             target_type="tenant",
             target_id=tenant_id,
             detail=f"reason={payload.reason}; previous_status={previous_status}",
-            tenant_id=current_user.tenant_id,
+            # SEC-FIX (租户审计归属): 归属目标租户
+            tenant_id=tenant_id,
         )
     )
     await db.commit()

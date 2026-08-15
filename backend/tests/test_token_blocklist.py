@@ -73,7 +73,7 @@ class TestIsTokenRevoked:
         mock_cache_get = AsyncMock(return_value=None)
         with patch("app.core.token_blocklist.cache_get", new=mock_cache_get):
             await is_token_revoked("test_jti")
-        mock_cache_get.assert_called_once_with("token_blocklist:test_jti")
+        mock_cache_get.assert_called_once_with("token_blocklist:test_jti", strict=True)
 
 
 class TestRevokeToken:
@@ -101,6 +101,7 @@ class TestRevokeToken:
             "token_blocklist:jti123",
             {"revoked": True},
             ttl=3600,
+            strict=True,
         )
 
     @pytest.mark.asyncio
@@ -110,6 +111,35 @@ class TestRevokeToken:
             "app.core.token_blocklist.cache_set", new=AsyncMock(return_value=False)
         ):
             result = await revoke_token("jti123", ttl=3600)
+        assert result is False
+
+
+class TestFailClosedOnRedisUnavailable:
+    """SEC-FIX (H1): Redis 不可用时失败关闭, 不静默放行."""
+
+    @pytest.mark.asyncio
+    async def test_is_revoked_raises_when_redis_unavailable(self):
+        """SEC-FIX (H1): cache_get 抛 CacheUnavailableError 时向上抛出,
+        由 deps.py 转为 503 (认证服务暂时不可用), 与 401 撤销语义区分."""
+        from app.core.cache import CacheUnavailableError
+
+        with patch(
+            "app.core.token_blocklist.cache_get",
+            new=AsyncMock(side_effect=CacheUnavailableError("redis down")),
+        ):
+            with pytest.raises(CacheUnavailableError):
+                await is_token_revoked("some_jti")
+
+    @pytest.mark.asyncio
+    async def test_revoke_returns_false_when_redis_unavailable(self):
+        """SEC-FIX (H1): cache_set 抛 CacheUnavailableError 时 revoke 返回 False."""
+        from app.core.cache import CacheUnavailableError
+
+        with patch(
+            "app.core.token_blocklist.cache_set",
+            new=AsyncMock(side_effect=CacheUnavailableError("redis down")),
+        ):
+            result = await revoke_token("some_jti", ttl=3600)
         assert result is False
 
 

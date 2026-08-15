@@ -13,6 +13,10 @@ try:
 except ImportError as exc:  # pragma: no cover - dependency requirement enforcement
     raise RuntimeError("python-magic is required for upload MIME validation") from exc
 
+# SEC-FIX (H2): 复用 uploads.py 的绝对路径解析, 修复 CWD 依赖——
+# 原 Path("uploads") 在非 backend 目录启动时写入与下载/清理任务不同的目录,
+# 导致文件 404 且 30 天清理任务无法触及。
+from app.api.v1.uploads import _resolve_upload_dir
 from app.core.database import get_db
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
@@ -170,7 +174,7 @@ async def upload_file(
     category = _validate_category(category)
     ext = _validate_extension(file.filename, category)
 
-    upload_base = Path("uploads")
+    upload_base = _resolve_upload_dir()
     upload_base.mkdir(parents=True, exist_ok=True)
     user_id_str = str(current_user.id)
     user_dir = upload_base / user_id_str
@@ -254,7 +258,7 @@ async def upload_batch(
     # TODO(M-API-10): 当前 10 个文件串行处理，大文件场景可能超时。
     # 后续应改为后台任务（如 Celery/RQ）或 asyncio.gather 并行处理，避免请求长时间阻塞。
     results = []
-    upload_base = Path("uploads")
+    upload_base = _resolve_upload_dir()
     upload_base.mkdir(parents=True, exist_ok=True)
     user_id_str = str(current_user.id)
     user_dir = upload_base / user_id_str

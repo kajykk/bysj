@@ -272,12 +272,10 @@ async def refresh_token(
             detail="登录凭证已被使用或失效，请重新登录",
         )
 
-    # 重新查询获取 token_session 用于后续校验
-    token_session = (
-        await db.execute(
-            select(RefreshTokenSession).where(RefreshTokenSession.jti == jti)
-        )
-    ).scalar_one_or_none()
+    # SEC-FIX (死代码清理): 原此处重新查询 token_session, 但查询结果从未被
+    # 使用 (expires_at 由 settings 计算, 新 session 为全新对象), 已删除。
+    # 若将来需要旧 session 信息, 可使用 UPDATE ... RETURNING 或保留上方
+    # 第 243 行的 token_session 引用。
 
     expires_at = now_naive + timedelta(days=settings.refresh_token_expire_days)
     db.add(
@@ -315,8 +313,16 @@ async def change_password(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     service = AuthService(db)
+    # SEC-FIX (P2-4): 传递当前 access token 的 jti/exp, 改密后一并撤销,
+    # 消除 access token 最长 2h 的残留有效窗口
+    access_payload = getattr(request.state, "token_payload", {}) or {}
     try:
-        await service.change_password(current_user.id, payload)
+        await service.change_password(
+            current_user.id,
+            payload,
+            access_token_jti=access_payload.get("jti"),
+            access_token_exp=access_payload.get("exp"),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     # M-API-8 修复：记录审计日志

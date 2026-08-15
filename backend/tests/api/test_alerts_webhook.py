@@ -53,6 +53,59 @@ def test_webhook_handles_empty_alerts(client: TestClient) -> None:
     assert resp.json()["processed"] == 0
 
 
+def test_webhook_neutralizes_internal_urls(client: TestClient) -> None:
+    """SEC-FIX (H-AUDIT-01): 内部自部署 Grafana 携带 localhost/内网 URL 的
+    payload 应被接收 (中性化 URL) 而非整包 422."""
+    payload = {
+        "version": "1",
+        "status": "firing",
+        "receiver": "sre-webhook",
+        "groupKey": "{}:{alertname=\"GrafanaLocalTest\"}",
+        "externalURL": "https://localhost/grafana",
+        "alerts": [
+            {
+                "status": "firing",
+                "labels": {"alertname": "GrafanaLocalTest", "severity": "warning"},
+                "annotations": {"summary": "internal grafana link test"},
+                "startsAt": "2026-08-14T00:00:00Z",
+                "generatorURL": "http://127.0.0.1:3000/alerting/1",
+                "fingerprint": "grafana-local-001",
+            }
+        ],
+    }
+    with patch("app.api.v1.alerts.CompositeNotifier") as mock_notifier_cls:
+        mock_notifier = mock_notifier_cls.return_value
+        mock_notifier.send.return_value = {}
+
+        resp = client.post(
+            "/api/v1/alerts/webhook", json=payload, headers=_WEBHOOK_AUTH
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["processed"] == 1
+
+
+def test_webhook_rejects_non_http_urls(client: TestClient) -> None:
+    """C-API-3: javascript:/data: 等非 http(s) URL 仍应整包拒绝 (422)."""
+    payload = {
+        "version": "1",
+        "status": "firing",
+        "alerts": [
+            {
+                "status": "firing",
+                "labels": {"alertname": "BadScheme"},
+                "generatorURL": "javascript:alert(1)",
+                "fingerprint": "bad-scheme-001",
+            }
+        ],
+    }
+    resp = client.post(
+        "/api/v1/alerts/webhook", json=payload, headers=_WEBHOOK_AUTH
+    )
+    assert resp.status_code == 422
+
+
 def test_webhook_severity_normalization(client: TestClient) -> None:
     """v1.33: critical/warning/info 应标准化为 P0/P1/P2."""
     payload = {

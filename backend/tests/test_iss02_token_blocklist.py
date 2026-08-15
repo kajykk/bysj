@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
 import pytest
 
 from app.core import token_blocklist as tb
@@ -16,10 +14,10 @@ from app.core import token_blocklist as tb
 def mock_cache(monkeypatch):
     store = {}
 
-    async def fake_get(key):
+    async def fake_get(key, **kwargs):
         return store.get(key)
 
-    async def fake_set(key, value, ttl=None):
+    async def fake_set(key, value, ttl=None, **kwargs):
         store[key] = value
         return True
 

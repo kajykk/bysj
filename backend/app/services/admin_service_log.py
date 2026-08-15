@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, select
 
 from app.models.admin import OperationLog
+from app.models.user import User
 
 if TYPE_CHECKING:
     pass
@@ -28,13 +29,29 @@ class LogMixin:
     def _apply_log_filters(stmt, filters: dict):
         """L-Svc-7 修复：将公共过滤条件应用到任意日志查询语句。
 
-        支持的 filters 键：action_types(list)、operator_role、target_type、start_time、end_time。
+        支持的 filters 键：action_types(list)、operator_role、operator_name、
+        target_type、start_time、end_time。
+        SEC-FIX (M4): operator_name 通过 join User 表按用户名模糊匹配。
+        SEC-FIX (P2): 转义 LIKE 通配符 (%/_)——用户输入 `%` 或 `_` 不应放大匹配面
+        (如 operator_name=% 全表匹配)。join 改用 LEFT OUTER JOIN, 保留
+        operator_id IS NULL 的系统日志行 (如 reset_password 审计记录)。
         """
         action_types = filters.get("action_types")
         if action_types:
             stmt = stmt.where(OperationLog.action_type.in_(action_types))
         if filters.get("operator_role"):
             stmt = stmt.where(OperationLog.operator_role == filters["operator_role"])
+        if filters.get("operator_name"):
+            escaped = (
+                str(filters["operator_name"])
+                .replace("\\", "\\\\")
+                .replace("%", r"\%")
+                .replace("_", r"\_")
+            )
+            stmt = (
+                stmt.outerjoin(User, User.id == OperationLog.operator_id)
+                .where(User.username.ilike(f"%{escaped}%", escape="\\"))
+            )
         if filters.get("target_type"):
             stmt = stmt.where(OperationLog.target_type == filters["target_type"])
         if filters.get("start_time"):
@@ -82,6 +99,7 @@ class LogMixin:
         page_size: int,
         action_type: str | None = None,
         operator_role: str | None = None,
+        operator_name: str | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
     ) -> dict:
@@ -89,6 +107,7 @@ class LogMixin:
         filters = {
             "action_types": [action_type] if action_type else None,
             "operator_role": operator_role,
+            "operator_name": operator_name,
             "target_type": None,
             "start_time": start_time,
             "end_time": end_time,
@@ -105,6 +124,7 @@ class LogMixin:
         self,
         action_type: str | None = None,
         operator_role: str | None = None,
+        operator_name: str | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
     ) -> list[dict]:
@@ -112,6 +132,7 @@ class LogMixin:
         filters = {
             "action_types": [action_type] if action_type else None,
             "operator_role": operator_role,
+            "operator_name": operator_name,
             "target_type": None,
             "start_time": start_time,
             "end_time": end_time,

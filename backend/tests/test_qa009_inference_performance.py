@@ -87,9 +87,9 @@ class TestInferencePerformance:
 
     def test_drift_detection_single_latency(self) -> None:
         """验证单条漂移检测耗时 < 50ms"""
-        from app.services.drift_detector import DriftDetector
+        from app.services.drift_detector import PsiKlCalculator
 
-        detector = DriftDetector()
+        detector = PsiKlCalculator()
         baseline = [1.0, 2.0, 3.0, 4.0, 5.0] * 20  # 100 samples
         current = [1.1, 2.1, 3.1, 4.1, 5.1] * 20
 
@@ -115,9 +115,9 @@ class TestInferencePerformance:
 
     def test_drift_detection_batch_latency(self) -> None:
         """验证批量漂移检测性能"""
-        from app.services.drift_detector import DriftDetector
+        from app.services.drift_detector import PsiKlCalculator
 
-        detector = DriftDetector()
+        detector = PsiKlCalculator()
 
         start = time.perf_counter()
         for i in range(10):
