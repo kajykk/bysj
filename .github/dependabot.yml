@@ -1,0 +1,50 @@
+# Dependabot 配置 (2026-08 新增)
+# SEC-FIX (P2): 第三方/官方 action 钉 SHA 后, 由 Dependabot 定期检查并提交
+# 升级 PR (自动更新 SHA 与版本注释), 避免手动维护 SHA 的负担。
+# 参考: https://docs.github.com/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # GitHub Actions: 每周检查一次
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      # 官方 actions/* 与第三方 action 合并为单个 PR, 减少 PR 噪音
+      actions:
+        patterns:
+          - "*"
+
+  # 后端 Python 依赖
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "build(deps)"
+    # 安全更新单独分组, 尽快合并
+    open-pull-requests-limit: 10
+
+  # 前端 npm 依赖
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "build(deps)"
+    open-pull-requests-limit: 10

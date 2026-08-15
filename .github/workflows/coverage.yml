@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main, develop]
 
+# SEC-FIX (P2): 双触发 (push+pull_request) 同 ref 跑两遍, concurrency 取消旧跑
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # SEC-FIX (P2): 最小权限声明 (测试/上传类 workflow 只需读仓库内容)
 permissions:
   contents: read
