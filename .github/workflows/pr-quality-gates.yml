@@ -1,4 +1,4 @@
-name: PR Quality Gates
+﻿name: PR Quality Gates
 
 on:
   pull_request:
