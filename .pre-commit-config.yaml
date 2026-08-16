@@ -27,11 +27,17 @@ repos:
         name: 确保 docstring 在文件开头
 
   # ===== 密钥泄漏扫描 (P0-1 修复的缺口: 无此钩子时硬编码 token 可穿过所有钩子) =====
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.4
+  # 本地钩子 (MAINT-P3-004 调整): 原 repo 钩子需 golang 环境构建, 受
+  # proxy.golang.org 网络限制; 改为 system 钩子, 要求 gitleaks v8.18.4+ 在 PATH
+  # (安装: winget install gitleaks.gitleaks 或 GitHub Releases 下载二进制)。
+  # CI 侧 secret-scan.yml 服务端兜底, 不依赖本钩子。
+  - repo: local
     hooks:
       - id: gitleaks
         name: Gitleaks 密钥泄漏扫描
+        entry: gitleaks protect --staged --redact
+        language: system
+        pass_filenames: false
 
   # ===== Backend: Ruff (lint + format) =====
   # MAINT-P3-003: ruff 替代 black + isort + flake8, 统一 Python 代码风格
