@@ -65,166 +65,12 @@ jobs:
         continue-on-error: true
         run: mypy app/ --no-error-summary
 
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - name: Install dependencies
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-      - name: Run unit tests
-        working-directory: backend
-        run: pytest tests/ -m "unit" -x -v --timeout=120
-
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: testdb
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - name: Install dependencies
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-      - name: Run migrations
-        working-directory: backend
-        run: alembic upgrade head
-        env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
-      - name: Run integration tests
-        working-directory: backend
-        run: pytest tests/ -m "integration" -x -v --timeout=120
-        env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
-
-  contract-tests:
-    name: Contract Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: testdb
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - name: Install dependencies
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-      - name: Run migrations
-        working-directory: backend
-        run: alembic upgrade head
-        env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
-      - name: Export OpenAPI
-        working-directory: backend
-        run: python scripts/export_openapi.py
-      - name: Run contract tests
-        working-directory: backend
-        # MAINT-P3-002: --maxfail=1 fail-fast, 第一个失败即停止避免吞掉错误
-        run: pytest tests/contract/ --maxfail=1 -v --timeout=120
-        env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
-
-  coverage-check:
-    name: Coverage Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: testdb
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - name: Install dependencies
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-      - name: Run migrations
-        working-directory: backend
-        run: alembic upgrade head
-        env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
-      - name: Run coverage
-        working-directory: backend
-        run: |
-          # MAINT-P3-002: --maxfail=1 fail-fast, 第一个失败即停止避免吞掉错误
-          # CI-AUDIT-03: 门禁分工——本 job 跑 unit+integration 子集, 门禁 50% (快速反馈);
-          # coverage.yml 跑全量测试 (除 contract), 全仓基线门禁 40%。单一路线图: 50% → 60% → 70% → 85%
-          pytest tests/ -m "unit or integration" \
-            --maxfail=1 \
-            --cov=app \
-            --cov-report=xml \
-            --cov-fail-under=50 \
-            --timeout=120
-        env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
-      - name: Upload to Codecov
-        # SEC-FIX (P2): 钉到 commit SHA (v5 -> 0fb7174)
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
-        with:
-          files: backend/coverage.xml
-          flags: backend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+  # CI-AUDIT-04: 后端测试 job (unit/integration/contract/coverage) 已移除 —
+  # coverage.yml (全量非 contract, 门禁 40%) 与 contract-tests.yml 均已双触发
+  # (push+pull_request) 且经 Dependabot PR 实测通过, 此处重复运行是坏门禁:
+  # 原 `-m "unit"`/`alembic upgrade head` 与实际仓库 (无 unit marker/
+  # create_schema_ci.py) 不符, 恒失败。本 gate 只保留独立 workflow 未覆盖的:
+  # sklearn 兼容 + lint + 前端构建/单测 + e2e smoke (mock API)。
 
   frontend-build:
     name: Frontend Build
@@ -274,7 +120,8 @@ jobs:
         run: npm ci
       - name: Run tests
         working-directory: frontend
-        run: npm run test:unit
+        # CI-AUDIT-04: 原 `npm run test:unit` 脚本不存在导致恒失败, 改为 vitest run
+        run: npm run test
 
   e2e-smoke:
     name: E2E Smoke (Mocked API)
@@ -308,7 +155,7 @@ jobs:
   quality-gate-summary:
     name: Quality Gate Summary
     runs-on: ubuntu-latest
-    needs: [sklearn-compat-check, lint, unit-tests, integration-tests, contract-tests, coverage-check, frontend-build, frontend-tests, e2e-smoke]
+    needs: [sklearn-compat-check, lint, frontend-build, frontend-tests, e2e-smoke]
     if: always()
     steps:
       - name: Check all jobs passed
@@ -316,21 +163,14 @@ jobs:
           echo "## PR Quality Gates Summary" >> $GITHUB_STEP_SUMMARY
           echo "- sklearn Compat: ${{ needs.sklearn-compat-check.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Lint (ruff+bandit+mypy): ${{ needs.lint.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Unit Tests: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Integration Tests: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Contract Tests: ${{ needs.contract-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Coverage Check: ${{ needs.coverage-check.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Frontend Build: ${{ needs.frontend-build.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Frontend Tests: ${{ needs.frontend-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- E2E Smoke: ${{ needs.e2e-smoke.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend 测试/覆盖率/契约: 由 coverage.yml + contract-tests.yml 独立承担 (CI-AUDIT-04)" >> $GITHUB_STEP_SUMMARY
           echo "- Dependency SCA + Container Scan: 由独立 workflow 承担 (见 dependency-scan.yml / container-scan.yml)" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.sklearn-compat-check.result }}" != "success" ] || \
              [ "${{ needs.lint.result }}" != "success" ] || \
-             [ "${{ needs.unit-tests.result }}" != "success" ] || \
-             [ "${{ needs.integration-tests.result }}" != "success" ] || \
-             [ "${{ needs.contract-tests.result }}" != "success" ] || \
-             [ "${{ needs.coverage-check.result }}" != "success" ] || \
              [ "${{ needs.frontend-build.result }}" != "success" ] || \
              [ "${{ needs.frontend-tests.result }}" != "success" ] || \
              [ "${{ needs.e2e-smoke.result }}" != "success" ]; then
