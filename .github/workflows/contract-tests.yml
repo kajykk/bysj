@@ -1,4 +1,4 @@
-﻿name: contract-tests
+name: contract-tests
 
 on:
   push:
@@ -32,8 +32,8 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install backend dependencies
@@ -73,7 +73,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
       - name: Upload contract test results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: contract-test-results
           path: backend/tests/contract/
