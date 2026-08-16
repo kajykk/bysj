@@ -41,8 +41,8 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install backend dependencies
@@ -93,7 +93,7 @@ jobs:
         # CI-AUDIT-02: always() 保证测试失败时仍上传已收集的 coverage.xml
         if: always()
         # SEC-FIX (P2): 钉到 commit SHA (v5 -> 0fb7174), 防可变 tag 被劫持
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: backend/coverage.xml
           flags: backend
@@ -102,7 +102,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: backend-coverage-report
           path: backend/htmlcov/
@@ -110,8 +110,8 @@ jobs:
   frontend-coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -126,7 +126,7 @@ jobs:
         # MAINT-P3-001: 覆盖率门禁由 vitest.config.ts thresholds 控制 (50% 起点)
       - name: Upload coverage to Codecov
         # SEC-FIX (P2): 钉到 commit SHA (v5 -> 0fb7174)
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: frontend/coverage/lcov.info
           flags: frontend
@@ -135,7 +135,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage-report
           path: frontend/coverage/
@@ -147,13 +147,13 @@ jobs:
     steps:
       - name: Download backend coverage
         continue-on-error: true
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: backend-coverage-report
           path: backend-coverage
       - name: Download frontend coverage
         continue-on-error: true
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: frontend-coverage-report
           path: frontend-coverage

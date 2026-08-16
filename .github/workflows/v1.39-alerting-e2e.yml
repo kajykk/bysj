@@ -53,7 +53,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # H-AUDIT-01: prometheus.yml 不含真实 token, 仓库仅存 .example 模板。
       # 令牌经 bearer_token_file 注入 (prometheus.yml 不支持 ${VAR} 展开,
@@ -66,7 +66,7 @@ jobs:
           grep -n "bearer_token_file" infra/prometheus/prometheus.yml
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -200,7 +200,7 @@ jobs:
 
       - name: Upload logs artifact
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: v139-alerting-e2e-logs
           path: |
