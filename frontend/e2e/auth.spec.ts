@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { CORS_HEADERS } from './shared'
 
 test.describe('Login Page', () => {
   test('@smoke should display login form', async ({ page }) => {
@@ -9,6 +10,17 @@ test.describe('Login Page', () => {
 
   test('@smoke should show error on wrong credentials', async ({ page }) => {
     await page.goto('/login')
+    // smoke 项目 (chromium-smoke) 无真实后端: 模拟 401 响应, 验证前端错误提示链路。
+    // 必须带 CORS 头 (见 shared.ts CORS_HEADERS 注释), 否则浏览器拦截伪造响应,
+    // axios 收到 network error 而非 401。真实后端路径由 E2E Full Stack (chromium) 覆盖。
+    await page.route(/\/api\/v1\/auth\/login$/, async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ detail: '用户名或密码错误' }),
+      })
+    })
     await page.getByPlaceholder('请输入用户名').fill('nonexistent')
     await page.getByPlaceholder('请输入密码').fill('wrongpass')
     await page.getByRole('button', { name: /登|login/i }).click()
