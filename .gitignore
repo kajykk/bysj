@@ -234,7 +234,8 @@ _*.py
 _*.txt
 _*.json
 
-# Trae IDE runtime state (编排器维护的运行时状态，易过期；保留稳定的 .trae/skills/ 与 .trae/rules/)
+# Trae IDE runtime state (编排器维护的运行时状态，易过期；保留 .trae/rules/ 等配置目录)
+# 注：.trae/skills/ 已整体移出仓库索引（求职物料/AI 工具链隔离区），见文件末尾说明
 .trae/mlopt/
 .trae/sysopt/
 
@@ -258,3 +259,15 @@ backend/test_junit*.xml
 
 # Hotfix patch artifacts
 *.patch
+
+# ── 求职物料 / AI 工具链隔离区（已从索引移除，禁止再次入库）──────────────
+# 注：*.log / *.db(含 test_app.db) / .coverage / coverage.xml / trivy_scan_*.txt
+# 已由上方规则覆盖，此处按审查要求集中重申，便于审计核对。
+.trae/skills/
+resume_ai_fullstack.md
+generate_resume_pdf.py
+*.log
+test_app.db
+.coverage
+coverage.xml
+trivy_scan_*.txt
