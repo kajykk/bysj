@@ -1,12 +1,13 @@
 """风险映射 + 干预 + 危机 + 门控 + SHAP 解释 (RM 层).
 
-本模块从 `app.core.model_engine` 拆分而来 (T-P2-001 PHASE_2 结构性优化),
+本模块从 `app.core.model_engine` 拆分而来 (T-P2-001 PHASE_2 结构性优化,
+model_engine 包结构化拆分时整体迁入 `app.core.model_engine.risk`),
 承担 ModelEngine 的风险等级映射、干预计划构建、危机安全检查、注意力门控
 以及 SHAP 因子解释相关职责.
 
 通过 Mixin 多继承模式装配到 ModelEngine:
 
-    class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
+    class ModelEngine(..., RiskMixin):
         ...
 
 拆分原因:
@@ -42,14 +43,12 @@ class RiskMixin:
     """风险映射 / 干预 / 危机 / 门控 / SHAP 解释方法集合.
 
     这些方法通过 Mixin 装配到 ModelEngine, 依赖 ModelEngine 实例的
-    `_incr_crisis_override` 方法 (由 ModelEngine 主体提供).
+    `_incr_crisis_override` 方法 (由 InferenceMixin 提供).
     """
 
     @staticmethod
     def _score_to_level(score: float, modality: str | None = None) -> int:
-        thresholds = (
-            get_threshold_by_modality(modality) if modality else RISK_LEVEL_THRESHOLDS
-        )
+        thresholds = get_threshold_by_modality(modality) if modality else RISK_LEVEL_THRESHOLDS
         if score >= thresholds["critical"]:
             return 4
         if score >= thresholds["high"]:
@@ -77,9 +76,7 @@ class RiskMixin:
     ) -> tuple[str, list[str]]:
         dominant_modality = ""
         if modality_scores:
-            dominant_modality = max(
-                modality_scores.items(), key=lambda item: float(item[1]["score"])
-            )[0]
+            dominant_modality = max(modality_scores.items(), key=lambda item: float(item[1]["score"]))[0]
 
         if risk_level <= 0:
             return "none", ["保持日常心理健康维护", "推荐心理健康教育内容"]
@@ -152,9 +149,7 @@ class RiskMixin:
         return [float(v / total) for v in weights]
 
     @staticmethod
-    def _boost_gate_for_physiology(
-        scores: list[float], gate_weights: list[float]
-    ) -> list[float]:
+    def _boost_gate_for_physiology(scores: list[float], gate_weights: list[float]) -> list[float]:
         if not scores or len(scores) != len(gate_weights):
             return gate_weights
         boosted = list(gate_weights)

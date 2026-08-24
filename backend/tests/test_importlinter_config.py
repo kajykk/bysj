@@ -52,15 +52,19 @@ class TestImportLinterConfig:
         assert "app.ml" in content and "app.services" in content
 
     def test_ignore_imports_covers_known_tech_debt(self) -> None:
-        """6 处已知技术债必须显式豁免, 否则 lint-imports 会失败."""
+        """6 处已知技术债必须显式豁免, 否则 lint-imports 会失败.
+
+        model_engine 包结构化拆分后, 预测路径的延迟导入位于包内 predict 子模块,
+        豁免源模块随之精确到 app.core.model_engine.predict (约束强度不变).
+        """
         content = _read_pyproject()
         expected_pairs = [
             ("app.core.model_engine", "app.ml.fusion_engine"),
             ("app.core.model_engine", "app.ml.fusion_priority_engine"),
             ("app.core.model_engine", "app.ml.text_analyzer"),
-            ("app.core.model_engine_predict", "app.ml.model_loader"),
-            ("app.core.model_engine_predict", "app.ml.data_cleaner"),
-            ("app.core.model_engine_predict", "app.ml.feature_engineering"),
+            ("app.core.model_engine.predict", "app.ml.model_loader"),
+            ("app.core.model_engine.predict", "app.ml.data_cleaner"),
+            ("app.core.model_engine.predict", "app.ml.feature_engineering"),
         ]
         for src, dst in expected_pairs:
             pair = f"{src} -> {dst}"
@@ -96,7 +100,7 @@ class TestModelEngineLazyImport:
         return "\n".join(lines)
 
     def test_model_engine_no_top_level_app_ml_import(self) -> None:
-        path = BACKEND_DIR / "app" / "core" / "model_engine.py"
+        path = BACKEND_DIR / "app" / "core" / "model_engine" / "__init__.py"
         source = path.read_text(encoding="utf-8")
         active = self._read_active_top_level(source)
 
@@ -115,7 +119,7 @@ class TestModelEngineLazyImport:
 
     def test_model_engine_lazy_imports_in_init(self) -> None:
         """__init__ 内部应有 app.ml 延迟导入."""
-        path = BACKEND_DIR / "app" / "core" / "model_engine.py"
+        path = BACKEND_DIR / "app" / "core" / "model_engine" / "__init__.py"
         source = path.read_text(encoding="utf-8")
         # __init__ 方法内应有这三个延迟导入
         assert "from app.ml.fusion_engine import FusionEngine" in source

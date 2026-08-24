@@ -29,7 +29,7 @@ class TestModelDegradation:
 
         # Mock model path to non-existent file
         with patch(
-            "app.core.model_engine.MODEL_PATHS",
+            "app.core.model_engine.loading.MODEL_PATHS",
             {"structured_logistic_regression_quick": Path("/nonexistent/model.pkl")},
         ):
             result = await engine.predict_structured(

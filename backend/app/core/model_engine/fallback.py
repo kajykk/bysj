@@ -1,6 +1,7 @@
 """启发式回退策略层 (FB 层).
 
-本模块从 `app.core.model_engine` 拆分而来 (T-P2-001 PHASE_2 结构性优化),
+本模块从 `app.core.model_engine` 拆分而来 (T-P2-001 PHASE_2 结构性优化,
+model_engine 包结构化拆分时整体迁入 `app.core.model_engine.fallback`),
 承担 ModelEngine 在 ML 模型不可用 / 输入信息不足场景下的启发式回退预测职责:
 
 - 结构化特征启发式回退 (`_structured_heuristic_fallback`)
@@ -10,12 +11,12 @@
 
 通过 Mixin 多继承模式装配到 ModelEngine:
 
-    class ModelEngine(PredictMixin, FallbackMixin, RiskMixin):
+    class ModelEngine(..., FallbackMixin, ...):
         ...
 
-依赖关系 (MixIn 装配后由对应 Mixin / ModelEngine 主体提供):
+依赖关系 (装配后由对应 Mixin / ModelEngine 主体提供):
 - `self.text_analyzer`            → ModelEngine.__init__
-- `self._incr_fallback`           → ModelEngine 主体
+- `self._incr_fallback`           → InferenceMixin
 - `self._score_to_level`          → RiskMixin
 
 向后兼容: 仅需 `from app.core.model_engine import model_engine` 即可继续使用,
@@ -37,9 +38,7 @@ class FallbackMixin:
     `text_analyzer` / `_incr_fallback` 以及 RiskMixin 提供的 `_score_to_level`.
     """
 
-    def _structured_heuristic_fallback(
-        self, raw: dict[str, Any]
-    ) -> tuple[float, float, int]:
+    def _structured_heuristic_fallback(self, raw: dict[str, Any]) -> tuple[float, float, int]:
         """启发式规则计算结构化风险分数（模型不可用时使用）。
 
         基于特征加权的风险评估，与测试用例期望对齐。
@@ -141,9 +140,7 @@ class FallbackMixin:
             "fallback_reason": "lite_model_unavailable_or_text_insufficient",
         }
 
-    def _physiological_heuristic_fallback(
-        self, data: dict[str, float | int], reason: str | None = None
-    ) -> float:
+    def _physiological_heuristic_fallback(self, data: dict[str, float | int], reason: str | None = None) -> float:
         sleep_hours = float(data.get("sleep_hours", 7))
         sleep_quality = float(data.get("sleep_quality", 5))
         exercise_minutes = float(data.get("exercise_minutes", 30))
@@ -173,13 +170,7 @@ class FallbackMixin:
         steps_deficit = max(0, 1 - steps / 8000)
         steps_score = max(0, min(100, steps_deficit * 15))
 
-        total_risk = (
-            sleep_score * 0.25
-            + hr_score * 0.20
-            + bp_score * 0.20
-            + exercise_score * 0.20
-            + steps_score * 0.15
-        )
+        total_risk = sleep_score * 0.25 + hr_score * 0.20 + bp_score * 0.20 + exercise_score * 0.20 + steps_score * 0.15
 
         heuristic_result = round(total_risk, 2)
         logger.info(
