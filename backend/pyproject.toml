@@ -78,8 +78,9 @@ skips = [
 
 # MAINT-P2-003: import-linter 层级依赖契约
 # 禁止 app.core 反向依赖 app.ml / app.services (层级倒置反模式)
-# 已知技术债豁免: model_engine 系列 6 处延迟导入 (74 处引用无法短期迁移)
-# 注: grimp 静态分析包含函数体内 import, 故延迟导入仍需显式 ignore_imports 豁免
+# 已知技术债豁免: model_engine 包系列延迟导入 (74 处引用无法短期迁移)
+# 注: grimp 静态分析包含函数体内 import, 故延迟导入仍需显式 ignore_imports 豁免;
+#     model_engine 包结构化拆分后豁免项精确到具体子模块 (约束强度不变)
 [tool.importlinter]
 root_packages = ["app"]
 include_external_packages = false
@@ -90,16 +91,16 @@ type = "forbidden"
 source_modules = ["app.core"]
 forbidden_modules = ["app.ml", "app.services"]
 ignore_imports = [
-    # model_engine.py: __init__ 内实例化 fusion/text 组件 (技术债, 74 处引用)
+    # app/core/model_engine/__init__.py: ModelEngine.__init__ 内实例化 fusion/text 组件 (技术债, 74 处引用)
     "app.core.model_engine -> app.ml.fusion_engine",
     "app.core.model_engine -> app.ml.fusion_priority_engine",
     "app.core.model_engine -> app.ml.text_analyzer",
-    # model_engine_predict.py: 推理路径延迟导入 (性能优化, 避免顶层加载 ML 依赖)
-    "app.core.model_engine_predict -> app.ml.model_loader",
-    "app.core.model_engine_predict -> app.ml.data_cleaner",
-    "app.core.model_engine_predict -> app.ml.feature_engineering",
-    # model_engine_predict.py: 影子模式对拍 fire-and-forget (延迟导入, 失败不影响生产)
-    "app.core.model_engine_predict -> app.services.shadow_mode_service",
+    # app/core/model_engine/predict.py: 推理路径延迟导入 (性能优化, 避免顶层加载 ML 依赖)
+    "app.core.model_engine.predict -> app.ml.model_loader",
+    "app.core.model_engine.predict -> app.ml.data_cleaner",
+    "app.core.model_engine.predict -> app.ml.feature_engineering",
+    # app/core/model_engine/predict.py: 影子模式对拍 fire-and-forget (延迟导入, 失败不影响生产)
+    "app.core.model_engine.predict -> app.services.shadow_mode_service",
 ]
 
 # MAINT-P3-005: 依赖锁定 (lock files)

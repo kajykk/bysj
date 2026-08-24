@@ -192,7 +192,7 @@ class TestShadowModeIntegration:
 
         engine = MagicMock(spec=PredictMixin)
         # model_engine_predict 在模块级绑定 settings, 需 patch 其自身引用
-        with patch("app.core.model_engine_predict.settings") as mock_settings:
+        with patch("app.core.model_engine.predict.settings") as mock_settings:
             mock_settings.shadow_mode_text_enabled = False
             with patch(
                 "app.services.shadow_mode_service.get_shadow_mode_service"
@@ -209,7 +209,7 @@ class TestShadowModeIntegration:
         from app.core.model_engine_predict import PredictMixin
 
         engine = MagicMock(spec=PredictMixin)
-        with patch("app.core.model_engine_predict.settings") as mock_settings:
+        with patch("app.core.model_engine.predict.settings") as mock_settings:
             mock_settings.shadow_mode_text_enabled = True
             mock_settings.shadow_mode_text_sample_rate = 1.0
             # 让 get_shadow_mode_service 抛异常

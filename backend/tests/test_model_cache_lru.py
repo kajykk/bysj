@@ -319,19 +319,19 @@ class TestLoadModelIntegration:
         with patch.object(engine, "_cache_put") as mock_put, patch.object(
             engine, "_cache_get", return_value=None
         ), patch(
-            "app.core.model_engine.MODEL_PATHS", {"fake_model": "fake.pkl"}
+            "app.core.model_engine.loading.MODEL_PATHS", {"fake_model": "fake.pkl"}
         ), patch(
-            "app.core.model_engine.is_model_enabled", return_value=True
+            "app.core.model_engine.loading.is_model_enabled", return_value=True
         ), patch(
-            "app.core.model_engine.resolve_model_path", return_value="fake.pkl"
+            "app.core.model_engine.loading.resolve_model_path", return_value="fake.pkl"
         ), patch.object(
             engine, "_abs_path", return_value=fake_path
         ), patch.object(
             Path, "exists", return_value=True
         ), patch(
-            "app.core.model_engine._compute_file_sha256", return_value="fake_hash"
+            "app.core.model_engine.loading._compute_file_sha256", return_value="fake_hash"
         ), patch(
-            "app.core.model_engine._verify_file_hash"
+            "app.core.model_engine.loading._verify_file_hash"
         ), patch(
             "app.core.safe_pickle.safe_joblib_load", return_value={"weights": 123}
         ):

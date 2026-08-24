@@ -123,17 +123,20 @@ class TestBaselineMeasurement:
     def test_004_pytorch_optional_dependency(self):
         """TC-STB-HP-004: PyTorch 可选依赖行为一致性.
 
-        PHASE_2 重构后 (T-P2-001), model_engine.py 通过 Mixin 多继承装配:
-        - PredictMixin (model_engine_predict.py): 含 torch 惰性导入 (try + import torch)
-        - FallbackMixin (model_engine_fallback.py): 含 heuristic fallback
-        - RiskMixin (model_engine_risk.py)
+        PHASE_2 重构后 (T-P2-001), model_engine 通过 Mixin 多继承装配:
+        - PredictMixin (model_engine/predict.py): 含 torch 惰性导入 (try + import torch)
+        - FallbackMixin (model_engine/fallback.py): 含 heuristic fallback
+        - RiskMixin (model_engine/risk.py)
 
-        本测试扫描 core/model_engine*.py 所有文件, 验证:
+        model_engine 包结构化拆分后, 本测试扫描 core/model_engine*.py
+        及 core/model_engine/ 包内全部子模块, 验证:
         1. 至少一个文件含 try: + import torch (惰性导入模式)
         2. 至少一个文件含 fallback 或 heuristic (回退机制)
         """
         core_dir = BACKEND_DIR / "core"
         model_engine_files = list(core_dir.glob("model_engine*.py"))
+        # 包结构化拆分: 扁平 glob 不进入子目录, 显式并入包内子模块
+        model_engine_files += list((core_dir / "model_engine").glob("*.py"))
 
         assert len(model_engine_files) > 0, "未找到 model_engine*.py 文件"
 

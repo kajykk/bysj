@@ -411,7 +411,7 @@ class TestIntegrationWithPredictStructured:
             "treatment_seeking": 1,
         }
 
-        with patch("app.core.model_engine.asyncio.gather", side_effect=tracking_gather):
+        with patch("app.core.model_engine.predict.asyncio.gather", side_effect=tracking_gather):
             result = await engine.predict_structured(features)
 
             # 验证 asyncio.gather 被调用 (并行执行 v121+v123)
