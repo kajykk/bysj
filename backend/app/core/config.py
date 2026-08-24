@@ -12,12 +12,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_SQLITE_URL = (
-    f"sqlite+aiosqlite:///{(BACKEND_DIR / 'depression_system.db').as_posix()}"
-)
+DEFAULT_SQLITE_URL = f"sqlite+aiosqlite:///{(BACKEND_DIR / 'depression_system.db').as_posix()}"
 
-# L-API-1 修复：统一发布版本号常量，version.py 和 metrics.py 均引用此常量，避免版本号散落
-RELEASE_VERSION = "v1.32-observability-complete"
+# 版本号唯一权威源 (Single Source of Truth)：
+#   - app_version:      语义化应用版本，声明于下方 Settings 类内 (全仓唯一声明处)
+#   - RELEASE_CODENAME: 发布代号，version.py / metrics.py / admin_metrics.py 一律引用此处
+# README 与 docs 不再独立维护版本数字，统一以 "见 backend/app/core/config.py" 方式引用；
+# 运行时可通过 /api/v1/version 端点查询。
+# L-API-1 修复：RELEASE_VERSION 为向后兼容别名 (历史代码引用)，等价于 RELEASE_CODENAME。
+RELEASE_CODENAME = "v1.32-observability-complete"
+RELEASE_VERSION = RELEASE_CODENAME
 
 # Runtime dependency detection (lazy import to avoid DLL init issues on Windows)
 _PYTORCH_AVAILABLE: bool | None = None
@@ -41,9 +45,7 @@ def _check_transformers() -> bool:
         if "transformers" in sys.modules:
             _TRANSFORMERS_AVAILABLE = True
         else:
-            _TRANSFORMERS_AVAILABLE = (
-                importlib.util.find_spec("transformers") is not None
-            )
+            _TRANSFORMERS_AVAILABLE = importlib.util.find_spec("transformers") is not None
     return _TRANSFORMERS_AVAILABLE
 
 
@@ -88,6 +90,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "Depression Warning System"
+    # 全仓唯一的 app_version 声明处 (见文件头 "版本号唯一权威源" 注释)
     app_version: str = "3.1.0"
     app_env: str = "development"
 
@@ -155,7 +158,6 @@ class Settings(BaseSettings):
     # 评估时间窗口 (秒, 仅统计最近窗口内的推理/回退)
     registry_auto_rollback_window_seconds: int = 3600
 
-
     # ── STAB-P1-004 修复：SMTP 邮件熔断器 ──
     # 是否启用 SMTP 熔断器 (关闭后邮件发送不再拦截)
     smtp_circuit_breaker_enabled: bool = True
@@ -195,17 +197,13 @@ class Settings(BaseSettings):
         # create_async_engine 要求 async driver，直接传入 postgresql:// 会抛 InvalidRequestError
         # 仅处理裸 postgresql://，不处理已带 driver 的 postgresql+psycopg2:// 等
         if self.database_url.startswith("postgresql://"):
-            self.database_url = "postgresql+asyncpg://" + self.database_url[len("postgresql://"):]
+            self.database_url = "postgresql+asyncpg://" + self.database_url[len("postgresql://") :]
         # M-Core-1 修复说明：本 validator 中对 self.jwt_secret_key / self.pii_encryption_key
         # 的赋值仅在 Settings 实例化时执行（模块级 `settings = Settings()`），
         # 该过程位于应用启动阶段且为单线程，不存在并发突变。Pydantic v2 的 model_validator
         # (mode="after") 在构造完成前不会暴露实例给其他线程，因此此处突变是安全的。
-        if self.app_env.lower() == "production" and self.database_url.startswith(
-            "sqlite"
-        ):
-            raise ValueError(
-                "DATABASE_URL must be explicitly set in production (cannot use sqlite)"
-            )
+        if self.app_env.lower() == "production" and self.database_url.startswith("sqlite"):
+            raise ValueError("DATABASE_URL must be explicitly set in production (cannot use sqlite)")
         if (
             self.app_env.lower() == "production"
             and self.jwt_algorithm.upper() != "RS256"
@@ -218,20 +216,12 @@ class Settings(BaseSettings):
             )
         # ISS-040 修复：RS256 模式必须配置私钥/公钥（路径或内联 PEM），
         # 启动时快速失败，避免运行时 _load_private_key 才抛错
-        if (
-            self.jwt_algorithm.upper() == "RS256"
-            and not self.jwt_private_key_pem
-            and not self.jwt_private_key_path
-        ):
+        if self.jwt_algorithm.upper() == "RS256" and not self.jwt_private_key_pem and not self.jwt_private_key_path:
             raise ValueError(
                 "JWT_ALGORITHM=RS256 requires JWT_PRIVATE_KEY_PEM or JWT_PRIVATE_KEY_PATH. "
                 "Generate with: openssl genrsa -out private.pem 2048"
             )
-        if (
-            self.jwt_algorithm.upper() == "RS256"
-            and not self.jwt_public_key_pem
-            and not self.jwt_public_key_path
-        ):
+        if self.jwt_algorithm.upper() == "RS256" and not self.jwt_public_key_pem and not self.jwt_public_key_path:
             raise ValueError(
                 "JWT_ALGORITHM=RS256 requires JWT_PUBLIC_KEY_PEM or JWT_PUBLIC_KEY_PATH. "
                 "Generate with: openssl rsa -in private.pem -pubout -out public.pem"
@@ -239,19 +229,13 @@ class Settings(BaseSettings):
         # SEC-P1-002 修复：生产环境强制密码重置链接使用 HTTPS
         # 原问题: password_reset_base_url 默认 http://localhost:5173/reset-password
         # 生产环境若未配置或配置为 HTTP, 重置链接中的 token 可被中间人攻击窃取
-        if (
-            self.app_env.lower() == "production"
-            and not self.password_reset_base_url.lower().startswith("https://")
-        ):
+        if self.app_env.lower() == "production" and not self.password_reset_base_url.lower().startswith("https://"):
             raise ValueError(
                 "PASSWORD_RESET_BASE_URL must use HTTPS in production. "
                 "HTTP reset links expose password reset tokens to man-in-the-middle attacks. "
                 "Set PASSWORD_RESET_BASE_URL to https://your-domain.com/reset-password in .env."
             )
-        if (
-            self.jwt_secret_key in _INSECURE_KEYS
-            and self.app_env.lower() != "production"
-        ):
+        if self.jwt_secret_key in _INSECURE_KEYS and self.app_env.lower() != "production":
             self.jwt_secret_key = secrets.token_urlsafe(32)
             warnings.warn(
                 "⚠️  JWT_SECRET_KEY was empty/insecure — auto-generated a random key for this session. "

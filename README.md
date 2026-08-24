@@ -104,13 +104,17 @@ docker-compose up -d
 
 ## 默认账号
 
-| 角色 | 用户名 | 密码 |
-|---|---|---|
-| 管理员 | admin | E2E@Admin123 |
-| 咨询师 | dr_wang | E2E@Counselor123 |
-| 普通用户 | user_moderate | E2E@User123 |
+系统账号由后端 seed 机制在初始化时创建，**仓库不预置任何明文口令**。
 
-> 生产环境请务必修改默认密码。
+首次启动前，必须在 `.env` 中配置以下环境变量（口令长度 ≥ 18 位）：
+
+- `E2E_ADMIN_PASSWORD`（管理员）
+- `E2E_COUNSELOR_PASSWORD`(咨询师)
+- `E2E_USER_PASSWORD`（普通用户）
+
+未配置时 seed 流程会拒绝创建账号并给出提示。生产环境请通过 `.env` 注入独立强口令，不要复用任何示例值。
+
+> 生产 compose 编排中 `ENABLE_SEED` 默认为 `false`；如需重建种子账号，请显式开启并完成后再关闭。
 
 ## 测试
 
@@ -217,3 +221,7 @@ bysj/
 ## 说明
 
 本项目的定位是“可运行、可验证、可演示”的个人作品集级完整系统示例。当前 README 侧重于 GitHub 首页展示，更多实现细节请见 `docs/`。
+
+> **版本号说明**：全仓版本数字的唯一权威源为 [`backend/app/core/config.py`](backend/app/core/config.py)
+> （`app_version` 与 `RELEASE_CODENAME`）。README 与 docs 不独立维护徽章或版本数字，
+> 运行时可通过 `/api/v1/version` 端点查询实际版本。
