@@ -42,46 +42,73 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-# Copy only requirements first to leverage layer caching
-COPY requirements.txt ./
+# Copy requirement manifests first to leverage layer caching
+# ── 依赖版本单一事实源（SEC-P2-005 延伸）───────────────────────────────────
+# 三处版本声明的权威顺序：
+#   ① backend/requirements.lock — uv pip-compile 全量传递锁定，最高权威
+#                                 （文件存在且完整时，构建一律以它为准）
+#   ② backend/requirements.txt  — 顶层依赖声明，是 lock 的生成输入与升级入口
+#   ③ 本 Dockerfile 内联清单    — 仅当 lock 缺失/不完整时的应急兜底，
+#                                 平时不作为版本来源
+# 说明：lock 为全量传递锁定且包含 tensorflow/torch 等重型 ML 依赖；本镜像按设计
+# 排除重型 ML 依赖（体积考虑，模型层懒加载可回退），因此不整体安装 lock，而是按
+# 下方顶层运行时子集从 lock 提取精确锁定版本；任一顶层包未命中 lock 即视为
+# “lock 不完整”，整体回退到内联清单（与历史行为一致，保证构建确定性）。
+COPY requirements.txt requirements.lock ./
 
-# ML-DEP-LOCK-01: 以下顶层依赖与 requirements.lock (uv pip-compile, 3.11) 的
-# 锁定版本逐一对齐, 消除 Docker 镜像与 CI/本地环境的依赖漂移.
-# 版本均来自 backend/requirements.lock, 升级时须同时更新两者.
-# torch/tensorflow/transformers/shap 等重型 ML 依赖仍按设计排除 (体积), 见上方注释.
-# psycopg2-binary: alembic 同步迁移容器需要 (与 requirements.txt 声明一致).
-# Install CPU-only PyTorch first (much smaller than the default CUDA build)
-# TensorFlow is heavy; install only if required by the deployment target.
-# We install the standard requirements without torch/tensorflow here for slim image;
-# the deep-learning layer is loaded lazily and can fall back to heuristic rules
-# (see app.core.model_engine: model loader degrades gracefully).
-RUN pip install --no-cache-dir \
-        fastapi==0.136.1 \
-        "uvicorn[standard]==0.46.0" \
-        "sqlalchemy[asyncio]==2.0.49" \
-        asyncpg==0.31.0 \
-        "psycopg2-binary==2.9.11" \
-        aiosqlite==0.19.0 \
-        alembic==1.18.4 \
-        "pydantic[email]==2.13.3" \
-        pydantic-settings==2.14.0 \
-        "PyJWT[crypto]==2.13.0" \
-        "bcrypt==4.0.1" \
-        python-multipart==0.0.26 \
-        redis==7.4.0 \
-        requests==2.32.5 \
-        celery==5.6.3 \
-        "scikit-learn==1.8.0" \
-        scipy==1.16.2 \
-        joblib==1.5.3 \
-        "numpy==1.26.4" \
-        "pandas==2.1.4" \
-        openpyxl==3.1.5 \
-        reportlab==4.4.10 \
-        python-dotenv==1.2.2 \
-        slowapi==0.1.9 \
-        python-magic==0.4.27 \
-        "sentry-sdk[fastapi]==2.58.0"
+RUN set -eux; \
+    : > /tmp/pins.txt; \
+    lock_incomplete=0; \
+    for spec in \
+        fastapi: uvicorn:[standard] sqlalchemy:[asyncio] asyncpg: \
+        psycopg2-binary: aiosqlite: alembic: pydantic:[email] \
+        pydantic-settings: pyjwt:[crypto] bcrypt: python-multipart: \
+        redis: requests: celery: scikit-learn: scipy: joblib: \
+        numpy: pandas: openpyxl: reportlab: python-dotenv: \
+        slowapi: python-magic: sentry-sdk:[fastapi] \
+        email-validator: httptools: websockets:; do \
+        pkg="${spec%%:*}"; extra="${spec#*:}"; \
+        pin="$(grep -im1 "^${pkg}==" requirements.lock || true)"; \
+        if [ -n "${pin}" ]; then \
+            echo "${pkg}${extra}==${pin##*==}" >> /tmp/pins.txt; \
+        else \
+            echo "WARN: '${pkg}' not found in requirements.lock" >&2; \
+            lock_incomplete=1; \
+        fi; \
+    done; \
+    if [ "${lock_incomplete}" -eq 0 ]; then \
+        echo ">>> [deps] installing from requirements.lock (authoritative)"; \
+        pip install --no-cache-dir -r /tmp/pins.txt; \
+    else \
+        echo ">>> [deps] requirements.lock missing/incomplete -> inline fallback"; \
+        pip install --no-cache-dir \
+            fastapi==0.136.1 \
+            "uvicorn[standard]==0.46.0" \
+            "sqlalchemy[asyncio]==2.0.49" \
+            asyncpg==0.31.0 \
+            "psycopg2-binary==2.9.11" \
+            aiosqlite==0.19.0 \
+            alembic==1.18.4 \
+            "pydantic[email]==2.13.3" \
+            pydantic-settings==2.14.0 \
+            "PyJWT[crypto]==2.13.0" \
+            "bcrypt==4.0.1" \
+            python-multipart==0.0.26 \
+            redis==7.4.0 \
+            requests==2.32.5 \
+            celery==5.6.3 \
+            "scikit-learn==1.8.0" \
+            scipy==1.16.2 \
+            joblib==1.5.3 \
+            "numpy==1.26.4" \
+            "pandas==2.1.4" \
+            openpyxl==3.1.5 \
+            reportlab==4.4.10 \
+            python-dotenv==1.2.2 \
+            slowapi==0.1.9 \
+            python-magic==0.4.27 \
+            "sentry-sdk[fastapi]==2.58.0"; \
+    fi
 
 # ===============================================================
 # Stage 2: runtime — minimal image with only the application

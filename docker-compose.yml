@@ -143,13 +143,14 @@ services:
       ENABLE_SEED: "false"
       # S-02: 切换默认结构化模型为 v1.23 (真实数据训练, F1=0.8955 vs v1.20 F1=0.8657)
       STRUCTURED_DEFAULT_MODEL: v1.23
+      # 生产环境默认关闭结构化实验通道 (实验训练仅限开发环境显式开启)
+      STRUCTURED_EXPERIMENTAL_ENABLED: "false"
     ports:
       # SEC-AUDIT-03: 仅绑定回环, 不直连公网 (绕过 nginx 的 TLS/限流/安全头)
       - "127.0.0.1:8001:8000"
     volumes:
       - ./backend/models:/app/models:ro
       - ./common:/common:ro
-      - ./backend/app:/app/app:ro
       - backend_logs:/app/logs
       - backend_tmp:/app/tmp
       - backend_uploads:/app/uploads
@@ -191,6 +192,8 @@ services:
       # P1-INFRA-003/004: 生产环境必填密钥
       ALERTMANAGER_WEBHOOK_SECRET: ${ALERTMANAGER_WEBHOOK_SECRET:?ALERTMANAGER_WEBHOOK_SECRET is required}
       METRICS_ACCESS_TOKEN: ${METRICS_ACCESS_TOKEN:?METRICS_ACCESS_TOKEN is required}
+      # 生产环境默认关闭结构化实验通道 (实验训练仅限开发环境显式开启)
+      STRUCTURED_EXPERIMENTAL_ENABLED: "false"
     command: >
       celery -A app.core.celery_app worker
       --loglevel=info
@@ -199,7 +202,6 @@ services:
     volumes:
       - ./backend/models:/app/models:ro
       - ./common:/common:ro
-      - ./backend/app:/app/app:ro
       - backend_uploads:/app/uploads
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
@@ -249,7 +251,6 @@ services:
     volumes:
       - ./backend/models:/app/models:ro
       - ./common:/common:ro
-      - ./backend/app:/app/app:ro
       # SEC-AUDIT-04: celerybeat-schedule 持久化, 容器重建后不丢失调度状态
       - celery_beat_data:/var/lib/celery
     healthcheck:

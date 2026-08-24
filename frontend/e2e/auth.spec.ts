@@ -31,10 +31,10 @@ test.describe('Login Page', () => {
   test('@regression should navigate to register and back', async ({ page }) => {
     await page.goto('/login')
     const registerLink = page.getByText(/注册|register/i)
-    if (await registerLink.isVisible()) {
-      await registerLink.click()
-      await expect(page).toHaveURL(/register|login/, { timeout: 15000 })
-    }
+    // 硬断言: 注册入口必须存在, 不允许条件包裹静默跳过 (防假绿)
+    await expect(registerLink).toHaveCount(1)
+    await registerLink.click()
+    await expect(page).toHaveURL(/register|login/, { timeout: 15000 })
   })
 })
 
@@ -42,9 +42,9 @@ test.describe('Auth Flow', () => {
   test('@regression should validate registration form', async ({ page }) => {
     await page.goto('/login')
     const registerLink = page.getByText(/注册|register/i)
-    if (await registerLink.isVisible()) {
-      await registerLink.click()
-    }
+    // 硬断言: 注册入口必须存在, 不允许条件包裹静默跳过 (防假绿)
+    await expect(registerLink).toHaveCount(1)
+    await registerLink.click()
     const submitBtn = page.getByRole('button', { name: /注册|register/i })
     if (await submitBtn.isVisible()) {
       await submitBtn.click()
