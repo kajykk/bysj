@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -231,6 +231,7 @@ backend/monitoring/
 .workbuddy/
 backend/NUL
 _*.py
+!__init__.py
 _*.txt
 _*.json
 
