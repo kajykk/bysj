@@ -1,4 +1,4 @@
-# Docker Compose for Depression Warning System v1.39
+﻿# Docker Compose for Depression Warning System v1.39
 # Architecture: 9 services (postgres + redis + alembic_migrate + backend + celery_worker + celery_beat + frontend + grafana + prometheus)
 # Usage: docker compose up -d
 # Docs: docs/DEPLOYMENT_GUIDE.md
@@ -394,7 +394,7 @@ services:
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       # SEC-AUDIT-03: 仅绑定回环
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3000"
     # CI-AUDIT-05: 补健康检查 (原缺失)
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
