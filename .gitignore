@@ -210,6 +210,7 @@ infra/prometheus/token
 # Misc root files (not part of source)
 BASELINE.md
 NEXT_STEPS.md
+docs/planning/v1.6-next-steps.md
 RALPH_STATE.md
 PHYSIOLOGICAL_MULTIMODAL_IMPLEMENTATION_PLAN.md
 codecov.yml
