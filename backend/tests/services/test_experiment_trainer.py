@@ -286,30 +286,70 @@ class TestExperimentTrainerExtended:
         for s in scores:
             assert 0.0 <= float(s) <= 1.0
 
-    @patch("datasets.Dataset")
-    @patch("transformers.trainer.Trainer")
-    @patch("transformers.training_args.TrainingArguments")
-    @patch("transformers.models.auto.modeling_auto.AutoModelForSequenceClassification")
-    @patch("transformers.models.auto.tokenization_auto.AutoTokenizer")
-    def test_train_full_flow_with_mocks(
-        self,
-        mock_tokenizer_cls,
-        mock_model_cls,
-        mock_training_args_cls,
-        mock_trainer_cls,
-        mock_dataset_cls,
-    ):
-        """train 方法完整流程：mock 依赖后验证产物结构 (覆盖 lines 33-130)。"""
-        trainer = ExperimentTrainer()
+    def _inject_fake_transformers(self, monkeypatch):
+        """FIX-ORDER-2 公共辅助：向 sys.modules 注入假 transformers/datasets。
 
-        # ── Mock tokenizer ──
-        mock_tokenizer = MagicMock()
-        mock_tokenizer.return_value = {
-            "input_ids": [[1, 2, 3]],
-            "token_type_ids": [[0, 0, 0]],
-            "attention_mask": [[1, 1, 1]],
-        }
-        mock_tokenizer_cls.from_pretrained.return_value = mock_tokenizer
+        transformers 5.x 的 ``_LazyModule`` 导致对该模块属性的任何 @patch 都
+        不可靠（详见 test_train_full_flow_with_mocks 内 FIX-ORDER-2 注释），
+        本文件所有 mock transformers 的用例统一走此注入。
+
+        Returns:
+            (mock_tokenizer_cls, mock_model_cls, mock_training_args_cls,
+             mock_trainer_cls, mock_dataset_cls)
+        """
+        fake_transformers = MagicMock()
+
+        class _TrainerCallback:  # 真实基类：train() 内定义 EpochHistoryCallback 需继承
+            pass
+
+        fake_transformers.TrainerCallback = _TrainerCallback
+        mock_tokenizer_cls = MagicMock(name="AutoTokenizer")
+        mock_model_cls = MagicMock(name="AutoModelForSequenceClassification")
+        mock_trainer_cls = MagicMock(name="Trainer")
+        mock_training_args_cls = MagicMock(name="TrainingArguments")
+        fake_transformers.AutoTokenizer = mock_tokenizer_cls
+        fake_transformers.AutoModelForSequenceClassification = mock_model_cls
+        fake_transformers.Trainer = mock_trainer_cls
+        fake_transformers.TrainingArguments = mock_training_args_cls
+        monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+
+        # 假 datasets 一并强制注入（无论环境是否安装真实 datasets 都保持封闭）
+        if "datasets" not in sys.modules or not isinstance(
+            sys.modules["datasets"], MagicMock
+        ):
+            mock_datasets = MagicMock()
+            mock_datasets.__spec__ = importlib.machinery.ModuleSpec("datasets", None)
+            monkeypatch.setitem(sys.modules, "datasets", mock_datasets)
+        else:
+            monkeypatch.setitem(sys.modules, "datasets", sys.modules["datasets"])
+        mock_dataset_cls = sys.modules["datasets"].Dataset
+
+        return (
+            mock_tokenizer_cls,
+            mock_model_cls,
+            mock_training_args_cls,
+            mock_trainer_cls,
+            mock_dataset_cls,
+        )
+
+    def test_train_full_flow_with_mocks(self, monkeypatch):
+        """train 方法完整流程：mock 依赖后验证产物结构 (覆盖 lines 33-130)。
+
+        FIX-ORDER-2：不对 ``transformers`` 模块属性做任何 @patch（原因与实现
+        见 ``_inject_fake_transformers``），改为整体向 sys.modules 注入假模块；
+        函数级 ``from transformers import ...`` 无论历史状态如何都只拿到假货，
+        monkeypatch 结束后自动恢复，对其他用例零影响。
+        """
+        # mock_training_args_cls 保持解包形状与旧签名一致（本用例未直接使用）
+        (
+            mock_tokenizer_cls,
+            mock_model_cls,
+            mock_training_args_cls,
+            mock_trainer_cls,
+            mock_dataset_cls,
+        ) = self._inject_fake_transformers(monkeypatch)
+
+        trainer = ExperimentTrainer()
 
         # ── Mock dataset chain: Dataset.from_pandas(...).map(tokenize, batched=True) ──
         # 包含 text 列以触发 remove_columns 分支 (覆盖 lines 42-47)
@@ -493,20 +533,16 @@ class TestExperimentTrainerExtended:
         last_entry = cb.history[-1]
         assert last_entry["epoch"] == len(cb.history)
 
-    @patch("datasets.Dataset")
-    @patch("transformers.Trainer")
-    @patch("transformers.TrainingArguments")
-    @patch("transformers.AutoModelForSequenceClassification")
-    @patch("transformers.AutoTokenizer")
-    def test_train_raises_when_dataset_empty_after_map(
-        self,
-        mock_tokenizer_cls,
-        mock_model_cls,
-        mock_training_args_cls,
-        mock_trainer_cls,
-        mock_dataset_cls,
-    ):
+    def test_train_raises_when_dataset_empty_after_map(self, monkeypatch):
         """train 在 Dataset.map 后返回空数据集时抛 ValueError (覆盖 lines 40-41)。"""
+        # mock_training_args_cls / mock_trainer_cls 本用例未直接使用，保持解包形状
+        (
+            mock_tokenizer_cls,
+            mock_model_cls,
+            mock_training_args_cls,
+            mock_trainer_cls,
+            mock_dataset_cls,
+        ) = self._inject_fake_transformers(monkeypatch)
         trainer = ExperimentTrainer()
 
         mock_tokenizer = MagicMock()

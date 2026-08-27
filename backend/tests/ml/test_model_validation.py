@@ -18,6 +18,7 @@ import pytest
 from app.ml.model_validation import (
     BinaryMetrics,
     _bootstrap_auc_ci,
+    _bootstrap_auc_ci_with_count,
     _wilson_ci,
     compute_binary_metrics,
     compute_brier_score,
@@ -88,7 +89,9 @@ class TestBootstrapAucCI:
         """单类 y_true：返回 unreliable."""
         y_true = np.array([0, 0, 0, 0])
         y_score = np.array([0.1, 0.2, 0.3, 0.4])
-        auc, ci, reliable = _bootstrap_auc_ci(y_true, y_score, n_bootstrap=100)
+        auc, ci, reliable, degenerate = _bootstrap_auc_ci(
+            y_true, y_score, n_bootstrap=100
+        )
         assert reliable is False
         assert auc == 0.5
 
@@ -97,7 +100,9 @@ class TestBootstrapAucCI:
         rng = np.random.RandomState(42)
         y_true = rng.randint(0, 2, size=200)
         y_score = rng.rand(200)
-        auc, ci, reliable = _bootstrap_auc_ci(y_true, y_score, n_bootstrap=200)
+        auc, ci, reliable, degenerate = _bootstrap_auc_ci(
+            y_true, y_score, n_bootstrap=200
+        )
         assert reliable is True
         assert 0.3 < auc < 0.7
 
@@ -106,9 +111,26 @@ class TestBootstrapAucCI:
         rng = np.random.RandomState(0)
         y_true = rng.randint(0, 2, size=100)
         y_score = rng.rand(100)
-        auc, ci, reliable = _bootstrap_auc_ci(y_true, y_score, n_bootstrap=200)
+        auc, ci, reliable, degenerate = _bootstrap_auc_ci(
+            y_true, y_score, n_bootstrap=200
+        )
         if reliable and ci != [0.0, 0.0]:
             assert ci[0] <= auc <= ci[1]
+
+    def test_degenerate_samples_counted(self):
+        """P0-T1-2: 退化 bootstrap 样本被计数而非静默剔除."""
+        # 小样本 + 固定随机种子：重采样必然出现单类抽样
+        y_true = np.array([0, 0, 1, 1])
+        y_score = np.array([0.1, 0.2, 0.8, 0.9])
+        _, _, _, degenerate = _bootstrap_auc_ci_with_count(
+            y_true, y_score, n_bootstrap=200, random_state=42
+        )
+        assert degenerate > 0
+
+        # 计数应流入 BinaryMetrics.to_dict()
+        m = compute_binary_metrics(y_true, y_true, y_score, n_bootstrap=200)
+        assert m.degenerate_samples > 0
+        assert m.to_dict()["degenerate_samples"] == m.degenerate_samples
 
 
 class TestComputeBrierScore:
@@ -212,7 +234,7 @@ class TestComputeBinaryMetrics:
         expected_keys = {
             "sensitivity", "specificity", "ppv", "npv", "auc", "brier_score",
             "sensitivity_ci", "specificity_ci", "ppv_ci", "npv_ci", "auc_ci",
-            "confusion_matrix", "auc_reliable",
+            "confusion_matrix", "auc_reliable", "degenerate_samples",
         }
         assert set(d.keys()) == expected_keys
         assert set(d["confusion_matrix"].keys()) == {"tp", "fp", "tn", "fn"}

@@ -44,6 +44,8 @@ class BinaryMetrics:
     fn: int = 0
     # 标记
     auc_reliable: bool = True
+    # P0-T1-2: bootstrap 中因单类/异常被剔除的退化样本数
+    degenerate_samples: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +62,7 @@ class BinaryMetrics:
             "auc_ci": [round(v, 4) for v in self.auc_ci],
             "confusion_matrix": {"tp": self.tp, "fp": self.fp, "tn": self.tn, "fn": self.fn},
             "auc_reliable": self.auc_reliable,
+            "degenerate_samples": self.degenerate_samples,
         }
 
 
@@ -78,6 +81,64 @@ def _wilson_ci(successes: int, total: int, confidence: float = 0.95) -> list[flo
     return [max(0.0, center - margin), min(1.0, center + margin)]
 
 
+def _bootstrap_auc_ci_with_count(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    n_bootstrap: int = 1000,
+    confidence: float = 0.95,
+    random_state: int = 42,
+) -> tuple[float, list[float], bool, int]:
+    """Bootstrap AUC 置信区间.
+
+    P0-T1-2: 返回第 4 个元素 degenerate_samples —— bootstrap 迭代中因重采样样本
+    退化（单类标签或 roc_auc_score 抛异常）而被剔除的次数，不再静默丢弃。
+
+    Returns:
+        (auc, [lower, upper], reliable, degenerate_samples)
+    """
+    from sklearn.metrics import roc_auc_score
+
+    n = len(y_true)
+    if n < 2 or len(np.unique(y_true)) < 2:
+        return 0.5, [0.0, 0.0], False, 0
+
+    try:
+        auc = roc_auc_score(y_true, y_score)
+    except Exception:
+        return 0.5, [0.0, 0.0], False, 0
+
+    rng = np.random.RandomState(random_state)
+    boot_aucs: list[float] = []
+    degenerate_samples = 0
+    for _ in range(n_bootstrap):
+        indices = rng.choice(n, size=n, replace=True)
+        yt = y_true[indices]
+        ys = y_score[indices]
+        if len(np.unique(yt)) < 2:
+            degenerate_samples += 1
+            continue
+        try:
+            boot_aucs.append(roc_auc_score(yt, ys))
+        except Exception:
+            degenerate_samples += 1
+            continue
+
+    if degenerate_samples:
+        logger.warning(
+            "Bootstrap AUC: %d/%d degenerate samples dropped (single-class bootstrap)",
+            degenerate_samples,
+            n_bootstrap,
+        )
+
+    if len(boot_aucs) < 10:
+        return float(auc), [0.0, 0.0], True, degenerate_samples
+
+    alpha = (1 - confidence) / 2
+    lower = float(np.percentile(boot_aucs, alpha * 100))
+    upper = float(np.percentile(boot_aucs, (1 - alpha) * 100))
+    return float(auc), [lower, upper], True, degenerate_samples
+
+
 def _bootstrap_auc_ci(
     y_true: np.ndarray,
     y_score: np.ndarray,
@@ -85,42 +146,15 @@ def _bootstrap_auc_ci(
     confidence: float = 0.95,
     random_state: int = 42,
 ) -> tuple[float, list[float], bool]:
-    """Bootstrap AUC 置信区间.
-
-    Returns:
-        (auc, [lower, upper], reliable)
-    """
-    from sklearn.metrics import roc_auc_score
-
-    n = len(y_true)
-    if n < 2 or len(np.unique(y_true)) < 2:
-        return 0.5, [0.0, 0.0], False
-
-    try:
-        auc = roc_auc_score(y_true, y_score)
-    except Exception:
-        return 0.5, [0.0, 0.0], False
-
-    rng = np.random.RandomState(random_state)
-    boot_aucs: list[float] = []
-    for _ in range(n_bootstrap):
-        indices = rng.choice(n, size=n, replace=True)
-        yt = y_true[indices]
-        ys = y_score[indices]
-        if len(np.unique(yt)) < 2:
-            continue
-        try:
-            boot_aucs.append(roc_auc_score(yt, ys))
-        except Exception:
-            continue
-
-    if len(boot_aucs) < 10:
-        return float(auc), [0.0, 0.0], True
-
-    alpha = (1 - confidence) / 2
-    lower = float(np.percentile(boot_aucs, alpha * 100))
-    upper = float(np.percentile(boot_aucs, (1 - alpha) * 100))
-    return float(auc), [lower, upper], True
+    """Bootstrap AUC 置信区间的兼容包装，保留历史三元组返回值."""
+    auc, ci, reliable, _ = _bootstrap_auc_ci_with_count(
+        y_true,
+        y_score,
+        n_bootstrap=n_bootstrap,
+        confidence=confidence,
+        random_state=random_state,
+    )
+    return auc, ci, reliable
 
 
 def compute_brier_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
@@ -173,7 +207,7 @@ def compute_binary_metrics(
     npv_ci = _wilson_ci(tn, tn + fn, confidence) if (tn + fn) > 0 else [0.0, 0.0]
 
     # Bootstrap CI for AUC
-    auc, auc_ci, auc_reliable = _bootstrap_auc_ci(
+    auc, auc_ci, auc_reliable, degenerate_samples = _bootstrap_auc_ci_with_count(
         y_true, y_score, n_bootstrap=n_bootstrap, confidence=confidence
     )
 
@@ -196,6 +230,7 @@ def compute_binary_metrics(
         tn=tn,
         fn=fn,
         auc_reliable=auc_reliable,
+        degenerate_samples=degenerate_samples,
     )
 
 
@@ -340,17 +375,11 @@ def compute_fairness_metrics(
     # 计算群体间差异（max - min）
     disparities: dict[str, float] = {}
     if len(group_sensitivities) >= 2:
-        disparities["sensitivity_gap"] = round(
-            max(group_sensitivities.values()) - min(group_sensitivities.values()), 4
-        )
+        disparities["sensitivity_gap"] = round(max(group_sensitivities.values()) - min(group_sensitivities.values()), 4)
     if len(group_specificities) >= 2:
-        disparities["specificity_gap"] = round(
-            max(group_specificities.values()) - min(group_specificities.values()), 4
-        )
+        disparities["specificity_gap"] = round(max(group_specificities.values()) - min(group_specificities.values()), 4)
     if len(group_ppvs) >= 2:
-        disparities["ppv_gap"] = round(
-            max(group_ppvs.values()) - min(group_ppvs.values()), 4
-        )
+        disparities["ppv_gap"] = round(max(group_ppvs.values()) - min(group_ppvs.values()), 4)
 
     return {
         "per_group": per_group,
@@ -404,9 +433,7 @@ def generate_clinical_validation_report(
         # 二分类
         y_pred_bin = np.asarray(y_pred).astype(int)
         y_score_flat = y_score if y_score.ndim == 1 else y_score[:, -1]
-        metrics = compute_binary_metrics(
-            y_true.astype(int), y_pred_bin, y_score_flat, confidence=confidence
-        )
+        metrics = compute_binary_metrics(y_true.astype(int), y_pred_bin, y_score_flat, confidence=confidence)
         report["binary_metrics"] = metrics.to_dict()
     else:
         # 多类

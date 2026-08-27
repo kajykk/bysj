@@ -17,7 +17,7 @@ def bootstrap_ci(
     n_bootstrap: int = 1000,
     confidence: float = 0.95,
     random_state: int = 42,
-) -> dict:
+) -> dict | None:
     """Compute bootstrap confidence interval for a metric.
 
     Args:
@@ -29,7 +29,8 @@ def bootstrap_ci(
         random_state: Random seed.
 
     Returns:
-        Dictionary with metric, CI lower bound, and CI upper bound.
+        Dictionary with metric, CI lower bound, and CI upper bound;
+        None when the CI degenerates (M-ML-6).
     """
     rng = np.random.RandomState(random_state)
     n_samples = len(y_true)
@@ -60,8 +61,7 @@ def bootstrap_ci(
     # 导致 CI 计算结果为 NaN，此时返回 None 避免向调用方传递无效区间
     if np.isnan(ci_lower) or np.isnan(ci_upper):
         logger.warning(
-            "Bootstrap CI contains NaN (ci_lower=%s, ci_upper=%s), "
-            "possibly due to degenerate bootstrap samples",
+            "Bootstrap CI contains NaN (ci_lower=%s, ci_upper=%s), " "possibly due to degenerate bootstrap samples",
             ci_lower,
             ci_upper,
         )
@@ -227,11 +227,7 @@ def compute_f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = (
-        2 * precision * recall / (precision + recall)
-        if (precision + recall) > 0
-        else 0.0
-    )
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
     return f1
 
