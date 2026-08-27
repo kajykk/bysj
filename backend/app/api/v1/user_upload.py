@@ -1,3 +1,4 @@
+import asyncio
 import html
 import json
 import logging
@@ -25,6 +26,7 @@ from app.core.response import ok
 from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
+from app.schemas.upload import UploadBatchResult, UploadResult
 from app.services.file_security_service import process_uploaded_file
 
 logger = logging.getLogger(__name__)
@@ -119,9 +121,7 @@ async def _validate_mime_type(file_content: bytes, category: str | None = None) 
             allowed |= mime_types
 
     if mime not in allowed:
-        raise HTTPException(
-            status_code=400, detail=f"文件内容类型({mime})与扩展名不匹配"
-        )
+        raise HTTPException(status_code=400, detail=f"文件内容类型({mime})与扩展名不匹配")
 
 
 async def _save_upload_stream(file: UploadFile, save_path: Path) -> tuple[int, bytes]:
@@ -158,7 +158,7 @@ async def _save_upload_stream(file: UploadFile, save_path: Path) -> tuple[int, b
     return size, head_bytes
 
 
-@router.post("", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.post("", response_model=ApiResponse[UploadResult], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("20/minute")
 async def upload_file(
     request: Request,
@@ -189,12 +189,13 @@ async def upload_file(
         # MIME类型验证
         await _validate_mime_type(content, category)
         # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描
-        safe, sec_msg = process_uploaded_file(save_path, category)
+        # OPT-P2-003：process_uploaded_file 为同步阻塞调用（Pillow 逐像素重编码 +
+        # ClamAV 网络扫描），直接内联会阻塞事件循环，与 reports.py 的 to_thread
+        # 处理方式对齐
+        safe, sec_msg = await asyncio.to_thread(process_uploaded_file, save_path, category)
         if not safe:
             save_path.unlink(missing_ok=True)
-            raise HTTPException(
-                status_code=400, detail=f"文件安全检查失败: {sec_msg}"
-            )
+            raise HTTPException(status_code=400, detail=f"文件安全检查失败: {sec_msg}")
     except HTTPException:
         save_path.unlink(missing_ok=True)
         raise
@@ -240,7 +241,7 @@ async def upload_file(
     )
 
 
-@router.post("/batch", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@router.post("/batch", response_model=ApiResponse[UploadBatchResult], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("10/minute")
 async def upload_batch(
     request: Request,
@@ -279,14 +280,12 @@ async def upload_batch(
             await file.seek(0)
             await _validate_mime_type(head_content, category)
             size, _ = await _save_upload_stream(file, save_path)
-            # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描
-            safe, sec_msg = process_uploaded_file(save_path, category)
+            # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描（OPT-P2-003：to_thread 避免阻塞事件循环）
+            safe, sec_msg = await asyncio.to_thread(process_uploaded_file, save_path, category)
             if not safe:
                 if save_path is not None:
                     save_path.unlink(missing_ok=True)
-                results.append(
-                    {"filename": file.filename, "error": f"安全检查失败: {sec_msg}"}
-                )
+                results.append({"filename": file.filename, "error": f"安全检查失败: {sec_msg}"})
                 continue
 
             url = f"/uploads/{current_user.id}/{save_name}"
@@ -325,9 +324,7 @@ async def upload_batch(
                     "failed_count": failed_count,
                     "category": category,
                     "items": [
-                        {"filename": r.get("filename"), "size": r.get("size")}
-                        for r in results
-                        if "error" not in r
+                        {"filename": r.get("filename"), "size": r.get("size")} for r in results if "error" not in r
                     ][:20],
                 },
                 ensure_ascii=False,

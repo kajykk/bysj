@@ -67,8 +67,35 @@ class UserBrief(BaseModel):
     nickname: str | None = None
 
 
+class RegisterResponse(BaseModel):
+    id: int
+    username: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    refresh_token: str | None = None
+
+
 class LoginResponse(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
+    refresh_token: str | None = None
     user: UserBrief
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class LogoutResponse(MessageResponse):
+    revoked_count: int = 0
+
+
+class ProfileResponse(BaseModel):
+    id: int
+    username: str
+    email: EmailStr | None = None
+    nickname: str | None = None
+    role: str | None = None
