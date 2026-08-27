@@ -1,0 +1,21 @@
+{
+  "by_matcher": [
+    {
+      "by_severity": {
+        "P1": 8
+      },
+      "silence_name": "sil-1",
+      "silenced_count": 8
+    }
+  ],
+  "by_severity": {
+    "P1": {
+      "ratio": 1.0,
+      "silenced": 8
+    }
+  },
+  "hit_rate": 0.3333333333333333,
+  "total_fired": 16,
+  "total_processed": 24,
+  "total_silenced": 8
+}

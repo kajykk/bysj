@@ -1,0 +1,26 @@
+{
+  "ack_rate": 0.6,
+  "by_severity": {
+    "P0": {
+      "count": 3,
+      "mean": 120.0,
+      "p95": 120.0
+    },
+    "P1": {
+      "count": 3,
+      "mean": 120.0,
+      "p95": 120.0
+    }
+  },
+  "response_time": {
+    "max": 120.0,
+    "mean": 120.0,
+    "min": 120.0,
+    "p50": 120.0,
+    "p95": 120.0,
+    "p99": 120.0
+  },
+  "total_acked": 6,
+  "total_fired": 10,
+  "total_pending": 4
+}

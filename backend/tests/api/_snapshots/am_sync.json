@@ -1,0 +1,46 @@
+{
+  "avg_duration_ms": 27,
+  "by_operation": [
+    {
+      "avg_duration_ms": 30,
+      "failed": 1,
+      "operation": "delete_silence",
+      "success": 5,
+      "total": 6
+    },
+    {
+      "avg_duration_ms": 25,
+      "failed": 2,
+      "operation": "push_silence",
+      "success": 4,
+      "total": 6
+    }
+  ],
+  "recent_failures": [
+    {
+      "am_silence_id": "am-10",
+      "created_at": "2026-06-01T00:10:00",
+      "duration_ms": 50,
+      "error": "timeout",
+      "operation": "push_silence"
+    },
+    {
+      "am_silence_id": "am-5",
+      "created_at": "2026-06-01T00:05:00",
+      "duration_ms": 25,
+      "error": "timeout",
+      "operation": "delete_silence"
+    },
+    {
+      "am_silence_id": "am-0",
+      "created_at": "2026-06-01T00:00:00",
+      "duration_ms": 0,
+      "error": "timeout",
+      "operation": "push_silence"
+    }
+  ],
+  "success_rate": 0.75,
+  "total": 12,
+  "total_failed": 3,
+  "total_success": 9
+}

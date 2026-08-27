@@ -69,6 +69,131 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 # ===== Endpoints =====
 
 
+def _verify_webhook_secret(authorization: str | None) -> None:
+    """CRIT-006：校验 AlertManager Webhook 共享密钥."""
+    from app.core.config import settings
+
+    expected_secret = settings.alertmanager_webhook_secret
+    if not expected_secret:
+        if settings.app_env.lower() == "production":
+            # 生产环境且未配置密钥：拒绝访问
+            logger.error("[alerts/webhook] ALERTMANAGER_WEBHOOK_SECRET not configured in production")
+            raise HTTPException(
+                status_code=503,
+                detail="Webhook disabled: ALERTMANAGER_WEBHOOK_SECRET not configured",
+            )
+        # C-API-1 修复：非生产环境使用默认 dev secret，不再完全开放。
+        # 原实现开发环境完全无鉴权，任何外部请求都能注入伪造告警，
+        # 通过 CompositeNotifier 触发真实通知通道（webhook/slack/email），造成告警风暴。
+        expected_secret = "dev-only-webhook-secret"
+    # 所有环境统一鉴权校验
+    if not authorization or not authorization.startswith("Bearer "):
+        logger.warning("[alerts/webhook] missing or malformed Authorization header")
+        raise HTTPException(status_code=401, detail="Unauthorized: missing bearer token")
+    provided = authorization.removeprefix("Bearer ").strip()
+    if not secrets.compare_digest(provided, expected_secret):
+        logger.warning("[alerts/webhook] invalid webhook secret")
+        raise HTTPException(status_code=403, detail="Forbidden: invalid webhook secret")
+
+
+async def _handle_silenced_alert(
+    db: AsyncSession,
+    alert: AlertManagerAlert,
+    silence_rule: Any,
+) -> bool:
+    """静默告警分支：持久化 action_type=alert_silenced，返回是否成功."""
+    logger.info(
+        "[alerts/webhook] silenced (fingerprint=%s, silence_id=%s)",
+        alert.fingerprint,
+        silence_rule.id if silence_rule else None,
+    )
+    try:
+        # H-2 修复：使用 savepoint 隔离每条告警的持久化，flush 失败时仅回滚该 savepoint，
+        # 避免会话进入 PendingRollbackError 状态导致后续所有操作持续失败。
+        async with db.begin_nested():
+            detail = json.dumps(
+                {
+                    "rule": alert.rule,
+                    "severity": alert.severity,
+                    "fingerprint": alert.fingerprint,
+                    "labels": alert.labels,
+                    "annotations": alert.annotations,
+                    "message": alert.message,
+                    "silenced_by": silence_rule.id if silence_rule else None,
+                    "silence_name": silence_rule.name if silence_rule else None,
+                },
+                ensure_ascii=False,
+            )
+            sil_log = OperationLog(
+                operator_id=None,
+                operator_role="system",
+                action_type="alert_silenced",
+                target_type="alert",
+                target_id=None,
+                detail=detail,
+            )
+            db.add(sil_log)
+        return True
+    except Exception as exc:
+        logger.error("[alerts/webhook] persist silenced failed: %s", exc)
+        # H-API-11 修复：持久化失败计入 failed，避免被静默吞掉
+        return False
+
+
+async def _handle_active_alert(
+    db: AsyncSession,
+    alert: AlertManagerAlert,
+    notifier: CompositeNotifier,
+) -> tuple[int, int, int]:
+    """活跃告警分支：去重检查 → 持久化 → 通知。
+
+    Returns:
+        (processed, failed, notify_failed) 三段增量，由调用方累加。
+    """
+    from app.monitoring.dedup import should_send
+
+    # 去重检查 (持久化前, 避免看到自己)
+    try:
+        send = await should_send(alert, db)
+    except Exception as exc:
+        logger.error("[alerts/webhook] dedup check failed (defaulting to send): %s", exc)
+        send = True
+
+    # 持久化 (审计完整)
+    try:
+        # H-2 修复：使用 savepoint 隔离每条告警的持久化，_persist_alert_log 内部的
+        # db.flush() 失败时仅回滚该 savepoint，不影响后续告警的处理。
+        async with db.begin_nested():
+            alert_id = await _persist_alert_log(db, alert)
+        logger.info(
+            "[alerts/webhook] persisted rule=%s severity=%s status=%s id=%s",
+            alert.rule,
+            alert.severity,
+            alert.status,
+            alert_id,
+        )
+    except Exception as exc:
+        logger.error("[alerts/webhook] persist failed: %s", exc)
+        # H-API-11 修复：持久化失败计入 failed 并跳过通知，避免审计记录丢失仍触发通知
+        return 0, 1, 0
+
+    if not send:
+        logger.info(
+            "[alerts/webhook] dedup skip (fingerprint=%s)",
+            alert.fingerprint,
+        )
+        return 1, 0, 0
+
+    # 通知
+    try:
+        await notifier.send(alert, db=db)
+    except Exception as exc:
+        logger.error("[alerts/webhook] notify failed: %s", exc)
+        # H-API-11 修复：通知失败计入 notify_failed，告警状态可能仍为 firing，便于后续重试
+        return 1, 0, 1
+    return 1, 0, 0
+
+
 @router.post("/webhook", responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("10/minute")
 async def alertmanager_webhook(
@@ -93,35 +218,8 @@ async def alertmanager_webhook(
     7. 返回 200 (避免 AlertManager 重试)
     """
     # CRIT-006 修复：Webhook 密钥鉴权
-    from app.core.config import settings
+    _verify_webhook_secret(authorization)
 
-    expected_secret = settings.alertmanager_webhook_secret
-    if not expected_secret:
-        if settings.app_env.lower() == "production":
-            # 生产环境且未配置密钥：拒绝访问
-            logger.error(
-                "[alerts/webhook] ALERTMANAGER_WEBHOOK_SECRET not configured in production"
-            )
-            raise HTTPException(
-                status_code=503,
-                detail="Webhook disabled: ALERTMANAGER_WEBHOOK_SECRET not configured",
-            )
-        # C-API-1 修复：非生产环境使用默认 dev secret，不再完全开放。
-        # 原实现开发环境完全无鉴权，任何外部请求都能注入伪造告警，
-        # 通过 CompositeNotifier 触发真实通知通道（webhook/slack/email），造成告警风暴。
-        expected_secret = "dev-only-webhook-secret"
-    # 所有环境统一鉴权校验
-    if not authorization or not authorization.startswith("Bearer "):
-        logger.warning("[alerts/webhook] missing or malformed Authorization header")
-        raise HTTPException(
-            status_code=401, detail="Unauthorized: missing bearer token"
-        )
-    provided = authorization.removeprefix("Bearer ").strip()
-    if not secrets.compare_digest(provided, expected_secret):
-        logger.warning("[alerts/webhook] invalid webhook secret")
-        raise HTTPException(status_code=403, detail="Forbidden: invalid webhook secret")
-
-    from app.monitoring.dedup import should_send
     from app.monitoring.silence import is_silenced
 
     alerts = _parse_alertmanager_payload(payload)
@@ -138,89 +236,16 @@ async def alertmanager_webhook(
         # v1.34: 静默检查
         silenced, silence_rule = await is_silenced(alert, db)
         if silenced:
-            logger.info(
-                "[alerts/webhook] silenced (fingerprint=%s, silence_id=%s)",
-                alert.fingerprint,
-                silence_rule.id if silence_rule else None,
-            )
-            # 持久化但 action_type 标记为 alert_silenced
-            try:
-                # H-2 修复：使用 savepoint 隔离每条告警的持久化，flush 失败时仅回滚该 savepoint，
-                # 避免会话进入 PendingRollbackError 状态导致后续所有操作持续失败。
-                async with db.begin_nested():
-                    detail = json.dumps(
-                        {
-                            "rule": alert.rule,
-                            "severity": alert.severity,
-                            "fingerprint": alert.fingerprint,
-                            "labels": alert.labels,
-                            "annotations": alert.annotations,
-                            "message": alert.message,
-                            "silenced_by": silence_rule.id if silence_rule else None,
-                            "silence_name": silence_rule.name if silence_rule else None,
-                        },
-                        ensure_ascii=False,
-                    )
-                    sil_log = OperationLog(
-                        operator_id=None,
-                        operator_role="system",
-                        action_type="alert_silenced",
-                        target_type="alert",
-                        target_id=None,
-                        detail=detail,
-                    )
-                    db.add(sil_log)
-            except Exception as exc:
-                logger.error("[alerts/webhook] persist silenced failed: %s", exc)
-                # H-API-11 修复：持久化失败计入 failed，避免被静默吞掉
+            if not await _handle_silenced_alert(db, alert, silence_rule):
                 failed += 1
             processed += 1
             continue
 
-        # v1.34: 去重检查 (持久化前, 避免看到自己)
-        try:
-            send = await should_send(alert, db)
-        except Exception as exc:
-            logger.error(
-                "[alerts/webhook] dedup check failed (defaulting to send): %s", exc
-            )
-            send = True
-
-        # 持久化 (审计完整)
-        try:
-            # H-2 修复：使用 savepoint 隔离每条告警的持久化，_persist_alert_log 内部的
-            # db.flush() 失败时仅回滚该 savepoint，不影响后续告警的处理。
-            async with db.begin_nested():
-                alert_id = await _persist_alert_log(db, alert)
-            logger.info(
-                "[alerts/webhook] persisted rule=%s severity=%s status=%s id=%s",
-                alert.rule,
-                alert.severity,
-                alert.status,
-                alert_id,
-            )
-        except Exception as exc:
-            logger.error("[alerts/webhook] persist failed: %s", exc)
-            # H-API-11 修复：持久化失败计入 failed 并跳过通知，避免审计记录丢失仍触发通知
-            failed += 1
-            continue
-
-        if not send:
-            logger.info(
-                "[alerts/webhook] dedup skip (fingerprint=%s)",
-                alert.fingerprint,
-            )
-            processed += 1
-            continue
-
-        # 通知
-        try:
-            await notifier.send(alert, db=db)
-        except Exception as exc:
-            logger.error("[alerts/webhook] notify failed: %s", exc)
-            # H-API-11 修复：通知失败计入 notify_failed，告警状态可能仍为 firing，便于后续重试
-            notify_failed += 1
-        processed += 1
+        # v1.34: 去重检查 + 持久化 + 通知 (活跃告警路径)
+        processed_delta, failed_delta, notify_delta = await _handle_active_alert(db, alert, notifier)
+        processed += processed_delta
+        failed += failed_delta
+        notify_failed += notify_delta
     # H-2 修复：末尾 commit 包裹 try/except，失败时记录日志但仍返回 200，
     # 满足 AlertManager webhook "always 200" 契约，避免 AlertManager 重试导致重复告警。
     try:
@@ -346,16 +371,12 @@ async def acknowledge_alert(
     # H-API-4 修复：使用 with_for_update 锁定 alert 行，序列化并发确认操作，消除 TOCTOU 竞态
     # SQLite 下 with_for_update 为 no-op，PostgreSQL 下会对该行加排他锁
     row = (
-        await db.execute(
-            select(OperationLog).where(OperationLog.id == alert_id).with_for_update()
-        )
+        await db.execute(select(OperationLog).where(OperationLog.id == alert_id).with_for_update())
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="alert not found")
     if row.action_type != "alert_fired":
-        raise HTTPException(
-            status_code=400, detail="only firing alerts can be acknowledged"
-        )
+        raise HTTPException(status_code=400, detail="only firing alerts can be acknowledged")
 
     # H-04 修复：检查是否已存在确认记录，防止重复确认
     # 持锁后再次检查，此时能看到前一个事务已提交的 ack 记录
@@ -383,9 +404,7 @@ async def acknowledge_alert(
             {
                 "acknowledged": True,
                 "acknowledged_by": current_user.id,
-                "acknowledged_at": datetime.now(timezone.utc)
-                .isoformat()
-                .replace("+00:00", "Z"),
+                "acknowledged_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             },
             ensure_ascii=False,
         ),
@@ -443,11 +462,7 @@ async def list_alert_archive(
         stmt = stmt.where(and_(*conditions))
         count_stmt = count_stmt.where(and_(*conditions))
     # TODO(M-API-4): 当前硬编码 order_by(desc(created_at))，后续需支持自定义排序参数
-    stmt = (
-        stmt.order_by(desc(AlertArchive.original_created_at))
-        .offset(offset)
-        .limit(page_size)
-    )
+    stmt = stmt.order_by(desc(AlertArchive.original_created_at)).offset(offset).limit(page_size)
 
     rows = (await db.execute(stmt)).scalars().all()
     total = (await db.execute(count_stmt)).scalar_one()
@@ -465,11 +480,7 @@ async def list_alert_archive(
                     "labels": r.labels or {},
                     "annotations": r.annotations or {},
                     "fingerprint": r.fingerprint,
-                    "original_created_at": (
-                        r.original_created_at.isoformat()
-                        if r.original_created_at
-                        else None
-                    ),
+                    "original_created_at": (r.original_created_at.isoformat() if r.original_created_at else None),
                     "archived_at": r.archived_at.isoformat() if r.archived_at else None,
                 }
                 for r in rows
