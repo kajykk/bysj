@@ -1,9 +1,9 @@
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 
 export const userFileApi = {
-  exportRiskPdf: (days = 90) => request.get('/user/risk/export', { params: { format: 'pdf', days }, responseType: 'blob' }),
+  exportRiskPdf: (days = 90) => dedupedGet('/user/risk/export', { params: { format: 'pdf', days }, responseType: 'blob' }),
 
-  exportRiskData: (format: 'json' | 'csv' | 'pdf', days = 90) => request.get('/user/risk/export', { params: { format, days }, responseType: 'blob' }),
+  exportRiskData: (format: 'json' | 'csv' | 'pdf', days = 90) => dedupedGet('/user/risk/export', { params: { format, days }, responseType: 'blob' }),
 
   uploadFile: (formData: FormData, category?: string) => {
     const params = category ? { category } : {}

@@ -1,4 +1,4 @@
-﻿import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 // R-003 修复：基础文件 (请求层) 显式导入 ElMessage，避免依赖 unplugin-auto-import
 // 隐式注入导致测试环境需 globalThis hack、生产环境配置失效时静默失败的可靠性问题。
 // 页面/组件层仍可使用 auto-import，仅基础文件强制显式导入以保障运行时确定性。
@@ -331,26 +331,20 @@ const originalRequestMethod = request.request.bind(request)
   return promise
 }
 
-// BUG-006 修复：axios 1.x 中 request.get()/delete()/head()/options() 等便捷方法
-// 内部调用 Axios.prototype.request（原型方法），不经过实例上的 request.request override，
-// 导致 GET 去重逻辑被绕过。显式重写 GET 类便捷方法，确保去重对所有调用方式生效。
-// POST/PUT/PATCH 不去重，无需重写。
-const DEDUPE_METHODS = ['get', 'delete', 'head', 'options'] as const
-type DedupeMethod = (typeof DEDUPE_METHODS)[number]
+/**
+ * R-E1 完成：显式 GET 去重唯一入口。
+ * 历史遗留的 DEDUPE_METHODS 快捷方法猴子补丁（BUG-006 兼容桥）已删除——
+ * 全部 API 模块已迁移到本函数（或 request.request 直调），
+ * 少量 request.delete() 调用回落 axios 原生快捷方法，DELETE 本就不参与去重，
+ * 与"POST/PUT/PATCH 不去重"的设计哲学一致。
+ */
+export function dedupedGet<T = any>(url: string, config?: DedupeShortcutConfig): Promise<AxiosResponse<T>> {
+  return request.request({ ...(config || {}), method: 'get', url }) as Promise<AxiosResponse<T>>
+}
+
 type DedupeShortcutConfig = AxiosRequestConfig & {
   _retry?: boolean
   bypassDedupe?: boolean
-}
-
-const dedupeShortcuts = request as unknown as Record<DedupeMethod, (url: string, config?: DedupeShortcutConfig) => Promise<unknown>>
-
-for (const method of DEDUPE_METHODS) {
-  dedupeShortcuts[method] = function (
-    url: string,
-    config?: DedupeShortcutConfig,
-  ) {
-    return request.request({ ...(config || {}), method, url })
-  }
 }
 
 export async function requestData<T>(promise: Promise<{ data: ApiResponse<T> }>): Promise<T> {

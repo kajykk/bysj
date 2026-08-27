@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { userWarningsApi } from './userWarningsApi'
 
 describe('api/userWarningsApi', () => {
@@ -30,7 +31,7 @@ describe('api/userWarningsApi', () => {
     it('携带 is_read 过滤调用 GET /user/warnings', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userWarningsApi.getUserWarnings({ page: 1, page_size: 10, is_read: false })
-      expect(request.get).toHaveBeenCalledWith('/user/warnings', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/warnings', {
         params: { page: 1, page_size: 10, is_read: false }
       })
     })
@@ -38,7 +39,7 @@ describe('api/userWarningsApi', () => {
     it('默认分页 + is_read=undefined', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userWarningsApi.getUserWarnings()
-      expect(request.get).toHaveBeenCalledWith('/user/warnings', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/warnings', {
         params: { page: 1, page_size: 10, is_read: undefined }
       })
     })
@@ -46,7 +47,7 @@ describe('api/userWarningsApi', () => {
     it('is_read=true 仅获取已读', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userWarningsApi.getUserWarnings({ is_read: true })
-      expect(request.get).toHaveBeenCalledWith('/user/warnings', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/warnings', {
         params: { page: 1, page_size: 10, is_read: true }
       })
     })
@@ -80,7 +81,7 @@ describe('api/userWarningsApi', () => {
         start_date: '2026-01-01',
         end_date: '2026-06-30'
       })
-      expect(request.get).toHaveBeenCalledWith('/user/data/history', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/data/history', {
         params: {
           page: 2,
           page_size: 20,
@@ -94,7 +95,7 @@ describe('api/userWarningsApi', () => {
     it('默认分页 + 全 undefined 过滤', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userWarningsApi.getUserAssessmentHistory()
-      expect(request.get).toHaveBeenCalledWith('/user/data/history', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/data/history', {
         params: {
           page: 1,
           page_size: 10,
@@ -115,7 +116,7 @@ describe('api/userWarningsApi', () => {
     it('携带 type 过滤调用 GET /user/data/history', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userWarningsApi.getDataHistory({ type: 'physiological', page: 1, page_size: 5 })
-      expect(request.get).toHaveBeenCalledWith('/user/data/history', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/data/history', {
         params: { page: 1, page_size: 5, type: 'physiological' }
       })
     })
@@ -123,7 +124,7 @@ describe('api/userWarningsApi', () => {
     it('默认分页 + type=undefined', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userWarningsApi.getDataHistory()
-      expect(request.get).toHaveBeenCalledWith('/user/data/history', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/data/history', {
         params: { page: 1, page_size: 10, type: undefined }
       })
     })
@@ -143,7 +144,7 @@ describe('api/userWarningsApi', () => {
         quiet_hours_end: '07:00'
       })
       await userWarningsApi.getWarningSettings()
-      expect(request.get).toHaveBeenCalledWith('/user/warning-settings')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/warning-settings')
     })
 
     it('错误透传', async () => {

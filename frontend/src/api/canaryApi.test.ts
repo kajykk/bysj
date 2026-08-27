@@ -7,10 +7,11 @@ vi.mock('./request', () => ({
     post: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     patch: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (p: Promise<{ data: unknown }>) => (await p).data),
 }))
 
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 import { canaryApi } from './canaryApi'
 
 const deploy = { id: 1, version: 'v2', traffic_percent: 5, status: 'running', started_at: 't', created_at: 't' }
@@ -21,13 +22,13 @@ describe('api/canaryApi', () => {
   it('listCanaryDeployments GET /canary/deployments 用 requestData', async () => {
     (requestData as any).mockResolvedValueOnce({ total: 1, limit: 50, offset: 0, items: [deploy] })
     const res = await canaryApi.listCanaryDeployments()
-    expect(request.get).toHaveBeenCalledWith('/canary/deployments')
+    expect(dedupedGet).toHaveBeenCalledWith('/canary/deployments')
     expect(res.items).toHaveLength(1)
   })
   it('getCanaryDeployment GET /canary/deployments/{id}', async () => {
     (requestData as any).mockResolvedValueOnce(deploy)
     await canaryApi.getCanaryDeployment(1)
-    expect(request.get).toHaveBeenCalledWith('/canary/deployments/1')
+    expect(dedupedGet).toHaveBeenCalledWith('/canary/deployments/1')
   })
   it('createCanaryDeployment POST', async () => {
     (requestData as any).mockResolvedValueOnce(deploy)
@@ -62,7 +63,7 @@ describe('api/canaryApi', () => {
   it('getCanaryTrafficPercentages 返回可选项', async () => {
     (requestData as any).mockResolvedValueOnce({ percentages: [1, 5, 10, 25, 50, 100] })
     const res = await canaryApi.getCanaryTrafficPercentages()
-    expect(request.get).toHaveBeenCalledWith('/canary/traffic-percentages')
+    expect(dedupedGet).toHaveBeenCalledWith('/canary/traffic-percentages')
     expect(res.percentages).toContain(5)
   })
 })

@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 import { gdprApi } from './gdprApi'
 
 describe('api/gdprApi', () => {
@@ -29,20 +30,20 @@ describe('api/gdprApi', () => {
   describe('exportUserData', () => {
     it('调用 GET /user/gdpr/export 并以 blob 形式接收响应', async () => {
       const blob = new Blob(['data'], { type: 'application/zip' })
-      ;(request.get as any).mockResolvedValueOnce({ data: blob })
+      ;(dedupedGet as any).mockResolvedValueOnce({ data: blob })
       const res = await gdprApi.exportUserData()
 
-      expect(request.get).toHaveBeenCalledWith('/user/gdpr/export', { responseType: 'blob' })
+      expect(dedupedGet).toHaveBeenCalledWith('/user/gdpr/export', { responseType: 'blob' })
       expect(res).toEqual({ data: blob })
     })
 
     it('导出失败时透传错误', async () => {
-      (request.get as any).mockRejectedValueOnce(new Error('401'))
+      (dedupedGet as any).mockRejectedValueOnce(new Error('401'))
       await expect(gdprApi.exportUserData()).rejects.toThrow('401')
     })
 
     it('服务端返回 500 时透传', async () => {
-      (request.get as any).mockRejectedValueOnce(new Error('500'))
+      (dedupedGet as any).mockRejectedValueOnce(new Error('500'))
       await expect(gdprApi.exportUserData()).rejects.toThrow('500')
     })
   })

@@ -1,4 +1,4 @@
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { buildPageParams } from './business.shared'
 import type { PageQuery } from '@/types/api'
 import type { ActiveIntervention, InterventionHistoryItem } from './userRiskApi'
@@ -16,8 +16,8 @@ export interface InterventionTaskItem {
 }
 
 export const userInterventionApi = {
-  getActiveIntervention: () => requestData<ActiveIntervention>(request.get('/user/intervention/active')),
-  getInterventionHistory: (query?: PageQuery) => requestPageData<InterventionHistoryItem>(request.get('/user/intervention/history', { params: buildPageParams(query) })),
+  getActiveIntervention: () => requestData<ActiveIntervention>(dedupedGet('/user/intervention/active')),
+  getInterventionHistory: (query?: PageQuery) => requestPageData<InterventionHistoryItem>(dedupedGet('/user/intervention/history', { params: buildPageParams(query) })),
   completeInterventionTask: (taskId: number, scheduledDate?: string) => requestData<{ message: string }>(request.put(`/user/intervention/tasks/${taskId}/complete`, { scheduled_date: scheduledDate })),
   feedbackInterventionTask: (taskId: number, payload: { scheduled_date?: string; feedback_score?: number; feedback_note?: string }) => requestData<{ message: string }>(request.put(`/user/intervention/tasks/${taskId}/feedback`, payload)),
   skipInterventionTask: (taskId: number, payload: { scheduled_date?: string; note?: string }) => requestData<{ message: string }>(request.put(`/user/intervention/tasks/${taskId}/skip`, payload)),

@@ -1,4 +1,4 @@
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { buildPageParams } from './business.shared'
 import type { PageQuery } from '@/types/api'
 import type { UnifiedPageResult } from '@/types/contracts'
@@ -83,7 +83,7 @@ export const alertsApi = {
   // 告警历史: GET /alerts/history
   listAlertHistory: (query?: AlertHistoryQuery) =>
     requestPageData<AlertHistoryItem>(
-      request.get('/alerts/history', {
+      dedupedGet('/alerts/history', {
         params: {
           ...buildPageParams(query),
           severity: query?.severity,
@@ -105,7 +105,7 @@ export const alertsApi = {
   // 此处提供归档列表查询用于审计复盘
   listAlertArchive: (query?: AlertArchiveQuery) =>
     requestPageData<AlertArchiveItem>(
-      request.get('/alerts/archive', {
+      dedupedGet('/alerts/archive', {
         params: {
           ...buildPageParams(query),
           rule: query?.rule,
@@ -120,7 +120,7 @@ export const alertsApi = {
   // 静默规则列表: GET /alerts/silences
   listSilences: (query?: SilenceListQuery) =>
     requestPageData<SilenceItem>(
-      request.get('/alerts/silences', {
+      dedupedGet('/alerts/silences', {
         params: {
           ...buildPageParams(query),
           is_active: query?.is_active
@@ -131,7 +131,7 @@ export const alertsApi = {
   // 当前生效的静默规则: GET /alerts/silences/active
   listActiveSilences: () =>
     requestData<{ items: SilenceItem[]; total: number }>(
-      request.get('/alerts/silences/active')
+      dedupedGet('/alerts/silences/active')
     ),
 
   // 创建静默规则: POST /alerts/silences

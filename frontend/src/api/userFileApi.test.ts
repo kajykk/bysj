@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 import { userFileApi } from './userFileApi'
 
 describe('api/userFileApi', () => {
@@ -29,59 +30,59 @@ describe('api/userFileApi', () => {
   describe('exportRiskPdf', () => {
     it('默认 days=90 调用 GET /user/risk/export 以 PDF 形式导出', async () => {
       const blob = new Blob(['pdf'], { type: 'application/pdf' })
-      ;(request.get as any).mockResolvedValueOnce({ data: blob })
+      ;(dedupedGet as any).mockResolvedValueOnce({ data: blob })
       await userFileApi.exportRiskPdf()
-      expect(request.get).toHaveBeenCalledWith('/user/risk/export', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', {
         params: { format: 'pdf', days: 90 },
         responseType: 'blob'
       })
     })
 
     it('显式传入 days 覆盖默认值', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: new Blob() })
+      (dedupedGet as any).mockResolvedValueOnce({ data: new Blob() })
       await userFileApi.exportRiskPdf(30)
-      expect(request.get).toHaveBeenCalledWith('/user/risk/export', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', {
         params: { format: 'pdf', days: 30 },
         responseType: 'blob'
       })
     })
 
     it('错误透传', async () => {
-      (request.get as any).mockRejectedValueOnce(new Error('500'))
+      (dedupedGet as any).mockRejectedValueOnce(new Error('500'))
       await expect(userFileApi.exportRiskPdf()).rejects.toThrow('500')
     })
   })
 
   describe('exportRiskData', () => {
     it('format=json 调用 GET /user/risk/export', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: { ok: true } })
+      (dedupedGet as any).mockResolvedValueOnce({ data: { ok: true } })
       await userFileApi.exportRiskData('json', 30)
-      expect(request.get).toHaveBeenCalledWith('/user/risk/export', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', {
         params: { format: 'json', days: 30 },
         responseType: 'blob'
       })
     })
 
     it('format=csv 默认 days=90', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: new Blob() })
+      (dedupedGet as any).mockResolvedValueOnce({ data: new Blob() })
       await userFileApi.exportRiskData('csv')
-      expect(request.get).toHaveBeenCalledWith('/user/risk/export', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', {
         params: { format: 'csv', days: 90 },
         responseType: 'blob'
       })
     })
 
     it('format=pdf 显式 days', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: new Blob() })
+      (dedupedGet as any).mockResolvedValueOnce({ data: new Blob() })
       await userFileApi.exportRiskData('pdf', 180)
-      expect(request.get).toHaveBeenCalledWith('/user/risk/export', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', {
         params: { format: 'pdf', days: 180 },
         responseType: 'blob'
       })
     })
 
     it('错误透传', async () => {
-      (request.get as any).mockRejectedValueOnce(new Error('401'))
+      (dedupedGet as any).mockRejectedValueOnce(new Error('401'))
       await expect(userFileApi.exportRiskData('json', 1)).rejects.toThrow('401')
     })
   })

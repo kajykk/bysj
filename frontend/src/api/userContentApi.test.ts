@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { userContentApi } from './userContentApi'
 
 describe('api/userContentApi', () => {
@@ -36,7 +37,7 @@ describe('api/userContentApi', () => {
         content_type: 'article',
         keyword: 'sleep'
       })
-      expect(request.get).toHaveBeenCalledWith('/user/content/', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/', {
         params: {
           page: 2,
           page_size: 20,
@@ -50,7 +51,7 @@ describe('api/userContentApi', () => {
     it('默认分页 + 全 undefined 过滤', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userContentApi.listContents()
-      expect(request.get).toHaveBeenCalledWith('/user/content/', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/', {
         params: {
           page: 1,
           page_size: 10,
@@ -71,13 +72,13 @@ describe('api/userContentApi', () => {
     it('调用 GET /user/content/:contentId', async () => {
       (requestData as any).mockResolvedValueOnce({ id: 12, title: 't' })
       await userContentApi.getContentDetail(12)
-      expect(request.get).toHaveBeenCalledWith('/user/content/12')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/12')
     })
 
     it('contentId=0 时路径仍按规则拼接', async () => {
       (requestData as any).mockResolvedValueOnce(undefined)
       await userContentApi.getContentDetail(0)
-      expect(request.get).toHaveBeenCalledWith('/user/content/0')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/0')
     })
 
     it('错误透传', async () => {
@@ -103,7 +104,7 @@ describe('api/userContentApi', () => {
     it('携带默认分页调用 GET /user/content/favorites/list', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userContentApi.listFavorites()
-      expect(request.get).toHaveBeenCalledWith('/user/content/favorites/list', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/favorites/list', {
         params: { page: 1, page_size: 10 }
       })
     })
@@ -111,7 +112,7 @@ describe('api/userContentApi', () => {
     it('携带显式分页', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 3, page_size: 25 })
       await userContentApi.listFavorites({ page: 3, page_size: 25 })
-      expect(request.get).toHaveBeenCalledWith('/user/content/favorites/list', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/favorites/list', {
         params: { page: 3, page_size: 25 }
       })
     })
@@ -126,7 +127,7 @@ describe('api/userContentApi', () => {
     it('调用 GET /user/content/recommendations', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userContentApi.listRecommendations({ page: 1, page_size: 5 })
-      expect(request.get).toHaveBeenCalledWith('/user/content/recommendations', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/recommendations', {
         params: { page: 1, page_size: 5 }
       })
     })
@@ -134,7 +135,7 @@ describe('api/userContentApi', () => {
     it('默认分页', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userContentApi.listRecommendations()
-      expect(request.get).toHaveBeenCalledWith('/user/content/recommendations', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/recommendations', {
         params: { page: 1, page_size: 10 }
       })
     })
@@ -149,7 +150,7 @@ describe('api/userContentApi', () => {
     it('调用 GET /user/content/recent-views', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userContentApi.listRecentViews({ page: 2, page_size: 8 })
-      expect(request.get).toHaveBeenCalledWith('/user/content/recent-views', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/recent-views', {
         params: { page: 2, page_size: 8 }
       })
     })
@@ -157,7 +158,7 @@ describe('api/userContentApi', () => {
     it('默认分页', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userContentApi.listRecentViews()
-      expect(request.get).toHaveBeenCalledWith('/user/content/recent-views', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/content/recent-views', {
         params: { page: 1, page_size: 10 }
       })
     })

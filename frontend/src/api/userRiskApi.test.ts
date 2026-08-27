@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 import { userRiskApi } from './userRiskApi'
 
 describe('api/userRiskApi', () => {
@@ -39,7 +40,7 @@ describe('api/userRiskApi', () => {
       }
       ;(requestData as any).mockResolvedValueOnce(report)
       const res = await userRiskApi.getRiskReport()
-      expect(request.get).toHaveBeenCalledWith('/user/risk/report')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/report')
       expect(res).toEqual(report)
     })
 
@@ -53,13 +54,13 @@ describe('api/userRiskApi', () => {
     it('默认 days=30 调用 GET /user/risk/trend', async () => {
       (requestData as any).mockResolvedValueOnce({ days: 30, direction: 'stable', points: [] })
       await userRiskApi.getRiskTrend()
-      expect(request.get).toHaveBeenCalledWith('/user/risk/trend', { params: { days: 30 } })
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/trend', { params: { days: 30 } })
     })
 
     it('显式传入 days 覆盖默认值', async () => {
       (requestData as any).mockResolvedValueOnce({ days: 90, direction: 'up', points: [] })
       await userRiskApi.getRiskTrend(90)
-      expect(request.get).toHaveBeenCalledWith('/user/risk/trend', { params: { days: 90 } })
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/trend', { params: { days: 90 } })
     })
 
     it('错误透传', async () => {
@@ -214,13 +215,13 @@ describe('api/userRiskApi', () => {
     it('调用 GET /user/risk/assessments/:id', async () => {
       (requestData as any).mockResolvedValueOnce({ id: 7, score: 50 })
       await userRiskApi.getAssessmentDetail(7)
-      expect(request.get).toHaveBeenCalledWith('/user/risk/assessments/7')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/assessments/7')
     })
 
     it('id=0 时路径仍按规则拼接', async () => {
       (requestData as any).mockResolvedValueOnce(undefined)
       await userRiskApi.getAssessmentDetail(0)
-      expect(request.get).toHaveBeenCalledWith('/user/risk/assessments/0')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/assessments/0')
     })
 
     it('错误透传', async () => {

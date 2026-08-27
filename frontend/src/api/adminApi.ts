@@ -1,4 +1,4 @@
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { buildPageParams } from './business.shared'
 import type { PageQuery } from '@/types/api'
 import type { ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
@@ -7,7 +7,7 @@ import type { TaskType } from './taskTypes'
 export type { ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
 
 export const adminApi = {
-  listAdminTemplates: (query?: PageQuery) => requestPageData<TemplateItem>(request.get('/admin/templates', { params: buildPageParams(query) })),
+  listAdminTemplates: (query?: PageQuery) => requestPageData<TemplateItem>(dedupedGet('/admin/templates', { params: buildPageParams(query) })),
 
   upsertAdminTemplate: (payload: {
     id?: number
@@ -30,26 +30,26 @@ export const adminApi = {
   deleteAdminTemplate: (templateId: number) =>
     requestData<{ message: string }>(request.delete(`/admin/templates/${templateId}`)),
 
-  listAdminThresholds: () => requestData<{ items: ThresholdItem[] }>(request.get('/admin/thresholds')),
+  listAdminThresholds: () => requestData<{ items: ThresholdItem[] }>(dedupedGet('/admin/thresholds')),
 
   upsertAdminThreshold: (payload: Omit<ThresholdItem, 'id'>) => requestData<{ threshold_id: number }>(request.post('/admin/thresholds', payload)),
 
-  listAdminConfigs: () => requestData<{ items: ConfigItem[] }>(request.get('/admin/configs')),
+  listAdminConfigs: () => requestData<{ items: ConfigItem[] }>(dedupedGet('/admin/configs')),
 
   upsertAdminConfig: (payload: { config_key: string; config_value: Record<string, unknown>; description?: string }) =>
     requestData<{ config_id: number }>(request.post('/admin/configs', payload)),
 
-  listAdminFeedbacks: (query?: PageQuery) => requestPageData<ModelFeedbackItem>(request.get('/admin/model-feedbacks', { params: buildPageParams(query) })),
+  listAdminFeedbacks: (query?: PageQuery) => requestPageData<ModelFeedbackItem>(dedupedGet('/admin/model-feedbacks', { params: buildPageParams(query) })),
 
   // SEC-FIX (M4): 补充 operator_name 筛选 (后端 /admin/operation-logs 已支持)
   listAdminOperationLogs: (query?: PageQuery & { action_type?: string; operator_role?: string; operator_name?: string; start_time?: string; end_time?: string }) =>
-    requestPageData<OperationLogItem>(request.get('/admin/operation-logs', {
+    requestPageData<OperationLogItem>(dedupedGet('/admin/operation-logs', {
       params: { ...buildPageParams(query), action_type: query?.action_type, operator_role: query?.operator_role, operator_name: query?.operator_name, start_time: query?.start_time, end_time: query?.end_time }
     })),
 
   // ISS-080: 导出全部筛选条件下的操作日志（不分页）
   exportAdminOperationLogs: (query?: { action_type?: string; operator_role?: string; operator_name?: string; start_time?: string; end_time?: string }) =>
-    requestData<{ items: OperationLogItem[]; total: number }>(request.get('/admin/operation-logs/export', {
+    requestData<{ items: OperationLogItem[]; total: number }>(dedupedGet('/admin/operation-logs/export', {
       params: { action_type: query?.action_type, operator_role: query?.operator_role, operator_name: query?.operator_name, start_time: query?.start_time, end_time: query?.end_time }
     })),
 
@@ -67,17 +67,17 @@ export const adminApi = {
     yesterday_warnings: number
     yesterday_assessments: number
     yesterday_templates: number
-  }>(request.get('/admin/stats')),
+  }>(dedupedGet('/admin/stats')),
 
   // H-AUDIT-01: /health 是根路径探针 (nginx 已代理 /health -> backend /health),
   // 且返回裸 JSON 而非 {code,data} 信封, 不能走 /api/v1 前缀或 requestData 解包
   getHealthStatus: async (): Promise<{ status: string; checks: Record<string, string> }> => {
-    const res = await request.get<{ status: string; checks: Record<string, string> }>('/health', { baseURL: '' })
+    const res = await dedupedGet<{ status: string; checks: Record<string, string> }>('/health', { baseURL: '' })
     return res.data
   },
 
   getCrisisEvents: (query?: PageQuery & { status?: string; start_date?: string; end_date?: string }) =>
-    requestPageData<CrisisEventItem>(request.get('/reviews/crisis-events', {
+    requestPageData<CrisisEventItem>(dedupedGet('/reviews/crisis-events', {
       params: {
         ...buildPageParams(query),
         status: query?.status,
@@ -87,11 +87,10 @@ export const adminApi = {
     })),
 
   exportCrisisEvents: (startDate: string, endDate: string): Promise<Blob> =>
-    request
-      .get('/admin/crisis-events/export', {
-        params: { start_date: startDate, end_date: endDate },
-        responseType: 'blob'
-      })
+    dedupedGet('/admin/crisis-events/export', {
+      params: { start_date: startDate, end_date: endDate },
+      responseType: 'blob'
+    })
       .then((res) => res.data as Blob),
 
   // ISS-072 修复：危机事件状态流转（处理 / 升级 / 关闭）
@@ -106,8 +105,7 @@ export const adminApi = {
 
   // ISS-074 修复：管理员 GDPR 端点（导出 / 匿名化任意用户）
   exportUserGdpr: (userId: number): Promise<Blob> =>
-    request
-      .get(`/admin/gdpr/export/${userId}`, { responseType: 'blob' })
+    dedupedGet(      `/admin/gdpr/export/${userId}`, { responseType: 'blob' })
       .then((res) => res.data as Blob),
 
   deleteUserGdpr: (userId: number, payload: { confirm: boolean; reason: string }) =>

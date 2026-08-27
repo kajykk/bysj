@@ -1,5 +1,5 @@
 // frontend/src/api/canaryApi.ts
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 
 export interface CanaryCreateRequest {
   version: string
@@ -24,13 +24,13 @@ export interface CanaryListResponse {
 }
 
 export const canaryApi = {
-  listCanaryDeployments: () => requestData<CanaryListResponse>(request.get('/canary/deployments')),
-  getCanaryDeployment: (id: number) => requestData<CanaryDeployment>(request.get(`/canary/deployments/${id}`)),
+  listCanaryDeployments: () => requestData<CanaryListResponse>(dedupedGet('/canary/deployments')),
+  getCanaryDeployment: (id: number) => requestData<CanaryDeployment>(dedupedGet(`/canary/deployments/${id}`)),
   createCanaryDeployment: (payload: CanaryCreateRequest) => requestData<CanaryDeployment>(request.post('/canary/deployments', payload)),
   updateCanaryTraffic: (id: number, payload: CanaryTrafficUpdateRequest) => requestData<CanaryDeployment>(request.patch(`/canary/deployments/${id}/traffic`, payload)),
   pauseCanary: (id: number) => requestData<CanaryDeployment>(request.post(`/canary/deployments/${id}/pause`)),
   resumeCanary: (id: number) => requestData<CanaryDeployment>(request.post(`/canary/deployments/${id}/resume`)),
   rollbackCanary: (id: number, payload: CanaryRollbackRequest) => requestData<CanaryDeployment>(request.post(`/canary/deployments/${id}/rollback`, payload)),
   completeCanary: (id: number) => requestData<CanaryDeployment>(request.post(`/canary/deployments/${id}/complete`)),
-  getCanaryTrafficPercentages: () => requestData<{ percentages: number[] }>(request.get('/canary/traffic-percentages')),
+  getCanaryTrafficPercentages: () => requestData<{ percentages: number[] }>(dedupedGet('/canary/traffic-percentages')),
 }

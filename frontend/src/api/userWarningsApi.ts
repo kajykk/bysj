@@ -1,4 +1,4 @@
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { buildPageParams } from './business.shared'
 import type { PageQuery } from '@/types/api'
 import type { AssessmentType } from '@/types/contracts'
@@ -6,19 +6,19 @@ import type { DataHistoryItem, WarningItem, WarningSettingData } from './userTyp
 
 export const userWarningsApi = {
   getUserWarnings: (query?: PageQuery & { is_read?: boolean }) =>
-    requestPageData<WarningItem>(request.get('/user/warnings', { params: { ...buildPageParams(query), is_read: query?.is_read } })),
+    requestPageData<WarningItem>(dedupedGet('/user/warnings', { params: { ...buildPageParams(query), is_read: query?.is_read } })),
 
   markUserWarningRead: (warningId: number) => requestData<{ message: string }>(request.put(`/user/warnings/${warningId}/read`)),
 
   getUserAssessmentHistory: (query?: PageQuery & { type?: AssessmentType | 'structured' | 'text' | 'physiological'; start_date?: string; end_date?: string }) =>
     requestPageData<DataHistoryItem>(
-      request.get('/user/data/history', { params: { ...buildPageParams(query), type: query?.type, start_date: query?.start_date, end_date: query?.end_date } })
+      dedupedGet('/user/data/history', { params: { ...buildPageParams(query), type: query?.type, start_date: query?.start_date, end_date: query?.end_date } })
     ),
 
   getDataHistory: (query?: PageQuery & { type?: string }) =>
-    requestPageData<DataHistoryItem>(request.get('/user/data/history', { params: { ...buildPageParams(query), type: query?.type } })),
+    requestPageData<DataHistoryItem>(dedupedGet('/user/data/history', { params: { ...buildPageParams(query), type: query?.type } })),
 
-  getWarningSettings: () => requestData<WarningSettingData>(request.get('/user/warning-settings')),
+  getWarningSettings: () => requestData<WarningSettingData>(dedupedGet('/user/warning-settings')),
 
   updateWarningSettings: (payload: Partial<WarningSettingData> & { notify_channels?: Record<string, boolean> }) => {
     const normalizedPayload = {
