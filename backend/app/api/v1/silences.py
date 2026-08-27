@@ -67,13 +67,9 @@ class SilenceCreate(BaseModel):
             if not value:
                 raise ValueError("matcher value 不能为空，空值会匹配所有告警")
             if len(key) > _SILENCE_MAX_KEY_LEN:
-                raise ValueError(
-                    f"matcher key 长度不能超过 {_SILENCE_MAX_KEY_LEN} 字符"
-                )
+                raise ValueError(f"matcher key 长度不能超过 {_SILENCE_MAX_KEY_LEN} 字符")
             if len(value) > _SILENCE_MAX_VAL_LEN:
-                raise ValueError(
-                    f"matcher value 长度不能超过 {_SILENCE_MAX_VAL_LEN} 字符"
-                )
+                raise ValueError(f"matcher value 长度不能超过 {_SILENCE_MAX_VAL_LEN} 字符")
         # H-API-9 修复：starts_at 不能早于当前时间 5 分钟以前，防止回溯静默历史告警
         now = datetime.now(timezone.utc)
         starts_at_aware = self.starts_at
@@ -130,13 +126,9 @@ class SilenceUpdate(BaseModel):
             if not value:
                 raise ValueError("matcher value 不能为空，空值会匹配所有告警")
             if len(key) > _SILENCE_MAX_KEY_LEN:
-                raise ValueError(
-                    f"matcher key 长度不能超过 {_SILENCE_MAX_KEY_LEN} 字符"
-                )
+                raise ValueError(f"matcher key 长度不能超过 {_SILENCE_MAX_KEY_LEN} 字符")
             if len(value) > _SILENCE_MAX_VAL_LEN:
-                raise ValueError(
-                    f"matcher value 长度不能超过 {_SILENCE_MAX_VAL_LEN} 字符"
-                )
+                raise ValueError(f"matcher value 长度不能超过 {_SILENCE_MAX_VAL_LEN} 字符")
         # 编辑场景：仅校验时间顺序与持续期，不限制 starts_at 必须晚于现在
         # （允许调整已生效规则的时间窗口）
         if self.ends_at <= self.starts_at:
@@ -314,9 +306,7 @@ async def update_silence(
     - 写入 OperationLog 审计日志
     - AM 同步：先取消旧 AM silence，再推送新 silence（AM 不支持 PUT）
     """
-    row = (
-        await db.execute(select(AlertSilence).where(AlertSilence.id == silence_id))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(AlertSilence).where(AlertSilence.id == silence_id))).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="silence not found")
 
@@ -388,10 +378,7 @@ async def update_silence(
     except Exception as exc:
         logger.error("[silence] AM push (on update) exception: %s", exc)
 
-    await db.commit()
-    await db.refresh(row)
-
-    # 审计日志
+    # ADR-012 (R-D): OperationLog 与业务写入同事务，单端点 ≤1 commit
     from app.models.admin import OperationLog
 
     op_log = OperationLog(
@@ -408,6 +395,7 @@ async def update_silence(
     )
     db.add(op_log)
     await db.commit()
+    await db.refresh(row)
 
     logger.info(
         "[silence] updated by user=%d id=%d name=%s",
@@ -418,9 +406,7 @@ async def update_silence(
     return ok(_serialize_silence(row))
 
 
-@router.post(
-    "/{silence_id}/enable", response_model=dict, responses=COMMON_ERROR_RESPONSES
-)
+@router.post("/{silence_id}/enable", response_model=dict, responses=COMMON_ERROR_RESPONSES)
 async def enable_silence(
     silence_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -434,9 +420,7 @@ async def enable_silence(
     - 写入 OperationLog 审计日志
     - AM 同步：重新推送 silence 到 AM（best-effort）
     """
-    row = (
-        await db.execute(select(AlertSilence).where(AlertSilence.id == silence_id))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(AlertSilence).where(AlertSilence.id == silence_id))).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="silence not found")
     if row.is_active:
@@ -444,10 +428,8 @@ async def enable_silence(
         return ok(_serialize_silence(row))
 
     row.is_active = True
-    await db.commit()
-    await db.refresh(row)
 
-    # AM 同步：重新推送（best-effort）
+    # AM 同步：重新推送（best-effort，外部副作用不参与 DB 事务）
     try:
         from app.monitoring.am_sync import local_to_am_format, push_silence
 
@@ -464,8 +446,6 @@ async def enable_silence(
             new_am_id = am_result.get("silenceID", "")
             if new_am_id:
                 row.am_silence_id = new_am_id
-                await db.commit()
-                await db.refresh(row)
             logger.info(
                 "[silence] AM re-synced on enable (local_id=%d, am_id=%s)",
                 row.id,
@@ -474,7 +454,7 @@ async def enable_silence(
     except Exception as exc:
         logger.error("[silence] AM push (on enable) exception: %s", exc)
 
-    # 审计日志
+    # ADR-012 (R-D): OperationLog 与业务写入同事务，单端点 ≤1 commit
     from app.models.admin import OperationLog
 
     op_log = OperationLog(
@@ -490,6 +470,7 @@ async def enable_silence(
     )
     db.add(op_log)
     await db.commit()
+    await db.refresh(row)
 
     logger.info("[silence] enabled by user=%d id=%d", current_user.id, silence_id)
     return ok(_serialize_silence(row))
@@ -502,9 +483,7 @@ async def delete_silence(
     current_user: Annotated[User, Depends(require_role("admin"))],
 ) -> dict:
     """v1.34: 取消静默 (软删除, 保留审计)."""
-    row = (
-        await db.execute(select(AlertSilence).where(AlertSilence.id == silence_id))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(AlertSilence).where(AlertSilence.id == silence_id))).scalar_one_or_none()
     # M-API-15 修复：不存在或已删除则返回 404，不写重复 OperationLog
     if row is None or not row.is_active:
         raise HTTPException(status_code=404, detail="silence not found")
@@ -519,9 +498,7 @@ async def delete_silence(
         target_type="alert_silence",
         target_id=silence_id,
         # L-API-3 修复：截断 detail 至 5000 字符，与 alerts.py 保持一致，避免超 DB 字段限制
-        detail=json.dumps(
-            {"name": row.name, "matcher": row.matcher}, ensure_ascii=False
-        ),
+        detail=json.dumps({"name": row.name, "matcher": row.matcher}, ensure_ascii=False),
     )
     db.add(op_log)
     await db.commit()
