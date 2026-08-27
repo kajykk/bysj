@@ -256,6 +256,24 @@ describe('i18n 语言包完整性测试（T-306）', () => {
   })
 
   describe('6. 命名空间覆盖性验证', () => {
+    it('顶层命名空间集合应保持完整（R-E2 拆分后聚合不丢键）', () => {
+      const EXPECTED_TOP_KEYS = [
+        'common', 'nav', 'layout', 'role', 'user', 'theme', 'language', 'monitoring',
+        'observability', 'report', 'reports', 'canary', 'taskProgress', 'error', 'crisis',
+        'riskFormatter', 'errorPolicy', 'router', 'userSettings', 'passwordValidation',
+        'adminSettings', 'adminSilences', 'adminCrisisEvents', 'userModelTraining', 'auth',
+        'warning', 'counselorWarnings', 'adminAlerts', 'adminDashboard', 'adminOperationLogs',
+        'adminTemplates', 'onboarding', 'counselorDashboard', 'counselorReviews',
+        'counselorSettings', 'counselorUsers', 'counselorUserDetail', 'userDashboard',
+        'userWarnings', 'userIntervention', 'userReports', 'userContent', 'userAssessments',
+        'userAssessmentDetail', 'userRisk', 'riskReport', 'structuredAssess', 'textAssess',
+        'physioAssess', 'experimentAssess', 'charts', 'webSocket', 'serviceWorker',
+        'exportUtils', 'formatUtils', 'help',
+      ]
+      expect(Object.keys(zhCNObj).sort()).toEqual([...EXPECTED_TOP_KEYS].sort())
+      expect(Object.keys(enUSObj).sort()).toEqual([...EXPECTED_TOP_KEYS].sort())
+    })
+
     it('应包含核心命名空间 common', () => {
       expect(zhCNObj).toHaveProperty('common')
       expect(enUSObj).toHaveProperty('common')
