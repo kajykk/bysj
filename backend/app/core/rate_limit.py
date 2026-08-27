@@ -3,24 +3,35 @@ from __future__ import annotations
 import inspect as _inspect
 import logging
 import typing as _typing
+from functools import lru_cache
 
 from fastapi import Request, Response
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def _get_trusted_proxy_set() -> set[str]:
-    """解析配置的受信代理 IP 集合。"""
-    raw = settings.trusted_proxies
+@lru_cache(maxsize=8)
+def _parse_trusted_proxies(raw: str | None) -> frozenset[str]:
+    """解析受信代理 IP 集合。
+
+    OPT-P2-001：以配置原文作为缓存键（maxsize=8 覆盖运行期变更），
+    避免 key_func 在每个请求上重复执行 split + set 构建。
+    """
     if not raw:
-        return set()
-    return {ip.strip() for ip in raw.split(",") if ip.strip()}
+        return frozenset()
+    return frozenset(ip.strip() for ip in raw.split(",") if ip.strip())
+
+
+def _get_trusted_proxy_set() -> frozenset[str]:
+    raw = settings.trusted_proxies
+    return _parse_trusted_proxies(raw or None)
 
 
 def get_real_client_ip(request: Request) -> str:
@@ -85,16 +96,13 @@ def _build_limiter() -> Limiter:
         default_limits = ["600/minute"]
         if app_env in ("development", "test"):
             logger.info(
-                "Rate limiter enabled in %s mode with relaxed limits (600/min). "
-                "Production uses 60/min.",
+                "Rate limiter enabled in %s mode with relaxed limits (600/min). " "Production uses 60/min.",
                 app_env,
             )
 
     # M5 修复：使用 get_real_client_ip 替代 get_remote_address，
     # 在反向代理后正确识别真实客户端 IP
-    limiter = Limiter(
-        key_func=get_real_client_ip, default_limits=default_limits, **kwargs
-    )
+    limiter = Limiter(key_func=get_real_client_ip, default_limits=default_limits, **kwargs)
     # v1.27: 限流始终启用（不再仅在生产环境），但 dev/test 有更宽松的限制
     limiter.enabled = True
     return limiter
@@ -123,20 +131,14 @@ def _patched_limit(*args, **kwargs):
         wrapped = original_decorator(func)
         try:
             globalns = getattr(func, "__globals__", {})
-            hints = _typing.get_type_hints(
-                func, globalns, None, include_extras=True
-            )
+            hints = _typing.get_type_hints(func, globalns, None, include_extras=True)
             sig = _inspect.signature(func)
             new_params = [
-                param.replace(annotation=hints[name])
-                if name in hints
-                else param
+                param.replace(annotation=hints[name]) if name in hints else param
                 for name, param in sig.parameters.items()
             ]
             return_annotation = hints.get("return", sig.return_annotation)
-            wrapped.__signature__ = sig.replace(
-                parameters=new_params, return_annotation=return_annotation
-            )
+            wrapped.__signature__ = sig.replace(parameters=new_params, return_annotation=return_annotation)
         except Exception:
             # 类型提示解析失败时回退到原始行为 (后续会以原错误暴露)
             pass
@@ -166,10 +168,45 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Res
     )
 
 
+class SafeRateLimitMiddleware:
+    """OPT-A1-2：包裹 SlowAPIMiddleware 的安全外壳。
+
+    背景：应用级异常处理器注册在内层 ExceptionMiddleware 上，而
+    SlowAPIMiddleware 对 default_limits 的拒绝是在自身 dispatch 中抛出
+    ``RateLimitExceeded`` —— 用户中间件层的异常不会被内层异常处理器捕获，
+    会一路冒泡到 ServerErrorMiddleware 退化为 500。
+
+    本外壳注册在 SlowAPIMiddleware 外侧，就地捕获并转换为统一的 429 JSON 响应
+    （复用 ``rate_limit_exceeded_handler``），同时保留装饰器路径
+    （@limiter.limit 在路由内抛出）由 ExceptionMiddleware 正常处理的能力。
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        try:
+            await self.app(scope, receive, send)
+        except RateLimitExceeded as exc:
+            logger.warning(
+                "Rate limit exceeded at middleware layer: %s %s -> 429",
+                scope.get("method"),
+                scope.get("path"),
+            )
+            response = rate_limit_exceeded_handler(Request(scope), exc)
+            await response(scope, receive, send)
+
+
 def install_rate_limiter(app) -> None:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+    # OPT-A1-2：先注册 SlowAPIMiddleware 再注册外壳（Starlette 后注册者在外层），
+    # 确保中间件层的 RateLimitExceeded 被就地捕获而非冒泡为 500
     app.add_middleware(SlowAPIMiddleware)
+    app.add_middleware(SafeRateLimitMiddleware)
     # M-02 修复：生产环境下显式校验 Redis 连通性，避免 slowapi 静默降级到内存存储
     # 导致多实例部署时限流计数相互独立而失效。
     _verify_redis_backend()

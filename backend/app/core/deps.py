@@ -58,40 +58,32 @@ PERMISSION_MATRIX: dict[str, set[str]] = {
         "review.view",
         "review.handle",
     },
-    USER_ROLE_ADMIN: {
-        "admin.operation_log.view",
-        "admin.operation_log.filter",
-        "admin.operation_log.audit",
-        "admin.predict.audit",
-        "admin.dashboard.view",
-        "admin.settings.manage",
-        "admin.template.manage",
-        # ISS-095 修复：补齐与前端 permissions.ts 对齐的告警/静默权限
-        "admin.alerts.view",
-        "admin.silences.manage",
-        "review.view",
-        "review.handle",
-        "crisis_event.view",
-        "crisis_event.handle",
-        "crisis_event.export",
-        # admin 拥有 user 全部权限 (便于生产环境巡检/验证)
-        "user.warning.read",
-        "user.warning.track",
-        "user.assessment.read",
-        "user.export.risk",
-        "user.predict.use",
-        "user.dashboard.view",
-        "user.content.read",
-        "user.intervention.read",
-        "user.settings.manage",
-    },
 }
+
+# OPT-A2（M-10 修复）：admin 权限 = admin 专属集合 ∪ user 全量权限，程序化派生。
+# 原实现手工罗列 user 全部权限（注释自认"便于巡检"），user 权限新增时 admin
+# 需手动同步，遗漏即造成越权缺口或功能缺失；改为并集后自动跟随 user 集合演进。
+PERMISSION_MATRIX[USER_ROLE_ADMIN] = {
+    "admin.operation_log.view",
+    "admin.operation_log.filter",
+    "admin.operation_log.audit",
+    "admin.predict.audit",
+    "admin.dashboard.view",
+    "admin.settings.manage",
+    "admin.template.manage",
+    # ISS-095 修复：补齐与前端 permissions.ts 对齐的告警/静默权限
+    "admin.alerts.view",
+    "admin.silences.manage",
+    "review.view",
+    "review.handle",
+    "crisis_event.view",
+    "crisis_event.handle",
+    "crisis_event.export",
+} | PERMISSION_MATRIX[USER_ROLE_USER]
 
 # 平台管理员 (super_admin): 平台级全量权限 = admin + counselor 权限并集.
 # 定义在 PERMISSION_MATRIX 之后, 便于引用前两个角色的集合字面量.
-PERMISSION_MATRIX[USER_ROLE_SUPER_ADMIN] = (
-    PERMISSION_MATRIX[USER_ROLE_ADMIN] | PERMISSION_MATRIX[USER_ROLE_COUNSELOR]
-)
+PERMISSION_MATRIX[USER_ROLE_SUPER_ADMIN] = PERMISSION_MATRIX[USER_ROLE_ADMIN] | PERMISSION_MATRIX[USER_ROLE_COUNSELOR]
 
 
 async def get_current_user(
@@ -100,29 +92,21 @@ async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="未提供认证Token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未提供认证Token")
     try:
         payload = decode_token(token)
         # v1.27: 缓存到 request.state，供 _role_for_request 等复用，避免重复 decode
         request.state.token_payload = payload
         if payload.get("type") != "access":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的Token类型"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的Token类型")
         sub = payload.get("sub")
         if sub is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token缺少主体信息"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token缺少主体信息")
         user_id = int(sub)
     except HTTPException:
         raise
     except (PyJWTError, ValueError, TypeError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="无效或已过期的Token"
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效或已过期的Token") from exc
 
     # SEC-P1-001: 检查 jti 是否在 blocklist 中 (登出撤销)
     # SEC-FIX (H1): Redis 不可用时失败关闭——is_token_revoked 抛出
@@ -135,27 +119,19 @@ async def get_current_user(
         try:
             revoked = await is_token_revoked(jti)
         except CacheUnavailableError:
-            logger.error(
-                "deps: token blocklist unavailable, rejecting request (fail-closed)"
-            )
+            logger.error("deps: token blocklist unavailable, rejecting request (fail-closed)")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="认证服务暂时不可用，请稍后重试",
             )
         if revoked:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token已被撤销"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token已被撤销")
 
     user = await db.get(User, user_id)
     if not user or user.status != USER_STATUS_ACTIVE:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用")
     if not user.role:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户角色缺失"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户角色缺失")
 
     # SEC-P1-001: 校验 JWT role 与 DB role 一致 (防止降权后继续使用旧 token)
     token_role = payload.get("role")
@@ -205,9 +181,7 @@ def require_role(*roles: str):
     ) -> User:
         # 未知角色直接拒绝，防止注入异常角色名绕过权限
         if current_user.role not in ROLE_HIERARCHY:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
         effective = ROLE_HIERARCHY[current_user.role]
         if effective.intersection(allowed):
             return current_user
@@ -220,9 +194,7 @@ def require_permission(permission: str):
     async def checker(current_user: Annotated[User, Depends(get_current_user)]) -> User:
         granted = PERMISSION_MATRIX.get(current_user.role, set())
         if permission not in granted:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
         return current_user
 
     return checker

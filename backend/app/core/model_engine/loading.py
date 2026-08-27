@@ -469,9 +469,9 @@ class LoadingMixin:
                                     )
                             except Exception:
                                 # M-L 修复：记录 sklearn 兼容性补丁失败，避免静默掩盖问题
+                                # OPT-P3-001：原 except 分支重复执行与 try 内相同的赋值
+                                # （首次失败后条件不变、结果必然相同），属无效重试，已移除
                                 logger.debug(
                                     "model_engine: SimpleImputer _fill_dtype patch failed",
                                     exc_info=True,
                                 )
-                                if not hasattr(step, "_fill_dtype") and hasattr(step, "_fit_dtype"):
-                                    step._fill_dtype = step._fit_dtype  # type: ignore[attr-defined]

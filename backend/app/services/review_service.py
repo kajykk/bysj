@@ -23,9 +23,7 @@ from app.schemas.review import (
 logger = logging.getLogger(__name__)
 
 # M-Svc-8 修复：危机事件处理 action 白名单，防止任意字符串写入 handled_action 字段
-_ALLOWED_CRISIS_ACTIONS: frozenset[str] = frozenset(
-    {"escalate", "notify_counselor", "emergency_contact", "resolved"}
-)
+_ALLOWED_CRISIS_ACTIONS: frozenset[str] = frozenset({"escalate", "notify_counselor", "emergency_contact", "resolved"})
 
 # ISS-072 修复：危机事件状态机
 # detected → reviewed → escalated → resolved
@@ -160,17 +158,13 @@ class ReviewService:
 
     async def get_review_by_id(self, review_id: int) -> ReviewTask | None:
         """根据 ID 获取复核任务"""
-        result = await self.db.execute(
-            select(ReviewTask).where(ReviewTask.id == review_id)
-        )
+        result = await self.db.execute(select(ReviewTask).where(ReviewTask.id == review_id))
         return result.scalar_one_or_none()
 
     async def assign_review(self, review_id: int, counselor_id: int) -> ReviewTask:
         """分配复核任务给咨询师"""
         # ISS-061 修复：使用 with_for_update() 行级锁，防止并发分配同一复核任务
-        result = await self.db.execute(
-            select(ReviewTask).where(ReviewTask.id == review_id).with_for_update()
-        )
+        result = await self.db.execute(select(ReviewTask).where(ReviewTask.id == review_id).with_for_update())
         task = result.scalar_one_or_none()
         if not task:
             raise ValueError(f"Review task {review_id} not found")
@@ -203,11 +197,7 @@ class ReviewService:
             raise ValueError(f"Cannot resolve review with status {task.status}")
 
         # P1-SEC-007 修复：越权检查 - 仅分配的咨询师或管理员可处理
-        if (
-            not is_admin
-            and task.assigned_to is not None
-            and task.assigned_to != counselor_id
-        ):
+        if not is_admin and task.assigned_to is not None and task.assigned_to != counselor_id:
             raise ValueError("无权处理此复核任务：任务已分配给其他咨询师")
 
         task.resolved_by = counselor_id
@@ -237,11 +227,7 @@ class ReviewService:
             raise ValueError(f"Cannot escalate review with status {task.status}")
 
         # P1-SEC-007 修复：越权检查 - 仅分配的咨询师或管理员可升级
-        if (
-            not is_admin
-            and task.assigned_to is not None
-            and task.assigned_to != counselor_id
-        ):
+        if not is_admin and task.assigned_to is not None and task.assigned_to != counselor_id:
             raise ValueError("无权升级此复核任务：任务已分配给其他咨询师")
 
         # M-Svc-6 修复：escalate 不应复用 resolved_by/resolved_at 字段（语义不一致：
@@ -274,9 +260,7 @@ class ReviewService:
         await self.db.refresh(task)
         return task
 
-    async def get_review_stats(
-        self, days: int = 30, *, assigned_to: int | None = None
-    ) -> ReviewStats:
+    async def get_review_stats(self, days: int = 30, *, assigned_to: int | None = None) -> ReviewStats:
         """获取复核统计.
 
         ISS-071 修复: 支持 assigned_to 范围过滤, 使统计卡口径与
@@ -286,48 +270,37 @@ class ReviewService:
         if assigned_to is not None:
             scope_filters.append(ReviewTask.assigned_to == assigned_to)
 
-        # 总数
-        total_query = select(func.count()).select_from(ReviewTask)
-        if scope_filters:
-            total_query = total_query.where(*scope_filters)
-        total_result = await self.db.execute(total_query)
-        total = total_result.scalar() or 0
+        # OPT-P2-002：合并 4 条串行 count 查询为单条条件聚合
+        # （COUNT(*) FILTER 与 monitoring.py 的 H-07 修复同模式，SQLite/PG 兼容）
+        total_expr = func.count().label("total")
+        pending_expr = func.count().filter(ReviewTask.status == "pending").label("pending")
+        in_review_expr = func.count().filter(ReviewTask.status == "in_review").label("in_review")
+        resolved_expr = func.count().filter(ReviewTask.status == "resolved").label("resolved")
+        escalated_expr = func.count().filter(ReviewTask.status == "escalated").label("escalated")
+        crisis_expr = func.count().filter(ReviewTask.crisis_override.is_(True)).label("crisis_count")
+        high_risk_expr = func.count().filter(ReviewTask.priority == "high_risk_review").label("high_risk_count")
 
-        # 各状态数量 - M14 修复：使用一次 GROUP BY 聚合替代循环查询
-        status_query = select(ReviewTask.status, func.count()).group_by(
-            ReviewTask.status
+        stats_query = select(
+            total_expr,
+            pending_expr,
+            in_review_expr,
+            resolved_expr,
+            escalated_expr,
+            crisis_expr,
+            high_risk_expr,
         )
         if scope_filters:
-            status_query = status_query.where(*scope_filters)
-        status_result = await self.db.execute(status_query)
-        status_counts = {status: count for status, count in status_result.all()}
-
-        # 危机数量
-        crisis_query = select(func.count()).where(
-            ReviewTask.crisis_override.is_(True)
-        )
-        if scope_filters:
-            crisis_query = crisis_query.where(*scope_filters)
-        crisis_result = await self.db.execute(crisis_query)
-        crisis_count = crisis_result.scalar() or 0
-
-        # 高风险数量
-        high_risk_query = select(func.count()).where(
-            ReviewTask.priority == "high_risk_review"
-        )
-        if scope_filters:
-            high_risk_query = high_risk_query.where(*scope_filters)
-        high_risk_result = await self.db.execute(high_risk_query)
-        high_risk_count = high_risk_result.scalar() or 0
+            stats_query = stats_query.where(*scope_filters)
+        row = (await self.db.execute(stats_query)).one()
 
         return ReviewStats(
-            total=total,
-            pending=status_counts.get("pending", 0),
-            in_review=status_counts.get("in_review", 0),
-            resolved=status_counts.get("resolved", 0),
-            escalated=status_counts.get("escalated", 0),
-            crisis_count=crisis_count,
-            high_risk_count=high_risk_count,
+            total=row.total,
+            pending=row.pending,
+            in_review=row.in_review,
+            resolved=row.resolved,
+            escalated=row.escalated,
+            crisis_count=row.crisis_count,
+            high_risk_count=row.high_risk_count,
         )
 
     def to_response(self, task: ReviewTask) -> ReviewTaskResponse:
@@ -366,9 +339,7 @@ class CrisisEventService:
             raise ValueError("crisis_keywords 数量不能超过 50 个")
         for kw in keywords:
             if len(str(kw)) > 100:
-                raise ValueError(
-                    f"单个 crisis_keyword 长度不能超过 100 字符: {str(kw)[:20]}..."
-                )
+                raise ValueError(f"单个 crisis_keyword 长度不能超过 100 字符: {str(kw)[:20]}...")
 
         event = CrisisEvent(
             user_id=data.user_id,
@@ -435,13 +406,9 @@ class CrisisEventService:
         """
         # M-Svc-8 修复：白名单校验 action，防止任意字符串写入 handled_action 字段
         if action not in _ALLOWED_CRISIS_ACTIONS:
-            raise ValueError(
-                f"无效的 action: {action}，允许值: {', '.join(sorted(_ALLOWED_CRISIS_ACTIONS))}"
-            )
+            raise ValueError(f"无效的 action: {action}，允许值: {', '.join(sorted(_ALLOWED_CRISIS_ACTIONS))}")
 
-        result = await self.db.execute(
-            select(CrisisEvent).where(CrisisEvent.id == event_id)
-        )
+        result = await self.db.execute(select(CrisisEvent).where(CrisisEvent.id == event_id))
         event = result.scalar_one_or_none()
         if not event:
             raise ValueError(f"Crisis event {event_id} not found")
@@ -477,9 +444,7 @@ class CrisisEventService:
 
         ISS-072 修复：新增端点，将事件升级到 escalated 状态（通知更高层级介入）。
         """
-        result = await self.db.execute(
-            select(CrisisEvent).where(CrisisEvent.id == event_id)
-        )
+        result = await self.db.execute(select(CrisisEvent).where(CrisisEvent.id == event_id))
         event = result.scalar_one_or_none()
         if not event:
             raise ValueError(f"Crisis event {event_id} not found")
@@ -514,9 +479,7 @@ class CrisisEventService:
 
         ISS-072 修复：新增端点，将事件关闭到 resolved 终态。
         """
-        result = await self.db.execute(
-            select(CrisisEvent).where(CrisisEvent.id == event_id)
-        )
+        result = await self.db.execute(select(CrisisEvent).where(CrisisEvent.id == event_id))
         event = result.scalar_one_or_none()
         if not event:
             raise ValueError(f"Crisis event {event_id} not found")

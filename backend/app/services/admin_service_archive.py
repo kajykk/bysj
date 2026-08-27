@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 
 from app.models.admin import OperationLog
 from app.models.risk import RiskAssessment
@@ -33,17 +33,14 @@ class ArchiveMixin:
 
         cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
         # C-04 修复：使用 DELETE 语句的 rowcount 替代 COUNT 结果，避免 COUNT 与实际删除行数不一致
-        result = await self.db.execute(
-            delete(OperationLog).where(OperationLog.created_at < cutoff)
-        )
+        result = await self.db.execute(delete(OperationLog).where(OperationLog.created_at < cutoff))
         await self.db.commit()
         # M-Svc-17 修复：rowcount 语义在 SQLite 与 PostgreSQL 间存在差异
         # （PostgreSQL 返回实际删除行数；SQLite 的 aiosqlite 驱动可能返回 -1 或 0
         # 表示无法确定）。此处返回值仅作日志参考，不保证精确等于实际删除行数。
         deleted = result.rowcount or 0
         logger.info(
-            "archive_old_logs: rowcount=%d (dialect-dependent, may be -1/0 on SQLite), "
-            "cutoff=%s, days=%d",
+            "archive_old_logs: rowcount=%d (dialect-dependent, may be -1/0 on SQLite), " "cutoff=%s, days=%d",
             deleted,
             cutoff.isoformat(),
             days,
@@ -66,14 +63,11 @@ class ArchiveMixin:
         from app.models.monitoring import MonitoringLog
 
         cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
-        result = await self.db.execute(
-            delete(MonitoringLog).where(MonitoringLog.created_at < cutoff)
-        )
+        result = await self.db.execute(delete(MonitoringLog).where(MonitoringLog.created_at < cutoff))
         await self.db.commit()
         deleted = result.rowcount or 0
         logger.info(
-            "archive_old_monitoring_logs: rowcount=%d (dialect-dependent), "
-            "cutoff=%s, days=%d",
+            "archive_old_monitoring_logs: rowcount=%d (dialect-dependent), " "cutoff=%s, days=%d",
             deleted,
             cutoff.isoformat(),
             days,
@@ -111,11 +105,7 @@ class ArchiveMixin:
                 continue
             masked = _mask_ip(ip)
             if masked != ip:
-                await self.db.execute(
-                    update(OperationLog)
-                    .where(OperationLog.id == log_id)
-                    .values(ip_address=masked)
-                )
+                await self.db.execute(update(OperationLog).where(OperationLog.id == log_id).values(ip_address=masked))
                 masked_count += 1
 
         await self.db.commit()
@@ -172,29 +162,38 @@ class ArchiveMixin:
                 .values(is_latest=False)
             )
 
-            # 对每个用户, 找剩余记录中 created_at 最大的, 标记 is_latest=True
-            for user_id in affected_user_ids:
-                latest_remaining = await self.db.execute(
-                    select(RiskAssessment.id)
-                    .where(
-                        RiskAssessment.user_id == user_id,
-                        RiskAssessment.created_at >= cutoff,
-                    )
-                    .order_by(RiskAssessment.created_at.desc())
-                    .limit(1)
+            # OPT-R1（N+1 修复）：原实现对每个用户串行执行 SELECT(最新记录) +
+            # UPDATE 标记，共 2N 次往返；改为 ROW_NUMBER() 窗口函数一次算出
+            # 每个用户的最新剩余记录 id，再一条 IN 批量 UPDATE，仅 2 次往返。
+            # 平局裁决与原 ORDER BY created_at DESC LIMIT 1 语义对齐并追加
+            # id DESC 保证确定性（SQLite >= 3.25 / PostgreSQL 均支持）。
+            rn = (
+                func.row_number()
+                .over(
+                    partition_by=RiskAssessment.user_id,
+                    order_by=(
+                        RiskAssessment.created_at.desc(),
+                        RiskAssessment.id.desc(),
+                    ),
                 )
-                new_latest_id = latest_remaining.scalar_one_or_none()
-                if new_latest_id is not None:
-                    await self.db.execute(
-                        update(RiskAssessment)
-                        .where(RiskAssessment.id == new_latest_id)
-                        .values(is_latest=True)
-                    )
+                .label("rn")
+            )
+            ranked = (
+                select(RiskAssessment.id.label("rid"))
+                .add_columns(rn)
+                .where(
+                    RiskAssessment.user_id.in_(affected_user_ids),
+                    RiskAssessment.created_at >= cutoff,
+                )
+            ).subquery()
+            newest_per_user = select(ranked.c.rid).where(ranked.c.rn == 1)
+
+            await self.db.execute(
+                update(RiskAssessment).where(RiskAssessment.id.in_(newest_per_user)).values(is_latest=True)
+            )
 
         # 3. 删除超过阈值的记录
-        result = await self.db.execute(
-            delete(RiskAssessment).where(RiskAssessment.created_at < cutoff)
-        )
+        result = await self.db.execute(delete(RiskAssessment).where(RiskAssessment.created_at < cutoff))
         await self.db.commit()
 
         deleted = result.rowcount or 0

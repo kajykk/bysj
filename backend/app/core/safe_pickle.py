@@ -68,11 +68,7 @@ def _validate_path(
         FileNotFoundError: 文件不存在（且 must_exist=True）。
         ValueError: 路径越界（不在受信根目录下）。
     """
-    resolved = (
-        file_path.resolve()
-        if file_path.is_absolute()
-        else (Path.cwd() / file_path).resolve()
-    )
+    resolved = file_path.resolve() if file_path.is_absolute() else (Path.cwd() / file_path).resolve()
 
     if trusted_root is not None:
         root = Path(trusted_root).resolve()
@@ -80,8 +76,7 @@ def _validate_path(
             resolved.relative_to(root)
         except ValueError as exc:
             raise ValueError(
-                f"安全加载失败：路径 '{file_path}' 不在受信目录 '{root}' 下，"
-                f"可能存在路径遍历攻击。"
+                f"安全加载失败：路径 '{file_path}' 不在受信目录 '{root}' 下，" f"可能存在路径遍历攻击。"
             ) from exc
 
     if must_exist and not resolved.exists():
@@ -96,10 +91,59 @@ def _validate_size(file_path: Path, max_bytes: int = _DEFAULT_MAX_BYTES) -> int:
     if size == 0:
         raise ValueError(f"模型文件为空: {file_path}")
     if size > max_bytes:
-        raise ValueError(
-            f"模型文件过大（{size} bytes > {max_bytes} bytes 上限）: {file_path}"
-        )
+        raise ValueError(f"模型文件过大（{size} bytes > {max_bytes} bytes 上限）: {file_path}")
     return size
+
+
+def _validated_model_file(
+    file_path: Path | str,
+    *,
+    trusted_root: Path | str | None,
+    max_bytes: int,
+    model_id: str | None,
+    require_hash: bool,
+    expected_hash: str | None,
+    precomputed_hash: str | None,
+    kind: str,
+) -> tuple[Path, int, str, str | None]:
+    """OPT-A5（M-5 修复）：safe_joblib_load / safe_torch_load 共享的加载前置校验。
+
+    路径白名单 → 大小限制 → SHA256 计算（或复用预计算值）→ .sha256 校验文件
+    解析 → 哈希比对。原实现两处约 45 行逐行复制，修 bug 需双写，收敛于此。
+
+    Args:
+        kind: 错误消息中的对象称谓（"模型" / "检查点"），保持既有文案不变。
+
+    Returns:
+        (解析后路径, 文件大小, 计算哈希, 生效的预期哈希)。
+    """
+    path = Path(file_path)
+    label = model_id or path.name
+
+    path = _validate_path(path, trusted_root=Path(trusted_root) if trusted_root else None)
+    size = _validate_size(path, max_bytes=max_bytes)
+
+    # H-04 修复：若调用方已预计算哈希，直接使用，避免大文件重复计算
+    file_hash = precomputed_hash if precomputed_hash is not None else _compute_sha256(path)
+
+    # M3 修复：生产环境强制要求哈希校验
+    if expected_hash is None and require_hash:
+        checksum_path = path.with_suffix(path.suffix + ".sha256")
+        if checksum_path.exists():
+            expected_hash = checksum_path.read_text(encoding="utf-8").strip().split()[0]
+        else:
+            raise ValueError(
+                f"{kind} '{label}' 要求哈希校验但未提供 expected_hash，"
+                f"且未找到校验文件 {checksum_path.name}. "
+                f"请生成校验文件：sha256sum {path.name} > {checksum_path.name}"
+            )
+
+    if expected_hash is not None and file_hash != expected_hash:
+        raise ValueError(
+            f"{kind} '{label}' 哈希校验失败：expected={expected_hash} computed={file_hash}，" f"文件可能已被篡改。"
+        )
+
+    return path, size, file_hash, expected_hash
 
 
 def safe_joblib_load(
@@ -154,41 +198,21 @@ def safe_joblib_load(
         except Exception:
             # settings 不可用时维持调用方传入的 require_hash 值
             logger.warning(
-                "safe_joblib_load: settings 不可用, 无法判定生产环境, "
-                "require_hash 维持调用方传入值 (%s).",
+                "safe_joblib_load: settings 不可用, 无法判定生产环境, " "require_hash 维持调用方传入值 (%s).",
                 require_hash,
             )
 
-    path = Path(file_path)
+    path, size, file_hash, expected_hash = _validated_model_file(
+        file_path,
+        trusted_root=trusted_root,
+        max_bytes=max_bytes,
+        model_id=model_id,
+        require_hash=require_hash,
+        expected_hash=expected_hash,
+        precomputed_hash=precomputed_hash,
+        kind="模型",
+    )
     label = model_id or path.name
-
-    path = _validate_path(
-        path, trusted_root=Path(trusted_root) if trusted_root else None
-    )
-    size = _validate_size(path, max_bytes=max_bytes)
-
-    # H-04 修复：若调用方已预计算哈希，直接使用，避免大文件重复计算
-    file_hash = (
-        precomputed_hash if precomputed_hash is not None else _compute_sha256(path)
-    )
-
-    # M3 修复：生产环境强制要求哈希校验
-    if expected_hash is None and require_hash:
-        checksum_path = path.with_suffix(path.suffix + ".sha256")
-        if checksum_path.exists():
-            expected_hash = checksum_path.read_text(encoding="utf-8").strip().split()[0]
-        else:
-            raise ValueError(
-                f"模型 '{label}' 要求哈希校验但未提供 expected_hash，"
-                f"且未找到校验文件 {checksum_path.name}. "
-                f"请生成校验文件：sha256sum {path.name} > {checksum_path.name}"
-            )
-
-    if expected_hash is not None and file_hash != expected_hash:
-        raise ValueError(
-            f"模型 '{label}' 哈希校验失败：expected={expected_hash} computed={file_hash}，"
-            f"文件可能已被篡改。"
-        )
 
     if expected_hash is None:
         logger.warning(
@@ -209,9 +233,7 @@ def safe_joblib_load(
     try:
         return joblib.load(path)
     except Exception as exc:
-        raise ValueError(
-            f"模型 '{label}' 反序列化失败：{exc.__class__.__name__}: {exc}"
-        ) from exc
+        raise ValueError(f"模型 '{label}' 反序列化失败：{exc.__class__.__name__}: {exc}") from exc
 
 
 def safe_torch_load(
@@ -274,41 +296,21 @@ def safe_torch_load(
         except Exception:
             # settings 不可用时维持调用方传入的 weights_only 值
             logger.warning(
-                "safe_torch_load: settings 不可用, 无法判定生产环境, "
-                "weights_only 维持调用方传入值 (%s).",
+                "safe_torch_load: settings 不可用, 无法判定生产环境, " "weights_only 维持调用方传入值 (%s).",
                 weights_only,
             )
 
-    path = Path(file_path)
+    path, size, file_hash, expected_hash = _validated_model_file(
+        file_path,
+        trusted_root=trusted_root,
+        max_bytes=max_bytes,
+        model_id=model_id,
+        require_hash=require_hash,
+        expected_hash=expected_hash,
+        precomputed_hash=precomputed_hash,
+        kind="检查点",
+    )
     label = model_id or path.name
-
-    path = _validate_path(
-        path, trusted_root=Path(trusted_root) if trusted_root else None
-    )
-    size = _validate_size(path, max_bytes=max_bytes)
-
-    # H-04 修复：若调用方已预计算哈希，直接使用，避免大文件重复计算
-    file_hash = (
-        precomputed_hash if precomputed_hash is not None else _compute_sha256(path)
-    )
-
-    # M3 修复：生产环境强制要求哈希校验
-    if expected_hash is None and require_hash:
-        checksum_path = path.with_suffix(path.suffix + ".sha256")
-        if checksum_path.exists():
-            expected_hash = checksum_path.read_text(encoding="utf-8").strip().split()[0]
-        else:
-            raise ValueError(
-                f"检查点 '{label}' 要求哈希校验但未提供 expected_hash，"
-                f"且未找到校验文件 {checksum_path.name}. "
-                f"请生成校验文件：sha256sum {path.name} > {checksum_path.name}"
-            )
-
-    if expected_hash is not None and file_hash != expected_hash:
-        raise ValueError(
-            f"检查点 '{label}' 哈希校验失败：expected={expected_hash} computed={file_hash}，"
-            f"文件可能已被篡改。"
-        )
 
     if expected_hash is None:
         logger.warning(
@@ -330,6 +332,4 @@ def safe_torch_load(
     try:
         return torch.load(path, map_location=map_location, weights_only=weights_only)  # nosec B614  controlled load with weights_only flag
     except Exception as exc:
-        raise ValueError(
-            f"检查点 '{label}' 加载失败：{exc.__class__.__name__}: {exc}"
-        ) from exc
+        raise ValueError(f"检查点 '{label}' 加载失败：{exc.__class__.__name__}: {exc}") from exc

@@ -52,6 +52,17 @@ from app.core.model_registry import get_model_info
 
 logger = logging.getLogger(__name__)
 
+# 标定依据：现有预测置信度与数据质量回归契约（数值保持不变）。
+_CONFIDENCE_BASE = 0.5
+_CONFIDENCE_PROBABILITY_WEIGHT = 0.3
+_CONFIDENCE_FALLBACK_FACTOR = 0.7
+_CONFIDENCE_COVERAGE_TARGET = 0.9
+_CONFIDENCE_MINIMUM_COVERAGE = 0.3
+_CONFIDENCE_QUALITY_FACTORS = {"complete": 1.0, "partial": 0.85, "poor": 0.6}
+_CONFIDENCE_MINIMUM = 0.2
+_CONFIDENCE_MISSING_FIELD_PENALTY = 0.1
+_CONFIDENCE_MAXIMUM_PENALTY = 0.3
+
 
 def _contains_cjk(text: str) -> bool:
     """检测文本是否包含中日韩统一表意字符 (用于语言路由)."""
@@ -196,7 +207,10 @@ class PredictMixin:
                 if field not in raw or raw[field] is None or raw[field] == "":
                     missing_fields.append(field)
 
-            confidence_penalty = min(len(missing_fields) * 0.1, 0.3)
+            confidence_penalty = min(
+                len(missing_fields) * _CONFIDENCE_MISSING_FIELD_PENALTY,
+                _CONFIDENCE_MAXIMUM_PENALTY,
+            )
 
             if len(missing_fields) == 0:
                 quality_level = "complete"
@@ -208,14 +222,16 @@ class PredictMixin:
             risk_level = self._score_to_level(risk_score, modality="structured")
 
             prob_extremity = abs(probability - 0.5) * 2
-            base_confidence = 0.5 + prob_extremity * 0.3
+            base_confidence = _CONFIDENCE_BASE + prob_extremity * _CONFIDENCE_PROBABILITY_WEIGHT
             if fallback_used:
-                base_confidence *= 0.7
+                base_confidence *= _CONFIDENCE_FALLBACK_FACTOR
             f_coverage = routing_info["feature_coverage_ratio"]
-            coverage_factor = min(f_coverage / 0.9, 1.0) if f_coverage > 0 else 0.3
-            quality_factor = {"complete": 1.0, "partial": 0.85, "poor": 0.6}.get(quality_level, 0.6)
+            coverage_factor = (
+                min(f_coverage / _CONFIDENCE_COVERAGE_TARGET, 1.0) if f_coverage > 0 else _CONFIDENCE_MINIMUM_COVERAGE
+            )
+            quality_factor = _CONFIDENCE_QUALITY_FACTORS.get(quality_level, 0.6)
             confidence = round(base_confidence * coverage_factor * quality_factor, 3)
-            confidence = max(0.2, min(1.0, confidence))
+            confidence = max(_CONFIDENCE_MINIMUM, min(1.0, confidence))
 
             result: dict[str, Any] = {
                 "prediction": prediction,
