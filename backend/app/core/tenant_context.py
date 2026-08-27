@@ -45,9 +45,7 @@ TENANT_STATE_KEY = "tenant_id"
 TENANT_OBJ_STATE_KEY = "_tenant_obj"
 
 
-async def tenant_context_middleware(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
+async def tenant_context_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     """解析请求租户上下文并存储到 request.state.
 
     解析顺序：
@@ -105,9 +103,7 @@ async def tenant_context_middleware(
     return await call_next(request)
 
 
-async def _resolve_tenant(
-    db: AsyncSession, tenant_id: int | None, tenant_code: str | None
-) -> Tenant:
+async def _resolve_tenant(db: AsyncSession, tenant_id: int | None, tenant_code: str | None) -> Tenant:
     """根据 tenant_id 或 tenant_code 查库解析租户，返回 Tenant 对象.
 
     Raises:
@@ -208,7 +204,8 @@ def enforce_tenant_match(resource_tenant_id: int | None, request_tenant_id: int)
     if effective != request_tenant_id:
         logger.warning(
             "Cross-tenant access blocked: resource_tenant=%s, request_tenant=%s",
-            effective, request_tenant_id,
+            effective,
+            request_tenant_id,
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -219,6 +216,46 @@ def enforce_tenant_match(resource_tenant_id: int | None, request_tenant_id: int)
 # =========================================================================
 # RBAC + 租户上下文绑定依赖
 # =========================================================================
+
+
+def _check_role_and_tenant(
+    request: Request,
+    current_user: User,
+    allowed: set[str],
+) -> int:
+    """OPT-A6（M-6 修复）：角色层级 + 租户一致性公共校验。
+
+    ``require_role_tenant_scoped`` 与 ``require_platform_admin`` 原各自复制
+    约 20 行相同的"角色校验 + 防串租校验"逻辑，收敛于此消除漂移风险。
+
+    Returns:
+        用户生效租户 ID（供调用方继续做平台租户限定等后续检查）。
+
+    Raises:
+        HTTPException(403): 角色不足或用户租户与请求租户不匹配。
+    """
+    # 1. 角色校验
+    if current_user.role not in ROLE_HIERARCHY:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
+    effective = ROLE_HIERARCHY[current_user.role]
+    if not effective.intersection(allowed):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
+
+    # 2. 租户上下文一致性校验（防串租）
+    request_tenant_id = get_request_tenant_id(request)
+    user_tenant_id = current_user.tenant_id if current_user.tenant_id is not None else DEFAULT_TENANT_ID
+    if user_tenant_id != request_tenant_id:
+        logger.warning(
+            "Tenant confusion blocked: user_tenant=%s, request_tenant=%s, user_id=%s",
+            user_tenant_id,
+            request_tenant_id,
+            current_user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="用户租户与请求租户不匹配",
+        )
+    return user_tenant_id
 
 
 def require_role_tenant_scoped(*roles: str):
@@ -244,36 +281,7 @@ def require_role_tenant_scoped(*roles: str):
         request: Request,
         current_user: Annotated[User, Depends(get_current_user)],
     ) -> User:
-        # 1. 角色校验
-        if current_user.role not in ROLE_HIERARCHY:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
-            )
-        effective = ROLE_HIERARCHY[current_user.role]
-        if not effective.intersection(allowed):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
-            )
-
-        # 2. 租户上下文一致性校验（防串租）
-        request_tenant_id = get_request_tenant_id(request)
-        user_tenant_id = (
-            current_user.tenant_id
-            if current_user.tenant_id is not None
-            else DEFAULT_TENANT_ID
-        )
-        if user_tenant_id != request_tenant_id:
-            logger.warning(
-                "Tenant confusion blocked: user_tenant=%s, request_tenant=%s, user_id=%s",
-                user_tenant_id,
-                request_tenant_id,
-                current_user.id,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="用户租户与请求租户不匹配",
-            )
-
+        _check_role_and_tenant(request, current_user, allowed)
         return current_user
 
     return checker
@@ -293,39 +301,13 @@ def require_platform_admin():
 
     防御场景: 租户 B 的 admin 伪造 X-Tenant-ID: B 头调用 /api/v1/admin/* 全局端点.
     """
+
     async def checker(
         request: Request,
         current_user: Annotated[User, Depends(get_current_user)],
     ) -> User:
-        # 1. 角色校验: admin/super_admin 可进入平台级端点
-        if current_user.role not in ROLE_HIERARCHY:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
-            )
-        effective = ROLE_HIERARCHY[current_user.role]
-        if not effective.intersection({USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN}):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="权限不足"
-            )
-
-        # 2. 租户上下文一致性校验 (防串租, 与 require_role_tenant_scoped 相同)
-        request_tenant_id = get_request_tenant_id(request)
-        user_tenant_id = (
-            current_user.tenant_id
-            if current_user.tenant_id is not None
-            else DEFAULT_TENANT_ID
-        )
-        if user_tenant_id != request_tenant_id:
-            logger.warning(
-                "Tenant confusion blocked: user_tenant=%s, request_tenant=%s, user_id=%s",
-                user_tenant_id,
-                request_tenant_id,
-                current_user.id,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="用户租户与请求租户不匹配",
-            )
+        # 1+2. 角色校验 + 租户一致性（OPT-A6：公共校验收敛至 _check_role_and_tenant）
+        user_tenant_id = _check_role_and_tenant(request, current_user, {USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN})
 
         # 3. 平台管理员限定: 用户必须属于平台默认租户
         if user_tenant_id != DEFAULT_TENANT_ID:

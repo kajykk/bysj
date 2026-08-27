@@ -20,7 +20,8 @@ def _get_jieba():
 
         try:
             jieba.setLogLevel(20)  # 静默 INFO 日志
-        except Exception:
+        except AttributeError:
+            # 旧版 jieba 无 setLogLevel 时降级为默认日志级别
             pass
         for word in ("抑郁症", "焦虑症", "失眠", "emo", "躺平", "内卷", "摆烂"):
             jieba.add_word(word)

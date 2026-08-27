@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from jwt import PyJWTError
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
@@ -14,6 +14,7 @@ from app.core.security import (
     create_access_token,
     create_password_reset_token,
     create_refresh_token,
+    decode_token,
     get_password_hash,
     verify_password,
 )
@@ -56,9 +57,7 @@ class AuthService:
         stmt = (
             select(User)
             .options(load_only(User.id, User.username, User.email_hash))
-            .where(
-                (User.username == payload.username) | (User.email_hash == email_hash)
-            )
+            .where((User.username == payload.username) | (User.email_hash == email_hash))
         )
         exists_user = (await self.db.execute(stmt)).scalar_one_or_none()
         if exists_user:
@@ -89,11 +88,7 @@ class AuthService:
     async def login(self, payload: LoginRequest) -> dict:
         stmt = (
             select(User)
-            .options(
-                load_only(
-                    User.id, User.username, User.password_hash, User.role, User.status
-                )
-            )
+            .options(load_only(User.id, User.username, User.password_hash, User.role, User.status))
             .where(User.username == payload.username)
         )
         user = (await self.db.execute(stmt)).scalar_one_or_none()
@@ -108,9 +103,7 @@ class AuthService:
 
         access_token = create_access_token({"sub": str(user.id), "role": user.role})
         refresh_jti = uuid4().hex
-        refresh_token = create_refresh_token(
-            {"sub": str(user.id), "role": user.role}, jti=refresh_jti
-        )
+        refresh_token = create_refresh_token({"sub": str(user.id), "role": user.role}, jti=refresh_jti)
 
         expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
             days=settings.refresh_token_expire_days
@@ -139,10 +132,90 @@ class AuthService:
                 "id": user.id,
                 "username": user.username,
                 "role": user.role,
-                "nickname": (
-                    profile.nickname if profile and profile.nickname else user.username
-                ),
+                "nickname": (profile.nickname if profile and profile.nickname else user.username),
             },
+        }
+
+    async def refresh(self, refresh_token_value: str) -> dict:
+        """刷新 access/refresh token（OPT-R4：自 api/v1/auth.py 下沉）。
+
+        校验链路：decode → type/jti 完整性 → 用户状态 → session 登记 →
+        未撤销 → 未过期 → 原子轮换（C-06 修复的 TOCTOU 防护）→ 签发新对。
+
+        失败统一抛 ``ValueError``（消息与原 API 层 401 detail 一致），
+        由调用方转换为 HTTPException，保持对外契约不变。
+
+        Returns:
+            {"access_token", "refresh_token", "token_type"}（已 commit）
+        """
+
+        def _to_utc_naive(dt: datetime) -> datetime:
+            if dt.tzinfo is None:
+                return dt
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+        try:
+            token_data = decode_token(refresh_token_value)
+            sub = token_data.get("sub")
+            user_id = int(sub) if sub is not None else None
+        except (PyJWTError, ValueError, TypeError) as exc:
+            raise ValueError("无效或已过期的Refresh Token") from exc
+
+        if token_data.get("type") != "refresh":
+            raise ValueError("无效的Refresh Token类型")
+        jti = token_data.get("jti")
+        if user_id is None or not jti:
+            raise ValueError("Refresh Token缺少必要信息")
+
+        user = await self.db.get(User, user_id)
+        if not user or user.status != "active":
+            raise ValueError("用户不存在或已被禁用")
+
+        stmt = select(RefreshTokenSession).where(RefreshTokenSession.jti == jti)
+        token_session = (await self.db.execute(stmt)).scalar_one_or_none()
+        if token_session is None or token_session.user_id != user.id:
+            raise ValueError("Refresh Token未登记或已失效")
+        if token_session.revoked_at is not None:
+            raise ValueError("Refresh Token已被撤销")
+        now_naive = _to_utc_naive(datetime.now(timezone.utc))
+        expires_at_naive = _to_utc_naive(token_session.expires_at)
+        if expires_at_naive <= now_naive:
+            raise ValueError("Refresh Token已过期")
+
+        new_jti = uuid4().hex
+        # C-06 修复：使用原子 UPDATE 防止 TOCTOU 竞态导致的 Refresh Token 重放攻击
+        # 仅当 revoked_at IS NULL 时才更新，根据 rowcount 判断是否成功
+        revoke_result = await self.db.execute(
+            update(RefreshTokenSession)
+            .where(
+                RefreshTokenSession.jti == jti,
+                RefreshTokenSession.revoked_at.is_(None),
+            )
+            .values(revoked_at=now_naive, replaced_by_jti=new_jti)
+        )
+        if revoke_result.rowcount == 0:
+            # H-03 修复：token 不存在或已被撤销（可能被并发请求抢先使用）。
+            # 此为预期行为：原子 UPDATE 保证同一 refresh token 仅能被消费一次，
+            # 并发场景下仅一个请求成功，其余请求会落到此分支。
+            raise ValueError("登录凭证已被使用或失效，请重新登录")
+
+        expires_at = now_naive + timedelta(days=settings.refresh_token_expire_days)
+        self.db.add(
+            RefreshTokenSession(
+                user_id=user.id,
+                jti=new_jti,
+                expires_at=expires_at,
+            )
+        )
+
+        new_access = create_access_token({"sub": str(user.id), "role": user.role})
+        new_refresh = create_refresh_token({"sub": str(user.id), "role": user.role}, jti=new_jti)
+        await self.db.commit()
+
+        return {
+            "access_token": new_access,
+            "refresh_token": new_refresh,
+            "token_type": "bearer",
         }
 
     async def change_password(
@@ -159,9 +232,7 @@ class AuthService:
             password_valid = verify_password(payload.old_password, user.password_hash)
         except Exception:
             # P1-E 修复：记录密码验证异常，防止服务端异常（如 bcrypt 库问题）被静默视为密码错误
-            logger.warning(
-                "Password verification failed for user %s", user_id, exc_info=True
-            )
+            logger.warning("Password verification failed for user %s", user_id, exc_info=True)
             password_valid = False
         if not password_valid:
             raise ValueError("当前密码错误")
@@ -253,8 +324,8 @@ class AuthService:
             revoked = await revoke_token(access_token_jti, ttl=ttl)
             if not revoked:
                 logger.error(
-                    "logout: access_token revocation failed (jti=%s), "
-                    "token may remain valid until exp", access_token_jti[:12]
+                    "logout: access_token revocation failed (jti=%s), " "token may remain valid until exp",
+                    access_token_jti[:12],
                 )
 
         if refresh_token:
@@ -274,9 +345,7 @@ class AuthService:
                 if token_session is None:
                     raise ValueError("Refresh Token未登记或已失效")
                 if token_session.revoked_at is None:
-                    token_session.revoked_at = datetime.now(timezone.utc).replace(
-                        tzinfo=None
-                    )
+                    token_session.revoked_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 revoked_count = 1
             except (PyJWTError, ValueError, TypeError):
                 # SEC-FIX (P2-4): refresh token 无效/未登记时不再整体失败——
@@ -284,8 +353,7 @@ class AuthService:
                 # 撤销但用户收到 400, 且其余 refresh 会话全部保留)。
                 # 降级为撤销该用户全部 refresh 会话。
                 logger.warning(
-                    "logout: refresh_token invalid (user_id=%s), "
-                    "falling back to revoke all refresh sessions",
+                    "logout: refresh_token invalid (user_id=%s), " "falling back to revoke all refresh sessions",
                     user_id,
                 )
                 revoked_count = await self._revoke_all_user_refresh_tokens(user_id)
@@ -322,9 +390,7 @@ class AuthService:
         if payload.email is not None:
             # PII 加密：使用 email_hash 盲索引检查唯一性
             new_email_hash = compute_blind_index(payload.email, "email")
-            stmt = select(User).where(
-                User.email_hash == new_email_hash, User.id != user_id
-            )
+            stmt = select(User).where(User.email_hash == new_email_hash, User.id != user_id)
             existing = (await self.db.execute(stmt)).scalar_one_or_none()
             if existing is not None:
                 raise ValueError("邮箱已存在")
@@ -336,9 +402,7 @@ class AuthService:
         # 避免仅更新邮箱时返回 nickname=None
         if profile is None:
             # 若未提供 nickname，使用用户名作为默认 nickname
-            default_nickname = (
-                payload.nickname if payload.nickname is not None else user.username
-            )
+            default_nickname = payload.nickname if payload.nickname is not None else user.username
             profile = UserProfile(user_id=user_id, nickname=default_nickname)
             self.db.add(profile)
         elif payload.nickname is not None:

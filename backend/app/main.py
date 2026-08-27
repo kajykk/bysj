@@ -88,9 +88,7 @@ async def lifespan(app: FastAPI):
     )
 
     # RES-P0-002 修复：在 lifespan 最开始配置日志轮转，确保后续所有启动日志均经过统一配置
-    await record_step_async(
-        "configure_logging", _async_noop(configure_logging), fatal=True
-    )
+    await record_step_async("configure_logging", _async_noop(configure_logging), fatal=True)
     # STAB-P0-001 修复：根据 settings 初始化 DB 熔断器参数
     from app.core.db_breaker import init_db_breaker
 
@@ -119,9 +117,7 @@ async def lifespan(app: FastAPI):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     else:
-        logger.info(
-            "Production mode: skipping create_all, ensure 'alembic upgrade head' is run before startup"
-        )
+        logger.info("Production mode: skipping create_all, ensure 'alembic upgrade head' is run before startup")
     if settings.enable_seed:
         await record_step_async("seed_database", seed_database(), fatal=True)
         app.state.seed_ready = True
@@ -152,11 +148,14 @@ async def lifespan(app: FastAPI):
                     batch_exc,
                 )
             duration_ms = (_time.monotonic() - start) * 1000
-            startup_status.record(
-                "model_preload", "ok", duration_ms=duration_ms, fatal=False
-            )
+            startup_status.record("model_preload", "ok", duration_ms=duration_ms, fatal=False)
             logger.info("Model preload completed in background (%.0f ms)", duration_ms)
-        except BaseException as exc:
+        except asyncio.CancelledError:
+            # OPT-P1-002：应用关闭时任务被取消属正常流程，必须按取消协议重新抛出，
+            # 不能误记为 model_preload failed
+            startup_status.record("model_preload", "skipped", fatal=False)
+            raise
+        except Exception as exc:
             duration_ms = (_time.monotonic() - start) * 1000
             startup_status.record(
                 "model_preload",
@@ -172,9 +171,7 @@ async def lifespan(app: FastAPI):
                 exc_info=True,
             )
 
-    app.state._model_preload_task = asyncio.create_task(
-        _preload_models_background()
-    )
+    app.state._model_preload_task = asyncio.create_task(_preload_models_background())
 
     # R-006: sentry 初始化失败不影响启动 (仅监控降级)
     def _init_sentry():
@@ -186,6 +183,7 @@ async def lifespan(app: FastAPI):
         )
 
     record_step_sync("init_sentry", _init_sentry, fatal=False)
+
     # STAB-P2-009: 初始化 OpenTelemetry 分布式追踪 (OTLP 导出)
     # OTel 初始化失败不影响启动 (仅追踪降级, 与 Sentry 一致)
     def _init_otel():
@@ -202,9 +200,7 @@ async def lifespan(app: FastAPI):
     record_step_sync("init_otel", _init_otel, fatal=False)
     # v1.39: 启动 ObservabilityExporter (60s 周期发布 7 v1.36 metric 到 Prometheus)
     observability_exporter = ObservabilityExporter()
-    await record_step_async(
-        "observability_exporter", observability_exporter.start(), fatal=False
-    )
+    await record_step_async("observability_exporter", observability_exporter.start(), fatal=False)
     # P0-1.1: 启动后台健康监控任务, 周期性刷新健康快照缓存
     # 确保 /health/ready 端点延迟 < 5ms (仅读取内存缓存, 永不阻塞)
     await record_step_async(
@@ -216,22 +212,16 @@ async def lifespan(app: FastAPI):
     # 订阅 ws:user:* pattern, 收到其他 worker/Celery 发布的消息后投递给本地连接
     from app.core.ws import ws_manager
 
-    await record_step_async(
-        "ws_pubsub", ws_manager.start_pubsub_subscriber(), fatal=False
-    )
+    await record_step_async("ws_pubsub", ws_manager.start_pubsub_subscriber(), fatal=False)
     # STAB-P1-009: 启动金丝雀回滚备用监控 (Celery 不可用时的 fallback)
     # 当 celery_breaker 状态 != closed 时, 后台任务接管 canary_auto_rollback_check
     from app.services.canary_fallback_monitor import start_canary_fallback_monitor
 
-    await record_step_async(
-        "canary_fallback", start_canary_fallback_monitor(app), fatal=False
-    )
+    await record_step_async("canary_fallback", start_canary_fallback_monitor(app), fatal=False)
     # R2: 启动训练产物自动回退监控 (PRODUCTION 回退率超阈值自动降级)
     from app.services.registry_auto_rollback import start_auto_rollback_monitor
 
-    await record_step_async(
-        "auto_rollback", start_auto_rollback_monitor(app), fatal=False
-    )
+    await record_step_async("auto_rollback", start_auto_rollback_monitor(app), fatal=False)
     # 拍板项: 无 REDIS_URL 多 worker 启动告警 — 跨进程能力降级提示
     _warn_redis_missing_for_multiworker()
     # R-006: 标记启动序列完成 (供 /health/startup 端点使用)
@@ -297,14 +287,19 @@ from app.core.otel import instrument_app as _otel_instrument_app
 
 _otel_instrument_app(app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
-)
-
+# ── OPT-A1：中间件栈顺序重构（Starlette 规则：后注册者在最外层）──
+# 目标请求执行序（外→内）：
+#   request_id → security_headers → metrics → CORS
+#   → SafeRateLimit → SlowAPI → tenant_context → ExceptionMiddleware → 路由
+# 收益：
+#   1. 全链路日志可注入 request_id ContextVar（原实现 request_id 位于最内层，
+#      外层中间件的日志拿不到）
+#   2. 错误响应（含限流 429）统一携带 X-Request-ID / 安全头 / CORS 头
+#      （原 CORS 位于最内层，上层产生的错误响应缺 CORS 头会被浏览器拦截）
+#   3. 指标覆盖限流拒绝的请求，SLO 统计不再有盲区（配合 metrics 的 try/finally）
+#   4. 被限流/被拒请求跳过租户解析，减少无效开销
+app.middleware("http")(tenant_context_middleware)  # 最内层
+install_rate_limiter(app)
 upload_dir = Path(__file__).resolve().parent.parent / "uploads"
 # SEC-P0-001 修复：移除 StaticFiles 直接挂载，改为鉴权路由 + 归属校验
 # 原 app.mount("/uploads", StaticFiles(...)) 任何未登录用户均可访问 /uploads/*，
@@ -315,15 +310,17 @@ upload_dir = Path(__file__).resolve().parent.parent / "uploads"
 try:
     upload_dir.mkdir(parents=True, exist_ok=True)
 except OSError:
-    logger.warning(
-        "upload_dir.creation.failed path=%s - /uploads route may fail", upload_dir
-    )
-
-app.middleware("http")(request_id_middleware)
-app.middleware("http")(tenant_context_middleware)
-app.middleware("http")(security_headers_middleware)
+    logger.warning("upload_dir.creation.failed path=%s - /uploads route may fail", upload_dir)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+)
 app.middleware("http")(metrics_middleware)
-install_rate_limiter(app)
+app.middleware("http")(security_headers_middleware)
+app.middleware("http")(request_id_middleware)  # 最外层
 app.include_router(api_router)
 app.include_router(csp_report_router)
 app.include_router(uploads_router)

@@ -48,9 +48,7 @@ def _normalize_metrics_path(path: str) -> str:
     return normalized
 
 
-async def request_id_middleware(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
+async def request_id_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     request_id = get_or_create_request_id(request)
     request.state.request_id = request_id
     # ISS-100 修复：同步设置到 ContextVar，使日志 Filter 能注入 request_id
@@ -77,9 +75,7 @@ async def request_id_middleware(
     return response
 
 
-async def metrics_middleware(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
+async def metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     """记录 HTTP 请求指标 (v1.30).
 
     收集:
@@ -90,36 +86,39 @@ async def metrics_middleware(
     request.scope['route'].path 可拿到模板如 /users/{user_id}, 优先使用.
     """
     start = time.perf_counter()
-    response = await call_next(request)
-    duration = time.perf_counter() - start
+    # OPT-P1-001：下游中间件/路由抛出异常时也必须记录指标，
+    # 否则错误请求不计入 http_requests_total，导致 SLO 可用性偏乐观。
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        duration = time.perf_counter() - start
 
-    # 提取 path 模板 (如果可用)
-    route = request.scope.get("route")
-    path_template = getattr(route, "path", None)
-    if not path_template:
-        # ISS-037 修复：无路由模板 (404/中间件直接响应) 时归一化路径,
-        # 避免完整 URL path 成为高基数标签
-        path_template = _normalize_metrics_path(request.url.path)
+        # 提取 path 模板 (如果可用)
+        route = request.scope.get("route")
+        path_template = getattr(route, "path", None)
+        if not path_template:
+            # ISS-037 修复：无路由模板 (404/中间件直接响应) 时归一化路径,
+            # 避免完整 URL path 成为高基数标签
+            path_template = _normalize_metrics_path(request.url.path)
 
-    # 排除 /metrics 自身以避免自激
-    if path_template != "/api/v1/metrics":
-        try:
-            method = request.method
-            status = str(response.status_code)
-            http_requests_total.inc(method=method, path=path_template, status=status)
-            http_request_duration_seconds.observe(
-                duration, method=method, path=path_template
-            )
-        except Exception as exc:
-            # P1-E 修复：HTTP 指标记录失败必须记录日志，便于发现指标系统异常
-            logger.warning(
-                "HTTP metrics recording failed for %s %s: %s",
-                request.method,
-                path_template,
-                exc,
-            )
-
-    return response
+        # 排除 /metrics 自身以避免自激
+        if path_template != "/api/v1/metrics":
+            try:
+                method = request.method
+                status = str(status_code)
+                http_requests_total.inc(method=method, path=path_template, status=status)
+                http_request_duration_seconds.observe(duration, method=method, path=path_template)
+            except Exception as exc:
+                # P1-E 修复：HTTP 指标记录失败必须记录日志，便于发现指标系统异常
+                logger.warning(
+                    "HTTP metrics recording failed for %s %s: %s",
+                    request.method,
+                    path_template,
+                    exc,
+                )
 
 
 async def security_headers_middleware(
@@ -146,9 +145,7 @@ async def security_headers_middleware(
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "0"  # 现代浏览器使用CSP
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = (
-        "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
-    )
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
     response.headers["X-DNS-Prefetch-Control"] = "off"
 
     # SEC-P2-009: CSP 由 nginx 统一设置 (frontend/nginx.conf:81), 后端不再设置
@@ -156,8 +153,6 @@ async def security_headers_middleware(
 
     # HSTS（仅生产环境）
     if settings.app_env.lower() == "production":
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=31536000; includeSubDomains"
-        )
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
     return response

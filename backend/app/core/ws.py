@@ -10,6 +10,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from jwt import PyJWTError
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.security import decode_token
 from app.models.user import User
@@ -92,9 +93,7 @@ class ConnectionManager:
 
     def disconnect(self, user_id: int, ws: WebSocket) -> None:
         if user_id in self._connections:
-            self._connections[user_id] = [
-                w for w in self._connections[user_id] if w is not ws
-            ]
+            self._connections[user_id] = [w for w in self._connections[user_id] if w is not ws]
             if not self._connections[user_id]:
                 del self._connections[user_id]
             try:
@@ -208,9 +207,7 @@ class ConnectionManager:
         except asyncio.CancelledError:
             pass
         except Exception:
-            logger.warning(
-                "WebSocket pubsub subscriber stop encountered error", exc_info=True
-            )
+            logger.warning("WebSocket pubsub subscriber stop encountered error", exc_info=True)
         self._pubsub_task = None
         logger.info("WebSocket pubsub subscriber stopped")
 
@@ -271,9 +268,7 @@ class ConnectionManager:
         try:
             payload = json.loads(raw_data)
         except (json.JSONDecodeError, TypeError):
-            logger.warning(
-                "WebSocket pubsub received malformed payload: %r", raw_data[:200]
-            )
+            logger.warning("WebSocket pubsub received malformed payload: %r", raw_data[:200])
             return
         node_id = payload.get("node_id")
         # 回环保护: 本节点发布的消息已经本地投递过,跳过
@@ -314,19 +309,22 @@ def _normalize_websocket_token(token: str | None) -> str:
     return candidate.strip()
 
 
-async def _receive_auth_token(ws: WebSocket, timeout_seconds: float = 10.0) -> str:
+async def _receive_auth_token(ws: WebSocket, timeout_seconds: float | None = None) -> str:
     """接收客户端发送的认证 token。
 
     M8 修复：增加超时机制，防止攻击者建立连接后不发送认证消息占用资源。
 
     Args:
         ws: WebSocket 连接。
-        timeout_seconds: 认证超时时间（秒），默认 10 秒。
+        timeout_seconds: 认证超时时间（秒）；None 时读取配置
+            ``settings.websocket_auth_timeout_seconds``（默认 10 秒）。
 
     Raises:
         asyncio.TimeoutError: 认证超时。
         WebSocketDisconnect: 客户端断开连接。
     """
+    if timeout_seconds is None:
+        timeout_seconds = settings.websocket_auth_timeout_seconds
     try:
         raw = await asyncio.wait_for(ws.receive_text(), timeout=timeout_seconds)
         data = json.loads(raw)
@@ -353,7 +351,7 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
 
     try:
         # M8 修复：认证阶段增加 10 秒超时，防止 DoS 攻击
-        token = await _receive_auth_token(ws, timeout_seconds=10.0)
+        token = await _receive_auth_token(ws)  # OPT-R3：超时走 settings 配置
     except asyncio.TimeoutError:
         _inc_ws_auth_failure("timeout")
         await ws.close(code=4001, reason="认证超时")
@@ -389,13 +387,34 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
         await ws.close(code=4001, reason="WebSocket认证失败")
         return
 
-    async with AsyncSessionLocal() as db:
-        stmt = select(User).where(User.id == user_id)
-        user = (await db.execute(stmt)).scalar_one_or_none()
-        if user is None or user.status != "active":
-            _inc_ws_auth_failure("user_inactive")
-            await ws.close(code=4003, reason="用户不存在或已被禁用")
-            return
+    # OPT-A3（M-4 修复）：鉴权查库接入 db_breaker。原实现直接 AsyncSessionLocal()
+    # 查询，绕过 get_db 的熔断保护 —— DB 故障时每个新 WS 连接都会直连连接池等待，
+    # 加速雪崩；现在 OPEN 状态下快速失败（4503），与 HTTP 路径行为对齐。
+    from app.core.db_breaker import CircuitBreakerOpenError, db_breaker
+
+    try:
+        await db_breaker.before_request()  # OPEN 时抛 CircuitBreakerOpenError
+        try:
+            async with AsyncSessionLocal() as db:
+                stmt = select(User).where(User.id == user_id)
+                user = (await db.execute(stmt)).scalar_one_or_none()
+        except Exception as exc:
+            await db_breaker.on_failure(exc)
+            raise
+        await db_breaker.on_success()
+    except CircuitBreakerOpenError:
+        _inc_ws_auth_failure("db_breaker_open")
+        await ws.close(code=4503, reason="服务暂不可用，请稍后重试")
+        return
+    except Exception:
+        logger.exception("websocket.auth.db_error user_id=%s", user_id)
+        _inc_ws_auth_failure("db_error")
+        await ws.close(code=4503, reason="服务暂不可用，请稍后重试")
+        return
+    if user is None or user.status != "active":
+        _inc_ws_auth_failure("user_inactive")
+        await ws.close(code=4003, reason="用户不存在或已被禁用")
+        return
 
     if not await ws_manager.connect(user_id, ws):
         await ws.close(code=4009, reason="连接数已达上限，请稍后重试")
@@ -404,7 +423,11 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
     try:
         while True:
             try:
-                raw = await asyncio.wait_for(ws.receive_text(), timeout=300)
+                # OPT-R3（M-3 修复）：空闲超时由硬编码 300s 改为 settings 配置
+                raw = await asyncio.wait_for(
+                    ws.receive_text(),
+                    timeout=settings.websocket_idle_timeout_seconds,
+                )
             except asyncio.TimeoutError:
                 # P0-P2 修复：idle timeout 后必须从 ws_manager 移除连接，否则连接已关闭
                 # 但仍保留在 _connections 字典中，导致内存泄漏和 online_count 统计错误
@@ -434,11 +457,7 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
                         )
                     )
             except json.JSONDecodeError:
-                await ws.send_text(
-                    json.dumps(
-                        {"type": "error", "message": "消息格式错误"}, ensure_ascii=False
-                    )
-                )
+                await ws.send_text(json.dumps({"type": "error", "message": "消息格式错误"}, ensure_ascii=False))
     except WebSocketDisconnect:
         ws_manager.disconnect(user_id, ws)
     except Exception:
@@ -446,9 +465,7 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
         ws_manager.disconnect(user_id, ws)
 
 
-async def notify_warning(
-    user_id: int, warning_id: int, risk_level: str, trigger_reason: str
-) -> None:
+async def notify_warning(user_id: int, warning_id: int, risk_level: str, trigger_reason: str) -> None:
     await ws_manager.send_to_user(
         user_id,
         {
@@ -463,9 +480,7 @@ async def notify_warning(
     )
 
 
-async def notify_counselor(
-    counselor_id: int, user_id: int, warning_id: int, risk_level: str
-) -> None:
+async def notify_counselor(counselor_id: int, user_id: int, warning_id: int, risk_level: str) -> None:
     await ws_manager.send_to_user(
         counselor_id,
         {

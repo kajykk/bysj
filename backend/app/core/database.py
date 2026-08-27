@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import Settings, settings
+from app.core.db_breaker import db_breaker
 
 
 def _build_engine_kwargs(is_sqlite: bool, settings_obj: Settings) -> dict:
@@ -77,8 +78,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     # STAB-P0-001: 熔断器检查 (仅在启用时)
     if settings.db_circuit_breaker_enabled:
-        from app.core.db_breaker import db_breaker
-
         await db_breaker.before_request()  # OPEN 时抛 CircuitBreakerOpenError(503)
 
     # H-Core-1 修复：移除自动 commit，避免只读路由在 auto-flush 时提交非预期变更
@@ -90,8 +89,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.rollback()
             # STAB-P0-001: 连接级失败记录到熔断器 (业务异常不计入)
             if settings.db_circuit_breaker_enabled:
-                from app.core.db_breaker import db_breaker
-
                 # 业务异常不触发熔断器 (IntegrityError/ProgrammingError/DataError 等)
                 if not isinstance(exc, (IntegrityError, ProgrammingError)):
                     await db_breaker.on_failure(exc)
@@ -99,8 +96,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         else:
             # STAB-P0-001: 请求成功, 重置失败计数
             if settings.db_circuit_breaker_enabled:
-                from app.core.db_breaker import db_breaker
-
                 await db_breaker.on_success()
         finally:
             await session.close()

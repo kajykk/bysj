@@ -67,7 +67,10 @@ def _get_sklearn_version() -> str | None:
 
 
 # Backward-compatible module-level constants
-# NOTE: Lazy evaluation to avoid DLL init issues on Windows (e.g. sklearn)
+# OPT-P3-003: find_spec 仅做包发现、不触发导入，无 Windows DLL 风险（真正的 DLL
+# 风险在 sklearn 的实际 import，见 _get_sklearn_version 的延迟策略）。
+# 注意：backend/tests/test_pytorch_optional_dependency.py 直接消费这两个常量，
+# 属于受测试保护的对外契约，勿删。
 PYTORCH_AVAILABLE = _check_pytorch()
 TRANSFORMERS_AVAILABLE = _check_transformers()
 
@@ -190,6 +193,11 @@ class Settings(BaseSettings):
     # 默认 1000, 可通过环境变量 WEBSOCKET_MAX_GLOBAL_CONNECTIONS 覆盖.
     # 用于防止大量用户同时连接导致内存/文件描述符耗尽.
     websocket_max_global_connections: int = 1000
+    # OPT-R3（M-3 修复）：WS 认证与空闲超时由硬编码收敛为配置项，
+    # 环境间可调（如弱网客户端可放宽认证超时，长连接场景可调大空闲超时）
+    # 默认与原硬编码值一致：认证 10s / 空闲 300s
+    websocket_auth_timeout_seconds: float = 10.0
+    websocket_idle_timeout_seconds: float = 300.0
 
     @model_validator(mode="after")
     def apply_env_defaults(self) -> "Settings":
@@ -491,38 +499,13 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# 启动时检查：HS256 模式下 JWT 密钥为空或不安全，在生产环境下阻止启动；
-# RS256 模式下签名/验证走非对称密钥对（JWT_PRIVATE_KEY_PATH/JWT_PUBLIC_KEY_PATH），secret 不参与
-if (
-    settings.jwt_secret_key in _INSECURE_KEYS
-    and settings.app_env.lower() == "production"
-    and settings.jwt_algorithm.upper() != "RS256"
-):
-    # P1-E 修复：使用 logger.critical 替代 print()，便于生产环境统一日志收集
-    logger.critical(
-        "JWT_SECRET_KEY is missing or using a default/insecure value in production mode "
-        "(HS256 requires a shared secret; consider RS256 with JWT_PRIVATE_KEY_PATH). "
-        "The application cannot start without a secure JWT secret key. "
-        'Generate a strong key with: python -c "import secrets; print(secrets.token_urlsafe(32))" '
-        "and set it in your .env file.",
-    )
-    sys.exit(1)
-
-# 开发环境下仅发出警告（RS256 模式同样豁免）
-if (
-    settings.jwt_secret_key in _INSECURE_KEYS
-    and settings.app_env.lower() != "production"
-    and settings.jwt_algorithm.upper() != "RS256"
-):
-    warnings.warn(
-        "⚠️  安全警告: JWT_SECRET_KEY 使用默认值或不安全值!\n"
-        "   请立即生成安全密钥并更新 .env 文件:\n"
-        '   python -c "import secrets; print(secrets.token_urlsafe(32))"\n'
-        "   生产环境下使用不安全密钥将导致应用无法启动!\n"
-        "   (RS256 模式可豁免该检查，改用 JWT_PRIVATE_KEY_PATH/JWT_PUBLIC_KEY_PATH)",
-        UserWarning,
-        stacklevel=2,
-    )
+# OPT-P3-004：JWT 密钥安全校验唯一权威实现位于上方 Settings.apply_env_defaults
+# model_validator：
+# - 生产 + HS256 + 不安全密钥 → Settings() 构造即抛 ValueError，进程无法启动；
+# - 开发 + 不安全密钥 → validator 内已自动生成随机密钥并告警。
+# 因此此处原模块级的“生产 sys.exit(1)”与“开发 warnings.warn”两段检查均不可达
+# （前者被 validator 抢先拦截，后者比较的是已再生成的密钥），为消除双份维护漂移
+# 风险予以移除。修改密钥校验逻辑请仅改 model_validator。
 
 # P1-INFRA-003/004 修复：生产环境强制要求 PII 加密密钥、Webhook 和 Metrics 鉴权令牌
 if settings.app_env.lower() == "production":

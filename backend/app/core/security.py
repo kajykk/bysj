@@ -118,58 +118,54 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(truncated, bcrypt.gensalt()).decode("utf-8")
 
 
-def create_access_token(data: dict[str, Any]) -> str:
-    payload = data.copy()
-    payload["exp"] = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.access_token_expire_minutes
-    )
-    if "type" not in payload:
-        payload["type"] = "access"
-    payload["jti"] = uuid4().hex
-    # SEC-P3-001: 添加 iss/aud 声明 (如已配置)
-    if settings.jwt_issuer:
-        payload["iss"] = settings.jwt_issuer
-    if settings.jwt_audience:
-        payload["aud"] = settings.jwt_audience
-    # SEC-P2-001: 根据 jwt_algorithm 选择签名 key (HS256 对称 / RS256 非对称)
-    return jwt.encode(
-        payload, _get_signing_key(), algorithm=settings.jwt_algorithm
-    )
+def _build_token(
+    data: dict[str, Any],
+    expires_delta: timedelta,
+    token_type: str,
+    jti: str | None = None,
+) -> str:
+    """OPT-A4（L-3 修复）：token 构建公共路径。
 
-
-def create_refresh_token(data: dict[str, Any], jti: str | None = None) -> str:
+    access/refresh/password_reset 三类 token 仅默认 type、有效期与 jti 来源
+    不同，exp/jti/iss/aud 组装与签名逻辑完全一致，统一收敛避免三份漂移。
+    """
     payload = data.copy()
-    payload["exp"] = datetime.now(timezone.utc) + timedelta(
-        days=settings.refresh_token_expire_days
-    )
+    payload["exp"] = datetime.now(timezone.utc) + expires_delta
     if "type" not in payload:
-        payload["type"] = "refresh"
+        payload["type"] = token_type
     payload["jti"] = jti or uuid4().hex
     # SEC-P3-001: 添加 iss/aud 声明 (如已配置)
     if settings.jwt_issuer:
         payload["iss"] = settings.jwt_issuer
     if settings.jwt_audience:
         payload["aud"] = settings.jwt_audience
-    return jwt.encode(
-        payload, _get_signing_key(), algorithm=settings.jwt_algorithm
+    # SEC-P2-001: 根据 jwt_algorithm 选择签名 key (HS256 对称 / RS256 非对称)
+    return jwt.encode(payload, _get_signing_key(), algorithm=settings.jwt_algorithm)
+
+
+def create_access_token(data: dict[str, Any]) -> str:
+    return _build_token(
+        data,
+        timedelta(minutes=settings.access_token_expire_minutes),
+        token_type="access",
+    )
+
+
+def create_refresh_token(data: dict[str, Any], jti: str | None = None) -> str:
+    return _build_token(
+        data,
+        timedelta(days=settings.refresh_token_expire_days),
+        token_type="refresh",
+        jti=jti,
     )
 
 
 def create_password_reset_token(data: dict[str, Any]) -> str:
-    payload = data.copy()
-    payload["exp"] = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.password_reset_token_expire_minutes
-    )
-    payload["type"] = "password_reset"
-    # L-Core-1 修复：添加 jti（唯一 ID），支持后续基于 jti 单独吊销密码重置 token
-    payload["jti"] = uuid4().hex
-    # SEC-P3-001: 添加 iss/aud 声明 (如已配置)
-    if settings.jwt_issuer:
-        payload["iss"] = settings.jwt_issuer
-    if settings.jwt_audience:
-        payload["aud"] = settings.jwt_audience
-    return jwt.encode(
-        payload, _get_signing_key(), algorithm=settings.jwt_algorithm
+    # L-Core-1 修复：携带 jti（唯一 ID），支持后续基于 jti 单独吊销密码重置 token
+    return _build_token(
+        data,
+        timedelta(minutes=settings.password_reset_token_expire_minutes),
+        token_type="password_reset",
     )
 
 

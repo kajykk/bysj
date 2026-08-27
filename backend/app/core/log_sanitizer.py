@@ -43,6 +43,9 @@ import logging
 import re
 from typing import Any
 
+# OPT-P3-002：脱敏器自身故障需要可观测（原实现完全静默）
+logger = logging.getLogger(__name__)
+
 # SEC-P2-007: 敏感键模式 (与 celery_app._SENSITIVE_KEYS 对齐, 扩展常见变体)
 # 匹配 key=value / key: value 格式 (无引号)
 _SENSITIVE_KEY_PATTERN = re.compile(
@@ -77,14 +80,10 @@ _SENSITIVE_KEY_JSON_PATTERN = re.compile(
 )
 
 # Bearer Token (Authorization header) - 必须先于 key=value 处理
-_BEARER_PATTERN = re.compile(
-    r"(?i)\b(Bearer)\s+([A-Za-z0-9\-_\.=]+)", re.IGNORECASE
-)
+_BEARER_PATTERN = re.compile(r"(?i)\b(Bearer)\s+([A-Za-z0-9\-_\.=]+)", re.IGNORECASE)
 
 # JWT Token (三段式 base64.base64.signature)
-_JWT_PATTERN = re.compile(
-    r"eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+"
-)
+_JWT_PATTERN = re.compile(r"eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+")
 
 # Email (保留域名便于排查)
 _EMAIL_PATTERN = re.compile(r"\b([A-Za-z0-9._%+\-])([A-Za-z0-9._%+\-]+)@([A-Za-z0-9.\-]+\.[A-Za-z]{2,})\b")
@@ -97,14 +96,11 @@ _ID_CARD_PATTERN = re.compile(r"(?<!\d)(\d{6})(\d{8})(\d{3})([\dXx])(?!\d)")
 
 # 信用卡号 (16 位连续或 4-4-4-4 分组)
 _CARD_PATTERN = re.compile(
-    r"(?<!\d)(\d{4})(\d{4})(\d{4})(\d{4})(?!\d)|"
-    r"(?<!\d)(\d{4})[\s\-](\d{4})[\s\-](\d{4})[\s\-](\d{4})(?!\d)"
+    r"(?<!\d)(\d{4})(\d{4})(\d{4})(\d{4})(?!\d)|" r"(?<!\d)(\d{4})[\s\-](\d{4})[\s\-](\d{4})[\s\-](\d{4})(?!\d)"
 )
 
 # API Key 常见前缀 (OpenAI sk-/Stripe sk_/pk_/GitHub ghp_/gho_/ghu_/ghs_/ghr_)
-_APIKEY_PATTERN = re.compile(
-    r"\b(sk-[A-Za-z0-9]{20,}|pk_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,})"
-)
+_APIKEY_PATTERN = re.compile(r"\b(sk-[A-Za-z0-9]{20,}|pk_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,})")
 
 
 def sanitize_text(text: str) -> str:
@@ -128,34 +124,22 @@ def sanitize_text(text: str) -> str:
     result = _APIKEY_PATTERN.sub("***APIKEY_MASKED***", result)
 
     # 3. Bearer Token (Authorization: Bearer xxx, 先于 key=value)
-    result = _BEARER_PATTERN.sub(
-        lambda m: f"{m.group(1)} ***MASKED***", result
-    )
+    result = _BEARER_PATTERN.sub(lambda m: f"{m.group(1)} ***MASKED***", result)
 
     # 4. JSON 格式敏感键值对 ("key":"value")
-    result = _SENSITIVE_KEY_JSON_PATTERN.sub(
-        lambda m: f'"{m.group(1)}":"***MASKED***"', result
-    )
+    result = _SENSITIVE_KEY_JSON_PATTERN.sub(lambda m: f'"{m.group(1)}":"***MASKED***"', result)
 
     # 5. 普通敏感键值对 (key=value / key: value)
-    result = _SENSITIVE_KEY_PATTERN.sub(
-        lambda m: f"{m.group(1)}=***MASKED***", result
-    )
+    result = _SENSITIVE_KEY_PATTERN.sub(lambda m: f"{m.group(1)}=***MASKED***", result)
 
     # 6. Email (保留首位字符 + 域名, 便于排查)
-    result = _EMAIL_PATTERN.sub(
-        lambda m: f"{m.group(1)}***@{m.group(3)}", result
-    )
+    result = _EMAIL_PATTERN.sub(lambda m: f"{m.group(1)}***@{m.group(3)}", result)
 
     # 7. 手机号 (保留前 3 + 后 4)
-    result = _PHONE_PATTERN.sub(
-        lambda m: f"{m.group(1)}****{m.group(3)}", result
-    )
+    result = _PHONE_PATTERN.sub(lambda m: f"{m.group(1)}****{m.group(3)}", result)
 
     # 8. 身份证号 (保留前 6 + 后 4, 中间 8 位生日用 * 替换)
-    result = _ID_CARD_PATTERN.sub(
-        lambda m: f"{m.group(1)}********{m.group(3)}{m.group(4)}", result
-    )
+    result = _ID_CARD_PATTERN.sub(lambda m: f"{m.group(1)}********{m.group(3)}{m.group(4)}", result)
 
     # 9. 信用卡号 (保留前 6 + 后 4, 中间 6 位 * 替换)
     def _mask_card(m: re.Match) -> str:
@@ -210,27 +194,22 @@ class SanitizingFilter(logging.Filter):
                 exc_value = record.exc_info[1]
                 if exc_value and exc_value.args:
                     exc_value.args = tuple(
-                        sanitize_text(arg) if isinstance(arg, str) else arg
-                        for arg in exc_value.args
+                        sanitize_text(arg) if isinstance(arg, str) else arg for arg in exc_value.args
                     )
         except Exception:
             # 脱敏失败不应影响日志输出, 原样放行
-            pass
+            # OPT-P3-002：静默放行可能让未脱敏 PII 进入日志且无迹可查，
+            # 至少记录 debug 级别便于排查脱敏器自身缺陷
+            logger.debug("log sanitizer failed; record passed through unsanitized", exc_info=True)
 
         return True
 
     def _sanitize_args(self, args: Any) -> Any:
         """脱敏 record.args (可能是 tuple/dict/单值)."""
         if isinstance(args, dict):
-            return {
-                k: (sanitize_text(v) if isinstance(v, str) else v)
-                for k, v in args.items()
-            }
+            return {k: (sanitize_text(v) if isinstance(v, str) else v) for k, v in args.items()}
         if isinstance(args, (tuple, list)):
-            sanitized = [
-                sanitize_text(arg) if isinstance(arg, str) else arg
-                for arg in args
-            ]
+            sanitized = [sanitize_text(arg) if isinstance(arg, str) else arg for arg in args]
             return tuple(sanitized) if isinstance(args, tuple) else sanitized
         if isinstance(args, str):
             return sanitize_text(args)

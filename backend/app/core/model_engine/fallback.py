@@ -30,6 +30,30 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# 标定依据：现有回退预测测试与风险等级校准样本（保持历史输出不变）。
+_FALLBACK_WEIGHTS = {
+    "stress": 5.0,
+    "sleep_deficit": 2.5,
+    "social_support_deficit": 2.5,
+    "financial_pressure": 2.5,
+    "family_history": 10.0,
+    "academic_pressure": 3.0,
+    "exercise_deficit": 2.0,
+    "anxiety": 4.0,
+    "panic_attack": 15.0,
+    "treatment_seeking": 8.0,
+    "cgpa_protective": 1.5,
+    "age_protective": 0.3,
+}
+
+_PHYSIOLOGICAL_WEIGHTS = {
+    "sleep": 0.25,
+    "heart_rate": 0.20,
+    "blood_pressure": 0.20,
+    "exercise": 0.20,
+    "steps": 0.15,
+}
+
 
 class FallbackMixin:
     """启发式回退策略方法集合.
@@ -61,21 +85,21 @@ class FallbackMixin:
         # 风险因子加权（正向 = 增加风险）
         # 权重已校准：健康样本 ~8分，中等风险 ~54分，高风险/极高风险 ~100分
         risk_factors = (
-            stress_level * 5.0  # 压力水平 (0-5) -> 0-25
-            + max(0, 8 - sleep_duration) * 2.5  # 睡眠不足 (2-10h) -> 0-15
-            + (5 - social_support) * 2.5  # 社会支持低 (0-5) -> 0-12.5
-            + financial_pressure * 2.5  # 经济压力 (0-5) -> 0-12.5
-            + family_history * 10.0  # 家族史 (0/1) -> 0/10
-            + academic_pressure * 3.0  # 学业压力 (0-5) -> 0-15
-            + (3 - exercise_frequency) * 2.0  # 运动少 (0-3) -> 0-6
-            + anxiety * 4.0  # 焦虑 (0-5) -> 0-20
-            + panic_attack * 15.0  # 恐慌发作 (0/1) -> 0/15
-            + treatment_seeking * 8.0  # 求助意愿 (0/1) -> 0/8
+            stress_level * _FALLBACK_WEIGHTS["stress"]
+            + max(0, 8 - sleep_duration) * _FALLBACK_WEIGHTS["sleep_deficit"]
+            + (5 - social_support) * _FALLBACK_WEIGHTS["social_support_deficit"]
+            + financial_pressure * _FALLBACK_WEIGHTS["financial_pressure"]
+            + family_history * _FALLBACK_WEIGHTS["family_history"]
+            + academic_pressure * _FALLBACK_WEIGHTS["academic_pressure"]
+            + (3 - exercise_frequency) * _FALLBACK_WEIGHTS["exercise_deficit"]
+            + anxiety * _FALLBACK_WEIGHTS["anxiety"]
+            + panic_attack * _FALLBACK_WEIGHTS["panic_attack"]
+            + treatment_seeking * _FALLBACK_WEIGHTS["treatment_seeking"]
         )
 
         # 保护因子（负向 = 降低风险）
         protective_factors = (
-            cgpa * 1.5 + (age - 18) * 0.3  # GPA 高 (0-4) -> 0-6  # 年龄成熟 (18+) -> 0+
+            cgpa * _FALLBACK_WEIGHTS["cgpa_protective"] + (age - 18) * _FALLBACK_WEIGHTS["age_protective"]
         )
 
         # 基础风险分数
@@ -170,7 +194,13 @@ class FallbackMixin:
         steps_deficit = max(0, 1 - steps / 8000)
         steps_score = max(0, min(100, steps_deficit * 15))
 
-        total_risk = sleep_score * 0.25 + hr_score * 0.20 + bp_score * 0.20 + exercise_score * 0.20 + steps_score * 0.15
+        total_risk = (
+            sleep_score * _PHYSIOLOGICAL_WEIGHTS["sleep"]
+            + hr_score * _PHYSIOLOGICAL_WEIGHTS["heart_rate"]
+            + bp_score * _PHYSIOLOGICAL_WEIGHTS["blood_pressure"]
+            + exercise_score * _PHYSIOLOGICAL_WEIGHTS["exercise"]
+            + steps_score * _PHYSIOLOGICAL_WEIGHTS["steps"]
+        )
 
         heuristic_result = round(total_risk, 2)
         logger.info(

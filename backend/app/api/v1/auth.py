@@ -1,12 +1,9 @@
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
-from jwt import PyJWTError
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -16,20 +13,24 @@ from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.pii_crypto import mask_pii
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
-from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.models.admin import OperationLog
-from app.models.auth import RefreshTokenSession
 from app.models.user import User
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
+    LoginResponse,
+    LogoutResponse,
+    MessageResponse,
+    ProfileResponse,
     RefreshTokenRequest,
     RegisterRequest,
+    RegisterResponse,
     RequestPasswordResetRequest,
     ResetPasswordRequest,
+    TokenResponse,
     UpdateProfileRequest,
 )
-from app.schemas.common import ErrorResponse
+from app.schemas.common import ApiResponse, ErrorResponse
 from app.services.auth_service import AuthService
 
 logger = logging.getLogger(__name__)
@@ -39,12 +40,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # E2E 修复: 生产环境保持 5/min 防暴力破解, 开发/测试环境放宽到 60/min,
 # 避免共享 IP 的 E2E 套件 (~30 次登录) 触发 429 导致随机失败
 _AUTH_LIMIT = "5/minute" if settings.app_env.lower() == "production" else "60/minute"
-
-
-def _to_utc_naive(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return dt
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 # ── SEC-002/003 修复：Refresh Token httpOnly Cookie 工具函数 ──
@@ -124,6 +119,7 @@ def _log_auth_operation(
 
 @router.post(
     "/register",
+    response_model=ApiResponse[RegisterResponse],
     responses={
         400: {
             "description": "用户名或邮箱已存在",
@@ -132,9 +128,7 @@ def _log_auth_operation(
     },
 )
 @limiter.limit(_AUTH_LIMIT)
-async def register(
-    request: Request, payload: RegisterRequest, db: AsyncSession = Depends(get_db)
-) -> dict:
+async def register(request: Request, payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> dict:
     service = AuthService(db)
     try:
         data = await service.register(payload)
@@ -145,7 +139,7 @@ async def register(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/login", responses=COMMON_ERROR_RESPONSES)
+@router.post("/login", response_model=ApiResponse[LoginResponse], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit(_AUTH_LIMIT)
 async def login(
     request: Request,
@@ -202,7 +196,7 @@ async def login(
         raise HTTPException(status_code=401, detail="用户名或密码错误") from exc
 
 
-@router.post("/refresh", responses=COMMON_ERROR_RESPONSES)
+@router.post("/refresh", response_model=ApiResponse[TokenResponse], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("30/minute")
 async def refresh_token(
     request: Request,
@@ -211,7 +205,6 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     # SEC-002/003 修复：阶段1 双轨模式 - 优先从 Cookie 读取，回退到 body
-    refresh_token_value: str | None = None
     if payload and payload.refresh_token:
         refresh_token_value = payload.refresh_token
     else:
@@ -220,91 +213,22 @@ async def refresh_token(
     if not refresh_token_value:
         raise HTTPException(status_code=401, detail="未提供Refresh Token")
 
+    # OPT-R4：核心校验与原子轮换逻辑下沉到 AuthService.refresh（与
+    # register/login/change_password 的分层方式一致），API 层只负责
+    # Cookie 双轨读写与错误映射，401 契约消息保持不变。
+    service = AuthService(db)
     try:
-        token_data = decode_token(refresh_token_value)
-        sub = token_data.get("sub")
-        user_id = int(sub) if sub is not None else None
-    except (PyJWTError, ValueError, TypeError) as exc:
-        raise HTTPException(
-            status_code=401, detail="无效或已过期的Refresh Token"
-        ) from exc
-
-    if token_data.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="无效的Refresh Token类型")
-    jti = token_data.get("jti")
-    if user_id is None or not jti:
-        raise HTTPException(status_code=401, detail="Refresh Token缺少必要信息")
-
-    user = await db.get(User, user_id)
-    if not user or user.status != "active":
-        raise HTTPException(status_code=401, detail="用户不存在或已被禁用")
-
-    stmt = select(RefreshTokenSession).where(RefreshTokenSession.jti == jti)
-    token_session = (await db.execute(stmt)).scalar_one_or_none()
-    if token_session is None or token_session.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Refresh Token未登记或已失效")
-    if token_session.revoked_at is not None:
-        raise HTTPException(status_code=401, detail="Refresh Token已被撤销")
-    now_utc = datetime.now(timezone.utc)
-    now_naive = _to_utc_naive(now_utc)
-    expires_at_naive = _to_utc_naive(token_session.expires_at)
-    if expires_at_naive <= now_naive:
-        raise HTTPException(status_code=401, detail="Refresh Token已过期")
-
-    new_jti = uuid4().hex
-    # C-06 修复：使用原子 UPDATE 防止 TOCTOU 竞态导致的 Refresh Token 重放攻击
-    # 仅当 revoked_at IS NULL 时才更新，根据 rowcount 判断是否成功
-    revoke_result = await db.execute(
-        update(RefreshTokenSession)
-        .where(
-            RefreshTokenSession.jti == jti,
-            RefreshTokenSession.revoked_at.is_(None),
-        )
-        .values(revoked_at=now_naive, replaced_by_jti=new_jti)
-    )
-    if revoke_result.rowcount == 0:
-        # H-03 修复：token 不存在或已被撤销（可能被并发请求抢先使用）。
-        # 提供更明确的错误信息，提示用户 token 已被使用，需重新登录。
-        # 此为预期行为：原子 UPDATE 保证同一 refresh token 仅能被消费一次，
-        # 并发场景下仅一个请求成功，其余请求会落到此分支。
-        raise HTTPException(
-            status_code=401,
-            detail="登录凭证已被使用或失效，请重新登录",
-        )
-
-    # SEC-FIX (死代码清理): 原此处重新查询 token_session, 但查询结果从未被
-    # 使用 (expires_at 由 settings 计算, 新 session 为全新对象), 已删除。
-    # 若将来需要旧 session 信息, 可使用 UPDATE ... RETURNING 或保留上方
-    # 第 243 行的 token_session 引用。
-
-    expires_at = now_naive + timedelta(days=settings.refresh_token_expire_days)
-    db.add(
-        RefreshTokenSession(
-            user_id=user.id,
-            jti=new_jti,
-            expires_at=expires_at,
-        )
-    )
-
-    new_access = create_access_token({"sub": str(user.id), "role": user.role})
-    new_refresh = create_refresh_token(
-        {"sub": str(user.id), "role": user.role}, jti=new_jti
-    )
-    await db.commit()
+        tokens = await service.refresh(refresh_token_value)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
     # SEC-002/003 修复：阶段1 双轨模式 - 同时更新 Cookie
-    _set_refresh_cookie(response, new_refresh)
+    _set_refresh_cookie(response, tokens["refresh_token"])
 
-    return ok(
-        {
-            "access_token": new_access,
-            "refresh_token": new_refresh,
-            "token_type": "bearer",
-        }
-    )
+    return ok(tokens)
 
 
-@router.put("/change-password", responses=COMMON_ERROR_RESPONSES)
+@router.put("/change-password", response_model=ApiResponse[MessageResponse], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def change_password(
     request: Request,
@@ -331,7 +255,7 @@ async def change_password(
     return ok({"message": "密码修改成功"})
 
 
-@router.post("/request-reset", responses=COMMON_ERROR_RESPONSES)
+@router.post("/request-reset", response_model=ApiResponse[MessageResponse], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("3/minute")
 async def request_password_reset(
     request: Request,
@@ -346,11 +270,9 @@ async def request_password_reset(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/reset-password", responses=COMMON_ERROR_RESPONSES)
+@router.post("/reset-password", response_model=ApiResponse[MessageResponse], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("3/minute")
-async def reset_password(
-    request: Request, payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
-) -> dict:
+async def reset_password(request: Request, payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)) -> dict:
     service = AuthService(db)
     try:
         await service.reset_password(payload)
@@ -362,7 +284,7 @@ async def reset_password(
     return ok({"message": "密码重置成功"})
 
 
-@router.post("/logout", responses=COMMON_ERROR_RESPONSES)
+@router.post("/logout", response_model=ApiResponse[LogoutResponse], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("30/minute")
 async def logout(
     request: Request,
@@ -402,7 +324,7 @@ async def logout(
     return ok({"message": "登出成功", **result})
 
 
-@router.put("/profile", responses=COMMON_ERROR_RESPONSES)
+@router.put("/profile", response_model=ApiResponse[ProfileResponse], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def update_profile(
     payload: UpdateProfileRequest,
