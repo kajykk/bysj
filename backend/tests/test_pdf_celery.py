@@ -372,3 +372,84 @@ class TestGeneratePdfReportTask:
 
             job = get_job_from_redis("j4")
             assert job["status"] == "failed"
+
+
+class TestListJobsFromRedis:
+    """OPT-T4-P1: list_jobs_from_redis 任务列表统一（Celery 后端可见性）."""
+
+    @staticmethod
+    def _make_store_redis(store: dict, index: set):
+        """dict 支撑的最小 Redis 桩（覆盖 list 路径所需的 get/set/sadd/smembers）。"""
+        r = MagicMock()
+        r.get = MagicMock(side_effect=lambda k: store.get(k))
+        r.set = MagicMock(side_effect=lambda k, v: store.__setitem__(k, v))
+        r.sadd = MagicMock(
+            side_effect=lambda key, jid: index.add(
+                jid if isinstance(jid, bytes) else str(jid).encode("utf-8")
+            )
+        )
+        r.smembers = MagicMock(side_effect=lambda key: set(index))
+        return r
+
+    def test_lists_normalized_with_backend_marker(self, reset_sync_redis):
+        from app.tasks import pdf_report as pt
+
+        store: dict = {}
+        index: set = set()
+        r = self._make_store_redis(store, index)
+        job_id = "job-list-1"
+
+        with patch.object(pt, "_get_sync_redis", return_value=r):
+            pt.save_job_to_redis(job_id, pt.create_initial_job(job_id, "alice", 7))
+            items = pt.list_jobs_from_redis(created_by=7)
+
+        assert len(items) == 1
+        item = items[0]
+        assert item["id"] == job_id
+        assert item["job_id"] == job_id
+        assert item["backend"] == "celery"
+        assert item["status"] == "queued"
+        assert item["user_name"] == "alice"
+        # created_at 由 epoch 规范化为可解析的 ISO 字符串
+        from datetime import datetime
+
+        parsed = datetime.fromisoformat(item["created_at"])
+        assert parsed.tzinfo is not None
+
+    def test_filters_by_creator(self, reset_sync_redis):
+        from app.tasks import pdf_report as pt
+
+        store: dict = {}
+        index: set = set()
+        r = self._make_store_redis(store, index)
+
+        with patch.object(pt, "_get_sync_redis", return_value=r):
+            for jid, user, uid in (("j-a", "alice", 7), ("j-b", "bob", 8)):
+                pt.save_job_to_redis(jid, pt.create_initial_job(jid, user, uid))
+
+            mine = pt.list_jobs_from_redis(created_by=7)
+            everyone = pt.list_jobs_from_redis(created_by=None)
+
+        assert {i["job_id"] for i in mine} == {"j-a"}
+        assert len(everyone) == 2
+
+    def test_redis_unavailable_returns_empty_list(self, reset_sync_redis):
+        from app.tasks import pdf_report as pt
+
+        broken = MagicMock()
+        broken.smembers = MagicMock(side_effect=ConnectionError("redis down"))
+        with patch.object(pt, "_get_sync_redis", return_value=broken):
+            assert pt.list_jobs_from_redis(created_by=1) == []
+
+    def test_skips_index_ids_without_record(self, reset_sync_redis):
+        """索引集合存在但任务 JSON 已过期/丢失时应跳过而非报错。"""
+        from app.tasks import pdf_report as pt
+
+        store: dict = {}
+        index: set = {"ghost-id".encode("utf-8")}
+        r = self._make_store_redis(store, index)
+
+        with patch.object(pt, "_get_sync_redis", return_value=r):
+            items = pt.list_jobs_from_redis(created_by=None)
+
+        assert items == []

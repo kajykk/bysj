@@ -469,7 +469,9 @@ class TestSourceStructure:
 
         from app.api.v1 import reports
 
-        src = inspect.getsource(reports.batch_export_excel)
+        # OPT-R5 重构后审计写入收敛到模块级 _record_excel_export_audit，
+        # 改为检查 reports 模块整体源码（行为由 test_batch_export_writes_audit_log 覆盖）
+        src = inspect.getsource(reports)
         assert "OperationLog" in src
         assert "admin.report.batch_export_excel" in src
         assert "await db.commit()" in src
