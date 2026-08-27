@@ -1,0 +1,73 @@
+{
+  "historical_recent": {
+    "error_rate": 0.0,
+    "fallback_rate": 0.07692307692307693,
+    "recent_flush_count": 6,
+    "total": 39,
+    "total_acquired": 21,
+    "total_errors": 0,
+    "total_fallback": 3,
+    "total_skipped": 15
+  },
+  "last_flush_at": null,
+  "memory": {
+    "acquire_rate": 0.0,
+    "acquired": 0,
+    "error_rate": 0.0,
+    "errors": 0,
+    "fallback": 0,
+    "fallback_rate": 0.0,
+    "skipped": 0,
+    "total": 0
+  },
+  "recent_flushes": [
+    {
+      "acquired": 6,
+      "created_at": "2026-06-01T05:00:00",
+      "errors": 0,
+      "fallback": 1,
+      "instance_id": "inst-1",
+      "skipped": 5
+    },
+    {
+      "acquired": 5,
+      "created_at": "2026-06-01T04:00:00",
+      "errors": 0,
+      "fallback": 0,
+      "instance_id": "inst-1",
+      "skipped": 4
+    },
+    {
+      "acquired": 4,
+      "created_at": "2026-06-01T03:00:00",
+      "errors": 0,
+      "fallback": 1,
+      "instance_id": "inst-1",
+      "skipped": 3
+    },
+    {
+      "acquired": 3,
+      "created_at": "2026-06-01T02:00:00",
+      "errors": 0,
+      "fallback": 0,
+      "instance_id": "inst-1",
+      "skipped": 2
+    },
+    {
+      "acquired": 2,
+      "created_at": "2026-06-01T01:00:00",
+      "errors": 0,
+      "fallback": 1,
+      "instance_id": "inst-1",
+      "skipped": 1
+    },
+    {
+      "acquired": 1,
+      "created_at": "2026-06-01T00:00:00",
+      "errors": 0,
+      "fallback": 0,
+      "instance_id": "inst-1",
+      "skipped": 0
+    }
+  ]
+}

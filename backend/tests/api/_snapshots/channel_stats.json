@@ -1,0 +1,24 @@
+{
+  "channels": {
+    "email": {
+      "avg_duration_ms": 100,
+      "failed": 1,
+      "max_duration_ms": 190,
+      "sent": 9,
+      "success_rate": 0.9,
+      "total": 10
+    },
+    "webhook": {
+      "avg_duration_ms": 90,
+      "failed": 2,
+      "max_duration_ms": 180,
+      "sent": 8,
+      "success_rate": 0.8,
+      "total": 10
+    }
+  },
+  "overall_success_rate": 0.85,
+  "total": 20,
+  "total_failed": 3,
+  "total_sent": 17
+}

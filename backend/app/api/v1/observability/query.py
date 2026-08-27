@@ -51,11 +51,7 @@ def _bucket_key(ts: datetime, bucket: str) -> str:
         ts = ts.replace(tzinfo=timezone.utc)
     epoch = int(ts.timestamp())
     bucket_epoch = epoch - (epoch % secs)
-    return (
-        datetime.fromtimestamp(bucket_epoch, tz=timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.fromtimestamp(bucket_epoch, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _ensure_aware(dt: datetime | None) -> datetime | None:
@@ -69,6 +65,103 @@ def _ensure_aware(dt: datetime | None) -> datetime | None:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+def _trend_conditions(
+    start_time: datetime,
+    end_time: datetime,
+    severity: str | None,
+    status: str | None,
+    sev_expr: Any,
+) -> list[Any]:
+    """T2.2 参数解析：构建趋势查询基础过滤条件."""
+    conditions = [
+        OperationLog.action_type.in_(_ALERT_ACTIONS),
+        OperationLog.target_type == "alert",
+        OperationLog.created_at >= start_time,
+        OperationLog.created_at <= end_time,
+    ]
+    if severity:
+        conditions.append(sev_expr == severity)
+    if status:
+        if status == "firing":
+            conditions.append(OperationLog.action_type == "alert_fired")
+        else:
+            conditions.append(OperationLog.action_type == "alert_resolved")
+    return conditions
+
+
+async def _fetch_trend_aggregates(
+    db: AsyncSession,
+    conditions: list[Any],
+    sev_expr: Any,
+    rule_expr: Any,
+) -> tuple[Counter[str], Counter[str], Counter[str], int]:
+    """T2.2 数据获取+聚合：全量维度聚合 (by_severity / by_status / by_rule / total)."""
+    agg_stmt = (
+        select(
+            OperationLog.action_type,
+            sev_expr.label("severity"),
+            rule_expr.label("rule"),
+            func.count().label("cnt"),
+        )
+        .where(and_(*conditions))
+        .group_by(OperationLog.action_type, sev_expr, rule_expr)
+    )
+    agg_rows = (await db.execute(agg_stmt)).all()
+
+    by_severity: Counter[str] = Counter()
+    by_status: Counter[str] = Counter()
+    by_rule: Counter[str] = Counter()
+    total = 0
+    for action_type, sev, rule, cnt in agg_rows:
+        st = "firing" if action_type == "alert_fired" else "resolved"
+        sev_norm = _norm_json_value(sev)
+        rule_norm = _norm_json_value(rule)
+        by_severity[sev_norm] += cnt
+        by_status[st] += cnt
+        by_rule[rule_norm] += cnt
+        total += cnt
+    return by_severity, by_status, by_rule, total
+
+
+async def _fetch_trend_buckets(
+    db: AsyncSession,
+    conditions: list[Any],
+    bucket_expr: Any,
+    sev_expr: Any,
+) -> dict[str, dict[str, Any]]:
+    """T2.2 数据获取+聚合：时间桶聚合 (GROUP BY bucket/action_type/severity)."""
+    bucket_stmt = (
+        select(
+            bucket_expr.label("bucket"),
+            OperationLog.action_type,
+            sev_expr.label("severity"),
+            func.count().label("cnt"),
+        )
+        .where(and_(*conditions))
+        .group_by(bucket_expr, OperationLog.action_type, sev_expr)
+        .order_by(bucket_expr)
+    )
+    bucket_rows = (await db.execute(bucket_stmt)).all()
+
+    buckets: dict[str, dict[str, Any]] = {}
+    for bk, action_type, sev, cnt in bucket_rows:
+        # bk 可能为 datetime (PG) 或 string (SQLite datetime() 返回 TEXT)
+        if isinstance(bk, str):
+            bk = datetime.fromisoformat(bk)
+        bk_aware = _ensure_aware(bk)
+        bk_str = bk_aware.isoformat().replace("+00:00", "Z")
+        st = "firing" if action_type == "alert_fired" else "resolved"
+        sev_norm = _norm_json_value(sev)
+        slot = buckets.setdefault(
+            bk_str,
+            {"timestamp": bk_str, "count": 0, "by_severity": {}, "by_status": {}},
+        )
+        slot["count"] += cnt
+        slot["by_severity"][sev_norm] = slot["by_severity"].get(sev_norm, 0) + cnt
+        slot["by_status"][st] = slot["by_status"].get(st, 0) + cnt
+    return buckets
 
 
 async def _compute_trend(
@@ -100,79 +193,13 @@ async def _compute_trend(
     bucket_expr = _BucketExpr(OperationLog.created_at, bucket_secs)
 
     # 基础条件 (action_type + target_type + 时间范围)
-    conditions = [
-        OperationLog.action_type.in_(_ALERT_ACTIONS),
-        OperationLog.target_type == "alert",
-        OperationLog.created_at >= start_time,
-        OperationLog.created_at <= end_time,
-    ]
-    # severity/status 后置过滤下推到 SQL WHERE
-    if severity:
-        conditions.append(sev_expr == severity)
-    if status:
-        if status == "firing":
-            conditions.append(OperationLog.action_type == "alert_fired")
-        else:
-            conditions.append(OperationLog.action_type == "alert_resolved")
+    conditions = _trend_conditions(start_time, end_time, severity, status, sev_expr)
 
     # 查询 1: 全量维度聚合 (by_severity / by_status / by_rule / total)
-    # GROUP BY (action_type, severity, rule) → 返回 ~10-50 行
-    agg_stmt = (
-        select(
-            OperationLog.action_type,
-            sev_expr.label("severity"),
-            rule_expr.label("rule"),
-            func.count().label("cnt"),
-        )
-        .where(and_(*conditions))
-        .group_by(OperationLog.action_type, sev_expr, rule_expr)
-    )
-    agg_rows = (await db.execute(agg_stmt)).all()
-
-    by_severity: Counter[str] = Counter()
-    by_status: Counter[str] = Counter()
-    by_rule: Counter[str] = Counter()
-    total = 0
-    for action_type, sev, rule, cnt in agg_rows:
-        st = "firing" if action_type == "alert_fired" else "resolved"
-        sev_norm = _norm_json_value(sev)
-        rule_norm = _norm_json_value(rule)
-        by_severity[sev_norm] += cnt
-        by_status[st] += cnt
-        by_rule[rule_norm] += cnt
-        total += cnt
+    by_severity, by_status, by_rule, total = await _fetch_trend_aggregates(db, conditions, sev_expr, rule_expr)
 
     # 查询 2: 时间桶聚合
-    # GROUP BY (bucket, action_type, severity) → 返回 ~N_buckets × 2 × 5 行
-    bucket_stmt = (
-        select(
-            bucket_expr.label("bucket"),
-            OperationLog.action_type,
-            sev_expr.label("severity"),
-            func.count().label("cnt"),
-        )
-        .where(and_(*conditions))
-        .group_by(bucket_expr, OperationLog.action_type, sev_expr)
-        .order_by(bucket_expr)
-    )
-    bucket_rows = (await db.execute(bucket_stmt)).all()
-
-    buckets: dict[str, dict[str, Any]] = {}
-    for bk, action_type, sev, cnt in bucket_rows:
-        # bk 可能为 datetime (PG) 或 string (SQLite datetime() 返回 TEXT)
-        if isinstance(bk, str):
-            bk = datetime.fromisoformat(bk)
-        bk_aware = _ensure_aware(bk)
-        bk_str = bk_aware.isoformat().replace("+00:00", "Z")
-        st = "firing" if action_type == "alert_fired" else "resolved"
-        sev_norm = _norm_json_value(sev)
-        slot = buckets.setdefault(
-            bk_str,
-            {"timestamp": bk_str, "count": 0, "by_severity": {}, "by_status": {}},
-        )
-        slot["count"] += cnt
-        slot["by_severity"][sev_norm] = slot["by_severity"].get(sev_norm, 0) + cnt
-        slot["by_status"][st] = slot["by_status"].get(st, 0) + cnt
+    buckets = await _fetch_trend_buckets(db, conditions, bucket_expr, sev_expr)
 
     # M-API-16 修复: truncated 判断改用 COUNT(*)，避免依赖 LIMIT 截断后的行数
     count_stmt = select(func.count()).select_from(OperationLog).where(and_(*conditions))
@@ -212,47 +239,13 @@ def _percentile(sorted_values: list[float], p: float) -> float:
     return sorted_values[lower] * (1 - frac) + sorted_values[upper] * frac
 
 
-async def _compute_response_time(
+async def _fetch_fired_rows(
     db: AsyncSession,
-    start_time: datetime | None,
-    end_time: datetime | None,
-    severity: str | None,
-) -> dict[str, Any]:
-    """v1.36 T2.3: 计算告警响应时长 (fired -> acknowledged).
-
-    实现:
-    1. 拉取 alert_fired (fingerprint, created_at, severity) via SQL json_extract
-    2. 拉取 alert_acknowledged 聚合: GROUP BY fingerprint, MIN(created_at)
-    3. Python 字典匹配: 按 fingerprint 计算 fired_at -> ack_at 差值
-    4. 统计: count_fired / count_acked / count_pending
-       mean / p50 / p95 / p99 (单位: 秒)
-
-    数据源: OperationLog WHERE action_type IN ('alert_fired', 'alert_acknowledged')
-
-    PERF-P1-001: SQL json_extract + GROUP BY 下推 — fired 拉取从 (created_at, detail Text)
-    改为 (created_at, fingerprint, severity) 3 小字段；acked 从全量拉取改为
-    GROUP BY fingerprint + MIN(created_at)，返回行数从 5000 降至几十/几百。
-    """
-    start_time, end_time = _naive_utc(start_time), _naive_utc(end_time)
-    fp_expr = _JsonExtract(OperationLog.detail, "fingerprint")
-    sev_expr = _JsonExtract(OperationLog.detail, "severity")
-
-    conditions_fired = [
-        OperationLog.action_type == "alert_fired",
-        OperationLog.target_type == "alert",
-        OperationLog.created_at >= start_time,
-        OperationLog.created_at <= end_time,
-    ]
-    conditions_acked = [
-        OperationLog.action_type == "alert_acknowledged",
-        OperationLog.target_type == "alert",
-        OperationLog.created_at >= start_time,
-        OperationLog.created_at <= end_time,
-    ]
-    if severity:
-        conditions_fired.append(sev_expr == severity)
-
-    # 查询 1: fired — 仅拉 (created_at, fingerprint, severity) 3 列，避免 detail Text 全文
+    conditions_fired: list[Any],
+    fp_expr: Any,
+    sev_expr: Any,
+) -> list[Any]:
+    """T2.3 数据获取：fired 仅拉 (created_at, fingerprint, severity) 3 列."""
     fired_stmt = (
         select(
             OperationLog.created_at,
@@ -263,9 +256,15 @@ async def _compute_response_time(
         .order_by(desc(OperationLog.created_at))
         .limit(DEFAULT_LIMIT)
     )
-    fired_rows = (await db.execute(fired_stmt)).all()
+    return (await db.execute(fired_stmt)).all()
 
-    # 查询 2: acked — GROUP BY fingerprint + MIN(created_at)，返回几十/几百行
+
+async def _fetch_acked_map(
+    db: AsyncSession,
+    conditions_acked: list[Any],
+    fp_expr: Any,
+) -> dict[str, datetime]:
+    """T2.3 数据获取：acked GROUP BY fingerprint + MIN(created_at)."""
     acked_stmt = (
         select(
             fp_expr.label("fingerprint"),
@@ -275,9 +274,14 @@ async def _compute_response_time(
         .group_by(fp_expr)
     )
     acked_rows = (await db.execute(acked_stmt)).all()
-    acked_map: dict[str, datetime] = {fp: ack_at for fp, ack_at in acked_rows if fp}
+    return {fp: ack_at for fp, ack_at in acked_rows if fp}
 
-    # Python 字典匹配 + 计算响应时长
+
+def _build_response_time_stats(
+    fired_rows: list[Any],
+    acked_map: dict[str, datetime],
+) -> dict[str, Any]:
+    """T2.3 聚合计算：fired/acked 匹配 + mean/p50/p95/p99 分位."""
     response_times: list[float] = []  # 秒
     by_severity: dict[str, list[float]] = {}
     count_acked = 0
@@ -327,15 +331,172 @@ async def _compute_response_time(
             }
             for sev, times in sorted(by_severity.items())
         },
-        "ack_rate": (
-            count_acked / (count_acked + count_pending)
-            if (count_acked + count_pending) > 0
-            else 0.0
-        ),
+        "ack_rate": (count_acked / (count_acked + count_pending) if (count_acked + count_pending) > 0 else 0.0),
     }
 
 
+async def _compute_response_time(
+    db: AsyncSession,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    severity: str | None,
+) -> dict[str, Any]:
+    """v1.36 T2.3: 计算告警响应时长 (fired -> acknowledged).
+
+    实现:
+    1. 拉取 alert_fired (fingerprint, created_at, severity) via SQL json_extract
+    2. 拉取 alert_acknowledged 聚合: GROUP BY fingerprint, MIN(created_at)
+    3. Python 字典匹配: 按 fingerprint 计算 fired_at -> ack_at 差值
+    4. 统计: count_fired / count_acked / count_pending
+       mean / p50 / p95 / p99 (单位: 秒)
+
+    数据源: OperationLog WHERE action_type IN ('alert_fired', 'alert_acknowledged')
+
+    PERF-P1-001: SQL json_extract + GROUP BY 下推 — fired 拉取从 (created_at, detail Text)
+    改为 (created_at, fingerprint, severity) 3 小字段；acked 从全量拉取改为
+    GROUP BY fingerprint + MIN(created_at)，返回行数从 5000 降至几十/几百。
+    """
+    start_time, end_time = _naive_utc(start_time), _naive_utc(end_time)
+    fp_expr = _JsonExtract(OperationLog.detail, "fingerprint")
+    sev_expr = _JsonExtract(OperationLog.detail, "severity")
+
+    conditions_fired = [
+        OperationLog.action_type == "alert_fired",
+        OperationLog.target_type == "alert",
+        OperationLog.created_at >= start_time,
+        OperationLog.created_at <= end_time,
+    ]
+    conditions_acked = [
+        OperationLog.action_type == "alert_acknowledged",
+        OperationLog.target_type == "alert",
+        OperationLog.created_at >= start_time,
+        OperationLog.created_at <= end_time,
+    ]
+    if severity:
+        conditions_fired.append(sev_expr == severity)
+
+    # 查询 1: fired — 仅拉 (created_at, fingerprint, severity) 3 列，避免 detail Text 全文
+    fired_rows = await _fetch_fired_rows(db, conditions_fired, fp_expr, sev_expr)
+
+    # 查询 2: acked — GROUP BY fingerprint + MIN(created_at)，返回几十/几百行
+    acked_map = await _fetch_acked_map(db, conditions_acked, fp_expr)
+
+    # Python 字典匹配 + 计算响应时长
+    return _build_response_time_stats(fired_rows, acked_map)
+
+
 # ===== T2.4 EP-3 升级率 =====
+
+
+async def _fetch_escalation_fired(
+    db: AsyncSession,
+    conditions_fired: list[Any],
+    rule_expr: Any,
+    sev_expr: Any,
+) -> tuple[Counter[str], Counter[str]]:
+    """T2.4 数据获取：fired GROUP BY (rule, severity) → 分母统计."""
+    fired_stmt = (
+        select(
+            rule_expr.label("rule"),
+            sev_expr.label("severity"),
+            func.count().label("cnt"),
+        )
+        .where(and_(*conditions_fired))
+        .group_by(rule_expr, sev_expr)
+    )
+    fired_rows = (await db.execute(fired_stmt)).all()
+
+    rule_fired: Counter[str] = Counter()
+    sev_fired: Counter[str] = Counter()
+    for rule, sev, cnt in fired_rows:
+        rule_fired[_norm_json_value(rule)] += cnt
+        sev_fired[_norm_json_value(sev)] += cnt
+    return rule_fired, sev_fired
+
+
+async def _fetch_escalation_escalated(
+    db: AsyncSession,
+    conditions_escalated: list[Any],
+    rule_expr: Any,
+    sev_expr: Any,
+    to_level_expr: Any,
+    new_sev_expr: Any,
+) -> tuple[Counter[str], Counter[str], Counter[str]]:
+    """T2.4 数据获取：escalated GROUP BY (rule, severity, to_level, new_severity)."""
+    esc_stmt = (
+        select(
+            rule_expr.label("rule"),
+            sev_expr.label("severity"),
+            to_level_expr.label("to_level"),
+            new_sev_expr.label("new_severity"),
+            func.count().label("cnt"),
+        )
+        .where(and_(*conditions_escalated))
+        .group_by(rule_expr, sev_expr, to_level_expr, new_sev_expr)
+    )
+    esc_rows = (await db.execute(esc_stmt)).all()
+
+    rule_esc: Counter[str] = Counter()
+    sev_esc: Counter[str] = Counter()
+    by_level: Counter[str] = Counter()
+    for rule, sev, to_level, new_sev, cnt in esc_rows:
+        rule_esc[_norm_json_value(rule)] += cnt
+        sev_esc[_norm_json_value(sev)] += cnt
+        # from_level/to_level 标识升级到哪个级别 (to_level 优先，回退 new_severity)
+        level = to_level if to_level is not None else new_sev
+        by_level[_norm_json_value(level)] += cnt
+    return rule_esc, sev_esc, by_level
+
+
+def _build_escalation_stats(
+    rule_fired: Counter[str],
+    sev_fired: Counter[str],
+    rule_esc: Counter[str],
+    sev_esc: Counter[str],
+    by_level: Counter[str],
+) -> dict[str, Any]:
+    """T2.4 聚合计算：升级率 / by_level / by_severity / by_rule (Top-20)."""
+    total_fired = sum(rule_fired.values())
+    total_escalated = sum(rule_esc.values())
+
+    # 升级率 = escalated / fired
+    escalation_rate = total_escalated / total_fired if total_fired > 0 else 0.0
+
+    # 按规则计算升级率 (Top-20)
+    rule_stats = []
+    for rule in sorted(rule_fired.keys() | rule_esc.keys()):
+        f = rule_fired.get(rule, 0)
+        e = rule_esc.get(rule, 0)
+        rule_stats.append(
+            {
+                "rule": rule,
+                "fired": f,
+                "escalated": e,
+                "escalation_rate": e / f if f > 0 else 0.0,
+            }
+        )
+    rule_stats.sort(key=lambda x: x["escalated"], reverse=True)
+    top_rules = rule_stats[:20]
+
+    # 按严重度拆分
+    by_severity: dict[str, dict[str, Any]] = {}
+    for sev in sorted(set(sev_fired.keys()) | set(sev_esc.keys())):
+        f = sev_fired.get(sev, 0)
+        e = sev_esc.get(sev, 0)
+        by_severity[sev] = {
+            "fired": f,
+            "escalated": e,
+            "escalation_rate": e / f if f > 0 else 0.0,
+        }
+
+    return {
+        "total_fired": total_fired,
+        "total_escalated": total_escalated,
+        "escalation_rate": escalation_rate,
+        "by_level": dict(by_level),
+        "by_severity": by_severity,
+        "by_rule": top_rules,
+    }
 
 
 async def _compute_escalation(
@@ -382,85 +543,11 @@ async def _compute_escalation(
         conditions_escalated.append(sev_expr == severity)
 
     # 查询 1: fired GROUP BY (rule, severity) → 返回几十行
-    fired_stmt = (
-        select(
-            rule_expr.label("rule"),
-            sev_expr.label("severity"),
-            func.count().label("cnt"),
-        )
-        .where(and_(*conditions_fired))
-        .group_by(rule_expr, sev_expr)
-    )
-    fired_rows = (await db.execute(fired_stmt)).all()
-
-    rule_fired: Counter[str] = Counter()
-    sev_fired: Counter[str] = Counter()
-    for rule, sev, cnt in fired_rows:
-        rule_fired[_norm_json_value(rule)] += cnt
-        sev_fired[_norm_json_value(sev)] += cnt
+    rule_fired, sev_fired = await _fetch_escalation_fired(db, conditions_fired, rule_expr, sev_expr)
 
     # 查询 2: escalated GROUP BY (rule, severity, to_level, new_severity) → 返回几十行
-    esc_stmt = (
-        select(
-            rule_expr.label("rule"),
-            sev_expr.label("severity"),
-            to_level_expr.label("to_level"),
-            new_sev_expr.label("new_severity"),
-            func.count().label("cnt"),
-        )
-        .where(and_(*conditions_escalated))
-        .group_by(rule_expr, sev_expr, to_level_expr, new_sev_expr)
+    rule_esc, sev_esc, by_level = await _fetch_escalation_escalated(
+        db, conditions_escalated, rule_expr, sev_expr, to_level_expr, new_sev_expr
     )
-    esc_rows = (await db.execute(esc_stmt)).all()
 
-    rule_esc: Counter[str] = Counter()
-    sev_esc: Counter[str] = Counter()
-    by_level: Counter[str] = Counter()
-    for rule, sev, to_level, new_sev, cnt in esc_rows:
-        rule_esc[_norm_json_value(rule)] += cnt
-        sev_esc[_norm_json_value(sev)] += cnt
-        # from_level/to_level 标识升级到哪个级别 (to_level 优先，回退 new_severity)
-        level = to_level if to_level is not None else new_sev
-        by_level[_norm_json_value(level)] += cnt
-
-    total_fired = sum(rule_fired.values())
-    total_escalated = sum(rule_esc.values())
-
-    # 升级率 = escalated / fired
-    escalation_rate = total_escalated / total_fired if total_fired > 0 else 0.0
-
-    # 按规则计算升级率 (Top-20)
-    rule_stats = []
-    for rule in sorted(rule_fired.keys() | rule_esc.keys()):
-        f = rule_fired.get(rule, 0)
-        e = rule_esc.get(rule, 0)
-        rule_stats.append(
-            {
-                "rule": rule,
-                "fired": f,
-                "escalated": e,
-                "escalation_rate": e / f if f > 0 else 0.0,
-            }
-        )
-    rule_stats.sort(key=lambda x: x["escalated"], reverse=True)
-    top_rules = rule_stats[:20]
-
-    # 按严重度拆分
-    by_severity: dict[str, dict[str, Any]] = {}
-    for sev in sorted(set(sev_fired.keys()) | set(sev_esc.keys())):
-        f = sev_fired.get(sev, 0)
-        e = sev_esc.get(sev, 0)
-        by_severity[sev] = {
-            "fired": f,
-            "escalated": e,
-            "escalation_rate": e / f if f > 0 else 0.0,
-        }
-
-    return {
-        "total_fired": total_fired,
-        "total_escalated": total_escalated,
-        "escalation_rate": escalation_rate,
-        "by_level": dict(by_level),
-        "by_severity": by_severity,
-        "by_rule": top_rules,
-    }
+    return _build_escalation_stats(rule_fired, sev_fired, rule_esc, sev_esc, by_level)
