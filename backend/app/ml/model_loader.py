@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -19,17 +20,22 @@ from app.utils.checksum import write_sha256_sidecar as write_sha256_sidecar
 
 logger = logging.getLogger(__name__)
 
+
 # Artifact paths
 # 修复：原实现使用 Path(__file__).resolve().parent.parent.parent.parent / "models"
 # 在容器内 __file__ = /app/app/ml/model_loader.py，4 个 parent = / (根目录)，
 # 拼接 /models/artifacts/... 实际不存在；模型在 /app/models/artifacts/...。
 # 改用 settings.model_dir (容器内 = /app/models，本地默认 = "models" 相对 CWD)，
 # 同时保留原相对路径作为 fallback 以兼容本地开发环境。
+@lru_cache(maxsize=1)
 def _resolve_artifacts_dir() -> Path:
     """Resolve physiological model artifacts directory.
 
     优先使用 settings.model_dir (生产环境配置)，fallback 到相对 __file__ 的路径
     (本地开发环境兼容)。
+
+    P0-T1-1: lru_cache + 模块级 __getattr__ 懒加载。import 模块时不再执行文件系统
+    探测，首次访问路径常量时才解析。
     """
     try:
         from app.core.config import settings
@@ -38,28 +44,59 @@ def _resolve_artifacts_dir() -> Path:
         if candidate.exists():
             return candidate
     except Exception:
-        pass
+        logger.warning("artifacts dir resolution failed, fallback to default", exc_info=True)
     # Fallback: 本地开发环境 — e:\code\bysj\backend\app\ml\..\..\..\..\models
-    return (
-        Path(__file__).resolve().parent.parent.parent.parent
-        / "models"
-        / "artifacts"
-        / "physiological_optimized"
-    )
+    return Path(__file__).resolve().parent.parent.parent.parent / "models" / "artifacts" / "physiological_optimized"
 
 
-ARTIFACTS_DIR = _resolve_artifacts_dir()
-MODEL_PATH = ARTIFACTS_DIR / "model.json"
-SCALER_PATH = ARTIFACTS_DIR / "scaler.json"
-FEATURE_NAMES_PATH = ARTIFACTS_DIR / "feature_names.json"
-METRICS_PATH = ARTIFACTS_DIR / "metrics.json"
-# P1-ML-005 修复：DataCleaner 统计量文件路径
-CLEANER_STATS_PATH = ARTIFACTS_DIR / "cleaner_stats.json"
+_ARTIFACT_PATH_NAMES = (
+    "ARTIFACTS_DIR",
+    "MODEL_PATH",
+    "SCALER_PATH",
+    "FEATURE_NAMES_PATH",
+    "METRICS_PATH",
+    "CLEANER_STATS_PATH",
+)
 
 
-def _verify_integrity(
-    path: Path, expected_sha256: str | None = None, require_checksum: bool = False
-) -> None:
+def __getattr__(name: str) -> Path:
+    """懒解析模型工件路径常量 (P0-T1-1).
+
+    原实现 ``ARTIFACTS_DIR = _resolve_artifacts_dir()`` 在模块导入时即触发文件系统
+    探测，难以 mock。改为 PEP 562 模块级 ``__getattr__``：首次访问任一路径常量时
+    才解析一次（``_resolve_artifacts_dir`` 已 lru_cache），结果回写模块命名空间，
+    后续访问走普通字典查询，monkeypatch 语义与原先一致。
+    """
+    if name not in _ARTIFACT_PATH_NAMES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    artifacts_dir = _resolve_artifacts_dir()
+    values: dict[str, Path] = {
+        "ARTIFACTS_DIR": artifacts_dir,
+        "MODEL_PATH": artifacts_dir / "model.json",
+        "SCALER_PATH": artifacts_dir / "scaler.json",
+        "FEATURE_NAMES_PATH": artifacts_dir / "feature_names.json",
+        "METRICS_PATH": artifacts_dir / "metrics.json",
+        "CLEANER_STATS_PATH": artifacts_dir / "cleaner_stats.json",
+    }
+    globals().update(values)
+    return values[name]
+
+
+def _artifact_path(name: str) -> Path:
+    """模块内部取懒加载工件路径 (FIX-P0-INTERNAL).
+
+    PEP 562 的模块级 ``__getattr__`` 只拦截**外部**属性访问
+    （``from app.ml.model_loader import MODEL_PATH``）；本模块函数体内的裸名
+    ``MODEL_PATH`` 走普通 globals 字典查找，首次访问即 NameError。
+    内部代码统一经此辅助取值（若 __getattr__ 已回写则命中缓存）。
+    """
+    cached = globals().get(name)
+    if isinstance(cached, Path):
+        return cached
+    return __getattr__(name)
+
+
+def _verify_integrity(path: Path, expected_sha256: str | None = None, require_checksum: bool = False) -> None:
     """校验文件完整性.
 
     P1-ML-023 修复：加载模型前验证文件未被篡改.
@@ -110,16 +147,14 @@ def check_model_exists() -> bool:
     # 修订：cleaner_stats.json 为可选——_predict_physiological_sync 在缺失时
     # 回退到固定生理阈值裁剪（EXTREME_THRESHOLDS），仍可正常推理。
     # 仅 model/scaler/feature_names 为强依赖。
-    required_files = [MODEL_PATH, SCALER_PATH, FEATURE_NAMES_PATH]
+    required_files = [_artifact_path("MODEL_PATH"), _artifact_path("SCALER_PATH"), _artifact_path("FEATURE_NAMES_PATH")]
     exists = all(f.exists() for f in required_files)
     if not exists:
         missing = [f.name for f in required_files if not f.exists()]
         logger.warning("Model artifacts missing: %s", missing)
-    if not CLEANER_STATS_PATH.exists():
+    if not _artifact_path("CLEANER_STATS_PATH").exists():
         # 仅记录日志，不视为不可用——加载逻辑已有 fallback
-        logger.info(
-            "Optional cleaner_stats.json missing, will use EXTREME_THRESHOLDS fallback"
-        )
+        logger.info("Optional cleaner_stats.json missing, will use EXTREME_THRESHOLDS fallback")
     return exists
 
 
@@ -136,7 +171,7 @@ def load_model(path: Path | str | None = None) -> PhysiologicalMLP:
         FileNotFoundError: If model file does not exist.
         ValueError: If integrity check fails.
     """
-    path = Path(path) if path else MODEL_PATH
+    path = Path(path) if path else _artifact_path("MODEL_PATH")
     if not path.exists():
         raise FileNotFoundError(f"Model not found: {path}")
 
@@ -163,18 +198,10 @@ def load_model(path: Path | str | None = None) -> PhysiologicalMLP:
         model.layers[i]["W"] = np.array(layer_data["W"], dtype=np.float32)
         model.layers[i]["b"] = np.array(layer_data["b"], dtype=np.float32)
         if "bn_gamma" in layer_data:
-            model.layers[i]["bn_gamma"] = np.array(
-                layer_data["bn_gamma"], dtype=np.float32
-            )
-            model.layers[i]["bn_beta"] = np.array(
-                layer_data["bn_beta"], dtype=np.float32
-            )
-            model.layers[i]["bn_running_mean"] = np.array(
-                layer_data["bn_running_mean"], dtype=np.float32
-            )
-            model.layers[i]["bn_running_var"] = np.array(
-                layer_data["bn_running_var"], dtype=np.float32
-            )
+            model.layers[i]["bn_gamma"] = np.array(layer_data["bn_gamma"], dtype=np.float32)
+            model.layers[i]["bn_beta"] = np.array(layer_data["bn_beta"], dtype=np.float32)
+            model.layers[i]["bn_running_mean"] = np.array(layer_data["bn_running_mean"], dtype=np.float32)
+            model.layers[i]["bn_running_var"] = np.array(layer_data["bn_running_var"], dtype=np.float32)
 
     logger.info("Loaded model from %s", path)
     return model
@@ -193,7 +220,7 @@ def load_scaler(path: Path | str | None = None) -> SimpleStandardScaler:
         FileNotFoundError: If scaler file does not exist.
         ValueError: If integrity check fails.
     """
-    path = Path(path) if path else SCALER_PATH
+    path = Path(path) if path else _artifact_path("SCALER_PATH")
     if not path.exists():
         raise FileNotFoundError(f"Scaler not found: {path}")
 
@@ -221,7 +248,7 @@ def load_feature_names(path: Path | str | None = None) -> list[str]:
         FileNotFoundError: If feature names file does not exist.
         ValueError: If integrity check fails.
     """
-    path = Path(path) if path else FEATURE_NAMES_PATH
+    path = Path(path) if path else _artifact_path("FEATURE_NAMES_PATH")
     if not path.exists():
         raise FileNotFoundError(f"Feature names not found: {path}")
 
@@ -248,7 +275,7 @@ def load_metrics(path: Path | str | None = None) -> dict:
     Raises:
         FileNotFoundError: If metrics file does not exist.
     """
-    path = Path(path) if path else METRICS_PATH
+    path = Path(path) if path else _artifact_path("METRICS_PATH")
     if not path.exists():
         raise FileNotFoundError(f"Metrics not found: {path}")
 
@@ -263,9 +290,7 @@ def load_metrics(path: Path | str | None = None) -> dict:
     return metrics
 
 
-def load_all_artifacts() -> (
-    tuple[PhysiologicalMLP, SimpleStandardScaler, list[str], dict]
-):
+def load_all_artifacts() -> tuple[PhysiologicalMLP, SimpleStandardScaler, list[str], dict]:
     """Load all model artifacts.
 
     Returns:
@@ -299,7 +324,7 @@ def load_cleaner(path: Path | str | None = None) -> "DataCleaner":
     """
     from app.ml.data_cleaner import DataCleaner
 
-    path = Path(path) if path else CLEANER_STATS_PATH
+    path = Path(path) if path else _artifact_path("CLEANER_STATS_PATH")
     if not path.exists():
         raise FileNotFoundError(f"Cleaner stats not found: {path}")
 

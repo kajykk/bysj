@@ -31,6 +31,37 @@ def _create_checksum_file(file_path: Path) -> None:
 class TestCheckModelExists:
     """Test check_model_exists."""
 
+    def test_path_constants_resolve_lazily(self):
+        """P0-T1-1: 模块导入不触发文件系统探测，首次访问路径常量才解析."""
+        import importlib
+        from unittest import mock
+
+        from app.ml import model_loader
+
+        # 重置 self-heal 的路径常量与解析缓存，确保从干净模块状态出发
+        for name in model_loader._ARTIFACT_PATH_NAMES:
+            model_loader.__dict__.pop(name, None)
+        model_loader._resolve_artifacts_dir.cache_clear()
+        importlib.reload(model_loader)
+
+        with mock.patch.object(
+            model_loader,
+            "_resolve_artifacts_dir",
+            wraps=model_loader._resolve_artifacts_dir,
+        ) as spy:
+            # reload 后模块处于干净状态：导入本身不应触发解析
+            spy.assert_not_called()
+            # 首次访问触发解析并 self-heal 全部路径常量
+            assert model_loader.MODEL_PATH.name == "model.json"
+            spy.assert_called_once()
+            # 后续访问命中已缓存的模块常量，不再重复解析
+            _ = model_loader.SCALER_PATH
+            _ = model_loader.FEATURE_NAMES_PATH
+            _ = model_loader.METRICS_PATH
+            _ = model_loader.CLEANER_STATS_PATH
+            _ = model_loader.ARTIFACTS_DIR
+            spy.assert_called_once()
+
     def test_all_exist(self):
         """TC-COV-ML-042: Returns True when all files exist."""
         with tempfile.TemporaryDirectory() as tmpdir:

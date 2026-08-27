@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import itertools
+import json
 import logging
+from pathlib import Path
 
 import numpy as np
 
@@ -11,6 +14,42 @@ from app.ml.model import PhysiologicalMLP
 from app.ml.trainer import evaluate, train_model
 
 logger = logging.getLogger(__name__)
+
+
+def _param_fingerprint(params: dict) -> str:
+    """超参数组合指纹（json 规范化序列化 + SHA-256）.
+
+    P0-T1-3: 作为调参缓存文件的 key，同一组合跨进程稳定一致。
+    """
+    payload = json.dumps(params, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _load_tuning_cache(cache_file: Path) -> list[dict]:
+    """读取调参缓存文件（损坏/缺失时返回空列表并告警，不中断训练）."""
+    if not cache_file.exists():
+        return []
+    try:
+        with open(cache_file, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        if not isinstance(entries, list):
+            raise TypeError("cache file must contain a JSON list")
+        return [e for e in entries if isinstance(e, dict) and "fingerprint" in e]
+    except (json.JSONDecodeError, OSError, TypeError) as exc:
+        logger.warning("Failed to load tuning cache %s, starting fresh", cache_file, exc_info=exc)
+        return []
+
+
+def _append_tuning_cache(cache_file: Path, entry: dict) -> None:
+    """将单个组合结果追加写入调参缓存文件（幂等，追加前先合并已有条目）."""
+    entries = _load_tuning_cache(cache_file)
+    entries.append(entry)
+    try:
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(entries, f, ensure_ascii=False, indent=2)
+    except OSError:
+        logger.warning("Failed to persist tuning cache %s", cache_file, exc_info=True)
 
 
 def grid_search(
@@ -22,6 +61,8 @@ def grid_search(
     epochs: int = 20,
     patience: int = 5,
     random_state: int = 42,
+    cache_file: str | Path | None = None,
+    early_stop_f1: float | None = None,
 ) -> tuple[dict, float]:
     """Simple grid search for hyperparameter tuning.
 
@@ -39,6 +80,10 @@ def grid_search(
         epochs: Number of epochs per trial.
         patience: Early stopping patience.
         random_state: Random seed for reproducibility.
+        cache_file: P0-T1-3 可选。断点续跑缓存 JSON 路径；传入后每个组合评估完即
+            追加写入，重启后已完成的组合直接跳过（key=参数指纹 hash）。
+        early_stop_f1: P0-T1-3 可选。设置后，当当前最优 val_f1 达到该阈值即提前
+            终止搜索（用于大规模网格的快速粗筛）。默认 None 表示不剪枝。
 
     Returns:
         Tuple of (best_params, best_val_f1). Note: best_val_f1 is optimistically biased.
@@ -57,14 +102,43 @@ def grid_search(
     values = list(param_grid.values())
     combinations = list(itertools.product(*values))
 
+    # P0-T1-3: 断点续跑 —— 加载已有结果并跳过已完成组合
+    cache_entries: list[dict] = []
+    if cache_file is not None:
+        cache_entries = _load_tuning_cache(Path(cache_file))
+    cache_by_fp = {e["fingerprint"]: e for e in cache_entries}
+
     logger.info("Starting grid search: %d combinations", len(combinations))
 
     best_f1 = 0.0
     best_params = {}
     results = []
 
+    if cache_entries:
+        best_entry = max(cache_entries, key=lambda e: e["val_f1"])
+        best_f1 = best_entry["val_f1"]
+        best_params = copy.deepcopy(best_entry["params"])
+        logger.info(
+            "Resumed from cache: %d combos cached, initial best_val_f1=%.4f",
+            len(cache_entries),
+            best_f1,
+        )
+
     for i, combo in enumerate(combinations):
         params = dict(zip(keys, combo))
+        fingerprint = _param_fingerprint(params)
+        cached = cache_by_fp.get(fingerprint)
+        if cached is not None:
+            val_f1 = cached["val_f1"]
+            logger.info(
+                "Trial %d/%d: cached result val_f1=%.4f (skipped)",
+                i + 1,
+                len(combinations),
+                val_f1,
+            )
+            results.append({"params": params, "val_f1": val_f1, "cached": True})
+            continue
+
         logger.info(
             "Trial %d/%d: %s",
             i + 1,
@@ -98,14 +172,27 @@ def grid_search(
         )
 
         val_f1 = history["best_val_f1"]
-        results.append({"params": params, "val_f1": val_f1})
+        results.append({"params": params, "val_f1": val_f1, "cached": False})
 
         logger.info("Trial %d result: val_f1=%.4f", i + 1, val_f1)
+
+        if cache_file is not None:
+            _append_tuning_cache(Path(cache_file), {"fingerprint": fingerprint, "params": params, "val_f1": val_f1})
 
         if val_f1 > best_f1:
             best_f1 = val_f1
             best_params = copy.deepcopy(params)
             logger.info("New best! val_f1=%.4f", best_f1)
+
+        if early_stop_f1 is not None and best_f1 >= early_stop_f1:
+            logger.info(
+                "Early stop: best_val_f1=%.4f reached threshold %.4f at trial %d/%d",
+                best_f1,
+                early_stop_f1,
+                i + 1,
+                len(combinations),
+            )
+            break
 
     logger.info(
         "Grid search complete: best_val_f1=%.4f, best_params=%s",
@@ -281,9 +368,7 @@ def nested_cv_score(
 
         # 外层划分：test = 当前 fold, train = 其余
         test_indices = outer_folds_list[outer_idx]
-        train_indices = np.concatenate(
-            [outer_folds_list[i] for i in range(outer_folds) if i != outer_idx]
-        )
+        train_indices = np.concatenate([outer_folds_list[i] for i in range(outer_folds) if i != outer_idx])
 
         X_train_outer = X[train_indices]
         y_train_outer = y[train_indices]
@@ -293,9 +378,7 @@ def nested_cv_score(
         # 内层：在 train 上进行 grid_search 选择超参数
         # 将 train 再划分为 train_inner/val_inner 用于 grid_search
         inner_split = int(len(X_train_outer) * 0.8)
-        inner_shuffle = np.random.RandomState(random_state + outer_idx).permutation(
-            len(X_train_outer)
-        )
+        inner_shuffle = np.random.RandomState(random_state + outer_idx).permutation(len(X_train_outer))
         X_train_inner = X_train_outer[inner_shuffle[:inner_split]]
         y_train_inner = y_train_outer[inner_shuffle[:inner_split]]
         X_val_inner = X_train_outer[inner_shuffle[inner_split:]]
@@ -353,9 +436,7 @@ def nested_cv_score(
         )
 
         # 在外层 test 上评估（无偏估计，仅使用一次）
-        test_loss, test_metrics = evaluate(
-            model, X_test_outer, y_test_outer, binary_cross_entropy_loss
-        )
+        test_loss, test_metrics = evaluate(model, X_test_outer, y_test_outer, binary_cross_entropy_loss)
         outer_scores.append(test_metrics["f1"])
 
         logger.info(
