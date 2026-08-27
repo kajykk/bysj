@@ -3,6 +3,10 @@
  * 从原 UserDashboard.vue 提取，保持行为一致。
  */
 import type { DataHistoryItem } from '@/api/userTypes'
+import { escapeHtml } from '@/utils/security'
+
+// OPT-P4-001：实现收敛到 @/utils/security，此处保留 re-export 维持既有导入路径兼容
+export { escapeHtml }
 
 /** 严重程度 → i18n key 后缀映射 */
 export const SEVERITY_LABEL_KEYS: Record<string, string> = {
@@ -62,15 +66,4 @@ export interface NextAction {
 /** 从 DataHistoryItem 提取测评类型 */
 export const getAssessmentType = (item: DataHistoryItem | null) => {
   return (item?.data as { assessment_type?: string } | undefined)?.assessment_type
-}
-
-/** HTML 转义（图表 tooltip 安全） */
-export const escapeHtml = (value: unknown) => {
-  if (value === null || value === undefined) return ''
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }

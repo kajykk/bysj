@@ -13,7 +13,7 @@ export function registerServiceWorker(): void {
   const { updateServiceWorker } = useRegisterSW({
     immediate: true,
     onRegistered(r) {
-      if (r) {
+      if (r && import.meta.env.DEV) {
         console.log('[SW] Registered:', r.scope)
       }
     },
@@ -21,7 +21,9 @@ export function registerServiceWorker(): void {
       console.error('[SW] Registration failed:', error)
     },
     onNeedRefresh() {
-      console.log('[SW] New version available')
+      if (import.meta.env.DEV) {
+        console.log('[SW] New version available')
+      }
       // M-31 修复：使用异步通知替代同步 confirm()，避免阻塞主线程
       ElNotification({
         title: t('serviceWorker.updateAvailableTitle'),
@@ -34,7 +36,9 @@ export function registerServiceWorker(): void {
       })
     },
     onOfflineReady() {
-      console.log('[SW] Offline ready')
+      if (import.meta.env.DEV) {
+        console.log('[SW] Offline ready')
+      }
     },
   })
 }

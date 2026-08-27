@@ -190,6 +190,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { modelApi, type ModelRegistryRecord } from '@/api/modelApi'
+import { formatDate } from '@/utils/formatUtils'
 
 defineProps<{
   canTrain: boolean
@@ -240,8 +241,9 @@ const shadowRateText = (row: ModelRegistryRecord): string =>
   `${(shadowRate(row) * 100).toFixed(1)}%`
 
 const formatTime = (iso: string): string => {
+  // OPT-P4-002：统一走 formatDate；非法输入保留原始字符串（与原 NaN 回退一致）
   const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? iso : formatDate(date)
 }
 
 const refresh = async (): Promise<void> => {

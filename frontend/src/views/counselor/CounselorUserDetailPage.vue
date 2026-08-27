@@ -160,99 +160,13 @@
         </el-table>
       </el-tab-pane>
 
-      <!-- UX-P3-02 修复：风险轨迹改时间线视图，替代原纯表格，突出时间顺序 -->
-      <el-tab-pane
-        :label="t('counselorUserDetail.tabRiskHistory')"
-        name="risk_history"
-      >
-        <el-timeline
-          v-loading="loading"
-          class="detail-timeline"
-        >
-          <el-timeline-item
-            v-for="item in riskHistoryRows"
-            :key="item.id"
-            :type="getRiskTimelineType(item)"
-            :timestamp="item.created_at"
-            placement="top"
-          >
-            <div class="timeline-title">
-              <el-tag
-                size="small"
-                :type="getWarningRiskLevelTagType(item.risk_level ?? 0)"
-              >
-                {{ getWarningRiskLevelLabel(item.risk_level ?? 0) }}
-              </el-tag>
-            </div>
-            <div class="timeline-text">
-              {{ t('counselorUserDetail.historyColRiskScore') }}: {{ item.risk_score }}
-            </div>
-          </el-timeline-item>
-        </el-timeline>
-        <el-empty
-          v-if="!loading && !riskHistoryRows.length"
-          :description="t('common.noData')"
-        />
-      </el-tab-pane>
-
-      <!-- ISS-057: 评估记录 -->
-      <el-tab-pane
-        :label="t('counselorUserDetail.tabAssessments')"
-        name="assessments"
-      >
-        <el-table
-          :data="assessmentRows"
-          border
-        >
-          <el-table-column
-            prop="id"
-            :label="t('counselorUserDetail.assessmentColId')"
-            width="100"
-          />
-          <el-table-column
-            prop="type"
-            :label="t('counselorUserDetail.assessmentColType')"
-            min-width="120"
-          />
-          <el-table-column
-            prop="score"
-            :label="t('counselorUserDetail.assessmentColScore')"
-            min-width="120"
-          />
-          <el-table-column
-            prop="created_at"
-            :label="t('counselorUserDetail.assessmentColTime')"
-            min-width="180"
-          />
-        </el-table>
-      </el-tab-pane>
-
-      <!-- UX-P3-02 修复：干预记录改时间线视图 -->
-      <el-tab-pane
-        :label="t('counselorUserDetail.tabInterventions')"
-        name="interventions"
-      >
-        <el-timeline class="detail-timeline">
-          <el-timeline-item
-            v-for="item in interventionRows"
-            :key="item.id"
-            :type="item.status === 'completed' ? 'success' : item.status === 'active' ? 'primary' : 'warning'"
-            :timestamp="item.created_at"
-            placement="top"
-          >
-            <div class="timeline-title">
-              {{ item.type }}
-            </div>
-            <div class="timeline-text">
-              {{ item.status }}
-            </div>
-          </el-timeline-item>
-        </el-timeline>
-        <el-empty
-          v-if="!interventionRows.length"
-          :description="t('common.noData')"
-        />
-      </el-tab-pane>
+      <!-- R-E3: 只读 Tab（风险轨迹/评估/干预）抽为子组件 -->
+      <UserDetailInfoTabs
+        :risk-history="riskHistoryRows"
+        :assessments="assessmentRows"
+        :interventions="interventionRows"
+        :loading="loading"
+      />
     </el-tabs>
 
     <el-dialog
@@ -358,11 +272,11 @@ import { counselorApi, type ConsultationGroupItem, type ConsultationItem, type U
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import { showHttpFeedback } from '@/utils/httpFeedback'
-import { getWarningRiskLevelLabel, getWarningRiskLevelTagType } from '@/utils/warning'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 // ISS-082 修复：引入 useBreakpoint 实现 el-descriptions 列数响应式
 import { useBreakpoint } from '@/composables/useBreakpoint'
+import UserDetailInfoTabs from './components/UserDetailInfoTabs.vue'
 
 const { t } = useI18n()
 // ISS-082 修复：移动端 el-descriptions 列数降为 1，避免字段挤压
@@ -493,11 +407,6 @@ const addCurrentUserToGroup = async (row: ConsultationGroupItem) => {
 
 const goBack = () => router.push({ path: '/counselor/users', query: route.query })
 
-const getRiskTimelineType = (item: UserRiskHistoryItem) => {
-  const tag = getWarningRiskLevelTagType(item.risk_level ?? 0)
-  return tag === 'danger' ? 'danger' : tag === 'warning' ? 'warning' : 'primary'
-}
-
 onMounted(fetchAll)
 </script>
 
@@ -515,21 +424,5 @@ onMounted(fetchAll)
   display: flex;
   background: var(--bg-page);
   padding: var(--spacing-sm) 0;
-}
-
-/* UX-P3-02 修复：时间线视图留白与节点排版 */
-.detail-timeline {
-  padding: var(--spacing-sm) 0 0 6px;
-}
-
-.detail-timeline .timeline-title {
-  display: flex;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.detail-timeline .timeline-text {
-  color: var(--text-secondary);
-  font-size: 13px;
 }
 </style>

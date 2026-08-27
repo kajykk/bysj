@@ -252,73 +252,11 @@
       </el-card>
     </Transition>
 
-    <el-card class="card-gap">
-      <template #header>
-        <div class="header-row">
-          <span class="card-title">{{ t('textAssess.historyTitle') }}</span>
-          <div class="header-actions">
-            <el-button
-              size="small"
-              :disabled="!textPredictionHistory.length"
-              @click="exportTextPredictionHistoryCsv"
-            >
-              {{ t('textAssess.exportHistoryBtn') }}
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              plain
-              :disabled="!textPredictionHistory.length"
-              @click="clearTextPredictionHistory"
-            >
-              {{ t('textAssess.clearHistoryBtn') }}
-            </el-button>
-          </div>
-        </div>
-      </template>
-      <el-table
-        :data="textPredictionHistory"
-        size="small"
-        stripe
-      >
-        <el-table-column
-          prop="time"
-          :label="t('textAssess.colTime')"
-          min-width="170"
-        />
-        <el-table-column
-          prop="content_preview"
-          :label="t('textAssess.colContentPreview')"
-          min-width="220"
-        />
-        <el-table-column
-          :label="t('textAssess.colPredictResult')"
-          width="130"
-        >
-          <template #default="{ row }">
-            {{ row.prediction === 1 ? t('textAssess.predictionHighRisk') : t('textAssess.predictionLowRisk') }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          :label="t('textAssess.colPredictProbability')"
-          width="120"
-        >
-          <template #default="{ row }">
-            {{ (row.probability * 100).toFixed(2) }}%
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="model_used"
-          :label="t('textAssess.colModelName')"
-          min-width="170"
-        />
-      </el-table>
-      <el-empty
-        v-if="!textPredictionHistory.length"
-        :description="t('textAssess.emptyHistory')"
-        :image-size="60"
-      />
-    </el-card>
+    <TextPredictionHistoryCard
+      :history="textPredictionHistory"
+      @clear="clearTextPredictionHistory"
+      @export="exportTextPredictionHistoryCsv"
+    />
   </div>
 </template>
 
@@ -331,8 +269,13 @@ import { modelApi, type TextPredictModelResult } from '@/api/modelApi'
 import type { TextAnalyzeResult } from '@/api/userRiskApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
-import { sanitizeCellForExcel } from '@/utils/exportUtils'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
+import { formatDate } from '@/utils/formatUtils'
+import {
+  useTextPredictionHistory,
+  type TextPredictionHistoryItem,
+} from './composables/useTextPredictionHistory'
+import TextPredictionHistoryCard from './TextPredictionHistoryCard.vue'
 
 interface Props {
   canUse: boolean
@@ -350,7 +293,15 @@ let isUnmounted = false
 // SEC-FIX (H4 补强): 匿名用户不再共享 `_u0` key (互相覆盖/可读),
 // 改为会话级隔离, 且与 clearSensitiveLocalStorage 清理模式对齐
 const historyKey = (base: string) => historyKeyWithUser(base, auth.user?.id)
-const TEXT_PREDICTION_HISTORY_KEY = historyKey('text_prediction_history_v1')
+// ISS-017 修复：历史记录增加 source 字段，区分文本分析伪造记录与真实模型预测记录
+const {
+  textPredictionHistory,
+  load: loadTextPredictionHistory,
+  save,
+  unshift: unshiftTextPredictionHistory,
+  clear: clearTextPredictionHistory,
+  exportCsv: exportTextPredictionHistoryCsv,
+} = useTextPredictionHistory(historyKey('text_prediction_history_v1'))
 
 const textForm = reactive({
   entry_type: 'diary', content: '', emotion_tags: [] as string[], mood_score: 3
@@ -365,62 +316,6 @@ const resetTextForm = () => {
   textForm.emotion_tags = []
   textForm.mood_score = 3
 }
-// ISS-017 修复：历史记录增加 source 字段，区分文本分析伪造记录与真实模型预测记录
-const textPredictionHistory = ref<Array<TextPredictModelResult & { time: string; content_preview: string; source: 'text' | 'model' }>>([])
-
-const loadTextPredictionHistory = () => {
-  try {
-    const raw = localStorage.getItem(TEXT_PREDICTION_HISTORY_KEY)
-    if (!raw) return
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      textPredictionHistory.value = parsed
-    }
-  } catch {
-    textPredictionHistory.value = []
-  }
-}
-
-const saveTextPredictionHistory = () => {
-  localStorage.setItem(TEXT_PREDICTION_HISTORY_KEY, JSON.stringify(textPredictionHistory.value.slice(0, 20)))
-}
-
-const clearTextPredictionHistory = () => {
-  textPredictionHistory.value = []
-  localStorage.removeItem(TEXT_PREDICTION_HISTORY_KEY)
-  ElMessage.success(t('textAssess.historyCleared'))
-}
-
-const exportTextPredictionHistoryCsv = () => {
-  if (!textPredictionHistory.value.length) {
-    ElMessage.warning(t('textAssess.noHistoryToExport'))
-    return
-  }
-
-  const headers = [t('textAssess.csvHeaderTime'), t('textAssess.csvHeaderContentPreview'), 'prediction(0/1)', 'probability(%)', 'sentiment_label', 'sentiment_score', 'model_used']
-  const rows = textPredictionHistory.value.map((row) => [
-    row.time,
-    row.content_preview,
-    row.prediction,
-    (row.probability * 100).toFixed(2),
-    row.sentiment_label,
-    row.sentiment_score != null ? row.sentiment_score.toFixed(2) : '',
-    row.model_used
-  ])
-
-  const csv = [headers, ...rows]
-    .map((line) => line.map((cell) => `"${sanitizeCellForExcel(String(cell)).replace(/"/g, '""')}"`).join(','))
-    .join('\n')
-
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `text_prediction_history_${Date.now()}.csv`
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-  ElMessage.success(t('textAssess.historyCsvExported'))
-}
 
 const submitText = async () => {
   if (!textForm.content.trim()) return
@@ -433,18 +328,17 @@ const submitText = async () => {
       mood_score: textForm.mood_score
     })
 
-    textPredictionHistory.value.unshift({
+    unshiftTextPredictionHistory({
       // ISS-017 修复：标记 source: 'text' 表示由文本分析伪造的预测字段，便于后续按来源过滤
       prediction: textResult.value.sentiment_label === 'negative' ? 1 : 0,
       probability: Math.min(Math.max(textResult.value.sentiment_score, 0), 1),
       sentiment_label: textResult.value.sentiment_label,
       sentiment_score: textResult.value.sentiment_score,
       model_used: 'text_analyze',
-      time: new Date().toLocaleString(),
+      time: formatDate(new Date()),
       content_preview: textForm.content.trim().slice(0, 60),
       source: 'text'
     })
-    saveTextPredictionHistory()
 
     ElMessage.success(t('textAssess.analyzeSuccess'))
 
@@ -466,18 +360,19 @@ const submitTextPredict = async () => {
   try {
     textPredictResult.value = await modelApi.predictTextModel(textForm.content)
 
-    textPredictionHistory.value.unshift({
+    const item: TextPredictionHistoryItem = {
       ...textPredictResult.value,
-      time: new Date().toLocaleString(),
+      time: formatDate(new Date()),
       content_preview: textForm.content.trim().slice(0, 60),
       // ISS-017 修复：标记 source: 'model' 表示真实模型预测结果
       source: 'model'
-    })
-    textPredictionHistory.value = textPredictionHistory.value.map(item => ({
-      ...item,
-      model_used: item.model_used || 'text_depression_model'
+    }
+    unshiftTextPredictionHistory(item)
+    textPredictionHistory.value = textPredictionHistory.value.map(entry => ({
+      ...entry,
+      model_used: entry.model_used || 'text_depression_model'
     }))
-    saveTextPredictionHistory()
+    save()
 
     ElMessage.success(t('textAssess.predictSuccess'))
     // SEC-FIX (M8): 提交成功后重置输入

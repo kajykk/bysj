@@ -9,6 +9,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { modelApi, type ModelStatusResult } from '@/api/modelApi'
 import { useAuthStore } from '@/stores/auth'
+import { formatDate } from '@/utils/formatUtils'
 import {
   type TrainingLogRow,
   type ActiveJob,
@@ -34,7 +35,7 @@ export function useModelTrainingData() {
   })
   const modelStatusSummary = reactive({ structured: '—', text: '—' })
   const trainingLogRows = ref<TrainingLogRow[]>([
-    { time: new Date().toLocaleString(), stage: 'system', message: t('userModelTraining.initLog'), level: 'info' },
+    { time: formatDate(new Date()), stage: 'system', message: t('userModelTraining.initLog'), level: 'info' },
   ])
   const latestLog = computed(() => trainingLogRows.value[0])
   const activeJobId = ref('')
@@ -55,7 +56,7 @@ export function useModelTrainingData() {
 
   const pushTrainingLog = (stage: string, message: string, level: TrainingLogRow['level'] = 'info') => {
     trainingLogRows.value.unshift({
-      time: new Date().toLocaleString(),
+      time: formatDate(new Date()),
       stage,
       message,
       level,
@@ -71,7 +72,7 @@ export function useModelTrainingData() {
       modelStatus.model_dir = res.model_dir
       modelStatus.items = res.items
       modelStatus.ready = res.ready
-      modelStatusLoadedAt.value = new Date().toLocaleString()
+      modelStatusLoadedAt.value = formatDate(new Date())
       modelStatusSummary.structured = res.items.find(i => i.model_id === 'structured_logistic_regression_quick')?.exists ? t('userModelTraining.modelStatusReady') : t('userModelTraining.modelStatusMissing')
       modelStatusSummary.text = res.items.find(i => i.model_id === 'text_depression_model')?.exists && res.items.find(i => i.model_id === 'text_depression_tfidf')?.exists ? t('userModelTraining.modelStatusReady') : t('userModelTraining.modelStatusMissing')
       pushTrainingLog('status', t('userModelTraining.logRefreshComplete', { status: res.ready ? 'READY' : 'PARTIAL' }), res.ready ? 'success' : 'warning')
