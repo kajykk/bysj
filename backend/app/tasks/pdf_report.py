@@ -102,9 +102,7 @@ def save_job_to_redis(job_id: str, job_data: dict[str, Any]) -> None:
     """将 PDF 任务状态写入 Redis (字符串值, JSON 编码)."""
     try:
         r = _get_sync_redis()
-        r.set(
-            _job_key(job_id), json.dumps(job_data, ensure_ascii=False).encode("utf-8")
-        )
+        r.set(_job_key(job_id), json.dumps(job_data, ensure_ascii=False).encode("utf-8"))
         r.sadd(_PDF_JOB_INDEX_KEY, job_id)
     except Exception as exc:
         logger.warning("[pdf_task] failed to save job %s to Redis: %s", job_id, exc)
@@ -134,6 +132,65 @@ def update_job_in_redis(job_id: str, **updates: Any) -> None:
     job.update(updates)
     job["updated_at"] = time()
     save_job_to_redis(job_id, job)
+
+
+def _epoch_to_iso(value: Any) -> str | None:
+    """OPT-T4-P1：Celery 任务时间戳（epoch 秒）规范化为 ISO UTC 字符串。
+
+    与进程内 PdfJobStore.to_status_dict 的 created_at/started_at/completed_at
+    （ISO 字符串）对齐，使任务列表端点可合并两种后端的条目并统一排序。
+    非 epoch 数值原样返回（字符串等）。
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
+    return str(value)
+
+
+def list_jobs_from_redis(created_by: int | None = None) -> list[dict[str, Any]]:
+    """OPT-T4-P1：读取全部 Celery 路径 PDF 任务（状态视图，不含 PDF 字节）。
+
+    遍历索引集合 ``pdf:jobs``，逐个读取任务 JSON 并规范化为与
+    ``PdfJob.to_status_dict()`` 相同的字段形状，追加 ``backend="celery"``
+    标记供前端区分来源。Redis 不可用时返回空列表（由调用方决定降级行为）。
+
+    同步阻塞调用 —— API 层必须经 ``asyncio.to_thread`` 包装。
+    """
+    try:
+        r = _get_sync_redis()
+        job_ids = r.smembers(_PDF_JOB_INDEX_KEY)
+    except Exception as exc:
+        logger.warning("[pdf_task] failed to list jobs from Redis: %s", exc)
+        return []
+
+    items: list[dict[str, Any]] = []
+    for raw_id in job_ids or []:
+        job_id = raw_id.decode("utf-8") if isinstance(raw_id, bytes) else str(raw_id)
+        data = get_job_from_redis(job_id)
+        if data is None:
+            continue
+        if created_by is not None and data.get("created_by") != created_by:
+            continue
+        items.append(
+            {
+                "id": job_id,
+                "job_id": job_id,
+                "status": data.get("status", "unknown"),
+                "user_name": data.get("user_name", ""),
+                "progress": data.get("progress", 0),
+                "created_at": _epoch_to_iso(data.get("created_at")),
+                "started_at": _epoch_to_iso(data.get("started_at")),
+                "completed_at": _epoch_to_iso(data.get("completed_at")),
+                "error": data.get("error"),
+                "file_size": data.get("file_size", 0),
+                "page_count": data.get("page_count", 0),
+                "backend": "celery",
+            }
+        )
+    return items
 
 
 def _notify_progress(
@@ -203,9 +260,7 @@ def save_pdf_bytes_to_redis(job_id: str, pdf_bytes: bytes) -> None:
         r = _get_sync_redis()
         r.setex(_bytes_key(job_id), _PDF_BYTES_TTL_SECONDS, pdf_bytes)
     except Exception as exc:
-        logger.warning(
-            "[pdf_task] failed to save pdf bytes %s to Redis: %s", job_id, exc
-        )
+        logger.warning("[pdf_task] failed to save pdf bytes %s to Redis: %s", job_id, exc)
 
 
 def get_pdf_bytes_from_redis(job_id: str) -> bytes | None:
@@ -214,9 +269,7 @@ def get_pdf_bytes_from_redis(job_id: str) -> bytes | None:
         r = _get_sync_redis()
         return r.get(_bytes_key(job_id))
     except Exception as exc:
-        logger.warning(
-            "[pdf_task] failed to get pdf bytes %s from Redis: %s", job_id, exc
-        )
+        logger.warning("[pdf_task] failed to get pdf bytes %s from Redis: %s", job_id, exc)
         return None
 
 
@@ -226,9 +279,7 @@ def delete_pdf_bytes_from_redis(job_id: str) -> None:
         r = _get_sync_redis()
         r.delete(_bytes_key(job_id))
     except Exception as exc:
-        logger.warning(
-            "[pdf_task] failed to delete pdf bytes %s from Redis: %s", job_id, exc
-        )
+        logger.warning("[pdf_task] failed to delete pdf bytes %s from Redis: %s", job_id, exc)
 
 
 def _count_pdf_pages(pdf_bytes: bytes) -> int:
