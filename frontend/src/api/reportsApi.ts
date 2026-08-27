@@ -1,5 +1,5 @@
 // frontend/src/api/reportsApi.ts
-import request, { LONG_RUNNING_API_TIMEOUT_MS, requestData } from './request'
+import request, { LONG_RUNNING_API_TIMEOUT_MS, dedupedGet, requestData } from './request'
 
 export interface RiskTrendItem {
   date: string
@@ -66,33 +66,34 @@ export interface UserRiskExportJson {
 export const reportsApi = {
   // 用户侧导出（report/trend 复用 userRiskApi）
   exportUserRiskPdf: (days = 90) =>
-    request.get<Blob>('/user/risk/export', { params: { format: 'pdf', days }, responseType: 'blob' }).then((res) => res.data),
+    dedupedGet<Blob>('/user/risk/export', { params: { format: 'pdf', days }, responseType: 'blob' }).then((res) => res.data),
   exportUserRiskCsv: (days = 90) =>
-    request.get<Blob>('/user/risk/export', { params: { format: 'csv', days }, responseType: 'blob' }).then((res) => res.data),
+    dedupedGet<Blob>('/user/risk/export', { params: { format: 'csv', days }, responseType: 'blob' }).then((res) => res.data),
   exportUserRiskJson: (days = 90) =>
-    requestData<UserRiskExportJson>(request.get('/user/risk/export', { params: { format: 'json', days } })),
+    requestData<UserRiskExportJson>(dedupedGet('/user/risk/export', { params: { format: 'json', days } })),
 
   // 管理员侧
   listReportTemplates: () =>
-    requestData<{ templates: ReportTemplate[]; total: number }>(request.get('/reports/templates')),
+    requestData<{ templates: ReportTemplate[]; total: number }>(dedupedGet('/reports/templates')),
   generateUserRiskPdfSync: (payload: UserRiskReportRequest) =>
     request.post<Blob>('/reports/user-risk/pdf', payload, { responseType: 'blob', timeout: LONG_RUNNING_API_TIMEOUT_MS }).then((res) => res.data),
   generateUserRiskPdfAsync: (payload: UserRiskReportRequest) =>
     requestData<{ job_id: string; status: string; message: string }>(request.post('/reports/user-risk/pdf/async', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   getPdfJobStatus: (jobId: string) =>
-    requestData<PdfJobStatus>(request.get(`/reports/pdf/${jobId}/status`)),
+    requestData<PdfJobStatus>(dedupedGet(`/reports/pdf/${jobId}/status`)),
   downloadPdf: (jobId: string) =>
-    request.get<Blob>(`/reports/pdf/${jobId}/download`, { responseType: 'blob' }).then((res) => res.data),
+    dedupedGet<Blob>(`/reports/pdf/${jobId}/download`, { responseType: 'blob' }).then((res) => res.data),
   listPdfJobs: () =>
-    requestData<{ jobs: PdfJobItem[]; total: number }>(request.get('/reports/pdf/jobs')),
+    requestData<{ jobs: PdfJobItem[]; total: number }>(dedupedGet('/reports/pdf/jobs')),
   batchExportExcel: (payload: BatchExportRequest) =>
     request.post<Blob>('/reports/batch-export/excel', payload, { responseType: 'blob', timeout: LONG_RUNNING_API_TIMEOUT_MS }).then((res) => res.data),
 
-  // celery 变体（仅 API 接通，第一版 UI 不暴露）
+  // celery 变体（R-B：已并入统一端点 /reports/pdf/{job_id}/status|download，保留方法名兼容）
+  // DEPRECATED: 请改用 getPdfJobStatus / downloadPdf
   generateUserRiskPdfCeleryAsync: (payload: UserRiskReportRequest) =>
     requestData<{ job_id: string; status: string; message: string; backend?: string }>(request.post('/reports/user-risk/pdf/celery-async', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   getCeleryPdfJobStatus: (jobId: string) =>
-    requestData<PdfJobStatus>(request.get(`/reports/pdf/celery/${jobId}/status`)),
+    requestData<PdfJobStatus>(dedupedGet(`/reports/pdf/${jobId}/status`)),
   downloadCeleryPdf: (jobId: string) =>
-    request.get<Blob>(`/reports/pdf/celery/${jobId}/download`, { responseType: 'blob' }).then((res) => res.data),
+    dedupedGet<Blob>(`/reports/pdf/${jobId}/download`, { responseType: 'blob' }).then((res) => res.data),
 }

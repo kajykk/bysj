@@ -7,6 +7,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -17,7 +18,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request from './request'
+import request, { dedupedGet } from './request'
 import { authApi } from './auth'
 import { adminApi } from './adminApi'
 import { buildPageParams } from './business.shared'
@@ -31,21 +32,21 @@ describe('domain API modules', () => {
 
   it('builds user content requests through the user api', async () => {
     await userApi.listContents({ page: 2, page_size: 20, category: 'stress' })
-    expect(request.get).toHaveBeenCalledWith('/user/content/', {
+    expect(dedupedGet).toHaveBeenCalledWith('/user/content/', {
       params: { page: 2, page_size: 20, category: 'stress', content_type: undefined, keyword: undefined }
     })
   })
 
   it('builds counselor warning requests through the counselor api', async () => {
     await counselorApi.getCounselorWarnings({ page: 1, page_size: 10, only_unhandled: true })
-    expect(request.get).toHaveBeenCalledWith('/counselor/warnings', {
+    expect(dedupedGet).toHaveBeenCalledWith('/counselor/warnings', {
       params: { page: 1, page_size: 10, only_unhandled: true, risk_level: undefined }
     })
   })
 
   it('builds admin settings requests through the admin api', async () => {
     await adminApi.listAdminConfigs()
-    expect(request.get).toHaveBeenCalledWith('/admin/configs')
+    expect(dedupedGet).toHaveBeenCalledWith('/admin/configs')
   })
 
   it('builds auth login requests through the auth api', async () => {
@@ -134,17 +135,17 @@ describe('domain API modules', () => {
 
   it('requests risk export with pdf params', async () => {
     await userApi.exportRiskPdf(30)
-    expect(request.get).toHaveBeenCalledWith('/user/risk/export', { params: { format: 'pdf', days: 30 }, responseType: 'blob' })
+    expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', { params: { format: 'pdf', days: 30 }, responseType: 'blob' })
   })
 
   it('fetches counselor bind code through the counselor api', async () => {
     await counselorApi.getCounselorBindCode()
-    expect(request.get).toHaveBeenCalledWith('/counselor/bind-code')
+    expect(dedupedGet).toHaveBeenCalledWith('/counselor/bind-code')
   })
 
   it('fetches admin operation logs through the admin api', async () => {
     await adminApi.listAdminOperationLogs({ action_type: 'login', operator_role: 'admin' })
-    expect(request.get).toHaveBeenCalledWith('/admin/operation-logs', {
+    expect(dedupedGet).toHaveBeenCalledWith('/admin/operation-logs', {
       params: {
         page: 1,
         page_size: 10,

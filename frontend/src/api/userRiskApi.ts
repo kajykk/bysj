@@ -1,4 +1,4 @@
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 import type { AssessmentRecordItem } from './userTypes'
 
 export interface ReportFactor {
@@ -109,13 +109,13 @@ export interface InterventionHistoryItem {
 }
 
 export const userRiskApi = {
-  getRiskReport: () => requestData<RiskReport>(request.get('/user/risk/report')),
-  getRiskTrend: (days = 30) => requestData<RiskTrend>(request.get('/user/risk/trend', { params: { days } })),
+  getRiskReport: () => requestData<RiskReport>(dedupedGet('/user/risk/report')),
+  getRiskTrend: (days = 30) => requestData<RiskTrend>(dedupedGet('/user/risk/trend', { params: { days } })),
   collectStructuredData: (payload: { assessment_type: string; data_payload: Record<string, number | string> }) =>
     requestData<StructuredCollectResult>(request.post('/user/data/collect', payload)),
   analyzeText: (payload: { entry_type: string; content: string; emotion_tags?: string[]; mood_score?: number }) =>
     requestData<TextAnalyzeResult>(request.post('/user/data/text/analyze', payload)),
   recordPhysiological: (payload: Record<string, unknown>) => requestData<{ record_id: number }>(request.post('/user/data/physiological/record', payload)),
   predictTextModel: (text: string) => requestData<TextPredictModelResult>(request.post('/model/predict/text', { text })),
-  getAssessmentDetail: (id: number) => requestData<AssessmentRecordItem>(request.get(`/user/risk/assessments/${id}`)),
+  getAssessmentDetail: (id: number) => requestData<AssessmentRecordItem>(dedupedGet(`/user/risk/assessments/${id}`)),
 }

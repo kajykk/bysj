@@ -1,4 +1,4 @@
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 import type { UserBindingInfo } from './userTypes'
 
 export interface BindCounselorResult {
@@ -12,7 +12,7 @@ export interface BindCounselorResult {
 }
 
 export const userBindingApi = {
-  getUserBinding: () => requestData<UserBindingInfo | null>(request.get('/user/data/binding')),
+  getUserBinding: () => requestData<UserBindingInfo | null>(dedupedGet('/user/data/binding')),
   bindCounselor: (bindCode: string) => requestData<BindCounselorResult>(request.post('/user/data/binding', { bind_code: bindCode })),
   unbindCounselor: () => requestData<{ message: string }>(request.delete('/user/data/binding')),
 }

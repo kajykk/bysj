@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { adminApi } from './adminApi'
 
 describe('api/adminApi', () => {
@@ -30,7 +31,7 @@ describe('api/adminApi', () => {
     it('默认分页参数调用 GET /admin/templates', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await adminApi.listAdminTemplates()
-      expect(request.get).toHaveBeenCalledWith('/admin/templates', {
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/templates', {
         params: { page: 1, page_size: 10 }
       })
     })
@@ -38,7 +39,7 @@ describe('api/adminApi', () => {
     it('携带显式分页参数', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 2, page_size: 20 })
       await adminApi.listAdminTemplates({ page: 2, page_size: 20 })
-      expect(request.get).toHaveBeenCalledWith('/admin/templates', {
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/templates', {
         params: { page: 2, page_size: 20 }
       })
     })
@@ -126,7 +127,7 @@ describe('api/adminApi', () => {
     it('调用 GET /admin/thresholds', async () => {
       (requestData as any).mockResolvedValueOnce({ items: [] })
       await adminApi.listAdminThresholds()
-      expect(request.get).toHaveBeenCalledWith('/admin/thresholds')
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/thresholds')
     })
 
     it('错误透传', async () => {
@@ -176,7 +177,7 @@ describe('api/adminApi', () => {
     it('调用 GET /admin/configs', async () => {
       (requestData as any).mockResolvedValueOnce({ items: [] })
       await adminApi.listAdminConfigs()
-      expect(request.get).toHaveBeenCalledWith('/admin/configs')
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/configs')
     })
 
     it('错误透传', async () => {
@@ -223,7 +224,7 @@ describe('api/adminApi', () => {
     it('携带默认分页参数调用 GET /admin/model-feedbacks', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await adminApi.listAdminFeedbacks()
-      expect(request.get).toHaveBeenCalledWith('/admin/model-feedbacks', {
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/model-feedbacks', {
         params: { page: 1, page_size: 10 }
       })
     })
@@ -231,7 +232,7 @@ describe('api/adminApi', () => {
     it('携带显式分页参数', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 5, page_size: 50 })
       await adminApi.listAdminFeedbacks({ page: 5, page_size: 50 })
-      expect(request.get).toHaveBeenCalledWith('/admin/model-feedbacks', {
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/model-feedbacks', {
         params: { page: 5, page_size: 50 }
       })
     })
@@ -246,7 +247,7 @@ describe('api/adminApi', () => {
     it('默认分页 + 全 undefined 过滤字段', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await adminApi.listAdminOperationLogs()
-      expect(request.get).toHaveBeenCalledWith('/admin/operation-logs', {
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/operation-logs', {
         params: {
           page: 1,
           page_size: 10,
@@ -268,7 +269,7 @@ describe('api/adminApi', () => {
         page: 2,
         page_size: 20
       })
-      expect(request.get).toHaveBeenCalledWith('/admin/operation-logs', {
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/operation-logs', {
         params: {
           page: 2,
           page_size: 20,
@@ -304,7 +305,7 @@ describe('api/adminApi', () => {
       }
       ;(requestData as any).mockResolvedValueOnce(stats)
       const res = await adminApi.getAdminStats()
-      expect(request.get).toHaveBeenCalledWith('/admin/stats')
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/stats')
       expect(res).toEqual(stats)
     })
 
@@ -316,14 +317,14 @@ describe('api/adminApi', () => {
 
   describe('getHealthStatus', () => {
     it('调用 GET /health (根路径 + 裸 JSON, 无信封)', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: { status: 'ok', checks: { db: 'up' } } })
+      (dedupedGet as any).mockResolvedValueOnce({ data: { status: 'ok', checks: { db: 'up' } } })
       const res = await adminApi.getHealthStatus()
-      expect(request.get).toHaveBeenCalledWith('/health', { baseURL: '' })
+      expect(dedupedGet).toHaveBeenCalledWith('/health', { baseURL: '' })
       expect(res).toEqual({ status: 'ok', checks: { db: 'up' } })
     })
 
     it('错误透传', async () => {
-      (request.get as any).mockRejectedValueOnce(new Error('503'))
+      (dedupedGet as any).mockRejectedValueOnce(new Error('503'))
       await expect(adminApi.getHealthStatus()).rejects.toThrow('503')
     })
   })
@@ -332,7 +333,7 @@ describe('api/adminApi', () => {
     it('默认分页 + undefined 过滤', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await adminApi.getCrisisEvents()
-      expect(request.get).toHaveBeenCalledWith('/reviews/crisis-events', {
+      expect(dedupedGet).toHaveBeenCalledWith('/reviews/crisis-events', {
         params: {
           page: 1,
           page_size: 10,
@@ -352,7 +353,7 @@ describe('api/adminApi', () => {
         page: 1,
         page_size: 50
       })
-      expect(request.get).toHaveBeenCalledWith('/reviews/crisis-events', {
+      expect(dedupedGet).toHaveBeenCalledWith('/reviews/crisis-events', {
         params: {
           page: 1,
           page_size: 50,
@@ -372,10 +373,10 @@ describe('api/adminApi', () => {
   describe('exportCrisisEvents', () => {
     it('GET /admin/crisis-events/export 返回 Blob', async () => {
       const blob = new Blob(['data'], { type: 'text/csv' })
-      ;(request.get as any).mockResolvedValueOnce({ data: blob })
+      ;(dedupedGet as any).mockResolvedValueOnce({ data: blob })
       const res = await adminApi.exportCrisisEvents('2026-01-01', '2026-01-31')
 
-      expect(request.get).toHaveBeenCalledWith('/admin/crisis-events/export', {
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/crisis-events/export', {
         params: { start_date: '2026-01-01', end_date: '2026-01-31' },
         responseType: 'blob'
       })
@@ -383,7 +384,7 @@ describe('api/adminApi', () => {
     })
 
     it('导出失败抛出错误', async () => {
-      (request.get as any).mockRejectedValueOnce(new Error('500'))
+      (dedupedGet as any).mockRejectedValueOnce(new Error('500'))
       await expect(adminApi.exportCrisisEvents('a', 'b')).rejects.toThrow('500')
     })
   })

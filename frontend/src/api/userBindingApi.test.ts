@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 import { userBindingApi } from './userBindingApi'
 
 describe('api/userBindingApi', () => {
@@ -39,7 +40,7 @@ describe('api/userBindingApi', () => {
       }
       ;(requestData as any).mockResolvedValueOnce(binding)
       const res = await userBindingApi.getUserBinding()
-      expect(request.get).toHaveBeenCalledWith('/user/data/binding')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/data/binding')
       expect(res).toEqual(binding)
     })
 

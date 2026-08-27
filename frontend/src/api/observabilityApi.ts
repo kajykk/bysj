@@ -1,5 +1,5 @@
 // frontend/src/api/observabilityApi.ts
-import request from './request'
+import { dedupedGet } from './request'
 
 export interface ObservabilityEnvelope<T> {
   data: T
@@ -22,7 +22,7 @@ export interface ObservabilityTrendQuery extends ObservabilityTimeRange {
 }
 
 function get<T>(url: string, params?: Record<string, unknown>): Promise<ObservabilityEnvelope<T>> {
-  return request.get<ObservabilityEnvelope<T>>(url, { params }).then((res) => res.data)
+  return dedupedGet<ObservabilityEnvelope<T>>(url, { params }).then((res) => res.data)
 }
 
 export const observabilityApi = {

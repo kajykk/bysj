@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { counselorApi } from './counselorApi'
 
 describe('api/counselorApi', () => {
@@ -30,7 +31,7 @@ describe('api/counselorApi', () => {
     it('携带分页 + only_unhandled 参数调用 GET /counselor/warnings', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getCounselorWarnings({ page: 1, page_size: 10, only_unhandled: true })
-      expect(request.get).toHaveBeenCalledWith('/counselor/warnings', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/warnings', {
         params: { page: 1, page_size: 10, only_unhandled: true, risk_level: undefined }
       })
     })
@@ -38,7 +39,7 @@ describe('api/counselorApi', () => {
     it('默认分页 + only_unhandled=undefined', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getCounselorWarnings()
-      expect(request.get).toHaveBeenCalledWith('/counselor/warnings', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/warnings', {
         params: { page: 1, page_size: 10, only_unhandled: undefined, risk_level: undefined }
       })
     })
@@ -79,7 +80,7 @@ describe('api/counselorApi', () => {
     it('携带 risk_level 过滤调用 GET /counselor/users', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getCounselorUsers({ page: 2, page_size: 20, risk_level: 3 })
-      expect(request.get).toHaveBeenCalledWith('/counselor/users', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/users', {
         params: { page: 2, page_size: 20, risk_level: 3 }
       })
     })
@@ -87,7 +88,7 @@ describe('api/counselorApi', () => {
     it('默认分页 + risk_level=undefined', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getCounselorUsers()
-      expect(request.get).toHaveBeenCalledWith('/counselor/users', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/users', {
         params: { page: 1, page_size: 10, risk_level: undefined }
       })
     })
@@ -102,7 +103,7 @@ describe('api/counselorApi', () => {
     it('调用 GET /counselor/users/:userId', async () => {
       (requestData as any).mockResolvedValueOnce({ id: 9, username: 'u' })
       await counselorApi.getCounselorUserDetail(9)
-      expect(request.get).toHaveBeenCalledWith('/counselor/users/9')
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/users/9')
     })
 
     it('错误透传', async () => {
@@ -115,7 +116,7 @@ describe('api/counselorApi', () => {
     it('携带分页参数调用 GET /counselor/users/:userId/consultations', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getCounselorUserConsultations(3, { page: 1, page_size: 5 })
-      expect(request.get).toHaveBeenCalledWith('/counselor/users/3/consultations', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/users/3/consultations', {
         params: { page: 1, page_size: 5 }
       })
     })
@@ -123,7 +124,7 @@ describe('api/counselorApi', () => {
     it('默认分页', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getCounselorUserConsultations(3)
-      expect(request.get).toHaveBeenCalledWith('/counselor/users/3/consultations', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/users/3/consultations', {
         params: { page: 1, page_size: 10 }
       })
     })
@@ -170,7 +171,7 @@ describe('api/counselorApi', () => {
     it('默认分页调用 GET /counselor/groups', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getCounselorGroups()
-      expect(request.get).toHaveBeenCalledWith('/counselor/groups', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/groups', {
         params: { page: 1, page_size: 10 }
       })
     })
@@ -225,7 +226,7 @@ describe('api/counselorApi', () => {
     it('成功时返回 total', async () => {
       (requestPageData as any).mockResolvedValueOnce({ total: 17, items: [], page: 1, page_size: 1 })
       const count = await counselorApi.getCounselorUnhandledWarningCount()
-      expect(request.get).toHaveBeenCalledWith('/counselor/warnings', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/warnings', {
         params: { page: 1, page_size: 1, only_unhandled: true }
       })
       expect(count).toBe(17)
@@ -242,7 +243,7 @@ describe('api/counselorApi', () => {
     it('成功时返回 total', async () => {
       (requestPageData as any).mockResolvedValueOnce({ total: 42, items: [], page: 1, page_size: 1 })
       const count = await counselorApi.getCounselorUserCount()
-      expect(request.get).toHaveBeenCalledWith('/counselor/users', {
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/users', {
         params: { page: 1, page_size: 1 }
       })
       expect(count).toBe(42)
@@ -259,7 +260,7 @@ describe('api/counselorApi', () => {
     it('调用 GET /counselor/bind-code', async () => {
       (requestData as any).mockResolvedValueOnce({ bind_code: 'ABC123' })
       await counselorApi.getCounselorBindCode()
-      expect(request.get).toHaveBeenCalledWith('/counselor/bind-code')
+      expect(dedupedGet).toHaveBeenCalledWith('/counselor/bind-code')
     })
 
     it('错误透传', async () => {
@@ -285,7 +286,7 @@ describe('api/counselorApi', () => {
     it('调用 GET /user/data/binding', async () => {
       (requestData as any).mockResolvedValueOnce(null)
       await counselorApi.getUserBinding()
-      expect(request.get).toHaveBeenCalledWith('/user/data/binding')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/data/binding')
     })
 
     it('错误透传', async () => {
@@ -298,7 +299,7 @@ describe('api/counselorApi', () => {
     it('携带 status + priority 过滤调用 GET /reviews', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getReviews({ page: 1, page_size: 10, status: 'open', priority: 'high' })
-      expect(request.get).toHaveBeenCalledWith('/reviews', {
+      expect(dedupedGet).toHaveBeenCalledWith('/reviews', {
         params: { page: 1, page_size: 10, status: 'open', priority: 'high' }
       })
     })
@@ -306,7 +307,7 @@ describe('api/counselorApi', () => {
     it('默认分页 + undefined 过滤', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await counselorApi.getReviews()
-      expect(request.get).toHaveBeenCalledWith('/reviews', {
+      expect(dedupedGet).toHaveBeenCalledWith('/reviews', {
         params: { page: 1, page_size: 10, status: undefined, priority: undefined }
       })
     })
@@ -321,7 +322,7 @@ describe('api/counselorApi', () => {
     it('调用 GET /reviews/stats', async () => {
       (requestData as any).mockResolvedValueOnce({ total: 0, open: 0, escalated: 0 })
       await counselorApi.getReviewStats()
-      expect(request.get).toHaveBeenCalledWith('/reviews/stats')
+      expect(dedupedGet).toHaveBeenCalledWith('/reviews/stats')
     })
 
     it('错误透传', async () => {
@@ -334,7 +335,7 @@ describe('api/counselorApi', () => {
     it('调用 GET /reviews/:id', async () => {
       (requestData as any).mockResolvedValueOnce({ id: 5 })
       await counselorApi.getReviewDetail(5)
-      expect(request.get).toHaveBeenCalledWith('/reviews/5')
+      expect(dedupedGet).toHaveBeenCalledWith('/reviews/5')
     })
 
     it('错误透传', async () => {

@@ -1,4 +1,4 @@
-import request, { LONG_RUNNING_API_TIMEOUT_MS, requestData } from './request'
+import request, { LONG_RUNNING_API_TIMEOUT_MS, dedupedGet, requestData } from './request'
 import type { RiskReport, RiskTrend, TextPredictModelResult } from './userRiskApi'
 
 export type { RiskReport, RiskTrend, TextPredictModelResult }
@@ -194,9 +194,9 @@ export interface ActivateRegistryResult {
 }
 
 export const modelApi = {
-  getRiskReport: () => requestData<RiskReport>(request.get('/user/risk/report')),
-  getRiskTrend: (days = 30) => requestData<RiskTrend>(request.get('/user/risk/trend', { params: { days } })),
-  getModelStatus: () => requestData<ModelStatusResult>(request.get('/model/status')),
+  getRiskReport: () => requestData<RiskReport>(dedupedGet('/user/risk/report')),
+  getRiskTrend: (days = 30) => requestData<RiskTrend>(dedupedGet('/user/risk/trend', { params: { days } })),
+  getModelStatus: () => requestData<ModelStatusResult>(dedupedGet('/model/status')),
   predictTabularModel: (features: Record<string, number | string | boolean>) =>
     requestData<ModelPredictResponse>(request.post('/model/predict/tabular', { features })),
   predictTextModel: (text: string) => requestData<TextPredictModelResult>(request.post('/model/predict/text', { text })),
@@ -205,14 +205,14 @@ export const modelApi = {
     requestData<DatasetImportResult>(request.post('/model/experiment/import', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   trainModel: (payload: { dataset_name: string; model_name: string; epochs?: number; batch_size?: number; learning_rate?: number }) =>
     requestData<TrainResult>(request.post('/model/experiment/train', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
-  getTrainingJobs: () => requestData<{ jobs: TrainResult[] }>(request.get('/model/training/jobs')),
-  getTrainingJob: (jobId: string) => requestData<TrainResult>(request.get(`/model/training/jobs/${jobId}`)),
+  getTrainingJobs: () => requestData<{ jobs: TrainResult[] }>(dedupedGet('/model/training/jobs')),
+  getTrainingJob: (jobId: string) => requestData<TrainResult>(dedupedGet(`/model/training/jobs/${jobId}`)),
   evaluateModel: (payload: { dataset_name: string; model_name: string; split?: 'validation' | 'test' }) =>
     requestData<EvaluateResult>(request.post('/model/experiment/evaluate', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
   compareModels: (payload: { dataset_name: string; model_names: string[] }) =>
     requestData<CompareResult>(request.post('/model/experiment/compare', payload, { timeout: LONG_RUNNING_API_TIMEOUT_MS })),
-  getModelRegistry: () => requestData<RegistryListResult>(request.get('/model/model-registry')).then((res) => res.models ?? []),
-  getShadowStats: (modelId: string) => requestData<ShadowStatsResult>(request.get(`/model/model-registry/${modelId}/shadow`)),
+  getModelRegistry: () => requestData<RegistryListResult>(dedupedGet('/model/model-registry')).then((res) => res.models ?? []),
+  getShadowStats: (modelId: string) => requestData<ShadowStatsResult>(dedupedGet(`/model/model-registry/${modelId}/shadow`)),
   activateRegistryModel: (modelId: string, force = false) =>
     requestData<ActivateRegistryResult>(request.post(`/model/model-registry/${modelId}/activate`, undefined, { params: { force } })),
   rollbackRegistryModel: (modelId: string) =>

@@ -6,6 +6,7 @@ vi.mock('./request', () => ({
     get: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
     post: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -13,7 +14,7 @@ vi.mock('./request', () => ({
   LONG_RUNNING_API_TIMEOUT_MS: 420000,
 }))
 
-import request, { requestData } from './request'
+import request, { dedupedGet, requestData } from './request'
 import { reportsApi } from './reportsApi'
 
 describe('api/reportsApi', () => {
@@ -21,19 +22,19 @@ describe('api/reportsApi', () => {
 
   describe('用户侧导出', () => {
     it('exportUserRiskPdf 调 GET /user/risk/export?format=pdf 且 responseType=blob', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: new Blob() })
+      (dedupedGet as any).mockResolvedValueOnce({ data: new Blob() })
       await reportsApi.exportUserRiskPdf(90)
-      expect(request.get).toHaveBeenCalledWith('/user/risk/export', { params: { format: 'pdf', days: 90 }, responseType: 'blob' })
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', { params: { format: 'pdf', days: 90 }, responseType: 'blob' })
     })
     it('exportUserRiskCsv 默认 days=90', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: new Blob() })
+      (dedupedGet as any).mockResolvedValueOnce({ data: new Blob() })
       await reportsApi.exportUserRiskCsv()
-      expect(request.get).toHaveBeenCalledWith('/user/risk/export', { params: { format: 'csv', days: 90 }, responseType: 'blob' })
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', { params: { format: 'csv', days: 90 }, responseType: 'blob' })
     })
     it('exportUserRiskJson 走 requestData 非 blob', async () => {
       (requestData as any).mockResolvedValueOnce({ points: [] })
       await reportsApi.exportUserRiskJson(30)
-      expect(request.get).toHaveBeenCalledWith('/user/risk/export', { params: { format: 'json', days: 30 } })
+      expect(dedupedGet).toHaveBeenCalledWith('/user/risk/export', { params: { format: 'json', days: 30 } })
     })
   })
 
@@ -41,7 +42,7 @@ describe('api/reportsApi', () => {
     it('listReportTemplates 调 GET /reports/templates', async () => {
       (requestData as any).mockResolvedValueOnce({ templates: [], total: 0 })
       await reportsApi.listReportTemplates()
-      expect(request.get).toHaveBeenCalledWith('/reports/templates')
+      expect(dedupedGet).toHaveBeenCalledWith('/reports/templates')
     })
     it('generateUserRiskPdfSync POST /reports/user-risk/pdf 且 responseType=blob', async () => {
       (request.post as any).mockResolvedValueOnce({ data: new Blob() })
@@ -56,17 +57,17 @@ describe('api/reportsApi', () => {
     it('getPdfJobStatus GET /reports/pdf/{id}/status', async () => {
       (requestData as any).mockResolvedValueOnce({ job_id: 'j1', status: 'completed', progress: 100 })
       await reportsApi.getPdfJobStatus('j1')
-      expect(request.get).toHaveBeenCalledWith('/reports/pdf/j1/status')
+      expect(dedupedGet).toHaveBeenCalledWith('/reports/pdf/j1/status')
     })
     it('downloadPdf GET /reports/pdf/{id}/download responseType=blob', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: new Blob() })
+      (dedupedGet as any).mockResolvedValueOnce({ data: new Blob() })
       await reportsApi.downloadPdf('j1')
-      expect(request.get).toHaveBeenCalledWith('/reports/pdf/j1/download', { responseType: 'blob' })
+      expect(dedupedGet).toHaveBeenCalledWith('/reports/pdf/j1/download', { responseType: 'blob' })
     })
     it('listPdfJobs GET /reports/pdf/jobs', async () => {
       (requestData as any).mockResolvedValueOnce({ jobs: [], total: 0 })
       await reportsApi.listPdfJobs()
-      expect(request.get).toHaveBeenCalledWith('/reports/pdf/jobs')
+      expect(dedupedGet).toHaveBeenCalledWith('/reports/pdf/jobs')
     })
     it('batchExportExcel POST /reports/batch-export/excel responseType=blob', async () => {
       (request.post as any).mockResolvedValueOnce({ data: new Blob() })
@@ -81,15 +82,15 @@ describe('api/reportsApi', () => {
       await reportsApi.generateUserRiskPdfCeleryAsync({ user_id: 1, user_name: 'x', risk_level: '1', risk_trend: [], recommendations: [] })
       expect(request.post).toHaveBeenCalledWith('/reports/user-risk/pdf/celery-async', expect.any(Object), { timeout: 420000 })
     })
-    it('getCeleryPdfJobStatus GET celery status', async () => {
+    it('getCeleryPdfJobStatus GET 统一 status 端点 (R-B)', async () => {
       (requestData as any).mockResolvedValueOnce({ status: 'running' })
       await reportsApi.getCeleryPdfJobStatus('c1')
-      expect(request.get).toHaveBeenCalledWith('/reports/pdf/celery/c1/status')
+      expect(dedupedGet).toHaveBeenCalledWith('/reports/pdf/c1/status')
     })
-    it('downloadCeleryPdf GET celery download', async () => {
-      (request.get as any).mockResolvedValueOnce({ data: new Blob() })
+    it('downloadCeleryPdf GET 统一 download 端点 (R-B)', async () => {
+      (dedupedGet as any).mockResolvedValueOnce({ data: new Blob() })
       await reportsApi.downloadCeleryPdf('c1')
-      expect(request.get).toHaveBeenCalledWith('/reports/pdf/celery/c1/download', { responseType: 'blob' })
+      expect(dedupedGet).toHaveBeenCalledWith('/reports/pdf/c1/download', { responseType: 'blob' })
     })
   })
 })

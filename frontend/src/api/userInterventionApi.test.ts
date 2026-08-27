@@ -8,6 +8,7 @@ vi.mock('./request', () => ({
     put: vi.fn((url: string, data?: unknown, config?: unknown) => Promise.resolve({ url, data, config })),
     delete: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config }))
   },
+  dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
   requestData: vi.fn(async (promise: Promise<{ data: unknown }>) => {
     const response = await promise
     return response.data
@@ -18,7 +19,7 @@ vi.mock('./request', () => ({
   })
 }))
 
-import request, { requestData, requestPageData } from './request'
+import request, { dedupedGet, requestData, requestPageData } from './request'
 import { userInterventionApi } from './userInterventionApi'
 
 describe('api/userInterventionApi', () => {
@@ -30,7 +31,7 @@ describe('api/userInterventionApi', () => {
     it('调用 GET /user/intervention/active', async () => {
       (requestData as any).mockResolvedValueOnce({ plan: { id: 1, plan_name: 'P' }, tasks: [] })
       await userInterventionApi.getActiveIntervention()
-      expect(request.get).toHaveBeenCalledWith('/user/intervention/active')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/intervention/active')
     })
 
     it('错误透传', async () => {
@@ -43,7 +44,7 @@ describe('api/userInterventionApi', () => {
     it('携带分页参数调用 GET /user/intervention/history', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 2, page_size: 20 })
       await userInterventionApi.getInterventionHistory({ page: 2, page_size: 20 })
-      expect(request.get).toHaveBeenCalledWith('/user/intervention/history', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/intervention/history', {
         params: { page: 2, page_size: 20 }
       })
     })
@@ -51,7 +52,7 @@ describe('api/userInterventionApi', () => {
     it('默认分页', async () => {
       (requestPageData as any).mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 10 })
       await userInterventionApi.getInterventionHistory()
-      expect(request.get).toHaveBeenCalledWith('/user/intervention/history', {
+      expect(dedupedGet).toHaveBeenCalledWith('/user/intervention/history', {
         params: { page: 1, page_size: 10 }
       })
     })
