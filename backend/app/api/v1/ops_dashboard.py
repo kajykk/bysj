@@ -31,6 +31,8 @@ from app.core.response import ok
 from app.models.admin import EducationContent, OperationLog
 from app.models.review import CrisisEvent, ReviewTask
 from app.models.user import User
+from app.schemas.common import ApiResponse
+from app.schemas.ops_dashboard import OpsDashboardOverview, ReviewMetricsResult
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ops-dashboard", tags=["ops-dashboard"])
@@ -43,6 +45,7 @@ def _naive_utc_now() -> datetime:
 
 @router.get(
     "/overview",
+    response_model=ApiResponse[OpsDashboardOverview],
     responses=COMMON_ERROR_RESPONSES,
     summary="运营看板总览（管理员）",
 )
@@ -84,19 +87,22 @@ async def ops_dashboard_overview(
     # 6. 内容治理统计
     content_stats = await _get_content_stats(db)
 
-    return ok({
-        "generated_at": now.isoformat(),
-        "review": review_stats,
-        "crisis": crisis_stats,
-        "feedback": feedback_stats,
-        "kill_switch": kill_switch_status,
-        "audit_events": audit_events,
-        "content": content_stats,
-    })
+    return ok(
+        {
+            "generated_at": now.isoformat(),
+            "review": review_stats,
+            "crisis": crisis_stats,
+            "feedback": feedback_stats,
+            "kill_switch": kill_switch_status,
+            "audit_events": audit_events,
+            "content": content_stats,
+        }
+    )
 
 
 @router.get(
     "/review-metrics",
+    response_model=ApiResponse[ReviewMetricsResult],
     responses=COMMON_ERROR_RESPONSES,
     summary="复核任务详细指标（管理员）",
 )
@@ -116,40 +122,30 @@ async def ops_review_metrics(
     since = now - timedelta(days=min(max(days, 1), 90))
 
     stats = await _get_review_stats(db, since, since, now)
-    return ok({
-        "period_days": min(max(days, 1), 90),
-        "since": since.isoformat(),
-        **stats,
-    })
+    return ok(
+        {
+            "period_days": min(max(days, 1), 90),
+            "since": since.isoformat(),
+            **stats,
+        }
+    )
 
 
-async def _get_review_stats(
-    db: AsyncSession, last_24h: datetime, last_7d: datetime, now: datetime
-) -> dict[str, Any]:
+async def _get_review_stats(db: AsyncSession, last_24h: datetime, last_7d: datetime, now: datetime) -> dict[str, Any]:
     """复核任务统计."""
     # 状态分布
-    status_counts_raw = (
-        await db.execute(
-            select(ReviewTask.status, func.count())
-            .group_by(ReviewTask.status)
-        )
-    ).all()
+    status_counts_raw = (await db.execute(select(ReviewTask.status, func.count()).group_by(ReviewTask.status))).all()
     status_counts = {row[0]: row[1] for row in status_counts_raw}
 
     # 最近 7 天复核任务数
     recent_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(ReviewTask)
-            .where(ReviewTask.created_at >= last_7d)
-        )
+        await db.execute(select(func.count()).select_from(ReviewTask).where(ReviewTask.created_at >= last_7d))
     ).scalar_one()
 
     # 已解决任务的平均响应时长（小时）- 在 Python 端计算，兼容 SQLite/PostgreSQL
     resolved_rows = (
         await db.execute(
-            select(ReviewTask.created_at, ReviewTask.resolved_at)
-            .where(
+            select(ReviewTask.created_at, ReviewTask.resolved_at).where(
                 ReviewTask.status == "resolved",
                 ReviewTask.resolved_at.is_not(None),
                 ReviewTask.created_at >= last_7d,
@@ -192,26 +188,16 @@ async def _get_review_stats(
     }
 
 
-async def _get_crisis_stats(
-    db: AsyncSession, last_24h: datetime, last_7d: datetime
-) -> dict[str, Any]:
+async def _get_crisis_stats(db: AsyncSession, last_24h: datetime, last_7d: datetime) -> dict[str, Any]:
     """危机事件统计."""
     # 最近 24 小时危机事件
     count_24h = (
-        await db.execute(
-            select(func.count())
-            .select_from(CrisisEvent)
-            .where(CrisisEvent.created_at >= last_24h)
-        )
+        await db.execute(select(func.count()).select_from(CrisisEvent).where(CrisisEvent.created_at >= last_24h))
     ).scalar_one()
 
     # 最近 7 天危机事件
     count_7d = (
-        await db.execute(
-            select(func.count())
-            .select_from(CrisisEvent)
-            .where(CrisisEvent.created_at >= last_7d)
-        )
+        await db.execute(select(func.count()).select_from(CrisisEvent).where(CrisisEvent.created_at >= last_7d))
     ).scalar_one()
 
     # 按状态分布
@@ -231,19 +217,13 @@ async def _get_crisis_stats(
     }
 
 
-async def _get_feedback_stats(
-    db: AsyncSession, last_7d: datetime
-) -> dict[str, Any]:
+async def _get_feedback_stats(db: AsyncSession, last_7d: datetime) -> dict[str, Any]:
     """用户反馈统计."""
     from app.models.admin import ModelFeedback
 
     # 最近 7 天反馈数
     total = (
-        await db.execute(
-            select(func.count())
-            .select_from(ModelFeedback)
-            .where(ModelFeedback.created_at >= last_7d)
-        )
+        await db.execute(select(func.count()).select_from(ModelFeedback).where(ModelFeedback.created_at >= last_7d))
     ).scalar_one()
 
     # 同意率（咨询师是否同意模型评估结果）
@@ -266,17 +246,11 @@ async def _get_feedback_stats(
     }
 
 
-async def _get_recent_audit_events(
-    db: AsyncSession, limit: int = 10
-) -> list[dict[str, Any]]:
+async def _get_recent_audit_events(db: AsyncSession, limit: int = 10) -> list[dict[str, Any]]:
     """获取近期审计事件."""
     rows = (
-        await db.execute(
-            select(OperationLog)
-            .order_by(OperationLog.created_at.desc())
-            .limit(limit)
-        )
-    ).scalars().all()
+        (await db.execute(select(OperationLog).order_by(OperationLog.created_at.desc()).limit(limit))).scalars().all()
+    )
 
     return [
         {
@@ -296,10 +270,7 @@ async def _get_content_stats(db: AsyncSession) -> dict[str, Any]:
     """内容治理统计."""
     # 按状态分布
     status_raw = (
-        await db.execute(
-            select(EducationContent.status, func.count())
-            .group_by(EducationContent.status)
-        )
+        await db.execute(select(EducationContent.status, func.count()).group_by(EducationContent.status))
     ).all()
     status_distribution = {row[0]: row[1] for row in status_raw}
 
@@ -307,10 +278,7 @@ async def _get_content_stats(db: AsyncSession) -> dict[str, Any]:
 
     # 按类型分布
     type_raw = (
-        await db.execute(
-            select(EducationContent.content_type, func.count())
-            .group_by(EducationContent.content_type)
-        )
+        await db.execute(select(EducationContent.content_type, func.count()).group_by(EducationContent.content_type))
     ).all()
     type_distribution = {row[0]: row[1] for row in type_raw}
 

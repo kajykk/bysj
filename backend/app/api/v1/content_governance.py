@@ -22,7 +22,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -32,6 +32,12 @@ from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.models.admin import EducationContent, OperationLog
 from app.models.user import User
+from app.schemas.common import ApiResponse
+from app.schemas.governance import (
+    ContentHistoryResult,
+    GovernanceActionResult,
+    PendingContentList,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/content-governance", tags=["content-governance"])
@@ -49,11 +55,11 @@ DEFAULT_REVIEW_CYCLE_DAYS = 90
 class ReviewRequest(BaseModel):
     """内容审核请求."""
 
-    reviewer_note: str = Field(
-        ..., min_length=1, max_length=500, description="审核备注（必填）"
-    )
+    reviewer_note: str = Field(..., min_length=1, max_length=500, description="审核备注（必填）")
     review_cycle_days: int = Field(
-        default=DEFAULT_REVIEW_CYCLE_DAYS, ge=7, le=365,
+        default=DEFAULT_REVIEW_CYCLE_DAYS,
+        ge=7,
+        le=365,
         description="复审周期（天），默认 90 天",
     )
 
@@ -61,17 +67,13 @@ class ReviewRequest(BaseModel):
 class TakedownRequest(BaseModel):
     """内容下架请求."""
 
-    reason: str = Field(
-        ..., min_length=1, max_length=500, description="下架原因（必填）"
-    )
+    reason: str = Field(..., min_length=1, max_length=500, description="下架原因（必填）")
 
 
 class RestoreRequest(BaseModel):
     """内容恢复请求."""
 
-    reason: str = Field(
-        ..., min_length=1, max_length=500, description="恢复原因（必填）"
-    )
+    reason: str = Field(..., min_length=1, max_length=500, description="恢复原因（必填）")
 
 
 def _naive_utc_now() -> datetime:
@@ -81,6 +83,7 @@ def _naive_utc_now() -> datetime:
 
 @router.post(
     "/{content_id}/review",
+    response_model=ApiResponse[GovernanceActionResult],
     responses=COMMON_ERROR_RESPONSES,
     summary="标记内容已审核（管理员）",
 )
@@ -114,32 +117,35 @@ async def review_content(
             target_type="education_content",
             target_id=content_id,
             detail=f"reviewer_note={payload.reviewer_note}; "
-                   f"review_cycle_days={payload.review_cycle_days}; "
-                   f"previous_status={previous_status}; "
-                   f"new_status={content.status}",
+            f"review_cycle_days={payload.review_cycle_days}; "
+            f"previous_status={previous_status}; "
+            f"new_status={content.status}",
         )
     )
     await db.commit()
 
     logger.info(
         "Content %s reviewed by admin %s (cycle=%d days)",
-        content_id, current_user.id, payload.review_cycle_days,
+        content_id,
+        current_user.id,
+        payload.review_cycle_days,
     )
 
-    return ok({
-        "content_id": content_id,
-        "status": content.status,
-        "reviewed_by": current_user.id,
-        "reviewed_at": _naive_utc_now().isoformat(),
-        "review_cycle_days": payload.review_cycle_days,
-        "next_review_due": (
-            _naive_utc_now() + timedelta(days=payload.review_cycle_days)
-        ).isoformat(),
-    })
+    return ok(
+        {
+            "content_id": content_id,
+            "status": content.status,
+            "reviewed_by": current_user.id,
+            "reviewed_at": _naive_utc_now().isoformat(),
+            "review_cycle_days": payload.review_cycle_days,
+            "next_review_due": (_naive_utc_now() + timedelta(days=payload.review_cycle_days)).isoformat(),
+        }
+    )
 
 
 @router.post(
     "/{content_id}/takedown",
+    response_model=ApiResponse[GovernanceActionResult],
     responses=COMMON_ERROR_RESPONSES,
     summary="下架内容（管理员）",
 )
@@ -178,20 +184,25 @@ async def takedown_content(
 
     logger.warning(
         "Content %s taken down by admin %s: %s",
-        content_id, current_user.id, payload.reason,
+        content_id,
+        current_user.id,
+        payload.reason,
     )
 
-    return ok({
-        "content_id": content_id,
-        "status": STATUS_TAKEDOWN,
-        "takedown_by": current_user.id,
-        "takedown_at": _naive_utc_now().isoformat(),
-        "reason": payload.reason,
-    })
+    return ok(
+        {
+            "content_id": content_id,
+            "status": STATUS_TAKEDOWN,
+            "takedown_by": current_user.id,
+            "takedown_at": _naive_utc_now().isoformat(),
+            "reason": payload.reason,
+        }
+    )
 
 
 @router.post(
     "/{content_id}/restore",
+    response_model=ApiResponse[GovernanceActionResult],
     responses=COMMON_ERROR_RESPONSES,
     summary="恢复内容（管理员）",
 )
@@ -229,20 +240,25 @@ async def restore_content(
 
     logger.info(
         "Content %s restored by admin %s: %s",
-        content_id, current_user.id, payload.reason,
+        content_id,
+        current_user.id,
+        payload.reason,
     )
 
-    return ok({
-        "content_id": content_id,
-        "status": STATUS_ACTIVE,
-        "restored_by": current_user.id,
-        "restored_at": _naive_utc_now().isoformat(),
-        "reason": payload.reason,
-    })
+    return ok(
+        {
+            "content_id": content_id,
+            "status": STATUS_ACTIVE,
+            "restored_by": current_user.id,
+            "restored_at": _naive_utc_now().isoformat(),
+            "reason": payload.reason,
+        }
+    )
 
 
 @router.get(
     "/pending",
+    response_model=ApiResponse[PendingContentList],
     responses=COMMON_ERROR_RESPONSES,
     summary="待审核/待复审内容列表（管理员）",
 )
@@ -261,35 +277,35 @@ async def list_pending_content(
     - status 为 active 但超过复审周期（默认 90 天）未审核的内容
     """
     # 待审核内容
-    pending_stmt = (
-        select(EducationContent)
-        .where(EducationContent.status == STATUS_PENDING_REVIEW)
-        .order_by(EducationContent.created_at.asc())
-    )
-
-    # 活跃但可能需要复审的内容（按创建时间排序，旧内容优先）
-    # 注意：由于 EducationContent 没有 last_reviewed_at 字段，
-    # 复审检查基于 created_at + review_cycle_days
+    # OPT-R2（内存分页修复）：原实现将 pending + overdue 两条查询全量加载到
+    # Python 列表后切片分页，内容表增长后每次请求都全表扫描进内存。
+    # 改为单条 OR 查询 + CASE 排序（pending 块在前、各自按 created_at 升序，
+    # 与原 Python 端合并语义一致）+ 数据库端 offset/limit + count。
     review_due_date = _naive_utc_now() - timedelta(days=DEFAULT_REVIEW_CYCLE_DAYS)
-    overdue_stmt = (
+
+    stmt = (
         select(EducationContent)
         .where(
-            EducationContent.status == STATUS_ACTIVE,
-            EducationContent.created_at < review_due_date,
+            or_(
+                EducationContent.status == STATUS_PENDING_REVIEW,
+                and_(
+                    EducationContent.status == STATUS_ACTIVE,
+                    EducationContent.created_at < review_due_date,
+                ),
+            )
         )
-        .order_by(EducationContent.created_at.asc())
+        .order_by(
+            case(
+                (EducationContent.status == STATUS_PENDING_REVIEW, 0),
+                else_=1,
+            ),
+            EducationContent.created_at.asc(),
+        )
     )
 
-    # 合并查询（简化：分别查询后在 Python 端合并分页）
-    pending_results = (await db.execute(pending_stmt)).scalars().all()
-    overdue_results = (await db.execute(overdue_stmt)).scalars().all()
-
-    all_pending = list(pending_results) + list(overdue_results)
-    total = len(all_pending)
-
-    # 分页
     offset = (page - 1) * page_size
-    page_items = all_pending[offset : offset + page_size]
+    page_items = (await db.execute(stmt.offset(offset).limit(page_size))).scalars().all()
+    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar() or 0
 
     items = [
         {
@@ -299,28 +315,26 @@ async def list_pending_content(
             "category": c.category,
             "status": c.status,
             "created_at": c.created_at.isoformat() if c.created_at else None,
-            "needs_review_reason": (
-                "pending_review" if c.status == STATUS_PENDING_REVIEW
-                else "overdue_for_review"
-            ),
-            "days_since_creation": (
-                (_naive_utc_now() - c.created_at).days if c.created_at else None
-            ),
+            "needs_review_reason": ("pending_review" if c.status == STATUS_PENDING_REVIEW else "overdue_for_review"),
+            "days_since_creation": ((_naive_utc_now() - c.created_at).days if c.created_at else None),
         }
         for c in page_items
     ]
 
-    return ok({
-        "items": items,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "review_cycle_days": DEFAULT_REVIEW_CYCLE_DAYS,
-    })
+    return ok(
+        {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "review_cycle_days": DEFAULT_REVIEW_CYCLE_DAYS,
+        }
+    )
 
 
 @router.get(
     "/history/{content_id}",
+    response_model=ApiResponse[ContentHistoryResult],
     responses=COMMON_ERROR_RESPONSES,
     summary="内容审核历史（管理员）",
 )
@@ -337,21 +351,27 @@ async def get_content_history(
 
     # 查询相关的审核日志
     logs = (
-        await db.execute(
-            select(OperationLog)
-            .where(
-                OperationLog.target_type == "education_content",
-                OperationLog.target_id == content_id,
-                OperationLog.action_type.in_([
-                    "content.review",
-                    "content.takedown",
-                    "content.restore",
-                ]),
+        (
+            await db.execute(
+                select(OperationLog)
+                .where(
+                    OperationLog.target_type == "education_content",
+                    OperationLog.target_id == content_id,
+                    OperationLog.action_type.in_(
+                        [
+                            "content.review",
+                            "content.takedown",
+                            "content.restore",
+                        ]
+                    ),
+                )
+                .order_by(OperationLog.created_at.desc())
+                .limit(100)
             )
-            .order_by(OperationLog.created_at.desc())
-            .limit(100)
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     history = [
         {
@@ -365,20 +385,18 @@ async def get_content_history(
         for log in logs
     ]
 
-    return ok({
-        "content_id": content_id,
-        "history": history,
-        "total_events": len(history),
-    })
+    return ok(
+        {
+            "content_id": content_id,
+            "history": history,
+            "total_events": len(history),
+        }
+    )
 
 
 async def _get_content_or_404(db: AsyncSession, content_id: int) -> EducationContent:
     """获取内容或抛出 404."""
-    content = (
-        await db.execute(
-            select(EducationContent).where(EducationContent.id == content_id)
-        )
-    ).scalar_one_or_none()
+    content = (await db.execute(select(EducationContent).where(EducationContent.id == content_id))).scalar_one_or_none()
 
     if content is None:
         raise HTTPException(status_code=404, detail="内容不存在")

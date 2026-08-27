@@ -21,10 +21,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import get_real_client_ip
 from app.core.response import ok
 from app.models.admin import OperationLog
 from app.models.user import User, UserProfile
+
+# T5-B2：补充具体 response_model，OpenAPI data 字段可导航
+from app.schemas.analytics import (
+    ConsentStatusResponse,
+    ConsentUpdateResponse,
+    EventsQueryResponse,
+    EventsSubmitResponse,
+)
+from app.schemas.common import ApiResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/analytics", tags=["analytics-events"])
@@ -33,26 +43,30 @@ router = APIRouter(prefix="/analytics", tags=["analytics-events"])
 _EVENT_RETENTION_DAYS = 90
 
 # 允许的事件类型白名单
-_ALLOWED_EVENT_TYPES = frozenset({
-    "assessment_enter",
-    "assessment_start",
-    "assessment_complete",
-    "assessment_abandon",
-    "warning_handle",
-    "help_use",
-    "task_fail",
-})
+_ALLOWED_EVENT_TYPES = frozenset(
+    {
+        "assessment_enter",
+        "assessment_start",
+        "assessment_complete",
+        "assessment_abandon",
+        "warning_handle",
+        "help_use",
+        "task_fail",
+    }
+)
 
 # 允许的元数据键白名单（禁止任意键，防止注入敏感字段）
-_ALLOWED_METADATA_KEYS = frozenset({
-    "assessment_type",   # structured/text/physiological/fusion
-    "risk_level",        # 0-4 数值
-    "warning_id",        # 整数 ID
-    "help_action",       # faq/contact/feedback/onboarding
-    "task_type",         # export/training/report
-    "error_code",        # 字符串错误码（非错误消息）
-    "page",              # 页面路由路径（不含 query）
-})
+_ALLOWED_METADATA_KEYS = frozenset(
+    {
+        "assessment_type",  # structured/text/physiological/fusion
+        "risk_level",  # 0-4 数值
+        "warning_id",  # 整数 ID
+        "help_action",  # faq/contact/feedback/onboarding
+        "task_type",  # export/training/report
+        "error_code",  # 字符串错误码（非错误消息）
+        "page",  # 页面路由路径（不含 query）
+    }
+)
 
 # 元数据值最大长度（防止超长字符串携带敏感内容）
 _MAX_METADATA_VALUE_LEN = 200
@@ -112,14 +126,17 @@ def _naive_utc_now() -> datetime:
 
 async def _check_consent(db: AsyncSession, user_id: int) -> bool:
     """查询用户分析同意状态."""
-    result = await db.execute(
-        select(UserProfile.analytics_consent).where(UserProfile.user_id == user_id)
-    )
+    result = await db.execute(select(UserProfile.analytics_consent).where(UserProfile.user_id == user_id))
     row = result.first()
     return bool(row[0]) if row else False
 
 
-@router.post("/events", summary="上报分析事件（需用户同意）")
+@router.post(
+    "/events",
+    summary="上报分析事件（需用户同意）",
+    response_model=ApiResponse[EventsSubmitResponse],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def submit_events(
     payload: AnalyticsEventBatch,
     request: Request,
@@ -143,15 +160,17 @@ async def submit_events(
 
     records = []
     for evt in payload.events:
-        records.append({
-            "user_id": current_user.id,
-            "event_type": evt.event_type,
-            "timestamp": evt.timestamp,
-            "metadata": evt.metadata,
-            "client_ip": client_ip,
-            "received_at": now.isoformat(),
-            "retention_expires_at": retention_expires.isoformat(),
-        })
+        records.append(
+            {
+                "user_id": current_user.id,
+                "event_type": evt.event_type,
+                "timestamp": evt.timestamp,
+                "metadata": evt.metadata,
+                "client_ip": client_ip,
+                "received_at": now.isoformat(),
+                "retention_expires_at": retention_expires.isoformat(),
+            }
+        )
 
     async with _event_store_lock:
         _event_store.extend(records)
@@ -168,21 +187,33 @@ async def submit_events(
     return ok({"stored": len(records), "retention_days": _EVENT_RETENTION_DAYS})
 
 
-@router.get("/consent", summary="查询分析事件同意状态")
+@router.get(
+    "/consent",
+    summary="查询分析事件同意状态",
+    response_model=ApiResponse[ConsentStatusResponse],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def get_consent(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """返回当前用户的分析事件同意状态及保留期限说明."""
     consented = await _check_consent(db, current_user.id)
-    return ok({
-        "consented": consented,
-        "retention_days": _EVENT_RETENTION_DAYS,
-        "event_types": sorted(_ALLOWED_EVENT_TYPES),
-    })
+    return ok(
+        {
+            "consented": consented,
+            "retention_days": _EVENT_RETENTION_DAYS,
+            "event_types": sorted(_ALLOWED_EVENT_TYPES),
+        }
+    )
 
 
-@router.put("/consent", summary="更新分析事件同意状态（同意/撤回）")
+@router.put(
+    "/consent",
+    summary="更新分析事件同意状态（同意/撤回）",
+    response_model=ApiResponse[ConsentUpdateResponse],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def update_consent(
     body: ConsentUpdateRequest,
     request: Request,
@@ -195,9 +226,7 @@ async def update_consent(
     - 不再接收新的事件
     - 已采集的事件按保留期限到期后清理（不立即删除，保证审计可追溯）
     """
-    result = await db.execute(
-        select(UserProfile).where(UserProfile.user_id == current_user.id)
-    )
+    result = await db.execute(select(UserProfile).where(UserProfile.user_id == current_user.id))
     profile = result.scalar_one_or_none()
     if profile is None:
         raise HTTPException(status_code=404, detail="用户资料不存在")
@@ -235,7 +264,12 @@ async def update_consent(
     return ok({"consented": body.consent, "changed": True})
 
 
-@router.get("/events", summary="查询分析事件（管理员审计）")
+@router.get(
+    "/events",
+    summary="查询分析事件（管理员审计）",
+    response_model=ApiResponse[EventsQueryResponse],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def query_events(
     event_type: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
@@ -248,10 +282,7 @@ async def query_events(
     # 清理过期事件
     now = _naive_utc_now()
     async with _event_store_lock:
-        _event_store[:] = [
-            e for e in _event_store
-            if datetime.fromisoformat(e["retention_expires_at"]) > now
-        ]
+        _event_store[:] = [e for e in _event_store if datetime.fromisoformat(e["retention_expires_at"]) > now]
         records = list(_event_store)
 
     if event_type:

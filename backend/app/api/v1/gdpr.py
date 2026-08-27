@@ -28,6 +28,8 @@ from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
 from app.models.admin import OperationLog
 from app.models.user import User
+from app.schemas.common import ApiResponse
+from app.schemas.gdpr import GdprDeleteResult
 from app.services.gdpr_service import GDPRService
 
 logger = logging.getLogger(__name__)
@@ -183,7 +185,10 @@ async def export_my_data(
 
 
 @router.post(
-    "/delete", summary="匿名化账户 (GDPR Article 17)", responses=COMMON_ERROR_RESPONSES
+    "/delete",
+    summary="匿名化账户 (GDPR Article 17)",
+    response_model=ApiResponse[GdprDeleteResult],
+    responses=COMMON_ERROR_RESPONSES,
 )
 @limiter.limit("2/minute")
 async def delete_my_account(
@@ -232,14 +237,10 @@ class AdminDeleteUserRequest(BaseModel):
     """ISS-074: 管理员匿名化用户请求."""
 
     confirm: bool = Field(..., description="必须为 true 以确认删除")
-    reason: str = Field(
-        ..., min_length=1, max_length=500, description="管理员操作原因（写入审计日志）"
-    )
+    reason: str = Field(..., min_length=1, max_length=500, description="管理员操作原因（写入审计日志）")
 
 
-@admin_router.get(
-    "/export/{user_id}", summary="管理员导出任意用户数据 (GDPR Article 15)"
-)
+@admin_router.get("/export/{user_id}", summary="管理员导出任意用户数据 (GDPR Article 15)")
 @limiter.limit("10/minute")
 async def admin_export_user_data(
     request: Request,
@@ -293,7 +294,11 @@ async def admin_export_user_data(
     )
 
 
-@admin_router.post("/delete/{user_id}", summary="管理员匿名化用户 (GDPR Article 17)")
+@admin_router.post(
+    "/delete/{user_id}",
+    summary="管理员匿名化用户 (GDPR Article 17)",
+    response_model=ApiResponse[GdprDeleteResult],
+)
 @limiter.limit("5/minute")
 async def admin_delete_user_account(
     request: Request,
