@@ -51,142 +51,13 @@
         name="fusion"
         lazy
       >
-        <el-card>
-          <el-form
-            :model="fusionForm"
-            label-width="120px"
-            class="fusion-form"
-          >
-            <el-form-item :label="t('userRisk.fusionTextLabel')">
-              <el-input
-                v-model="fusionForm.text"
-                type="textarea"
-                :rows="5"
-                :placeholder="t('userRisk.fusionTextPlaceholder')"
-              />
-            </el-form-item>
-            <el-form-item :label="t('userRisk.fusionFeaturesLabel')">
-              <el-input
-                v-model="fusionForm.featuresJson"
-                type="textarea"
-                :rows="6"
-                :placeholder="t('userRisk.fusionFeaturesPlaceholder')"
-              />
-            </el-form-item>
-            <el-form-item :label="t('userRisk.fusionPhysiologicalLabel')">
-              <el-input
-                v-model="fusionForm.physiologicalJson"
-                type="textarea"
-                :rows="6"
-                :placeholder="t('userRisk.fusionPhysiologicalPlaceholder')"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                :loading="fusionSubmitting"
-                @click="() => submitFusion()"
-              >
-                {{ t('userRisk.btnFusion') }}
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
-
-        <el-card
-          v-if="fusionResult"
-          class="card-gap"
-        >
-          <template #header>
-            <div class="header-row">
-              <span class="card-title">{{ t('userRisk.fusionResultTitle') }}</span>
-              <div class="header-actions">
-                <el-tag
-                  v-if="fusionResult.crisis_override"
-                  type="danger"
-                  effect="dark"
-                >
-                  {{ t('userRisk.fusionCrisisOverride') }}
-                </el-tag>
-                <el-tag
-                  v-if="fusionResult.review_required"
-                  type="warning"
-                  effect="dark"
-                >
-                  {{ t('userRisk.fusionReviewRequired') }}
-                </el-tag>
-              </div>
-            </div>
-          </template>
-          <el-result
-            :icon="fusionResult.risk_level <= 1 ? 'success' : fusionResult.risk_level <= 2 ? 'warning' : 'error'"
-            :title="fusionResult.severity"
-          >
-            <template #sub-title>
-              <p>{{ t('userRisk.fusionScoreLabel') }}{{ fusionResult.risk_score.toFixed(2) }}</p>
-              <p>{{ t('userRisk.fusionSeverityLabel') }}{{ severityFromLevel(fusionResult.risk_level) }}</p>
-              <p>{{ t('userRisk.fusionModelVersionLabel') }}{{ fusionResult.model_version || t('userRisk.notAvailable') }}</p>
-              <p>{{ t('userRisk.fusionModelNameLabel') }}{{ formatArrayText(fusionResult.model_used, ' / ') }}</p>
-            </template>
-          </el-result>
-          <el-descriptions
-            :column="2"
-            border
-            class="desc-gap"
-          >
-            <el-descriptions-item :label="t('userRisk.labelReviewStatus')">
-              {{ fusionResult.review_required ? t('userRisk.reviewRequired') : t('userRisk.reviewNotRequired') }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('userRisk.labelCrisisOverride')">
-              {{ fusionResult.crisis_override ? t('userRisk.yesOption') : t('userRisk.noOption') }}
-            </el-descriptions-item>
-            <el-descriptions-item
-              :label="t('userRisk.labelReviewReason')"
-              :span="2"
-            >
-              <el-tag
-                v-for="reason in fusionResult.review_triggers"
-                :key="reason"
-                type="warning"
-                size="small"
-                class="tag-inline"
-              >
-                {{ featureLabel(reason) }}
-              </el-tag>
-              <span v-if="!fusionResult.review_triggers?.length">{{ t('userRisk.notAvailable') }}</span>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('userRisk.labelInterventionLevel')">
-              {{ fusionResult.intervention_level || t('userRisk.notAvailable') }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('userRisk.labelGateWeights')">
-              {{ formatArrayText(fusionResult.fusion_detail?.gate_weights) }}
-            </el-descriptions-item>
-            <el-descriptions-item
-              :label="t('userRisk.labelModalityScores')"
-              :span="2"
-            >
-              {{ fusionResult.fusion_detail?.modality_scores ? JSON.stringify(fusionResult.fusion_detail.modality_scores) : t('userRisk.notAvailable') }}
-            </el-descriptions-item>
-            <el-descriptions-item
-              :label="t('userRisk.labelWeightsInfo')"
-              :span="2"
-            >
-              {{ fusionResult.fusion_detail?.weights ? JSON.stringify(fusionResult.fusion_detail.weights) : t('userRisk.notAvailable') }}
-            </el-descriptions-item>
-            <el-descriptions-item
-              :label="t('userRisk.labelModelName')"
-              :span="2"
-            >
-              {{ formatArrayText(fusionResult.model_used, ' / ') }}
-            </el-descriptions-item>
-            <el-descriptions-item
-              :label="t('userRisk.labelModelVersion')"
-              :span="2"
-            >
-              {{ fusionResult.model_version || t('userRisk.notAvailable') }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-card>
+        <FusionAssessTab
+          :model="fusionForm"
+          :submitting="fusionSubmitting"
+          :result="fusionResult"
+          @update:model="(patch) => Object.assign(fusionForm, patch)"
+          @submit="(auto: boolean) => submitFusion(auto, !auto)"
+        />
       </el-tab-pane>
 
       <el-tab-pane
@@ -242,32 +113,32 @@
           <el-icon><PhoneFilled /></el-icon>
           <div class="hotline-info">
             <div class="hotline-name">
+              {{ t('crisis.hotlines.national24hNumber') }}
+            </div>
+            <div class="hotline-number">
               {{ t('crisis.hotlines.national24h') }}
             </div>
-            <div class="hotline-number">
-              400-161-9995
-            </div>
           </div>
         </div>
         <div class="hotline-item">
           <el-icon><PhoneFilled /></el-icon>
           <div class="hotline-info">
             <div class="hotline-name">
+              {{ t('crisis.hotlines.beijingCrisisNumber') }}
+            </div>
+            <div class="hotline-number">
               {{ t('crisis.hotlines.beijingCrisis') }}
             </div>
-            <div class="hotline-number">
-              010-82951332
-            </div>
           </div>
         </div>
         <div class="hotline-item">
           <el-icon><PhoneFilled /></el-icon>
           <div class="hotline-info">
             <div class="hotline-name">
-              {{ t('crisis.hotlines.lifeLine') }}
+              {{ t('crisis.hotlines.lifeLineNumber') }}
             </div>
             <div class="hotline-number">
-              400-821-1215
+              {{ t('crisis.hotlines.lifeLine') }}
             </div>
           </div>
         </div>
@@ -306,8 +177,8 @@ import { userApi } from '@/api/userApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { hasPermission } from '@/config/permissions'
-import { severityFromLevel, formatArrayText, featureLabel } from '@/utils/riskFormatters'
 import { useAnalytics } from '@/composables/useAnalytics'
+import FusionAssessTab from './components/FusionAssessTab.vue'
 import RiskReportTab from './components/RiskReportTab.vue'
 import StructuredAssessTab from './components/StructuredAssessTab.vue'
 import TextAssessTab from './components/TextAssessTab.vue'
@@ -407,13 +278,14 @@ const syncFusionInputsFromLatest = () => {
 }
 
 const maybeAutoSubmitFusion = async () => {
-  if (!autoFusionReady.structured || !autoFusionReady.text || !autoFusionReady.physiological) return
-  if (fusionSubmitting.value) return
+  if (!autoFusionReady.structured || !autoFusionReady.text || !autoFusionReady.physiological) return false
+  if (fusionSubmitting.value) return false
   syncFusionInputsFromLatest()
-  await submitFusion(true)
+  await submitFusion(true, true)
+  return true
 }
 
-const submitFusion = async (auto = false) => {
+const submitFusion = async (auto = false, refreshReport = true) => {
   // 融合预测允许三种模态任意组合；自动融合会先同步最近一次结构化、文本和生理输入。
   if (auto) {
     syncFusionInputsFromLatest()
@@ -428,7 +300,9 @@ const submitFusion = async (auto = false) => {
     if (fusionResult.value?.crisis_override) {
       showCrisisDialog()
     }
-    await loadReport()
+    if (refreshReport) {
+      await loadReport()
+    }
     ElMessage.success(auto ? t('userRisk.fusionAutoSuccess') : t('userRisk.fusionSuccess'))
     if (auto) activeTab.value = 'fusion'
   } catch (error) {
@@ -442,22 +316,22 @@ const submitFusion = async (auto = false) => {
 const handleStructuredSubmitted = async (data: { featuresJson: string; structuredFormData: Record<string, unknown> }) => {
   latestStructuredData.value = data
   autoFusionReady.structured = true
-  await loadReport()
-  await maybeAutoSubmitFusion()
+  const autoSubmitted = await maybeAutoSubmitFusion()
+  if (!autoSubmitted) await loadReport()
 }
 
 const handleTextSubmitted = async (data: { text: string }) => {
   latestTextContent.value = data.text
   autoFusionReady.text = true
-  await loadReport()
-  await maybeAutoSubmitFusion()
+  const autoSubmitted = await maybeAutoSubmitFusion()
+  if (!autoSubmitted) await loadReport()
 }
 
 const handlePhysioSubmitted = async (data: { physiologicalJson: string; physioFormData: Record<string, unknown> }) => {
   latestPhysioData.value = data
   autoFusionReady.physiological = true
-  await loadReport()
-  await maybeAutoSubmitFusion()
+  const autoSubmitted = await maybeAutoSubmitFusion()
+  if (!autoSubmitted) await loadReport()
 }
 
 onMounted(() => {
@@ -475,39 +349,6 @@ onUnmounted(() => {
 <style scoped>
 .risk-page {
   padding: 0;
-}
-
-.card-title {
-  font-weight: 600;
-}
-
-.header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-/* VIS-P3-01 修复：内联样式收敛为样式类 + 设计令牌 */
-.fusion-form {
-  max-width: 760px;
-}
-
-.card-gap {
-  margin-top: var(--spacing-md);
-}
-
-.header-actions {
-  display: flex;
-  gap: var(--spacing-sm);
-}
-
-.desc-gap {
-  margin-top: var(--spacing-md);
-}
-
-.tag-inline {
-  margin-right: var(--spacing-xs);
-  margin-bottom: var(--spacing-xs);
 }
 
 .alert-gap {

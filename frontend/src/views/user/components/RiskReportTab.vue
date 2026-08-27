@@ -260,11 +260,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ProgressColor } from 'element-plus'
 import { Top, Bottom, ArrowDown } from '@element-plus/icons-vue'
-import { echarts, type ECharts } from '@/utils/echarts'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import type { RiskTrend } from '@/api/modelApi'
 import type { ReportFactor, RiskReport } from '@/api/userRiskApi'
@@ -277,9 +276,8 @@ import {
   getRiskScoreColor,
   RISK_SCORE_COLORS,
 } from '@/utils/riskFormatters'
-import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
-import { subscribeResize } from '@/utils/sharedResize'
-import { initChartWhenReady, type ChartInitHandle } from '@/utils/chartInit'
+import { buildReportTrendOption } from './composables/reportTrendOption'
+import { useTrendChart } from './composables/useTrendChart'
 
 interface Props {
   report: RiskReport | null
@@ -296,25 +294,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-
-let isUnmounted = false
-const reportTrendRef = ref<HTMLElement>()
-let reportTrendChart: ECharts | null = null
-// 渲染序号：dispose 后过期的延迟 init 回调通过序号比对失效
-let reportRenderSeq = 0
-// SEC-FIX (P1-6): 记录 init 句柄, dispose 时取消未完成的重试链
-let reportTrendInitHandle: ChartInitHandle | null = null
-// R-009 修复：使用 subscribeResize 共享全局节流 resize 监听，避免独立注册
-let unsubscribeReportTrendResize: (() => void) | null = null
-
-const disposeReportTrend = () => {
-  reportTrendInitHandle?.cancel()
-  reportTrendInitHandle = null
-  unsubscribeReportTrendResize?.()
-  unsubscribeReportTrendResize = null
-  reportTrendChart?.dispose()
-  reportTrendChart = null
-}
 
 const severityLabelText = computed(() => {
   if (!props.report) return ''
@@ -337,132 +316,17 @@ const handleExport = (format: 'json' | 'csv' | 'pdf') => {
   emit('export', format)
 }
 
-const renderReportTrend = async () => {
-  await nextTick()
-  const el = reportTrendRef.value
-  if (!el || isUnmounted) return
-
-  if (reportTrendChart) {
-    disposeReportTrend()
-  } else {
-    // SEC-FIX (P1-6): 无实例但可能存在未完成的重试链, 取消后重建
-    reportTrendInitHandle?.cancel()
-    reportTrendInitHandle = null
-  }
-  // 容器尺寸就绪后才 init（避免 0 尺寸初始化警告）；
-  // seq 防止 dispose 后过期的延迟 init 回调覆盖新实例
-  const seq = ++reportRenderSeq
-  reportTrendInitHandle = initChartWhenReady(el, { retries: 5, intervalMs: 100 }, (instance) => {
-    // SEC-FIX (P1-6): 回调到达时组件已卸载/已过期 → 立即释放实例
-    // (原实现仅 return, 实例已创建却无人 dispose)
-    if (isUnmounted || seq !== reportRenderSeq) {
-      instance.dispose()
-      return
-    }
-    reportTrendChart = instance
-    // R-009 修复：通过 subscribeResize 注册共享监听
-    unsubscribeReportTrendResize = subscribeResize(() => reportTrendChart?.resize())
-    paintReportTrend()
-  })
-}
-
-const paintReportTrend = () => {
-  if (!reportTrendChart) return
-  const trend = props.trendData
-  const points = Array.isArray(trend.points) ? trend.points : []
-  const dates = points.map(p => p.date)
-  const valueOrNull = (value: number | null | undefined) => typeof value === 'number' ? value : null
-  const sourceLabelMap: Record<string, string> = {
-    fusion: t('riskReport.sourceFusion'),
-    structured: t('riskReport.sourceStructured'),
-    text: t('riskReport.sourceText'),
-    physiological: t('riskReport.sourcePhysiological')
-  }
-  const riskLevelMap: Record<number, string> = {
-    0: t('riskReport.chartRiskLevel0'),
-    1: t('riskReport.chartRiskLevel1'),
-    2: t('riskReport.chartRiskLevel2'),
-    3: t('riskReport.chartRiskLevel3'),
-    4: t('riskReport.chartRiskLevel4')
-  }
-
-  reportTrendChart.setOption({
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: unknown) => {
-        const items = Array.isArray(params) ? params as Array<{ dataIndex: number; marker: string; seriesName: string; value: number | null }> : []
-        const point = points[items[0]?.dataIndex ?? 0]
-        if (!point) return ''
-        const escapeHtml = (value: unknown) => {
-          if (value === null || value === undefined) return ''
-          return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-        }
-        const safeDate = escapeHtml(point.date)
-        const safeAssessmentType = escapeHtml(point.assessment_type)
-        const safeRiskLevel = escapeHtml(point.risk_level)
-        const safeRecordCount = escapeHtml(point.record_count ?? 1)
-        const lines = [
-          `<strong>${safeDate}</strong>`,
-          `${t('riskReport.chartMainAssessment')}${sourceLabelMap[String(point.assessment_type || '')] || safeAssessmentType || t('riskReport.chartUnknown')}`,
-          `${t('riskReport.chartRiskLevel')}${riskLevelMap[point.risk_level] || `${t('riskReport.chartLevelPrefix')}${safeRiskLevel}`}`,
-          `${t('riskReport.chartDailyRecords')}${safeRecordCount} ${t('riskReport.chartRecordsUnit')}`,
-        ]
-        items.forEach(item => {
-          if (item.value !== null && item.value !== undefined) {
-            lines.push(`${item.marker}${item.seriesName}：${Number(item.value).toFixed(2)}`)
-          }
-        })
-        return lines.join('<br/>')
-      }
-    },
-    legend: { top: 0, data: [t('riskReport.legendComprehensive'), t('riskReport.legendStructured'), t('riskReport.legendText'), t('riskReport.legendPhysiological')], textStyle: { fontSize: 11 } },
-    grid: { left: 40, right: 20, top: 42, bottom: 30 },
-    xAxis: { type: 'category', data: dates, axisLabel: { fontSize: 11 } },
-    yAxis: { type: 'value', min: 0, max: 100, axisLabel: { fontSize: 11 } },
-    graphic: points.length
-      ? []
-      : [{
-          type: 'text',
-          left: 'center',
-          top: 'middle',
-          style: {
-            text: t('riskReport.noTrendData'),
-            fill: CHART_PALETTE.info,
-            fontSize: 14
-          }
-        }],
-    series: [
-      {
-        name: t('riskReport.legendComprehensive'), type: 'line', data: points.map(p => p.risk_score), smooth: true,
-        // VIS-P4-01 修复：主色渐变/系列色统一取自 chartPalette
-        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: withAlpha(CHART_PALETTE.primary, 0.3) }, { offset: 1, color: withAlpha(CHART_PALETTE.primary, 0.02) }
-        ]) },
-        lineStyle: { color: CHART_PALETTE.primary, width: 2 }, itemStyle: { color: CHART_PALETTE.primary }
-      },
-      { name: t('riskReport.legendStructured'), type: 'line', data: points.map(p => valueOrNull(p.structured_score)), smooth: true, connectNulls: true, lineStyle: { color: CHART_PALETTE.success, width: 1.8 }, itemStyle: { color: CHART_PALETTE.success } },
-      { name: t('riskReport.legendText'), type: 'line', data: points.map(p => valueOrNull(p.text_score)), smooth: true, connectNulls: true, lineStyle: { color: CHART_PALETTE.warning, width: 1.8 }, itemStyle: { color: CHART_PALETTE.warning } },
-      { name: t('riskReport.legendPhysiological'), type: 'line', data: points.map(p => valueOrNull(p.physiological_score)), smooth: true, connectNulls: true, lineStyle: { color: CHART_PALETTE.danger, width: 1.8 }, itemStyle: { color: CHART_PALETTE.danger } },
-    ]
-  })
-}
+// R-E3: 图表生命周期与 option 构建收敛到 composable/纯函数模块
+const {
+  containerRef: reportTrendRef,
+  render: renderReportTrend,
+} = useTrendChart({
+  getOption: () => buildReportTrendOption(props.trendData, t),
+  deps: [() => props.trendData],
+})
 
 onMounted(() => {
   renderReportTrend()
-})
-
-watch(() => props.trendData, () => {
-  renderReportTrend()
-})
-
-onUnmounted(() => {
-  isUnmounted = true
-  disposeReportTrend()
 })
 </script>
 

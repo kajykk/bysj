@@ -211,6 +211,7 @@ import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { sanitizeCellForExcel } from '@/utils/exportUtils'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
+import { formatDate } from '@/utils/formatUtils'
 import TrendArrow from '@/components/common/TrendArrow.vue'
 
 interface Props {
@@ -327,7 +328,7 @@ const submitPhysio = async () => {
     await userApi.recordPhysiological({ ...physioForm })
 
     physioHistory.value.unshift({
-      time: new Date().toLocaleString(),
+      time: formatDate(new Date()), // OPT-P4-002：统一走 formatDate，避免随浏览器 locale 漂移
       sleep_hours: physioForm.sleep_hours,
       sleep_quality: physioForm.sleep_quality,
       exercise_minutes: physioForm.exercise_minutes,

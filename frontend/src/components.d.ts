@@ -105,8 +105,7 @@ declare module 'vue' {
     TaskProgressNotification: typeof import('./components/common/TaskProgressNotification.vue')['default']
     ThemeSwitcher: typeof import('./components/common/ThemeSwitcher.vue')['default']
     TrendArrow: typeof import('./components/common/TrendArrow.vue')['default']
-    VirtualList: typeof import('./components/common/VirtualList.vue')['default']
-  }
+    }
   export interface GlobalDirectives {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']
   }

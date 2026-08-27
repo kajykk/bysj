@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { StructuredCollectResult } from '@/api/userRiskApi'
 import { sanitizeCellForExcel } from '@/utils/exportUtils'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
+import { formatDate } from '@/utils/formatUtils'
 import { formatWarningGenerated } from './sharedStepUtils'
 
 export type PredictionHistoryEntry = StructuredCollectResult & { time: string }
@@ -83,7 +84,7 @@ export function usePredictionHistory() {
   const addPredictionEntry = (result: StructuredCollectResult) => {
     predictionHistory.value.unshift({
       ...result,
-      time: new Date().toLocaleString()
+      time: formatDate(new Date())
     })
     savePredictionHistory()
   }

@@ -1,5 +1,6 @@
 import type { WarningItem } from '@/api/userTypes'
 import i18n from '@/i18n'
+import { formatDate } from '@/utils/formatUtils'
 
 export const WARNING_RISK_LEVELS = [0, 1, 2, 3, 4] as const
 export type WarningRiskLevel = (typeof WARNING_RISK_LEVELS)[number]
@@ -85,7 +86,8 @@ export function getWarningStatusTagType(status: string) {
 }
 
 export function formatWarningDateTime(value: string | null | undefined) {
-  return value ? new Date(value).toLocaleString('zh-CN') : '—'
+  // OPT-P4-002：收敛到 formatUtils 统一格式（原 toLocaleString('zh-CN') 随环境漂移）
+  return value ? formatDate(value) : '—'
 }
 
 export function isWarningHandled(row: Pick<WarningItem, 'status'>) {
