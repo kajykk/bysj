@@ -17,9 +17,7 @@ class ModelLifecycle(StrEnum):
     DISABLED = "disabled"
 
 
-ACTIVE_LIFECYCLES: frozenset[str] = frozenset(
-    {ModelLifecycle.DEFAULT, ModelLifecycle.LIMITED_ACTIVE}
-)
+ACTIVE_LIFECYCLES: frozenset[str] = frozenset({ModelLifecycle.DEFAULT, ModelLifecycle.LIMITED_ACTIVE})
 
 
 # 统一模型 ID 命名规范：使用 lower_snake_case，并按业务域分组。
@@ -52,6 +50,10 @@ MODEL_PATHS: dict[str, str] = {
     "mmpsy_lite_model": "models/v1.25_mmpsy_lite/mmpsy_lite_model.pkl",
     "mmpsy_lite_scaler": "models/v1.25_mmpsy_lite/mmpsy_lite_scaler.pkl",
     "mmpsy_lite_gbdt": "models/v1.25_mmpsy_lite/mmpsy_lite_model_gbdt.pkl",
+    # v1.27 lite LR 概率校准器 (Platt, 冻结 v1.25 模型):
+    # predict_lite 在产物存在时应用; 缺失时静默回退 raw 概率 (行为不变)
+    "mmpsy_lite_calibrator": "models/v1.27_lite_calibration/calibrator.pkl",
+    "mmpsy_lite_calibrator_meta": "models/v1.27_lite_calibration/calibrator_meta.json",
 }
 
 
@@ -71,8 +73,7 @@ MODEL_REGISTRY: dict[str, ModelMetadata] = {
     model_id: ModelMetadata(
         name=model_id,
         path=path,
-        supports_fusion=model_id.startswith("fusion_")
-        or model_id.startswith("physiological_"),
+        supports_fusion=model_id.startswith("fusion_") or model_id.startswith("physiological_"),
     )
     for model_id, path in MODEL_PATHS.items()
 }
@@ -324,11 +325,7 @@ def resolve_model_path(model_id: str) -> str:
         from app.core.model_registry_v2 import ModelStatus, get_registry
 
         record = get_registry().get_model(normalized)
-        if (
-            record is not None
-            and record.status == ModelStatus.PRODUCTION
-            and record.artifact_path
-        ):
+        if record is not None and record.status == ModelStatus.PRODUCTION and record.artifact_path:
             artifact = Path(record.artifact_path)
             # artifact_path 支持绝对路径或相对项目根路径 (backend/)
             candidates = [artifact]
@@ -338,9 +335,7 @@ def resolve_model_path(model_id: str) -> str:
                 if candidate.exists():
                     return str(candidate)
     except Exception as exc:  # pragma: no cover - 注册表异常不应阻断推理
-        logger.warning(
-            "resolve_model_path: V2 registry lookup failed for %s: %s", model_id, exc
-        )
+        logger.warning("resolve_model_path: V2 registry lookup failed for %s: %s", model_id, exc)
 
     metadata = get_model_info(model_id)
     if metadata is not None:
@@ -357,11 +352,7 @@ def get_active_models(
     lifecycle_filter: frozenset[str] | None = None,
 ) -> list[tuple[str, ModelMetadata]]:
     allowed = lifecycle_filter if lifecycle_filter is not None else ACTIVE_LIFECYCLES
-    return [
-        (mid, meta)
-        for mid, meta in MODEL_REGISTRY.items()
-        if meta.lifecycle in allowed and meta.enabled
-    ]
+    return [(mid, meta) for mid, meta in MODEL_REGISTRY.items() if meta.lifecycle in allowed and meta.enabled]
 
 
 def list_models_by_lifecycle() -> dict[str, list[str]]:

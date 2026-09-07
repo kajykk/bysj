@@ -388,6 +388,13 @@ class Settings(BaseSettings):
 
     # ── v1.26 轻特征模型召回优化配置 ──
     lite_decision_threshold: float = 0.40
+    # ── v1.27 lite LR 概率校准 ──
+    # True: predict_lite 在 calibrator 产物存在时应用 Platt 校准, 并使用
+    #       lite_calibrated_decision_threshold (校准空间重选阈值);
+    #       产物缺失时自动回退 raw 概率 + lite_decision_threshold (行为不变)。
+    # False: 完全禁用校准层 (回滚开关)。
+    lite_calibration_enabled: bool = True
+    lite_calibrated_decision_threshold: float = 0.40
     crisis_keywords: list[str] = [
         "想死",
         "自杀",

@@ -1,0 +1,327 @@
+{
+  "generated_at": "2026-09-07T21:14:17.694306+00:00",
+  "method_selected": "platt",
+  "selection": {
+    "platt": {
+      "brier": 0.0781,
+      "ece": 0.0316
+    },
+    "isotonic": {
+      "brier": 0.0783,
+      "ece": 0.0293
+    },
+    "raw_baseline": {
+      "brier": 0.0779,
+      "ece": 0.0343
+    }
+  },
+  "test_metrics": {
+    "raw": {
+      "roc_auc": 0.938,
+      "brier": 0.071,
+      "log_loss": 0.2467,
+      "ece_10bin": 0.0411,
+      "reliability": [
+        {
+          "bin_low": 0.0,
+          "bin_high": 0.1,
+          "count": 112,
+          "avg_prob": 0.0271,
+          "frac_pos": 0.0179
+        },
+        {
+          "bin_low": 0.1,
+          "bin_high": 0.2,
+          "count": 25,
+          "avg_prob": 0.1488,
+          "frac_pos": 0.12
+        },
+        {
+          "bin_low": 0.2,
+          "bin_high": 0.3,
+          "count": 10,
+          "avg_prob": 0.2531,
+          "frac_pos": 0.2
+        },
+        {
+          "bin_low": 0.3,
+          "bin_high": 0.4,
+          "count": 8,
+          "avg_prob": 0.3568,
+          "frac_pos": 0.25
+        },
+        {
+          "bin_low": 0.4,
+          "bin_high": 0.5,
+          "count": 6,
+          "avg_prob": 0.4662,
+          "frac_pos": 0.6667
+        },
+        {
+          "bin_low": 0.5,
+          "bin_high": 0.6,
+          "count": 2,
+          "avg_prob": 0.5779,
+          "frac_pos": 1.0
+        },
+        {
+          "bin_low": 0.6,
+          "bin_high": 0.7,
+          "count": 4,
+          "avg_prob": 0.663,
+          "frac_pos": 0.5
+        },
+        {
+          "bin_low": 0.7,
+          "bin_high": 0.8,
+          "count": 2,
+          "avg_prob": 0.778,
+          "frac_pos": 1.0
+        },
+        {
+          "bin_low": 0.8,
+          "bin_high": 0.9,
+          "count": 3,
+          "avg_prob": 0.8672,
+          "frac_pos": 0.6667
+        },
+        {
+          "bin_low": 0.9,
+          "bin_high": 1.0,
+          "count": 20,
+          "avg_prob": 0.9508,
+          "frac_pos": 0.9
+        }
+      ]
+    },
+    "calibrated": {
+      "roc_auc": 0.938,
+      "brier": 0.0709,
+      "log_loss": 0.2471,
+      "ece_10bin": 0.0404,
+      "reliability": [
+        {
+          "bin_low": 0.0,
+          "bin_high": 0.1,
+          "count": 115,
+          "avg_prob": 0.0263,
+          "frac_pos": 0.0174
+        },
+        {
+          "bin_low": 0.1,
+          "bin_high": 0.2,
+          "count": 22,
+          "avg_prob": 0.1495,
+          "frac_pos": 0.1364
+        },
+        {
+          "bin_low": 0.2,
+          "bin_high": 0.3,
+          "count": 10,
+          "avg_prob": 0.2492,
+          "frac_pos": 0.2
+        },
+        {
+          "bin_low": 0.3,
+          "bin_high": 0.4,
+          "count": 8,
+          "avg_prob": 0.3568,
+          "frac_pos": 0.25
+        },
+        {
+          "bin_low": 0.4,
+          "bin_high": 0.5,
+          "count": 5,
+          "avg_prob": 0.4643,
+          "frac_pos": 0.6
+        },
+        {
+          "bin_low": 0.5,
+          "bin_high": 0.6,
+          "count": 3,
+          "avg_prob": 0.5592,
+          "frac_pos": 1.0
+        },
+        {
+          "bin_low": 0.6,
+          "bin_high": 0.7,
+          "count": 3,
+          "avg_prob": 0.665,
+          "frac_pos": 0.3333
+        },
+        {
+          "bin_low": 0.7,
+          "bin_high": 0.8,
+          "count": 2,
+          "avg_prob": 0.7394,
+          "frac_pos": 1.0
+        },
+        {
+          "bin_low": 0.8,
+          "bin_high": 0.9,
+          "count": 4,
+          "avg_prob": 0.8605,
+          "frac_pos": 0.75
+        },
+        {
+          "bin_low": 0.9,
+          "bin_high": 1.0,
+          "count": 20,
+          "avg_prob": 0.957,
+          "frac_pos": 0.9
+        }
+      ]
+    }
+  },
+  "threshold_sweep_calibrated": [
+    {
+      "threshold": 0.15,
+      "precision": 0.5625,
+      "recall": 0.9231,
+      "specificity": 0.817,
+      "f1": 0.699,
+      "youden_j": 0.7401
+    },
+    {
+      "threshold": 0.2,
+      "precision": 0.6182,
+      "recall": 0.8718,
+      "specificity": 0.8627,
+      "f1": 0.7234,
+      "youden_j": 0.7345
+    },
+    {
+      "threshold": 0.25,
+      "precision": 0.6471,
+      "recall": 0.8462,
+      "specificity": 0.8824,
+      "f1": 0.7333,
+      "youden_j": 0.7285
+    },
+    {
+      "threshold": 0.3,
+      "precision": 0.7111,
+      "recall": 0.8205,
+      "specificity": 0.915,
+      "f1": 0.7619,
+      "youden_j": 0.7355
+    },
+    {
+      "threshold": 0.35,
+      "precision": 0.7273,
+      "recall": 0.8205,
+      "specificity": 0.9216,
+      "f1": 0.7711,
+      "youden_j": 0.7421
+    },
+    {
+      "threshold": 0.4,
+      "precision": 0.8108,
+      "recall": 0.7692,
+      "specificity": 0.9542,
+      "f1": 0.7895,
+      "youden_j": 0.7235
+    },
+    {
+      "threshold": 0.45,
+      "precision": 0.8056,
+      "recall": 0.7436,
+      "specificity": 0.9542,
+      "f1": 0.7733,
+      "youden_j": 0.6978
+    },
+    {
+      "threshold": 0.5,
+      "precision": 0.8438,
+      "recall": 0.6923,
+      "specificity": 0.9673,
+      "f1": 0.7606,
+      "youden_j": 0.6596
+    }
+  ],
+  "threshold_sweep_raw_reference": [
+    {
+      "threshold": 0.15,
+      "precision": 0.5538,
+      "recall": 0.9231,
+      "specificity": 0.8105,
+      "f1": 0.6923,
+      "youden_j": 0.7335
+    },
+    {
+      "threshold": 0.2,
+      "precision": 0.6182,
+      "recall": 0.8718,
+      "specificity": 0.8627,
+      "f1": 0.7234,
+      "youden_j": 0.7345
+    },
+    {
+      "threshold": 0.25,
+      "precision": 0.6471,
+      "recall": 0.8462,
+      "specificity": 0.8824,
+      "f1": 0.7333,
+      "youden_j": 0.7285
+    },
+    {
+      "threshold": 0.3,
+      "precision": 0.7111,
+      "recall": 0.8205,
+      "specificity": 0.915,
+      "f1": 0.7619,
+      "youden_j": 0.7355
+    },
+    {
+      "threshold": 0.35,
+      "precision": 0.7273,
+      "recall": 0.8205,
+      "specificity": 0.9216,
+      "f1": 0.7711,
+      "youden_j": 0.7421
+    },
+    {
+      "threshold": 0.4,
+      "precision": 0.8108,
+      "recall": 0.7692,
+      "specificity": 0.9542,
+      "f1": 0.7895,
+      "youden_j": 0.7235
+    },
+    {
+      "threshold": 0.45,
+      "precision": 0.8056,
+      "recall": 0.7436,
+      "specificity": 0.9542,
+      "f1": 0.7733,
+      "youden_j": 0.6978
+    },
+    {
+      "threshold": 0.5,
+      "precision": 0.8387,
+      "recall": 0.6667,
+      "specificity": 0.9673,
+      "f1": 0.7429,
+      "youden_j": 0.634
+    }
+  ],
+  "best_constrained_calibrated": {
+    "threshold": 0.4,
+    "precision": 0.8108,
+    "recall": 0.7692,
+    "specificity": 0.9542,
+    "f1": 0.7895,
+    "youden_j": 0.7235
+  },
+  "best_constrained_raw": {
+    "threshold": 0.4,
+    "precision": 0.8108,
+    "recall": 0.7692,
+    "specificity": 0.9542,
+    "f1": 0.7895,
+    "youden_j": 0.7235
+  },
+  "selected_threshold_calibrated": 0.4,
+  "threshold_rationale": "Recall≥0.75 且 Specificity≥0.65 的阈值中 F1 最高者 (t=0.4, F1=0.7895)",
+  "go_decision": "go"
+}
