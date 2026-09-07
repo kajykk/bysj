@@ -386,6 +386,12 @@ class Settings(BaseSettings):
     route_feature_coverage_threshold: float = 0.80
     route_lite_min_text_length: int = 20
 
+    # ── 文本双语回退模型阈值 ──
+    # 组级去泄漏评估 (scripts/modeling/v1_27/03_groupwise_leakage_free_eval.py)
+    # 显示真口径最佳点约在 0.30 (Recall≈0.80 / Specificity≈0.73 / F1≈0.57);
+    # 该阈值只作用于 text_improved_bilingual_model, 英文主模型保持默认 0.50。
+    text_bilingual_decision_threshold: float = 0.30
+
     # ── v1.26 轻特征模型召回优化配置 ──
     lite_decision_threshold: float = 0.40
     # ── v1.27 lite LR 概率校准 ──

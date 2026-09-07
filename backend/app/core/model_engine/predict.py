@@ -592,10 +592,12 @@ class PredictMixin:
                 return self._text_heuristic_fallback(text)
 
         vector = await asyncio.to_thread(tfidf.transform, [text])
-        prediction = await asyncio.to_thread(model.predict, vector)
-        prediction = int(prediction[0])
         proba = await asyncio.to_thread(model.predict_proba, vector)
         probability = float(proba[0][1])
+        if model_used == "text_improved_bilingual_model":
+            prediction = 1 if probability >= settings.text_bilingual_decision_threshold else 0
+        else:
+            prediction = int((await asyncio.to_thread(model.predict, vector))[0])
         return {
             "prediction": prediction,
             "probability": round(probability, 4),
