@@ -1,6 +1,6 @@
 # 当前推理链模型性能验证报告
 
-- 生成时间: 2026-09-07T20:02:44.204350+00:00
+- 生成时间: 2026-09-07T21:44:14.316985+00:00
 
 ## 汇总指标
 
@@ -10,8 +10,8 @@
 | structured_v1.23_external | data/processed/v1_23_external/test.csv | 4318 | 58.1% | 0.8333 | 0.8255 | 0.8450 | 0.8733 | 0.7777 | 0.8589 | 0.9131 | 0.1152 |
 | text_depression_classifier[en] | depression_dataset_reddit_cleaned | 7649 | 49.2% | 0.9736 | 0.9739 | 0.9566 | 0.9912 | 0.9565 | 0.9736 | 0.9975 | 0.0291 |
 | text_improved_bilingual[en] | depression_dataset_reddit_cleaned | 7649 | 49.2% | 0.9729 | 0.9730 | 0.9691 | 0.9761 | 0.9699 | 0.9726 | 0.9957 | 0.0484 |
-| text_depression_classifier | chinese_depression_corpus_v2_clean.csv (仅 original) | 1275 | 20.2% | 0.7827 | 0.4936 | 0.0870 | 0.0078 | 0.9794 | 0.0142 | 0.4957 | 0.1807 |
-| text_improved_bilingual | chinese_depression_corpus_v2_clean.csv (仅 original) | 1275 | 20.2% | 0.9890 | 0.9729 | 1.0000 | 0.9457 | 1.0000 | 0.9721 | 0.9960 | 0.0346 |
+| text_depression_classifier | chinese_depression_corpus_v2_clean.csv (仅 original, sibling-leaked 口径) | 1275 | 20.2% | 0.7827 | 0.4936 | 0.0870 | 0.0078 | 0.9794 | 0.0142 | 0.4957 | 0.1807 |
+| text_improved_bilingual | chinese_depression_corpus_v2_clean.csv (仅 original, sibling-leaked 口径) | 1275 | 20.2% | 0.9890 | 0.9729 | 1.0000 | 0.9457 | 1.0000 | 0.9721 | 0.9960 | 0.0346 |
 | mmpsy_lite_lr | data/processed/lite_features.csv (test 15%, seed 42) | 192 | 20.3% | 0.9062 | 0.8170 | 0.8387 | 0.6667 | 0.9673 | 0.7429 | 0.9380 | 0.0710 |
 | mmpsy_lite_gbdt | data/processed/lite_features.csv (test 15%, seed 42) | 192 | 20.3% | 0.9115 | 0.8585 | 0.7895 | 0.7692 | 0.9477 | 0.7792 | 0.9019 | 0.0778 |
 | physiological_v2_dl | depresjon_physiological.csv (n=1029 全量) | 1029 | 34.9% | 0.8290 | 0.7575 | 0.9791 | 0.5209 | 0.9940 | 0.6800 | 0.9624 | 0.1462 |

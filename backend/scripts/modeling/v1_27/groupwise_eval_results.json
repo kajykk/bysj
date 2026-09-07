@@ -1,0 +1,69 @@
+{
+  "generated_at": "2026-09-07T21:41:31.458888+00:00",
+  "n_rows": 8379,
+  "n_groups": 1277,
+  "protocol": {
+    "folds": 5,
+    "sim_threshold": 0.5,
+    "tfidf": {
+      "lowercase": true,
+      "sublinear_tf": true,
+      "min_df": 2,
+      "max_df": 0.95,
+      "max_features": 120000,
+      "ngram_range": [
+        1,
+        2
+      ]
+    },
+    "lr": {
+      "C": 1.0,
+      "class_weight": "balanced",
+      "max_iter": 3000,
+      "random_state": 42
+    }
+  },
+  "groupwise_leakage_free": {
+    "n": 8379,
+    "positive_rate": 0.2163,
+    "accuracy": 0.836,
+    "precision": 0.645,
+    "recall": 0.5375,
+    "specificity": 0.9184,
+    "f1": 0.5864,
+    "roc_auc": 0.8437,
+    "brier": 0.128,
+    "confusion_matrix": {
+      "tn": 6031,
+      "fp": 536,
+      "fn": 838,
+      "tp": 974
+    }
+  },
+  "textwise_current_protocol": {
+    "n": 8379,
+    "positive_rate": 0.2163,
+    "accuracy": 0.9979,
+    "precision": 0.9978,
+    "recall": 0.9923,
+    "specificity": 0.9994,
+    "f1": 0.995,
+    "roc_auc": 0.9994,
+    "brier": 0.035,
+    "confusion_matrix": {
+      "tn": 6563,
+      "fp": 4,
+      "fn": 14,
+      "tp": 1798
+    }
+  },
+  "inflation_delta_text_minus_group": {
+    "roc_auc": -0.1557,
+    "f1": -0.4086,
+    "precision": -0.3528,
+    "recall": -0.4548,
+    "specificity": -0.081,
+    "brier": 0.093
+  },
+  "verdict": "文本级口径 AUC=0.9994 vs 组级口径 AUC=0.8437; 差值 -0.1557 即兄弟泄漏虚高幅度。双语模型中文域真实判别力以组级口径为准。"
+}
