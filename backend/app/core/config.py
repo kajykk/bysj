@@ -360,10 +360,17 @@ class Settings(BaseSettings):
     structured_model_mode: str = "primary"  # "primary" | "fallback"
 
     # ── S-02: 结构化预测默认模型版本 ──
-    # "v1.20" (默认): 合成数据训练的 LogisticRegression, 历史稳定但存在过拟合
-    # "v1.23": Mendeley PHQ-9 真实数据训练的 external LR Pipeline, 真实场景 AUC +5.3%
-    # 金丝雀发布时通过环境变量 STRUCTURED_DEFAULT_MODEL=v1.23 切换
-    structured_default_model: str = "v1.20"  # "v1.20" | "v1.23"
+    # "v1.23" (默认, 2026-09 金丝雀切换): Mendeley PHQ-9 真实数据训练的 external LR
+    #   Pipeline, 真实场景 AUC 0.9131 / Brier 0.1152 (v1.20: AUC 0.8798 / Brier 0.1835)。
+    #   特征契约: 12 个小写原始列, 缺失兜底见 feature_maps.DEFAULTS (训练集中位数)。
+    # "v1.20" (回滚): 合成数据训练的 LogisticRegression, 历史稳定但存在过拟合。
+    #
+    # 回滚方式: 环境变量 STRUCTURED_DEFAULT_MODEL=v1.20 (无需改代码)。
+    # 熔断兜底: STRUCTURED_MODEL_MODE=fallback 强制走规则回退 (与模型版本无关)。
+    # 金丝雀观察: model_used 分布 (model_inference_total) + 监控分差
+    #   (monitoring_score_deltas) + experimental_external_* 并行对比
+    #   (structured_experimental_enabled=True 时 v1.20/v1.23 双路打分)。
+    structured_default_model: str = "v1.23"  # "v1.20" | "v1.23"
 
     # ── 结构化预测实验性路径开关 ──
     # True (默认): 执行 3 路实验性推理, 提供对比数据

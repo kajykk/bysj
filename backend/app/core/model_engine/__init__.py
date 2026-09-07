@@ -111,6 +111,9 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
         "text_improved_bilingual_tfidf",
         "text_improved_bilingual_model",
         "structured_logistic_regression_quick",
+        # S-02: v1.23 external LR (structured_default_model=v1.23 时主路径模型),
+        # 预热避免切换后首个结构化请求承担 Pipeline 冷加载 (~100ms)
+        "structured_v1.23_external_lr",
         "physiological_risk_model",
         "physiological_risk_scaler",
         "fusion_dnn_best",
