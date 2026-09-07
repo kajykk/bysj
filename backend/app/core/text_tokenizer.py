@@ -2,6 +2,20 @@
 
 供双语 TF-IDF 模型训练与推理共用。模块级函数可被 pickle by reference，
 backend 推理进程 import 时惰性加载 jieba，避免加载开销与 pickle 依赖问题。
+
+.. warning::
+    **PICKLE 契约 — 禁止删除本模块**
+
+    训练产物 ``models/text/improved_bilingual_tfidf.pkl`` 中的
+    ``TfidfVectorizer.tokenizer`` 以 pickle by-reference 方式引用本模块的
+    ``zh_bilingual_tokenize``（序列化字节含 ``app.core.text_tokenizer`` 全限定路径）。
+
+    因此本模块是**运行时硬依赖**，不是死代码：静态引用扫描（grep/import-linter 等）
+    无法发现该依赖，若按"零引用"误删，双语文本预测路径（Level 2 回退）会在
+    ``tfidf.transform()`` 反序列化时抛 ``ModuleNotFoundError``，静默降级为英文主模型。
+
+    契约测试见 ``backend/tests/unit/test_text_tokenizer_pickle_contract.py``。
+    如需移除，必须同步重新训练/重新序列化 ``improved_bilingual_tfidf.pkl``。
 """
 
 from __future__ import annotations

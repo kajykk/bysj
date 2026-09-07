@@ -1,14 +1,21 @@
-"""Alerting engine for monitoring and notifications."""
+"""Alerting engine for monitoring and notifications.
+
+.. note::
+    v1.34+ 生产告警已迁移至 ``app.services.alert_lifecycle_service``、
+    ``app.tasks.alerts`` 与 ``app.monitoring.{am_sync, escalation, notifier}``。
+    本引擎保留为**规则评估的纯逻辑参考实现**：不再内置阻塞式 webhook 通知
+    （原 ``_send_notification`` 使用同步 ``requests.post`` + ``time.sleep`` 重试，
+    会阻塞调用线程且与 async 告警管线重复，已于 N2 移除）。
+    如需对接外部通知，请使用 ``app.monitoring.notifier``，或通过 ``notify``
+    回调注入纯函数实现。
+"""
 
 from __future__ import annotations
 
 import logging
-import os
 import time
 from dataclasses import dataclass, field
 from typing import Callable
-
-import requests
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +56,22 @@ class AlertEvent:
 
 
 class AlertingEngine:
-    """Engine for evaluating alert rules and sending notifications."""
+    """Engine for evaluating alert rules (纯规则评估，不发起阻塞 I/O).
 
-    def __init__(self):
+    N2: 原内置的同步 webhook 通知（``_send_notification``，``requests.post`` +
+    ``time.sleep`` 指数退避重试）已移除——它从未被生产代码实例化，且会阻塞
+    调用线程。如需在规则触发时通知，通过构造函数注入 ``notify`` 回调
+    （纯函数，由调用方决定异步/线程池等执行模型）。
+    """
+
+    def __init__(
+        self,
+        notify: Callable[[AlertRule, AlertEvent], None] | None = None,
+    ) -> None:
         self.rules: list[AlertRule] = []
         self._last_triggered: dict[str, float] = {}
-        self._webhook_url = os.getenv("ALERT_WEBHOOK_URL")
+        # N2: 注入式通知回调；None 表示不通知。
+        self._notify = notify
 
     def add_rule(self, rule: AlertRule) -> None:
         """Add an alert rule."""
@@ -90,45 +107,10 @@ class AlertingEngine:
                 timestamp=now,
             )
             triggered.append(event)
-            self._send_notification(rule, event)
+            if self._notify is not None:
+                self._notify(rule, event)
 
         return triggered
-
-    def _send_notification(self, rule: AlertRule, event: AlertEvent) -> None:
-        """Send alert notification via webhook.
-
-        Args:
-            rule: The triggered rule.
-            event: The alert event.
-        """
-        if not self._webhook_url:
-            logger.info("No webhook configured, skipping notification for %s", rule.name)
-            return
-
-        payload = {
-            "rule": rule.name,
-            "severity": rule.severity,
-            "message": event.message,
-            "timestamp": event.timestamp,
-        }
-
-        # Exponential backoff retry (max 3 attempts)
-        for attempt in range(3):
-            try:
-                resp = requests.post(
-                    self._webhook_url,
-                    json=payload,
-                    timeout=5,
-                    headers={"Content-Type": "application/json"},
-                )
-                if resp.status_code < 500:
-                    logger.info("Alert notification sent for %s (status: %s)", rule.name, resp.status_code)
-                    return
-            except Exception as e:
-                logger.warning("Alert webhook attempt %d failed: %s", attempt + 1, e)
-                time.sleep(2 ** attempt)
-
-        logger.error("Failed to send alert notification for %s after 3 attempts", rule.name)
 
 
 def create_default_rules() -> list[AlertRule]:

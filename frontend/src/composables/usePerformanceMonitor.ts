@@ -1,5 +1,6 @@
 import { ref, shallowRef, onMounted, onUnmounted } from 'vue'
 import { getStoredToken } from '@/utils/authStorage'
+import { logger } from '@/utils/logger'
 
 /**
  * 前端性能监控指标类型
@@ -317,7 +318,8 @@ export function usePerformanceMonitor(options: PerformanceMonitorOptions = {}) {
 
       return response.ok
     } catch (error) {
-      console.warn('[PerformanceMonitor] 上报失败:', error)
+      // N4: 统一走 logger，生产环境经 Sentry 上报（console 已被 esbuild drop）
+      logger.warn('[PerformanceMonitor] 上报失败:', error)
       return false
     }
   }
