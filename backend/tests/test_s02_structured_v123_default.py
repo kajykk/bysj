@@ -34,6 +34,17 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+def test_structured_default_setting_is_v1_23():
+    """契约锚点: structured_default_model 默认值必须是 v1.23.
+
+    2026-09 金丝雀切换 (v1.20 → v1.23, 真实场景 AUC 0.88→0.91 / Brier 0.18→0.12)。
+    若需回退默认值, 必须同步更新本测试并说明理由, 防止静默回切。
+    """
+    from app.core.config import settings
+
+    assert settings.structured_default_model == "v1.23"
+
+
 @pytest.fixture
 def model_engine():
     return ModelEngine()
@@ -44,7 +55,11 @@ class TestS02StructuredV123Default:
     """S-02: 结构化预测默认模型配置开关测试."""
 
     def test_default_config_uses_v1_20(self, model_engine):
-        """默认配置 structured_default_model=v1.20 时使用 v1.20 模型."""
+        """显式 v1.20 配置仍走 v1.20 模型 (金丝雀回滚路径契约).
+
+        注: structured_default_model 默认值已切换为 v1.23 (2026-09 金丝雀),
+        本测试显式 patch 为 v1.20, 验证回滚后 v1.20 路径保持可用。
+        """
         with patch("app.core.config.settings.structured_default_model", "v1.20"):
             features = {
                 "age": 22,
