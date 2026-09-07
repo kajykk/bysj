@@ -4,7 +4,7 @@
 - silence        : _matcher_matches（纯）+ is_silenced（mock db）
 - dedup_lock     : 内存统计 API + try_acquire_lock/release_lock（mock aioredis）+ flush_lock_stats（mock db）
 - dedup          : should_send（mock try_acquire_lock + mock db）
-- alerting       : AlertingEngine.evaluate / _send_notification（mock requests）+ create_default_rules
+- alerting       : AlertingEngine.evaluate / notify 回调注入 + create_default_rules
 - escalation     : compute_escalation（纯，多分支）+ run_escalation_check + apply_escalation（mock CompositeNotifier）
 - am_sync        : local_to_am_format（纯）+ _get_am_url/_get_am_auth + _write_sync_log + push/delete/pull（mock _HTTP_SESSION）
 
@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.monitoring import silence, dedup, dedup_lock, alerting, escalation, am_sync
+from app.monitoring import alerting, am_sync, dedup, dedup_lock, escalation, silence
 
 
 # --------------------------------------------------------------------------- #
@@ -285,34 +285,61 @@ def test_evaluate_multiple_rules():
     assert len(events) == 2
 
 
-def test_send_notification_no_webhook():
-    eng = alerting.AlertingEngine()
-    eng._webhook_url = None
-    eng._send_notification(MagicMock(), MagicMock())
+def test_evaluate_invokes_notify_callback():
+    """N2: 注入式 notify 回调应在规则触发（且未冷却）时被调用。"""
+    calls: list[tuple[str, str]] = []
+    eng = alerting.AlertingEngine(
+        notify=lambda rule, event: calls.append((rule.name, event.severity))
+    )
+    eng.add_rule(
+        alerting.AlertRule(
+            name="error_rate_spike",
+            condition=lambda m: m.error_rate > 0.05,
+            severity="P0",
+            cooldown_seconds=0,
+        )
+    )
+    eng.evaluate(alerting.MetricsSnapshot(error_rate=0.1))
+    assert calls == [("error_rate_spike", "P0")]
 
 
-def test_send_notification_success(monkeypatch):
-    resp = MagicMock()
-    resp.status_code = 200
-    post = MagicMock(return_value=resp)
-    monkeypatch.setattr(alerting.requests, "post", post)
-    eng = alerting.AlertingEngine()
-    eng._webhook_url = "http://hook"
-    eng._send_notification(MagicMock(), MagicMock())
-    post.assert_called_once()
+def test_evaluate_notify_not_called_when_no_trigger():
+    """N2: 规则未触发时 notify 回调不应被调用。"""
+    calls: list[str] = []
+    eng = alerting.AlertingEngine(notify=lambda rule, event: calls.append(rule.name))
+    eng.add_rule(
+        alerting.AlertRule(
+            name="error_rate_spike",
+            condition=lambda m: m.error_rate > 0.05,
+            severity="P0",
+        )
+    )
+    eng.evaluate(alerting.MetricsSnapshot(error_rate=0.01))
+    assert calls == []
 
 
-def test_send_notification_retry_then_error(monkeypatch):
-    resp = MagicMock()
-    resp.status_code = 500
-    resp.text = "err"
-    post = MagicMock(return_value=resp)
-    monkeypatch.setattr(alerting.requests, "post", post)
-    monkeypatch.setattr(alerting.time, "sleep", lambda *a, **k: None)  # 避免真实 sleep
-    eng = alerting.AlertingEngine()
-    eng._webhook_url = "http://hook"
-    eng._send_notification(MagicMock(), MagicMock())
-    assert post.call_count == 3  # 指数退避重试 3 次
+def test_notify_respects_cooldown():
+    """N2: 冷却期内再次命中不触发 notify（回调只应被调用一次）。"""
+    calls: list[str] = []
+    eng = alerting.AlertingEngine(notify=lambda rule, event: calls.append(rule.name))
+    eng.add_rule(
+        alerting.AlertRule(
+            name="error_rate_spike",
+            condition=lambda m: m.error_rate > 0.05,
+            severity="P0",
+            cooldown_seconds=3600,
+        )
+    )
+    snap = alerting.MetricsSnapshot(error_rate=0.1)
+    eng.evaluate(snap)
+    eng.evaluate(snap)
+    assert calls == ["error_rate_spike"]
+
+
+def test_no_blocking_webhook_path():
+    """N2: 引擎不再内置阻塞式 webhook 通知（原 _send_notification 已移除）。"""
+    assert not hasattr(alerting.AlertingEngine, "_send_notification")
+    assert not hasattr(alerting, "requests")
 
 
 # --------------------------------------------------------------------------- #

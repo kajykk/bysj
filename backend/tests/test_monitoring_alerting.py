@@ -54,6 +54,28 @@ class TestAlertingEngine:
         assert result[0].rule_name == "test_rule"
         assert result[0].severity == "P0"
 
+    def test_evaluate_invokes_injected_notify(self):
+        """TC-COV-ALERT-003b: 注入式 notify 回调在规则触发时被调用。"""
+        notified: list[tuple[str, str]] = []
+        engine = AlertingEngine(
+            notify=lambda rule, event: notified.append((rule.name, event.severity))
+        )
+        rule = AlertRule(
+            name="test_rule",
+            condition=lambda m: m.error_rate > 0.1,
+            severity="P0",
+            cooldown_seconds=0,
+        )
+        engine.add_rule(rule)
+        engine.evaluate(MetricsSnapshot(error_rate=0.2))
+        assert notified == [("test_rule", "P0")]
+
+    def test_no_webhook_path_removed(self):
+        """TC-COV-ALERT-003c: 阻塞 webhook 路径已移除（N2）。"""
+        engine = AlertingEngine()
+        assert not hasattr(engine, "_webhook_url")
+        assert not hasattr(engine, "_send_notification")
+
     def test_evaluate_cooldown(self):
         """TC-COV-ALERT-004: Cooldown prevents re-trigger."""
         engine = AlertingEngine()

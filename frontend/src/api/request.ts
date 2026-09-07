@@ -8,6 +8,7 @@ import type { ApiResponse } from '@/types/api'
 import { normalizePageResult, type UnifiedPageResult } from '@/types/contracts'
 import { clearStoredAuth, getStoredToken, setStoredAuth } from '@/utils/authStorage'
 import { normalizeHttpErrorInfo } from '@/utils/httpError'
+import { logger } from '@/utils/logger'
 import { API_BASE_URL, buildApiUrl } from './base'
 import i18n from '@/i18n'
 
@@ -92,7 +93,8 @@ export async function refreshAccessToken(): Promise<string | null> {
     return newToken
   } catch (error) {
     // P2-C 修复：记录 token 刷新失败原因，便于排查网络/服务异常（不改变返回 null 的行为）
-    console.warn('[refreshAccessToken] token refresh failed:', error)
+    // N4: 统一走 logger，生产环境经 Sentry 上报（console 已被 esbuild drop）
+    logger.warn('[refreshAccessToken] token refresh failed:', error)
     return null
   }
 }
@@ -226,33 +228,33 @@ request.interceptors.response.use(
     // 拦截器仅记录日志便于排查 fire-and-forget 调用的静默失败。
     const url = originalRequest?.url ?? ''
     if (status === 403) {
-      console.warn(`[request] 403 forbidden: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
+      logger.warn(`[request] 403 forbidden: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
     if (status === 404) {
-      console.warn(`[request] 404 not found: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
+      logger.warn(`[request] 404 not found: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
     if (status === 422) {
-      console.warn(`[request] 422 validation failed: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
+      logger.warn(`[request] 422 validation failed: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
     if (status >= 500) {
-      console.warn(`[request] ${status} server error: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
+      logger.warn(`[request] ${status} server error: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
     if (status === 0) {
       // ISS-106 修复：网络层错误（超时/断网/连接拒绝等）由页面层经
       // getNetworkErrorMessage / normalizeHttpErrorInfo 映射为中文提示后展示
-      console.warn(`[request] network error: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
+      logger.warn(`[request] network error: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
-    console.warn(`[request] request failed: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
+    logger.warn(`[request] request failed: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
     return Promise.reject(error)
   }
 )
