@@ -785,6 +785,44 @@ class PredictMixin:
             logger.warning("BERT text batch predict failed: %s", exc)
             return [None] * len(texts)
 
+    async def _apply_lite_calibration(self, probability: float) -> tuple[float, bool]:
+        """v1.27: 对 lite LR 原始概率应用校准层 (产物缺失时行为不变).
+
+        校准器为冻结 v1.25 模型的后处理 (Platt/Isotonic, 见
+        scripts/modeling/v1_27/01_calibrate_lite_lr.py):
+        - LogisticRegression (Platt): 对 logit(p) 做 1 维 LR 映射
+        - IsotonicRegression: 单调阶梯映射
+
+        Returns:
+            (校准后概率, 是否实际应用了校准)
+        """
+        import numpy as np
+
+        if not settings.lite_calibration_enabled:
+            return probability, False
+        try:
+            calibrator = await self._load_model_async("mmpsy_lite_calibrator")
+        except Exception as exc:
+            logger.debug("lite calibrator unavailable (raw prob kept): %s", exc)
+            return probability, False
+
+        # sklearn.isotonic 顶层导入较重, 与 predict_lite 的延迟导入约定一致
+        from sklearn.isotonic import IsotonicRegression
+
+        p = float(np.clip(probability, 1e-6, 1 - 1e-6))
+        try:
+            if isinstance(calibrator, IsotonicRegression):
+                calibrated = float(np.asarray(calibrator.predict([p]), dtype=float)[0])
+            else:
+                # Platt: LogisticRegression 拟合于 logit(p) (v1.27 脚本约定)
+                logit = float(np.log(p / (1 - p)))
+                calibrated = float(calibrator.predict_proba(np.array([[logit]]))[0][1])
+        except Exception as exc:
+            # 校准器存在但执行失败: 保底返回 raw 概率, 不降级整条预测
+            logger.warning("lite calibration apply failed (raw prob kept): %s", exc)
+            return probability, False
+        return float(np.clip(calibrated, 0.0, 1.0)), True
+
     async def predict_lite(
         self,
         gad7_score: float,
@@ -846,7 +884,13 @@ class PredictMixin:
                 scaled = await asyncio.to_thread(scaler.transform, feature_array)
                 proba = await asyncio.to_thread(model.predict_proba, scaled)
                 probability = float(proba[0][1])
-                prediction = 1 if probability >= settings.lite_decision_threshold else 0
+                probability, probability_calibrated = await self._apply_lite_calibration(probability)
+                threshold = (
+                    settings.lite_calibrated_decision_threshold
+                    if probability_calibrated
+                    else settings.lite_decision_threshold
+                )
+                prediction = 1 if probability >= threshold else 0
                 risk_score = round(probability * 100, 2)
                 risk_level = self._score_to_level(risk_score)
 
@@ -857,6 +901,7 @@ class PredictMixin:
                 return {
                     "prediction": prediction,
                     "probability": round(probability, 4),
+                    "probability_calibrated": probability_calibrated,
                     "risk_score": risk_score,
                     "risk_level": risk_level,
                     "model_used": "mmpsy_lite_model",
