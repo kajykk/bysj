@@ -85,8 +85,8 @@ DEPRESJON_RAW_FEATURES = [
 DATA_SOURCES = {
     "structured_v1.20": "data/external/aligned_features.csv (label_binary 全量)",
     "structured_v1.23_external": "data/processed/v1_23_external/test.csv",
-    "text_depression_classifier": "chinese_depression_corpus_v2_clean.csv (仅 original)",
-    "text_improved_bilingual": "chinese_depression_corpus_v2_clean.csv (仅 original)",
+    "text_depression_classifier": "chinese_depression_corpus_v2_clean.csv (仅 original, sibling-leaked 口径)",
+    "text_improved_bilingual": "chinese_depression_corpus_v2_clean.csv (仅 original, sibling-leaked 口径)",
     "mmpsy_lite_lr": "data/processed/lite_features.csv (test 15%, seed 42)",
     "mmpsy_lite_gbdt": "data/processed/lite_features.csv (test 15%, seed 42)",
     "physiological_v2_dl": "depresjon_physiological.csv (n=1029 全量)",
@@ -227,7 +227,11 @@ def evaluate_text_model_pair() -> dict:
 
     for key, tfidf, model in pairs:
         results[key] = _text_pair_eval(tfidf, model, texts_zh, y_zh)
-        results[key]["domain"] = "chinese_cross-domain"
+        # v1.27 修订: 该口径存在兄弟泄漏 (训练集含 original 的同义改写/回译变体,
+        # 见 scripts/modeling/v1_27/03_groupwise_leakage_free_eval.py —
+        # 组级去泄漏口径 AUC 0.8437 vs 文本级口径 0.9994)。
+        # 本行数值仅作口径对照, 真实中文域判别力以组级口径为准。
+        results[key]["domain"] = "chinese_corpus_v2_original (sibling-leaked, see v1_27/03)"
         results[key]["dataset"] = "chinese_depression_corpus_v2_clean (original)"
     return results
 

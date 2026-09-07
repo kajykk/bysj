@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-07T20:02:44.204350+00:00",
+  "generated_at": "2026-09-07T21:44:14.316985+00:00",
   "models": {
     "structured_v1.20": {
       "samples": 28552,
@@ -97,7 +97,7 @@
         "tp": 2
       },
       "n_texts": 1275,
-      "domain": "chinese_cross-domain",
+      "domain": "chinese_corpus_v2_original (sibling-leaked, see v1_27/03)",
       "dataset": "chinese_depression_corpus_v2_clean (original)"
     },
     "text_improved_bilingual": {
@@ -118,7 +118,7 @@
         "tp": 244
       },
       "n_texts": 1275,
-      "domain": "chinese_cross-domain",
+      "domain": "chinese_corpus_v2_original (sibling-leaked, see v1_27/03)",
       "dataset": "chinese_depression_corpus_v2_clean (original)"
     },
     "mmpsy_lite_lr": {
