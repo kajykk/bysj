@@ -4,6 +4,15 @@
 
 [架构文档](docs/architecture.md) · [审计报告](docs/FULL_AUDIT_REPORT.md) · [部署指南](docs/DEPLOYMENT_GUIDE.md) · [变更日志](CHANGELOG.md) · [Issues](https://github.com/kajykk/bysj/issues)
 
+[![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)](https://fastapi.tiangolo.com/)
+[![Vue 3](https://img.shields.io/badge/Vue_3+TS-Vite-42b883)](https://vuejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-Celery-DC382D)](https://redis.io/)
+[![Observability](https://img.shields.io/badge/Prometheus+Grafana-OTel-E6522C)](https://prometheus.io/)
+[![Security](https://img.shields.io/badge/PII_Encryption-Audit_Log-9cf)](docs/architecture.md)
+[![Tests](https://img.shields.io/badge/Tests-pytest-0A9EDC)](backend/tests)
+
 ---
 
 ## 一眼看懂
