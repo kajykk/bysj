@@ -464,41 +464,56 @@ class TestCeleryBeatSchedule:
 
 
 class TestSourceStructure:
-    """源码静态扫描 - 确认关键设计点已实现."""
+    """源码静态扫描 - 确认关键设计点已实现.
+
+    注: ``model_predict_service`` 已拆分为 ``model_predict`` 包, 旧模块只剩转发壳
+    (``return _training.cleanup_old_training_jobs(max_size)``)。源码扫描必须针对真实
+    实现 ``app.services.model_predict.training_jobs``, 否则扫描到的是那一行转发。
+    """
 
     def test_cleanup_old_training_jobs_defined(self):
         """TC-RES-025: cleanup_old_training_jobs 函数已定义."""
-        from app.services.model_predict_service import cleanup_old_training_jobs
+        from app.services.model_predict.training_jobs import cleanup_old_training_jobs
 
         assert callable(cleanup_old_training_jobs)
 
     def test_cleanup_function_uses_lock(self):
         """TC-RES-026: cleanup_old_training_jobs 必须使用 TRAINING_JOBS_LOCK."""
+        from app.services.model_predict.training_jobs import cleanup_old_training_jobs
+
         source = inspect.getsource(cleanup_old_training_jobs)
         assert "TRAINING_JOBS_LOCK" in source
 
     def test_cleanup_function_skips_active_statuses(self):
         """TC-RES-027: cleanup_old_training_jobs 必须检查活跃状态."""
+        from app.services.model_predict.training_jobs import cleanup_old_training_jobs
+
         source = inspect.getsource(cleanup_old_training_jobs)
         assert "_ACTIVE_JOB_STATUSES" in source
 
     def test_cleanup_function_persists_after_cleanup(self):
         """TC-RES-028: cleanup_old_training_jobs 清理后必须持久化."""
+        from app.services.model_predict.training_jobs import cleanup_old_training_jobs
+
         source = inspect.getsource(cleanup_old_training_jobs)
         assert "_save_training_jobs" in source
 
     def test_start_training_job_calls_cleanup(self):
-        """TC-RES-029: start_training_job 必须调用 cleanup_old_training_jobs."""
-        from app.services.model_predict_service import ModelPredictService
+        """TC-RES-029: 启动训练任务的链路上必须触发 cleanup_old_training_jobs.
 
-        source = inspect.getsource(ModelPredictService.start_training_job)
-        assert "cleanup_old_training_jobs" in source
+        拆分后调用链: start_training_job -> _submit_task -> _persist_queued_job
+        -> cleanup_old_training_jobs()。
+        """
+        from app.services.model_predict import training_jobs
+
+        assert "cleanup_old_training_jobs" in inspect.getsource(training_jobs._persist_queued_job)
+        assert "_submit_task" in inspect.getsource(training_jobs.start_training_job)
 
     def test_module_load_calls_cleanup(self):
         """TC-RES-030: 模块加载时必须调用 cleanup_old_training_jobs."""
-        from app.services import model_predict_service
+        from app.services.model_predict import training_jobs
 
-        source = inspect.getsource(model_predict_service)
+        source = inspect.getsource(training_jobs)
         # 模块级调用应在 _load_training_jobs 之后
         assert "cleanup_old_training_jobs()" in source
 

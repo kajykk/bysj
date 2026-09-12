@@ -317,42 +317,47 @@ class TestCallWithMlBreaker:
 
 
 class TestModelPredictServiceBreakerIntegration:
-    """验证 ModelPredictService.predict_* 4 个方法均经过熔断器包装."""
+    """验证 predict_* 4 个方法均经过熔断器包装.
+
+    注: ``model_predict_service`` 已拆分为 ``model_predict`` 包, 旧模块只剩转发壳
+    (如 ``return await super().predict_tabular(features)``)。因此这里断言真实实现
+    ``InferenceService`` (``predict_fusion`` 继承自 ``FusionMixin``), 而不是转发壳。
+    """
 
     def test_predict_tabular_uses_breaker(self):
         """predict_tabular 源码应包含 call_with_ml_breaker."""
         import inspect
 
-        from app.services.model_predict_service import ModelPredictService
+        from app.services.model_predict import InferenceService
 
-        src = inspect.getsource(ModelPredictService.predict_tabular)
+        src = inspect.getsource(InferenceService.predict_tabular)
         assert "call_with_ml_breaker" in src
 
     def test_predict_text_uses_breaker(self):
         """predict_text 源码应包含 call_with_ml_breaker."""
         import inspect
 
-        from app.services.model_predict_service import ModelPredictService
+        from app.services.model_predict import InferenceService
 
-        src = inspect.getsource(ModelPredictService.predict_text)
+        src = inspect.getsource(InferenceService.predict_text)
         assert "call_with_ml_breaker" in src
 
     def test_predict_physiological_uses_breaker(self):
         """predict_physiological 源码应包含 call_with_ml_breaker."""
         import inspect
 
-        from app.services.model_predict_service import ModelPredictService
+        from app.services.model_predict import InferenceService
 
-        src = inspect.getsource(ModelPredictService.predict_physiological)
+        src = inspect.getsource(InferenceService.predict_physiological)
         assert "call_with_ml_breaker" in src
 
     def test_predict_fusion_uses_breaker(self):
         """predict_fusion 源码应包含 call_with_ml_breaker."""
         import inspect
 
-        from app.services.model_predict_service import ModelPredictService
+        from app.services.model_predict import InferenceService
 
-        src = inspect.getsource(ModelPredictService.predict_fusion)
+        src = inspect.getsource(InferenceService.predict_fusion)
         assert "call_with_ml_breaker" in src
 
     @pytest.mark.asyncio

@@ -579,9 +579,12 @@ class TestJwtRs256TokenFlow:
             assert payload["sub"] == "user123"
 
     def test_create_access_token_uses_signing_key(self) -> None:
-        """create_access_token 调用 _get_signing_key."""
-        source = inspect.getsource(__import__("app.core.security", fromlist=["create_access_token"]).create_access_token)
-        assert "_get_signing_key" in source
+        """create_access_token 调用 _get_signing_key（经 _build_token 公共签名路径）."""
+        security = __import__("app.core.security", fromlist=["create_access_token", "_build_token"])
+        # OPT-A4: access/refresh/password_reset 三类 token 已收敛到 _build_token, 签名在此处完成
+        assert "_get_signing_key" in inspect.getsource(security._build_token)
+        # create_access_token 必须走该公共路径, 否则可能绕过 RS256 私钥签名
+        assert "_build_token" in inspect.getsource(security.create_access_token)
 
     def test_decode_token_uses_verifying_key(self) -> None:
         """decode_token 调用 _get_verifying_key."""
