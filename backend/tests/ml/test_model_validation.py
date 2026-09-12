@@ -89,7 +89,7 @@ class TestBootstrapAucCI:
         """单类 y_true：返回 unreliable."""
         y_true = np.array([0, 0, 0, 0])
         y_score = np.array([0.1, 0.2, 0.3, 0.4])
-        auc, ci, reliable, degenerate = _bootstrap_auc_ci(
+        auc, ci, reliable = _bootstrap_auc_ci(
             y_true, y_score, n_bootstrap=100
         )
         assert reliable is False
@@ -100,7 +100,7 @@ class TestBootstrapAucCI:
         rng = np.random.RandomState(42)
         y_true = rng.randint(0, 2, size=200)
         y_score = rng.rand(200)
-        auc, ci, reliable, degenerate = _bootstrap_auc_ci(
+        auc, ci, reliable = _bootstrap_auc_ci(
             y_true, y_score, n_bootstrap=200
         )
         assert reliable is True
@@ -111,7 +111,7 @@ class TestBootstrapAucCI:
         rng = np.random.RandomState(0)
         y_true = rng.randint(0, 2, size=100)
         y_score = rng.rand(100)
-        auc, ci, reliable, degenerate = _bootstrap_auc_ci(
+        auc, ci, reliable = _bootstrap_auc_ci(
             y_true, y_score, n_bootstrap=200
         )
         if reliable and ci != [0.0, 0.0]:

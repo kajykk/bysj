@@ -393,7 +393,9 @@ class TestMetricsEndpointIntegration:
         assert "slo_p99_model_latency_seconds" in content
         # 必须调用 compute_sli
         assert "from app.core.slo import compute_sli" in content
-        assert "STAB-P2-011" in content
+        # STAB-P2-011 溯源标记随 SLO 实现位于 app/core/slo.py, 不在路由层
+        slo_path = metrics_endpoint_path.parent.parent.parent / "core" / "slo.py"
+        assert "STAB-P2-011" in slo_path.read_text(encoding="utf-8")
 
     def test_metrics_endpoint_collects_slo(self):
         """/metrics 端点调用 compute_sli 并设置 SLO 指标."""
