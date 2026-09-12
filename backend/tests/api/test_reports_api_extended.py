@@ -90,10 +90,17 @@ class TestPdfAsyncQueue:
             has_charts=False,
         )
 
-        # Mock PDF 生成, 避免依赖 reportlab
+        # Mock PDF 生成, 避免依赖 reportlab.
+        # 同时屏蔽 Redis: CI 的 coverage job 提供可达的 Redis broker 但无 Celery
+        # worker, 走 Celery 分支的任务会永远停在 queued; 让 save_job_to_redis 抛错
+        # 即触发端点文档化的 "Celery/Redis 不可用时回退 daemon Thread" 分支,
+        # 使本测试确定性地覆盖进程内 PdfJobStore 流水线.
         with patch(
             "app.api.v1.reports.pdf_report_service.generate_user_risk_report",
             return_value=fake_result,
+        ), patch(
+            "app.tasks.pdf_report.save_job_to_redis",
+            side_effect=RuntimeError("redis unavailable in test"),
         ):
             # Step 1: 创建异步任务
             create_resp = client.post(
@@ -183,7 +190,11 @@ class TestPdfAsyncQueue:
         from app.services.pdf_job_store import pdf_job_store
 
         expected = len(pdf_job_store.list_jobs(created_by=1))
-        response = client.get("/api/v1/reports/pdf/jobs", headers=auth_headers)
+        # CI 提供可达的 Redis broker (coverage.yml) 但无 Celery worker, redis 侧
+        # 残留任务会被端点合并进 total, 使 total 与进程内 store 计数不一致.
+        # 屏蔽 redis 侧列表, 使断言只针对进程内 store (本测试的目标路径).
+        with patch("app.tasks.pdf_report.list_jobs_from_redis", return_value=[]):
+            response = client.get("/api/v1/reports/pdf/jobs", headers=auth_headers)
         assert response.status_code == 200
         assert response.json()["data"]["total"] == expected
 
