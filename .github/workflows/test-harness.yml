@@ -63,18 +63,12 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
         run: |
           python -m pytest backend/tests/test_harness.py backend/tests/test_harness_integration.py --maxfail=1 --disable-warnings --cov-fail-under=0
-          # 前端 harness 报告在 CI 中默认不生成 (vitest/playwright 无对应 reporter),
-          # 且其结果不进入合并报告 (合并脚本对缺失报告做了容错), 故失败不阻断合并步骤。
-          # SEC-FIX (P2): 不再静默吞掉失败——运行结果写入 step summary 显式记录
-          frontend_vitest_status=skipped
-          npm --prefix frontend run test -- --no-file-parallelism && frontend_vitest_status=passed || frontend_vitest_status=failed
-          frontend_e2e_status=skipped
-          npm --prefix frontend run test:e2e && frontend_e2e_status=passed || frontend_e2e_status=failed
-          {
-            echo "## Frontend harness (non-blocking, 有意不阻断)"
-            echo "- vitest: ${frontend_vitest_status}"
-            echo "- e2e: ${frontend_e2e_status}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          # CI-AUDIT-08: 移除前端 vitest / e2e 执行。二者结果既不进入合并报告、也不阻断
+          # (下方 load_report/validate_report 对缺失报告已做容错), 却会把 job 拖死:
+          #   - vitest 全量套件与 coverage.yml 的 frontend-coverage 重复;
+          #   - playwright e2e 与 e2e-tests.yml 重复, 而本 job 未起后端服务,
+          #     用例只能串行(workers=1)等待永不出现的 API 数据, 每个再重试 2 次(retries=2)
+          #     → 实测卡在 in_progress 30+ 分钟直至被取消。
           python - <<'PY'
           import json
           from pathlib import Path

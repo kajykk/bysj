@@ -57,13 +57,15 @@ class TestV121RegistryCleanup:
             )
 
     def test_registry_size_reduced(self) -> None:
-        """注册表条目数应减少 7 个 (4 个模型 + 3 个辅助文件)."""
-        # 清理前 33 个条目, 清理后 26 个
-        assert len(MODEL_REGISTRY) == 26, (
-            f"MODEL_REGISTRY 应有 26 个条目, 实际 {len(MODEL_REGISTRY)}"
+        """注册表条目数应为 S-03 清理后的净结果."""
+        # 清理前 33 个 (含 v1.21 的 7 个); S-03 清理后 26 个.
+        # v1.27 新增 2 个: mmpsy_lite_calibrator / mmpsy_lite_calibrator_meta
+        # (lite LR 概率校准层产物) → 当前 28 个.
+        assert len(MODEL_REGISTRY) == 28, (
+            f"MODEL_REGISTRY 应有 28 个条目, 实际 {len(MODEL_REGISTRY)}"
         )
-        assert len(MODEL_PATHS) == 26, (
-            f"MODEL_PATHS 应有 26 个条目, 实际 {len(MODEL_PATHS)}"
+        assert len(MODEL_PATHS) == 28, (
+            f"MODEL_PATHS 应有 28 个条目, 实际 {len(MODEL_PATHS)}"
         )
 
 

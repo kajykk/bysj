@@ -27,6 +27,16 @@ CALIB_DIR = BACKEND_DIR / "models" / "v1.27_lite_calibration"
 CALIB_PKL = CALIB_DIR / "calibrator.pkl"
 CALIB_META = CALIB_DIR / "calibrator_meta.json"
 
+# v1.25 mmpsy_lite 端到端行为测试依赖的真实产物 (backend/models/* 被 .gitignore,
+# CI 检出不含这些 pkl; 仅本地训练资产存在时才能跑真实加载路径).
+LITE_MODEL_PKL = BACKEND_DIR / "models" / "v1.25_mmpsy_lite" / "mmpsy_lite_model.pkl"
+LITE_SCALER_PKL = BACKEND_DIR / "models" / "v1.25_mmpsy_lite" / "mmpsy_lite_scaler.pkl"
+
+_requires_lite_artifacts = pytest.mark.skipif(
+    not (LITE_MODEL_PKL.exists() and LITE_SCALER_PKL.exists()),
+    reason="v1.25 mmpsy_lite 模型/缩放器产物不存在 (backend/models/* 已 gitignore)",
+)
+
 
 def _run(coro):
     return asyncio.run(coro)
@@ -168,6 +178,7 @@ class TestLiteCalibrationContracts:
         assert len(expected) == 64
 
 
+@_requires_lite_artifacts
 class TestPredictLiteCalibrationBehavior:
     """predict_lite 端到端行为 (monkeypatch 模型加载, 校准器为近恒等 Platt)."""
 
@@ -176,8 +187,8 @@ class TestPredictLiteCalibrationBehavior:
         import joblib
 
         eng = ModelEngine()
-        model = joblib.load(BACKEND_DIR / "models" / "v1.25_mmpsy_lite" / "mmpsy_lite_model.pkl")
-        scaler = joblib.load(BACKEND_DIR / "models" / "v1.25_mmpsy_lite" / "mmpsy_lite_scaler.pkl")
+        model = joblib.load(LITE_MODEL_PKL)
+        scaler = joblib.load(LITE_SCALER_PKL)
 
         async def _load(model_id: str):
             if model_id == "mmpsy_lite_model":

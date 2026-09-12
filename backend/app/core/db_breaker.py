@@ -260,6 +260,31 @@ class CircuitBreaker:
                         self.failure_threshold,
                     )
 
+    def configure(
+        self,
+        *,
+        failure_threshold: int | None = None,
+        recovery_timeout: int | None = None,
+        half_open_max_calls: int | None = None,
+    ) -> None:
+        """就地更新熔断器参数并重置为 CLOSED (保持对象标识不变)。
+
+        必须就地更新, 不能重新赋值模块全局 ``db_breaker``。原因:
+        ``app.core.database`` 以 ``from app.core.db_breaker import db_breaker``
+        在模块加载时绑定引用; 若此处改为 ``global db_breaker = CircuitBreaker(...)``,
+        ``database.get_db`` 会继续持有旧实例, 与 ``metrics`` / ``ws`` 观测到的
+        实例分裂为两个, 导致熔断状态不一致 (get_db 按旧阈值走, 监控按新阈值报)。
+        """
+        if failure_threshold is not None:
+            self.failure_threshold = max(1, failure_threshold)
+        if recovery_timeout is not None:
+            self.recovery_timeout = max(1, recovery_timeout)
+        if half_open_max_calls is not None:
+            self.half_open_max_calls = max(1, half_open_max_calls)
+        self._state = CircuitState.CLOSED
+        self._failure_count = 0
+        self._half_open_calls = 0
+
     async def reset(self) -> None:
         """手动重置熔断器到 CLOSED 状态 (管理/测试用)。"""
         async with self._lock:
@@ -291,18 +316,20 @@ db_breaker: CircuitBreaker = CircuitBreaker(
 
 
 def init_db_breaker() -> None:
-    """根据 settings 重新初始化熔断器参数。
+    """根据 settings 重新配置熔断器参数。
 
     在应用启动时调用, 确保使用最新的配置值。
+
+    注意: 必须**就地**更新既有单例 (``db_breaker.configure``), 不能重新赋值
+    模块全局。``database.get_db`` 在模块加载时已绑定该对象引用, 重新赋值会让
+    it 持有陈旧实例, 造成熔断器状态分裂 (详见 ``CircuitBreaker.configure``)。
     """
-    global db_breaker
     from app.core.config import settings
 
-    db_breaker = CircuitBreaker(
+    db_breaker.configure(
         failure_threshold=settings.db_failure_threshold,
         recovery_timeout=settings.db_recovery_timeout,
         half_open_max_calls=settings.db_half_open_max_calls,
-        name="db",
     )
     logger.info(
         "circuit_breaker.db.init threshold=%d recovery=%ds half_open_max=%d",

@@ -383,7 +383,7 @@ class TestInitDbBreaker:
         assert db_breaker_mod.db_breaker.name == "db"
 
     async def test_init_resets_state(self):
-        """init_db_breaker 应创建全新的 CLOSED 状态熔断器。"""
+        """init_db_breaker 应就地重置为 CLOSED 状态 (保持单例标识不变)。"""
         from app.core import db_breaker as db_breaker_mod
 
         # 先制造一些失败
