@@ -40,20 +40,48 @@ jobs:
         run: |
           docker build -f Dockerfile -t dws-backend:scan .
 
-      - name: TEMP DIAG - locate third-party SBOM source
+      - name: Verify base-image hardening floor
+        # 目的: 让 backend/.trivyignore 中的风险接受前提**可被 CI 自动验证**。
+        # trivy 会在 pip 内嵌的 vendor.txt 里检出 msgpack 1.1.2 / setuptools 70.3.0,
+        # 我们接受该检出, 依据是"镜像真实安装的版本高于公告阈值"。
+        # 本步骤把这条依据固化成断言 —— 一旦真实安装包回退到阈值以下,
+        # 说明忽略项的前提已失效, CI 立即失败并要求重新评估。
         run: |
-          set +e
-          echo "=== image inspect (id / labels) ==="
-          docker image inspect dws-backend:scan --format '{{.Id}} | {{json .Config.Labels}}'
-          echo "=== manifest / attestations ==="
-          docker buildx imagetools inspect dws-backend:scan 2>&1 | head -30
-          echo "=== SBOM-ish files inside the image ==="
-          docker run --rm --entrypoint /bin/sh dws-backend:scan -c '
-            find / -xdev \( -iname "*sbom*" -o -iname "*.cdx.json" -o -iname "*.spdx*" -o -iname "cyclonedx*" \) 2>/dev/null | head -40
-            echo "--- python pkgs actually present ---"
-            python -m pip list 2>/dev/null | grep -Ei "^(setuptools|msgpack|pip) "
-          '
-          echo "=== done ==="
+          docker run --rm -i --entrypoint /usr/local/bin/python dws-backend:scan - <<'PY'
+          import sys
+          from importlib.metadata import PackageNotFoundError, version
+
+          # 名称 -> (公告阈值, 对应 .trivyignore 条目)
+          FLOORS = {
+              "pip":         ((26, 2, 0), "CVE-2025-8869 等 pip 自身漏洞"),
+              "setuptools":  ((83, 0, 0), "CVE-2025-47273 / CVE-2026-59890"),
+              "msgpack":     ((1, 2, 1),  "GHSA-6v7p-g79w-8964"),
+          }
+
+
+          def vtuple(s):
+              return tuple(int(x) for x in s.split(".")[:3] if x.isdigit())
+
+
+          bad = []
+          for name, (floor, why) in FLOORS.items():
+              try:
+                  cur_s = version(name)
+              except PackageNotFoundError:
+                  bad.append(f"{name}: NOT INSTALLED (need >= {'.'.join(map(str, floor))})")
+                  continue
+              cur = vtuple(cur_s)
+              print(f"{name:11} installed={cur_s:10} floor={'.'.join(map(str, floor)):10} [{why}]")
+              if cur < floor:
+                  bad.append(f"{name}: {cur_s} < {'.'.join(map(str, floor))}")
+
+          if bad:
+              sys.exit(
+                  "FAIL: 以下包低于 backend/.trivyignore 风险接受所假设的地板, "
+                  "忽略项前提已失效, 请重新评估: " + "; ".join(bad)
+              )
+          print("OK: 所有受检包均高于 .trivyignore 风险接受所假设的地板")
+          PY
 
       - name: Run Trivy scan on backend image
         # H-AUDIT-01: 固定安全版本 v0.35.0 (2026-03 供应链攻击中唯一未被污染的版本),
