@@ -28,11 +28,24 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# SEC-B (2026-09-15): 基础镜像自带 pip 25.0.1, trivy 报 6 项 pip CVE
-# (CVE-2025-8869 / 2026-13346 / 2026-3219 / 2026-6357 / 2026-8643 / 2026-1703)。
-# 升级到 >=26.2.0 —— 取 trivy 给出的各 CVE 最大修复版本 (26.2.0);
-# 注意 PyPI 上并无 26.2.0 这个 release, 故用下限约束让 pip 取实际存在的最新版。
-RUN python -m pip install --upgrade "pip>=26.2.0"
+# SEC-B (2026-09-15): 基础镜像 (python:3.12.13-slim) 自带若干带 CVE 的 Python 包,
+# 且它们**不在 requirements.lock 的白名单子集内**, 因此不会被后面的 pip install 覆盖,
+# trivy 扫镜像层时必然命中。统一在此"基础镜像加固"步骤里升级:
+#
+#   pip        25.0.1 -> >=26.2.0
+#              CVE-2025-8869 / 2026-13346 / 2026-3219 / 2026-6357 / 2026-8643 / 2026-1703
+#   setuptools 70.3.0 -> >=83.0.0
+#              CVE-2025-47273 (HIGH, fixed 78.1.1) / CVE-2026-59890 (MEDIUM, fixed 83.0.0)
+#              注: lock 里 setuptools==80.9.0 只是传递解析产物 (仅供构建期),
+#                  不满足 83.0.0, 故此处显式高于 lock —— 属蓄意的"基础镜像例外"。
+#   msgpack    1.1.2  -> >=1.2.1
+#              GHSA-6v7p-g79w-8964 (HIGH, fixed 1.2.1)
+#              注: 基础镜像自带, 应用并不直接使用; 升级而非卸载 ——
+#                  卸载无法覆盖"它由 apt 包提供"的情况, 升级则两种来源都成立。
+#
+# 用下限约束 (>=) 而非硬钉, 因为 trivy 给出的 fixed 版本未必是 PyPI 上真实存在的
+# release (例: pip 26.2.0 在 PyPI 上不存在, 实际只有 26.1.2 / 26.2 / 26.2.1)。
+RUN python -m pip install --upgrade "pip>=26.2.0" "setuptools>=83.0.0" "msgpack>=1.2.1"
 
 # System libraries: build tools for C extensions (scikit-learn, pandas, etc.)
 # We keep them only in the build stage; the final stage is smaller.
@@ -153,10 +166,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# SEC-B (2026-09-15): 运行阶段同样升级 pip, 且必须放在 COPY --from=deps 之前 ——
-# 放在之后会被 deps 复制过来的 pip 覆盖, 造成版本回退与文件集混杂。
-# 两阶段版本一致时 (都是 >=26.2.0), COPY 为同版本覆盖, 不会残留旧文件。
-RUN python -m pip install --upgrade "pip>=26.2.0"
+# SEC-B (2026-09-15): 运行阶段同样升级基础镜像自带的 pip / setuptools / msgpack,
+# 且必须放在 COPY --from=deps 之前 —— 原因:
+#   1) 放在之后会被 deps 复制过来的同名包覆盖, 造成版本回退与文件集混杂;
+#   2) pip 升级会**删除旧版本的 *.dist-info**, 若跳过本步, 运行阶段仍残留
+#      基础镜像的 setuptools-70.3.0.dist-info / msgpack-1.1.2.dist-info,
+#      trivy 会同时读到新旧两个 dist-info 并继续报 CVE。
+# 两阶段版本一致时, COPY 为同版本覆盖, 不会残留旧文件。
+RUN python -m pip install --upgrade "pip>=26.2.0" "setuptools>=83.0.0" "msgpack>=1.2.1"
 
 # Copy installed Python packages from the deps stage
 COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
