@@ -28,6 +28,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+# SEC-B (2026-09-15): 基础镜像自带 pip 25.0.1, trivy 报 6 项 pip CVE
+# (CVE-2025-8869 / 2026-13346 / 2026-3219 / 2026-6357 / 2026-8643 / 2026-1703)。
+# 升级到 >=26.2.0 —— 取 trivy 给出的各 CVE 最大修复版本 (26.2.0);
+# 注意 PyPI 上并无 26.2.0 这个 release, 故用下限约束让 pip 取实际存在的最新版。
+RUN python -m pip install --upgrade "pip>=26.2.0"
+
 # System libraries: build tools for C extensions (scikit-learn, pandas, etc.)
 # We keep them only in the build stage; the final stage is smaller.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -54,6 +60,13 @@ WORKDIR /build
 # 排除重型 ML 依赖（体积考虑，模型层懒加载可回退），因此不整体安装 lock，而是按
 # 下方顶层运行时子集从 lock 提取精确锁定版本；任一顶层包未命中 lock 即视为
 # “lock 不完整”，整体回退到内联清单（与历史行为一致，保证构建确定性）。
+#
+# SEC-B (2026-09-15) 例外: jieba 不属于重型 ML 依赖, 却是 app/core/text_tokenizer.py
+# 的**运行期硬依赖**（双语 TF-IDF 的 pickle by-reference tokenizer, 见该模块
+# "PICKLE 契约" 警告），且无任何传递提供者 —— 原先漏列导致容器内
+# zh_bilingual_tokenize() 抛 ModuleNotFoundError 并静默降级为英文主模型,
+# 与 app/core/model_compatibility.py 声明的必需依赖 jieba>=0.42.1 不符。
+# 体积很小 (~20MB), 故显式列入下方白名单。
 COPY requirements.txt requirements.lock ./
 
 RUN set -eux; \
@@ -66,7 +79,7 @@ RUN set -eux; \
         redis: requests: celery: scikit-learn: scipy: joblib: \
         numpy: pandas: openpyxl: reportlab: python-dotenv: \
         slowapi: python-magic: sentry-sdk:[fastapi] \
-        email-validator: httptools: websockets:; do \
+        jieba: email-validator: httptools: websockets:; do \
         pkg="${spec%%:*}"; extra="${spec#*:}"; \
         pin="$(grep -im1 "^${pkg}==" requirements.lock || true)"; \
         if [ -n "${pin}" ]; then \
@@ -90,12 +103,12 @@ RUN set -eux; \
             aiosqlite==0.19.0 \
             alembic==1.18.4 \
             "pydantic[email]==2.13.3" \
-            pydantic-settings==2.14.0 \
+            pydantic-settings==2.15.0 \
             "PyJWT[crypto]==2.13.0" \
             "bcrypt==4.0.1" \
-            python-multipart==0.0.26 \
+            python-multipart==0.0.32 \
             redis==7.4.0 \
-            requests==2.32.5 \
+            requests==2.34.2 \
             celery==5.6.3 \
             "scikit-learn==1.8.0" \
             scipy==1.16.2 \
@@ -139,6 +152,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && groupadd -r dws && useradd -r -g dws -d /app -s /sbin/nologin dws
 
 WORKDIR /app
+
+# SEC-B (2026-09-15): 运行阶段同样升级 pip, 且必须放在 COPY --from=deps 之前 ——
+# 放在之后会被 deps 复制过来的 pip 覆盖, 造成版本回退与文件集混杂。
+# 两阶段版本一致时 (都是 >=26.2.0), COPY 为同版本覆盖, 不会残留旧文件。
+RUN python -m pip install --upgrade "pip>=26.2.0"
 
 # Copy installed Python packages from the deps stage
 COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages

@@ -130,6 +130,8 @@ idna==3.11
     #   email-validator
     #   httpx
     #   requests
+jieba==0.42.1
+    # via -r backend/requirements.txt
 jinja2==3.1.6
     # via torch
 joblib==1.5.3
@@ -223,7 +225,7 @@ pydantic==2.13.3
     #   pydantic-settings
 pydantic-core==2.46.3
     # via pydantic
-pydantic-settings==2.14.0
+pydantic-settings==2.15.0
     # via -r backend/requirements.txt
 pygments==2.19.2
     # via rich
@@ -240,7 +242,7 @@ python-dotenv==1.2.2
     #   uvicorn
 python-magic==0.4.27
     # via -r backend/requirements.txt
-python-multipart==0.0.26
+python-multipart==0.0.32
     # via -r backend/requirements.txt
 pytz==2025.2
     # via pandas
@@ -255,8 +257,10 @@ regex==2026.7.10
     # via transformers
 reportlab==4.4.10
     # via -r backend/requirements.txt
-requests==2.32.5
-    # via tensorflow
+requests==2.34.2
+    # via
+    #   -r backend/requirements.txt
+    #   tensorflow
 rich==14.2.0
     # via
     #   keras
