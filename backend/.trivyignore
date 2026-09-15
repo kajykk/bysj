@@ -10,3 +10,38 @@
 # - 忽略项每季度复审一次, 上游修复后立即移除
 # - 忽略 HIGH/CRITICAL 漏洞需安全负责人书面审批
 # - 忽略项必须有对应的缓解措施或风险接受声明
+
+# ───────────────────────────────────────────────────────────────────────
+# pip 内嵌 (vendored) 依赖的元数据检出 —— 风险接受
+# ───────────────────────────────────────────────────────────────────────
+# 现象:
+#   trivy 报 msgpack 1.1.2 (GHSA-6v7p-g79w-8964, HIGH) 与
+#   setuptools 70.3.0 (CVE-2025-47273 HIGH / CVE-2026-59890 MEDIUM),
+#   但镜像内实际安装的是 msgpack 1.2.2 / setuptools 84.0.0
+#   (CI 日志中 `docker run ... pip list` 已实测验证)。
+#
+# 根因:
+#   trivy 解析 /usr/local/lib/python3.12/site-packages/pip/_vendor/vendor.txt,
+#   把 pip **内嵌 (vendored) 的第三方副本**当作已安装包上报。该文件由 pip 上游
+#   维护、与 pip 版本绑定 (pip 26.2.1 -> msgpack==1.1.2, setuptools==70.3.0),
+#   与本镜像实际装了什么无关 —— 因此 `pip install --upgrade` 对它无效。
+#   注: python:3.12.13-slim 基础镜像本身并不含 setuptools / msgpack,
+#       site-packages 里只有 pip 25.0.1。
+#
+# 风险接受理由:
+#   1) 不可达: pip 内嵌副本仅供 pip 自身使用, 应用代码 (FastAPI backend)
+#      不 import pip._vendor.*, 不存在被业务路径触发的可能;
+#   2) 阈值安全: 三条公告的阈值均**低于**实际安装版本
+#      (msgpack <1.2.1 vs 1.2.2; setuptools <78.1.1 / <83.0.0 vs 84.0.0),
+#      故本忽略项不可能掩盖"真实安装包"的同类风险 ——
+#      将来若出现影响 1.2.2 / 84.0.0 的新公告, 会是新的 CVE/GHSA 编号, 仍会报警;
+#   3) 上游控制: 只有 pip 上游升级其内嵌版本才能消除, 我方无法单独修复。
+#
+# 复审: 每季度; pip 上游更新内嵌版本 (vendor.txt) 后立即移除。
+# ───────────────────────────────────────────────────────────────────────
+# msgpack: 来自 pip 26.2.1 内嵌 vendor.txt (msgpack==1.1.2); 实际安装 1.2.2, 高于阈值 1.2.1
+GHSA-6v7p-g79w-8964
+# setuptools: 来自 pip 内嵌 vendor.txt (setuptools==70.3.0); 实际安装 84.0.0, 高于阈值 78.1.1
+CVE-2025-47273
+# setuptools: 同上 (MEDIUM, 一并忽略以免 SARIF 噪音); 实际安装 84.0.0, 高于阈值 83.0.0
+CVE-2026-59890
