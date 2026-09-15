@@ -40,18 +40,20 @@ jobs:
         run: |
           docker build -f Dockerfile -t dws-backend:scan .
 
-      - name: TEMP DIAG - locate stale setuptools/msgpack metadata
+      - name: TEMP DIAG - locate third-party SBOM source
         run: |
+          set +e
+          echo "=== image inspect (id / labels) ==="
+          docker image inspect dws-backend:scan --format '{{.Id}} | {{json .Config.Labels}}'
+          echo "=== manifest / attestations ==="
+          docker buildx imagetools inspect dws-backend:scan 2>&1 | head -30
+          echo "=== SBOM-ish files inside the image ==="
           docker run --rm --entrypoint /bin/sh dws-backend:scan -c '
-            echo "=== pip list (filtered) ==="
-            python -m pip list 2>/dev/null | grep -Ei "^(setuptools|msgpack|pip) " || true
-            echo "=== dist-info in site-packages ==="
-            ls -d /usr/local/lib/python3.12/site-packages/*dist-info 2>/dev/null | grep -Ei "setuptools|msgpack|pip-" || true
-            echo "=== any setuptools/msgpack metadata anywhere ==="
-            find / -xdev \( -name "setuptools-*" -o -name "msgpack-*" \) -maxdepth 9 2>/dev/null | head -40 || true
-            echo "=== sys.path / site dirs ==="
-            python -c "import sys,site;print(sys.path);print(site.getsitepackages())" 2>&1 || true
+            find / -xdev \( -iname "*sbom*" -o -iname "*.cdx.json" -o -iname "*.spdx*" -o -iname "cyclonedx*" \) 2>/dev/null | head -40
+            echo "--- python pkgs actually present ---"
+            python -m pip list 2>/dev/null | grep -Ei "^(setuptools|msgpack|pip) "
           '
+          echo "=== done ==="
 
       - name: Run Trivy scan on backend image
         # H-AUDIT-01: 固定安全版本 v0.35.0 (2026-03 供应链攻击中唯一未被污染的版本),
