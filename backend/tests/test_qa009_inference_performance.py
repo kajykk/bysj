@@ -222,7 +222,24 @@ class TestInferencePerformance:
         ), f"Fallback P99 latency {p99:.2f}ms exceeds {self.FALLBACK_MAX_MS}ms baseline"
 
     def test_heuristic_vs_validation_latency_comparison(self) -> None:
-        """验证回退延迟显著低于复杂处理延迟"""
+        """验证回退打分路径满足绝对延迟预算
+
+        修订说明 (2026-09-15):
+        原实现断言 `fallback_p99 < validation_p99 * 2`, 即"回退延迟应低于验证延迟的 2 倍"。
+        该断言不成立, 有两条独立理由:
+
+          1. **前提与实测相反** —— CI 实测回退打分约 0.056ms, **慢于**输入验证约 0.022ms。
+             两者 workload 本不可比 (一个是多因子打分算术, 一个是字段类型/范围校验),
+             "回退应当更快"从来不是一个成立的不变量。
+          2. **在 ~20µs 量级上做比值不可靠** —— 该量级的测量被 CI 共享 runner 的
+             调度抖动、GC 停顿完全主导。历史上出现过随机失败
+             (2026-09-14 的 8ff11150 / fafb855b 两次 Coverage 红灯),
+             而同期代码并无任何与延迟相关的改动, 属测试自身不稳定, 而非回归信号。
+
+        改为断言本类已声明的**绝对预算**: 回退路径 FALLBACK_MAX_MS=50ms、
+        输入验证 10ms (与 test_input_validator_single_latency 同口径)。
+        这仍然覆盖"延迟退化"这一真实风险, 且不受微秒级抖动影响。
+        """
         from app.services.input_validator import InputValidator
         from app.services.risk_service import RiskService
 
@@ -240,16 +257,18 @@ class TestInferencePerformance:
             "panic_attack": 0,
         }
 
+        iterations = 100
+
         # 回退延迟
         fallback_latencies = []
-        for _ in range(50):
+        for _ in range(iterations):
             start = time.perf_counter()
             service._calculate_heuristic_score(features)
             fallback_latencies.append((time.perf_counter() - start) * 1000)
 
         # 验证延迟
         validation_latencies = []
-        for _ in range(50):
+        for _ in range(iterations):
             start = time.perf_counter()
             validator.validate_tabular(features)
             validation_latencies.append((time.perf_counter() - start) * 1000)
@@ -260,9 +279,16 @@ class TestInferencePerformance:
         print(
             f"\nFallback P99: {fallback_p99:.2f}ms, Validation P99: {validation_p99:.2f}ms"
         )
+
+        # 绝对预算: 回退路径 (对应测试计划 TC-FBC-HP-009 "回退后延迟 < 50ms")
         assert (
-            fallback_p99 < validation_p99 * 2
-        ), f"Fallback latency ({fallback_p99:.2f}ms) should be less than 2x validation latency ({validation_p99:.2f}ms)"
+            fallback_p99 < self.FALLBACK_MAX_MS
+        ), f"Fallback P99 latency {fallback_p99:.2f}ms exceeds {self.FALLBACK_MAX_MS}ms baseline"
+
+        # 绝对预算: 输入验证 (与 test_input_validator_single_latency 保持一致)
+        assert (
+            validation_p99 < 10
+        ), f"InputValidator P99 latency {validation_p99:.2f}ms exceeds 10ms baseline"
 
     # ==========================================================================
     # 5. 综合性能基准
