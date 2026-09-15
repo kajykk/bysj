@@ -73,4 +73,4 @@ sentry-sdk[fastapi]>=2.0.0
 # opentelemetry-instrumentation-redis>=0.45b0  # STAB-P2-009: Redis 自动追踪 (可选)
 
 # 配置
-python-dotenv>=1.0.1
+python-dotenv>=1.2.3
