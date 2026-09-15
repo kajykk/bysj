@@ -145,5 +145,11 @@ ignore_imports = [
 #   1. 修改 requirements.txt (或 requirements-dev.txt) 中的版本范围
 #   2. 重新运行 uv pip compile 生成 lock 文件
 #   3. 提交 .txt + .lock 两个文件
-#   4. pip-audit / safety 在 CI 中扫描 lock 文件检查已知漏洞
+#   4. CI 依赖漏洞扫描的**实际口径** (此前本行误写为「扫描 lock 文件」, 2026-09-15 更正):
+#      - dependency-scan.yml 的 pip-audit: 扫描 requirements.txt / requirements-dev.txt
+#        的**范围声明**并按最新版解析 → 反映的是「按声明可拿到的最新版本」;
+#      - container-scan.yml 的 trivy: 扫描按 requirements.lock 构建出的**容器镜像**
+#        → 镜像层的语言依赖漏洞只会在 lock 陈旧时出现 (2026-09-15 实测的 13 项即属此类,
+#          因为 CI 走 .txt 早已是最新版, 而镜像走 .lock 仍是旧 pin)。
+#      ⇒ 结论: 修镜像漏洞必须改 .lock (或重跑 uv pip compile), 只改 .txt 范围无效。
 # =============================================================================

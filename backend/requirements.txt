@@ -2,6 +2,13 @@
 # 版本锁定策略与 requirements.lock 生成方式见 backend/pyproject.toml 顶部注释
 # 安装生产环境: pip install -r requirements.txt
 # 安装开发环境: pip install -r requirements.txt -r requirements-dev.txt
+#
+# SEC-B (2026-09-15): 下列下限不再是历史宽松值, 而是「修复已知 CVE 的最小版本」。
+# 依据 container-scan.yml 的 trivy 镜像扫描结果提升 (镜像走 requirements.lock,
+# 故 .txt 下限与 .lock 精确版本需同步维护):
+#   pydantic-settings  GHSA-4xgf-cpjx-pc3j                        -> >=2.14.2
+#   python-multipart   CVE-2026-42561/53537/53538/53539/53540      -> >=0.0.31
+#   requests           CVE-2026-25645                              -> >=2.33.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 sqlalchemy[asyncio]>=2.0.29
@@ -10,13 +17,13 @@ psycopg2-binary>=2.9.9  # alembic 同步迁移需要 (CI PostgreSQL)
 aiosqlite>=0.19.0
 alembic>=1.13.1
 pydantic[email]>=2.7.0  # EmailStr 需要 email-validator 扩展
-pydantic-settings>=2.2.1
+pydantic-settings>=2.14.2  # SEC-B: 修复 GHSA-4xgf-cpjx-pc3j
 PyJWT[crypto]>=2.13.0
 cryptography>=42.0.0  # pii_crypto.py 显式依赖 Fernet/HKDF, 不依赖 PyJWT 传递依赖
 bcrypt>=4.0.0,<5.0.0
-python-multipart>=0.0.9
+python-multipart>=0.0.31  # SEC-B: 修复 5 项 multipart CVE (最高需 0.0.31)
 redis>=5.0.4
-requests>=2.31.0  # app.monitoring.{notifier,am_sync,alerting} 顶层 import
+requests>=2.33.0  # SEC-B: 修复 CVE-2026-25645; app.monitoring.{notifier,am_sync,alerting} 顶层 import
 celery>=5.4.0
 scikit-learn>=1.5.0,<2.0.0
 scipy>=1.11.0

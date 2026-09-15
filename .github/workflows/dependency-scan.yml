@@ -39,11 +39,25 @@ jobs:
         run: |
           # --strict: 任何漏洞都返回非零退出码
           # --vulnerability-service: 使用 PyPI Advisory 数据库
+          #
+          # ── 已审阅的忽略项 (与 backend/.trivyignore 同一套风险接受纪律:
+          #    必写原因, 每季度复审, 上游修复后立即移除) ─────────────────────
+          # PYSEC-2026-3740  nltk 3.10.3 —— 上游无修复版本。
+          #   证据: 该公告 fix_versions 为空, PyPI 上 nltk 最新即 3.10.3
+          #   (2026-09-15 核实), 故不存在可升的修复版本。
+          #   可达性: nltk 不是本项目依赖。它仅作为 safety 的运行时依赖被拖入
+          #   (safety>=3.2.0 -> nltk>=3.9); safety 是开发期扫描工具, 不随镜像
+          #   发布, 且 CI 的 safety 任务自行安装、并不安装 requirements-dev.txt。
+          #   已核对 `app/` 与 `scripts/` 中零处 import nltk, 运行期无该代码路径。
+          #   影响面: 公告涉及「以调用方可控路径加载模型产物」的 NLTK API,
+          #   本服务不对外暴露此类入口。
+          #   复审期限: 2026-12-15; nltk 发布修复版本后立即移除本行。
           pip-audit \
             --requirement requirements.txt \
             --requirement requirements-dev.txt \
             --format json \
             --output pip-audit-report.json \
+            --ignore-vuln PYSEC-2026-3740 \
             --strict
       - name: Upload scan report
         if: always()
