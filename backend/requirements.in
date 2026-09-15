@@ -36,7 +36,7 @@ pydantic-settings>=2.2.1
 # 安全
 PyJWT[crypto]>=2.13.0
 cryptography>=42.0.0  # pii_crypto.py 显式依赖 Fernet/HKDF
-bcrypt>=4.0.0,<5.0.0
+bcrypt>=5.0.0,<6.0.0
 
 # 缓存与队列
 redis>=5.0.4
