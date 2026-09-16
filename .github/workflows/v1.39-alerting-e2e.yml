@@ -89,11 +89,36 @@ jobs:
           docker compose up -d backend grafana
           echo "Stack started, waiting for readiness..."
 
+      # CI-AUDIT-06: 宿主端口一律从 compose 解析, 不再硬编码。
+      #
+      # 背景 (2026-09-16 定位): 2026-08-25 的 1dbba6a4 只改了 docker-compose.yml
+      # 一行 —— grafana 宿主端口 127.0.0.1:3000 -> 127.0.0.1:3001 —— 却没同步本
+      # workflow, 三处 curl 仍打 localhost:3000 (无监听), 于是本 workflow 自
+      # 08-25 起持续红灯 "Grafana not healthy within 60s", 而它由 paths 过滤触发,
+      # 此后无人再跑到, 红灯就一直挂着。
+      #
+      # 硬编码端口 = 同一个事实写在两个文件里, 必然再次漂移。改为从 compose 读真实
+      # 映射 (docker compose port <svc> <容器内端口>), 并让解析失败直接报错 ——
+      # 不做静默兜底, 否则又会退化成"看起来通过"的假门禁。
+      - name: Resolve host ports from compose
+        run: |
+          BACKEND_PORT=$(docker compose port backend 8000 | head -1 | sed 's/^.*://')
+          GRAFANA_PORT=$(docker compose port grafana 3000 | head -1 | sed 's/^.*://')
+          if [ -z "$BACKEND_PORT" ] || [ -z "$GRAFANA_PORT" ]; then
+            echo "::error::无法从 docker-compose.yml 解析 backend/grafana 宿主端口"
+            docker compose ps
+            exit 1
+          fi
+          echo "BACKEND_URL=http://localhost:${BACKEND_PORT}" >> "$GITHUB_ENV"
+          echo "GRAFANA_URL=http://localhost:${GRAFANA_PORT}" >> "$GITHUB_ENV"
+          echo "resolved from compose: backend=${BACKEND_PORT} grafana=${GRAFANA_PORT}"
+
       - name: Wait for backend healthy (TC-AT-012 前置)
         run: |
           for i in $(seq 1 60); do
-            # H-AUDIT-01: compose 将宿主端口映射为 8001:8000, 容器内才用 8000
-            if curl -s -f http://localhost:8001/health | grep -q '"status":"ok"'; then
+            # H-AUDIT-01: 宿主端口由上一步从 compose 解析 (当前 8001:8000),
+            # 容器内才用 8000
+            if curl -s -f "${BACKEND_URL}/health" | grep -q '"status":"ok"'; then
               echo "Backend healthy after ${i}s"
               exit 0
             fi
@@ -105,8 +130,11 @@ jobs:
 
       - name: Wait for Grafana healthy
         run: |
+          # 说明: compose 设了 GF_SERVER_SERVE_FROM_SUB_PATH=true (root_url 含
+          # /grafana), 但 Grafana 11.5 的 /api/* 在根路径同样可达 —— 2026-08-24
+          # 那次绿灯即为直接访问 /api/health, 故此处不需要加 /grafana 前缀。
           for i in $(seq 1 60); do
-            if curl -s -f http://localhost:3000/api/health | grep -q '"ok"\|"database":"ok"'; then
+            if curl -s -f "${GRAFANA_URL}/api/health" | grep -q '"ok"\|"database":"ok"'; then
               echo "Grafana healthy after ${i}s"
               exit 0
             fi
@@ -125,7 +153,7 @@ jobs:
         run: |
           # H-AUDIT-01: 不能把整条 curl 命令存入 $CURL 再展开 (内嵌引号会丢失导致 401),
           # 用函数包装
-          get_metrics() { curl -s -H "Authorization: Bearer ${METRICS_ACCESS_TOKEN}" http://localhost:8001/api/v1/metrics; }
+          get_metrics() { curl -s -H "Authorization: Bearer ${METRICS_ACCESS_TOKEN}" "${BACKEND_URL}/api/v1/metrics"; }
           METRICS=$(get_metrics | grep -c "^# HELP observability_")
           echo "Found $METRICS observability metrics"
           if [ "$METRICS" -lt 8 ]; then
@@ -156,7 +184,7 @@ jobs:
           # 等待 provisioning 加载 (通常 5-10s)
           sleep 10
           RESP=$(curl -s -u admin:ci-grafana-admin \
-            http://localhost:3000/api/v1/provisioning/alert-rules)
+            "${GRAFANA_URL}/api/v1/provisioning/alert-rules")
           # H-AUDIT-01: 该 API 返回扁平 rule 数组 (非 groups 结构), 原 g.get('rules') 恒为 0
           COUNT=$(echo "$RESP" | python -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else sum(len(g.get('rules',[])) for g in d))")
           echo "Loaded $COUNT alert rules"
@@ -182,7 +210,7 @@ jobs:
         run: |
           sleep 5
           RESP=$(curl -s -u admin:ci-grafana-admin \
-            http://localhost:3000/api/v1/provisioning/contact-points)
+            "${GRAFANA_URL}/api/v1/provisioning/contact-points")
           # H-AUDIT-01: provisioning API 返回扁平结构 (settings.url 在顶层, 无 receivers 数组)
           URL=$(echo "$RESP" | python -c "import sys,json; d=json.load(sys.stdin); cps=[c for c in d if c.get('name')=='sre-webhook']; print(cps[0]['settings'].get('url','') if cps else '')")
           echo "sre-webhook url=$URL"
