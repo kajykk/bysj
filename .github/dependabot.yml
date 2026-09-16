@@ -1,6 +1,13 @@
 # Dependabot 配置 (2026-08 新增)
-# SEC-FIX (P2): 第三方/官方 action 钉 SHA 后, 由 Dependabot 定期检查并提交
-# 升级 PR (自动更新 SHA 与版本注释), 避免手动维护 SHA 的负担。
+# SEC-FIX (P2): 下列 5 个 action 已钉 commit SHA, 由 Dependabot 定期检查并提交
+# 升级 PR (自动更新 SHA 与版本注释), 避免手动维护 SHA 的负担:
+#   docker/setup-buildx-action, aquasecurity/trivy-action,
+#   github/codeql-action/upload-sarif, codecov/codecov-action,
+#   gitleaks/gitleaks-action
+# 更正 (2026-09-16 核实): 此前本行写作「第三方/官方 action 钉 SHA」, 与实况不符 ——
+#   actions/* 官方系列 (checkout / setup-node / setup-python / upload-artifact /
+#   download-artifact) 全部使用可变 tag (如 @v7 / @v8), 不在 SHA 钉死范围内。
+#   即 SHA 钉死的是 4 个第三方 action 加 1 个 github/* action, 并非「全部官方 action」。
 # 参考: https://docs.github.com/code-security/dependabot/dependabot-version-updates
 
 version: 2
@@ -22,10 +29,12 @@ updates:
         patterns:
           - "*"
     # 注意: 本生态**故意不**忽略大版本 —— 与下面 pip/npm 的处理不同。
-    # 理由: 本仓库的 action 全部按 SHA 钉死 (SEC-FIX P2), 而 action 的大版本
+    # 理由: 本生态需要跟踪的是钉 SHA 的那批 action (供应链面), 而 action 的大版本
     # 升级通常只是宿主机运行时换代 (如 checkout v6 -> v7), 不需要改我们的代码;
     # 忽略大版本会让 SHA 长期停在旧版本, 反而累积供应链风险。
-    # 实测该生态的 PR (如 #36 的 actions group) 在 rebase 后即可通过。
+    # (更正 2026-09-16: 原文写「本仓库的 action 全部按 SHA 钉死」, 实况是仅 5 个
+    #  action 钉 SHA, actions/* 官方系列用可变 tag —— 见文件头注释。)
+    # 实测该生态的 PR (#36 / #70 的 actions group) 在 rebase 后即可通过。
 
   # 后端 Python 依赖 —— 已改为「仅安全更新」(2026-09-16)
   #
@@ -45,8 +54,23 @@ updates:
   #
   # 影响面 (官方语义, 已核对文档):
   #   - open-pull-requests-limit: 0 只禁用「版本更新 PR」;
-  #   - 「安全更新 PR」不受此限额约束 (它另有独立上限 10), 照常运作。
+  #   - 「安全更新 PR」不受此限额约束 (它另有独立上限 10)。
   #   参考: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+  #
+  # ⚠️ 但「安全更新照常运作」这一条在本仓库当前**不成立** (2026-09-16 双接口核实):
+  #   - GET /repos/kajykk/bysj/vulnerability-alerts -> 404
+  #     ("Vulnerability alerts are disabled.")
+  #   - GET /repos/kajykk/bysj/automated-security-fixes -> {"enabled": false}
+  #   即仓库级的「Dependabot 告警」与「安全更新」都处于关闭状态, 因此本仓库
+  #   **不会产生任何生态的安全更新 PR**(pip/npm/actions 皆然)。
+  #   故关闭 pip 版本更新后, Python 依赖的 CVE 发现路径实际只剩:
+  #     1) .github/workflows/dependency-scan.yml —— pip-audit(扫 .txt 范围,
+  #        按当天最新版解析) + safety(扫 .lock, 无 key 时仅告警不失败),
+  #        每周一 02:00 UTC 全量跑一次;
+  #     2) .github/workflows/container-scan.yml —— trivy 扫镜像, 周日 03:00 UTC。
+  #   若要恢复推送式通知, 需在仓库设置里打开 Code security 的 Dependabot alerts
+  #   (开启后可另行决定是否同时开启 security updates —— 后者会开 PR, 对 pip 生态
+  #   仍有上面那套「重写 requirements.txt」的风险)。
   #
   # 依赖升级改由人工按需执行 (pyproject.toml 已记录流程):
   #   uv pip compile backend/requirements.txt -o backend/requirements.lock
@@ -93,12 +117,15 @@ updates:
     open-pull-requests-limit: 10
     # 忽略大版本升级 (2026-09-16 复盘 PR #25–#45 后新增)
     #
-    # 实测被忽略掉的正是那 5 个「红灯密集」的 PR:
-    #   pinia 2.3.1 -> 4.0.3        (9 项检查失败)
-    #   vite 6.4.2 -> 8.3.0         (9 项)
-    #   vue-router 4.6.4 -> 5.3.1   (9 项)
-    #   vitest 4.1.10 -> 5.0.0      (9 项)
-    #   @typescript-eslint 7.18 -> 8.70 (9 项)
+    # 实测被忽略掉的正是这 6 个「红灯密集」的 PR (2026-09-16 由关闭时间线核实:
+    # Dependabot 在配置落地的 80 秒内自动关闭了它们):
+    #   #25 typescript 5.6.3 -> 7.0.2      (npm 生态, 也是大版本)
+    #   #26 pinia 2.3.1 -> 4.0.3
+    #   #28 vite 6.4.2 -> 8.3.0
+    #   #30 vue-router 4.6.4 -> 5.3.1
+    #   #32 vitest 4.1.10 -> 5.0.0
+    #   #39 @typescript-eslint 7.18 -> 8.70
+    # (更正 2026-09-16: 原文记为 5 个, 漏记了 typescript —— 它同样是 npm 大版本。)
     # 失败项都是构建/单测/e2e/覆盖率, 属真实不兼容, 必须人工迁移。
     # 其余 minor/patch (axios/sass/@sentry/vue/@vue/language-core) 仍照常开 PR。
     ignore:
