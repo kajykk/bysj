@@ -34,7 +34,7 @@ requests>=2.33.0  # SEC-B: 修复 CVE-2026-25645; app.monitoring.{notifier,am_sy
 # 数据库
 sqlalchemy[asyncio]>=2.0.29
 asyncpg>=0.29.0
-psycopg2-binary>=2.9.9  # alembic 同步迁移需要 (CI PostgreSQL)
+psycopg2-binary>=2.9.13  # alembic 同步迁移需要 (CI PostgreSQL)
 aiosqlite>=0.19.0
 alembic>=1.13.1
 
