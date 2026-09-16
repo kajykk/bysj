@@ -21,8 +21,21 @@ updates:
       actions:
         patterns:
           - "*"
+    # 注意: 本生态**故意不**忽略大版本 —— 与下面 pip/npm 的处理不同。
+    # 理由: 本仓库的 action 全部按 SHA 钉死 (SEC-FIX P2), 而 action 的大版本
+    # 升级通常只是宿主机运行时换代 (如 checkout v6 -> v7), 不需要改我们的代码;
+    # 忽略大版本会让 SHA 长期停在旧版本, 反而累积供应链风险。
+    # 实测该生态的 PR (如 #36 的 actions group) 在 rebase 后即可通过。
 
   # 后端 Python 依赖
+  #
+  # 已知限制 (2026-09-16, 未解决): 本目录同时存在 requirements.in 与
+  # requirements.txt。Dependabot 按「同名干」把二者当作 pip-compile 的
+  # 「源 → 编译产物」配对, 于是每次更新会把 requirements.txt 的依赖段落
+  # 整段重写成「解析到的最新版全钉清单」(实测 PR #29/#37/#43 的
+  # requirements.txt 均为 +141/-33, 44 行范围文件变成 152 行全钉)。
+  # 该行为在 dependabot.yml 层面没有开关可以关闭; 只能通过改文件布局规避
+  # (例如给 requirements.txt 换一个与 .in 不同名的干), 属架构改动, 待评估。
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
@@ -35,6 +48,15 @@ updates:
       prefix: "build(deps)"
     # 安全更新单独分组, 尽快合并
     open-pull-requests-limit: 10
+    # 忽略大版本升级 (2026-09-16 复盘 PR #25–#45 后新增)
+    #
+    # 那一次 Dependabot 一次开出 21 个 PR, 大版本跳跃占多数, 且都需要人工
+    # 迁移代码 —— 自动开 PR 只会持续制造红灯噪音 (红灯会发失败邮件)。
+    # 大版本改为按需人工评估, 不再依赖 Dependabot 提醒。
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
 
   # 前端 npm 依赖
   - package-ecosystem: "npm"
@@ -48,3 +70,17 @@ updates:
     commit-message:
       prefix: "build(deps)"
     open-pull-requests-limit: 10
+    # 忽略大版本升级 (2026-09-16 复盘 PR #25–#45 后新增)
+    #
+    # 实测被忽略掉的正是那 5 个「红灯密集」的 PR:
+    #   pinia 2.3.1 -> 4.0.3        (9 项检查失败)
+    #   vite 6.4.2 -> 8.3.0         (9 项)
+    #   vue-router 4.6.4 -> 5.3.1   (9 项)
+    #   vitest 4.1.10 -> 5.0.0      (9 项)
+    #   @typescript-eslint 7.18 -> 8.70 (9 项)
+    # 失败项都是构建/单测/e2e/覆盖率, 属真实不兼容, 必须人工迁移。
+    # 其余 minor/patch (axios/sass/@sentry/vue/@vue/language-core) 仍照常开 PR。
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
