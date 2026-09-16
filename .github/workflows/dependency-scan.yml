@@ -11,6 +11,7 @@ on:
     paths:
       - 'backend/requirements.txt'
       - 'backend/requirements-dev.txt'
+      - 'backend/requirements.lock'
       - '.github/workflows/dependency-scan.yml'
   schedule:
     # 每周一 02:00 UTC (北京时间 10:00) 全量扫描
@@ -71,6 +72,22 @@ jobs:
     name: Safety Scan (Cross-check)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # CI-AUDIT-07 (2026-09-16): 本 job 此前是"假门禁", 有两处实测缺陷:
+    #
+    #  1) 扫描对象选错 —— 原来扫 requirements.txt (全为 >= 下限)。safety 2.x 只检查
+    #     已钉死版本的条目, 于是 report_meta.packages_found = 0 —— 一个包都没扫,
+    #     退出码 0, 门禁以绿灯形式"通过"。产物证据:
+    #       2026-09-14T07:30Z (schedule, main) -> packages_found: 0, scanned: {}
+    #       2026-09-15T06:42Z (dispatch, main) -> packages_found: 0, scanned: {}
+    #     改扫 requirements.lock (钉死、且与镜像实际安装集合一致) 后同一命令
+    #     得到 packages_found: 123。
+    #  2) 退出码不可用作阻塞信号 —— 无 SAFETY_API_KEY 时走 2.x 免费档, 其
+    #     fixed_versions 恒为空 (连 cryptography 46.0.3 这种 spec=<46.0.5、
+    #     修复版本明确存在的条目也是空), 无法区分"可修"与"不可修"。
+    #
+    # 故: 扫描目标改为 lock, 判定交给 scripts/safety_report_gate.py ——
+    #     分母为 0 一律失败 (消灭假绿灯); 有 key 时命中即失败 (保持原阻塞意图);
+    #     无 key 时降级为咨询性告警, 但把逐条结论写进 job summary, 不再静默通过。
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -90,7 +107,7 @@ jobs:
           else
             python -m pip install --upgrade "safety>=2.3.5,<3.0.0"
           fi
-      - name: Scan with safety
+      - name: Scan with safety (pinned lock —— 部署实际安装的集合)
         working-directory: backend
         env:
           SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
@@ -99,14 +116,29 @@ jobs:
           # 无 key 时回退 2.x check: --json -o 输出 JSON 报告
           if [ -n "$SAFETY_API_KEY" ]; then
             safety scan \
-              --file requirements.txt \
+              --file requirements.lock \
               --output json \
               --save-safety-report safety-report.json
           else
+            # 免费档对命中的公告返回退出码 64。是否阻塞由下面的
+            # safety_report_gate.py 统一判定 —— 免费档缺修复版本信息,
+            # 退出码本身不是可靠信号, 故此处吞掉。
             safety check \
-              -r requirements.txt \
+              -r requirements.lock \
               --output json \
-              > safety-report.json
+              > safety-report.json || true
+          fi
+      - name: Assess safety report
+        # 断言扫描分母非 0 (消灭假绿灯); 有 key 时命中即失败, 无 key 时仅告警。
+        if: always()
+        working-directory: backend
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+        run: |
+          if [ -n "$SAFETY_API_KEY" ]; then
+            python scripts/safety_report_gate.py safety-report.json --blocking
+          else
+            python scripts/safety_report_gate.py safety-report.json
           fi
       - name: Upload safety report
         if: always()
