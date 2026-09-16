@@ -67,7 +67,7 @@ pandas>=2.1.4
 # 报告导出
 openpyxl>=3.1.2
 reportlab>=4.1.0
-Pillow>=10.0.0  # SEC-P2-003: EXIF 剥离
+Pillow>=10.4.0  # SEC-P2-003: EXIF 剥离
 
 # 文件安全
 python-magic>=0.4.27
