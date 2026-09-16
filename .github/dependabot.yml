@@ -27,15 +27,33 @@ updates:
     # 忽略大版本会让 SHA 长期停在旧版本, 反而累积供应链风险。
     # 实测该生态的 PR (如 #36 的 actions group) 在 rebase 后即可通过。
 
-  # 后端 Python 依赖
+  # 后端 Python 依赖 —— 已改为「仅安全更新」(2026-09-16)
   #
-  # 已知限制 (2026-09-16, 未解决): 本目录同时存在 requirements.in 与
-  # requirements.txt。Dependabot 按「同名干」把二者当作 pip-compile 的
-  # 「源 → 编译产物」配对, 于是每次更新会把 requirements.txt 的依赖段落
-  # 整段重写成「解析到的最新版全钉清单」(实测 PR #29/#37/#43 的
-  # requirements.txt 均为 +141/-33, 44 行范围文件变成 152 行全钉)。
-  # 该行为在 dependabot.yml 层面没有开关可以关闭; 只能通过改文件布局规避
-  # (例如给 requirements.txt 换一个与 .in 不同名的干), 属架构改动, 待评估。
+  # 背景: 本目录同时存在 requirements.in 与 requirements.txt。Dependabot 按
+  # 「同名干」把二者当作 pip-compile 的「源 → 编译产物」配对, 于是每次版本
+  # 更新都把 requirements.txt 整段「重新编译」成解析到当前最新版的全钉清单。
+  # 实测 10/10 个 pip PR 都是既有 requirements.in +1/-1, 又有
+  # requirements.txt +141/-33 (dev 对为 +157/-44): 33 行「人工维护的 >= 范围
+  # 声明」连同注释被替换成 144 行 == 全钉, 并引入 cuda-toolkit==13.0.3.0 /
+  # absl-py / astunparse / gast 等一批从未声明的传递依赖。
+  # 本仓库的约定是「.txt 人工维护范围 + .lock 机器锁定」(见 pyproject.toml
+  # 与 Dockerfile: requirements.lock 才是权威安装源), 所以那一版
+  # requirements.txt 一旦合入即破坏约定。=> 这类 PR 一律不可合并。
+  #
+  # 该行为在 dependabot.yml 层面没有开关可以关闭 (官方只承诺 "updates to any
+  # .txt file", 没有「不要重新编译」的选项)。因此关闭 pip 的版本更新。
+  #
+  # 影响面 (官方语义, 已核对文档):
+  #   - open-pull-requests-limit: 0 只禁用「版本更新 PR」;
+  #   - 「安全更新 PR」不受此限额约束 (它另有独立上限 10), 照常运作。
+  #   参考: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+  #
+  # 依赖升级改由人工按需执行 (pyproject.toml 已记录流程):
+  #   uv pip compile backend/requirements.txt -o backend/requirements.lock
+  #
+  # 若日后要重新启用 pip 版本更新, 必须先收敛文件布局: 移除 requirements.in /
+  # requirements-dev.in (它们与 .txt 内容重复, 且正是上述误判的根源), 只保留
+  # requirements.txt → requirements.lock 单链, 再删掉下面的 limit: 0。
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
@@ -46,13 +64,16 @@ updates:
       - "backend"
     commit-message:
       prefix: "build(deps)"
-    # 安全更新单独分组, 尽快合并
-    open-pull-requests-limit: 10
+    # 0 = 保留安全更新, 停止版本更新 PR (见上方说明)
+    open-pull-requests-limit: 0
     # 忽略大版本升级 (2026-09-16 复盘 PR #25–#45 后新增)
     #
     # 那一次 Dependabot 一次开出 21 个 PR, 大版本跳跃占多数, 且都需要人工
     # 迁移代码 —— 自动开 PR 只会持续制造红灯噪音 (红灯会发失败邮件)。
     # 大版本改为按需人工评估, 不再依赖 Dependabot 提醒。
+    #
+    # 注意: 上面 limit 已为 0, 版本更新整体停用, 本 ignore 段当前不生效;
+    # 保留是为了将来收敛文件布局、恢复版本更新时能直接沿用「大版本人工」策略。
     ignore:
       - dependency-name: "*"
         update-types:
