@@ -27,7 +27,7 @@
 # Web 框架
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
-python-multipart>=0.0.31  # SEC-B: 修复 5 项 multipart CVE (最高需 0.0.31)
+python-multipart>=0.0.32  # SEC-B: 修复 5 项 multipart CVE (最高需 0.0.31)
 slowapi>=0.1.9
 requests>=2.33.0  # SEC-B: 修复 CVE-2026-25645; app.monitoring.{notifier,am_sync,alerting} 顶层 import
 
