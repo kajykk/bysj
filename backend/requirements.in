@@ -15,12 +15,21 @@
 #
 # 安装开发版本 (本地开发):
 #   pip install -r requirements.in
+#
+# !!! 与 requirements.txt 的下限必须保持一致 !!!
+# SEC-B (2026-09-16): 本文件与 requirements.txt 是两份并存的顶层声明
+# (前者供 pip-compile 生成 requirements.lock 并用于本地开发安装, 后者是
+#  pyproject.toml / Dockerfile / CI 实际消费的那一份)。此前两者已经漂移 ——
+# 本文件里 python-multipart 仍是 >=0.0.9、pydantic-settings 仍是 >=2.2.1,
+# 照本文件安装会拿到带已知 CVE 的版本。现按 requirements.txt 的「CVE 修复
+# 下限」逐条对齐; 日后再改下限请同时改这两个文件。
 
 # Web 框架
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
-python-multipart>=0.0.9
+python-multipart>=0.0.31  # SEC-B: 修复 5 项 multipart CVE (最高需 0.0.31)
 slowapi>=0.1.9
+requests>=2.33.0  # SEC-B: 修复 CVE-2026-25645; app.monitoring.{notifier,am_sync,alerting} 顶层 import
 
 # 数据库
 sqlalchemy[asyncio]>=2.0.29
@@ -31,7 +40,7 @@ alembic>=1.13.1
 
 # 数据验证
 pydantic[email]>=2.7.0  # EmailStr 需要 email-validator 扩展
-pydantic-settings>=2.2.1
+pydantic-settings>=2.14.2  # SEC-B: 修复 GHSA-4xgf-cpjx-pc3j
 
 # 安全
 PyJWT[crypto]>=2.13.0
