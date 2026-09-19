@@ -5,6 +5,14 @@
 #
 # 安装:
 #   pip install -r requirements-dev.lock
+#
+# SEC-B (2026-09-19 实测, 数据源 github.com/kajykk/bysj/pull/<n>.diff):
+# 与 requirements.in 同一处境 —— 无运行期消费者, 仅由
+# tests/test_sec_p2_003_stab_p2_009_sec_p2_005.py 的 TestRequirementsDevInFile
+# (4 个测试 / 4 条断言) 保护; 且它与 requirements-dev.txt 的同名干配对会让
+# Dependabot 整段重写后者 —— 4 个 dev-only 依赖 PR (#41 / #48 / #54 / #60)
+# 无一例外都是 requirements-dev.txt -44 / +157, 新增的 157 行 100% 是 == 全钉。
+# 完整说明见 requirements.in 的 SEC-B 补注。
 
 -r requirements.in
 

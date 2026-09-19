@@ -23,6 +23,34 @@
 # 本文件里 python-multipart 仍是 >=0.0.9、pydantic-settings 仍是 >=2.2.1,
 # 照本文件安装会拿到带已知 CVE 的版本。现按 requirements.txt 的「CVE 修复
 # 下限」逐条对齐; 日后再改下限请同时改这两个文件。
+#
+# SEC-B 补注 (2026-09-19 实测): 本文件的实际消费面比上面写的还要窄 ——
+#   - backend/Dockerfile: `COPY requirements.txt requirements.lock ./`
+#     **不含 requirements.in**, 构建出的镜像里根本没有本文件;
+#   - backend/pyproject.toml: `[tool.setuptools.dynamic]` 下
+#     `dependencies = {file = ["requirements.txt"]}`, 打包元数据也从 .txt 读;
+#   - CI: pip-audit 扫 .txt / .dev.txt 的范围声明, trivy 扫 .lock 构建的镜像,
+#     两者均不读本文件。
+#   即: 本文件目前**只被** backend/tests/test_sec_p2_003_stab_p2_009_sec_p2_005.py
+#   引用 —— 具体是 TestRequirementsInFile 的 6 个测试 (共 8 条断言); 连同
+#   requirements-dev.in 的 TestRequirementsDevInFile 4 个测试, 两个 .in 文件
+#   合计被 10 个测试 / 12 条断言覆盖 (SEC-P2-005 验收)。没有任何运行期消费者。
+#
+#   但它并非无害 —— 它与同目录、同「干名」的 requirements.txt 被 Dependabot
+#   当作 pip-compile 的「源 -> 编译产物」配对, 于是 pip 版本更新 PR 会把
+#   requirements.txt 整段重写成「解析到最新版」的全钉清单。
+#   实测 (数据源: github.com/kajykk/bysj/pull/<n>.diff):
+#     已关闭的 backend pip 版本更新 PR 共 18 个, 其中 14 个**同时**改本文件与
+#     requirements.txt —— 后者每个都是 -33 / +141 的整段替换, 新增的 141 行
+#     100% 是 == 全钉; 另 4 个 (dev-only 依赖: pytest-asyncio ×2 / ruff /
+#     pytest-cov) 改为重写 requirements-dev.txt (-44 / +157, 157 行全钉)。
+#     14/14 都同时动 .in 与 .txt, 这是「源 -> 产物」配对的直接证据。
+#   这正是 .github/dependabot.yml 里 pip 段不得不用
+#   `open-pull-requests-limit: 0` 关掉版本更新的直接原因。
+#
+#   => 若要恢复 pip 自动版本更新, 必须先移除本文件与 requirements-dev.in,
+#      并同步修正上述 10 个测试 (12 条断言) —— 属架构改动, 需先确认 SEC-P2-005
+#      的规范定义是否随之调整 (另见 .github/dependabot.yml 的 pip 段注释)。
 
 # Web 框架
 fastapi>=0.110.0
