@@ -14,10 +14,14 @@ import pytest
 # Path to the v1.15 rollback plan (relative to backend/tests/)
 # __file__ = backend/tests/test_stab_p2_002_rollback_archive.py
 # parent = tests/, parent.parent = backend/, parent.parent.parent = project root
+# P2 归档 (2026-09): docs/planning/ 整树已移入 docs/archive/2026-09/planning/，
+# 路径常量同步更新；被测文档内容本身未动。
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _V115_ROLLBACK_PLAN = (
     _PROJECT_ROOT
     / "docs"
+    / "archive"
+    / "2026-09"
     / "planning"
     / "v1.15-launch-readiness"
     / "ROLLBACK_PLAN.md"
@@ -27,6 +31,8 @@ _V115_ROLLBACK_PLAN = (
 _V128_ROLLBACK_PLAN = (
     _PROJECT_ROOT
     / "docs"
+    / "archive"
+    / "2026-09"
     / "planning"
     / "v1.28-final-delivery"
     / "ROLLBACK_PLAN.md"
