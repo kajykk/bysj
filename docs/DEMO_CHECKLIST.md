@@ -4,6 +4,11 @@
 > 6 容器 healthy（backend/worker/beat/postgres/redis/prometheus）。
 > 注意：常驻容器跑的是旧镜像，`version.py` 新增的 `release_codename` 字段需重建镜像后才可见。
 
+> 2026-09-23 晚：已重建 `dws-backend:3.1.0` 并重起 backend/beat/worker。
+> beat 现以 `dws` 非 root 运行；旧命名卷是 root 属主，需一次性修复：
+> `docker run --rm --user 0:0 -v dws_celery_beat_data:/var/lib/celery dws-backend:3.1.0 chown -R dws:dws /var/lib/celery`
+> （全新部署的卷继承镜像层属主，无需此步。）
+
 ## 1. 一键拉起
 
 - Windows：`powershell -ExecutionPolicy Bypass -File scripts/demo_up.ps1`
