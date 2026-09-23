@@ -149,8 +149,10 @@ RUN set -eux; \
 FROM python:3.12.13-slim AS runtime
 
 LABEL maintainer="DWS Team" \
-      version="v1.28-final" \
+      version="3.1.0" \
       description="Depression Warning System backend (FastAPI)"
+# 版本号说明: LABEL version 与镜像 tag (dws-backend:3.1.0) 跟随
+# backend/app/core/config.py Settings.app_version (SSOT)，不再独立编号。
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -196,7 +198,9 @@ COPY --chown=dws:dws models/ /app/models/
 COPY --chown=dws:dws scripts/ /app/scripts/
 
 # Make sure the user can write to the app dir (for sqlite fallback, logs, etc.)
-RUN mkdir -p /app/logs /app/tmp && chown -R dws:dws /app
+# P3 加固: 预建 celery beat 调度目录并授权 dws, 使 celery-beat 服务可以非 root 运行
+# (对应 docker-compose.yml celery_beat.user: "dws")。
+RUN mkdir -p /app/logs /app/tmp /var/lib/celery && chown -R dws:dws /app /var/lib/celery
 
 USER dws
 

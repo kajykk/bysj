@@ -22,7 +22,10 @@ async def get_version(
     前者是面向用户/运维的迭代号,后者是应用自身的语义版本号。
     """
     return {
+        # release_codename 与 version 同值：历史代码引用 version，本文件新增
+        # release_codename 显式别名，消除“多版本号并存”口径混乱（SSOT 见 config）。
         "version": RELEASE_VERSION,
+        "release_codename": RELEASE_VERSION,
         "release_date": RELEASE_DATE,
         "status": RELEASE_STATUS,
         "app_version": settings.app_version,

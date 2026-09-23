@@ -82,6 +82,57 @@ def _safe_resolve_path(base: Path, user_id: str, save_name: str) -> Path:
     return candidate
 
 
+# P2 并发上限：批量上传改为信号量约束的并行处理（替代串行循环）。
+# UploadFile 之间无共享状态，纯 IO 密集（读流 + 落盘 + to_thread 安全扫描），
+# 并发 3 在 20MB 上限与 10 文件上限下内存可控；审计日志仍在全部完成后统一写一次。
+_BATCH_CONCURRENCY = 3
+
+
+async def _process_batch_file(
+    file: UploadFile,
+    category: str | None,
+    upload_base: Path,
+    user_id_str: str,
+    current_user_id: int,
+) -> dict:
+    """处理批量上传中的单个文件（供 asyncio.gather 并发调用）。"""
+    if not file.filename:
+        return {"filename": "", "error": "文件名为空", "skipped": True}
+    save_path: Path | None = None
+    try:
+        ext = _validate_extension(file.filename, category)
+        file_id = uuid.uuid4().hex[:12]
+        save_name = f"{file_id}.{ext}"
+        save_path = _safe_resolve_path(upload_base, user_id_str, save_name)
+        # H-API-8 修复：先读取文件头部校验 MIME，再落盘，避免恶意 polyglot 文件先写入磁盘
+        head_content = await file.read(8192)
+        await file.seek(0)
+        await _validate_mime_type(head_content, category)
+        size, _ = await _save_upload_stream(file, save_path)
+        # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描（OPT-P2-003：to_thread 避免阻塞事件循环）
+        safe, sec_msg = await asyncio.to_thread(process_uploaded_file, save_path, category)
+        if not safe:
+            if save_path is not None:
+                save_path.unlink(missing_ok=True)
+            return {"filename": file.filename, "error": f"安全检查失败: {sec_msg}"}
+        url = f"/uploads/{current_user_id}/{save_name}"
+        return {
+            "url": url,
+            "filename": save_name,
+            "original_name": html.escape(file.filename),
+            "size": size,
+        }
+    except HTTPException as exc:
+        if save_path is not None:
+            save_path.unlink(missing_ok=True)
+        return {"filename": file.filename, "error": exc.detail}
+    except Exception:
+        if save_path is not None:
+            save_path.unlink(missing_ok=True)
+        # 记录错误并继续处理后续文件，不中断整个批量上传
+        return {"filename": file.filename, "error": "内部错误"}
+
+
 def _validate_extension(filename: str, category: str | None = None) -> str:
     if "/" in filename or "\\" in filename or "\x00" in filename:
         raise HTTPException(status_code=400, detail="文件名包含非法字符")
@@ -256,56 +307,27 @@ async def upload_batch(
     # L-19 修复：验证 category 参数，避免传入未知 category 跳过扩展名检查
     category = _validate_category(category)
 
-    # TODO(M-API-10): 当前 10 个文件串行处理，大文件场景可能超时。
-    # 后续应改为后台任务（如 Celery/RQ）或 asyncio.gather 并行处理，避免请求长时间阻塞。
-    results = []
     upload_base = _resolve_upload_dir()
     upload_base.mkdir(parents=True, exist_ok=True)
     user_id_str = str(current_user.id)
     user_dir = upload_base / user_id_str
     user_dir.mkdir(parents=True, exist_ok=True)
 
-    for file in files:
-        if not file.filename:
-            continue
-        save_path: Path | None = None
-        try:
-            ext = _validate_extension(file.filename, category)
+    # P2: 信号量约束的并行处理（替代串行循环），关闭 M-API-10 TODO。
+    # 单文件失败只影响自身结果项；空文件名项在 _process_batch_file 内标记 skipped 后过滤。
+    _sem = asyncio.Semaphore(_BATCH_CONCURRENCY)
 
-            file_id = uuid.uuid4().hex[:12]
-            save_name = f"{file_id}.{ext}"
-            save_path = _safe_resolve_path(upload_base, user_id_str, save_name)
-            # H-API-8 修复：先读取文件头部校验 MIME，再落盘，避免恶意 polyglot 文件先写入磁盘
-            head_content = await file.read(8192)
-            await file.seek(0)
-            await _validate_mime_type(head_content, category)
-            size, _ = await _save_upload_stream(file, save_path)
-            # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描（OPT-P2-003：to_thread 避免阻塞事件循环）
-            safe, sec_msg = await asyncio.to_thread(process_uploaded_file, save_path, category)
-            if not safe:
-                if save_path is not None:
-                    save_path.unlink(missing_ok=True)
-                results.append({"filename": file.filename, "error": f"安全检查失败: {sec_msg}"})
-                continue
-
-            url = f"/uploads/{current_user.id}/{save_name}"
-            results.append(
-                {
-                    "url": url,
-                    "filename": save_name,
-                    "original_name": html.escape(file.filename),
-                    "size": size,
-                }
+    async def _bounded(f: UploadFile) -> dict:
+        async with _sem:
+            return await _process_batch_file(
+                f, category, upload_base, user_id_str, current_user.id
             )
-        except HTTPException as exc:
-            if save_path is not None:
-                save_path.unlink(missing_ok=True)
-            results.append({"filename": file.filename, "error": exc.detail})
-        except Exception:
-            if save_path is not None:
-                save_path.unlink(missing_ok=True)
-            # 记录错误并继续处理后续文件，不中断整个批量上传
-            results.append({"filename": file.filename, "error": "内部错误"})
+
+    results = [
+        r
+        for r in await asyncio.gather(*(_bounded(f) for f in files))
+        if not r.pop("skipped", False)
+    ]
 
     # SEC-P1-004 修复：记录批量上传审计日志
     success_count = sum(1 for r in results if "error" not in r)

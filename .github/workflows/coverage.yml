@@ -62,10 +62,10 @@ jobs:
         # (此前即使测试全挂 job 仍显示绿色, 形成假门禁). 失败时先输出摘要
         # 到 GITHUB_STEP_SUMMARY, 再以非零码退出; coverage 上传由 if: always() 步骤承担.
         run: |
-          # --maxfail=0: 跑完全部测试收集完整覆盖率 (不中途停)
-          # CI-AUDIT-03: 门禁对齐——本 job 跑全量测试 (除 contract), 是全仓基线门禁 (40%);
-          # pr-quality-gates.yml 跑 unit+integration 子集, 门禁 50% (更快反馈)。
-          # 渐进提升路线图: 40%(当前基线) → 50% → 60% → 70% → 85%
+          # CI-AUDIT-03: 门禁对齐——本 job 跑全量测试 (除 contract), 是全仓基线门禁;
+          # pr-quality-gates.yml 跑 ruff/bandit 阻断 + mypy/ruff-format 非阻断。
+          # 阈值唯一事实源 (SSOT): docs/COVERAGE_ROADMAP.md（T0 当前基线 → T4 远期 85%）。
+          # 提升阈值前必须先拿到连续 3 次 CI 全绿的实测覆盖率，禁止凭估计改数字。
           pytest tests/ -m "not contract" \
             --maxfail=0 \
             --cov=app \

@@ -1,0 +1,68 @@
+{
+  "_comment": "url 为 null 表示尚未发布到外部存储；fetch_models 会校验本地文件并提示放置位置。",
+  "artifacts": [
+    {
+      "dest": "backend/models/v1.23_external_lr/model.pkl",
+      "sha256": "7c19b41b971aa92fa45e92a2e695f846578c985f8e0b7bfc39ddb7235d7cbe5b",
+      "bytes": 1880,
+      "seed": true,
+      "url": null
+    },
+    {
+      "dest": "backend/models/v1.23_external_lr/preprocessor.pkl",
+      "sha256": "774a05a495c49f3a1d60072d63f72fc3bc7e653292ffe880150f17d7ff29d52d",
+      "bytes": 1481,
+      "seed": true,
+      "url": null
+    },
+    {
+      "dest": "backend/models/v1.23_external_lr/feature_schema.json",
+      "sha256": "ed59f340afaf9c6cd33a9f550e95d27370bfa3b2447597bdf7f0a5b5ab56aa68",
+      "bytes": 2109,
+      "seed": true,
+      "url": null
+    },
+    {
+      "dest": "backend/models/v1.23_external_lr/threshold_config.json",
+      "sha256": "87903696d59ff976c67a8d2dbe2d98a2c8dffde59a134b5eab0f40001eb44959",
+      "bytes": 389,
+      "seed": true,
+      "url": null
+    },
+    {
+      "dest": "backend/models/v1.23_external_lr/metrics.json",
+      "sha256": "a1b893dba1c7dce341122bfb12e37f769ff8575df82f305490bd69cf8825401f",
+      "bytes": 10381,
+      "seed": true,
+      "url": null
+    },
+    {
+      "dest": "backend/models/v1.23_external_lr/calibration_config.json",
+      "sha256": "69224bb45629b15e1aaaf7f58dc58e3bf8b3b21ebeb4c5d468eb6868acc34248",
+      "bytes": 361,
+      "seed": true,
+      "url": null
+    },
+    {
+      "dest": "backend/models/text/improved_bilingual_model.pkl",
+      "sha256": "aaaa1e1acb1983129c996652d2105d1961c0a991550d314137546ee01a653943",
+      "bytes": 960734,
+      "seed": true,
+      "url": null
+    },
+    {
+      "dest": "backend/models/text/improved_bilingual_tfidf.pkl",
+      "sha256": "787f30e7a291d8c76ccd0ff11dea681f501e4fbdc2d020acec2ffcf41c154519",
+      "bytes": 4870613,
+      "seed": true,
+      "url": null
+    },
+    {
+      "dest": "backend/models/structured/Logistic_Regression_quick.pkl",
+      "sha256": "0f0812357c1227f2c6f63055d1fb63674be17a4571c94f0eb4ca13ed8ff115c9",
+      "bytes": 4280,
+      "seed": true,
+      "url": null
+    }
+  ]
+}

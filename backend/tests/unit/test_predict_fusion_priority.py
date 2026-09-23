@@ -5,8 +5,14 @@ import pytest
 from app.core.model_engine import ModelEngine
 
 
+@pytest.mark.slow
 class TestPredictFusionPriority:
-    """测试融合预测优先级规则集成。"""
+    """测试融合预测优先级规则集成。
+
+    P-HANG 说明：本类每个用例都实例化 ModelEngine 并触发文本模型懒加载，
+    首次运行可能下载/加载 BERT（分钟级）。已标 slow，本地默认跑轻量子集时跳过，
+    重模型回归单独跑：pytest tests/unit/test_predict_fusion_priority.py。
+    """
 
     @pytest.fixture
     def engine(self) -> ModelEngine:
