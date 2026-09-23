@@ -216,14 +216,22 @@ class TestUploadApiIntegration:
         assert "process_uploaded_file" in func_source
 
     def test_upload_batch_endpoint_calls_process_uploaded_file(self) -> None:
-        """upload_batch 端点调用 process_uploaded_file."""
+        """upload_batch 端点调用 process_uploaded_file（经 _process_batch_file 并行 helper）。
+
+        P2 并行化后安全扫描调用位于 _process_batch_file 内，upload_batch 经
+        asyncio.gather 并发调度该 helper；两者缺一不可，否则安全链断裂。
+        """
         from app.api.v1 import user_upload
 
         source = inspect.getsource(user_upload)
         func_start = source.find("async def upload_batch")
         assert func_start != -1
         func_source = source[func_start : func_start + 3000]
-        assert "process_uploaded_file" in func_source
+        assert "_process_batch_file" in func_source
+        helper_start = source.find("async def _process_batch_file")
+        assert helper_start != -1
+        helper_source = source[helper_start : helper_start + 4000]
+        assert "process_uploaded_file" in helper_source
 
     def test_upload_endpoints_have_sec_p2_003_annotation(self) -> None:
         """上传端点标注 SEC-P2-003."""
