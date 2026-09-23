@@ -526,4 +526,4 @@ python -m pytest backend/tests/test_dashboard_template.py -v   # 7 单元测试
 - [Grafana Provisioning Docs](https://grafana.com/docs/grafana/latest/administration/provisioning/)
 - [Grafana Service Accounts](https://grafana.com/docs/grafana/latest/administration/service-accounts/)
 - 后端 `/grafana/*` API 文档: 启动后端访问 `http://localhost:8000/docs`
-- 规划文档: `docs/planning/v1.37-grafana-dashboards/`
+- 规划文档: `docs/archive/2026-09/planning/v1.37-grafana-dashboards/`

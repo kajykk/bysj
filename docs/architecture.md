@@ -483,6 +483,6 @@ WebSocket 通知的 originator (Celery worker 或 FastAPI worker) 需要避免�
 
 ### C. 参考资料
 
-- [SYSTEM_OPTIMIZATION_PLAN.md](file:///e:/code/bysj/docs/SYSTEM_OPTIMIZATION_PLAN.md) - 完整优化计划
+- [SYSTEM_OPTIMIZATION_PLAN.md](archive/2026-09/SYSTEM_OPTIMIZATION_PLAN.md) - 完整优化计划（已归档）
 - [DEPLOYMENT_GUIDE.md](file:///e:/code/bysj/docs/DEPLOYMENT_GUIDE.md) - 部署指南
 - [DEEP_AUDIT_REPORT_202606.md](file:///e:/code/bysj/docs/DEEP_AUDIT_REPORT_202606.md) - 深度审计报告

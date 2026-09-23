@@ -178,5 +178,5 @@ DB容量 = DB连接池总数 / 单请求平均连接占用时间
 ## 6. 相关文件
 
 - 压测脚本: [locustfile.py](file:///e:/code/bysj/backend/load_tests/locustfile.py)
-- 系统优化计划: [SYSTEM_OPTIMIZATION_PLAN.md](file:///e:/code/bysj/docs/SYSTEM_OPTIMIZATION_PLAN.md)
+- 系统优化计划: [SYSTEM_OPTIMIZATION_PLAN.md](archive/2026-09/SYSTEM_OPTIMIZATION_PLAN.md)（已归档）
 - 部署指南: [DEPLOYMENT_GUIDE.md](file:///e:/code/bysj/docs/DEPLOYMENT_GUIDE.md)
