@@ -65,13 +65,14 @@ jobs:
           # CI-AUDIT-03: 门禁对齐——本 job 跑全量测试 (除 contract), 是全仓基线门禁;
           # pr-quality-gates.yml 跑 ruff/bandit 阻断 + mypy/ruff-format 非阻断。
           # 阈值唯一事实源 (SSOT): docs/COVERAGE_ROADMAP.md（T0 当前基线 → T4 远期 85%）。
+          # T2 已达成 (2026-09-24): 全量实测 83.31%，门禁 40 → 60。
           # 提升阈值前必须先拿到连续 3 次 CI 全绿的实测覆盖率，禁止凭估计改数字。
           pytest tests/ -m "not contract" \
             --maxfail=0 \
             --cov=app \
             --cov-report=xml:coverage.xml \
             --cov-report=html:htmlcov \
-            --cov-fail-under=40 \
+            --cov-fail-under=60 \
             --tb=short \
             -q 2>&1 | tee /tmp/pytest_output.txt
           exit_code=${PIPESTATUS[0]}
