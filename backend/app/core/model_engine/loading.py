@@ -353,8 +353,20 @@ class LoadingMixin:
                     bert_name = bundle_config["bert_model_name"]
                     logger.info("Loading BERT (feature extraction) %s", bert_name)
                     # ISS-13 (B615): 显式固定 Hub 下载 revision, 避免供应链漂移
-                    tokenizer = AutoTokenizer.from_pretrained(bert_name, revision=settings.model_bert_revision)  # nosec B615
-                    bert_model = AutoModel.from_pretrained(bert_name, revision=settings.model_bert_revision)  # nosec B615
+                    # P-HANG 修复：优先本地缓存 (local_files_only)，命中则零网络开销；
+                    # 无缓存时再回退 Hub 下载。慢网络下 Hub 重试曾导致测试无超时 hung 住
+                    #（见 pytest.ini timeout 熔断），此顺序保证有缓存的机器永不触网。
+                    try:
+                        tokenizer = AutoTokenizer.from_pretrained(
+                            bert_name, revision=settings.model_bert_revision, local_files_only=True
+                        )  # nosec B615
+                        bert_model = AutoModel.from_pretrained(
+                            bert_name, revision=settings.model_bert_revision, local_files_only=True
+                        )  # nosec B615
+                    except OSError:
+                        logger.info("BERT %s 无本地缓存，回退 Hub 下载", bert_name)
+                        tokenizer = AutoTokenizer.from_pretrained(bert_name, revision=settings.model_bert_revision)  # nosec B615
+                        bert_model = AutoModel.from_pretrained(bert_name, revision=settings.model_bert_revision)  # nosec B615
                     bert_model.eval()
                     classifier_path = model_path / "classifier.pkl"
                     scaler_path = model_path / "scaler.pkl"

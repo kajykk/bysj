@@ -69,6 +69,56 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock as _MagicMock
 
 
+def pytest_configure(config):
+    """注册自定义 marker（P1 可复现性：needs_redis fail-fast）。"""
+    config.addinivalue_line(
+        "markers", "needs_redis: 需要真实 Redis，缺失时快速失败而非挂起"
+    )
+
+
+_REDIS_PROBE: bool | None = None
+
+
+def _probe_redis_available(timeout: float = 2.0) -> bool:
+    """探测 REDIS_URL 是否可连（短超时），结果缓存，避免每个测试重复探测。
+
+    P1 修复：此前 Redis 未启动时测试挂起而非快速失败。本探测只做 TCP 连通性
+    判断，不抛异常；是否阻断由下方的 needs_redis 自动 fixture 决定。
+    """
+    global _REDIS_PROBE
+    if _REDIS_PROBE is not None:
+        return _REDIS_PROBE
+    import socket
+    from urllib.parse import urlparse
+
+    url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    try:
+        parts = urlparse(url)
+        host, port = parts.hostname or "localhost", parts.port or 6379
+        with socket.create_connection((host, port), timeout=timeout):
+            _REDIS_PROBE = True
+    except OSError:
+        _REDIS_PROBE = False
+    return _REDIS_PROBE
+
+
+@pytest.fixture(autouse=True)
+def _redis_fail_fast(request):
+    """P1: 标记为 needs_redis 的测试在 Redis 不可用时快速失败（2s 内），而非挂起。
+
+    未标记的测试不受影响（保持现有行为）。
+    """
+    if request.node.get_closest_marker("needs_redis") is None:
+        return
+    if not _probe_redis_available():
+        pytest.fail(
+            "Redis 不可用（REDIS_URL="
+            + os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+            + "），已快速失败。请先启动 redis（docker compose up -d redis）后重跑。",
+            pytrace=False,
+        )
+
+
 @pytest.fixture(autouse=True)
 def mock_observability_exporter(monkeypatch):
     """v1.39: 自动 mock ObservabilityExporter.start/stop, 避免真实 60s 调度."""

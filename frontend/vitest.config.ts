@@ -30,8 +30,9 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: 'coverage',
-      // MAINT-P3-001: 覆盖率门禁 (渐进式提升路线图: 50% → 60% → 70% → 85%)
-      // 当前基线未知, 先设 50% 保守起点, 与 backend --cov-fail-under=50 一致
+      // MAINT-P3-001: 覆盖率门禁。阈值 SSOT 见 docs/COVERAGE_ROADMAP.md。
+      // 注：此前注释称“与 backend --cov-fail-under=50 一致”有误——后端全量门禁实为 40%
+      //（见 .github/workflows/coverage.yml），前后端门禁相互独立，此处仅声明前端值。
       thresholds: {
         lines: 50,
         functions: 50,

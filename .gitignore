@@ -112,8 +112,10 @@ htmlcov/
 .coverage
 .coveragerc
 
-# Data (runtime)
-data/
+# Data (runtime; 目录本身不排除, 以便用 ! 放行说明文档)
+data/*
+# P1 可复现性: 数据目录说明文档必须入库
+!data/README.md
 
 # Temporary scripts & tools
 git
@@ -122,6 +124,12 @@ download_kaggle.py
 # CI-AUDIT-04: 目录级忽略改为通配, 仅放行证书引导脚本 (部署必需, 见 DEPLOYMENT_GUIDE)
 /scripts/*
 !/scripts/generate-self-signed-cert.sh
+# P1 可复现性: 以下脚本是仓库正式交付物, 必须入库
+!/scripts/fetch_models.py
+!/scripts/generate_manifest.py
+!/scripts/demo_up.sh
+!/scripts/demo_up.ps1
+!/scripts/artifacts.manifest.json
 
 # User notes (not part of project)
 md/
@@ -218,6 +226,11 @@ requirements-ml.txt
 train_ml_oneclick.bat
 train_ml_oneclick.ps1
 论文_*.txt
+# P2 归档例外: 归档区内的同名过程文档是正式历史记录, 允许入库
+# (必须放在忽略规则之后, git 按最后匹配规则生效)
+!docs/archive/**/BASELINE.md
+!docs/archive/**/NEXT_STEPS.md
+!docs/archive/**/RALPH_STATE.md
 
 # Backend test artifacts
 backend/fail_detail.txt
@@ -226,6 +239,8 @@ backend/backend/
 # models/ 含大型 .pkl 模型文件不入库, 但保留 .gitkeep 使目录存在于 CI 构建上下文 (Dockerfile COPY models/ 需要)
 backend/models/*
 !backend/models/.gitkeep
+# P0 口径统一: 模型注册表是文档 (SSOT 配套), 必须入库
+!backend/models/MODEL_REGISTRY.md
 backend/monitoring/
 
 # AI tool memory

@@ -1,4 +1,7 @@
-﻿# Docker Compose for Depression Warning System v1.39
+# Docker Compose for Depression Warning System
+# 版本号唯一权威源 (SSOT): backend/app/core/config.py -> RELEASE_CODENAME / Settings.app_version
+# 本文件头注释与各 service image tag 不再独立维护版本数字，统一引用 SSOT。
+# 当前对齐版本见 backend/models/MODEL_REGISTRY.md（模型）与 /api/v1/version（运行时）。
 # Architecture: 9 services (postgres + redis + alembic_migrate + backend + celery_worker + celery_beat + frontend + grafana + prometheus)
 # Usage: docker compose up -d
 # Docs: docs/DEPLOYMENT_GUIDE.md
@@ -100,7 +103,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: dws-backend:v1.41
+    image: dws-backend:3.1.0
     container_name: dws-backend
     restart: unless-stopped
     depends_on:
@@ -241,9 +244,10 @@ services:
       ALERTMANAGER_WEBHOOK_SECRET: ${ALERTMANAGER_WEBHOOK_SECRET:?ALERTMANAGER_WEBHOOK_SECRET is required}
       METRICS_ACCESS_TOKEN: ${METRICS_ACCESS_TOKEN:?METRICS_ACCESS_TOKEN is required}
     # SEC-AUDIT-04: celerybeat-schedule 持久化, 容器重建后不丢失调度状态.
-    # 命名卷初始为 root 属主, 镜像内 USER dws 无法写入 /var/lib/celery,
-    # 因此 beat 以容器内 root 运行 (无端口暴露, 仅调度器, 容器内 root 与宿主机隔离).
-    user: "0:0"
+    # P3 加固: beat 已改用非 root (dws, uid 由镜像内 useradd 分配) 运行;
+    # 调度目录 /var/lib/celery 在 backend/Dockerfile 构建期预建并 chown dws:dws,
+    # 命名卷首次挂载时继承该属主, 不再需要 user: "0:0" 妥协。
+    user: "dws"
     command: >
       celery -A app.core.celery_app beat
       --loglevel=info
@@ -274,7 +278,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    image: dws-frontend:v1.42
+    image: dws-frontend:3.1.0
     container_name: dws-frontend
     restart: unless-stopped
     depends_on:
