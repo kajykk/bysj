@@ -110,7 +110,7 @@
 
 #### 1.2.1 功能模块覆盖度
 
-基于 [08-delivery-report.md](file:///e:/code/bysj/docs/planning/v1.40-audit-beautify/08-delivery-report.md) 功能验证结果，**47 项功能检查表全部实现**:
+基于 [08-delivery-report.md](archive/2026-09/planning/v1.40-audit-beautify/08-delivery-report.md) 功能验证结果，**47 项功能检查表全部实现**:
 
 | 功能域 | 检查项 | 实现率 | 关键能力 |
 |-------|-------|-------|---------|
@@ -807,8 +807,8 @@ DWS 是一个**技术深度卓越、功能完整、工程实践成熟**的心理
 |-----|------|------|
 | README.md | [README.md](file:///e:/code/bysj/README.md) | 产品定位与技术栈 |
 | 架构文档 | [architecture.md](file:///e:/code/bysj/docs/architecture.md) | 系统架构与设计决策 |
-| 审计交付报告 | [08-delivery-report.md](file:///e:/code/bysj/docs/planning/v1.40-audit-beautify/08-delivery-report.md) | 功能验证与问题清单 |
-| 审计状态 | [AUDIT_STATE.md](file:///e:/code/bysj/docs/planning/v1.40-audit-beautify/AUDIT_STATE.md) | 修复进度与回归测试 |
+| 审计交付报告 | [08-delivery-report.md](archive/2026-09/planning/v1.40-audit-beautify/08-delivery-report.md) | 功能验证与问题清单 |
+| 审计状态 | [AUDIT_STATE.md](archive/2026-09/planning/v1.40-audit-beautify/AUDIT_STATE.md) | 修复进度与回归测试 |
 | 性能评估报告 | [performance-evaluation-report-v2.md](file:///e:/code/bysj/docs/performance-evaluation-report-v2.md) | 性能指标实测数据 |
 | 设计令牌 | [variables.scss](file:///e:/code/bysj/frontend/src/styles/variables.scss) | 视觉设计系统 |
 | 权限配置 | [permissions.ts](file:///e:/code/bysj/frontend/src/config/permissions.ts) | RBAC 权限矩阵 |

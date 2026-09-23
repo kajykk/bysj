@@ -80,6 +80,6 @@ DWS 系统数据库涉及 30+ 张表, 包含:
 - 应用集成: `backend/app/main.py:67` (生产模式跳过 create_all)
 - CI: `.github/workflows/contract-tests.yml:38`, `.github/workflows/pr-quality-gates.yml:81,121,164`
 - 部署: `docs/architecture.md:258` (alembic_migrate 服务), `docs/DEPLOYMENT_GUIDE.md:44`
-- 应急: `docs/EMERGENCY_RUNBOOK.md`, `docs/planning/v1.28-final-delivery/ROLLBACK_PLAN.md`
+- 应急: `docs/EMERGENCY_RUNBOOK.md`, `docs/archive/2026-09/planning/v1.28-final-delivery/ROLLBACK_PLAN.md`
 - 关键迁移: `h9d4e5f6a7b8_add_pii_encryption_email_hash.py` (PII 加密上线), `eab25055097a_consolidated_initial_schema.py` (初始 schema), `6e25d8827741_merge_dual_heads_v1_20.py` (多 head 合并示例)
 - 相关 ADR: ADR-007 (Fernet PII 加密 — 加密字段通过 Alembic 迁移引入), ADR-008 (startup 探针校验 alembic_version 表)
