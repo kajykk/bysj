@@ -53,9 +53,11 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Create database schema
         working-directory: backend
+        # SEC-C (2026-09-26): 建库脚本走同步 SQLAlchemy, 必须显式指定 psycopg2 驱动。
+        # 裸 postgresql:// 在 SQLAlchemy >= 2.1 下默认 psycopg (v3), 本项目未安装该包。
         run: python scripts/create_schema_ci.py
         env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
+          DATABASE_URL: postgresql+psycopg2://postgres:test@localhost:5432/testdb
       - name: Run tests with coverage
         working-directory: backend
         # CI-AUDIT-02: 移除 continue-on-error: true — 测试失败必须真实阻塞 CI

@@ -11,7 +11,9 @@
 #   requests           CVE-2026-25645                              -> >=2.33.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
-sqlalchemy[asyncio]>=2.0.29
+# SEC-C (2026-09-26): 2.1 起裸 postgresql:// 默认 DBAPI 变为 psycopg (v3), 项目只装
+# psycopg2-binary → CI 建库报 "No module named 'psycopg'"。迁移 psycopg v3 前锁 <2.1。
+sqlalchemy[asyncio]>=2.0.29,<2.1
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.9  # alembic 同步迁移需要 (CI PostgreSQL)
 aiosqlite>=0.19.0
