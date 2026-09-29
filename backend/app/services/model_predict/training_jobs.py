@@ -206,28 +206,63 @@ def start_compare_job(dataset_name: str, model_names: list[str]) -> dict[str, An
     return get_training_job(job_data["job_id"])
 
 
+def _training_store_available() -> bool:
+    """探测训练任务存储（Redis）是否可达。
+
+    仅在"任务未找到"时调用，不在正常路径上，额外开销可忽略。
+    """
+    try:
+        from app.tasks.model_training import _get_sync_redis
+
+        _get_sync_redis().ping()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def get_training_job(job_id: str) -> dict[str, Any]:
+    """查询训练任务状态。
+
+    AUDIT-2026-09-28-P0-8 修复：``get_job_from_redis`` 内部已捕获所有异常并返回
+    None（app/tasks/model_training.py:93-97），因此本函数**无法**区分
+    "任务真的不存在" 与 "Redis 故障导致查不到"——二者都会走到 not_found 分支，
+    用户看到"任务不存在"，实际任务可能仍在运行且状态无法确认。
+
+    修复方式保持向后兼容：``status`` 仍为 ``not_found``（不破坏契约与既有测试），
+    但存储层不可达时额外返回 ``storage_degraded=True`` 并打 error 日志，
+    使降级可被监控发现，前端亦可据此提示"状态暂不可确认，请稍后重试"。
+    """
     try:
         from app.tasks.model_training import get_job_from_redis
 
         redis_job = get_job_from_redis(job_id)
         if redis_job is not None:
             return redis_job
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - 通常是 import 失败
+        logger.warning("读取训练任务失败, 回退内存表: job_id=%s error=%s", job_id, exc)
+
     with TRAINING_JOBS_LOCK:
-        return dict(
-            TRAINING_JOBS.get(
-                job_id,
-                {
-                    "job_id": job_id,
-                    "status": "not_found",
-                    "progress": 0,
-                    "stage": "not_found",
-                    "message": "任务不存在",
-                },
-            )
+        job = TRAINING_JOBS.get(job_id)
+        if job is not None:
+            return dict(job)
+
+    not_found: dict[str, Any] = {
+        "job_id": job_id,
+        "status": "not_found",
+        "progress": 0,
+        "stage": "not_found",
+        "message": "任务不存在",
+    }
+    if not _training_store_available():
+        # 存储层不可用：此时"没查到"不可信，需与真正的 not_found 区分开
+        logger.error(
+            "AUDIT-P0-8 训练任务存储不可用, job_id=%s 的 not_found 结果不可信 "
+            "(任务可能仍在运行), 需检查 Redis 连通性",
+            job_id,
         )
+        not_found["storage_degraded"] = True
+        not_found["message"] = "任务状态暂时无法确认（存储层不可用），请稍后重试"
+    return not_found
 
 
 def list_training_jobs() -> list[dict[str, Any]]:

@@ -218,21 +218,29 @@ class TestNotifyWarning:
         mock_counselor.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_notify_warning_swallows_exception(self, caplog):
-        """TC-COV-TASK-014: WebSocket 异常应被吞掉并记录 warning, 不向上抛."""
+    async def test_notify_warning_reports_failure(self, caplog):
+        """TC-COV-TASK-014: 推送失败不得静默吞掉（AUDIT-2026-09-28-P0-2 重写）.
+
+        原用例名为 ``test_notify_warning_swallows_exception``，断言"吞掉异常 +
+        记一条 warning 即算通过"，等于把静默漏报固化成了契约——预警已入库但
+        咨询师从未收到，事后也无法发现。现改为验证失败必须可观测：
+        返回 False、就地重试耗尽、记 error 级日志、并递增指标。
+        """
         import logging
 
         with patch(
             "app.core.ws.notify_warning",
             new=AsyncMock(side_effect=RuntimeError("ws down")),
-        ), patch("app.core.ws.notify_counselor", new=AsyncMock()), patch(
+        ) as mock_user, patch("app.core.ws.notify_counselor", new=AsyncMock()), patch(
             "app.core.contracts.normalize_risk_level", return_value="high"
-        ):
-            from app.tasks.scheduler import _notify_warning
+        ), patch(
+            "app.core.metrics.warning_notify_failed_total"
+        ) as mock_counter:
+            from app.tasks.scheduler import _NOTIFY_MAX_ATTEMPTS, _notify_warning
 
-            with caplog.at_level(logging.WARNING, logger="app.tasks.scheduler"):
-                # 不应抛异常
-                await _notify_warning(
+            with caplog.at_level(logging.ERROR, logger="app.tasks.scheduler"):
+                # 不应抛异常（单条失败不得中断整批扫描），但必须如实报告失败
+                result = await _notify_warning(
                     user_id=1,
                     warning_id=99,
                     risk_level=3,
@@ -240,10 +248,45 @@ class TestNotifyWarning:
                     counselor_id=2,
                 )
 
+        assert result is False, "推送失败时应返回 False，而不是静默返回 None"
+        # 失败应就地重试，而非直接放弃
+        assert mock_user.await_count == _NOTIFY_MAX_ATTEMPTS
+        # 失败必须可观测：error 级日志（warning 会被淹没）
         assert any(
-            "Failed to send WebSocket notification for warning 99" in r.message
+            r.levelno >= logging.ERROR and "warning_id=99" in r.message
             for r in caplog.records
-        )
+        ), "重试耗尽后必须记录 error 级日志，否则漏报不可发现"
+        # 失败必须可告警：指标递增
+        mock_counter.inc.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_notify_warning_recovers_on_retry(self):
+        """AUDIT-2026-09-28-P0-2: 首次失败、重试成功时不应计为失败."""
+        calls = {"n": 0}
+
+        async def _flaky(*_args, **_kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("transient ws error")
+
+        with patch("app.core.ws.notify_warning", new=AsyncMock(side_effect=_flaky)), patch(
+            "app.core.ws.notify_counselor", new=AsyncMock()
+        ), patch("app.core.contracts.normalize_risk_level", return_value="high"), patch(
+            "app.core.metrics.warning_notify_failed_total"
+        ) as mock_counter:
+            from app.tasks.scheduler import _notify_warning
+
+            result = await _notify_warning(
+                user_id=1,
+                warning_id=100,
+                risk_level=3,
+                trigger_reason="r",
+                counselor_id=2,
+            )
+
+        assert result is True, "重试后成功应返回 True"
+        assert calls["n"] == 2
+        mock_counter.inc.assert_not_called()
 
 
 # ---------- Celery 任务 retry 路径 (5 个任务) ----------

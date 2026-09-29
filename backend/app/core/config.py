@@ -357,6 +357,13 @@ class Settings(BaseSettings):
 
     enable_seed: bool = False
 
+    # ── AUDIT-2026-09-28-P0-6: 生产环境限流是否强制要求 Redis 后端 ──
+    # slowapi 在 Redis 不可用时会**静默降级**为进程内内存桶；多实例/多 worker 部署下
+    # 每个实例独立计数，登录爆破等限流形同虚设。默认在生产环境 fail-fast（拒绝启动），
+    # 让故障在部署期暴露，而不是在生产环境悄悄失去防护。
+    # 仅在明确的计划内降级窗口（如 Redis 整体迁移且接受临时失效）才设为 False。
+    rate_limit_require_redis: bool = True
+
     structured_model_mode: str = "primary"  # "primary" | "fallback"
 
     # ── S-02: 结构化预测默认模型版本 ──

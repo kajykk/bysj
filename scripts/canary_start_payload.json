@@ -1,0 +1,10 @@
+{
+  "version": "v4.1-s01-s05",
+  "traffic_percent": 5,
+  "thresholds": {
+    "fallback_rate_threshold": 5.0,
+    "drift_alert_threshold": 10.0,
+    "avg_latency_threshold": 500.0,
+    "error_rate_threshold": 10.0
+  }
+}

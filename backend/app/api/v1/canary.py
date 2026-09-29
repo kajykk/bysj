@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_permission
+from app.core.tenant_context import require_platform_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/canary", tags=["canary"])
 async def create_canary(
     request: Request,
     payload: CanaryCreateRequest,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Create a new canary deployment."""
@@ -66,7 +67,7 @@ async def create_canary(
 @limiter.limit("30/minute")
 async def list_canaries(
     request: Request,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     status: Annotated[str | None, Query(description="Filter by status")] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -125,7 +126,7 @@ async def list_canaries(
 async def get_canary(
     request: Request,
     deployment_id: Annotated[int, Path()],
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Get a specific canary deployment."""
@@ -167,7 +168,7 @@ async def update_canary_traffic(
     request: Request,
     deployment_id: Annotated[int, Path()],
     payload: CanaryTrafficUpdateRequest,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Update canary traffic percentage."""
@@ -197,7 +198,7 @@ async def update_canary_traffic(
 async def pause_canary(
     request: Request,
     deployment_id: Annotated[int, Path()],
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Pause a running canary deployment."""
@@ -224,7 +225,7 @@ async def pause_canary(
 async def resume_canary(
     request: Request,
     deployment_id: Annotated[int, Path()],
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Resume a paused canary deployment."""
@@ -252,7 +253,7 @@ async def rollback_canary(
     request: Request,
     deployment_id: Annotated[int, Path()],
     payload: CanaryRollbackRequest,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Rollback a canary deployment."""
@@ -285,7 +286,7 @@ async def rollback_canary(
 async def complete_canary(
     request: Request,
     deployment_id: Annotated[int, Path()],
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Complete a successful canary deployment."""
@@ -310,7 +311,7 @@ async def complete_canary(
 @limiter.limit("30/minute")
 async def get_traffic_percentages(
     request: Request,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """Get available traffic percentage options."""
     return ok({"percentages": canary_manager.get_traffic_percentages()})

@@ -12,15 +12,63 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Artifact paths
-ARTIFACTS_DIR = (
+# ── Artifact paths (AUDIT-2026-09-28-P1-14 统一) ──────────────────────────
+# 原实现硬编码 ``.../models/artifacts/physiological``，而**推理侧**
+# (app/ml/model_loader.py::_resolve_artifacts_dir) 读的是
+# ``.../artifacts/physiological_optimized``，model_registry.py:42-44 注册的
+# physiological_model_v2_dl / scaler_v2_dl / features_v2_dl 也指向后者。
+#
+# 后果：save_scaler()/save_feature_names() 写出的工件落在 physiological/，
+# 推理时根本读不到 —— **重训后 scaler 与 feature_names 静默不生效**，
+# 且没有任何报错（推理会继续用旧工件）。
+#
+# 现统一复用 model_loader 的解析结果作为单一权威源。
+# 采用 PEP 562 模块级 __getattr__ 懒解析：本模块被 model_loader 导入
+# (``from app.ml.scaler import SimpleStandardScaler``)，模块级再反向导入
+# model_loader 会形成循环，故延迟到首次访问路径常量时才 import。
+_LEGACY_ARTIFACTS_DIR = (
     Path(__file__).resolve().parent.parent.parent.parent
     / "models"
     / "artifacts"
     / "physiological"
 )
-SCALER_PATH = ARTIFACTS_DIR / "scaler.json"
-FEATURE_NAMES_PATH = ARTIFACTS_DIR / "feature_names.json"
+
+_ARTIFACT_PATH_NAMES = ("ARTIFACTS_DIR", "SCALER_PATH", "FEATURE_NAMES_PATH")
+
+
+def __getattr__(name: str) -> Path:
+    """懒解析工件路径常量（与 model_loader 保持同一权威源）."""
+    if name not in _ARTIFACT_PATH_NAMES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    try:
+        from app.ml.model_loader import _resolve_artifacts_dir
+
+        artifacts_dir = _resolve_artifacts_dir()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "无法解析统一工件目录, 回退遗留路径 %s: %s", _LEGACY_ARTIFACTS_DIR, exc
+        )
+        artifacts_dir = _LEGACY_ARTIFACTS_DIR
+    values: dict[str, Path] = {
+        "ARTIFACTS_DIR": artifacts_dir,
+        "SCALER_PATH": artifacts_dir / "scaler.json",
+        "FEATURE_NAMES_PATH": artifacts_dir / "feature_names.json",
+    }
+    globals().update(values)
+    return values[name]
+
+
+def _artifact_path(name: str) -> Path:
+    """模块内部取懒加载路径常量.
+
+    PEP 562 的 __getattr__ 只拦截**外部**属性访问（``scaler.SCALER_PATH``）；
+    函数体内的裸名 ``SCALER_PATH`` 走普通 globals 查找，首次访问即 NameError。
+    内部统一经此辅助取值（若 __getattr__ 已回写则命中缓存）。
+    """
+    cached = globals().get(name)
+    if isinstance(cached, Path):
+        return cached
+    return __getattr__(name)
 
 
 class SimpleStandardScaler:
@@ -100,7 +148,7 @@ class SimpleStandardScaler:
 
 def ensure_artifacts_dir() -> None:
     """Create artifacts directory if it doesn't exist."""
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    _artifact_path("ARTIFACTS_DIR").mkdir(parents=True, exist_ok=True)
 
 
 def fit_scaler(X: DataFrame) -> SimpleStandardScaler:
@@ -130,7 +178,7 @@ def save_scaler(scaler: SimpleStandardScaler, path: Path | str | None = None) ->
         path.parent.mkdir(parents=True, exist_ok=True)
     else:
         ensure_artifacts_dir()
-        path = SCALER_PATH
+        path = _artifact_path("SCALER_PATH")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(scaler.to_dict(), f, indent=2)
     # C-ML-2 修复：生成 .sha256 侧车校验文件
@@ -152,7 +200,7 @@ def load_scaler(path: Path | str | None = None) -> SimpleStandardScaler:
     Raises:
         FileNotFoundError: If scaler file does not exist.
     """
-    path = Path(path) if path else SCALER_PATH
+    path = Path(path) if path else _artifact_path("SCALER_PATH")
     if not path.exists():
         raise FileNotFoundError(f"Scaler not found: {path}")
     with open(path, "r", encoding="utf-8") as f:
@@ -176,7 +224,7 @@ def save_feature_names(
         path.parent.mkdir(parents=True, exist_ok=True)
     else:
         ensure_artifacts_dir()
-        path = FEATURE_NAMES_PATH
+        path = _artifact_path("FEATURE_NAMES_PATH")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(feature_names, f, indent=2)
     # C-ML-2 修复：生成 .sha256 侧车校验文件
@@ -198,7 +246,7 @@ def load_feature_names(path: Path | str | None = None) -> list[str]:
     Raises:
         FileNotFoundError: If feature names file does not exist.
     """
-    path = Path(path) if path else FEATURE_NAMES_PATH
+    path = Path(path) if path else _artifact_path("FEATURE_NAMES_PATH")
     if not path.exists():
         raise FileNotFoundError(f"Feature names not found: {path}")
     with open(path, "r", encoding="utf-8") as f:

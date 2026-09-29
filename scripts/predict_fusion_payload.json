@@ -1,0 +1,1 @@
+{"features": {"sleep_hours": 6.5, "sleep_quality": 3, "exercise_minutes": 30, "heart_rate": 75, "systolic_bp": 120, "diastolic_bp": 80, "steps": 8000, "age": 25, "gender": 1}, "text": "最近总是睡不好，感觉很累，对什么都不感兴趣。", "physiological": {"sleep_hours": 6.5, "sleep_quality": 3, "exercise_minutes": 30, "heart_rate": 75, "systolic_bp": 120, "diastolic_bp": 80, "steps": 8000}}

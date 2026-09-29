@@ -23,6 +23,11 @@ _get_loop = get_celery_loop
 # RES-P3-002: 每日风险扫描分页大小 (keyset 游标分页, 避免一次性加载全部活跃用户)
 _RISK_SCAN_PAGE_SIZE = 500
 
+# AUDIT-2026-09-28-P0-2: 预警推送的最大尝试次数（首次 + 就地重试）。
+# WebSocket 推送失败多由连接重建/网络抖动引起，就地重试一次即可自愈绝大多数情况；
+# 仍失败才计入 warning_notify_failed_total 并升级为 error 日志。
+_NOTIFY_MAX_ATTEMPTS = 2
+
 
 def _to_aware_utc(dt: datetime) -> datetime:
     """将 naive datetime 视为 UTC 并转为 aware，避免 aware/naive 相减抛 TypeError。
@@ -41,21 +46,63 @@ async def _notify_warning(
     risk_level: int,
     trigger_reason: str,
     counselor_id: int | None,
-) -> None:
-    try:
-        from app.core.contracts import normalize_risk_level
-        from app.core.ws import notify_counselor, notify_warning
+) -> bool:
+    """推送预警通知，返回是否成功。
 
-        level_str = normalize_risk_level(risk_level)
-        await notify_warning(user_id, warning_id, level_str, trigger_reason)
-        if counselor_id:
-            await notify_counselor(counselor_id, user_id, warning_id, level_str)
-    except Exception:
-        logger.warning(
-            "Failed to send WebSocket notification for warning %d",
-            warning_id,
-            exc_info=True,
-        )
+    AUDIT-2026-09-28-P0-2 修复：原实现在 except 中仅 ``logger.warning`` 后返回 None，
+    调用方无从得知失败——DB 里 WarningNotification 状态正常，实际咨询师从未收到，
+    形成"预警已生成但无人知晓"的静默漏报，且事后无法发现（心理健康场景后果严重）。
+
+    修复后：
+    - 失败先就地重试（网络抖动/连接重建常可自愈）；
+    - 重试耗尽后返回 False，并以 **error** 级别记录完整上下文（warning_id/user_id/
+      counselor_id/risk_level），便于日志告警规则命中；
+    - 递增 ``warning_notify_failed_total`` 指标，供 Prometheus 告警。
+
+    Returns:
+        True 表示推送成功；False 表示重试耗尽仍失败（调用方应记录/兜底）。
+    """
+    last_exc: BaseException | None = None
+    for attempt in range(1, _NOTIFY_MAX_ATTEMPTS + 1):
+        try:
+            from app.core.contracts import normalize_risk_level
+            from app.core.ws import notify_counselor, notify_warning
+
+            level_str = normalize_risk_level(risk_level)
+            await notify_warning(user_id, warning_id, level_str, trigger_reason)
+            if counselor_id:
+                await notify_counselor(counselor_id, user_id, warning_id, level_str)
+            return True
+        except Exception as exc:  # noqa: BLE001 - 通知失败不应中断批量扫描
+            last_exc = exc
+            logger.warning(
+                "WebSocket notification attempt %d/%d failed for warning %d: %s",
+                attempt,
+                _NOTIFY_MAX_ATTEMPTS,
+                warning_id,
+                exc,
+                exc_info=True,
+            )
+
+    # 重试耗尽：升级为 error，确保不会淹没在 warning 里
+    logger.error(
+        "AUDIT-P0-2 预警推送最终失败: warning_id=%s user_id=%s counselor_id=%s "
+        "risk_level=%s trigger_reason=%r —— 该预警已入库但咨询师未收到实时通知，"
+        "需人工或兜底任务补发. 最后错误: %s",
+        warning_id,
+        user_id,
+        counselor_id,
+        risk_level,
+        trigger_reason,
+        last_exc,
+    )
+    try:
+        from app.core.metrics import warning_notify_failed_total
+
+        warning_notify_failed_total.inc()
+    except Exception:  # noqa: BLE001 - 指标不可用不应影响主流程
+        logger.debug("warning_notify_failed_total 指标上报失败", exc_info=True)
+    return False
 
 
 @celery_app.task(
@@ -208,6 +255,8 @@ async def _daily_risk_scan_impl():
         )
 
         # H-ML-6 修复：commit 成功后再发通知，避免 rollback 后用户收到告警但 DB 无记录
+        # AUDIT-2026-09-28-P0-2：收集推送失败的预警，汇总上报（原先失败被完全吞掉）
+        failed_notifications: list[int] = []
         for (
             user_id,
             warning_id,
@@ -215,8 +264,20 @@ async def _daily_risk_scan_impl():
             trigger_reason,
             counselor_id,
         ) in pending_notifications:
-            await _notify_warning(
+            ok = await _notify_warning(
                 user_id, warning_id, risk_level, trigger_reason, counselor_id
+            )
+            if not ok:
+                failed_notifications.append(warning_id)
+
+        if failed_notifications:
+            logger.error(
+                "AUDIT-P0-2 本次风险扫描有 %d/%d 条预警未送达咨询师（已重试 %d 次仍失败），"
+                "需人工或兜底任务补发. warning_ids=%s",
+                len(failed_notifications),
+                len(pending_notifications),
+                _NOTIFY_MAX_ATTEMPTS,
+                failed_notifications[:100],
             )
 
 
@@ -780,12 +841,26 @@ def _cleanup_experiment_artifacts_impl(keep_recent: int = 10) -> int:
     to_remove = artifacts[keep_recent:]
 
     # 收集所有注册的模型路径 (绝对路径), 防止误删 active 模型
+    # AUDIT-2026-09-28-P0-3 修复：原实现在此处 `except Exception: pass`。
+    # 一旦任一模型路径解析失败（配置缺失 / 路径不存在 / 权限问题），保护集就会残缺，
+    # 后续 `str(file_path.resolve()) in active_paths` 判定随即失效，
+    # 可能导致 shutil.rmtree 删除**正在服务的模型文件**（线上推理直接 503）。
+    # 保护集是删除前的最后一道闸：宁可整个清理中止，也不能带残缺保护集继续删。
     active_paths: set[str] = set()
-    for model_path_str in MODEL_PATHS.values():
+    for model_name, model_path_str in MODEL_PATHS.items():
         try:
             active_paths.add(str(Path(model_path_str).resolve()))
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "AUDIT-P0-3 解析注册模型路径失败, 中止本次产物清理以避免误删: "
+                "model=%s path=%r error=%s",
+                model_name,
+                model_path_str,
+                exc,
+            )
+            raise RuntimeError(
+                f"active model path 解析失败, 产物清理已中止 (model={model_name}): {exc}"
+            ) from exc
 
     removed = 0
     for entry, _ in to_remove:
@@ -798,8 +873,19 @@ def _cleanup_experiment_artifacts_impl(keep_recent: int = 10) -> int:
                         if str(file_path.resolve()) in active_paths:
                             is_active = True
                             break
-                    except Exception:
-                        pass
+                    except Exception as exc:  # noqa: BLE001
+                        # AUDIT-2026-09-28-P0-3: resolve 失败意味着无法判定该文件的
+                        # 真实位置，保守视为 active 并跳过删除——
+                        # 宁可少清理一个目录，也不可误删在服模型。
+                        logger.warning(
+                            "AUDIT-P0-3 无法解析产物文件真实路径, 保守跳过删除: "
+                            "entry=%s file=%s error=%s",
+                            entry,
+                            file_path,
+                            exc,
+                        )
+                        is_active = True
+                        break
             if is_active:
                 logger.info("skip cleanup: %s contains active model artifact", entry)
                 continue

@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_role
+from app.core.tenant_context import require_platform_admin
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
@@ -92,7 +93,7 @@ async def review_content(
     request: Request,
     content_id: int,
     payload: ReviewRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """标记内容已通过审核.
@@ -154,7 +155,7 @@ async def takedown_content(
     request: Request,
     content_id: int,
     payload: TakedownRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """下架内容.
@@ -211,7 +212,7 @@ async def restore_content(
     request: Request,
     content_id: int,
     payload: RestoreRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """恢复已下架的内容.
@@ -265,7 +266,7 @@ async def restore_content(
 @limiter.limit("30/minute")
 async def list_pending_content(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -342,7 +343,7 @@ async def list_pending_content(
 async def get_content_history(
     request: Request,
     content_id: int,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """获取指定内容的审核历史（从 OperationLog 查询）."""

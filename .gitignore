@@ -121,15 +121,56 @@ data/*
 git
 git1
 download_kaggle.py
-# CI-AUDIT-04: 目录级忽略改为通配, 仅放行证书引导脚本 (部署必需, 见 DEPLOYMENT_GUIDE)
-/scripts/*
+# ── AUDIT-2026-09-28-P0-1: scripts 改为「默认入库 + 显式排除」 ──────────────
+# 原规则为 `/scripts/*` 整块忽略 + 逐项放行，导致 164 个脚本中仅 8 个入库，
+# 4 万行训练/部署/验证代码不在版本控制内（换机即丢失、CI 无法复现）。
+# 现反转策略：默认入库（新增脚本不会再丢失），仅显式排除
+# ① 论文/答辩产物 ② 一次性调试脚本 ③ 本地敏感令牌文件。
+# 部署必需脚本（原放行项）继续保留。
 !/scripts/generate-self-signed-cert.sh
-# P1 可复现性: 以下脚本是仓库正式交付物, 必须入库
 !/scripts/fetch_models.py
 !/scripts/generate_manifest.py
 !/scripts/demo_up.sh
 !/scripts/demo_up.ps1
 !/scripts/artifacts.manifest.json
+
+# ① 论文 / 答辩产物（含论文正文、引用排版、答辩 PPT，不进公开仓库）
+/scripts/*thesis*
+/scripts/*defense*
+/scripts/*conclusion*
+/scripts/*appendix*
+/scripts/*abstract*
+/scripts/*citation*
+/scripts/*superscript*
+/scripts/*_refs.py
+/scripts/*fig*.py
+/scripts/enhance_modified_thesis.py
+/scripts/locate_conclusion_paragraphs.py
+/scripts/replace_conclusion_paragraphs.py
+/scripts/reorder_citations_by_appearance.py
+/scripts/search_thesis_text.py
+/scripts/verify_appendix.py
+/scripts/verify_conclusion_update.py
+
+# ② 一次性调试 / 临时验证脚本（*_v2/v3、*_fix、dump_*、scripts 下的 test_*）
+/scripts/*_v2.py
+/scripts/*_v3.py
+/scripts/*_v4.py
+/scripts/*_fix.py
+/scripts/dump_*.py
+/scripts/deep_scan_*.py
+/scripts/test_*.py
+/scripts/pack_source_code.py
+/scripts/list_routes.py
+/scripts/login_admin.py
+
+# ③ 本地运行期令牌（脚本生成，绝不可入库）
+/scripts/.admin_token.txt
+/scripts/*.token
+/scripts/*.token.txt
+
+# ④ 含明文凭证的本地登录载荷（AUDIT-2026-09-28: 扫描发现内含 admin 口令）
+/scripts/login_payload.json
 
 # User notes (not part of project)
 md/

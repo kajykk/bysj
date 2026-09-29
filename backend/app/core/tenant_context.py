@@ -287,6 +287,68 @@ def require_role_tenant_scoped(*roles: str):
     return checker
 
 
+def require_platform_permission(permission: str):
+    """平台级端点依赖: 平台默认租户 + 角色层级 + 细粒度权限，三重校验。
+
+    AUDIT-2026-09-28-P1-1 新增。背景：平台级端点此前混用两套依赖——
+    ``require_platform_admin()``（有租户校验）与 ``require_permission(...)``
+    （只有角色权限、无租户校验）。后者在多租户部署下，租户 B 的 admin 伪造
+    ``X-Tenant-ID: B`` 头即可操作平台级全局资源（金丝雀发布/回滚、模型注册等）。
+
+    直接把 ``require_permission`` 换成 ``require_platform_admin`` 会**丢失细粒度
+    权限控制**（任何平台 admin 都能做原本需要特定权限的操作），因此改为组合：
+
+    1. 角色属于 {admin, super_admin}（经 ROLE_HIERARCHY）
+    2. 用户租户与请求租户一致（防串租，复用 _check_role_and_tenant）
+    3. 用户属于平台默认租户（防跨租户访问平台级资源）
+    4. 具备指定细粒度权限（PERMISSION_MATRIX）
+
+    用法::
+
+        current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))]
+
+    Raises:
+        HTTPException(403): 任一重校验不通过。
+    """
+    # 延迟导入避免 core.deps <-> core.tenant_context 启动期循环依赖
+    from app.core.deps import PERMISSION_MATRIX
+
+    async def checker(
+        request: Request,
+        current_user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        user_tenant_id = _check_role_and_tenant(
+            request, current_user, {USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN}
+        )
+        if user_tenant_id != DEFAULT_TENANT_ID:
+            logger.warning(
+                "Platform-only endpoint blocked: user_tenant=%s, user_id=%s, path=%s",
+                user_tenant_id,
+                current_user.id,
+                request.url.path,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="仅平台管理员可执行该操作",
+            )
+        granted = PERMISSION_MATRIX.get(current_user.role, set())
+        if permission not in granted:
+            logger.warning(
+                "Platform permission denied: role=%s permission=%s user_id=%s path=%s",
+                current_user.role,
+                permission,
+                current_user.id,
+                request.url.path,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="权限不足",
+            )
+        return current_user
+
+    return checker
+
+
 def require_platform_admin():
     """平台级管理员依赖: 仅允许平台默认租户 (DEFAULT_TENANT_ID) 的 admin/super_admin.
 

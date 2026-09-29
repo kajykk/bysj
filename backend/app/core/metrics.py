@@ -256,6 +256,16 @@ model_inference_duration_seconds = Histogram(
     labelnames=("model_name",),
 )
 
+# P0 (2026-09-24): 模型降级计数 — 按模型与原因分标签。
+# 背景：模型加载失败 / 启发式回退此前仅 logger.warning，Grafana 无感知。
+# 在 loading._load_model / _load_adapter 失败分支与 fallback.*_fallback 中递增，
+# 配合 AR-203（model_fallback_rate）可对"静默降级"告警。
+model_fallback_total = Counter(
+    "model_fallback_total",
+    "Total model fallback occurrences, labeled by model and reason.",
+    labelnames=("model", "reason"),
+)
+
 websocket_connections_active = Gauge(
     "websocket_connections_active",
     "Current number of active WebSocket connections.",
@@ -346,6 +356,14 @@ event_reviews_submitted_total = Counter(
 event_bus_dropped_total = Counter(
     "event_bus_dropped_total",
     "Total events dropped due to EventBus queue full (R-C).",
+)
+
+# AUDIT-2026-09-28-P0-2: 预警 WebSocket 推送最终失败计数（重试耗尽后计入）。
+# 心理健康场景下"预警已入库但咨询师未收到"等同于漏报，必须可观测、可告警。
+# 建议告警规则：increase(warning_notify_failed_total[1h]) > 0
+warning_notify_failed_total = Counter(
+    "warning_notify_failed_total",
+    "Total warning WebSocket notifications that failed after all retries (silent miss).",
 )
 
 # ISS-103 修复: ObservabilityExporter 导出失败计数 (按 metric 名分标签)

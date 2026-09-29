@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission
+from app.core.tenant_context import require_platform_permission
 from app.core.openapi_responses import (
     COMMON_ERROR_RESPONSES,
     EXCEL_EXPORT_RESPONSE,
@@ -75,7 +76,7 @@ REPORT_TEMPLATES = [
 async def generate_user_risk_pdf(
     request: Request,
     payload: UserRiskReportRequest,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> StreamingResponse:
     """Generate a user risk assessment PDF report.
@@ -220,7 +221,7 @@ async def _record_excel_export_audit(
 async def batch_export_excel(
     request: Request,
     payload: BatchExportRequest,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> StreamingResponse:
     """Export data to Excel with filtering.
@@ -306,7 +307,7 @@ async def batch_export_excel(
 @limiter.limit("30/minute")
 async def list_report_templates(
     request: Request,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """Get available report templates."""
     return ok({"templates": REPORT_TEMPLATES, "total": len(REPORT_TEMPLATES)})
@@ -320,7 +321,7 @@ async def list_report_templates(
 async def generate_user_risk_pdf_async(
     request: Request,
     payload: UserRiskReportRequest,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """R-B: 异步生成 PDF 报告（统一派发：Celery 优先，降级线程）.
 
@@ -417,7 +418,7 @@ async def _execute_pdf_generation(job_id: str, payload: UserRiskReportRequest) -
 async def get_pdf_job_status(
     request: Request,
     job_id: Annotated[str, Path()],
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """R-B: 统一 PDF 任务状态查询（Redis 优先，内存兜底）.
 
@@ -439,7 +440,7 @@ async def get_pdf_job_status(
 async def download_pdf(
     request: Request,
     job_id: Annotated[str, Path()],
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> StreamingResponse:
     """R-B: 统一 PDF 下载（Redis 字节优先，内存兜底）.
 
@@ -613,7 +614,7 @@ async def _dispatch_pdf_async(
 async def generate_user_risk_pdf_celery_async(
     request: Request,
     payload: UserRiskReportRequest,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """P-D: 通过 Celery 队列异步生成 PDF 报告 (统一派发入口)."""
     return await _dispatch_pdf_async(payload, current_user)
@@ -629,7 +630,7 @@ async def generate_user_risk_pdf_celery_async(
 async def get_celery_pdf_job_status(
     request: Request,
     job_id: Annotated[str, Path()],
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """DEPRECATED (R-B): Celery PDF 任务状态别名，请改用 /pdf/{job_id}/status 统一端点."""
     return await get_pdf_job_status(request, job_id, current_user)
@@ -644,7 +645,7 @@ async def get_celery_pdf_job_status(
 async def download_celery_pdf(
     request: Request,
     job_id: Annotated[str, Path()],
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> StreamingResponse:
     """DEPRECATED (R-B): Celery PDF 下载别名，请改用 /pdf/{job_id}/download 统一端点."""
     return await download_pdf(request, job_id, current_user)

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import _is_sqlite, get_db
 from app.core.deps import require_permission
+from app.core.tenant_context import require_platform_permission
 from app.core.model_engine import model_engine as engine
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
@@ -89,7 +90,7 @@ def _naive_utc(value: datetime) -> datetime:
     "/model-success-rate", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def model_success_rate(
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     granularity: Annotated[str, Query(description="时间粒度: hour, day, week")] = "day",
     model_version: Annotated[str | None, Query(description="模型版本过滤")] = None,
@@ -161,7 +162,7 @@ async def model_success_rate(
     "/fallback-stats", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def fallback_stats(
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     model_version: Annotated[str | None, Query(description="模型版本过滤")] = None,
     days: Annotated[
@@ -219,7 +220,7 @@ async def fallback_stats(
     "/drift-alerts", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def drift_alerts(
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     severity: Annotated[
         str | None, Query(description="严重程度过滤: LOW, MEDIUM, HIGH, CRITICAL")
@@ -362,7 +363,7 @@ async def dashboard_summary(
 )
 async def request_details(
     log_id: int,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Get detailed request information from a monitoring log."""
@@ -391,7 +392,7 @@ async def request_details(
     "/request-details", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def request_details_list(
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
     # L-2 修复：使用 Literal 限制 event_type 为合法枚举值，避免用户传入任意字符串
     # 合法值需与 MonitoringEventType 枚举（app/models/monitoring.py）保持一致
@@ -458,7 +459,7 @@ async def request_details_list(
     "/engine-snapshot", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def engine_metrics_snapshot(
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     snapshot = engine.get_metrics_snapshot()
     return ok(snapshot)

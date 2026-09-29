@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends
 from app.api.v1.version import RELEASE_VERSION
 from app.core.config import settings
 from app.core.deps import require_role
+from app.core.tenant_context import require_platform_admin
 from app.core.metrics import (
     db_pool_size,
     http_requests_total,
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/admin", tags=["admin", "metrics"])
 @router.get("/metrics-summary", responses=COMMON_ERROR_RESPONSES)
 async def metrics_summary(
     # L-17 修复：使用直接导入替代 __import__ 动态导入，提高可读性和可维护性
-    _admin=Depends(require_role("admin")),
+    _admin=Depends(require_platform_admin()),
 ) -> dict:
     """返回当前指标的人类可读摘要.
 

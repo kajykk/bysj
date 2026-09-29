@@ -216,9 +216,25 @@ class FusionEngine:
             final_weights = {k: v / total_weight for k, v in final_weights.items()}
 
         # Compute fused score
-        fused_score = sum(
+        raw_fused = sum(
             modality_scores[m] * final_weights.get(m, 0) for m in available_modalities
         )
+        # AUDIT-2026-09-28-P0-4: 融合分数必须裁剪到 [0, 100]。
+        # 越界来源已实测确认：上游模态分数不受约束——例如 feature_engineering 中
+        # sleep_quality/(sleep_hours+1e-6) 在 sleep_hours=0 时产出 5e6 量级特征，
+        # score_adapter 亦可能放大分值。而 risk_assessments.risk_score 带
+        # CheckConstraint(risk_score >= 0 AND risk_score <= 100)，越界写入会直接
+        # 抛 IntegrityError → 评估接口 500（而非返回降级结果）。
+        # 裁剪保留可观测性：越界时记 warning 并打印各模态分数，避免静默掩盖上游缺陷。
+        if raw_fused < 0.0 or raw_fused > 100.0:
+            logger.warning(
+                "fused_score out of range [0,100] before clamp: %.4f; modality_scores=%s; "
+                "final_weights=%s",
+                raw_fused,
+                {m: round(modality_scores[m], 4) for m in available_modalities},
+                {k: round(v, 4) for k, v in final_weights.items()},
+            )
+        fused_score = max(0.0, min(100.0, raw_fused))
 
         # Compute overall confidence
         # RES-P3-001: 使用纯 Python 内建替代 np.mean, 避免标量操作的 numpy 开销

@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
+from app.core.tenant_context import require_platform_admin
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
@@ -245,12 +246,15 @@ class AdminDeleteUserRequest(BaseModel):
 async def admin_export_user_data(
     request: Request,
     user_id: int,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    # AUDIT-2026-09-28-P1-1: 平台级端点改用 require_platform_admin（角色 + 租户归属）。
+    # 原先仅 require_role("admin")，多租户部署下租户 B 的 admin 伪造
+    # X-Tenant-ID: B 即可导出/删除其他租户用户数据（跨租户越权）。
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """ISS-074: 管理员导出指定用户的全部个人数据.
 
-    - 仅 admin 角色可调用
+    - 仅**平台**管理员可调用（admin/super_admin 且属于平台默认租户）
     - 复用 GDPRService._stream_user_data 流式输出
     - 写入 OperationLog 审计日志（权限/安全场景需第二人复核）
     """
@@ -304,12 +308,13 @@ async def admin_delete_user_account(
     request: Request,
     user_id: int,
     body: AdminDeleteUserRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    # AUDIT-2026-09-28-P1-1: 同 admin_export_user_data，改为平台管理员校验
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """ISS-074: 管理员匿名化指定用户（无需用户密码）.
 
-    - 仅 admin 角色可调用
+    - 仅**平台**管理员可调用（admin/super_admin 且属于平台默认租户）
     - 跳过密码验证（管理员越权路径，password_confirm=None）
     - 必须提供 reason（写入审计日志，供第二人复核）
     - 写入额外 OperationLog 记录管理员操作（区别于用户自删的 gdpr.account.deleted）

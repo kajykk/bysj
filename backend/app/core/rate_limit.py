@@ -213,26 +213,42 @@ def install_rate_limiter(app) -> None:
 
 
 def _verify_redis_backend() -> None:
-    """生产环境校验 Redis 限流后端连通性，失败时发出告警。
+    """生产环境校验 Redis 限流后端连通性；默认 fail-fast，拒绝带残缺防护启动。
 
     slowapi 在 Redis 不可用时会静默降级到进程内内存存储，多实例部署下
-    每个实例独立计数，限流将完全失效。此处显式 ping 一次 Redis，
-    让运维人员能在日志中看到降级事件。
+    每个实例独立计数，限流将完全失效（登录爆破防护形同虚设）。
+
+    AUDIT-2026-09-28-P0-6 修复：原实现无论 Redis 是否可达都只记一条 critical 日志
+    然后**照常启动**——日志会被淹没，生产上表现为"限流配置看起来都在，实际不生效"。
+    现改为：生产环境（且 ``rate_limit_require_redis=True``，默认）下直接抛错阻止启动，
+    把故障暴露在部署期。运维如需计划内降级，显式设 ``RATE_LIMIT_REQUIRE_REDIS=false``。
 
     RES-P3-006: 复用 slowapi limiter 内部的 Redis storage (limits 库),
     避免新建独立的 redis.from_url 客户端。slowapi Limiter 通过 storage_uri
     配置 Redis 后, _storage 属性指向 limits.storage.RedisStorage, 其 check()
     方法会执行真实的 Redis 读写测试 (SET + DEL).
+
+    Raises:
+        RuntimeError: 生产环境要求 Redis 后端但不可达或未配置时抛出。
     """
     if settings.app_env.lower() != "production":
         return
+
+    require_redis = getattr(settings, "rate_limit_require_redis", True)
     redis_url = settings.redis_url
+
     if not redis_url or not redis_url.startswith("redis"):
-        logger.warning(
+        msg = (
             "Rate limiter has no Redis backend configured in production. "
-            "Multi-instance deployments will have per-instance rate limits."
+            "Multi-instance deployments would have per-instance (ineffective) rate limits. "
+            "Set REDIS_URL, or set RATE_LIMIT_REQUIRE_REDIS=false to accept degradation."
         )
+        if require_redis:
+            logger.critical(msg)
+            raise RuntimeError(msg)
+        logger.warning(msg)
         return
+
     # RES-P3-006: 复用 slowapi limiter 内部的 Redis storage, 避免新建客户端
     # _storage 是 slowapi/limits 库的内部属性, 但没有公共 API 暴露 storage 实例
     try:
@@ -241,20 +257,26 @@ def _verify_redis_backend() -> None:
             logger.info("Rate limiter Redis backend connectivity verified.")
             return
         # storage 为 None 或 check() 返回 False
-        logger.critical(
-            "Rate limiter Redis backend check returned False. "
-            "slowapi may silently degrade to in-memory storage, causing rate limits "
-            "to be per-instance in multi-instance deployments. "
-            "Please verify REDIS_URL=%s and Redis service health.",
-            redis_url,
+        msg = (
+            f"Rate limiter Redis backend check returned False. "
+            f"slowapi will silently degrade to in-memory storage, causing rate limits "
+            f"to be per-instance in multi-instance deployments. "
+            f"REDIS_URL={redis_url}"
         )
+        if require_redis:
+            logger.critical(msg)
+            raise RuntimeError(msg)
+        logger.critical(msg)
+        return
+    except RuntimeError:
+        raise
     except Exception as exc:
-        # 不阻止启动（允许降级运行），但发出 critical 告警以便监控告警系统捕获
-        logger.critical(
-            "Rate limiter Redis backend is UNREACHABLE (%s). "
-            "slowapi will silently degrade to in-memory storage, causing rate limits "
-            "to be per-instance in multi-instance deployments. "
-            "Please verify REDIS_URL=%s and Redis service health.",
-            exc,
-            redis_url,
+        msg = (
+            f"Rate limiter Redis backend is UNREACHABLE ({exc}). "
+            f"slowapi will silently degrade to in-memory storage, causing rate limits "
+            f"to be per-instance in multi-instance deployments. "
+            f"REDIS_URL={redis_url}"
         )
+        logger.critical(msg)
+        if require_redis:
+            raise RuntimeError(msg) from exc

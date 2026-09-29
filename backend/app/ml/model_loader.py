@@ -161,17 +161,40 @@ def check_model_exists() -> bool:
 def load_model(path: Path | str | None = None) -> PhysiologicalMLP:
     """Load trained model from JSON.
 
+    AUDIT-2026-09-28-P0-5: 本函数是 _predict_physiological_sync 的热路径，原先每次
+    推理都会重新读取 model.json 并全量计算一次 SHA256（_verify_integrity →
+    _compute_sha256），磁盘 I/O 与 CPU 开销随 QPS 线性放大。现按**解析后的实际
+    路径**缓存：校验只在首次加载（及缓存失效后）执行一次，推理仅复用内存对象。
+
+    实现说明（重要）：缓存 key 必须是解析后的绝对路径，而不是入参。
+    入参为 None 时路径由 _artifact_path() 动态解析（受 monkeypatch / 配置切换
+    影响），若以 None 为 key，路径变了却仍命中旧缓存——会返回错误的模型，
+    或在文件缺失时该抛 FileNotFoundError 却不抛。故拆分为：
+    本函数负责解析路径（不缓存），_load_model_cached 负责加载（按路径缓存）。
+
+    缓存语义：
+    - 返回的模型对象被**共享**，调用方不得就地修改权重（推理路径为只读）。
+    - 加载失败（FileNotFoundError / 校验失败）不会被缓存，文件修复后自动恢复。
+    - 重新训练/替换工件后，需显式调用 :func:`clear_artifact_cache` 使缓存失效；
+      当前生理模型无进程内热切换路径，重启同样生效。
+
     Args:
         path: Path to model.json. Defaults to MODEL_PATH.
 
     Returns:
-        Loaded PhysiologicalMLP model.
+        Loaded PhysiologicalMLP model (possibly cached).
 
     Raises:
         FileNotFoundError: If model file does not exist.
         ValueError: If integrity check fails.
     """
-    path = Path(path) if path else _artifact_path("MODEL_PATH")
+    resolved = Path(path) if path else _artifact_path("MODEL_PATH")
+    return _load_model_cached(resolved)
+
+
+@lru_cache(maxsize=8)
+def _load_model_cached(path: Path) -> PhysiologicalMLP:
+    """按解析后的绝对路径加载并缓存模型（load_model 的缓存实现层）."""
     if not path.exists():
         raise FileNotFoundError(f"Model not found: {path}")
 
@@ -210,17 +233,26 @@ def load_model(path: Path | str | None = None) -> PhysiologicalMLP:
 def load_scaler(path: Path | str | None = None) -> SimpleStandardScaler:
     """Load fitted scaler from JSON.
 
+    AUDIT-2026-09-28-P0-5: 与 load_model 同理，按解析后的实际路径缓存（而非入参），
+    避免每次推理重复读文件 + 计算 SHA256。返回对象共享，调用方不得就地修改。
+
     Args:
         path: Path to scaler.json. Defaults to SCALER_PATH.
 
     Returns:
-        Loaded SimpleStandardScaler.
+        Loaded SimpleStandardScaler (possibly cached).
 
     Raises:
         FileNotFoundError: If scaler file does not exist.
         ValueError: If integrity check fails.
     """
-    path = Path(path) if path else _artifact_path("SCALER_PATH")
+    resolved = Path(path) if path else _artifact_path("SCALER_PATH")
+    return _load_scaler_cached(resolved)
+
+
+@lru_cache(maxsize=8)
+def _load_scaler_cached(path: Path) -> SimpleStandardScaler:
+    """按解析后的绝对路径加载并缓存 scaler."""
     if not path.exists():
         raise FileNotFoundError(f"Scaler not found: {path}")
 
@@ -238,17 +270,28 @@ def load_scaler(path: Path | str | None = None) -> SimpleStandardScaler:
 def load_feature_names(path: Path | str | None = None) -> list[str]:
     """Load feature names from JSON.
 
+    AUDIT-2026-09-28-P0-5: 与 load_model 同理，按解析后的实际路径缓存（而非入参），
+    避免每次推理重复读文件 + 计算 SHA256。注意返回的 list 被共享，**调用方不得
+    就地修改**（如 sort / append），否则会污染后续所有推理；需要改写时请先
+    ``list(...)`` 拷贝。
+
     Args:
         path: Path to feature_names.json. Defaults to FEATURE_NAMES_PATH.
 
     Returns:
-        List of feature names.
+        List of feature names (possibly cached).
 
     Raises:
         FileNotFoundError: If feature names file does not exist.
         ValueError: If integrity check fails.
     """
-    path = Path(path) if path else _artifact_path("FEATURE_NAMES_PATH")
+    resolved = Path(path) if path else _artifact_path("FEATURE_NAMES_PATH")
+    return _load_feature_names_cached(resolved)
+
+
+@lru_cache(maxsize=8)
+def _load_feature_names_cached(path: Path) -> list[str]:
+    """按解析后的绝对路径加载并缓存 feature names."""
     if not path.exists():
         raise FileNotFoundError(f"Feature names not found: {path}")
 
@@ -312,19 +355,28 @@ def load_cleaner(path: Path | str | None = None) -> "DataCleaner":
     用于推理时严格复用训练时的缺失值填充中位数和 Winsorization 边界，
     确保特征工程一致性。
 
+    AUDIT-2026-09-28-P0-5: 与 load_model 同理，按解析后的实际路径缓存（而非入参），
+    避免每次推理重复读文件 + 计算 SHA256。返回对象共享，调用方不得就地修改。
+
     Args:
         path: Path to cleaner_stats.json. Defaults to CLEANER_STATS_PATH.
 
     Returns:
-        Loaded DataCleaner instance (fitted).
+        Loaded DataCleaner instance (fitted, possibly cached).
 
     Raises:
         FileNotFoundError: If cleaner stats file does not exist.
         ValueError: If integrity check fails.
     """
+    resolved = Path(path) if path else _artifact_path("CLEANER_STATS_PATH")
+    return _load_cleaner_cached(resolved)
+
+
+@lru_cache(maxsize=8)
+def _load_cleaner_cached(path: Path) -> "DataCleaner":
+    """按解析后的绝对路径加载并缓存 DataCleaner."""
     from app.ml.data_cleaner import DataCleaner
 
-    path = Path(path) if path else _artifact_path("CLEANER_STATS_PATH")
     if not path.exists():
         raise FileNotFoundError(f"Cleaner stats not found: {path}")
 
@@ -335,3 +387,37 @@ def load_cleaner(path: Path | str | None = None) -> "DataCleaner":
     cleaner = DataCleaner()
     cleaner.load(path)
     return cleaner
+
+
+# ── 工件缓存失效 (AUDIT-2026-09-28-P0-5) ────────────────────────────────────
+# load_model/load_scaler/load_feature_names/load_cleaner 均带 lru_cache，
+# 重新训练或替换磁盘工件后必须显式失效，否则进程内会继续用旧对象。
+_ARTIFACT_LOADERS = (
+    "_load_model_cached",
+    "_load_scaler_cached",
+    "_load_feature_names_cached",
+    "_load_cleaner_cached",
+)
+
+
+def clear_artifact_cache() -> None:
+    """清空全部模型工件缓存。
+
+    应在以下时机调用：完成一轮训练并写入新工件后、模型热切换/回滚后、
+    以及需要重新校验文件完整性的场合。
+
+    注意：真正持有缓存的是 ``_load_*_cached`` 内部函数（按解析后的路径缓存），
+    公开函数 load_model/load_scaler/... 只做路径解析，本身无缓存。
+    """
+    cleared = 0
+    for name in _ARTIFACT_LOADERS:
+        fn = globals().get(name)
+        cache_clear = getattr(fn, "cache_clear", None)
+        if cache_clear is not None:
+            cache_clear()
+            cleared += 1
+    # 路径常量同样缓存，模型目录切换时需一并失效
+    _resolve_artifacts_dir.cache_clear()
+    for name in _ARTIFACT_PATH_NAMES:
+        globals().pop(name, None)
+    logger.info("Model artifact cache cleared (%d loaders)", cleared)

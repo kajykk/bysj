@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_role
+from app.core.tenant_context import require_platform_admin
 from app.core.kill_switch import get_kill_switch_status, set_model_paused
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
@@ -49,7 +50,7 @@ class KillSwitchActionRequest(BaseModel):
 async def activate_kill_switch(
     request: Request,
     payload: KillSwitchActionRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """激活模型预测暂停.
@@ -94,7 +95,7 @@ async def activate_kill_switch(
 async def deactivate_kill_switch(
     request: Request,
     payload: KillSwitchActionRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """解除模型预测暂停.
@@ -135,7 +136,7 @@ async def deactivate_kill_switch(
 @limiter.limit("30/minute")
 async def get_kill_switch_status_endpoint(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict[str, Any]:
     """查询当前模型预测暂停状态."""
     state = await get_kill_switch_status()
