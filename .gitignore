@@ -172,6 +172,11 @@ download_kaggle.py
 # ④ 含明文凭证的本地登录载荷（AUDIT-2026-09-28: 扫描发现内含 admin 口令）
 /scripts/login_payload.json
 
+# ⑤ 脚本运行产物（隐藏的中间结果文件，非交付物）
+/scripts/.*_result.json
+/scripts/.*_comparison.json
+/scripts/*.log
+
 # User notes (not part of project)
 md/
 原文/
