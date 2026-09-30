@@ -317,7 +317,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    # AUDIT-2026-09-30-P1-16: 补 HEAD。Starlette 的 Route 对 GET 路由自动放行 HEAD
+    # （routing.py:233-234），但 CORS 预检的 Allow-Methods 是另一套白名单，缺 HEAD 会让
+    # 跨域场景下的 HEAD 探针（如 GDPR 用户存在性校验）被预检拦掉。
+    allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 app.middleware("http")(metrics_middleware)

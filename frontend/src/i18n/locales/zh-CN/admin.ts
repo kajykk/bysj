@@ -94,7 +94,7 @@ common: {
       checkUserNotFound: '✗ 用户不存在',
       checkUserNoPermission: '✗ 无权限（需管理员）',
       checkFailed: '✗ 校验失败 (HTTP {status})',
-      checkUserOkAborted: '✓ 用户存在（已中止流式下载）',
+      checkNetworkError: '✗ 网络或服务异常，无法确认用户是否存在',
       exportSuccess: '用户数据导出成功，已开始下载',
       exportFailed: '导出用户数据失败',
       errorUserIdRequired: '请先输入用户 ID',

@@ -83,6 +83,54 @@ _INSECURE_KEYS = {
     "CHANGE_ME_generate_with_python_secrets_token_urlsafe_32",
 }
 
+# AUDIT-2026-09-30-P1-6: 生产环境 HS256 密钥强度下限。
+# 说明：这里只做**下限**检查，不做"密码复杂度打分"。HS256 的密钥直接参与 HMAC，
+# 其抗离线爆破能力由长度与字符空间共同决定，故按「长度 + 字符类别数」两级判定。
+_MIN_JWT_SECRET_LENGTH = 32
+# 仅含 2 类字符时（如纯 hex 密钥：小写 + 数字）要求的补偿长度。
+# 64 位 hex = 256 bit 熵，强度足够，不应被误杀；但 32 位 hex 只有 128 bit 且易被字典命中。
+_MIN_JWT_SECRET_LENGTH_WHEN_LOW_ENTROPY = 48
+
+
+def _validate_jwt_secret_strength(secret: str) -> None:
+    """P1-6: 生产环境 HS256 密钥强度校验。
+
+    拒绝三类弱密钥：
+    1. 长度 < 32 —— 抗离线爆破能力不足；
+    2. 只含 1 类字符（如全小写字母）—— 字符空间过小；
+    3. 只含 2 类字符且长度 < 48 —— 例：32 位纯 hex 仅 128 bit 且易被字典命中，
+       但 64 位 hex（256 bit）予以放行，避免误杀合法的高熵密钥。
+    """
+    if len(secret) < _MIN_JWT_SECRET_LENGTH:
+        raise ValueError(
+            f"JWT_SECRET_KEY is too weak for production: {len(secret)} chars "
+            f"(minimum {_MIN_JWT_SECRET_LENGTH}). "
+            'Generate a strong key with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
+        )
+
+    classes = sum(
+        (
+            any(c.islower() for c in secret),
+            any(c.isupper() for c in secret),
+            any(c.isdigit() for c in secret),
+            any(not c.isalnum() for c in secret),
+        )
+    )
+    if classes < 2:
+        raise ValueError(
+            "JWT_SECRET_KEY has too little entropy for production: "
+            "it uses a single character class (e.g. all lowercase). "
+            'Generate a strong key with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
+        )
+    if classes < 3 and len(secret) < _MIN_JWT_SECRET_LENGTH_WHEN_LOW_ENTROPY:
+        raise ValueError(
+            f"JWT_SECRET_KEY has too little entropy for production: only {classes} "
+            f"character classes and {len(secret)} chars. Keys with only 2 character "
+            f"classes (e.g. hex) must be at least "
+            f"{_MIN_JWT_SECRET_LENGTH_WHEN_LOW_ENTROPY} chars. "
+            'Recommended: python -c "import secrets; print(secrets.token_urlsafe(32))"'
+        )
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -243,6 +291,18 @@ class Settings(BaseSettings):
                 "HTTP reset links expose password reset tokens to man-in-the-middle attacks. "
                 "Set PASSWORD_RESET_BASE_URL to https://your-domain.com/reset-password in .env."
             )
+        # AUDIT-2026-09-30-P1-6: 黑名单之外的弱密钥强度校验。
+        #
+        # 原有的 _INSECURE_KEYS 只能挡住「已知常量」弱密钥（如 "changeme"），
+        # 挡不住任意短密钥（如 "abc12345"）—— 后者在生产环境可正常启动。
+        # HS256 的密钥长度/熵直接决定签名抗离线爆破能力，故对生产环境追加下限。
+        # RS256 下 secret 不参与签名（仅需密钥对），故豁免。
+        if (
+            self.app_env.lower() == "production"
+            and self.jwt_algorithm.upper() != "RS256"
+            and self.jwt_secret_key not in _INSECURE_KEYS
+        ):
+            _validate_jwt_secret_strength(self.jwt_secret_key)
         if self.jwt_secret_key in _INSECURE_KEYS and self.app_env.lower() != "production":
             self.jwt_secret_key = secrets.token_urlsafe(32)
             warnings.warn(

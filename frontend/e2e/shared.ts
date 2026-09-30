@@ -60,7 +60,8 @@ export const ROLE_FLOW_CONFIG: Record<RoleName, RoleFlowConfig> = {
 export const CORS_HEADERS = {
   'access-control-allow-origin': 'http://localhost:5173',
   'access-control-allow-credentials': 'true',
-  'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  // AUDIT-2026-09-30-P1-16: 后端 CORS 白名单已补 HEAD（跨域 GDPR 探针需要）
+  'access-control-allow-methods': 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS',
   'access-control-allow-headers': 'Authorization, Content-Type, Accept',
 }
 

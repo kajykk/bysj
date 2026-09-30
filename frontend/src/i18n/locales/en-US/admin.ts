@@ -94,7 +94,7 @@ common: {
       checkUserNotFound: '✗ User does not exist',
       checkUserNoPermission: '✗ No permission (admin required)',
       checkFailed: '✗ Verification failed (HTTP {status})',
-      checkUserOkAborted: '✓ User exists (streaming download aborted)',
+      checkNetworkError: '✗ Network/service error — user existence unconfirmed',
       exportSuccess: 'User data exported successfully, download started',
       exportFailed: 'Failed to export user data',
       errorUserIdRequired: 'Please enter a user ID first',

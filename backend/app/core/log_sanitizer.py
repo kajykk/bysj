@@ -13,6 +13,8 @@
 - 身份证号: ``110101199001011234`` → ``110101********1234``
 - 信用卡号: ``4111111111111111`` → ``411111******1111``
 - API Key (常见前缀): ``sk-xxx`` / ``pk-xxx`` → ``sk-***MASKED***``
+- 控制字符 (AUDIT-2026-09-30-P1-5): ``\\n`` / ``\\r`` / ``\\x1b`` 等 → 转义字面量，
+  阻断 log injection（伪造整行日志）与 ANSI 转义序列注入终端
 
 设计原则:
 - 幂等: 已脱敏的文本不再处理 (避免重复替换)
@@ -102,6 +104,28 @@ _CARD_PATTERN = re.compile(
 # API Key 常见前缀 (OpenAI sk-/Stripe sk_/pk_/GitHub ghp_/gho_/ghu_/ghs_/ghr_)
 _APIKEY_PATTERN = re.compile(r"\b(sk-[A-Za-z0-9]{20,}|pk_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,})")
 
+# AUDIT-2026-09-30-P1-5: 控制字符（C0 + DEL + C1）转义，防止 log injection。
+#
+# 背景：`POST /api/v1/monitoring/metrics/frontend` 是无鉴权端点（仅 30/min 限流），
+# 其 `url` 字段直接来自浏览器且被写入 `logger.info(...)`。含 \n 的 URL 可以伪造出
+# 整行日志（例如插入一条假的 "admin deleted user"），污染日志聚合与安全审计追溯；
+# \x1b[...m 还能向运维终端注入 ANSI 序列。
+#
+# 在 sanitize_text 这一统一入口处理，可覆盖全仓所有走 SanitizingFilter 的日志，
+# 而不必逐个修调用点。
+_CONTROL_CHARS_PATTERN = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+_CONTROL_CHAR_ESCAPES = {
+    0x09: "\\t",
+    0x0A: "\\n",
+    0x0D: "\\r",
+}
+
+
+def _escape_control_char(match: re.Match) -> str:
+    """把单个控制字符替换为可见的转义字面量（保留可排查性，但不再是真控制字符）。"""
+    code = ord(match.group(0))
+    return _CONTROL_CHAR_ESCAPES.get(code, f"\\x{code:02x}")
+
 
 def sanitize_text(text: str) -> str:
     """SEC-P2-007: 对文本进行 PII 脱敏.
@@ -149,6 +173,16 @@ def sanitize_text(text: str) -> str:
         return f"{m.group(5)} **** **** {m.group(8)}"
 
     result = _CARD_PATTERN.sub(_mask_card, result)
+
+    # 10. 控制字符转义 (AUDIT-2026-09-30-P1-5) — 必须最后执行。
+    #
+    # 顺序是先脱敏、后转义，理由（由 test_pii_masking_still_works_after_escape 实测确定）：
+    # 若先转义，"password=secret\nalice@example.com" 会变成
+    # "password=secret\\nalice@example.com"，其中的 \n 不再是空白字符，
+    # 敏感键值正则会把 secret\\nalice@example.com 整体当作 value 吞掉，
+    # 结果是过度脱敏——邮箱被一并抹除，日志失去可排查性。
+    # 放在最后既保留前面 9 步的原有语义，又能保证输出不含真实换行。
+    result = _CONTROL_CHARS_PATTERN.sub(_escape_control_char, result)
 
     return result
 

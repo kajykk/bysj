@@ -141,6 +141,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Download, Delete } from '@element-plus/icons-vue'
 import { adminApi } from '@/api/adminApi'
+import { buildApiUrl } from '@/api/base'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { getStoredToken } from '@/utils/authStorage' // ISS-008: 从 authStorage 获取 token
 
@@ -167,17 +168,22 @@ const checkUserExists = async () => {
   gdprChecking.value = true
   gdprCheckResult.value = null
   try {
-    // 通过尝试导出接口的 HEAD 不适用，这里用轻量的导出请求校验
-    // 若用户不存在，export 接口返回 404；由于是流式响应，使用 HEAD 不可行，
-    // 改用小型探针：fetch 导出接口并立即取消，仅观察 status code
-    const controller = new AbortController()
+    // AUDIT-2026-09-30-P1-16：改用 HEAD 探针 + buildApiUrl。
+    //
+    // 原实现（GET + AbortController）有两处缺陷：
+    // 1) fetch 在响应头到达时即 resolve，随后的 abort() 不会进入 catch —— 那个
+    //    "AbortError 属预期行为"的分支实际上永远走不到；
+    // 2) 真正进入 catch 的是断网 / 超时 / 连接重置，而 catch 里一律判定 ok:true，
+    //    管理员据此会误判"用户存在"并继续执行 GDPR 匿名化（不可逆操作）。
+    //
+    // HEAD 由 Starlette 对 GET 路由自动开放（routing.py:233-234），且
+    // responses.py 对 HEAD 只回响应头、不消费 body，因此无需 abort 即可
+    // 拿到 200 / 404 / 403，也不会真的导出一份完整数据。
     const token = getStoredToken() || '' // ISS-008: 从 authStorage 获取 token（sessionStorage）
-    const res = await fetch(`/api/v1/admin/gdpr/export/${gdprForm.userId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal
+    const res = await fetch(buildApiUrl(`/admin/gdpr/export/${gdprForm.userId}`), {
+      method: 'HEAD',
+      headers: { Authorization: `Bearer ${token}` }
     })
-    // 立即中止流式下载，只关心 status
-    controller.abort()
     if (res.status === 200) {
       gdprCheckResult.value = { ok: true, message: t('adminSettings.gdpr.checkUserOk') }
     } else if (res.status === 404) {
@@ -188,8 +194,8 @@ const checkUserExists = async () => {
       gdprCheckResult.value = { ok: false, message: t('adminSettings.gdpr.checkFailed', { status: res.status }) }
     }
   } catch {
-    // AbortController 中止会抛 AbortError，属预期行为
-    gdprCheckResult.value = { ok: true, message: t('adminSettings.gdpr.checkUserOkAborted') }
+    // 断网 / 超时 / CORS / 连接重置：一律判为"未能确认"，绝不可断言用户存在
+    gdprCheckResult.value = { ok: false, message: t('adminSettings.gdpr.checkNetworkError') }
   } finally {
     gdprChecking.value = false
   }

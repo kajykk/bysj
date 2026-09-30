@@ -257,3 +257,71 @@ class TestInsecureKeys:
         assert "" in _INSECURE_KEYS
         assert "change-this-to-a-random-secret-key" in _INSECURE_KEYS
         assert "depression-warning-system-secret-key-2024" in _INSECURE_KEYS
+
+
+class TestProductionJwtSecretStrength:
+    """AUDIT-2026-09-30-P1-6: 生产环境 JWT 密钥强度下限.
+
+    原有校验只有 4 项常量黑名单，"abc12345" 这类任意短密钥可在生产正常启动。
+    此处补充长度 + 字符类别下限，同时确保高熵的 hex 长密钥不被误杀。
+    """
+
+    def _build(self, jwt_secret_key: str, **overrides):
+        from app.core.config import Settings
+
+        kwargs = {
+            "app_env": "production",
+            "database_url": "postgresql://user:pass@localhost/db",
+            "jwt_secret_key": jwt_secret_key,
+            "password_reset_base_url": "https://example.com/reset-password",
+        }
+        kwargs.update(overrides)
+        return Settings(**kwargs)
+
+    def test_short_secret_rejected(self):
+        """P1-6: "abc12345" 这类短密钥必须启动失败."""
+        import pytest
+
+        with pytest.raises(ValueError, match="too weak for production"):
+            self._build("abc12345")
+
+    def test_single_character_class_rejected(self):
+        """P1-6: 全小写（单一字符类别）即使够长也拒绝."""
+        import pytest
+
+        with pytest.raises(ValueError, match="too little entropy"):
+            self._build("a" * 40)
+
+    def test_two_classes_but_short_rejected(self):
+        """P1-6: 仅 2 类字符且 < 48 字符（如 32 位 hex）拒绝."""
+        import pytest
+
+        with pytest.raises(ValueError, match="too little entropy"):
+            self._build("0123456789abcdef0123456789abcdef")  # 32 chars, lower+digit
+
+    def test_two_classes_long_hex_accepted(self):
+        """P1-6: 64 位 hex（256 bit 熵）应放行，不得误杀合法高熵密钥."""
+        settings = self._build("0123456789abcdef" * 4)
+        assert settings.app_env == "production"
+
+    def test_strong_secret_accepted(self):
+        """P1-6: secrets.token_urlsafe(32) 生成的密钥应通过."""
+        import secrets
+
+        settings = self._build(secrets.token_urlsafe(32))
+        assert settings.app_env == "production"
+
+    def test_rs256_exempt(self):
+        """P1-6: RS256 模式下 secret 不参与签名，豁免强度校验."""
+        settings = self._build(
+            "abc12345",
+            jwt_algorithm="RS256",
+            jwt_private_key_path="/secrets/private.pem",
+            jwt_public_key_path="/secrets/public.pem",
+        )
+        assert settings.jwt_algorithm == "RS256"
+
+    def test_development_env_not_enforced(self):
+        """P1-6: 开发环境不强制（避免阻碍本地调试）."""
+        settings = self._build("abc12345", app_env="development")
+        assert settings.jwt_secret_key == "abc12345"

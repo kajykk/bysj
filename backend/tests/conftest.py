@@ -29,7 +29,12 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-ci-only")
+# AUDIT-2026-09-30-P1-6: 原值 "test-secret-key-for-ci-only" 仅 27 字符，
+# 在模拟 APP_ENV=production 的用例中会撞上新增的密钥强度下限（≥32 字符 / ≥2 类字符）。
+# 测试密钥本身也应当是"强密钥"——这样既不会掩盖生产校验，也不会因放宽校验而失真。
+os.environ.setdefault(
+    "JWT_SECRET_KEY", "test-secret-key-for-ci-only-2026-not-for-production"
+)
 # P1-SEC-001 修复：为测试环境提供 PII 加密密钥（仅用于单元测试，非生产密钥）
 os.environ.setdefault(
     "PII_ENCRYPTION_KEY", "test-pii-key-for-unit-tests-only-not-for-production"

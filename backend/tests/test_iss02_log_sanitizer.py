@@ -138,3 +138,64 @@ class TestSanitizingFilter:
         f.filter(rec)
         # exc_value.args[0] 应被脱敏（不触发格式化 KeyError）
         assert rec.exc_info[1].args[0] == "password=***MASKED***"
+
+
+class TestLogInjectionGuard:
+    """AUDIT-2026-09-30-P1-5: 控制字符转义，阻断 log injection.
+
+    背景：``POST /api/v1/monitoring/metrics/frontend`` 无鉴权（仅 30/min 限流），
+    其 ``url`` 字段由浏览器提供并写入 ``logger.info``。含 ``\\n`` 的 URL 可伪造
+    整行日志，污染审计追溯。修法落在 sanitize_text 统一入口，覆盖全仓日志。
+    """
+
+    def test_newline_is_escaped_not_emitted(self):
+        """\\n 必须变成字面量 \\\\n，日志里不再出现真实换行。"""
+        out = sanitize_text("https://x.com/a\n2026-09-30 INFO admin deleted user 42")
+        assert "\n" not in out
+        assert "\\n" in out
+
+    def test_crlf_is_escaped(self):
+        out = sanitize_text("https://x.com\r\nX-Injected: 1")
+        assert "\r" not in out and "\n" not in out
+        assert "\\r\\n" in out
+
+    def test_ansi_escape_is_escaped(self):
+        """ANSI 转义序列不得原样进入终端/日志。"""
+        out = sanitize_text("\x1b[31mRED\x1b[0m")
+        assert "\x1b" not in out
+        assert "\\x1b" in out
+
+    def test_other_c0_control_chars_escaped(self):
+        out = sanitize_text("a\x00b\x07c")
+        assert "\x00" not in out and "\x07" not in out
+        assert "\\x00" in out and "\\x07" in out
+
+    def test_tab_and_plain_text_preserved(self):
+        """正常文本不应被破坏；制表符转为 \\\\t 但仍保留可读内容。"""
+        out = sanitize_text("https://example.com/dashboard?tab=1&ok=1")
+        assert out == "https://example.com/dashboard?tab=1&ok=1"
+        assert sanitize_text("a\tb") == "a\\tb"
+
+    def test_filter_applies_escape_to_args(self):
+        """Filter 必须转义 args（监控端点走的是 %s 参数化日志）。"""
+        f = SanitizingFilter()
+        rec = logging.LogRecord(
+            "x", logging.INFO, "p", 1, "frontend-metrics: url=%s",
+            ("https://x.com/\nFAKE LOG LINE",), None,
+        )
+        f.filter(rec)
+        assert rec.args == ("https://x.com/\\nFAKE LOG LINE",)
+        # 实际格式化后仍是单行
+        assert "\n" not in (rec.msg % rec.args)
+
+    def test_pii_masking_still_works_alongside_escape(self):
+        """控制字符转义不得破坏既有 PII 脱敏。
+
+        顺序是「先脱敏、后转义」：若反过来先转义，\\n 会变成非空白字面量，
+        敏感键值正则会把 "secret\\\\nalice@example.com" 整体当作 value 吞掉，
+        导致邮箱被过度抹除（此断言正是为了防止该回归）。
+        """
+        out = sanitize_text("password=secret\nalice@example.com")
+        assert "password=***MASKED***" in out
+        assert "a***@example.com" in out
+        assert "\n" not in out
