@@ -288,3 +288,165 @@ class TestAuthService:
         payload = UpdateProfileRequest(nickname="brandnew")
         result = await service.update_profile(1, payload)
         assert result["nickname"] == "brandnew"
+
+
+class TestAuthServiceEmailCaseInsensitivity:
+    """RES-P1-014: email 盲索引归一化后的大小写不敏感行为回归."""
+
+    @pytest.mark.asyncio
+    async def test_register_rejects_case_variant_of_existing_email(
+        self, db_session, seeded_user_id
+    ) -> None:
+        """归一化后, 已存在邮箱的大小写变体不得再次注册成功."""
+        service = AuthService(db_session)
+        # conftest 中 seeded user 的邮箱为 seed@test.com
+        payload = RegisterRequest(
+            username="casevariant",
+            email="SEED@test.com",
+            password="securepassword123",
+            role="user",
+        )
+        with pytest.raises(ValueError, match="用户名或邮箱已存在"):
+            await service.register(payload)
+
+    @pytest.mark.asyncio
+    async def test_password_reset_finds_user_by_case_variant(self, db_session) -> None:
+        """用大写邮箱注册, 用小写邮箱申请重置 —— 必须命中同一账号."""
+        service = AuthService(db_session)
+        sent: dict[str, str] = {}
+
+        async def _capture(email: str, token: str) -> None:
+            sent["email"] = email
+            sent["token"] = token
+
+        service.email_service.send_password_reset_email = _capture  # type: ignore[method-assign]
+
+        payload = RegisterRequest(
+            username="mixedcaseuser",
+            email="Alice@Example.com",
+            password="securepassword123",
+            role="user",
+        )
+        await service.register(payload)
+        await db_session.commit()
+
+        await service.request_password_reset("alice@example.com")
+        assert sent, "大小写变体未命中账号, 密码重置静默失效"
+
+    @pytest.mark.asyncio
+    async def test_reset_password_accepts_legacy_unnormalized_hash(
+        self, db_session
+    ) -> None:
+        """存量未迁移行, 且用户输入与注册时字面形式一致 → 双查兜底命中."""
+        from sqlalchemy import select
+
+        from app.core.pii_crypto import _hmac_blind_index
+        from app.core.security import create_password_reset_token
+        from app.models.user import User
+
+        service = AuthService(db_session)
+        payload = RegisterRequest(
+            username="legacyhashuser",
+            email="Legacy@Example.com",
+            password="securepassword123",
+            role="user",
+        )
+        await service.register(payload)
+        await db_session.commit()
+
+        # 模拟迁移前的存量数据: 写回未归一化的 email_hash
+        # 注意: 用解密后的实际明文, 而非硬编码 —— EmailStr 会把域名部分转小写
+        stmt = select(User).where(User.username == "legacyhashuser")
+        user = (await db_session.execute(stmt)).scalar_one()
+        stored_email = user.email
+        user.email_hash = _hmac_blind_index(stored_email, "email")
+        await db_session.commit()
+
+        token = create_password_reset_token(
+            {"sub": str(user.id), "email": stored_email}
+        )
+        reset_payload = ResetPasswordRequest(
+            email=stored_email,
+            new_password="anotherpassword123",
+            reset_token=token,
+        )
+        # 不应抛出 "用户信息不匹配"
+        await service.reset_password(reset_payload)
+
+    @pytest.mark.asyncio
+    async def test_reset_password_after_migration_accepts_any_case(
+        self, db_session
+    ) -> None:
+        """迁移完成后 (email_hash 为归一化值), 任意大小写输入均能命中."""
+        from sqlalchemy import select
+
+        from app.core.pii_crypto import compute_blind_index
+        from app.core.security import create_password_reset_token
+        from app.models.user import User
+
+        service = AuthService(db_session)
+        payload = RegisterRequest(
+            username="migrateduser",
+            email="Migrated@Example.com",
+            password="securepassword123",
+            role="user",
+        )
+        await service.register(payload)
+        await db_session.commit()
+
+        # 模拟迁移脚本执行结果: email_hash 已收敛为归一化值
+        stmt = select(User).where(User.username == "migrateduser")
+        user = (await db_session.execute(stmt)).scalar_one()
+        stored_email = user.email
+        user.email_hash = compute_blind_index(stored_email, "email")
+        await db_session.commit()
+
+        # 用另一大小写形式申请重置 —— 迁移后应命中
+        lowered = stored_email.lower()
+        token = create_password_reset_token({"sub": str(user.id), "email": lowered})
+        reset_payload = ResetPasswordRequest(
+            email=lowered,
+            new_password="anotherpassword123",
+            reset_token=token,
+        )
+        await service.reset_password(reset_payload)
+
+    @pytest.mark.asyncio
+    async def test_legacy_hash_not_found_when_case_differs(self, db_session) -> None:
+        """已知局限断言: 未迁移行 + 用户输入大小写不同 → 双查无法兜底.
+
+        这条测试固化的是"迁移不可省略"这一事实, 而非期望行为。
+        若将来改为穷举大小写变体, 本断言应随之更新。
+        """
+        from sqlalchemy import select
+
+        from app.core.pii_crypto import _hmac_blind_index
+        from app.core.security import create_password_reset_token
+        from app.models.user import User
+
+        service = AuthService(db_session)
+        payload = RegisterRequest(
+            username="unmigrateduser",
+            email="Unmigrated@Example.com",
+            password="securepassword123",
+            role="user",
+        )
+        await service.register(payload)
+        await db_session.commit()
+
+        stmt = select(User).where(User.username == "unmigrateduser")
+        user = (await db_session.execute(stmt)).scalar_one()
+        stored_email = user.email
+        user.email_hash = _hmac_blind_index(stored_email, "email")
+        await db_session.commit()
+
+        # 用另一大小写形式申请重置 —— 未迁移时双查救不了, 必须失败
+        lowered = stored_email.lower()
+        token = create_password_reset_token({"sub": str(user.id), "email": lowered})
+        reset_payload = ResetPasswordRequest(
+            email=lowered,
+            new_password="anotherpassword123",
+            reset_token=token,
+        )
+        with pytest.raises(ValueError, match="用户信息不匹配"):
+            await service.reset_password(reset_payload)

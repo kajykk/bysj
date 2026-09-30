@@ -170,6 +170,91 @@ class TestComputeBlindIndex:
         assert len(h) == 64
 
 
+class TestBlindIndexNormalization:
+    """RES-P1-014: email 盲索引归一化与存量迁移兼容."""
+
+    def test_email_case_variants_share_one_index(self) -> None:
+        """大小写变体 → 同一个盲索引 (否则同一邮箱可重复注册)."""
+        from app.core.pii_crypto import compute_blind_index
+
+        variants = [
+            "Alice@Example.com",
+            "alice@example.com",
+            "ALICE@EXAMPLE.COM",
+            "aLiCe@ExAmPlE.cOm",
+        ]
+        hashes = {compute_blind_index(v, "email") for v in variants}
+        assert len(hashes) == 1
+
+    def test_email_surrounding_whitespace_stripped(self) -> None:
+        """首尾空白被剥离."""
+        from app.core.pii_crypto import compute_blind_index
+
+        assert compute_blind_index("  alice@example.com  ", "email") == (
+            compute_blind_index("alice@example.com", "email")
+        )
+
+    def test_email_inner_dot_preserved(self) -> None:
+        """归一化不得吞掉邮箱本地部分的点 (a.b@x.com ≠ ab@x.com)."""
+        from app.core.pii_crypto import compute_blind_index
+
+        assert compute_blind_index("a.b@example.com", "email") != (
+            compute_blind_index("ab@example.com", "email")
+        )
+
+    def test_non_email_field_not_casefolded(self) -> None:
+        """未声明归一化策略的字段保持原样 (避免误伤 phone 等)."""
+        from app.core.pii_crypto import compute_blind_index
+
+        assert compute_blind_index("13800001234", "phone") == (
+            compute_blind_index("13800001234", "phone")
+        )
+        # phone 无归一化策略 → 大小写差异仍应产生不同索引
+        assert compute_blind_index("ABC-123", "phone") != (
+            compute_blind_index("abc-123", "phone")
+        )
+
+    def test_normalization_is_idempotent(self) -> None:
+        """对已归一化的值再次归一化结果不变 (迁移可重复执行)."""
+        from app.core.pii_crypto import compute_blind_index
+
+        once = compute_blind_index("Alice@Example.com", "email")
+        twice = compute_blind_index(once, "email")
+        assert compute_blind_index("alice@example.com", "email") == once
+        # 幂等性针对明文输入; 对 hash 字符串再计算仅验证不抛错
+        assert len(twice) == 64
+
+    def test_candidates_include_legacy_value(self) -> None:
+        """混合大小写邮箱 → 候选集含归一化值与未归一化的历史值."""
+        from app.core.pii_crypto import _hmac_blind_index, blind_index_candidates
+
+        cands = blind_index_candidates("Alice@Example.com", "email")
+        legacy = _hmac_blind_index("Alice@Example.com", "email")
+        assert len(cands) == 2
+        assert legacy in cands
+
+    def test_candidates_collapse_when_already_normalized(self) -> None:
+        """输入已归一化 → 候选集退化为单值 (迁移完成后双查开销消失)."""
+        from app.core.pii_crypto import blind_index_candidates, compute_blind_index
+
+        cands = blind_index_candidates("alice@example.com", "email")
+        assert cands == [compute_blind_index("alice@example.com", "email")]
+
+    def test_candidates_first_is_canonical(self) -> None:
+        """候选集首项必须是写入侧使用的归一化值."""
+        from app.core.pii_crypto import blind_index_candidates, compute_blind_index
+
+        cands = blind_index_candidates("Alice@Example.com", "email")
+        assert cands[0] == compute_blind_index("Alice@Example.com", "email")
+
+    def test_candidates_empty_for_blank(self) -> None:
+        """None / 空串 → 空候选集 (调用方应跳过查询)."""
+        from app.core.pii_crypto import blind_index_candidates
+
+        assert blind_index_candidates(None, "email") == []
+        assert blind_index_candidates("", "email") == []
+
+
 # ──────────────────────────────────────────────────────────────────
 # 3. _is_encrypted 内部辅助
 # ──────────────────────────────────────────────────────────────────
@@ -447,8 +532,7 @@ class TestIsEncryptedWithCurrentKey:
     def test_encrypted_with_other_key_returns_false(self) -> None:
         """其他密钥加密的密文 → False (需要轮换)."""
         from app.core import pii_crypto
-        from app.core.pii_crypto import _derive_fernet_key_with_base
-        from app.core.pii_crypto import is_encrypted_with_current_key
+        from app.core.pii_crypto import _derive_fernet_key_with_base, is_encrypted_with_current_key
 
         # 用其他 base_key 加密
         other_key = _derive_fernet_key_with_base("email", "totally-different-base-key-1234567890")

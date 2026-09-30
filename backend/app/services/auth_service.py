@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
 from app.core.config import settings
-from app.core.pii_crypto import compute_blind_index
+from app.core.pii_crypto import blind_index_candidates, compute_blind_index
 from app.core.security import (
     create_access_token,
     create_password_reset_token,
@@ -53,11 +53,16 @@ class AuthService:
 
     async def register(self, payload: RegisterRequest) -> dict:
         # PII 加密：使用 email_hash 盲索引进行唯一性检查（密文不可直接比较）
+        # RES-P1-014：查询用 blind_index_candidates 兼容未迁移的存量哈希，
+        # 写入用 compute_blind_index（归一化值），保证新数据统一。
         email_hash = compute_blind_index(payload.email, "email")
         stmt = (
             select(User)
             .options(load_only(User.id, User.username, User.email_hash))
-            .where((User.username == payload.username) | (User.email_hash == email_hash))
+            .where(
+                (User.username == payload.username)
+                | (User.email_hash.in_(blind_index_candidates(payload.email, "email")))
+            )
         )
         exists_user = (await self.db.execute(stmt)).scalar_one_or_none()
         if exists_user:
@@ -257,8 +262,10 @@ class AuthService:
 
     async def request_password_reset(self, email: str) -> None:
         # PII 加密：使用 email_hash 盲索引查询（密文不可直接比较）
-        email_hash = compute_blind_index(email, "email")
-        stmt = select(User).where(User.email_hash == email_hash)
+        # RES-P1-014：兼容未迁移的存量哈希，用候选集查询
+        stmt = select(User).where(
+            User.email_hash.in_(blind_index_candidates(email, "email"))
+        )
         user = (await self.db.execute(stmt)).scalar_one_or_none()
         if user is None:
             # 为了防止邮箱枚举，即使邮箱不存在也返回成功
@@ -288,10 +295,12 @@ class AuthService:
         # P0-D1 修复：email 已通过 EncryptedString 加密存储，密文具有随机性（Fernet IV），
         # 直接比较密文永远不相等，导致密码重置流程失效。
         # 改用盲索引（HMAC-SHA256）比较，盲索引是确定性的，可用于等值查询。
-        from app.core.pii_crypto import compute_blind_index
+        from app.core.pii_crypto import blind_index_candidates
 
-        expected_email_hash = compute_blind_index(payload.email, "email")
-        if user is None or user.email_hash != expected_email_hash:
+        # RES-P1-014：兼容未迁移的存量哈希（迁移完成后候选集退化为单值）
+        if user is None or user.email_hash not in blind_index_candidates(
+            payload.email, "email"
+        ):
             raise ValueError("用户信息不匹配")
         user.password_hash = get_password_hash(payload.new_password)
         # P1-SEC-003 修复：密码重置后撤销所有 refresh token，防止旧 token 继续使用
@@ -390,7 +399,10 @@ class AuthService:
         if payload.email is not None:
             # PII 加密：使用 email_hash 盲索引检查唯一性
             new_email_hash = compute_blind_index(payload.email, "email")
-            stmt = select(User).where(User.email_hash == new_email_hash, User.id != user_id)
+            stmt = select(User).where(
+                User.email_hash.in_(blind_index_candidates(payload.email, "email")),
+                User.id != user_id,
+            )
             existing = (await self.db.execute(stmt)).scalar_one_or_none()
             if existing is not None:
                 raise ValueError("邮箱已存在")

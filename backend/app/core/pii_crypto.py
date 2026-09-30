@@ -54,6 +54,33 @@ _FIELD_SALTS: dict[str, bytes] = {
     "emergency_phone": b"bysj-pii-emph-v1",
 }
 
+# 盲索引归一化策略：按字段声明「哪些差异应当被视为同一个值」。
+# 仅影响盲索引（等值查询 / 唯一约束），不影响 email/phone 明文的存储形态。
+_BLIND_INDEX_NORMALIZERS: dict[str, str] = {
+    # 邮箱的域名部分不区分大小写（RFC 5321 §2.4），本地部分依实现而定；
+    # 本站统一按全小写处理，避免 Alice@x.com 与 alice@x.com 生成两个不同盲索引。
+    "email": "email",
+}
+
+
+def _normalize_for_blind_index(plaintext: str, field: str) -> str:
+    """按字段策略归一化明文，再用于盲索引计算.
+
+    Args:
+        plaintext: 已确认非 None 的明文
+        field: 字段名
+
+    Returns:
+        归一化后的字符串。无归一化策略的字段原样返回。
+    """
+    strategy = _BLIND_INDEX_NORMALIZERS.get(field)
+    if strategy is None:
+        return plaintext
+    if strategy == "email":
+        # strip 消除首尾空白；casefold 比 lower 更适合 Unicode 大小写折叠
+        return plaintext.strip().casefold()
+    return plaintext
+
 
 def _derive_fernet_key(field: str) -> bytes:
     """基于主密钥派生字段级 Fernet 密钥 (HKDF)."""
@@ -423,6 +450,10 @@ def compute_blind_index(plaintext: str | None, field: str) -> str | None:
     - 字段级 salt 防止跨字段关联（如 email 和 phone 的哈希不同）
     - 主密钥泄露后哈希才会被暴力破解（需配合密钥轮换）
 
+    RES-P1-014 修复：计算前对明文做字段感知归一化（email: strip + casefold）。
+    归一化前的实现使 "Alice@x.com" 与 "alice@x.com" 产生两个不同盲索引，
+    导致同一邮箱可重复注册、且密码重置时按另一大小写形式查不到账号。
+
     Args:
         plaintext: 明文（None 返回 None）
         field: 字段名（用于 salt 派生）
@@ -432,6 +463,15 @@ def compute_blind_index(plaintext: str | None, field: str) -> str | None:
     """
     if plaintext is None or plaintext == "":
         return plaintext
+    return _hmac_blind_index(_normalize_for_blind_index(plaintext, field), field)
+
+
+def _hmac_blind_index(plaintext: str, field: str) -> str:
+    """盲索引底层实现：直接对给定明文做 HMAC，不做任何归一化.
+
+    仅供 compute_blind_index（归一化后调用）与 blind_index_candidates
+    （需额外计算历史未归一化值）使用。外部代码请调用 compute_blind_index。
+    """
     base = settings.pii_encryption_key
     if not base:
         # C-Core-1 修复：移除硬编码 fallback 密钥 "dev-only-fallback-key"。
@@ -448,6 +488,41 @@ def compute_blind_index(plaintext: str | None, field: str) -> str | None:
     return hmac.new(
         base.encode("utf-8"), salt + plaintext.encode("utf-8"), hashlib.sha256
     ).hexdigest()
+
+
+def blind_index_candidates(plaintext: str | None, field: str) -> list[str]:
+    """返回该明文在数据库中可能存在的盲索引取值（去重、保序）.
+
+    RES-P1-014 迁移兼容：归一化前写入的存量 email_hash 与归一化后的值不同。
+    读取侧若只按新值查询，未迁移的存量账号会静默查不到（密码重置失效）。
+    因此读取时同时匹配「归一化值」和「未归一化的历史值」；
+    待 scripts/normalize_email_blind_index.py 迁移完成后两者重合，自动退化为单值。
+
+    ⚠️ 覆盖范围有限（实测确认）：本函数只覆盖「用户输入的字面形式与注册时完全一致」
+    这一种情况。若用户注册时填 "Alice@x.com"、重置时输入 "alice@x.com"，
+    候选集为 [hmac("alice@x.com")]（两值重合退化），仍匹配不到存量行
+    hmac("Alice@x.com") —— 大小写变体组合随字符数指数增长，无法穷举。
+    因此本函数**只是迁移执行前的过渡兜底，不能替代迁移**。
+    存量数据必须经 scripts/normalize_email_blind_index.py 收敛后才能保证任意大小写命中。
+
+    Args:
+        plaintext: 明文（None 或空串返回空列表）
+        field: 字段名
+
+    Returns:
+        盲索引取值列表，长度 1 或 2。
+    """
+    if plaintext is None or plaintext == "":
+        return []
+    candidates: list[str] = []
+    for value in (
+        _normalize_for_blind_index(plaintext, field),
+        plaintext,
+    ):
+        blind_index = _hmac_blind_index(value, field)
+        if blind_index and blind_index not in candidates:
+            candidates.append(blind_index)
+    return candidates
 
 
 def ensure_pii_key() -> None:

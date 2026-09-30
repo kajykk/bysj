@@ -30,6 +30,13 @@ DWS 系统存储大量个人身份信息 (PII): 用户邮箱 (email)、手机号
   - 加密字段不能用作唯一约束 (密文非确定性);
   - 不能用 `LIKE` / `WHERE` 查询加密字段, 需先全量取出再内存过滤;
   - 跨密钥迁移数据时必须保留旧密钥直到全部重加密完成。
+- **盲索引归一化** (RES-P1-014, 2026-10-01 追加): `compute_blind_index` 对 email 做 `strip + casefold`
+  后再计算 HMAC, 使大小写/首尾空白变体映射到同一个 `email_hash` (此前 `Alice@x.com` 与
+  `alice@x.com` 是两个不同索引, 可重复注册、且密码重置按另一形式查不到账号)。
+  归一化策略按字段声明在 `_BLIND_INDEX_NORMALIZERS`, 仅作用于盲索引, **不改变明文存储形态**。
+  存量数据的 `email_hash` 需经 `scripts/normalize_email_blind_index.py` 重算收敛;
+  未迁移期间读取侧用 `blind_index_candidates` 双查兜底, 但**双查只覆盖「输入字面形式与注册时一致」**,
+  大小写不同仍会漏查 —— 迁移不可省略。
 
 ## 替代方案 (Alternatives Considered)
 1. **RSA / AES-GCM 非对称加密** — 用公钥加密、私钥解密。优点是公钥可分发到日志/导出服务; 缺点: RSA 性能差 (单次加密 ~1ms vs Fernet ~0.05ms), 密文膨胀大 (RSA-2048 加密手机号需 256 字节), 密钥管理 (私钥保护、证书链) 远比对称密钥复杂, 而本系统加解密在同一进程内完成, 无需分离密钥角色。
@@ -56,7 +63,10 @@ DWS 系统存储大量个人身份信息 (PII): 用户邮箱 (email)、手机号
 - 实现: `backend/app/core/pii_crypto.py` (Fernet + HKDF 字段级派生 + 多代密钥回退)
 - 配置: `backend/app/core/config.py` (`pii_encryption_key` / `pii_previous_keys` 字段, 第 277 行)
 - 轮换脚本: `backend/scripts/rotate_pii_keys.py`
+- 盲索引归一化迁移脚本: `backend/scripts/normalize_email_blind_index.py` (RES-P1-014)
 - SOP: `docs/ops/secrets-rotation-sop.md`
-- 测试: `backend/tests/test_gdpr_pii.py`, `backend/tests/test_pii_key_rotation.py`
+- 测试: `backend/tests/test_gdpr_pii.py`, `backend/tests/test_pii_key_rotation.py`,
+  `backend/tests/test_pii_crypto_helpers.py` (`TestBlindIndexNormalization`),
+  `backend/tests/test_normalize_email_blind_index.py`
 - 迁移: `backend/alembic/versions/h9d4e5f6a7b8_add_pii_encryption_email_hash.py` (引入加密字段 + email_hash 索引列)
 - 相关 ADR: ADR-010 (Alembic 迁移 — PII 加密字段通过版本化迁移引入)
