@@ -134,6 +134,45 @@
               {{ t('structuredAssess.confidenceBandLabel') }}{{ confidenceLabel(modelTabResult.routing_info.prediction_confidence_band) }}
             </p>
           </div>
+          <div
+            v-if="modelTabResult"
+            class="experimental-ref"
+          >
+            <el-divider style="margin: 8px 0" />
+            <el-tag
+              type="info"
+              size="small"
+              effect="plain"
+            >
+              {{ t('structuredAssess.experimentalTitle') }}
+            </el-tag>
+            <p
+              v-if="hasAnyExperimentalField"
+              style="margin-top: 6px"
+            >
+              <template v-if="modelTabResult.experimental_external_score != null">
+                {{ t('structuredAssess.experimentalScoreLabel') }}{{ formatScore(modelTabResult.experimental_external_score) }}<br>
+                {{ t('structuredAssess.experimentalDeltaLabel') }}{{ formatDelta(modelTabResult.experimental_external_delta) }}<br>
+              </template>
+              <template v-if="modelTabResult.experimental_external_model">
+                {{ t('structuredAssess.experimentalModelLabel') }}{{ modelTabResult.experimental_external_model }}<br>
+              </template>
+              <template v-if="modelTabResult.adjusted_score != null">
+                {{ t('structuredAssess.adjustedScoreLabel') }}{{ formatScore(modelTabResult.adjusted_score) }}<br>
+                {{ t('structuredAssess.adjustedDeltaLabel') }}{{ formatDelta(modelTabResult.adjusted_delta) }}<br>
+              </template>
+              <template v-if="modelTabResult.adapter_version">
+                {{ t('structuredAssess.adapterVersionLabel') }}{{ modelTabResult.adapter_version }}<br>
+              </template>
+            </p>
+            <el-alert
+              v-else
+              type="info"
+              :closable="false"
+              show-icon
+              :title="t('structuredAssess.experimentalUnavailable')"
+            />
+          </div>
         </el-card>
       </el-col>
       <el-col :span="12">
@@ -236,6 +275,28 @@ function safetyFlagLabel(flag: string): string {
 const showCrisisHint = computed(
   () => !!(props.modelTabResult?.requires_human_review || (props.modelTabResult?.risk_level ?? 0) >= 3)
 )
+
+// 实验对照可用性：任一实验字段非空即展示数值，否则展示降级文案
+const hasAnyExperimentalField = computed(() => {
+  const r = props.modelTabResult
+  if (!r) return false
+  return (
+    r.experimental_external_score != null ||
+    r.experimental_external_model != null ||
+    r.adjusted_score != null ||
+    r.adapter_version != null
+  )
+})
+
+function formatScore(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return t('structuredAssess.notAvailable')
+  return value.toFixed(2)
+}
+
+function formatDelta(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return t('structuredAssess.notAvailable')
+  return (value >= 0 ? '+' : '') + value.toFixed(2)
+}
 
 const copyJson = async (value: unknown) => {
   try {

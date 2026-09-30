@@ -41,6 +41,21 @@
           >
             {{ t('userRisk.btnFusion') }}
           </el-button>
+          <el-button
+            :disabled="!hasLatestData || submitting"
+            style="margin-left: 8px"
+            @click="() => emit('fill-latest')"
+          >
+            {{ t('userRisk.fusionFillLatest') }}
+          </el-button>
+        </el-form-item>
+        <el-form-item v-if="!result">
+          <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+            :title="t('userRisk.fusionReadyHint', { done: readyCount, total: 3 })"
+          />
         </el-form-item>
       </el-form>
     </el-card>
@@ -143,6 +158,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FusionPredictResult } from '@/api/modelApi'
 import { formatArrayText, featureLabel, severityFromLevel } from '@/utils/riskFormatters'
@@ -155,16 +171,30 @@ interface Props {
   }
   submitting: boolean
   result: FusionPredictResult | null
+  /** 各模态最近提交就绪态，用于展示自动融合进度 */
+  readiness: {
+    structured: boolean
+    text: boolean
+    physiological: boolean
+  }
+  /** 是否有可填入的最近评估数据 */
+  hasLatestData: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   submit: [auto: boolean]
+  'fill-latest': []
   'update:model': [patch: Partial<{ text: string; featuresJson: string; physiologicalJson: string }>]
 }>()
 
 const { t } = useI18n()
+
+// OPT: 自动融合进度 = 已完成模态数 / 3，引导用户补齐剩余模态
+const readyCount = computed(
+  () => [props.readiness.structured, props.readiness.text, props.readiness.physiological].filter(Boolean).length
+)
 </script>
 
 <style scoped>

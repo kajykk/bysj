@@ -1,0 +1,3 @@
+# 容器内挂载执行的脚本必须为 LF，CRLF 会导致 /bin/sh 解析失败
+# （2026-09-24：infra/grafana/init-alerting.sh 曾因 CRLF 使 dws-grafana 无限重启）
+*.sh text eol=lf

@@ -310,17 +310,26 @@ const submitStructured = async () => {
   try {
     const dataPayload = buildStructuredFeatures()
 
-    try {
-      modelTabResult.value = await modelApi.predictTabularModel(dataPayload)
-    } catch (error) {
+    // OPT: 模型预测与业务结果保存相互独立，并行发起，总耗时由串行之和降为两者最大值
+    const [modelOutcome, collectOutcome] = await Promise.allSettled([
+      modelApi.predictTabularModel(dataPayload),
+      userApi.collectStructuredData({
+        assessment_type: 'comprehensive',
+        data_payload: dataPayload
+      })
+    ])
+
+    if (modelOutcome.status === 'fulfilled') {
+      modelTabResult.value = modelOutcome.value
+    } else {
       modelTabResult.value = null
-      console.warn('结构化模型预测接口调用失败，继续保存评估结果', error)
+      console.warn('结构化模型预测接口调用失败，继续保存评估结果', modelOutcome.reason)
     }
 
-    const result = await userApi.collectStructuredData({
-      assessment_type: 'comprehensive',
-      data_payload: dataPayload
-    })
+    if (collectOutcome.status === 'rejected') {
+      throw collectOutcome.reason
+    }
+    const result = collectOutcome.value
     structuredResult.value = result
 
     // P1-5 埋点与隐私：记录完成评估事件（仅采集风险等级，不采集评估内容）

@@ -55,8 +55,11 @@
           :model="fusionForm"
           :submitting="fusionSubmitting"
           :result="fusionResult"
+          :readiness="autoFusionReady"
+          :has-latest-data="hasAnyLatestData"
           @update:model="(patch) => Object.assign(fusionForm, patch)"
           @submit="(auto: boolean) => submitFusion(auto, !auto)"
+          @fill-latest="handleFillLatest"
         />
       </el-tab-pane>
 
@@ -208,23 +211,24 @@ const reportTrendData = ref<RiskTrend>({ days: 30, direction: 'stable', points: 
 const loadReport = async () => {
   reportLoading.value = true
   reportError.value = ''
-  try {
-    report.value = await modelApi.getRiskReport()
-  } catch (error) {
-    reportError.value = normalizeHttpError(error, t('userRisk.reportLoadFailed')).detail
-  } finally {
-    if (!isUnmounted) {
-      reportLoading.value = false
-    }
-  }
-  // 趋势数据单独获取，失败时使用空趋势占位，不影响报告主流程
+  // OPT: 报告主体与趋势数据相互独立，并行获取；趋势失败仅占位，不影响主流程
+  const [reportOutcome, trendOutcome] = await Promise.allSettled([
+    modelApi.getRiskReport(),
+    modelApi.getRiskTrend(30)
+  ])
   if (isUnmounted) return
-  try {
-    const trendResult = await modelApi.getRiskTrend(30)
-    if (isUnmounted) return
-    reportTrendData.value = trendResult
-  } catch (error) {
-    console.warn('风险趋势接口调用失败，使用空趋势图占位', error)
+  if (reportOutcome.status === 'fulfilled') {
+    report.value = reportOutcome.value
+  } else {
+    reportError.value = normalizeHttpError(reportOutcome.reason, t('userRisk.reportLoadFailed')).detail
+  }
+  if (trendOutcome.status === 'fulfilled') {
+    reportTrendData.value = trendOutcome.value
+  } else {
+    console.warn('风险趋势接口调用失败，使用空趋势图占位', trendOutcome.reason)
+  }
+  if (!isUnmounted) {
+    reportLoading.value = false
   }
 }
 
@@ -277,6 +281,17 @@ const syncFusionInputsFromLatest = () => {
   }
 }
 
+// OPT: 是否有可填入的最近评估数据（任一模态提交过即为 true）
+const hasAnyLatestData = computed(
+  () => !!(latestTextContent.value || latestStructuredData.value || latestPhysioData.value)
+)
+
+// OPT: 手动一键填入最近评估数据，复用自动融合的同步逻辑
+const handleFillLatest = () => {
+  syncFusionInputsFromLatest()
+  ElMessage.success(t('userRisk.fusionFillLatestSuccess'))
+}
+
 const maybeAutoSubmitFusion = async () => {
   if (!autoFusionReady.structured || !autoFusionReady.text || !autoFusionReady.physiological) return false
   if (fusionSubmitting.value) return false
@@ -291,10 +306,24 @@ const submitFusion = async (auto = false, refreshReport = true) => {
     syncFusionInputsFromLatest()
   }
 
+  // OPT: 提交前本地校验 JSON，格式错误直接提示字段级原因，避免后端 422 往返
+  let features: Record<string, unknown>
+  let physiological: Record<string, unknown>
+  try {
+    features = JSON.parse(fusionForm.featuresJson || '{}')
+  } catch {
+    ElMessage.error(t('userRisk.fusionInvalidFeaturesJson'))
+    return
+  }
+  try {
+    physiological = JSON.parse(fusionForm.physiologicalJson || '{}')
+  } catch {
+    ElMessage.error(t('userRisk.fusionInvalidPhysioJson'))
+    return
+  }
+
   fusionSubmitting.value = true
   try {
-    const features = JSON.parse(fusionForm.featuresJson || '{}')
-    const physiological = JSON.parse(fusionForm.physiologicalJson || '{}')
     fusionResult.value = await modelApi.predictFusionModel({ features, text: fusionForm.text, physiological })
     // 检测到危机覆盖时自动弹出预警弹窗
     if (fusionResult.value?.crisis_override) {

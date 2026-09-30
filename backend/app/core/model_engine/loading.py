@@ -104,6 +104,21 @@ def _compute_file_sha256(file_path: Path) -> str:
     return sha.hexdigest()
 
 
+def _incr_model_fallback(model: str, reason: str) -> None:
+    """P0 (2026-09-24): 记录一次模型降级事件。
+
+    降级此前只写日志，Grafana 无法感知"模型其实没在工作"。此处统一递增
+    `model_fallback_total{model,reason}`，失败本身不影响调用方流程。
+    """
+    try:
+        from app.core.metrics import model_fallback_total
+
+        model_fallback_total.inc(model=model, reason=reason)
+    except Exception:
+        # 指标不可用时不影响主流程（如测试环境未初始化 registry）
+        logger.debug("model_fallback_total inc failed (model=%s reason=%s)", model, reason, exc_info=True)
+
+
 class LoadingMixin:
     """模型加载与 LRU 缓存方法集合.
 
@@ -148,8 +163,12 @@ class LoadingMixin:
         if raw.is_absolute():
             return raw
 
+        # P0 修复 (2026-09-24): 候选路径优先级重排 —— 显式配置与后端内置
+        # 目录优先，CWD 相对路径垫底。
+        # 背景：仓库根存在陈旧的训练期影子 models/（如 models/text 下的旧版
+        # 双语模型），从仓库根启动时 raw（CWD 相对）会先命中影子文件，
+        # 导致生产模型被静默替换为不可反序列化的旧产物。
         candidate_paths: list[Path] = []
-        candidate_paths.append(raw)
 
         model_dir = Path(settings.model_dir)
         if raw.parts and raw.parts[0] == "models":
@@ -164,11 +183,14 @@ class LoadingMixin:
         else:
             candidate_paths.append(backend_root / "models" / raw)
 
+        # CWD 相对路径仅作最后兜底
+        candidate_paths.append(raw)
+
         for p in candidate_paths:
             if p.exists():
                 return p
 
-        return candidate_paths[1]
+        return candidate_paths[0]
 
     def _load_adapter(self) -> Any:
         try:
@@ -183,16 +205,33 @@ class LoadingMixin:
                 from app.core.safe_pickle import safe_joblib_load
 
                 models_root = Path(__file__).resolve().parents[3] / "models"
-                adapter = safe_joblib_load(
-                    adapter_pkl,
-                    trusted_root=models_root,
-                    model_id="v1.24_adapter",
-                )
-                logger.info(
-                    "v1.24 adapter loaded from pkl (version=%s)",
-                    getattr(adapter, "version", "unknown"),
-                )
-                return adapter
+                try:
+                    # P0 修复 (2026-09-24): score_adapter.pkl 系训练脚本上下文
+                    # （__main__.ScoreAdapter）直接 pickle，unpickle 时需先在
+                    # __main__ 注册同名类别名，否则 AttributeError。
+                    import sys as _sys
+
+                    from app.core.score_adapter import ScoreAdapter as _ScoreAdapterForPickle
+
+                    _main = _sys.modules.get("__main__")
+                    if _main is not None and not hasattr(_main, "ScoreAdapter"):
+                        _main.ScoreAdapter = _ScoreAdapterForPickle  # type: ignore[attr-defined]
+                    adapter = safe_joblib_load(
+                        adapter_pkl,
+                        trusted_root=models_root,
+                        model_id="v1.24_adapter",
+                    )
+                    logger.info(
+                        "v1.24 adapter loaded from pkl (version=%s)",
+                        getattr(adapter, "version", "unknown"),
+                    )
+                    return adapter
+                except Exception as pkl_exc:
+                    # pkl 反序列化失败时不直接放弃，继续走 config.json 动态构建
+                    logger.warning(
+                        "v1.24 adapter pkl load failed, falling back to config.json: %s",
+                        pkl_exc,
+                    )
 
             if adapter_config.exists():
                 # S-02: 从 config.json 动态构建 ScoreAdapter
@@ -215,6 +254,7 @@ class LoadingMixin:
             )
             return None
         except Exception as exc:
+            _incr_model_fallback("v1.24_adapter", "load_failed")
             logger.warning("Failed to load v1.24 adapter: %s", exc)
             return None
 
@@ -300,6 +340,7 @@ class LoadingMixin:
                     precomputed_hash=file_hash,
                 )
             except Exception as exc:
+                _incr_model_fallback(model_id, "load_failed")
                 raise ValueError(f"Failed to load model {model_id}: corrupted or invalid file") from exc
         elif model_path.suffix == ".keras":
             import tensorflow as tf

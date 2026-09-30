@@ -1,0 +1,48 @@
+{
+  "acc": {
+    "point": 0.8992,
+    "ci95": [
+      0.8489,
+      0.9496
+    ]
+  },
+  "prec": {
+    "point": 0.9318,
+    "ci95": [
+      0.8491,
+      1.0
+    ]
+  },
+  "rec": {
+    "point": 0.7884,
+    "ci95": [
+      0.6724,
+      0.8958
+    ]
+  },
+  "f1": {
+    "point": 0.8527,
+    "ci95": [
+      0.7692,
+      0.9231
+    ]
+  },
+  "roc_auc": {
+    "point": 0.9652961980548187,
+    "ci95": [
+      0.9295,
+      1.0
+    ],
+    "method": "Hanley-McNeil SE (no per-sample scores persisted)"
+  },
+  "meta": {
+    "n": 139,
+    "TP": 41,
+    "FP": 3,
+    "FN": 11,
+    "TN": 84,
+    "bootstrap_B": 10000,
+    "seed": 42,
+    "note": "threshold-metric CIs are nonparametric bootstrap; AUC CI is Hanley-McNeil"
+  }
+}
