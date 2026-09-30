@@ -75,6 +75,11 @@ outputs/
 *.bmp
 *.tiff
 *.ico
+
+# AUDIT-2026-09-30: 论文/答辩材料中的图表需入库 —— docs/model-evaluation/README.md
+# 直接引用这些 png（论文第 4 章用图），被上面的 *.png 一并挡掉会造成"clone 后图缺失"。
+# 只对这一个目录开例外，不放开全局图片规则。
+!/docs/model-evaluation/*.png
 *.svg
 *.webp
 # 例外：保留 frontend 必需的图标资源
