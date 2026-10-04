@@ -65,6 +65,18 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
 
+      - name: Generate E2E seed passwords
+        # AUDIT-2026-10-01：原实现在此硬编码 ***REMOVED*** 等三个口令，随仓库历史公开等同已泄露。
+        # 改为每次 CI 随机生成：仓库零明文口令，且不需要额外配置 GitHub secrets
+        # （种子账号只在本次 CI 内部使用，无需固定值）。
+        # 写入 $GITHUB_ENV 后，对后续所有 step 可见 —— 后端 seed 与 Playwright 读到的是同一组值。
+        run: |
+          {
+            echo "E2E_ADMIN_PASSWORD=$(openssl rand -base64 24)"
+            echo "E2E_COUNSELOR_PASSWORD=$(openssl rand -base64 24)"
+            echo "E2E_USER_PASSWORD=$(openssl rand -base64 24)"
+          } >> "$GITHUB_ENV"
+
       - name: Start backend (production-like)
         working-directory: backend
         run: |
@@ -77,9 +89,7 @@ jobs:
           MODEL_DIR: ${{ github.workspace }}/models
           # E2E 修复: enable_seed 默认 False, 未开启时无种子账户, 所有登录相关测试必挂
           ENABLE_SEED: true
-          E2E_ADMIN_PASSWORD: ***REMOVED***
-          E2E_COUNSELOR_PASSWORD: ***REMOVED***
-          E2E_USER_PASSWORD: ***REMOVED***
+          # E2E_*_PASSWORD 由上方 "Generate E2E seed passwords" step 注入（随机值）
 
       - name: Wait for backend healthy
         run: |
