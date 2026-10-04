@@ -60,13 +60,19 @@ class TestV121RegistryCleanup:
         """注册表条目数应为 S-03 清理后的净结果."""
         # 清理前 33 个 (含 v1.21 的 7 个); S-03 清理后 26 个.
         # v1.27 新增 2 个: mmpsy_lite_calibrator / mmpsy_lite_calibrator_meta
-        # (lite LR 概率校准层产物) → 当前 28 个.
-        assert len(MODEL_REGISTRY) == 28, (
-            f"MODEL_REGISTRY 应有 28 个条目, 实际 {len(MODEL_REGISTRY)}"
+        # (lite LR 概率校准层产物) → 28 个.
+        # AUDIT-2026-10-04 (P0-1 BERT 权重归档): 再减 1 个 —— text_bert_classifier
+        # 注册条目随权重一并移除（产物已归档到 models/_archive/bert_text_classifier_20261004/，
+        # 生产文本主路径为双语 TF-IDF + LR）→ 当前 27 个。
+        assert len(MODEL_REGISTRY) == 27, (
+            f"MODEL_REGISTRY 应有 27 个条目, 实际 {len(MODEL_REGISTRY)}"
         )
-        assert len(MODEL_PATHS) == 28, (
-            f"MODEL_PATHS 应有 28 个条目, 实际 {len(MODEL_PATHS)}"
+        assert len(MODEL_PATHS) == 27, (
+            f"MODEL_PATHS 应有 27 个条目, 实际 {len(MODEL_PATHS)}"
         )
+        # 顺带锁住「BERT 确已下线」: 归档后两处都不应再有该 id
+        assert "text_bert_classifier" not in MODEL_PATHS
+        assert "text_bert_classifier" not in MODEL_REGISTRY
 
 
 # 归档目录 backend/models/_archive 被 gitignore (backend/models/*), CI 检出不含模型产物.
