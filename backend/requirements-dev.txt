@@ -6,20 +6,23 @@ pytest>=8.3.0,<10.0.0
 pytest-asyncio>=0.25.0
 pytest-cov>=6.0.0
 pytest-timeout>=2.3.0
-httpx>=0.27.0,<0.29.0  # For FastAPI TestClient; 上界 0.29 防 0.28+ 破坏 starlette_testclient._ASGIAdapter
+httpx>=0.27.0,<0.29.0  # For FastAPI TestClient; 上界 0.29 与本地实测兼容版本对齐
 
 # Version compatibility checks
 packaging>=24.0  # For sklearn/model version parsing
 
 # Contract Testing
-schemathesis>=4.16.0,<5.0.0
+# CI-AUDIT-2026-10-02: schemathesis 上界钉 <4.17 —— >=4.17 的 RequestsTransport.send
+# 新增 _count_opened_connections()，遍历 adapter.poolmanager*.values() 做重试判定；
+# tests/contract/conftest.py 复用 starlette_testclient.TestClient 作为 session
+# （其 _ASGIAdapter 重写 __init__ 不建 poolmanager），触发
+# AttributeError: '_ASGIAdapter' object has no attribute 'poolmanager'（CI 200 例全挂）。
+# 已在本地实测 schemathesis==4.16.1 + pytest 8.x 全量 269 passed。
+schemathesis>=4.16.0,<4.17.0
 hypothesis>=6.152.0
 # tests/contract/conftest.py 直接 import starlette_testclient (requests 风格的 TestClient,
 # 供 Schemathesis RequestsTransport 复用 session)。它曾是 schemathesis 的传递依赖,
 # 但 schemathesis 新版已移除该依赖, 必须在此显式声明, 否则 CI 报 ModuleNotFoundError。
-# CI-AUDIT-2026-10-02: 上界钉 <0.5 — 0.4.x 的 _ASGIAdapter.send 不访问 poolmanager,
-# 新版(>=0.5)在 requests/httpx 组合下访问 self.poolmanager -> AttributeError
-# ('_ASGIAdapter' object has no attribute 'poolmanager')。已与本地实测兼容组合对齐。
 starlette-testclient>=0.4.1,<0.5.0
 
 # E2E Testing (optional, mainly for frontend)
