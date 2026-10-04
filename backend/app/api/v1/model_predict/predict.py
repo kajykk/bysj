@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.db_breaker import CircuitBreakerOpenError
+from app.core.exceptions import ModelException
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
@@ -117,6 +118,11 @@ async def predict_tabular(
         except FileNotFoundError as exc:
             logger.error("表格预测模型加载失败: %s", exc)
             raise HTTPException(status_code=503, detail="模型服务暂时不可用") from exc
+        except ModelException as exc:
+            logger.error("表格预测模型异常: %s", exc)
+            raise HTTPException(
+                status_code=exc.status_code, detail=exc.message
+            ) from exc
         except Exception as exc:
             logger.error("表格预测失败: %s", exc)
             raise HTTPException(
@@ -162,6 +168,11 @@ async def predict_text(
         except FileNotFoundError as exc:
             logger.error("文本预测模型加载失败: %s", exc)
             raise HTTPException(status_code=503, detail="模型服务暂时不可用") from exc
+        except ModelException as exc:
+            logger.error("文本预测模型异常: %s", exc)
+            raise HTTPException(
+                status_code=exc.status_code, detail=exc.message
+            ) from exc
         except Exception as exc:
             logger.error("文本预测失败: %s", exc)
             raise HTTPException(
@@ -227,6 +238,11 @@ async def predict_physiological(
         except FileNotFoundError as exc:
             logger.error("生理预测模型加载失败: %s", exc)
             raise HTTPException(status_code=503, detail="模型服务暂时不可用") from exc
+        except ModelException as exc:
+            logger.error("生理预测模型异常: %s", exc)
+            raise HTTPException(
+                status_code=exc.status_code, detail=exc.message
+            ) from exc
         except Exception as exc:
             logger.error("生理预测失败: %s", exc)
             raise HTTPException(status_code=422, detail="预测失败，请检查输入") from exc
@@ -275,6 +291,11 @@ async def predict_fusion(
         except FileNotFoundError as exc:
             logger.error("融合预测模型加载失败: %s", exc)
             raise HTTPException(status_code=503, detail="模型服务暂时不可用") from exc
+        except ModelException as exc:
+            logger.error("融合预测模型异常: %s", exc)
+            raise HTTPException(
+                status_code=exc.status_code, detail=exc.message
+            ) from exc
         except Exception as exc:
             logger.error("融合预测失败: %s", exc)
             raise HTTPException(
