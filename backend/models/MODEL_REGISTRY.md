@@ -42,15 +42,28 @@
 金丝雀流量分配与自动回滚、NumPy SMOTE、McNemar/Bonferroni 统计检验、
 SHAP 近似可解释、实验管理服务群。运行期 `/health` 中 `models: ok` 即全部产物加载成功。
 
-## 6. 2026-10-04 决策：模型镜像**不引入** transformers
+## 6. 2026-10-04 决策：模型镜像**不新增** transformers（**不卸载**）
 
-**结论：不装。**（结束此前「装不装」的悬置状态）
+> ⚠️ 2026-10-04 复核修正：本节初版曾断言「`requirements.txt`/`requirements.lock` 均无
+> transformers」——**该断言错误且未经验证**。实测：`requirements.txt:34` 已声明
+> `transformers>=5.3.0`，且被生产代码真实 import（见下表）。决策已按事实重写。
 
-| 项 | 事实 |
+| 项 | 事实（2026-10-04 实测） |
 |---|---|
-| 理由 1 | BERT 已下线：`text_bert_classifier` 注册条目与权重（`backend/models/_archive/bert_text_classifier_20261004/`，从未被 git 跟踪，仅 6.8KB 占位产物）同日归档 |
-| 理由 2 | 生产文本主路径是**双语 TF-IDF + LR**（`text_improved_bilingual_*`），不依赖 transformers |
-| 理由 3 | 装 transformers 只增镜像体积与供应链攻击面，对当前指标**零收益**（`requirements.txt` / `requirements.lock` 均无 transformers） |
-| 替代路线 | 长文本能力的实质升级走 **P2-1 句向量升级立项**（paraphrase-multilingual-MiniLM 等 sentence-transformers 路线）；**涨点才换，不涨不换** |
+| 依赖现状 | `requirements.txt:34` 已声明 `transformers>=5.3.0`（非新增，非本轮引入） |
+| 生产代码 import 面 | `app/services/experiment_trainer.py:43`、`app/services/experiment_evaluator.py:72`（用户实验页的训练/评估）、`app/core/model_engine/loading.py:409/461/467/473`（BERT 加载分支）、`app/core/text_m2_bert_predictor.py:62` |
+| 降级机制 | `app/core/config.py:42-75` 有 `TRANSFORMERS_AVAILABLE`（`importlib.util.find_spec` 探测）+ 各调用点惰性 import → 缺包时优雅降级，不硬崩 |
+| **决策** | **不新增**（维持现状，零新增依赖）**、不卸载** |
+| 不卸载的理由 | ①卸载会直接破坏用户实验页的 BERT 训练/评估功能（`ExperimentTab.vue:337/354` 显式传 `text_bert_classifier`，走 `experiment_trainer/evaluator`）；②代码已做优雅降级，保留的运行成本可控；③移除能否显著缩小镜像**未实测**（PyPI 不可达，无法构建镜像对比）——不做无证据的优化 |
 
-复核口径：`grep -rn "transformers" backend/requirements*.txt backend/requirements*.lock Dockerfile*` 应无命中（BERT 量化实验脚本 `scripts/p2_bert_quantization.py` 属离线实验工具，不入镜像）。
+**衍生后果（须知晓）**：BERT 权重已于同日归档（§3、§4），因此实验页的 BERT 训练即使跑通，
+产物落在 `models/text/bert_text_classifier/` 也**无法被加载**——`text_bert_classifier` 注册条目
+已从 `MODEL_PATHS` 移除，`model_engine/loading.py:311` 会以「未注册」拒绝。若要恢复 BERT
+训练能力，需**同时**恢复注册条目 + 产物目录（或改走 P2-1 句向量路线）。是否禁用实验页的
+BERT 入口属产品决策，未擅自改动。
+
+**真实复核口径**（预期为「有命中」，用于确认依赖仍被使用）：
+```bash
+grep -rn "transformers" backend/requirements.txt backend/requirements.lock   # 应有命中（依赖声明）
+grep -rn "^\s*\(import transformers\|from transformers\)" backend/app        # 应有命中（实验与 BERT 加载路径）
+```

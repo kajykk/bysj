@@ -28,6 +28,10 @@ redis>=5.0.4
 requests>=2.33.0  # SEC-B: 修复 CVE-2026-25645; app.monitoring.{notifier,am_sync,alerting} 顶层 import
 celery>=5.4.0
 scikit-learn>=1.5.0,<2.0.0
+# httpx 双版本消除（2026-10-04 P1-3 复核）：此前 httpx 只是传递依赖，镜像按 lock 装 0.25.2、
+# 而 CI/本地按 requirements-dev.txt 装 0.28.x——两套组合并存。显式钉成与 dev 同口径，
+# 上界 <0.29 是实测兼容区间（starlette TestClient 在 httpx 0.28 移除了 app= 参数）。
+httpx>=0.27.0,<0.29.0
 scipy>=1.11.0
 tensorflow>=2.21.0
 torch>=2.2.0

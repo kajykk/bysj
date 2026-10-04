@@ -3,6 +3,9 @@
     # 2026-10-04 复核：已知本文件与 requirements*.txt 有漂移（schemathesis/httpx/scikit-learn），
     # 台账与根治建议见 docs/ops/DEPENDENCY_LOCK_NOTES.md；CI 测试不装本文件（只 requirements*.txt）。
     # 注意：uv pip compile 重生成会覆盖以下人工注释。
+    # 2026-10-04 追加：requirements.txt 已显式钉 httpx>=0.27.0,<0.29.0（消除镜像/测试双版本），
+    # 但本 lock 尚未重生成（生成需联网，PyPI 在本机不可达；uv 离线缓存元数据不全）。
+    # 因此 lock 内仍钉 httpx==0.25.2 —— 需在有网环境执行文件头部的 uv pip compile 命令后消除。
 annotated-doc==0.0.4
     # via typer
 annotated-types==0.7.0
