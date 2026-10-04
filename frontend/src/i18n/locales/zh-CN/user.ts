@@ -962,6 +962,8 @@ panelTitle: '模型评估面板',
     trainBtn: '训练 BERT',
     evaluateBtn: '验证集概览',
     compareBtn: '对比概览',
+    // AUDIT-2026-10-04 (P0-1 衍生): BERT 权重已归档、注册条目移除, 入口禁用
+    bertDisabled: 'BERT 实验入口已下线（权重已归档），请使用双语 TF-IDF + LR 模型',
     progressLabel: '{action}中...',
     templateTitle: '标准 CSV 模板说明',
     templateAlertTitle: '至少包含 text 与 label 两列，label 为 0/1 二分类标签。',

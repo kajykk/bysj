@@ -61,7 +61,7 @@
       <el-form-item :label="t('userModelTraining.formLabelModel')">
         <el-input
           v-model="form.model_name"
-          placeholder="text_bert_classifier"
+          placeholder="text_depression_model"
         />
       </el-form-item>
       <el-form-item :label="t('userModelTraining.formLabelEpochs')">

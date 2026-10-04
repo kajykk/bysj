@@ -73,24 +73,46 @@ describe('ExperimentTab', () => {
     expect(setOptionMock).not.toHaveBeenCalled()
   })
 
-  it('训练后应初始化图表且卸载时释放', async () => {
-    trainModelMock.mockResolvedValue({
-      train_loss: [0.5],
-      val_loss: [0.4],
-      val_accuracy: [0.85],
-      status: 'ok',
-      trainer_log_history: [],
-      eval_history: [],
-    })
+  it('BERT 入口禁用: 训练/评估按钮不可点且不发起请求', async () => {
+    // AUDIT-2026-10-04 (P0-1 衍生): BERT 权重已归档、注册条目移除, 训练/评估必然失败。
+    // 入口显式禁用 -> 按钮 disabled, 点击不调用 trainModel/evaluateModel。
     const wrapper = mount(ExperimentTab, mountOptions)
     await flushPromises()
     const trainBtn = wrapper.findAll('button').find(b => b.text().includes('训练 BERT'))
+    const evalBtn = wrapper.findAll('button').find(b => b.text().includes('验证集概览'))
     expect(trainBtn).toBeTruthy()
+    expect(evalBtn).toBeTruthy()
+    // Element Plus 渲染为 disabled=""（空字符串，falsy），故断言属性**存在**而非取真值
+    expect('disabled' in trainBtn!.attributes()).toBe(true)
+    expect('disabled' in evalBtn!.attributes()).toBe(true)
     await trainBtn!.trigger('click')
+    await evalBtn!.trigger('click')
     await flushPromises()
-    // 训练完成后应初始化图表并调用 setOption
-    expect(setOptionMock).toHaveBeenCalled()
-    // 卸载时应释放图表
+    expect(trainModelMock).not.toHaveBeenCalled()
+    expect(evaluateModelMock).not.toHaveBeenCalled()
+  })
+
+  it('对比动作仍可用且会初始化图表, 卸载时释放', async () => {
+    // 覆盖图表生命周期: 走未被禁用的「对比概览」, 避免依赖已下线的 BERT 训练
+    // applyCompareResult 取 res.results（不是 models）
+    compareModelsMock.mockResolvedValue({
+      results: [
+        { model_name: 'text_depression_model', accuracy: 0.86, f1: 0.83 },
+        { model_name: 'fusion_dnn_best', accuracy: 0.84, f1: 0.81 },
+      ],
+      status: 'ok',
+    })
+    const wrapper = mount(ExperimentTab, mountOptions)
+    await flushPromises()
+    const cmpBtn = wrapper.findAll('button').find(b => b.text().includes('对比概览'))
+    expect(cmpBtn).toBeTruthy()
+    expect(cmpBtn!.attributes('disabled')).toBeFalsy()
+    await cmpBtn!.trigger('click')
+    await flushPromises()
+    expect(compareModelsMock).toHaveBeenCalled()
+    // 对比列表不应再包含已归档的 BERT 模型
+    const payload = compareModelsMock.mock.calls[0][0] as { model_names: string[] }
+    expect(payload.model_names).not.toContain('text_bert_classifier')
     wrapper.unmount()
     expect(disposeMock).toHaveBeenCalled()
   })
@@ -101,7 +123,7 @@ describe('ExperimentTab', () => {
     expect(wrapper.text()).not.toContain('训练损失')
   })
 
-  it('点击训练按钮应调用 trainModel 接口', async () => {
+  it('BERT 入口禁用时不再调用 trainModel（权重已归档）', async () => {
     trainModelMock.mockResolvedValue({
       train_loss: [0.5],
       val_loss: [0.4],
@@ -116,6 +138,7 @@ describe('ExperimentTab', () => {
     expect(trainBtn).toBeTruthy()
     await trainBtn!.trigger('click')
     await flushPromises()
-    expect(trainModelMock).toHaveBeenCalled()
+    // 入口禁用: 不发请求, 避免用户点了才收到「未注册」报错
+    expect(trainModelMock).not.toHaveBeenCalled()
   })
 })

@@ -962,6 +962,8 @@ panelTitle: 'Model Evaluation Panel',
     trainBtn: 'Train BERT',
     evaluateBtn: 'Validation Overview',
     compareBtn: 'Comparison Overview',
+    // AUDIT-2026-10-04 (P0-1 follow-up): BERT weights archived, registry entry removed
+    bertDisabled: 'BERT experiment entry is disabled (weights archived); use bilingual TF-IDF + LR instead',
     progressLabel: '{action} in progress...',
     templateTitle: 'Standard CSV Template Description',
     templateAlertTitle: 'Must contain at least text and label columns, label is 0/1 binary classification.',

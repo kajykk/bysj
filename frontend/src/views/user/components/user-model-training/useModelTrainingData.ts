@@ -42,9 +42,11 @@ export function useModelTrainingData() {
   const activeJob = ref<ActiveJob | null>(null)
   let jobPollTimer: number | undefined
   // ISS-001 修复：训练参数改为表单可配置，epochs 默认 3（原硬编码 epochs=1 几乎无法收敛）
+  // AUDIT-2026-10-04: 默认模型名由 text_bert_classifier 改为现役的 text_depression_model
+  // （BERT 权重已归档、注册条目已移除，指向它会以「未注册」失败）
   const trainingForm = reactive<TrainingForm>({
     dataset_name: 'depression_multimodal_v1',
-    model_name: 'text_bert_classifier',
+    model_name: 'text_depression_model',
     epochs: 3,
     batch_size: 8,
     learning_rate: 2e-5,

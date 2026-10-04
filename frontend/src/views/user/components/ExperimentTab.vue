@@ -80,6 +80,8 @@
                 <el-button
                   type="primary"
                   :loading="experimentLoading && experimentAction === 'train'"
+                  :disabled="bertDisabled"
+                  :title="bertDisabled ? t('experimentAssess.bertDisabled') : undefined"
                   @click="trainBert"
                 >
                   {{ t('experimentAssess.trainBtn') }}
@@ -87,6 +89,8 @@
                 <el-button
                   type="success"
                   :loading="experimentLoading && experimentAction === 'evaluate'"
+                  :disabled="bertDisabled"
+                  :title="bertDisabled ? t('experimentAssess.bertDisabled') : undefined"
                   @click="evaluateBert"
                 >
                   {{ t('experimentAssess.evaluateBtn') }}
@@ -329,7 +333,16 @@ const importDataset = async () => {
   }
 }
 
+// AUDIT-2026-10-04 (P0-1 衍生): BERT 权重已归档到 models/_archive/、注册条目已从
+// MODEL_PATHS 移除 —— 训练/评估 BERT 必然失败（加载时以「未注册」拒绝）。入口显式禁用，
+// 而不是让用户点了才收到报错。恢复能力需同时恢复权重与注册条目（或走句向量路线）。
+const bertDisabled = true
+
 const trainBert = async () => {
+  if (bertDisabled) {
+    ElMessage.warning(t('experimentAssess.bertDisabled'))
+    return
+  }
   experimentLoading.value = true
   experimentAction.value = 'train'
   experimentProgress.value = 10
@@ -347,6 +360,10 @@ const trainBert = async () => {
 }
 
 const evaluateBert = async () => {
+  if (bertDisabled) {
+    ElMessage.warning(t('experimentAssess.bertDisabled'))
+    return
+  }
   experimentLoading.value = true
   experimentAction.value = 'evaluate'
   experimentProgress.value = 20
@@ -374,7 +391,8 @@ const compareModels = async () => {
   experimentAction.value = 'compare'
   experimentProgress.value = 30
   try {
-    const res = await modelApi.compareModels({ dataset_name: experimentForm.dataset_name, model_names: ['text_bert_classifier', 'text_depression_model', 'fusion_dnn_best'] })
+    // AUDIT-2026-10-04: 对比列表不再包含 text_bert_classifier（已归档，命中必失败）
+    const res = await modelApi.compareModels({ dataset_name: experimentForm.dataset_name, model_names: ['text_depression_model', 'fusion_dnn_best'] })
     experimentProgress.value = 100
     applyCompareResult(res)
     ElMessage.success(t('experimentAssess.compareSuccess'))
