@@ -1,0 +1,42 @@
+{
+  "vendor": "deepseek",
+  "model": "deepseek-flash",
+  "n_samples": 100,
+  "n_valid": 100,
+  "gold": "phq9_binary (PHQ-9 量表分级)",
+  "sent_fields": [
+    "audio_count",
+    "gad7_binary",
+    "gad7_score",
+    "model_decision_threshold",
+    "model_own_uncertainty_0_to_1",
+    "model_risk_probability"
+  ],
+  "excluded_fields": "phq9_* (金标准) 与 text/audio_transcript (自由文本, 合规)",
+  "accuracy": 0.99,
+  "cohen_kappa": 0.98,
+  "kappa_gate": 0.6,
+  "metrics": {
+    "prompt_tokens": 25277,
+    "completion_tokens": 4617,
+    "total_cost_cny": 0.023622,
+    "cost_per_call_cny": 0.000236,
+    "elapsed_seconds": 139.0,
+    "pricing": {
+      "tier": "flash",
+      "is_peak_hour": false,
+      "multiplier": 0.5,
+      "usd_per_1m": {
+        "input": 0.15,
+        "output": 0.6
+      },
+      "usd_cny_assumption": 7.2,
+      "source": "https://api-docs.deepseek.com/quick_start/pricing"
+    }
+  },
+  "gates": {
+    "kappa": "PASS",
+    "cost_per_call": "PASS"
+  },
+  "verdict": "可做（kappa 0.980 >= 0.6 且成本达标）"
+}

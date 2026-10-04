@@ -1,0 +1,26 @@
+{
+  "A_full_fields": {
+    "n": 100,
+    "accuracy": 0.99,
+    "kappa": 0.98
+  },
+  "B_neutral_no_model": {
+    "n": 100,
+    "accuracy": 0.5,
+    "kappa": 0.0
+  },
+  "C_model_itself": {
+    "n": 100,
+    "accuracy": 0.99,
+    "kappa": 0.98
+  },
+  "kappa_gate": 0.6,
+  "verdict": "不做：抽掉模型判断后 LLM 的 kappa=0.000 < 0.6，说明它本来就没在独立判断，只是复述模型 —— 引入它只是多花一遍钱。",
+  "elapsed_seconds": 286.7,
+  "cost": {
+    "prompt_tokens": 46077,
+    "completion_tokens": 9183,
+    "total_cny": 0.044717,
+    "note": "A+B 两臂合计, 按 flash off-peak 价估算"
+  }
+}

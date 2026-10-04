@@ -89,11 +89,17 @@ def build_model_predictions(df_sample: pd.DataFrame) -> pd.DataFrame:
 
 
 def make_payload(row: pd.Series) -> dict:
-    """构造发给 LLM 的结构化字段（不含金标准、不含文本）。"""
+    """构造发给 LLM 的结构化字段（不含金标准、不含文本）。
+
+    2026-10-05 修正: 初版把 `model_predicted_risk=1` 与 `model_confidence=0.48`
+    并列给出, LLM 读到后判为「证据不足」而全判 0 —— 两个字段看起来自相矛盾
+    (模型说有风险 vs 模型没把握)。故改为给出**可解释的原始量**并把判定阈值
+    写进字段名, 让 LLM 自己做阈值判断, 而不是被一个现成结论带偏。
+    """
     return {
-        "model_predicted_risk": int(row["model_pred"]),
-        "model_probability": float(row["model_prob"]),
-        "model_confidence": float(row["model_confidence"]),
+        "model_risk_probability": float(row["model_prob"]),
+        "model_decision_threshold": 0.3,
+        "model_own_uncertainty_0_to_1": float(row["model_confidence"]),
         "gad7_score": int(row["ref_gad7_score"]) if pd.notna(row.get("ref_gad7_score")) else None,
         "gad7_binary": int(row["ref_gad7_binary"]) if pd.notna(row.get("ref_gad7_binary")) else None,
         "audio_count": int(row["audio_count"]) if pd.notna(row.get("audio_count")) else 0,
@@ -115,11 +121,17 @@ def assert_no_leakage(payload: dict) -> None:
             raise AssertionError(f"合规违规: payload 字段 '{k}' 疑似含长文本")
 
 
-PROMPT_TMPL = """你是精神科辅助评估的复核者。以下是某心理评估系统的**结构化摘要**（无原文文本）。
+PROMPT_TMPL = """你是精神科辅助评估的复核者。以下是某心理评估系统的**结构化摘要**（不含原文文本）。
 
 {fields}
 
-请判断该个案是否达到「中度及以上抑郁」。只输出 JSON: {{"judgement": 0 或 1, "reason": "一句话理由"}}
+字段含义:
+- model_risk_probability: 该系统判定「有中度及以上抑郁风险」的估计概率(0~1)
+- model_decision_threshold: 该系统实际使用的判定阈值（概率 >= 阈值即判为高风险）
+- model_own_uncertainty_0_to_1: 系统自评的不确定度(0=非常确定, 1=非常不确定)
+- gad7_score / gad7_binary: 焦虑量表 GAD-7 的分数与是否达阈值（与抑郁是不同构念）
+
+请综合这些信息判断该个案是否达到「中度及以上抑郁」。只输出 JSON: {{"judgement": 0 或 1, "reason": "一句话理由"}}
 不要输出其他内容。"""
 
 
@@ -140,13 +152,21 @@ def call_deepseek(payloads: list[dict], api_key: str, model: str,
             f"{API_BASE}/chat/completions",
             headers={"Authorization": f"Bearer {api_key}",
                      "Content-Type": "application/json"},
-            json={"model": model, "messages": [{"role": "user", "content": prompt}],
+            json={"model": model,
+                  "messages": [{"role": "user", "content": prompt}],
+                  # DeepSeek V4 系列**默认开 thinking 模式**（effort=high），此时
+                  # 最终答案在 content、思维链在 reasoning_content, 且若模型 thinking
+                  # 未结束 content 会是空串 -> 解析不到 judgement。
+                  # 本任务只要结构化判断，不需要思维链，故显式关闭（也更省 token）。
+                  "thinking": {"type": "disabled"},
                   "temperature": 0, "max_tokens": 200},
             timeout=60,
         )
         r.raise_for_status()
         data = r.json()
-        content = data["choices"][0]["message"]["content"]
+        msg = data["choices"][0]["message"]
+        # 双保险: 正常走 content, 空则回退 reasoning_content
+        content = (msg.get("content") or msg.get("reasoning_content") or "").strip()
         try:
             parsed = json.loads(content[content.find("{"): content.rfind("}") + 1])
         except Exception:
@@ -186,6 +206,77 @@ def load_api_key() -> str:
     return key
 
 
+def run_ablation(texts_df: pd.DataFrame, api_key: str, model: str, batch_pause: float = 0.3) -> dict:
+    """三臂消融: 回答「LLM 是有独立判断, 还是只会复述模型?」
+
+    只看单一 kappa 会误导: 若把模型的概率和阈值一起给 LLM, 它只需比两个数字,
+    kappa 会很高 —— 但那衡量的是「LLM 是否忠实复述模型」, 不是「LLM 有临床增量」。
+
+    A: 完整字段(含模型判断)      -> 预期很高, 接近复述
+    B: 中性字段(**不含模型判断**) -> 关键臂: LLM 能否独立达到 kappa 门槛
+    C: 模型自身判断(不经 LLM)     -> 基线: 现有模型 vs 金标准
+    判读: B >= C 才说明 LLM 有独立增量价值; 若 B << C, 引入 LLM 只是多花一遍钱复述。
+    """
+    from sklearn.metrics import cohen_kappa_score
+
+    def _score(gold: list[int], pred: list[int]) -> tuple[float, float]:
+        if not gold:
+            return 0.0, 0.0
+        acc = sum(int(a == b) for a, b in zip(gold, pred)) / len(gold)
+        return acc, float(cohen_kappa_score(gold, pred))
+
+    gold_all = texts_df["gold_phq9_binary"].astype(int).tolist()
+
+    # ---- C: 模型自身(阈值 0.3), 不经 LLM ----
+    c_pred = texts_df["model_pred"].astype(int).tolist()
+    c_acc, c_kappa = _score(gold_all, c_pred)
+
+    # ---- A: 完整字段 ----
+    a_res = call_deepseek([make_payload(r) for _, r in texts_df.iterrows()], api_key, model)
+    a_valid = [(g, r["judgement"]) for g, r in zip(gold_all, a_res) if r["judgement"] in (0, 1)]
+    a_acc, a_kappa = _score([x[0] for x in a_valid], [x[1] for x in a_valid])
+
+    # ---- B: 中性字段(不含任何模型判断) ----
+    def neutral_payload(row: pd.Series) -> dict:
+        return {
+            "gad7_score": int(row["ref_gad7_score"]) if pd.notna(row.get("ref_gad7_score")) else None,
+            "gad7_binary": int(row["ref_gad7_binary"]) if pd.notna(row.get("ref_gad7_binary")) else None,
+            "audio_count": int(row["audio_count"]) if pd.notna(row.get("audio_count")) else 0,
+        }
+
+    b_res = call_deepseek([neutral_payload(r) for _, r in texts_df.iterrows()], api_key, model)
+    b_valid = [(g, r["judgement"]) for g, r in zip(gold_all, b_res) if r["judgement"] in (0, 1)]
+    b_acc, b_kappa = _score([x[0] for x in b_valid], [x[1] for x in b_valid])
+
+    tokens = {"A": _usage(a_res), "B": _usage(b_res)}
+    out = {
+        "A_full_fields": {"n": len(a_valid), "accuracy": round(a_acc, 4), "kappa": round(a_kappa, 4)},
+        "B_neutral_no_model": {"n": len(b_valid), "accuracy": round(b_acc, 4), "kappa": round(b_kappa, 4)},
+        "C_model_itself": {"n": len(gold_all), "accuracy": round(c_acc, 4), "kappa": round(c_kappa, 4)},
+        "kappa_gate": KAPPA_GATE,
+    }
+    # 判读
+    if b_kappa < KAPPA_GATE:
+        verdict = (f"不做：抽掉模型判断后 LLM 的 kappa={b_kappa:.3f} < {KAPPA_GATE}，"
+                   "说明它本来就没在独立判断，只是复述模型 —— 引入它只是多花一遍钱。")
+    elif b_kappa >= c_kappa:
+        verdict = (f"可做：中性字段下 kappa={b_kappa:.3f} ≥ 模型自身 {c_kappa:.3f}，"
+                   "LLM 提供了独立增量。")
+    else:
+        verdict = (f"需谨慎：中性字段 kappa={b_kappa:.3f} 低于模型自身 {c_kappa:.3f}，"
+                   "说明模型比 LLM 更准，LLM 只在模型低置信时才可能有用（应只在灰区调用）。")
+    out["verdict"] = verdict
+    out["usage_tokens"] = tokens
+    return out
+
+
+def _usage(results: list[dict]) -> dict:
+    return {
+        "prompt_tokens": sum(r["usage"].get("prompt_tokens", 0) for r in results),
+        "completion_tokens": sum(r["usage"].get("completion_tokens", 0) for r in results),
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=100, help="评估样本数")
@@ -195,6 +286,9 @@ def main() -> None:
                     help="只评估落在低置信灰区(0.3<=conf<0.6)的样本")
     ap.add_argument("--usd-cny", type=float, default=DEFAULT_USD_CNY,
                     help="美元兑人民币汇率假设（成本换算用，默认 7.2）")
+    ap.add_argument("--ablation", action="store_true",
+                    help="跑三臂消融（A 含模型判断 / B 中性字段 / C 模型自身），"
+                         "用于判断 LLM 是独立判断还是只会复述模型")
     args = ap.parse_args()
 
     api_key = load_api_key()
@@ -207,19 +301,51 @@ def main() -> None:
 
     corpus = pd.read_csv(CORPUS)
     corpus["text"] = corpus["text"].fillna("").astype(str)
+    # ⚠️ 必须按 source_idx 去重: 同一 group 有「原文 + 若干增强变体」多行, 直接按
+    # group_id merge 会把每个样本复制成多份（实测 --limit 5 全是 J0001）。
+    # 2026-10-05 实测坑: 语料 8,379 行只有 1,244 个唯一 group。
+    corpus = corpus.sort_values("source_idx", kind="stable").drop_duplicates(
+        subset="source_idx", keep="first"
+    )
     tpl = pd.read_csv(TEMPLATE)
-    # 用 group_id 回取完整文本(仅本地用于生成模型预测, 不发送)
     merged = tpl.merge(
         corpus[["source_idx", "text"]].rename(columns={"source_idx": "group_id"}),
         on="group_id", how="left",
     )
-    merged = merged[merged["text"].notna()].head(args.limit)
-    print(f"样本: {len(merged)} 条")
+    merged = merged[merged["text"].notna()].drop_duplicates(subset="sample_id", keep="first")
+    merged = merged.head(args.limit)
+    print(f"样本: {len(merged)} 条（语料去重后 {len(corpus):,} 个 group）")
 
     scored = build_model_predictions(merged)
     if args.grey_zone_only:
         scored = scored[scored["in_review_zone"]]
         print(f"灰区子集(conf 0.3~0.6): {len(scored)} 条")
+
+    if args.ablation:
+        t0 = time.time()
+        out = run_ablation(scored, api_key, args.model)
+        out["elapsed_seconds"] = round(time.time() - t0, 1)
+        usage = out.pop("usage_tokens", {})
+        tin = sum(v["prompt_tokens"] for v in usage.values())
+        tout = sum(v["completion_tokens"] for v in usage.values())
+        out["cost"] = {
+            "prompt_tokens": tin, "completion_tokens": tout,
+            "total_cny": round((tin * 0.15 + tout * 0.6) / 1e6 * 0.5 * args.usd_cny, 6),
+            "note": "A+B 两臂合计, 按 flash off-peak 价估算",
+        }
+        p = OUT_JSON.with_name("llm_judge_ablation.json")
+        p.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("\n" + "=" * 66)
+        print(f"A 含模型判断 : kappa={out['A_full_fields']['kappa']:.4f} "
+              f"(acc {out['A_full_fields']['accuracy']:.4f})")
+        print(f"B 中性字段   : kappa={out['B_neutral_no_model']['kappa']:.4f} "
+              f"(acc {out['B_neutral_no_model']['accuracy']:.4f})")
+        print(f"C 模型自身   : kappa={out['C_model_itself']['kappa']:.4f} "
+              f"(acc {out['C_model_itself']['accuracy']:.4f})")
+        print(f"\n判读: {out['verdict']}")
+        print(f"成本: {out['cost']}")
+        print(f"报告: {p}")
+        return
 
     payloads = [make_payload(r) for _, r in scored.iterrows()]
     if args.dry_run:
