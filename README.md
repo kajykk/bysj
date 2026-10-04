@@ -141,6 +141,14 @@ docker-compose up -d
   $env:HF_HUB_OFFLINE="1"; $env:TRANSFORMERS_OFFLINE="1"
   ```
 
+  > **2026-10-04 现状补充**：① BERT 权重已下线归档（`models/_archive/bert_text_classifier_20261004/`），
+  > 残留的 BERT 脚本/用例仅作历史参考，**主路径是双语 TF-IDF + LR**；
+  > ② 本机访问 HuggingFace 需走镜像（`HF_ENDPOINT=https://hf-mirror.com`），
+  > 大模型权重用 `scripts/fetch_hf_model_via_mirror.sh` 断线续传（直连每次只到约 5.7MB）；
+  > ③ `sentence-transformers` 在本环境（transformers 5.5.0）**不可用**——它会调 5.x 新增的
+  > `AutoProcessor`，而 2023 年的句向量模型仓库没有 processor 配置会直接 `ValueError`，
+  > 改用手工 `AutoTokenizer` + `AutoModel` + mean pooling（见 `scripts/t1_sentence_embedding_eval.py`）。
+
 ### 运行
 
 ```bash
