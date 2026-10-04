@@ -1,0 +1,80 @@
+{
+  "protocol": "固定阈值 GroupKFold(n_splits=5, by source_idx)",
+  "production_baseline": {
+    "source": "docs/planning/backend_text_bilingual_v2_metrics.json",
+    "groupwise_ooF_f1": 0.5864,
+    "threshold": 0.3,
+    "note": "生产 bilingual_v2: max_features=120000 TF-IDF + LR(C=1,balanced)"
+  },
+  "by_threshold": {
+    "0.3": {
+      "A_tfidf": {
+        "label": "A_tfidf",
+        "threshold": 0.3,
+        "n_folds": 5,
+        "f1_mean": 0.4338,
+        "f1_std": 0.0538,
+        "auc_mean": 0.6929,
+        "f1_per_fold": [
+          0.4241,
+          0.5143,
+          0.4378,
+          0.3632,
+          0.4295
+        ],
+        "n_features": 89988
+      },
+      "C_tfidf_svd300": {
+        "label": "C_tfidf_svd300",
+        "threshold": 0.3,
+        "n_folds": 5,
+        "f1_mean": 0.3446,
+        "f1_std": 0.0471,
+        "auc_mean": 0.5604,
+        "f1_per_fold": [
+          0.3132,
+          0.3767,
+          0.398,
+          0.282,
+          0.3532
+        ],
+        "n_features": 300
+      },
+      "D_tfidf_zh_tokenized": {
+        "label": "D_tfidf_zh_tokenized",
+        "threshold": 0.3,
+        "n_folds": 5,
+        "f1_mean": 0.5709,
+        "f1_std": 0.0822,
+        "auc_mean": 0.842,
+        "f1_per_fold": [
+          0.5138,
+          0.6631,
+          0.6023,
+          0.46,
+          0.6155
+        ],
+        "n_features": 103028
+      },
+      "B_minilm": {
+        "label": "B_minilm",
+        "threshold": 0.3,
+        "n_folds": 5,
+        "f1_mean": 0.5075,
+        "f1_std": 0.0452,
+        "auc_mean": 0.7568,
+        "f1_per_fold": [
+          0.4989,
+          0.4856,
+          0.5441,
+          0.4485,
+          0.5603
+        ],
+        "n_features": 384
+      },
+      "delta_B_minus_A": 0.0737,
+      "delta_B_vs_production_0.5864": -0.0789,
+      "verdict": "不换（MiniLM 0.5075 <= 生产基线 0.5864）"
+    }
+  }
+}
