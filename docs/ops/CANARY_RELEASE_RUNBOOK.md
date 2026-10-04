@@ -7,6 +7,18 @@
 **三级推进**: 5% → 25% → 100%，每级观察 ≥24h
 **自动回滚阈值**: fallback 率 <5%、漂移告警 <10 次/小时、平均延迟 <500ms、错误率 <10%
 
+### 本次执行结果（2026-10-04 定稿）
+
+| 项 | 结果 |
+|---|---|
+| 版本 | `v4.1-s01-s05` |
+| 状态 | **100% COMPLETED**，S-01~S-05 全部推进至 100% 流量 |
+| 回滚 | **零回滚**（全程未触发任何 `ROLLED_BACK`，四个阈值均未越线） |
+| 收尾 | 冗余空转任务已清理 |
+
+该结论是**运行期观测记录**（发布系统状态机 + 监控指标），git 层无 tag 痕迹属正常——
+本项目的金丝雀状态存于 `MonitoringLog` / `canary_watchdog.state.json`，不以 commit 表达。
+
 ## 前置条件
 
 1. 生产环境已通过 `docker compose up -d` 启动
@@ -115,6 +127,24 @@ python scripts/canary_release.py rollback \
 2. 在 `STATE.md` 记录回滚事件
 3. 执行根因分析（24h 内完成）
 4. 修复后重新进入 `PLANNING` 状态
+
+### 回滚契约：`rollback_canary` → `record_fallback`（代码实行为准）
+
+回滚不是只改状态——它同时向可观测性链路写一条 `FALLBACK` 事件。实现见
+`backend/app/services/canary_manager.py:371`（`rollback_canary`）与
+`backend/app/services/observability_service.py:242`（`record_fallback`）：
+
+| 环节 | 实际行为 |
+|---|---|
+| 状态前置 | 仅 `RUNNING` / `PAUSED` 可回滚，其余状态抛 `ValueError`（不静默忽略） |
+| 落库字段 | `status=ROLLED_BACK`、`ended_at`（**naive UTC**，`H-Svc-4`：DateTime 列无 tzinfo，写入前剥 tzinfo）、`rollback_reason=reason` |
+| 事务 | 只 `flush()` **不 `commit()`**（`H-4`：`commit()` 会提交最外层事务而非仅释放 savepoint，破坏 `auto_rollback_service` 的 `begin_nested()` 隔离）——**事务提交权归调用方** |
+| 可观测性 | 立即调用 `observability_collector.record_fallback(reason=f"canary_rollback: {reason}", model_version=canary.version, user_id=canary.triggered_by, request_payload={"canary_id", "rollback_reason"}, response_summary={"canary_id", "rollback_reason"})` |
+| 计数器 | `record_fallback` 持锁（`M-Svc-19`）递增 `fallback_counter`，并把 `{"fallback_counter": …}` 与传入的 `response_summary` **合并**为最终 `MonitoringLog.response_summary` |
+| 事件类型 | `MonitoringEventType.FALLBACK` 入 `_pending_logs` 队列，由统一刷写落库 |
+
+因此「回滚」在监控侧表现为一次**带 `canary_id` 的 fallback 事件**——排查时按
+`fallback_reason LIKE 'canary_rollback:%'` 检索，即可还原全部历史回滚及其原因。
 
 ## 环境变量
 
