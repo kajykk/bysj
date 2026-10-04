@@ -26,6 +26,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+# 别名导入：避免与下方局部变量 `modality_quality` 同名遮蔽
+from app.core.confidence import modality_quality as classify_modality_quality
+
 
 class FusionMixin:
     """多模态融合预测方法集合.
@@ -143,12 +146,8 @@ class FusionMixin:
             modality_quality: dict[str, str] = {}
             for m, contrib in contributions.items():
                 conf = contrib.get("confidence", 0.8)
-                if conf >= 0.8:
-                    modality_quality[m] = "primary"
-                elif conf >= 0.5:
-                    modality_quality[m] = "secondary"
-                else:
-                    modality_quality[m] = "low_confidence"
+                # AUDIT-2026-10-04 (P2-2 核查): 分档口径抽到 app.core.confidence, 行为等价
+                modality_quality[m] = classify_modality_quality(conf)
 
             fusion_detail: dict[str, Any] = {
                 "modality_scores": modality_scores,

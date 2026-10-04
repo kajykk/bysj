@@ -77,16 +77,23 @@
 
 ## P2-2 LLM-as-judge 第二意见（可选实验）
 
-### 现状（有接入点，但前置为零）
+### 现状（2026-10-04 核查后修正）
+
+> ⚠️ **本节初版写「四处 `low_confidence` 判定应收敛到一处」，不准确**。逐处读代码后的真实结构是
+> **一条链 + 一处分档**，不是四处重复判定：
+
+| 位置 | 实际角色 | 阈值 |
+|---|---|---|
+| `app/ml/fusion_priority_engine.py:76` | **唯一的生产判定**：低置信 **且** 高风险 → 触发人工复核 | `conf < 0.5 and risk_level >= 3` |
+| `app/core/model_engine/fusion.py:145-151` | 模态质量**分档**（primary/secondary/low_confidence），非复核触发 | `0.8` / `0.5` |
+| `app/core/review_reasons.py:13` | 枚举常量定义（`LOW_CONFIDENCE_HIGH_RISK`） | — |
+| `app/services/risk_service_report.py:192` | 字符串前缀消费（把 trigger 翻成报告 feature） | — |
 
 | 项 | 实测 |
 |---|---|
-| 低置信灰区判定 | **已存在**：`app/core/review_reasons.py`、`app/core/model_engine/fusion.py`、`app/ml/fusion_priority_engine.py`、`app/services/risk_service_report.py` 四处均有 `low_confidence` |
 | LLM 客户端 | **零**（全仓唯一 `OpenAI` 字样是 `log_sanitizer.py` 的日志脱敏正则，非 SDK 调用） |
 | 网关 / 密钥管理 | 无 |
-| 人工金标准评估集 | 无 |
-
-即：**灰区判定有了，LLM 这一层要从零搭**。
+| 人工金标准评估集 | 无（**只能由真人标注产生**，见下） |
 
 ### 首要门槛：合规（不是技术问题）
 
@@ -98,11 +105,26 @@
 2. 用**本地部署**的小模型复核（离线环境，无数据外流）；
 3. 若前两条都不成立 —— **不做**。
 
-### 技术评估设计（先离线，不进主路径）
+### 本轮已完成（不花钱的部分）
 
-1. 先统一灰区口径（四处 `low_confidence` 判定应收敛到一处，定义 `0.3 ≤ p ≤ 0.6`）；
-2. 抽样灰区样本 → LLM 复核 → 与**人工金标准**比一致性（Cohen's kappa）；
-3. 同时记录**成本/延迟**（按灰区流量估算单次请求成本）。
+1. **口径收敛**：新增 `app/core/confidence.py` 作为阈值唯一事实源——
+   迁移 `fusion_priority_engine` 与 `model_engine/fusion` 的硬编码阈值，**行为等价**
+   （全边界点对照 oracle 验证），并用 `tests/unit/test_confidence_thresholds.py`
+   （**77 项，含把旧内联实现写成 oracle 的回归防护**）锁死口径。
+   另预留 `LLM_REVIEW_ZONE = (0.3, 0.6)` 与 `in_llm_review_zone()`，
+   **当前无生产调用方**（启用前必须先定合规路径）。
+2. **评估集模板**：`scripts/build_llm_judge_eval_set.py` → `docs/planning/llm_judge_eval_template.csv`
+   （100 条，正负各 50，按 `source_idx` 去重防泄露，长度分层），附**标注指引**。
+   脚本**不生成金标准**——用规则或现有模型「生成」金标准会把待验证的判断当成基准，
+   `human_label` 列必须由真人填（拿不准留空比错标更有价值）。
+
+### 剩余卡点（需你决定，非技术问题）
+
+| 卡点 | 说明 |
+|---|---|
+| **合规路径** | 上表三条走哪条；决定「能不能传文本给外部」 |
+| **人工标注** | 谁标（需心理/临床背景）、多少条（kappa≥0.6 建议 ≥80 条） |
+| **成本预算** | 单次成本 × 灰区日流量；无预算数字则该门槛无法判定 |
 
 ### 判定门槛
 
@@ -110,8 +132,8 @@
 |---|---|
 | 合规 | 上表三条路径之一成立（否则直接否决） |
 | 一致性 | Cohen's kappa ≥ 0.6 |
-| 成本 | 单次复核成本 × 灰区日流量 ≤ 预算（**预算需你给**，本项目无此数字） |
-| 灰区口径 | 四处判定收敛为一处，否则复核范围不可控 |
+| 成本 | 单次复核成本 × 灰区日流量 ≤ 预算（**预算需你给**） |
+| 灰区口径 | ✅ 已收敛（`app/core/confidence.py` 唯一事实源 + 77 项测试锁定） |
 
 未达标 → 不做，仅存档评估数据。**不进主路径是硬约束**（计划原文）。
 

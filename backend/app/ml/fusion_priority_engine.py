@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.confidence import is_low_confidence_high_risk
+
 
 class FusionPriorityEngine:
     """融合模型优先级规则引擎。
@@ -73,7 +75,8 @@ class FusionPriorityEngine:
             if result:
                 confidence = result.get("confidence", 1.0)
                 risk_level = result.get("risk_level", 0)
-                if confidence < 0.5 and risk_level >= 3:
+                # AUDIT-2026-10-04 (P2-2 核查): 阈值抽到 app.core.confidence, 行为等价
+                if is_low_confidence_high_risk(confidence, risk_level):
                     review_required = True
                     review_triggers.append(f"low_confidence_high_risk_{modality}")
 
