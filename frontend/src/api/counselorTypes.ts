@@ -91,4 +91,12 @@ export interface ReviewStats {
   high_risk_count: number
 }
 
+/** AUDIT-2026-10-01：可被指派复核任务的咨询师（对应后端 UserBrief）。 */
+export interface CounselorBrief {
+  id: number
+  username: string
+  role: string
+  nickname?: string | null
+}
+
 export type { WarningItem, UserBindingInfo }

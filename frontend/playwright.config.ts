@@ -56,9 +56,11 @@ export default defineConfig({
     env: {
       VITE_API_BASE_URL: `${backendUrl}/api/v1`,
       // ISSUE-004 修复：传递种子密码到 E2E 测试环境，与后端 .env 保持一致
-      E2E_ADMIN_PASSWORD: process.env.E2E_ADMIN_PASSWORD || '***REMOVED***',
-      E2E_COUNSELOR_PASSWORD: process.env.E2E_COUNSELOR_PASSWORD || '***REMOVED***',
-      E2E_USER_PASSWORD: process.env.E2E_USER_PASSWORD || '***REMOVED***',
+      // AUDIT-2026-10-01：移除 `|| '***REMOVED***'` 一律兜底 —— 仓库内不再出现可用口令。
+      // 注意：Playwright 测试进程读的是它**自身**的 process.env；此处是透传给 dev server 的。
+      E2E_ADMIN_PASSWORD: process.env.E2E_ADMIN_PASSWORD ?? '',
+      E2E_COUNSELOR_PASSWORD: process.env.E2E_COUNSELOR_PASSWORD ?? '',
+      E2E_USER_PASSWORD: process.env.E2E_USER_PASSWORD ?? '',
     },
   },
 })

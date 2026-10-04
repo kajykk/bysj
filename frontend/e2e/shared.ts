@@ -2,6 +2,18 @@ import { expect, type Page } from '@playwright/test'
 
 export type RoleName = 'admin' | 'counselor' | 'user'
 
+/** AUDIT-2026-10-01：E2E 种子口令不再硬编码在源码里（原值为公开示例口令，等同已泄露）。
+ *  缺失时**立即抛错**，而不是回落到一个仓库里人尽皆知的值。 */
+function requireEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(
+      `缺少环境变量 ${name}：E2E 种子口令不再提供默认值。请先在本机 .env（或 CI 环境）注入后再运行 E2E。`,
+    )
+  }
+  return value
+}
+
 export interface RoleFlowConfig {
   username: string
   password: string
@@ -18,7 +30,7 @@ export interface RoleFlowConfig {
 export const ROLE_FLOW_CONFIG: Record<RoleName, RoleFlowConfig> = {
   admin: {
     username: 'admin',
-    password: '***REMOVED***',
+    password: requireEnv('E2E_ADMIN_PASSWORD'),
     dashboardUrl: /\/admin\/dashboard/,
     dashboardHeading: '管理员工作台',
     dashboardHighlights: ['系统状态', '管理员端'],
@@ -30,7 +42,7 @@ export const ROLE_FLOW_CONFIG: Record<RoleName, RoleFlowConfig> = {
   },
   counselor: {
     username: 'dr_wang',
-    password: '***REMOVED***',
+    password: requireEnv('E2E_COUNSELOR_PASSWORD'),
     dashboardUrl: /\/counselor\/dashboard/,
     dashboardHeading: '咨询师工作台',
     dashboardHighlights: ['今日待处理预警'],
@@ -42,7 +54,7 @@ export const ROLE_FLOW_CONFIG: Record<RoleName, RoleFlowConfig> = {
   },
   user: {
     username: 'user_moderate',
-    password: '***REMOVED***',
+    password: requireEnv('E2E_USER_PASSWORD'),
     dashboardUrl: /\/user\/dashboard/,
     dashboardHeading: '用户仪表盘',
     dashboardHighlights: ['风险状态', '干预计划'],

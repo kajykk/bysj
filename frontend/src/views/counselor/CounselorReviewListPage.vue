@@ -173,21 +173,33 @@
           fixed="right"
         >
           <template #default="{ row }">
+            <!-- P2-TS 修复：el-table 的 slot row 推导为 DefaultRow，与 handler 的
+                 ReviewItem 参数不兼容（本文件原有 2 处、全仓 16 文件共 47 处同类错误）。
+                 此处显式断言，不留新的类型债。 -->
             <el-button
               type="primary"
               size="small"
-              @click.stop="handleRowClick(row)"
+              @click.stop="handleRowClick(row as ReviewItem)"
             >
               {{ t('counselorReviews.btnView') }}
             </el-button>
-            <!-- ISS-060: 领取按钮，仅 pending 状态显示 -->
+            <!-- ISS-060: 领取按钮，仅 pending 状态显示（咨询师） -->
             <el-button
-              v-if="row.status === 'pending'"
+              v-if="row.status === 'pending' && !isAdmin"
               type="primary"
               size="small"
-              @click.stop="assignReview(row)"
+              @click.stop="assignReview(row as ReviewItem)"
             >
               {{ t('counselorReviews.btnAssign') }}
+            </el-button>
+            <!-- AUDIT-2026-10-01：管理员把任务指定分配给某位咨询师 -->
+            <el-button
+              v-if="row.status === 'pending' && isAdmin"
+              type="primary"
+              size="small"
+              @click.stop="openAssignDialog(row as ReviewItem)"
+            >
+              {{ t('counselorReviews.btnAssignTo') }}
             </el-button>
           </template>
         </el-table-column>
@@ -204,22 +216,73 @@
         @change="loadReviews"
       />
     </el-card>
+
+    <!-- AUDIT-2026-10-01：管理员「指定分配」对话框 -->
+    <el-dialog
+      v-model="assignDialogVisible"
+      :title="t('counselorReviews.assignToTitle')"
+      width="440px"
+    >
+      <el-form label-width="96px">
+        <el-form-item :label="t('counselorReviews.assignToSelectLabel')">
+          <el-select
+            v-model="selectedCounselorId"
+            :placeholder="t('counselorReviews.assignToPlaceholder')"
+            :loading="assignLoadingOptions"
+            filterable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in counselorOptions"
+              :key="item.id"
+              :label="item.nickname || item.username"
+              :value="item.id"
+            />
+          </el-select>
+          <div
+            v-if="!assignLoadingOptions && !counselorOptions.length"
+            class="assign-empty-tip"
+          >
+            {{ t('counselorReviews.assignToEmpty') }}
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="assignDialogVisible = false">
+          {{ t('common.cancel') }}
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="assignSubmitting"
+          :disabled="!selectedCounselorId"
+          @click="submitAssign"
+        >
+          {{ t('common.confirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { counselorApi, type ReviewItem, type ReviewStats } from '@/api/counselorApi'
+import { counselorApi, type CounselorBrief, type ReviewItem, type ReviewStats } from '@/api/counselorApi'
+import { useAuthStore } from '@/stores/auth'
 import ReviewStatsCard from './components/counselor-reviews/ReviewStatsCard.vue'
 // P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
 import { formatDate } from '@/utils/formatUtils'
 
 const { t } = useI18n()
 const router = useRouter()
+const auth = useAuthStore()
+
+// AUDIT-2026-10-01：管理员与咨询师共用本页，但操作语义不同——
+// 咨询师是「领取」（后端会校验学生绑定关系），管理员是「指定分配」给某位咨询师。
+const isAdmin = computed(() => auth.role === 'admin' || auth.role === 'super_admin')
 
 const loading = ref(false)
 const reviews = ref<ReviewItem[]>([])
@@ -293,6 +356,48 @@ const assignReview = async (row: ReviewItem) => {
     await loadStats()
   } catch (error) {
     ElMessage.error(t('counselorReviews.assignFailed'))
+  }
+}
+
+// AUDIT-2026-10-01：管理员「指定分配」到具体咨询师。
+// 与咨询师的「领取」区分：管理员可选任意 active 咨询师，不受学生绑定关系限制（后端亦如此）。
+const assignDialogVisible = ref(false)
+const assignTarget = ref<ReviewItem | null>(null)
+const counselorOptions = ref<CounselorBrief[]>([])
+const selectedCounselorId = ref<number | null>(null)
+const assignSubmitting = ref(false)
+const assignLoadingOptions = ref(false)
+
+const openAssignDialog = async (row: ReviewItem) => {
+  assignTarget.value = row
+  selectedCounselorId.value = null
+  assignDialogVisible.value = true
+  // 名单在会话内复用，避免每次打开都请求
+  if (counselorOptions.value.length) return
+  assignLoadingOptions.value = true
+  try {
+    const data = await counselorApi.getAssignableCounselors()
+    counselorOptions.value = data.items
+  } catch (error) {
+    ElMessage.error(t('counselorReviews.assignToLoadFailed'))
+  } finally {
+    assignLoadingOptions.value = false
+  }
+}
+
+const submitAssign = async () => {
+  if (!assignTarget.value || !selectedCounselorId.value) return
+  assignSubmitting.value = true
+  try {
+    await counselorApi.assignReview(assignTarget.value.id, { assignee_id: selectedCounselorId.value })
+    ElMessage.success(t('counselorReviews.assignToSuccess'))
+    assignDialogVisible.value = false
+    await loadReviews()
+    await loadStats()
+  } catch (error) {
+    ElMessage.error(t('counselorReviews.assignToFailed'))
+  } finally {
+    assignSubmitting.value = false
   }
 }
 
@@ -385,6 +490,13 @@ onMounted(() => {
 .review-table {
   width: 100%;
   margin-top: var(--spacing-lg);
+}
+
+/* AUDIT-2026-10-01：指定分配对话框的空名单提示 */
+.assign-empty-tip {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
 }
 
 :deep(.el-table__row) {

@@ -11,9 +11,16 @@ const BASE_URL = 'http://127.0.0.1:5173';
 const API_BASE = 'http://127.0.0.1:8000';
 const OUT_DIR = path.join(__dirname, '..', 'public', 'screenshots');
 
-// 真实账号（来自 backend/.env E2E 密码 + seed 数据）
-const USER_CREDENTIALS = { username: 'user_moderate', password: '***REMOVED***' };
-const ADMIN_CREDENTIALS = { username: 'admin', password: '***REMOVED***' };
+// AUDIT-2026-10-01 (P1-31): 不再硬编码 E2E 口令；从环境变量读取（对应 backend/.env 的 E2E_* 密码）。
+const USER_CREDENTIALS = { username: 'user_moderate', password: process.env.E2E_USER_PASSWORD };
+const ADMIN_CREDENTIALS = { username: 'admin', password: process.env.E2E_ADMIN_PASSWORD };
+
+if (!USER_CREDENTIALS.password || !ADMIN_CREDENTIALS.password) {
+  console.error(
+    '缺少环境变量口令：需注入 E2E_USER_PASSWORD 与 E2E_ADMIN_PASSWORD（与 backend/.env 的 seed 密码一致）',
+  );
+  process.exit(1);
+}
 
 // 5 张核心截图配置
 const SCREENSHOTS = [

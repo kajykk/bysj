@@ -388,4 +388,75 @@ describe('api/adminApi', () => {
       await expect(adminApi.exportCrisisEvents('a', 'b')).rejects.toThrow('500')
     })
   })
+
+  describe('listAuditLogs（AUDIT-2026-10-01 决策三 P2）', () => {
+    it('默认分页调用 GET /admin/audit-logs，过滤字段为 undefined', async () => {
+      (requestData as any).mockResolvedValueOnce({
+        items: [], total: 0, page: 1, page_size: 10,
+        compliance: { action_breakdown: {}, earliest_log: null, latest_log: null, retention_days: 90 }
+      })
+      await adminApi.listAuditLogs()
+      // 注：buildPageParams 全局兜底 page_size=10；后端的默认 50 仅在前端完全不传时生效，
+      // 前端列表页统一显式传 page_size（与其他管理页保持一致），见 §零·十三·D
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/audit-logs', {
+        params: {
+          page: 1,
+          page_size: 10,
+          action_types: undefined,
+          operator_role: undefined,
+          target_type: undefined,
+          start_time: undefined,
+          end_time: undefined
+        },
+        paramsSerializer: { indexes: null }
+      })
+    })
+
+    it('携带 action_types 数组与全部过滤字段（含分页覆盖）', async () => {
+      (requestData as any).mockResolvedValueOnce({
+        items: [], total: 0, page: 2, page_size: 20,
+        compliance: { action_breakdown: { login: 5 }, earliest_log: null, latest_log: null, retention_days: 90 }
+      })
+      await adminApi.listAuditLogs({
+        page: 2,
+        page_size: 20,
+        action_types: ['login', 'user_file_upload'],
+        operator_role: 'admin',
+        target_type: 'user_upload',
+        start_time: '2026-01-01',
+        end_time: '2026-01-31'
+      })
+      expect(dedupedGet).toHaveBeenCalledWith('/admin/audit-logs', {
+        params: {
+          page: 2,
+          page_size: 20,
+          action_types: ['login', 'user_file_upload'],
+          operator_role: 'admin',
+          target_type: 'user_upload',
+          start_time: '2026-01-01',
+          end_time: '2026-01-31'
+        },
+        paramsSerializer: { indexes: null }
+      })
+    })
+
+    it('返回完整结构（含 compliance 统计块，不只分页字段）', async () => {
+      const expected = {
+        items: [{ id: 1, operator_role: 'admin', action_type: 'login' }],
+        total: 1,
+        page: 1,
+        page_size: 50,
+        compliance: { action_breakdown: { login: 1 }, earliest_log: 'x', latest_log: 'y', retention_days: 90 }
+      }
+      ;(requestData as any).mockResolvedValueOnce(expected)
+      const res = await adminApi.listAuditLogs()
+      expect(res).toEqual(expected)
+      expect(res.compliance.retention_days).toBe(90)
+    })
+
+    it('错误透传', async () => {
+      (requestData as any).mockRejectedValueOnce(new Error('403'))
+      await expect(adminApi.listAuditLogs()).rejects.toThrow('403')
+    })
+  })
 })

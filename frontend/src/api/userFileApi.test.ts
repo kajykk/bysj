@@ -118,4 +118,49 @@ describe('api/userFileApi', () => {
       await expect(userFileApi.uploadFile(new FormData())).rejects.toThrow('413')
     })
   })
+
+  describe('uploadFiles（批量，AUDIT-2026-10-01 决策三 P6）', () => {
+    it('通过 POST /user/upload/batch 上传并携带 category', async () => {
+      const formData = new FormData()
+      formData.append('files', new Blob(['x']), 'a.txt')
+      formData.append('files', new Blob(['y']), 'b.txt')
+      const expected = {
+        items: [
+          { url: 'http://x/a', filename: 'a', original_name: 'a.txt', size: 1 },
+          { filename: 'b.txt', error: '不支持的文件类型: .txt' }
+        ],
+        count: 2,
+        total: 2,
+        failed: 1
+      }
+      ;(requestData as any).mockResolvedValueOnce(expected)
+      const res = await userFileApi.uploadFiles(formData, 'image')
+
+      expect(request.post).toHaveBeenCalledWith('/user/upload/batch', formData, { params: { category: 'image' } })
+      expect(res).toEqual(expected)
+    })
+
+    it('不传 category 时 params 为空对象', async () => {
+      const formData = new FormData()
+      ;(requestData as any).mockResolvedValueOnce({ items: [], count: 0 })
+      await userFileApi.uploadFiles(formData)
+      expect(request.post).toHaveBeenCalledWith('/user/upload/batch', formData, { params: {} })
+    })
+
+    it('单文件失败项带 error 字段，调用方需逐项检查', async () => {
+      const formData = new FormData()
+      ;(requestData as any).mockResolvedValueOnce({
+        items: [{ filename: 'bad.exe', error: '不支持的文件类型: .exe' }],
+        count: 1
+      })
+      const res = await userFileApi.uploadFiles(formData)
+      expect(res.items?.[0].error).toBeDefined()
+      expect(res.items?.[0].url).toBeUndefined()
+    })
+
+    it('超过 10 个文件的后端 400 错误透传', async () => {
+      (requestData as any).mockRejectedValueOnce(new Error('400'))
+      await expect(userFileApi.uploadFiles(new FormData())).rejects.toThrow('400')
+    })
+  })
 })

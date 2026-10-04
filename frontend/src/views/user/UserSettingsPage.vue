@@ -8,6 +8,8 @@
       <BindingCard v-if="auth.role === 'user'" />
       <RiskThresholdCard />
       <ProfileCard />
+      <!-- AUDIT-2026-10-01（决策三 P6）：补齐后端 /user/upload(/batch) 的前端上传入口 -->
+      <FileUploadCard v-if="auth.role === 'user'" />
       <GdprCard />
       <PasswordCard />
       <AnalyticsCard />
@@ -27,6 +29,7 @@ import GdprCard from './components/user-settings-page/GdprCard.vue'
 import AnalyticsCard from './components/user-settings-page/AnalyticsCard.vue'
 import RiskThresholdCard from './components/user-settings-page/RiskThresholdCard.vue'
 import CrisisCard from './components/user-settings-page/CrisisCard.vue'
+import FileUploadCard from './components/user-settings-page/FileUploadCard.vue'
 
 const auth = useAuthStore()
 </script>

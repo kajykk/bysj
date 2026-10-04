@@ -139,6 +139,15 @@
           >
             {{ t('textAssess.predictBtn') }}
           </el-button>
+          <!-- AUDIT-2026-10-01（决策三 P6）：接入 POST /user/data/draft，长文本中断可续填 -->
+          <el-button
+            class="btn-ml"
+            :loading="draftSaving"
+            :disabled="!textForm.content.trim()"
+            @click="saveDraft"
+          >
+            {{ t('textAssess.saveDraftBtn') }}
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -263,7 +272,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { userApi } from '@/api/userApi'
 import { modelApi, type TextPredictModelResult } from '@/api/modelApi'
 import type { TextAnalyzeResult } from '@/api/userRiskApi'
@@ -384,8 +393,73 @@ const submitTextPredict = async () => {
   }
 }
 
+// ── AUDIT-2026-10-01（决策三 P6）：文本填报草稿（POST/GET /user/data/draft）──
+// draft_type 为前端与后端约定的自由串（1-50 字符），固定用于文本评估场景
+const TEXT_DRAFT_TYPE = 'text_assessment'
+const draftSaving = ref(false)
+
+const saveDraft = async () => {
+  if (!textForm.content.trim()) return
+  draftSaving.value = true
+  try {
+    await userApi.saveDraft(TEXT_DRAFT_TYPE, {
+      entry_type: textForm.entry_type,
+      content: textForm.content,
+      emotion_tags: textForm.emotion_tags,
+      mood_score: textForm.mood_score
+    })
+    ElMessage.success(t('textAssess.saveDraftSuccess'))
+  } catch (error) {
+    ElMessage.error(normalizeHttpError(error, t('textAssess.saveDraftFailed')).detail)
+  } finally {
+    draftSaving.value = false
+  }
+}
+
+/** 把草稿 payload 安全地写回表单：字段类型不符时保留当前值，不盲目信任存量数据 */
+const applyDraftPayload = (payload: Record<string, unknown>) => {
+  if (typeof payload.entry_type === 'string' && ['diary', 'social', 'vent'].includes(payload.entry_type)) {
+    textForm.entry_type = payload.entry_type
+  }
+  if (typeof payload.content === 'string') {
+    textForm.content = payload.content.slice(0, 500)
+  }
+  if (Array.isArray(payload.emotion_tags)) {
+    textForm.emotion_tags = payload.emotion_tags.filter((tag): tag is string => typeof tag === 'string')
+  }
+  if (typeof payload.mood_score === 'number' && payload.mood_score >= 1 && payload.mood_score <= 5) {
+    textForm.mood_score = Math.round(payload.mood_score)
+  }
+}
+
+const loadDraft = async () => {
+  try {
+    const draft = await userApi.getDraft(TEXT_DRAFT_TYPE)
+    const payload = draft?.data_payload ?? {}
+    if (typeof payload.content !== 'string' || !payload.content.trim()) return
+    try {
+      await ElMessageBox.confirm(t('textAssess.restoreFoundMsg'), t('textAssess.restoreFoundTitle'), {
+        confirmButtonText: t('textAssess.restoreYes'),
+        cancelButtonText: t('textAssess.restoreNo'),
+        type: 'info'
+      })
+      applyDraftPayload(payload)
+      ElMessage.success(t('textAssess.draftRestored'))
+    } catch {
+      // 用户选择放弃：用空内容覆盖后端草稿，避免下次进入重复询问
+      textForm.content = ''
+      userApi.saveDraft(TEXT_DRAFT_TYPE, { content: '' }).catch(() => {
+        // 覆盖失败只影响下次是否重复询问，不打断当前流程
+      })
+    }
+  } catch {
+    // 草稿读取失败（网络/5xx）静默跳过：草稿恢复是非关键路径，不阻塞评估主流程
+  }
+}
+
 onMounted(() => {
   loadTextPredictionHistory()
+  loadDraft()
 })
 
 onUnmounted(() => {

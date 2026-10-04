@@ -2,10 +2,10 @@ import request, { dedupedGet, requestData, requestPageData } from './request'
 import { buildPageParams } from './business.shared'
 import type { PageQuery } from '@/types/api'
 import type { WarningItem, UserBindingInfo } from './userTypes'
-import type { ConsultationGroupItem, ConsultationItem, ReviewItem, ReviewStats, UserManageItem } from './counselorTypes'
+import type { ConsultationGroupItem, ConsultationItem, CounselorBrief, ReviewItem, ReviewStats, UserManageItem } from './counselorTypes'
 
 export type { WarningItem, UserBindingInfo } from './userTypes'
-export type { ConsultationGroupItem, ConsultationItem, ReviewItem, ReviewStats, UserManageItem, UserRiskHistoryItem, UserAssessmentItem, UserInterventionItem } from './counselorTypes'
+export type { ConsultationGroupItem, ConsultationItem, CounselorBrief, ReviewItem, ReviewStats, UserManageItem, UserRiskHistoryItem, UserAssessmentItem, UserInterventionItem } from './counselorTypes'
 
 export const counselorApi = {
   getCounselorWarnings: (query?: PageQuery & { only_unhandled?: boolean }) =>
@@ -80,6 +80,14 @@ export const counselorApi = {
     requestData<ReviewItem>(request.post(`/reviews/${id}/escalate`, payload)),
 
   // ISS-060: 领取复核任务（后端 /reviews/{id}/assign 为 POST 端点）
-  assignReview: (id: number) =>
-    requestData<ReviewItem>(request.post(`/reviews/${id}/assign`)),
+  // AUDIT-2026-10-01 (P1-1)：后端已补归属校验——咨询师只能领取「已绑定给自己学生」的任务，
+  // 否则 403；管理员可带 body { assignee_id } 指定分配给某位咨询师。
+  assignReview: (id: number, payload?: { assignee_id: number }) =>
+    payload
+      ? requestData<ReviewItem>(request.post(`/reviews/${id}/assign`, payload))
+      : requestData<ReviewItem>(request.post(`/reviews/${id}/assign`)),
+
+  // AUDIT-2026-10-01：管理员「指定分配」所需的候选咨询师名单（仅 admin/super_admin 可调）。
+  getAssignableCounselors: () =>
+    requestData<{ items: CounselorBrief[] }>(dedupedGet('/reviews/assignable-counselors')),
 }

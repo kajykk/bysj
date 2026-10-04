@@ -21,7 +21,13 @@ export const PAGE_PERMISSIONS = {
   adminReports: ['admin.predict.audit'],
   adminObservability: ['admin.alerts.view'],
   adminMonitoring: ['admin.predict.audit'],
-  adminCanary: ['admin.predict.audit']
+  adminCanary: ['admin.predict.audit'],
+  // AUDIT-2026-10-01 (P1-7)：复用 admin.predict.audit（与金丝雀同属模型运维域），
+  // 不新增权限码——避免前端 PermissionKey 与后端 PERMISSION_MATRIX 不同步。
+  adminKillSwitch: ['admin.predict.audit'],
+  // AUDIT-2026-10-01 (P2)：合规审计日志页复用 admin.operation_log.*（后端两端点同用
+  // require_platform_admin，前端按「同权限族」对齐，不新增权限码）
+  adminAuditLogs: ['admin.operation_log.view']
 } as const satisfies Record<string, readonly PermissionKey[]>
 
 export const OPERATION_PERMISSIONS = {
@@ -34,11 +40,13 @@ export const OPERATION_PERMISSIONS = {
   adminTemplates: [],
   adminSettings: [],
   adminOperationLogs: ['admin.operation_log.filter', 'admin.operation_log.audit'],
+  // AUDIT-2026-10-01 (P2)：审计筛选与明细查看复用同族操作权限
+  adminAuditLogs: ['admin.operation_log.filter', 'admin.operation_log.audit'],
   adminAlerts: [],
   adminSilences: []
 } as const satisfies Record<string, readonly PermissionKey[]>
 
-const ADMIN_PERMISSIONS = [...PAGE_PERMISSIONS.adminDashboard, ...PAGE_PERMISSIONS.adminTemplates, ...PAGE_PERMISSIONS.adminSettings, ...PAGE_PERMISSIONS.adminOperationLogs, ...PAGE_PERMISSIONS.adminAlerts, ...PAGE_PERMISSIONS.adminSilences, ...PAGE_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.adminTemplates, ...OPERATION_PERMISSIONS.adminSettings, ...OPERATION_PERMISSIONS.adminOperationLogs, ...OPERATION_PERMISSIONS.adminAlerts, ...OPERATION_PERMISSIONS.adminSilences, ...OPERATION_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.userReports, ...PAGE_PERMISSIONS.adminReports, ...PAGE_PERMISSIONS.adminObservability, ...PAGE_PERMISSIONS.adminMonitoring, ...PAGE_PERMISSIONS.adminCanary, 'admin.predict.audit'] as const satisfies readonly PermissionKey[]
+const ADMIN_PERMISSIONS = [...PAGE_PERMISSIONS.adminDashboard, ...PAGE_PERMISSIONS.adminTemplates, ...PAGE_PERMISSIONS.adminSettings, ...PAGE_PERMISSIONS.adminOperationLogs, ...PAGE_PERMISSIONS.adminAuditLogs, ...PAGE_PERMISSIONS.adminAlerts, ...PAGE_PERMISSIONS.adminSilences, ...PAGE_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.adminTemplates, ...OPERATION_PERMISSIONS.adminSettings, ...OPERATION_PERMISSIONS.adminOperationLogs, ...OPERATION_PERMISSIONS.adminAuditLogs, ...OPERATION_PERMISSIONS.adminAlerts, ...OPERATION_PERMISSIONS.adminSilences, ...OPERATION_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.userReports, ...PAGE_PERMISSIONS.adminReports, ...PAGE_PERMISSIONS.adminObservability, ...PAGE_PERMISSIONS.adminMonitoring, ...PAGE_PERMISSIONS.adminCanary, 'admin.predict.audit'] as const satisfies readonly PermissionKey[]
 
 const COUNSELOR_PERMISSIONS = [...PAGE_PERMISSIONS.counselorDashboard, ...PAGE_PERMISSIONS.counselorWarnings, ...PAGE_PERMISSIONS.counselorUsers, ...PAGE_PERMISSIONS.counselorReviews, ...PAGE_PERMISSIONS.counselorSettings, ...OPERATION_PERMISSIONS.counselorWarnings, ...OPERATION_PERMISSIONS.counselorUsers, ...OPERATION_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.counselorSettings, 'counselor.predict.use'] as const satisfies readonly PermissionKey[]
 

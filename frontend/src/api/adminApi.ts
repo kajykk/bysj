@@ -1,10 +1,10 @@
 import request, { dedupedGet, requestData, requestPageData } from './request'
 import { buildPageParams } from './business.shared'
 import type { PageQuery } from '@/types/api'
-import type { ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
+import type { AuditCompliance, AuditLogsResult, ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
 import type { TaskType } from './taskTypes'
 
-export type { ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
+export type { AuditCompliance, AuditLogsResult, ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
 
 export const adminApi = {
   listAdminTemplates: (query?: PageQuery) => requestPageData<TemplateItem>(dedupedGet('/admin/templates', { params: buildPageParams(query) })),
@@ -51,6 +51,16 @@ export const adminApi = {
   exportAdminOperationLogs: (query?: { action_type?: string; operator_role?: string; operator_name?: string; start_time?: string; end_time?: string }) =>
     requestData<{ items: OperationLogItem[]; total: number }>(dedupedGet('/admin/operation-logs/export', {
       params: { action_type: query?.action_type, operator_role: query?.operator_role, operator_name: query?.operator_name, start_time: query?.start_time, end_time: query?.end_time }
+    })),
+
+  // AUDIT-2026-10-01（决策三 P2）：合规审计日志查询（GDPR/等保 2.0 场景）。
+  // 响应多出 compliance 统计块，故不走 requestPageData，取完整 AuditLogsResult。
+  // action_types 为数组参数：axios 默认序列化成 key[]=v（FastAPI 不解析），
+  // 显式 indexes: null 使其输出 key=v1&key=v2，与 FastAPI Query(list) 对齐。
+  listAuditLogs: (query?: PageQuery & { action_types?: string[]; operator_role?: string; target_type?: string; start_time?: string; end_time?: string }) =>
+    requestData<AuditLogsResult>(dedupedGet('/admin/audit-logs', {
+      params: { ...buildPageParams(query), action_types: query?.action_types, operator_role: query?.operator_role, target_type: query?.target_type, start_time: query?.start_time, end_time: query?.end_time },
+      paramsSerializer: { indexes: null }
     })),
 
   getAdminStats: () => requestData<{

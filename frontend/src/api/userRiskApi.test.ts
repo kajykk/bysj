@@ -229,4 +229,50 @@ describe('api/userRiskApi', () => {
       await expect(userRiskApi.getAssessmentDetail(99)).rejects.toThrow('404')
     })
   })
+
+  describe('saveDraft', () => {
+    it('通过 POST /user/data/draft 保存草稿（upsert 语义）', async () => {
+      (requestData as any).mockResolvedValueOnce({ draft_id: 3 })
+      const payload = { entry_type: 'diary', content: '写到一半的内容', mood_score: 3 }
+      const res = await userRiskApi.saveDraft('text_assessment', payload)
+
+      expect(request.post).toHaveBeenCalledWith('/user/data/draft', {
+        draft_type: 'text_assessment',
+        data_payload: payload
+      })
+      expect(res).toEqual({ draft_id: 3 })
+    })
+
+    it('错误透传', async () => {
+      (requestData as any).mockRejectedValueOnce(new Error('422'))
+      await expect(userRiskApi.saveDraft('text_assessment', {})).rejects.toThrow('422')
+    })
+  })
+
+  describe('getDraft', () => {
+    it('调用 GET /user/data/draft/:type 并解包草稿', async () => {
+      (requestData as any).mockResolvedValueOnce({ draft_id: 3, data_payload: { content: 'abc' } })
+      const res = await userRiskApi.getDraft('text_assessment')
+
+      expect(dedupedGet).toHaveBeenCalledWith('/user/data/draft/text_assessment')
+      expect(res).toEqual({ draft_id: 3, data_payload: { content: 'abc' } })
+    })
+
+    it('draft_type 含特殊字符时做 URL 编码', async () => {
+      (requestData as any).mockResolvedValueOnce(undefined)
+      await userRiskApi.getDraft('a b/c')
+      expect(dedupedGet).toHaveBeenCalledWith('/user/data/draft/a%20b%2Fc')
+    })
+
+    it('404（无草稿）转换为 null 而不抛错', async () => {
+      (requestData as any).mockRejectedValueOnce({ response: { status: 404 } })
+      const res = await userRiskApi.getDraft('text_assessment')
+      expect(res).toBeNull()
+    })
+
+    it('非 404 错误照常抛出', async () => {
+      (requestData as any).mockRejectedValueOnce({ response: { status: 500 } })
+      await expect(userRiskApi.getDraft('text_assessment')).rejects.toEqual({ response: { status: 500 } })
+    })
+  })
 })

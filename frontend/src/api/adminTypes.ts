@@ -47,6 +47,29 @@ export interface OperationLogItem {
   created_at: string | null
 }
 
+/** AUDIT-2026-10-01（决策三 P2）：/admin/audit-logs 的合规统计块（GDPR/等保 2.0 场景） */
+export interface AuditCompliance {
+  /** 按当前筛选条件聚合的 action_type 计数 */
+  action_breakdown: Record<string, number>
+  earliest_log: string | null
+  latest_log: string | null
+  /** 与后端 archive_logs 的保留策略一致 */
+  retention_days: number
+}
+
+/**
+ * GET /admin/audit-logs 响应 data。
+ * 注意：与标准分页结构不同，多出 compliance 块——因此不用 requestPageData（会丢弃附加字段），
+ * 走 requestData 取完整结构。
+ */
+export interface AuditLogsResult {
+  items: OperationLogItem[]
+  total: number
+  page: number
+  page_size: number
+  compliance: AuditCompliance
+}
+
 export interface ModelFeedbackItem {
   id: number
   counselor_id: number

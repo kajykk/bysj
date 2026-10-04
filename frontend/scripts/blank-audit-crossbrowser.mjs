@@ -17,10 +17,21 @@ const VIEWPORTS = {
   mobile: { width: 390, height: 844 },
 }
 
+// AUDIT-2026-10-01 (P1-31): 不再硬编码 E2E 口令；从环境变量读取，缺失即失败。
 const CREDENTIALS = {
-  admin: { username: 'admin', password: '***REMOVED***' },
-  counselor: { username: 'dr_wang', password: '***REMOVED***' },
-  user: { username: 'user_moderate', password: '***REMOVED***' },
+  admin: { username: 'admin', password: process.env.E2E_ADMIN_PASSWORD },
+  counselor: { username: 'dr_wang', password: process.env.E2E_COUNSELOR_PASSWORD },
+  user: { username: 'user_moderate', password: process.env.E2E_USER_PASSWORD },
+}
+
+const MISSING = Object.entries(CREDENTIALS)
+  .filter(([, c]) => !c.password)
+  .map(([role]) => role)
+if (MISSING.length) {
+  console.error(
+    `缺少环境变量口令: ${MISSING.join(', ')} —— 需注入 E2E_ADMIN_PASSWORD / E2E_COUNSELOR_PASSWORD / E2E_USER_PASSWORD`,
+  )
+  process.exit(1)
 }
 
 // [role, path, viewport]

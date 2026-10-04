@@ -131,13 +131,16 @@ const routes = [
         path: 'counselor/reviews',
         alias: '/counselor/reviews',
         component: () => import('@/views/counselor/CounselorReviewListPage.vue'),
-        meta: { role: 'counselor', permissions: ROUTE_PERMISSIONS.counselorReviews, title: 'nav.counselor.reviews' }
+        // AUDIT-2026-10-01：管理员需要在此「指定分配」到具体咨询师，故放开角色限制。
+        // 后端 list_reviews 仅对 counselor 强制 assigned_to 过滤，管理员本就可见全部。
+        meta: { role: ['counselor', 'admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.counselorReviews, title: 'nav.counselor.reviews' }
       },
       {
         path: 'counselor/reviews/:id',
         alias: '/counselor/reviews/:id',
         component: () => import('@/views/counselor/CounselorReviewDetailPage.vue'),
-        meta: { role: 'counselor', permissions: ROUTE_PERMISSIONS.counselorReviews, title: 'nav.counselor.reviewDetail' }
+        // AUDIT-2026-10-01：同上，管理员从列表页可进入详情查看/处理（后端允许 admin 处理任意任务）。
+        meta: { role: ['counselor', 'admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.counselorReviews, title: 'nav.counselor.reviewDetail' }
       },
       // Admin routes - lazy loaded
       { path: 'admin/dashboard', alias: '/admin/dashboard', component: () => import('@/views/admin/AdminDashboard.vue'), meta: { role: ['admin', 'super_admin'], title: 'nav.admin.home' } },
@@ -148,6 +151,13 @@ const routes = [
         alias: '/admin/logs',
         component: () => import('@/views/admin/AdminOperationLogsPage.vue'),
         meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminOperationLogs, title: 'nav.admin.operationLogs' }
+      },
+      // AUDIT-2026-10-01（决策三 P2）：合规审计日志查询页（GDPR/等保 2.0 场景）
+      {
+        path: 'admin/audit-logs',
+        alias: '/admin/audit-logs',
+        component: () => import('@/views/admin/AdminAuditLogsPage.vue'),
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminAuditLogs, title: 'nav.admin.auditLogs' }
       },
       {
         path: 'admin/crisis-events',
@@ -196,6 +206,14 @@ const routes = [
         alias: '/admin/canary',
         component: () => import('@/views/admin/AdminCanaryPage.vue'),
         meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminCanary, title: 'nav.admin.canary' }
+      },
+      {
+        // AUDIT-2026-10-01 (P1-7)：模型暂停开关。后端 3 个端点在此前无任何前端入口，
+        // 事故时只能靠运维带 token 手工 curl——这是本系统唯一的事故止血开关。
+        path: 'admin/model-kill-switch',
+        alias: '/admin/model-kill-switch',
+        component: () => import('@/views/admin/AdminModelKillSwitchPage.vue'),
+        meta: { role: ['admin', 'super_admin'], permissions: ROUTE_PERMISSIONS.adminModelKillSwitch, title: 'nav.admin.modelKillSwitch' }
       },
       // Common routes
       { path: 'forbidden', alias: '/403', component: () => import('@/views/common/ForbiddenPage.vue') }

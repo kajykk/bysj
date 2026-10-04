@@ -9,11 +9,13 @@ export const ROUTE_PERMISSIONS = {
   counselorConsultation: [...PAGE_PERMISSIONS.counselorUsers, ...OPERATION_PERMISSIONS.counselorUsers],
   counselorReviews: [...PAGE_PERMISSIONS.counselorReviews, ...OPERATION_PERMISSIONS.counselorReviews],
   adminOperationLogs: [...PAGE_PERMISSIONS.adminOperationLogs, ...OPERATION_PERMISSIONS.adminOperationLogs],
+  adminAuditLogs: [...PAGE_PERMISSIONS.adminAuditLogs, ...OPERATION_PERMISSIONS.adminAuditLogs],
   adminAlerts: [...PAGE_PERMISSIONS.adminAlerts, ...OPERATION_PERMISSIONS.adminAlerts],
   adminSilences: [...PAGE_PERMISSIONS.adminSilences, ...OPERATION_PERMISSIONS.adminSilences],
   userReports: [...PAGE_PERMISSIONS.userReports],
   adminReports: [...PAGE_PERMISSIONS.adminReports],
   adminObservability: [...PAGE_PERMISSIONS.adminObservability],
   adminMonitoring: [...PAGE_PERMISSIONS.adminMonitoring],
-  adminCanary: [...PAGE_PERMISSIONS.adminCanary]
+  adminCanary: [...PAGE_PERMISSIONS.adminCanary],
+  adminModelKillSwitch: [...PAGE_PERMISSIONS.adminKillSwitch]
 } as const

@@ -213,6 +213,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import type { FormInstance, FormRules } from 'element-plus'
+import { resolveRoleHome } from '@/router/guard'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorDetail } from '@/utils/errorDetail'
 import { validatePasswordBytes } from '@/utils/passwordValidation'
@@ -299,11 +300,10 @@ const registerRules: FormRules = {
   ]
 }
 
-const resolveRoleHome = (role: UserInfo['role'] | '') => {
-  if (role === 'admin') return '/admin/dashboard'
-  if (role === 'counselor') return '/counselor/dashboard'
-  return '/user/dashboard'
-}
+// AUDIT-2026-10-01 (P1-3) 修复：此处原有与 '@/router/guard' 重复的私有 resolveRoleHome。
+// 旧实现在 role === 'super_admin' 时落到 `return '/user/dashboard'`，而路由守卫
+// （guard.ts:18）把 super_admin 指向 '/admin/dashboard' —— 两份定义漂移的结果是
+// 平台管理员登录成功后立刻被自己的守卫弹到 /403。现统一使用 guard 的单一实现。
 
 // R-002 修复：登录成功后恢复原始 URL（含 query/hash），避免复杂页面恢复体验丢失。
 // 安全策略：仅允许同源相对路径，拒绝外部 URL（//host、https://、http://）和 /login 自身（避免循环）。

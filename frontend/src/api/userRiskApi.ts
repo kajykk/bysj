@@ -74,6 +74,15 @@ export interface TextPredictModelResult {
   model_used: string
 }
 
+/**
+ * 草稿（GET /user/data/draft/{draft_type} 的 data 字段）。
+ * data_payload 为保存时原样存取的任意 JSON 对象，结构由调用方约定。
+ */
+export interface UserDraft {
+  draft_id: number
+  data_payload: Record<string, unknown>
+}
+
 export interface ActiveIntervention {
   plan: {
     id: number | null
@@ -118,4 +127,27 @@ export const userRiskApi = {
   recordPhysiological: (payload: Record<string, unknown>) => requestData<{ record_id: number }>(request.post('/user/data/physiological/record', payload)),
   predictTextModel: (text: string) => requestData<TextPredictModelResult>(request.post('/model/predict/text', { text })),
   getAssessmentDetail: (id: number) => requestData<AssessmentRecordItem>(dedupedGet(`/user/risk/assessments/${id}`)),
+
+  /**
+   * AUDIT-2026-10-01（决策三 P6）：保存填报草稿（POST /user/data/draft，upsert 语义）。
+   * 后端对同一 (user_id, draft_type) 覆盖写，返回 { draft_id }。
+   * draft_type 为 1-50 字符自由串（DraftUpsertRequest 约束），业务语义由调用方约定。
+   */
+  saveDraft: (draftType: string, dataPayload: Record<string, unknown>) =>
+    requestData<{ draft_id: number }>(request.post('/user/data/draft', { draft_type: draftType, data_payload: dataPayload })),
+
+  /**
+   * 读取草稿（GET /user/data/draft/{draft_type}）。
+   * 后端无草稿时返回 404——此处转换为 null，调用方无需为「没有草稿」这一正常情况写 try/catch。
+   * 其他错误（网络/5xx/未登录）照常抛出。
+   */
+  getDraft: async (draftType: string): Promise<UserDraft | null> => {
+    try {
+      return await requestData<UserDraft>(dedupedGet(`/user/data/draft/${encodeURIComponent(draftType)}`))
+    } catch (error) {
+      const status = (error as { response?: { status?: number } } | null)?.response?.status
+      if (status === 404) return null
+      throw error
+    }
+  },
 }
