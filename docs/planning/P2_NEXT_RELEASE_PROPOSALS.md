@@ -14,10 +14,31 @@
 
 | 数字 | 口径 | 可比性 |
 |---|---|---|
-| bilingual F1 **0.586** | groupwise CV（按被试分组切分） | ✅ 可作为**生产基线** |
+| bilingual F1 **0.586** | groupwise CV（按被试分组切分） | ⚠️ 见下方「溯源失败」 |
 | BERT **0.536** | 组内 CV（同一被试样本可能落在训练与测试两侧） | ❌ **系统性高估**，不能与上行比 |
 
-**立项第一步不是跑模型，是把基线数字在同一口径下重算一遍**——否则「BERT 0.536 < 0.586，所以 BERT 很差」是错误结论（可能它只是口径吃亏）。本项目历史上正是靠口径纪律纠正过同类判断。
+> **2026-10-04 溯源失败记录（重要）**：为建立对照，去仓库里找这两个数字的产出脚本，**没找到**——
+> `scripts/m2_group_cv_eval.py` 跑的是 **BERT embeddings**（`GroupKFold by source_idx`，目标 F1≥0.65），
+> 而 `scripts/ml_training/train_bilingual_text.py` **完全没有 CV**（只是 train/test split，
+> `MODEL_REGISTRY.md` §3 记录的 0.789 / n=26,381 就是它的产物，属**随机 split 口径**）。
+> 即 0.586 既无法溯源，也无法与 0.789 并列比较。
+>
+> **因此本项评估改为自建同口径 A/B**，不依赖任何存疑数字——
+> 见下方「评估设计」。**任何人都不要再引用 0.586/0.536 作为对照基线**，
+> 除非能补上产出脚本。
+
+### 评估设计（同口径 A/B，只换特征）
+
+| 变量 | 固定为 |
+|---|---|
+| 语料 | `data/external/chinese_depression_corpus_v1.csv`（8,379 行，含 `source_idx`） |
+| 标签 | `phq9_binary` |
+| 分组 | 复用 `m2_group_cv_eval.build_group_ids`（原始样本与其增强变体同组，防泄露） |
+| 分类器 | `LogisticRegression(C=1.0, class_weight="balanced", max_iter=3000, random_state=42)` |
+| CV | `GroupKFold(n_splits=5)`，阈值在**训练折内**按最佳 F1 选（复用 `t1_group_cv_tool.evaluate_group_cv`） |
+| **唯一变量** | 特征：A = TF-IDF(1-2gram, sublinear_tf, scale=False) ／ B = MiniLM 384 维 (scale=True) |
+
+脚本：`scripts/t1_sentence_embedding_eval.py`（结果写入 `docs/planning/p2_1_sentence_embedding_eval.json`）。
 
 ### 候选与依赖边界
 
@@ -37,16 +58,20 @@
 
 任一条不满足 → **不换**，把评估报告存档即可。**不许用「差不多」换「更好」**。
 
-### 执行步骤（需联网；本机 PyPI 实测不可达）
+### 本轮执行结果（2026-10-04 已完成，联网后）
 
-```bash
-pip install sentence-transformers                     # 仅实验环境
-python -c "from sentence_transformers import SentenceTransformer; \
-  SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')"   # 首次会下载权重
-# 之后：抽取 embeddings → 复用现有 LR 头 → 同口径 groupwise CV → 出评估报告
-```
+**结果报告：[`P2_1_EVALUATION_RESULT.md`](P2_1_EVALUATION_RESULT.md)**（原始数据 `p2_1_sentence_embedding_eval.json`）
 
-**当前阻塞**：本机 PyPI 不可达（实测 `urlopen` 5s 超时），模型与包均无法下载 → **本轮只能立项，不能出结论**。
+| 组 | 特征 | 维度 | F1 | AUC |
+|---|---|---|---|---|
+| A | TF-IDF 原始 | 89,988 | 0.0544 | 0.6929 |
+| C | TF-IDF + SVD（**公平基线**） | 300 | 0.2452 | 0.5604 |
+| **B** | **MiniLM 句向量** | 384 | **0.4692** | **0.7568** |
+
+- **ΔF1 (B−C) = +0.2240、ΔAUC (B−C) = +0.1963，CI 不重叠 → 达到预设门槛（ΔF1 ≥ +0.02）**
+- 关键证据：同为 300/384 维量级的 C 组 AUC 仅 0.5604 → **B 的增益来自语义表征本身**，不是「维度低」或「概率校准」
+- **判定：换 —— 但只到「进入下一轮正式评估」这一档**：绝对 F1 0.469 仍低于项目自设目标 0.65，且仅在中文语料验证；投产前须补双语复测、补齐 F1、核算成本（470MB 权重 vs 现有 1.3MB）、修评估器（`SEEDS` 冗余循环 + 训练折阈值策略）
+- 环境备忘：本机 PyPI/HF 直连不通，走腾讯云镜像 + `hf-mirror`；模型下载用 `scripts/fetch_hf_model_via_mirror.sh`（大文件断点续传）；`sentence-transformers 6.1.0` 在 transformers 5.5.0 下不可用（AutoProcessor），脚本改手工 mean pooling
 
 ---
 
