@@ -244,3 +244,43 @@ CI 的 `dependency-scan.yml` 已用 `--ignore-vuln PYSEC-2026-3740` 显式忽略
 两个工具都把「升级」当成显式请求。
 
 => 已把这条写进 `requirements.lock` 头部注释与本节，重生成时不必重新踩。
+
+### 7.6 补漏：`requirements-dev.lock` 也需要 `--upgrade`（2026-10-05 03:50）
+
+§7.1 的两个扫描口径**都没覆盖 `requirements-dev.lock`**（扫的是 `requirements.lock`
+与 `.txt` 组合），而 CI 的 `dependency-scan.yml` 里 pip-audit **只扫 `.txt`**：
+
+```yaml
+pip-audit --requirement requirements.txt --requirement requirements-dev.txt --strict
+```
+
+=> 结论：dev 侧 lock 的漏洞既不会被 CI 看见，也不在 §7 的清零范围内。
+实测复扫（`pip-audit -r requirements-dev.lock --no-deps`）发现 **20+ 条**：
+
+| 包 | 版本 | 公告数 | 有修复版本 |
+|---|---|---|---|
+| nltk | 3.10.0 | 18 | ✅ 3.10.1~3.10.3（PYSEC-2026-3740 除外） |
+| urllib3 | 2.7.0 | 3 | ✅ 2.8.0 |
+| pip | 26.1.2 | 1 | ✅ 26.2 |
+
+**处置**（同 §7.3 的命令，加 `--upgrade`）：`nltk 3.10.0 → 3.10.3`、
+`urllib3 2.7.0 → 2.8.0`、`pip 26.1.2 → 26.2.0`。
+
+**上界核对**：`nltk` / `urllib3` / `pip` 在 `requirements-dev.txt` 中**没有显式声明**
+（纯传递依赖、无上界保护）→ 清零不需要放松任何既有约束。既有三条上界全部守住：
+`schemathesis==4.16.1`（<4.17）、`httpx==0.28.1`（<0.29）、`starlette-testclient==0.4.1`（<0.5）。
+
+**复扫读数**：`pip-audit -r requirements-dev.lock --no-deps` →
+`Found 1 known vulnerability in 1 package`：`nltk 3.10.3 PYSEC-2026-3740`，
+**无上游修复版本**，且 CI 已用 `--ignore-vuln PYSEC-2026-3740` 显式忽略
+（理由：仅 safety 运行时依赖、`app/`+`scripts/` 零 import、复审期限 2026-12-15）。
+
+**自洽性**：136 个钉位二次解析完全一致（仅注释里的来源引用从 `requirements-dev.txt`
+变成 `-r requirements-dev.lock`，属预期差异，不是钉位漂移）。
+
+> 📌 **判读修正**：全文 diff 会显示 391 行差异，但全部是注释格式
+> （`# via typer` → `# via` + `# -r …lock` + `# typer`）。
+> **自洽性必须只比较 `==` 钉位行**，否则会误判为不自洽。
+
+**两个 lock 的最终状态**：`requirements.lock` 0 条、`requirements-dev.lock` 1 条
+（无修复版，已显式忽略）——即「漏洞清零」结论现在对**两个** lock 都成立。
