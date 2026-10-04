@@ -8,6 +8,8 @@
 5. user 角色访问他人文件 404 (不暴露存在性)
 6. counselor 角色访问任意用户文件 200
 7. admin 角色访问任意用户文件 200
+7b. super_admin 角色访问任意用户文件 200（AUDIT-2026-10-01 P1-2 回归）
+7c. 未知角色 403
 8. 路径遍历攻击被拦截
 9. 非法文件名被拦截
 10. ``?token=`` query 参数鉴权 200 (浏览器原生标签 fallback)
@@ -171,6 +173,35 @@ class TestPrivateUploadAuth:
             "/uploads/2/def456.pdf", headers={"Authorization": "Bearer test-token"}
         )
         assert resp.status_code == 200
+
+    def test_private_super_admin_access_any_user(
+        self, client: TestClient, mock_upload_dir: Path, as_role
+    ):
+        """AUDIT-2026-10-01 (P1-2) 回归：super_admin 可访问任意用户文件。
+
+        原白名单 ``("user", "counselor", "admin")`` 遗漏 super_admin，
+        导致平台管理员（最高权限角色）读取私有文件被错误拒绝为 403。
+        """
+        as_role("super_admin", user_id=99)
+        resp = client.get(
+            "/uploads/1/abc123.jpg", headers={"Authorization": "Bearer test-token"}
+        )
+        assert resp.status_code == 200
+        assert resp.content == b"user1-avatar"
+        resp = client.get(
+            "/uploads/2/def456.pdf", headers={"Authorization": "Bearer test-token"}
+        )
+        assert resp.status_code == 200
+
+    def test_private_unknown_role_rejected(
+        self, client: TestClient, mock_upload_dir: Path, as_role
+    ):
+        """未知角色（不在 contracts.USER_ROLES 内）仍被拒绝 403。"""
+        as_role("intruder", user_id=99)
+        resp = client.get(
+            "/uploads/1/abc123.jpg", headers={"Authorization": "Bearer test-token"}
+        )
+        assert resp.status_code == 403
 
     def test_private_query_token_fallback(
         self, client: TestClient, mock_upload_dir: Path, as_role

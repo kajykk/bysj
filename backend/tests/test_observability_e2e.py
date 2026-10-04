@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy import select
 
+from app.api.v1 import observability as obs_mod
 from app.core.cache import clear_memory_cache
 from app.models.admin import OperationLog
 from app.monitoring import dedup_lock as dedup_lock_mod
@@ -297,9 +298,21 @@ async def test_e2e_lock_fallback_to_stats(db_session, client, as_role) -> None:
     assert stats_after["fallback"] == 0
 
     # 6. 调 lock-stats API 验证
-    resp = client.get("/api/v1/alerts/observability/lock-stats")
+    # AUDIT-2026-10-01：该端点有 5min Redis 缓存（见 observability 的 lock-stats，
+    # CACHE_TTL_BASE=300 + 抖动）。缓存键不含数据版本，因此这里读到的可能是
+    # **上一次测试运行**留下的旧值 —— 表现为「同机重复跑时随机失败」，而清空 Redis 后
+    # 又能"通过"（读的其实是缓存里恰好相同的值，属假绿）。
+    # 显式绕过缓存，让断言检查的是**本次**写入的数据。
+    with patch.object(obs_mod, "cache_get", AsyncMock(return_value=None)):
+        resp = client.get("/api/v1/alerts/observability/lock-stats")
     assert resp.status_code == 200, f"lock-stats failed: {resp.text}"
     body = resp.json()
+    # 自证：必须走 compute 而不是读缓存。否则下面的断言可能只是
+    # 「缓存里恰好也是 1 条」造成的假绿。
+    assert body["cached"] is False, (
+        "lock-stats 返回了缓存值：本测试断言的是本次 flush 的数据，"
+        "缓存会掩盖真实结果（见上方注释）"
+    )
     data = body["data"]
     # recent_flushes 包含我们刚写入的
     assert len(data["recent_flushes"]) == 1
@@ -374,7 +387,7 @@ async def test_e2e_lock_mixed_paths_to_stats(db_session, client, as_role) -> Non
             break
     assert rf is not None, (
         f"未找到 acquired=1, skipped=1, fallback=1 的 flush 记录, "
-        f"logs={[json.loads(l.detail) for l in logs]}"
+        f"logs={[json.loads(entry.detail) for entry in logs]}"
     )
     # 比例: 1/3 each
     assert abs(rf["fallback"] / 3 - 1 / 3) < 0.001

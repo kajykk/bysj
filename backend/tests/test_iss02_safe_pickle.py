@@ -169,26 +169,42 @@ def test_validate_size_too_large_rejected(tmp_path):
 
 # --------------------------------------------------------------------------- #
 # safe_joblib_load
+#
+# AUDIT-2026-10-01 (P0-2)：safe_joblib_load 不再调用 joblib.load，而是走
+# **受限 Unpickler**（joblib.numpy_pickle.NumpyUnpickler 子类 + 白名单）。
+# 因此原先"用假 joblib 拦截并断言 joblib.load 被调用"的写法已不成立；
+# 下面这几个真正走到反序列化的用例改用**真实 joblib 工件**，
+# 既保留了对路径/大小/哈希分支的覆盖，也忠实反映新契约。
+# 反序列化白名单本身由 tests/unit/test_safe_pickle_whitelist.py 覆盖。
 # --------------------------------------------------------------------------- #
-def test_joblib_load_success_no_hash(tmp_path, fake_loaders):
+def _write_real_joblib(path: Path, payload: dict | None = None) -> str:
+    """写入一个真实的 joblib 工件，返回其 sha256。"""
+    import joblib
+
+    if payload is None:
+        payload = {"loaded": True, "via": "joblib"}
+    joblib.dump(payload, path)
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_joblib_load_success_no_hash(tmp_path):
     p = tmp_path / "m.joblib"
-    _write_file(p)
+    _write_real_joblib(p)
     result = safe_pickle.safe_joblib_load(p, require_hash=False)
     assert result == {"loaded": True, "via": "joblib"}
-    assert fake_loaders["joblib"] == [str(p.resolve())]
 
 
-def test_joblib_load_require_hash_from_sha256_file(tmp_path, fake_loaders):
+def test_joblib_load_require_hash_from_sha256_file(tmp_path):
     p = tmp_path / "m.joblib"
-    h = _write_file(p)
+    h = _write_real_joblib(p)
     (tmp_path / "m.joblib.sha256").write_text(f"{h}  m.joblib\n")
     result = safe_pickle.safe_joblib_load(p, require_hash=True)
     assert result == {"loaded": True, "via": "joblib"}
 
 
-def test_joblib_load_expected_hash_match(tmp_path, fake_loaders):
+def test_joblib_load_expected_hash_match(tmp_path):
     p = tmp_path / "m.joblib"
-    h = _write_file(p)
+    h = _write_real_joblib(p)
     result = safe_pickle.safe_joblib_load(p, expected_hash=h, require_hash=False)
     assert result == {"loaded": True, "via": "joblib"}
 
@@ -227,9 +243,10 @@ def test_joblib_load_path_traversal_rejected(tmp_path):
         safe_pickle.safe_joblib_load(evil, trusted_root=root, require_hash=False)
 
 
-def test_joblib_load_deserialize_failure_wrapped(tmp_path, failing_loaders):
+def test_joblib_load_deserialize_failure_wrapped(tmp_path):
+    """真正损坏的文件（不是 joblib 工件）应被包装为「反序列化失败」的 ValueError。"""
     p = tmp_path / "m.joblib"
-    _write_file(p)
+    p.write_bytes(b"this-is-not-a-pickle")
     with pytest.raises(ValueError, match="反序列化失败"):
         safe_pickle.safe_joblib_load(p, require_hash=False)
 

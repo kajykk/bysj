@@ -28,8 +28,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Register Api V1 Auth Register Post"
+                  "$ref": "#/components/schemas/ApiResponse_RegisterResponse_"
                 }
               }
             }
@@ -150,8 +149,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Login Api V1 Auth Login Post"
+                  "$ref": "#/components/schemas/ApiResponse_LoginResponse_"
                 }
               }
             }
@@ -279,8 +277,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Refresh Token Api V1 Auth Refresh Post"
+                  "$ref": "#/components/schemas/ApiResponse_TokenResponse_"
                 }
               }
             }
@@ -401,8 +398,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Change Password Api V1 Auth Change Password Put"
+                  "$ref": "#/components/schemas/ApiResponse_MessageResponse_"
                 }
               }
             }
@@ -528,8 +524,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Request Password Reset Api V1 Auth Request Reset Post"
+                  "$ref": "#/components/schemas/ApiResponse_MessageResponse_"
                 }
               }
             }
@@ -650,8 +645,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Reset Password Api V1 Auth Reset Password Post"
+                  "$ref": "#/components/schemas/ApiResponse_MessageResponse_"
                 }
               }
             }
@@ -780,8 +774,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Logout Api V1 Auth Logout Post"
+                  "$ref": "#/components/schemas/ApiResponse_LogoutResponse_"
                 }
               }
             }
@@ -907,8 +900,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Update Profile Api V1 Auth Profile Put"
+                  "$ref": "#/components/schemas/ApiResponse_ProfileResponse_"
                 }
               }
             }
@@ -1040,8 +1032,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Submit Events Api V1 Analytics Events Post"
+                  "$ref": "#/components/schemas/ApiResponse_EventsSubmitResponse_"
                 }
               }
             }
@@ -1186,8 +1177,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Query Events Api V1 Analytics Events Get"
+                  "$ref": "#/components/schemas/ApiResponse_EventsQueryResponse_"
                 }
               }
             }
@@ -1299,8 +1289,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Get Consent Api V1 Analytics Consent Get"
+                  "$ref": "#/components/schemas/ApiResponse_ConsentStatusResponse_"
                 }
               }
             }
@@ -1425,8 +1414,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Update Consent Api V1 Analytics Consent Put"
+                  "$ref": "#/components/schemas/ApiResponse_ConsentUpdateResponse_"
                 }
               }
             }
@@ -4447,6 +4435,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Risk Trend Api V1 User Risk Trend Get"
                 }
               }
@@ -4904,8 +4893,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response List Contents Api V1 User Content  Get"
+                  "$ref": "#/components/schemas/ApiResponse_ContentListResponse_"
                 }
               }
             }
@@ -5046,8 +5034,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response List Favorites Api V1 User Content Favorites List Get"
+                  "$ref": "#/components/schemas/ApiResponse_ContentListResponse_"
                 }
               }
             }
@@ -5188,8 +5175,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response List Recommendations Api V1 User Content Recommendations Get"
+                  "$ref": "#/components/schemas/ApiResponse_RecommendationListResponse_"
                 }
               }
             }
@@ -5330,8 +5316,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response List Recent Views Api V1 User Content Recent Views Get"
+                  "$ref": "#/components/schemas/ApiResponse_RecentViewListResponse_"
                 }
               }
             }
@@ -5452,8 +5437,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Meditation Log Api V1 User Content Meditation Log Post"
+                  "$ref": "#/components/schemas/ApiResponse_MeditationLogResult_"
                 }
               }
             }
@@ -5585,8 +5569,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Get Content Detail Api V1 User Content  Content Id  Get"
+                  "$ref": "#/components/schemas/ApiResponse_ContentDetail_"
                 }
               }
             }
@@ -5713,8 +5696,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Toggle Favorite Api V1 User Content  Content Id  Favorite Post"
+                  "$ref": "#/components/schemas/ApiResponse_ToggleFavoriteResult_"
                 }
               }
             }
@@ -5858,7 +5840,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_UploadResult_"
                 }
               }
             }
@@ -6002,7 +5984,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_UploadBatchResult_"
                 }
               }
             }
@@ -11578,7 +11560,7 @@
           "reports"
         ],
         "summary": "Generate User Risk Pdf Async",
-        "description": "P1-4: 异步生成 PDF 报告.\n\n立即返回 job_id, PDF 在后台线程池生成. 客户端通过\nGET /reports/pdf/{job_id}/status 查询进度,\nGET /reports/pdf/{job_id}/download 下载完成的 PDF.\n\n适用于大报告 (>= 1000 行) 或需要非阻塞响应的场景.",
+        "description": "R-B: 异步生成 PDF 报告（统一派发：Celery 优先，降级线程）.\n\n响应新增 backend 字段（celery | thread-fallback），原 job_id/status/message\n键保持不变，旧客户端零感知。",
         "operationId": "generate_user_risk_pdf_async_api_v1_reports_user_risk_pdf_async_post",
         "requestBody": {
           "content": {
@@ -11705,7 +11687,7 @@
           "reports"
         ],
         "summary": "Get Pdf Job Status",
-        "description": "P1-4: 查询 PDF 生成任务状态.",
+        "description": "R-B: 统一 PDF 任务状态查询（Redis 优先，内存兜底）.\n\n同时覆盖 Celery(Redis) 路径与进程内 PdfJobStore 路径的任务。",
         "operationId": "get_pdf_job_status_api_v1_reports_pdf__job_id__status_get",
         "security": [
           {
@@ -11833,7 +11815,7 @@
           "reports"
         ],
         "summary": "Download Pdf",
-        "description": "P1-4: 下载已完成的 PDF.\n\n仅 status=completed 的任务可下载. 下载后任务保留 (TTL 1h 后自动清理),\n客户端可重复下载直到过期.",
+        "description": "R-B: 统一 PDF 下载（Redis 字节优先，内存兜底）.\n\n仅 status=completed 的任务可下载。下载后任务保留 (TTL 1h 后自动清理),\n客户端可重复下载直到过期。",
         "operationId": "download_pdf_api_v1_reports_pdf__job_id__download_get",
         "security": [
           {
@@ -11960,7 +11942,7 @@
           "reports"
         ],
         "summary": "List Pdf Jobs",
-        "description": "P1-4: 列出当前用户的 PDF 生成任务.\n\n任务按 created_by 隔离，任何已登录用户仅能查看自己的任务，\n无需 admin.predict.audit（原权限过严导致用户端任务进度恢复 403）。",
+        "description": "P1-4: 列出当前用户的 PDF 生成任务.\n\n任务按 created_by 隔离，任何已登录用户仅能查看自己的任务，\n无需 admin.predict.audit（原权限过严导致用户端任务进度恢复 403）。\n\nOPT-T4-P1：合并进程内存储与 Celery(Redis) 存储两条后端的任务，\n此前列表只显示本进程内存任务，Celery 路径的任务对运维/前端不可见。\nRedis 不可用时静默跳过 celery 部分（与生成端点的回退语义一致）。",
         "operationId": "list_pdf_jobs_api_v1_reports_pdf_jobs_get",
         "responses": {
           "200": {
@@ -12077,7 +12059,7 @@
           "reports"
         ],
         "summary": "Generate User Risk Pdf Celery Async",
-        "description": "P-D: 通过 Celery 队列异步生成 PDF 报告.\n\n与 /user-risk/pdf/async (asyncio.create_task, 进程内) 并存, 适用于:\n- 多实例部署 (Celery worker 可独立扩缩容)\n- 长时间 PDF 生成 (不占用 Web 进程资源)\n- 任务持久化 (Celery worker 重启后任务可恢复)\n\n当 Celery broker 不可用时, 自动回退到 daemon Thread.\n\n客户端通过:\n- GET /reports/pdf/celery/{job_id}/status 查询状态\n- GET /reports/pdf/celery/{job_id}/download 下载 PDF",
+        "description": "P-D: 通过 Celery 队列异步生成 PDF 报告 (统一派发入口).",
         "operationId": "generate_user_risk_pdf_celery_async_api_v1_reports_user_risk_pdf_celery_async_post",
         "requestBody": {
           "content": {
@@ -12198,30 +12180,14 @@
         ]
       }
     },
-    "/api/v1/reports/pdf/celery/{job_id}/status": {
+    "/api/v1/reviews/stats": {
       "get": {
         "tags": [
-          "reports"
+          "reviews"
         ],
-        "summary": "Get Celery Pdf Job Status",
-        "description": "P-D: 查询 Celery PDF 任务状态.",
-        "operationId": "get_celery_pdf_job_status_api_v1_reports_pdf_celery__job_id__status_get",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
+        "summary": "Get Review Stats",
+        "description": "获取复核统计",
+        "operationId": "get_review_stats_api_v1_reviews_stats_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -12323,144 +12289,22 @@
               }
             }
           }
-        }
-      }
-    },
-    "/api/v1/reports/pdf/celery/{job_id}/download": {
-      "get": {
-        "tags": [
-          "reports"
-        ],
-        "summary": "Download Celery Pdf",
-        "description": "P-D: 下载 Celery 生成的 PDF.\n\nPDF 字节从 Redis 二进制 key 读取 (TTL 1 小时).",
-        "operationId": "download_celery_pdf_api_v1_reports_pdf_celery__job_id__download_get",
+        },
         "security": [
           {
             "OAuth2PasswordBearer": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "PDF 文件",
-            "content": {
-              "application/json": {
-                "schema": {}
-              },
-              "application/pdf": {}
-            }
-          },
-          "400": {
-            "description": "业务处理失败",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未认证",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "权限不足",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "资源不存在",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "状态冲突",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "参数校验失败",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "请求过于频繁 (限流)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "服务内部错误",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
+        ]
       }
     },
-    "/api/v1/reviews/stats": {
+    "/api/v1/reviews/assignable-counselors": {
       "get": {
         "tags": [
           "reviews"
         ],
-        "summary": "Get Review Stats",
-        "description": "获取复核统计",
-        "operationId": "get_review_stats_api_v1_reviews_stats_get",
+        "summary": "List Assignable Counselors",
+        "description": "列出可作为复核任务受理人的咨询师（仅管理员）。\n\nAUDIT-2026-10-01 (P1-1 配套)：``POST /reviews/{review_id}/assign`` 支持管理员用\n``assignee_id`` 指定分配给某位咨询师，但此前没有任何端点能提供候选名单，\n该 UI 因此无法落地。本端点补上这个数据源。\n\n只返回 ``role=counselor`` 且 ``status=active`` 的用户；非管理员调用返回 403。\n\n注意：本路由必须定义在 ``/{review_id}`` **之前**，否则会被该动态路由吞掉。",
+        "operationId": "list_assignable_counselors_api_v1_reviews_assignable_counselors_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -13536,7 +13380,7 @@
           "reviews"
         ],
         "summary": "Assign Review",
-        "description": "分配复核任务",
+        "description": "分配 / 领取复核任务\n\nAUDIT-2026-10-01 (P1-1) 修复：原实现只校验 ``review.handle`` 权限，**无任何归属校验**——\n任何持有该权限的角色都能凭一个 ``review_id`` 把任意任务据为己有\n（``assigned_to`` → 自己、``status`` → ``in_review``），从而使后续\n``get_review`` / ``resolve_review`` / ``escalate_review`` 的 owner 校验全部失效。\n\n现按角色收紧：\n\n- **admin / super_admin**：可把任务分配给任意咨询师（``assignee_id``）；不传则接管给自己。\n- **counselor**：只能「领取」已绑定给自己的学生的任务（``user_counselor_bindings``），\n  且不允许代他人分配。",
         "operationId": "assign_review_api_v1_reviews__review_id__assign_post",
         "security": [
           {
@@ -13554,6 +13398,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReviewAssignRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -18787,7 +18648,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GdprDeleteResult_"
+                }
               }
             }
           },
@@ -18895,7 +18758,7 @@
           "GDPR-Admin"
         ],
         "summary": "管理员导出任意用户数据 (GDPR Article 15)",
-        "description": "ISS-074: 管理员导出指定用户的全部个人数据.\n\n- 仅 admin 角色可调用\n- 复用 GDPRService._stream_user_data 流式输出\n- 写入 OperationLog 审计日志（权限/安全场景需第二人复核）",
+        "description": "ISS-074: 管理员导出指定用户的全部个人数据.\n\n- 仅**平台**管理员可调用（admin/super_admin 且属于平台默认租户）\n- 复用 GDPRService._stream_user_data 流式输出\n- 写入 OperationLog 审计日志（权限/安全场景需第二人复核）",
         "operationId": "admin_export_user_data_api_v1_admin_gdpr_export__user_id__get",
         "security": [
           {
@@ -19021,7 +18884,7 @@
           "GDPR-Admin"
         ],
         "summary": "管理员匿名化用户 (GDPR Article 17)",
-        "description": "ISS-074: 管理员匿名化指定用户（无需用户密码）.\n\n- 仅 admin 角色可调用\n- 跳过密码验证（管理员越权路径，password_confirm=None）\n- 必须提供 reason（写入审计日志，供第二人复核）\n- 写入额外 OperationLog 记录管理员操作（区别于用户自删的 gdpr.account.deleted）",
+        "description": "ISS-074: 管理员匿名化指定用户（无需用户密码）.\n\n- 仅**平台**管理员可调用（admin/super_admin 且属于平台默认租户）\n- 跳过密码验证（管理员越权路径，password_confirm=None）\n- 必须提供 reason（写入审计日志，供第二人复核）\n- 写入额外 OperationLog 记录管理员操作（区别于用户自删的 gdpr.account.deleted）",
         "operationId": "admin_delete_user_account_api_v1_admin_gdpr_delete__user_id__post",
         "security": [
           {
@@ -19054,7 +18917,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GdprDeleteResult_"
+                }
               }
             }
           },
@@ -19157,7 +19022,7 @@
           "metrics"
         ],
         "summary": "Get Metrics",
-        "description": "Prometheus exposition 端点.\n\nCRIT-007 修复：添加访问令牌鉴权。\n生产环境必须配置 METRICS_ACCESS_TOKEN，Prometheus 需在\nAuthorization header 中发送 \"Bearer <token>\"。\n\n包含:\n- http_requests_total{method,path,status}\n- http_request_duration_seconds{method,path}\n- model_inference_total{model_name,status}\n- model_inference_duration_seconds{model_name}\n- websocket_connections_active\n- db_pool_size\n- app_info",
+        "description": "Return Prometheus exposition data after collecting current snapshots.\n\nThe collection includes db_breaker, ml_breaker, smtp_breaker, and\ncelery_breaker state through the shared breaker collector, including\nsmtp_circuit_failure_count, smtp_circuit_state, celery_circuit_failure_count,\nand celery_circuit_state.",
         "operationId": "get_metrics_api_v1_metrics_get",
         "parameters": [
           {
@@ -19287,7 +19152,7 @@
           "metrics"
         ],
         "summary": "Prometheus Query",
-        "description": "Prometheus HTTP API 兼容端点 (/api/v1/query).\n\nS4 P3: Grafana Prometheus 数据源需要标准 HTTP API, 而非 exposition format.\n本端点解析 exposition format 输出, 返回 Prometheus JSON API 格式响应.\n\n支持基本查询: 指标名 + {label=value} 过滤 (如 model_auc{modality=\"structured\"}).",
+        "description": "Return a small Prometheus HTTP API-compatible vector response.",
         "operationId": "prometheus_query_api_v1_query_get",
         "parameters": [
           {
@@ -19323,8 +19188,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Prometheus Query Api V1 Query Get"
+                  "$ref": "#/components/schemas/PrometheusQueryResponse"
                 }
               }
             }
@@ -19437,6 +19301,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Metrics Summary Api V1 Admin Metrics Summary Get"
                 }
@@ -19584,6 +19449,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Alertmanager Webhook Api V1 Alerts Webhook Post"
                 }
               }
@@ -19795,6 +19661,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response List Alert History Api V1 Alerts History Get"
                 }
               }
@@ -19924,6 +19791,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Acknowledge Alert Api V1 Alerts  Alert Id  Ack Post"
                 }
               }
@@ -20152,6 +20020,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response List Alert Archive Api V1 Alerts Archive Get"
                 }
               }
@@ -20383,6 +20252,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Alert Trend Api V1 Alerts Observability Trend Get"
                 }
               }
@@ -20555,6 +20425,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Response Time Api V1 Alerts Observability Response Time Get"
                 }
               }
@@ -20727,6 +20598,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Escalation Api V1 Alerts Observability Escalation Get"
                 }
               }
@@ -20899,6 +20771,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Channel Stats Api V1 Alerts Observability Channel Stats Get"
                 }
               }
@@ -21053,6 +20926,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Silence Hit Rate Api V1 Alerts Observability Silence Hit Rate Get"
                 }
               }
@@ -21225,6 +21099,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Am Sync Api V1 Alerts Observability Am Sync Get"
                 }
               }
@@ -21337,6 +21212,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Lock Stats Api V1 Alerts Observability Lock Stats Get"
                 }
@@ -21455,6 +21331,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Observability Health Api V1 Alerts Observability Health Get"
                 }
@@ -21589,6 +21466,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Create Silence Api V1 Alerts Silences Post"
                 }
               }
@@ -21746,6 +21624,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response List Silences Api V1 Alerts Silences Get"
                 }
               }
@@ -21858,6 +21737,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response List Active Silences Api V1 Alerts Silences Active Get"
                 }
@@ -22003,6 +21883,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Update Silence Api V1 Alerts Silences  Silence Id  Put"
                 }
               }
@@ -22130,6 +22011,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Delete Silence Api V1 Alerts Silences  Silence Id  Delete"
                 }
               }
@@ -22259,6 +22141,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Enable Silence Api V1 Alerts Silences  Silence Id  Enable Post"
                 }
               }
@@ -22371,6 +22254,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Grafana Root Api V1 Alerts Observability Grafana  Get"
                 }
@@ -22489,6 +22373,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Grafana Health Api V1 Alerts Observability Grafana Health Get"
                 }
@@ -22608,6 +22493,7 @@
               "application/json": {
                 "schema": {
                   "items": {
+                    "additionalProperties": true,
                     "type": "object"
                   },
                   "type": "array",
@@ -22955,7 +22841,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Grafana Query Api V1 Alerts Observability Grafana Query Post"
                 }
@@ -23079,6 +22966,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Run Clinical Validation Api V1 Validation Clinical Post"
                 }
@@ -23562,8 +23450,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Ops Dashboard Overview Api V1 Ops Dashboard Overview Get"
+                  "$ref": "#/components/schemas/ApiResponse_OpsDashboardOverview_"
                 }
               }
             }
@@ -23697,8 +23584,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Ops Review Metrics Api V1 Ops Dashboard Review Metrics Get"
+                  "$ref": "#/components/schemas/ApiResponse_ReviewMetricsResult_"
                 }
               }
             }
@@ -23836,8 +23722,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Review Content Api V1 Content Governance  Content Id  Review Post"
+                  "$ref": "#/components/schemas/ApiResponse_GovernanceActionResult_"
                 }
               }
             }
@@ -23975,8 +23860,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Takedown Content Api V1 Content Governance  Content Id  Takedown Post"
+                  "$ref": "#/components/schemas/ApiResponse_GovernanceActionResult_"
                 }
               }
             }
@@ -24114,8 +23998,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Restore Content Api V1 Content Governance  Content Id  Restore Post"
+                  "$ref": "#/components/schemas/ApiResponse_GovernanceActionResult_"
                 }
               }
             }
@@ -24257,8 +24140,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response List Pending Content Api V1 Content Governance Pending Get"
+                  "$ref": "#/components/schemas/ApiResponse_PendingContentList_"
                 }
               }
             }
@@ -24386,8 +24268,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "title": "Response Get Content History Api V1 Content Governance History  Content Id  Get"
+                  "$ref": "#/components/schemas/ApiResponse_ContentHistoryResult_"
                 }
               }
             }
@@ -26180,6 +26061,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Health Check Health Get"
                 }
@@ -26291,6 +26173,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Liveness Check Health Live Get"
                 }
@@ -26401,6 +26284,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Readiness Check Health Ready Get"
                 }
@@ -26511,6 +26395,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Startup Check Health Startup Get"
                 }
@@ -26620,6 +26505,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Seed Health Check Health Seed Get"
                 }
@@ -26959,6 +26845,7 @@
             "description": "客户端时间戳（毫秒）"
           },
           "metadata": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Metadata",
             "description": "非敏感分类元数据"
@@ -26971,6 +26858,57 @@
         ],
         "title": "AnalyticsEventPayload",
         "description": "单个分析事件负载."
+      },
+      "AnalyticsEventRecord": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "timestamp": {
+            "type": "integer",
+            "title": "Timestamp",
+            "description": "客户端时间戳（毫秒）"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "client_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Ip"
+          },
+          "received_at": {
+            "type": "string",
+            "title": "Received At"
+          },
+          "retention_expires_at": {
+            "type": "string",
+            "title": "Retention Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "event_type",
+          "timestamp",
+          "received_at",
+          "retention_expires_at"
+        ],
+        "title": "AnalyticsEventRecord",
+        "description": "单条已存储的分析事件（管理员审计视图）."
       },
       "ApiResponse": {
         "properties": {
@@ -26997,9 +26935,634 @@
         "type": "object",
         "title": "ApiResponse"
       },
+      "ApiResponse_ConsentStatusResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsentStatusResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ConsentStatusResponse]"
+      },
+      "ApiResponse_ConsentUpdateResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsentUpdateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ConsentUpdateResponse]"
+      },
+      "ApiResponse_ContentDetail_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ContentDetail]"
+      },
+      "ApiResponse_ContentHistoryResult_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentHistoryResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ContentHistoryResult]"
+      },
+      "ApiResponse_ContentListResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ContentListResponse]"
+      },
+      "ApiResponse_EventsQueryResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventsQueryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[EventsQueryResponse]"
+      },
+      "ApiResponse_EventsSubmitResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventsSubmitResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[EventsSubmitResponse]"
+      },
+      "ApiResponse_GdprDeleteResult_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GdprDeleteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[GdprDeleteResult]"
+      },
+      "ApiResponse_GovernanceActionResult_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GovernanceActionResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[GovernanceActionResult]"
+      },
+      "ApiResponse_LoginResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoginResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[LoginResponse]"
+      },
+      "ApiResponse_LogoutResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LogoutResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[LogoutResponse]"
+      },
+      "ApiResponse_MeditationLogResult_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeditationLogResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[MeditationLogResult]"
+      },
+      "ApiResponse_MessageResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[MessageResponse]"
+      },
+      "ApiResponse_OpsDashboardOverview_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpsDashboardOverview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[OpsDashboardOverview]"
+      },
+      "ApiResponse_PendingContentList_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PendingContentList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[PendingContentList]"
+      },
+      "ApiResponse_ProfileResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ProfileResponse]"
+      },
+      "ApiResponse_RecentViewListResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecentViewListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[RecentViewListResponse]"
+      },
+      "ApiResponse_RecommendationListResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecommendationListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[RecommendationListResponse]"
+      },
+      "ApiResponse_RegisterResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RegisterResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[RegisterResponse]"
+      },
+      "ApiResponse_ReviewMetricsResult_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewMetricsResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ReviewMetricsResult]"
+      },
+      "ApiResponse_ToggleFavoriteResult_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ToggleFavoriteResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ToggleFavoriteResult]"
+      },
+      "ApiResponse_TokenResponse_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[TokenResponse]"
+      },
+      "ApiResponse_UploadBatchResult_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UploadBatchResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[UploadBatchResult]"
+      },
+      "ApiResponse_UploadResult_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UploadResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[UploadResult]"
+      },
       "BatchExportDataItem": {
         "properties": {
           "data": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Data"
           }
@@ -27042,6 +27605,7 @@
           "filters": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -27092,7 +27656,7 @@
           "files": {
             "items": {
               "type": "string",
-              "format": "binary"
+              "contentMediaType": "application/octet-stream"
             },
             "type": "array",
             "title": "Files"
@@ -27108,7 +27672,7 @@
         "properties": {
           "file": {
             "type": "string",
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "File"
           }
         },
@@ -27450,6 +28014,7 @@
             "title": "Config Key"
           },
           "config_value": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config Value"
           },
@@ -27472,6 +28037,36 @@
         ],
         "title": "ConfigUpsertRequest"
       },
+      "ConsentStatusResponse": {
+        "properties": {
+          "consented": {
+            "type": "boolean",
+            "title": "Consented",
+            "description": "当前是否同意采集"
+          },
+          "retention_days": {
+            "type": "integer",
+            "title": "Retention Days",
+            "description": "事件保留期限（天）"
+          },
+          "event_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Event Types",
+            "description": "允许的事件类型白名单（排序后）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "consented",
+          "retention_days",
+          "event_types"
+        ],
+        "title": "ConsentStatusResponse",
+        "description": "GET /analytics/consent —— 同意状态查询."
+      },
       "ConsentUpdateRequest": {
         "properties": {
           "consent": {
@@ -27486,6 +28081,27 @@
         ],
         "title": "ConsentUpdateRequest",
         "description": "同意状态更新请求."
+      },
+      "ConsentUpdateResponse": {
+        "properties": {
+          "consented": {
+            "type": "boolean",
+            "title": "Consented",
+            "description": "更新后的同意状态"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed",
+            "description": "本次调用是否实际发生变更"
+          }
+        },
+        "type": "object",
+        "required": [
+          "consented",
+          "changed"
+        ],
+        "title": "ConsentUpdateResponse",
+        "description": "PUT /analytics/consent —— 同意状态更新."
       },
       "ConsultationCreateRequest": {
         "properties": {
@@ -27564,6 +28180,428 @@
         "type": "object",
         "title": "ConsultationCreateRequest"
       },
+      "ContentDetail": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "difficulty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difficulty"
+          },
+          "view_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View Count"
+          },
+          "is_favorited": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Favorited"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "audio_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Url"
+          }
+        },
+        "type": "object",
+        "title": "ContentDetail"
+      },
+      "ContentHistoryItem": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "operator_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator Id"
+          },
+          "operator_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator Role"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "title": "ContentHistoryItem"
+      },
+      "ContentHistoryResult": {
+        "properties": {
+          "content_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Id"
+          },
+          "history": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ContentHistoryItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History"
+          },
+          "total_events": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Events"
+          }
+        },
+        "type": "object",
+        "title": "ContentHistoryResult"
+      },
+      "ContentItem": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "difficulty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difficulty"
+          },
+          "view_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View Count"
+          },
+          "is_favorited": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Favorited"
+          }
+        },
+        "type": "object",
+        "title": "ContentItem",
+        "description": "内容列表项."
+      },
+      "ContentListResponse": {
+        "properties": {
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ContentItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "title": "ContentListResponse"
+      },
       "CreateTenantRequest": {
         "properties": {
           "name": {
@@ -27584,6 +28622,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -27739,6 +28778,7 @@
             "title": "Draft Type"
           },
           "data_payload": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Data Payload"
           }
@@ -27796,6 +28836,7 @@
             "title": "Request Id"
           },
           "details": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Details"
           }
@@ -27850,11 +28891,55 @@
         ],
         "title": "EvaluateRequest"
       },
+      "EventsQueryResponse": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsEventRecord"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "清理过期后仓库中的事件总数（过滤前）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "EventsQueryResponse",
+        "description": "GET /analytics/events —— 事件审计查询."
+      },
+      "EventsSubmitResponse": {
+        "properties": {
+          "stored": {
+            "type": "integer",
+            "title": "Stored",
+            "description": "实际接收的事件数量"
+          },
+          "retention_days": {
+            "type": "integer",
+            "title": "Retention Days",
+            "description": "事件保留期限（天）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stored",
+          "retention_days"
+        ],
+        "title": "EventsSubmitResponse",
+        "description": "POST /analytics/events —— 事件入库确认."
+      },
       "FusionPredictRequest": {
         "properties": {
           "features": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -27879,6 +28964,7 @@
           "physiological": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -27891,6 +28977,263 @@
         },
         "type": "object",
         "title": "FusionPredictRequest"
+      },
+      "GdprDeleteResult": {
+        "properties": {
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "anonymized_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anonymized At"
+          },
+          "original_email_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Email Masked"
+          },
+          "contacts_anonymized": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contacts Anonymized"
+          },
+          "sessions_revoked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessions Revoked"
+          },
+          "risk_assessments_deleted": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Assessments Deleted"
+          },
+          "pii_text_anonymized": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pii Text Anonymized"
+          },
+          "legal_records_retained": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Records Retained"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "GdprDeleteResult",
+        "description": "匿名化账户响应体（覆盖 anonymize_user 全量返回字段）."
+      },
+      "GovernanceActionResult": {
+        "properties": {
+          "content_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "review_cycle_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Cycle Days"
+          },
+          "next_review_due": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review Due"
+          },
+          "takedown_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takedown By"
+          },
+          "takedown_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takedown At"
+          },
+          "restored_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored By"
+          },
+          "restored_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "title": "GovernanceActionResult",
+        "description": "审核/下架/恢复动作确认体."
       },
       "GrafanaQueryRequest": {
         "properties": {
@@ -27908,6 +29251,7 @@
             "title": "Metric"
           },
           "params": {
+            "additionalProperties": true,
             "type": "object",
             "maxProperties": 50,
             "title": "Params"
@@ -28025,6 +29369,57 @@
         ],
         "title": "LoginRequest"
       },
+      "LoginResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserBrief"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "user"
+        ],
+        "title": "LoginResponse"
+      },
+      "LogoutResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "revoked_count": {
+            "type": "integer",
+            "title": "Revoked Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "LogoutResponse"
+      },
       "MeditationLogRequest": {
         "properties": {
           "content_id": {
@@ -28047,6 +29442,36 @@
         },
         "type": "object",
         "title": "MeditationLogRequest"
+      },
+      "MeditationLogResult": {
+        "properties": {
+          "log_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Id"
+          }
+        },
+        "type": "object",
+        "title": "MeditationLogResult"
+      },
+      "MessageResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "MessageResponse"
       },
       "ModelRegistryRequest": {
         "properties": {
@@ -28238,9 +29663,262 @@
         "type": "object",
         "title": "ModelUpdateRequest"
       },
+      "OpsDashboardOverview": {
+        "properties": {
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review"
+          },
+          "crisis": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crisis"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback"
+          },
+          "kill_switch": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kill Switch"
+          },
+          "audit_events": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audit Events"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "title": "OpsDashboardOverview",
+        "description": "运营看板总览响应体（聚合结构，字段保持可选以兼容历史数据）."
+      },
+      "PendingContentItem": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "needs_review_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needs Review Reason"
+          },
+          "days_since_creation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Creation"
+          }
+        },
+        "type": "object",
+        "title": "PendingContentItem",
+        "description": "待审核/待复审内容项."
+      },
+      "PendingContentList": {
+        "properties": {
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PendingContentItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Size"
+          },
+          "review_cycle_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Cycle Days"
+          }
+        },
+        "type": "object",
+        "title": "PendingContentList"
+      },
       "PhysiologicalPredictRequest": {
         "properties": {
           "physiological": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Physiological",
             "description": "用于生理模型推理的特征字典"
@@ -28353,13 +30031,580 @@
             "title": "Steps"
           },
           "data_payload": {
+            "additionalProperties": true,
             "type": "object",
-            "maxProperties": 5000,
             "title": "Data Payload"
           }
         },
         "type": "object",
         "title": "PhysiologicalRecordRequest"
+      },
+      "ProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "title": "ProfileResponse"
+      },
+      "PrometheusQueryData": {
+        "properties": {
+          "resultType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resulttype"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PrometheusQueryResult"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          }
+        },
+        "type": "object",
+        "title": "PrometheusQueryData"
+      },
+      "PrometheusQueryResponse": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrometheusQueryData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "PrometheusQueryResponse"
+      },
+      "PrometheusQueryResult": {
+        "properties": {
+          "metric": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metric"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "title": "PrometheusQueryResult",
+        "description": "Prometheus vector 查询结果项."
+      },
+      "RecentViewItem": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "difficulty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difficulty"
+          },
+          "view_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View Count"
+          },
+          "is_favorited": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Favorited"
+          },
+          "viewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewed At"
+          }
+        },
+        "type": "object",
+        "title": "RecentViewItem"
+      },
+      "RecentViewListResponse": {
+        "properties": {
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RecentViewItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "title": "RecentViewListResponse"
+      },
+      "RecommendationExplain": {
+        "properties": {
+          "risk_level": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Level"
+          },
+          "risk_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Category"
+          },
+          "preferred_categories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Categories"
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy"
+          }
+        },
+        "type": "object",
+        "title": "RecommendationExplain",
+        "description": "推荐策略解释（recommendations 端点顶层 explain 字段）."
+      },
+      "RecommendationItem": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "difficulty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difficulty"
+          },
+          "view_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View Count"
+          },
+          "is_favorited": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Favorited"
+          },
+          "recommend_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommend Reason"
+          }
+        },
+        "type": "object",
+        "title": "RecommendationItem"
+      },
+      "RecommendationListResponse": {
+        "properties": {
+          "explain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecommendationExplain"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RecommendationItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "title": "RecommendationListResponse"
       },
       "RefreshTokenRequest": {
         "properties": {
@@ -28403,6 +30648,24 @@
           "password"
         ],
         "title": "RegisterRequest"
+      },
+      "RegisterResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "title": "RegisterResponse"
       },
       "RequestPasswordResetRequest": {
         "properties": {
@@ -28463,6 +30726,26 @@
         "title": "RestoreRequest",
         "description": "内容恢复请求."
       },
+      "ReviewAssignRequest": {
+        "properties": {
+          "assignee_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee Id",
+            "description": "目标咨询师 ID（仅管理员可指定；留空则管理员接管给自己）"
+          }
+        },
+        "type": "object",
+        "title": "ReviewAssignRequest",
+        "description": "复核任务分配 / 领取请求体.\n\nAUDIT-2026-10-01 (P1-1)：``assignee_id`` 仅管理员可用，用于把任务指定分配给\n某位咨询师；咨询师调用该端点时它必须留空或等于自己（即「领取」语义）。"
+      },
       "ReviewEscalateRequest": {
         "properties": {
           "reason": {
@@ -28478,6 +30761,113 @@
         ],
         "title": "ReviewEscalateRequest",
         "description": "复核任务升级请求体."
+      },
+      "ReviewMetricsResult": {
+        "properties": {
+          "period_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Days"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "status_distribution": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Distribution"
+          },
+          "total_pending": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Pending"
+          },
+          "crisis_pending": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crisis Pending"
+          },
+          "recent_7d_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent 7D Count"
+          },
+          "avg_response_hours_7d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Response Hours 7D"
+          },
+          "sla_target_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sla Target Hours"
+          },
+          "sla_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sla Met"
+          }
+        },
+        "type": "object",
+        "title": "ReviewMetricsResult",
+        "description": "复核任务详细指标响应体."
       },
       "ReviewPriority": {
         "type": "string",
@@ -28673,6 +31063,7 @@
             "default": "comprehensive"
           },
           "data_payload": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Data Payload"
           }
@@ -28703,6 +31094,7 @@
       "TabularPredictRequest": {
         "properties": {
           "features": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Features",
             "description": "用于模型推理的特征字典"
@@ -29080,6 +31472,52 @@
         ],
         "title": "ThresholdUpsertRequest"
       },
+      "ToggleFavoriteResult": {
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "ToggleFavoriteResult"
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token"
+        ],
+        "title": "TokenResponse"
+      },
       "TrainRequest": {
         "properties": {
           "dataset_name": {
@@ -29185,6 +31623,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -29197,6 +31636,156 @@
         "type": "object",
         "title": "UpdateTenantRequest",
         "description": "更新租户请求."
+      },
+      "UploadBatchResult": {
+        "properties": {
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/UploadResult"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "failed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed"
+          }
+        },
+        "type": "object",
+        "title": "UploadBatchResult",
+        "description": "批量上传结果."
+      },
+      "UploadResult": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "original_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Name"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          }
+        },
+        "type": "object",
+        "title": "UploadResult",
+        "description": "单文件上传结果."
+      },
+      "UserBrief": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "role"
+        ],
+        "title": "UserBrief"
       },
       "UserRiskReportRequest": {
         "properties": {
@@ -29334,6 +31923,7 @@
           "notify_channels": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {

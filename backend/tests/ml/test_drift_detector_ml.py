@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -216,6 +217,87 @@ class TestComputePsi:
         result = det.compute_psi(ref, curr)
         assert result["psi"] >= 0.25
         assert result["is_drift"] is True
+
+
+class TestNonFiniteInputGuard:
+    """决策四 (§六疑点2): compute_psi / compute_ks_test 的非有限输入清洗.
+
+    改前实测 (复现脚本 _repro_nan_psi.py, 2026-10-02):
+    - NaN in reference -> psi=0.0 "no_drift" (漏报谎言)
+    - all-NaN reference -> psi=1.0 "major_drift" (凭空误报)
+    - KS NaN -> statistic=nan/p_value=nan -> is_drift=False (静默无漂移)
+    修复语义 (与 services.PsiKlCalculator._clean_array 对齐):
+    非有限样本视同剔除, 判定 = 有限子集上的计算结果; 清洗后为空 -> empty_array.
+    """
+
+    def test_nan_in_reference_equals_finite_subset(self):
+        """NG-001: NaN in reference 判定必须等于剔除 NaN 后的有限子集计算."""
+        det = DriftDetector()
+        dirty = np.array([1.0, float("nan"), 2.0, 3.0, 4.0])
+        curr = np.array([1.5, 2.5, 3.5, 4.5])
+        r_dirty = det.compute_psi(dirty, curr)
+        r_clean = det.compute_psi(np.array([1.0, 2.0, 3.0, 4.0]), curr)
+        assert r_dirty["psi"] == r_clean["psi"]
+        assert r_dirty["interpretation"] == r_clean["interpretation"]
+        assert "error" not in r_dirty
+
+    def test_nan_in_current_equals_finite_subset(self):
+        """NG-002: NaN in current 同样按剔除语义 (改前 psi=46 由 min/max 对
+        NaN 的比较语义静默丢样, 数值虽同但无契约保证)."""
+        det = DriftDetector()
+        ref = np.array([1.0, 2.0, 3.0, 4.0])
+        r_dirty = det.compute_psi(ref, np.array([1.5, float("nan"), 2.5, 3.5]))
+        r_clean = det.compute_psi(ref, np.array([1.5, 2.5, 3.5]))
+        assert r_dirty["psi"] == r_clean["psi"]
+
+    def test_all_nan_reference_returns_empty_array(self):
+        """NG-003: all-NaN reference 清洗后为空 -> empty_array, 不再凭空
+        major_drift (改前 psi=1.0 "major_drift" 是 NaN 比较语义的产物)."""
+        det = DriftDetector()
+        result = det.compute_psi(np.array([float("nan")] * 5), np.array([1.5, 2.5]))
+        assert result["psi"] == 0.0
+        assert result["error"] == "empty_array"
+        assert result["is_drift"] is False
+
+    def test_inf_removed_like_finite_subset(self):
+        """NG-004: ±inf 视同剔除 (改前 -inf in current 走 Python min/max
+        比较语义被判 psi=0.0 "no_drift", 漏报)."""
+        det = DriftDetector()
+        ref = np.array([1.0, 2.0, 3.0])
+        r_dirty = det.compute_psi(ref, np.array([1.5, float("-inf"), 2.5]))
+        r_clean = det.compute_psi(ref, np.array([1.5, 2.5]))
+        assert r_dirty["psi"] == r_clean["psi"]
+        assert math.isfinite(r_dirty["psi"])
+
+    def test_ks_nan_returns_finite_statistics(self):
+        """NG-005: KS NaN 输入返回有限 statistic/p_value (改前 nan/nan ->
+        is_drift=False 的静默判定)."""
+        det = DriftDetector()
+        result = det.compute_ks_test(
+            np.array([1.0, float("nan"), 2.0, 3.0]), np.array([1.5, 2.5, 3.5])
+        )
+        assert math.isfinite(result["statistic"])
+        assert math.isfinite(result["p_value"])
+        assert isinstance(result["is_drift"], bool)
+        assert "error" not in result
+
+    def test_ks_all_nan_returns_empty_array(self):
+        """NG-006: KS all-NaN 清洗后为空 -> empty_array."""
+        det = DriftDetector()
+        result = det.compute_ks_test(np.array([float("nan")] * 4), np.array([1.5]))
+        assert result["error"] == "empty_array"
+        assert result["is_drift"] is False
+
+    def test_finite_inputs_unchanged(self):
+        """NG-007: 有限输入行为不变 (清洗对有限样本是无操作)."""
+        det = DriftDetector()
+        rng = np.random.RandomState(0)
+        ref = rng.randn(500)
+        curr = rng.randn(500)
+        r1 = det.compute_psi(ref, curr)
+        r2 = det.compute_psi(ref.copy(), curr.copy())
+        assert r1["psi"] == r2["psi"]
+        assert r1["interpretation"] == "no_drift"
 
 
 class TestDetectFeatureDrift:

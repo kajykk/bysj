@@ -46,12 +46,11 @@ class TestBilingualTextThreshold:
             raise FileNotFoundError(model_id)
 
         with patch.object(engine, "_load_model_async", side_effect=_load):
-            with patch("app.core.model_engine.predict._contains_cjk", return_value=False):
-                with patch(
-                    "app.core.model_engine.predict.settings.text_bilingual_decision_threshold",
-                    0.30,
-                ):
-                    result = self._run(engine._predict_text_ml("I feel awful and hopeless"))
+            with patch(
+                "app.core.model_engine.predict.settings.text_bilingual_decision_threshold",
+                0.30,
+            ):
+                result = self._run(engine._predict_text_ml("I feel awful and hopeless"))
 
         assert result["model_used"] == "text_improved_bilingual_model"
         assert result["probability"] == 0.29
@@ -66,12 +65,11 @@ class TestBilingualTextThreshold:
             raise FileNotFoundError(model_id)
 
         with patch.object(engine, "_load_model_async", side_effect=_load_high):
-            with patch("app.core.model_engine.predict._contains_cjk", return_value=False):
-                with patch(
-                    "app.core.model_engine.predict.settings.text_bilingual_decision_threshold",
-                    0.30,
-                ):
-                    result = self._run(engine._predict_text_ml("I feel awful and hopeless"))
+            with patch(
+                "app.core.model_engine.predict.settings.text_bilingual_decision_threshold",
+                0.30,
+            ):
+                result = self._run(engine._predict_text_ml("I feel awful and hopeless"))
 
         assert result["prediction"] == 1
         assert result["sentiment_label"] == "negative"
@@ -88,8 +86,7 @@ class TestBilingualTextThreshold:
             raise FileNotFoundError(model_id)
 
         with patch.object(engine, "_load_model_async", side_effect=_load):
-            with patch("app.core.model_engine.predict._contains_cjk", return_value=False):
-                result = self._run(engine._predict_text_ml("I feel awful and hopeless"))
+            result = self._run(engine._predict_text_ml("I feel awful and hopeless"))
 
         assert result["model_used"] == "text_depression_model"
         assert result["prediction"] == 1

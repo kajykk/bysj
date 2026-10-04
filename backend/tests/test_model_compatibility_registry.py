@@ -22,7 +22,7 @@ class TestModelCompatibilityRegistry:
         """验证注册表包含关键模型"""
         key_models = [
             "structured_logistic_regression_quick",
-            "text_bert_classifier",
+            "text_improved_bilingual_model",
             "fusion_dnn_best",
             "physiological_model_v2_dl",
         ]

@@ -34,16 +34,18 @@ class TestRequireRoleTenantScoped:
         """TC-P5-CT-001: 用户 tenant_id=1 + X-Tenant-ID: 2 → 403.
 
         防御场景：租户 A 用户伪造 X-Tenant-ID: B 头试图切换租户上下文。
+
+        AUDIT-2026-10-01 (P0-1)：``/tenants`` 已从 ``require_role("admin")`` 收紧为
+        ``require_platform_admin()``，其第一重校验即「用户租户 == 请求租户」，
+        因此这里现在**确实是 403**。原断言为 ``in (200, 403)``（"哪个都行"），
+        等于把这个越权面固化成了可接受行为，已收紧为精确断言。
         """
         as_role("admin", 1, tenant_id=1)
         response = client.get(
             "/api/v1/tenants",
             headers={**auth_headers, "X-Tenant-ID": "2"},
         )
-        # tenant_admin 端点使用 require_role (非 scoped)，不会 403
-        # 但 require_role_tenant_scoped 保护的端点会 403
-        # 这里验证 tenant_admin 仍可访问（管理员跨租户管理）
-        assert response.status_code in (200, 403)
+        assert response.status_code == 403
 
     def test_tenant_scoped_rbac_same_tenant_allowed(
         self, client, auth_headers, as_role
@@ -70,15 +72,16 @@ class TestRequireRoleTenantScoped:
     def test_tenant_scoped_rbac_user_tenant_2_with_header_1_blocked(
         self, client, auth_headers, as_role
     ):
-        """TC-P5-CT-004: 用户 tenant_id=2 + X-Tenant-ID: 1 → 403 (反向串租)."""
+        """TC-P5-CT-004: 用户 tenant_id=2 + X-Tenant-ID: 1 → 403 (反向串租).
+
+        AUDIT-2026-10-01 (P0-1)：同 TC-P5-CT-001，已收紧为精确断言。
+        """
         as_role("admin", 1, tenant_id=2)
         response = client.get(
             "/api/v1/tenants",
             headers={**auth_headers, "X-Tenant-ID": "1"},
         )
-        # tenant_admin 使用 require_role，不检查租户一致性
-        # 但此测试验证用户设置正确
-        assert response.status_code in (200, 403)
+        assert response.status_code == 403
 
 
 # =========================================================================

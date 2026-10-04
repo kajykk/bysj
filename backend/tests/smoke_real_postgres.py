@@ -10,14 +10,19 @@ import asyncio
 import os
 from datetime import date
 
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres:12345678@localhost:5432/depression_system",
-)
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+
+# AUDIT-2026-10-01 (P1-31): 移除此前的硬编码 PostgreSQL 连接串（含明文口令）。
+# 原实现在模块导入时 os.environ.setdefault 注入该串，除了凭据入库之外，还会
+# **顶掉** .env 中配置的 DATABASE_URL（环境变量优先级高于 dotenv）。
+# 现在要求显式提供 PostgreSQL；未提供则整模块跳过，避免误跑在默认 sqlite 上。
+if not os.environ.get("DATABASE_URL", "").startswith("postgresql"):
+    pytest.skip(
+        "需要真实 PostgreSQL：请先导出 DATABASE_URL=postgresql+asyncpg://<user>:<pwd>@<host>:<port>/<db>",
+        allow_module_level=True,
+    )
 
 from app.core.database import AsyncSessionLocal
 from app.main import app
