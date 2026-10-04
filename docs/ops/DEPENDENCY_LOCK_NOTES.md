@@ -47,22 +47,35 @@
 
 ## 5. 本轮已执行的处置（2026-10-04 晚）
 
+### 5.0 联网后的最终状态：4 处漂移中 3 处已消除
+
+环境事实（本机）：**代理已开（`127.0.0.1:53857`）但只通 GitHub（200），PyPI 直连与代理均超时**；
+可用的国内镜像：腾讯云 `https://mirrors.cloud.tencent.com/pypi/simple/`（200）、阿里云（200）；
+HuggingFace 直连不通，`hf-mirror.com`（200）可用。故重生成命令统一加 `--index-url` 指向腾讯云镜像，
+配合 `--no-emit-index-url` 保证**生成物里不留镜像地址**（已验证：无 `mirrors.cloud` 泄漏）。
+
 | # | 处置 | 状态 |
 |---|---|---|
-| 1（httpx 双版本） | **`requirements.txt` 显式钉 `httpx>=0.27.0,<0.29.0`**（与 dev 同口径）。CI/本地按 txt 安装即刻一致 | ✅ 已改（`requirements.txt`） |
-| 1 续 | lock 内 `httpx==0.25.2` **未手工改**：无 `--hash` 允许手改，但离线无法验证依赖树自洽（httpx 0.28 配套的 httpcore 等），手改可能产出装不上的 lock——比漂移更糟。已在两个 lock 头部注明「待联网重生成」 | ⏳ **阻塞：需联网** |
-| 3（sklearn 版本） | 保留 `scikit-learn>=1.5.0,<2.0.0` 不动。实测工件由 **1.7.2** 训练、lock 钉 1.8.0，加载时仅 `InconsistentVersionWarning` 而 375 测试全过。**真正的根治是用锁定版本重训工件**，属建模工作，与 P2-1 合并立项更合理 | 📌 转入 P2-1 立项 |
-| 2（dev.lock schemathesis） | 同样阻塞于联网（需重生成才会回落到 `<4.17`）。在此之前 CI 不受影响（走 dev.txt 的 range） | ⏳ **阻塞：需联网** |
+| 1（httpx 双版本） | `requirements.txt` 显式钉 `httpx>=0.27.0,<0.29.0` + **重生成 lock** | ✅ **已解决**：`requirements.lock` httpx `0.25.2 → 0.28.1`，与 CI/本地测试同口径 |
+| 2（dev.lock schemathesis） | 重生成 `requirements-dev.lock` | ✅ **已解决**：`4.22.4 → 4.16.1`，回到 `requirements-dev.txt` 声明的 `<4.17`，与 `contract/conftest.py` 的 session 复用兼容 |
+| 3（sklearn 版本） | 未动 | 📌 **仍未解决**：lock 仍钉 `scikit-learn==1.8.0`，工件由 1.7.2 训练 → `InconsistentVersionWarning`。根治=用锁定版本重训工件（建模工作，与 P2-1 合并立项） |
+| 4（scikit-learn range 过宽） | 未动 | 📌 建议随 #3 一并处理（重训后收窄为 `>=1.7.2,<1.9` 之类） |
 
-**联网后一次性根治命令**（两个 lock 均无 `--hash`，可安全重生成）：
+重生成后**两个 lock 的人工注释会被覆盖**（头部已注明并给出完整重生成命令含镜像参数，重贴即可）。
+
+### 5.1 变更明细
+
+| 文件 | 变化 |
+|---|---|
+| `requirements.lock` | 378 行；httpx→0.28.1、pydantic-settings→**2.15.0**（原 lock 未显式钉、由传递依赖决定）、sqlalchemy 2.0.49 / psycopg2-binary 2.9.11 / numpy 1.26.4 不变 |
+| `requirements-dev.lock` | 428 行；httpx→0.28.1、schemathesis→**4.16.1**、starlette-testclient 0.4.1 不变 |
+
+**联网后一次性根治命令**（已执行，保留供复现）：
 
 ```bash
-uv pip compile backend/requirements.txt     -o backend/requirements.lock     --python-version 3.11 --no-emit-index-url
-uv pip compile backend/requirements-dev.txt -o backend/requirements-dev.lock --python-version 3.11 --no-emit-index-url
+uv pip compile backend/requirements.txt     -o backend/requirements.lock     --python-version 3.11 --no-emit-index-url --index-url https://mirrors.cloud.tencent.com/pypi/simple/
+uv pip compile backend/requirements-dev.txt -o backend/requirements-dev.lock --python-version 3.11 --no-emit-index-url --index-url https://mirrors.cloud.tencent.com/pypi/simple/
 ```
-
-⚠️ 重生成会覆盖人工加入的头部注释（两处指针 + httpx 说明），重生成后需重新贴上。
-⚠️ 本机 PyPI 不可达（`urlopen` 超时），`uv --offline` 亦因缓存元数据不全失败——**必须在有网环境执行**。
 
 ## 6. 顺带发现：本地 venv 低于 CVE 修复下限（2026-10-04）
 
