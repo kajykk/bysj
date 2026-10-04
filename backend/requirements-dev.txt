@@ -6,7 +6,7 @@ pytest>=8.3.0,<10.0.0
 pytest-asyncio>=0.25.0
 pytest-cov>=6.0.0
 pytest-timeout>=2.3.0
-httpx>=0.27.0  # For FastAPI TestClient
+httpx>=0.27.0,<0.29.0  # For FastAPI TestClient; 上界 0.29 防 0.28+ 破坏 starlette_testclient._ASGIAdapter
 
 # Version compatibility checks
 packaging>=24.0  # For sklearn/model version parsing
@@ -17,7 +17,10 @@ hypothesis>=6.152.0
 # tests/contract/conftest.py 直接 import starlette_testclient (requests 风格的 TestClient,
 # 供 Schemathesis RequestsTransport 复用 session)。它曾是 schemathesis 的传递依赖,
 # 但 schemathesis 新版已移除该依赖, 必须在此显式声明, 否则 CI 报 ModuleNotFoundError。
-starlette-testclient>=0.4.1
+# CI-AUDIT-2026-10-02: 上界钉 <0.5 — 0.4.x 的 _ASGIAdapter.send 不访问 poolmanager,
+# 新版(>=0.5)在 requests/httpx 组合下访问 self.poolmanager -> AttributeError
+# ('_ASGIAdapter' object has no attribute 'poolmanager')。已与本地实测兼容组合对齐。
+starlette-testclient>=0.4.1,<0.5.0
 
 # E2E Testing (optional, mainly for frontend)
 # playwright>=1.42.0  # Installed via npm in frontend

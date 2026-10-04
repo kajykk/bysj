@@ -245,18 +245,22 @@ class ObservabilityCollector:
         model_version: str | None = None,
         user_id: int | None = None,
         request_payload: dict | None = None,
+        response_summary: dict | None = None,
     ) -> None:
         """Record a fallback event."""
         # M-Svc-19 修复：持锁保护 counter/deque 的复合操作
         with self._lock:
             self._fallback_counter.increment()
+            summary: dict = {"fallback_counter": self._fallback_counter.to_dict()}
+            if response_summary:
+                summary.update(response_summary)
             log = MonitoringLog(
                 event_type=MonitoringEventType.FALLBACK,
                 model_version=model_version,
                 user_id=user_id,
                 fallback_reason=reason,
                 request_payload=request_payload,
-                response_summary={"fallback_counter": self._fallback_counter.to_dict()},
+                response_summary=summary,
             )
             self._pending_logs.append(log)
 
