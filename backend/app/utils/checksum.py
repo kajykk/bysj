@@ -60,6 +60,62 @@ def write_sha256_sidecar(path: Path | str) -> str:
     return sha256
 
 
+def _read_recorded_hash(sidecar: Path) -> str | None:
+    """读取侧车文件里记录的哈希（兼容 sha256sum 的 ``<hash>  <filename>`` 格式）.
+
+    解析方式刻意与 ``app.core.model_engine.loading._get_expected_hash`` 保持一致，
+    否则审计结论与实际加载时的判定会出现口径差。
+    """
+    try:
+        first_line = sidecar.read_text(encoding="utf-8").strip().splitlines()[0]
+        return first_line.split()[0]
+    except (OSError, UnicodeDecodeError, IndexError) as exc:
+        logger.warning("无法解析侧车校验文件 %s: %s", sidecar, exc)
+        return None
+
+
+def audit_model_sidecars(directory: Path | str) -> dict[str, list[str]]:
+    """只读审计：扫描目录下全部 .pkl，按侧车状态分类.
+
+    AUDIT-2026-10-01（对应「侧车强制」的滚动落地）：把「侧车缺失 / 陈旧」从
+    **运行到某个模型才炸**，提前成**启动时的一次性报告**。
+
+    分类：
+
+    - ``ok``      —— 有侧车且哈希一致
+    - ``stale``   —— 有侧车但不一致（strict 环境会拒绝加载）
+    - ``missing`` —— 无侧车（当前允许；强制目标是下个 release）
+
+    只读，不修改任何文件。缺侧车的文件**不计算哈希**（只做一次 stat），
+    所以对几十上百个模型也很快。
+
+    Args:
+        directory: 模型根目录（如 ``settings.model_dir``）。
+
+    Returns:
+        ``{"ok": [...], "stale": [...], "missing": [...]}``；
+        元素为相对 ``directory`` 的 POSIX 路径，按字典序排列。
+    """
+    base = Path(directory)
+    result: dict[str, list[str]] = {"ok": [], "stale": [], "missing": []}
+    if not base.is_dir():
+        logger.warning("audit_model_sidecars: directory not found: %s", base)
+        return result
+
+    for pkl in sorted(base.rglob("*.pkl")):
+        rel = pkl.relative_to(base).as_posix()
+        sidecar = pkl.with_suffix(pkl.suffix + ".sha256")
+        if not sidecar.exists():
+            result["missing"].append(rel)
+            continue
+        recorded = _read_recorded_hash(sidecar)
+        if recorded is not None and recorded == _compute_sha256(pkl):
+            result["ok"].append(rel)
+        else:
+            result["stale"].append(rel)
+    return result
+
+
 def cleanup_stale_sidecars(directory: Path | str) -> int:
     """RES-P3-005: 清理孤立的 .sha256 侧车文件.
 

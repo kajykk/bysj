@@ -31,6 +31,12 @@ from fastapi import Path as FastPath
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.contracts import (
+    USER_ROLE_ADMIN,
+    USER_ROLE_COUNSELOR,
+    USER_ROLE_SUPER_ADMIN,
+    USER_ROLE_USER,
+)
 from app.core.database import get_db
 from app.core.deps import get_current_user, oauth2_scheme
 from app.core.rate_limit import get_real_client_ip
@@ -203,10 +209,18 @@ async def serve_upload(
         )
 
     # 归属校验
-    if current_user.role == "user" and current_user.id != user_id:
+    if current_user.role == USER_ROLE_USER and current_user.id != user_id:
         # 不暴露存在性，统一返回 404
         raise HTTPException(status_code=404, detail="文件不存在")
-    if current_user.role not in ("user", "counselor", "admin"):
+    # AUDIT-2026-10-01 (P1-2) 修复：原白名单 ("user", "counselor", "admin") 遗漏
+    # super_admin，导致平台管理员（最高权限角色）读取任意私有文件被 403。
+    # 改为引用 app.core.contracts 的角色常量：字面量散落正是本次漏项的原因。
+    if current_user.role not in (
+        USER_ROLE_USER,
+        USER_ROLE_COUNSELOR,
+        USER_ROLE_ADMIN,
+        USER_ROLE_SUPER_ADMIN,
+    ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
 
     # filename 安全校验：私有文件的 filename 必须是单段 UUID.ext

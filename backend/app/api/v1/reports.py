@@ -11,8 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_permission
-from app.core.tenant_context import require_platform_permission
+from app.core.deps import get_current_user
 from app.core.openapi_responses import (
     COMMON_ERROR_RESPONSES,
     EXCEL_EXPORT_RESPONSE,
@@ -20,6 +19,7 @@ from app.core.openapi_responses import (
 )
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_permission
 from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
@@ -600,7 +600,8 @@ async def _dispatch_pdf_async(
             "job_id": job_id,
             "status": "queued",
             "backend": "celery",
-            "message": "PDF generation queued. Poll /reports/pdf/celery/{job_id}/status for progress.",
+            # AUDIT-2026-10-01: 原指向已删除的 /reports/pdf/celery/{job_id}/status 别名，改为统一端点
+            "message": "PDF generation queued. Poll /reports/pdf/{job_id}/status for progress.",
         }
     )
 
@@ -620,32 +621,7 @@ async def generate_user_risk_pdf_celery_async(
     return await _dispatch_pdf_async(payload, current_user)
 
 
-@router.get(
-    "/pdf/celery/{job_id}/status",
-    response_model=ApiResponse,
-    responses=COMMON_ERROR_RESPONSES,
-    deprecated=True,
-)
-@limiter.limit("30/minute")
-async def get_celery_pdf_job_status(
-    request: Request,
-    job_id: Annotated[str, Path()],
-    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
-) -> dict:
-    """DEPRECATED (R-B): Celery PDF 任务状态别名，请改用 /pdf/{job_id}/status 统一端点."""
-    return await get_pdf_job_status(request, job_id, current_user)
-
-
-@router.get(
-    "/pdf/celery/{job_id}/download",
-    responses={**COMMON_ERROR_RESPONSES, **PDF_SUCCESS_RESPONSE},
-    deprecated=True,
-)
-@limiter.limit("30/minute")
-async def download_celery_pdf(
-    request: Request,
-    job_id: Annotated[str, Path()],
-    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
-) -> StreamingResponse:
-    """DEPRECATED (R-B): Celery PDF 下载别名，请改用 /pdf/{job_id}/download 统一端点."""
-    return await download_pdf(request, job_id, current_user)
+# AUDIT-2026-10-01 (决策三 P7)：删除 /pdf/celery/{job_id}/status 与 /pdf/celery/{job_id}/download。
+# 二者是 R-B 重构后遗留的**纯别名**（直接转发到 /pdf/{job_id}/status|download），且已标 deprecated。
+# 实测零调用方：前端 getCeleryPdfJobStatus/downloadCeleryPdf 走的其实是统一端点；后端测试零引用。
+# 保留 /user-risk/pdf/celery-async（生成端点）—— 前端 reportsApi.ts:94 仍在调用它。

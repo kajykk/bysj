@@ -15,16 +15,26 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import os
 from dataclasses import dataclass
 from typing import Iterable
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://postgres:12345678@localhost:5432/depression_system")
-
+# AUDIT-2026-10-01 (P1-23): 移除此处的硬编码 PostgreSQL 凭据。
+# 原实现用 os.environ.setdefault 注入一条带明文口令的本地连接串，有两个问题：
+#   1) 明文口令随仓库分发；
+#   2) 环境变量优先级高于 .env，setdefault 会把连接串「顶掉」项目 .env 里的 DATABASE_URL，
+#      使脚本静默连到 localhost:5432，而不是项目实际配置的库。
+# 现在只读 settings（走 .env / 环境变量），并要求必须是 PostgreSQL。
 from app.core.config import settings  # noqa: E402
+
+if not settings.database_url.startswith("postgresql"):
+    raise SystemExit(
+        "本脚本依赖 PostgreSQL 语法（LEFT()/LENGTH()），但当前 database_url 不是 PostgreSQL："
+        f"{settings.database_url.split(':', 1)[0]}://...\n"
+        "请在 backend/.env 中显式配置 DATABASE_URL，或通过环境变量传入。"
+    )
 
 
 @dataclass(frozen=True)

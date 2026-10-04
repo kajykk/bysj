@@ -47,10 +47,10 @@ from app.api.v1.alerts._schemas import (  # noqa: F401
     _validate_url_safety,
 )
 from app.core.database import get_db
-from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_admin
 from app.models.admin import OperationLog
 from app.models.user import User
 from app.monitoring.notifier import (
@@ -265,7 +265,7 @@ async def alertmanager_webhook(
 async def list_alert_history(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role("admin"))],
+    _: Annotated[User, Depends(require_platform_admin())],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     severity: str | None = Query(default=None, pattern="^(P0|P1|P2)$"),
@@ -365,7 +365,7 @@ async def acknowledge_alert(
     request: Request,
     alert_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
     """v1.33: 确认告警 (停止自动升级)."""
     # H-API-4 修复：使用 with_for_update 锁定 alert 行，序列化并发确认操作，消除 TOCTOU 竞态
@@ -422,7 +422,7 @@ async def acknowledge_alert(
 async def list_alert_archive(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role("admin"))],
+    _: Annotated[User, Depends(require_platform_admin())],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     rule: str | None = Query(default=None, max_length=200),

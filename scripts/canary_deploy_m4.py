@@ -35,9 +35,11 @@ logger = logging.getLogger("Canary")
 BASE_URL = os.getenv("DWS_BACKEND_URL", "http://localhost:8001")
 API_BASE = f"{BASE_URL}/api/v1"
 
-# admin 凭据 (从 .env 读取)
+# admin 凭据 (必须来自环境变量 / .env)
 ADMIN_USERNAME = os.getenv("E2E_ADMIN_USER", "admin")
-ADMIN_PASSWORD = os.getenv("E2E_ADMIN_PASSWORD", "***REMOVED***")
+# AUDIT-2026-10-01 (P1-22): 移除硬编码口令兜底（原默认值是一个明文口令字面量）。
+# 仓库不得内置任何可用凭据；缺失时由 login() 显式失败，不再静默回落。
+ADMIN_PASSWORD = os.getenv("E2E_ADMIN_PASSWORD")
 
 M4_VERSION = "m4_stacking_v3"
 DEFAULT_THRESHOLDS = {
@@ -49,6 +51,12 @@ DEFAULT_THRESHOLDS = {
 
 def login() -> str:
     """登录获取 access_token."""
+    if not ADMIN_PASSWORD:
+        logger.error(
+            "E2E_ADMIN_PASSWORD 未设置。为避免仓库内出现可用凭据，本脚本不再提供默认口令；"
+            "请通过环境变量或 .env 注入后重试。"
+        )
+        sys.exit(1)
     resp = requests.post(
         f"{API_BASE}/auth/login",
         json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},

@@ -162,6 +162,20 @@ class CrisisEventFilter(BaseModel):
 
 
 # M10 修复：复核处理/升级请求体模型，避免长文本作为 query 参数
+class ReviewAssignRequest(BaseModel):
+    """复核任务分配 / 领取请求体.
+
+    AUDIT-2026-10-01 (P1-1)：``assignee_id`` 仅管理员可用，用于把任务指定分配给
+    某位咨询师；咨询师调用该端点时它必须留空或等于自己（即「领取」语义）。
+    """
+
+    assignee_id: int | None = Field(
+        None,
+        ge=1,
+        description="目标咨询师 ID（仅管理员可指定；留空则管理员接管给自己）",
+    )
+
+
 class ReviewResolveRequest(BaseModel):
     """复核任务处理请求体."""
 

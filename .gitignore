@@ -167,7 +167,11 @@ download_kaggle.py
 /scripts/test_*.py
 /scripts/pack_source_code.py
 /scripts/list_routes.py
-/scripts/login_admin.py
+# 含明文口令的本地登录辅助脚本。
+# AUDIT-2026-10-01 (P1-30): 原实现按文件名逐个列举（只写了 login_admin.py），
+# 结果漏掉同口令的 scripts/login_admin.ps1，该文件于 3a1740e 提交入库。
+# 改用通配符后，不再依赖"枚举是否列全"。
+/scripts/login_admin.*
 
 # ③ 本地运行期令牌（脚本生成，绝不可入库）
 /scripts/.admin_token.txt
@@ -175,7 +179,8 @@ download_kaggle.py
 /scripts/*.token.txt
 
 # ④ 含明文凭证的本地登录载荷（AUDIT-2026-09-28: 扫描发现内含 admin 口令）
-/scripts/login_payload.json
+# AUDIT-2026-10-01 (P1-30): 同样改为通配符，避免再漏其它后缀。
+/scripts/login_payload.*
 
 # ⑤ 脚本运行产物（隐藏的中间结果文件，非交付物）
 /scripts/.*_result.json

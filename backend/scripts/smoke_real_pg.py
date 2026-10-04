@@ -1,23 +1,29 @@
 import asyncio
-import os
 from datetime import date
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://postgres:12345678@localhost:5432/depression_system")
+# AUDIT-2026-10-01 (P1-23): 移除硬编码 PostgreSQL 凭据（原为一条带明文口令的本地连接串）。
+# 原 os.environ.setdefault 同样会顶掉 .env 中的 DATABASE_URL。改为只读 settings 并要求 PostgreSQL。
+from app.core.config import settings  # noqa: E402
+
+if not settings.database_url.startswith("postgresql"):
+    raise SystemExit(
+        "smoke_real_pg 需要 PostgreSQL，但 settings.database_url 不是 PostgreSQL："
+        f"{settings.database_url.split(':', 1)[0]}://...\n"
+        "请在 backend/.env 中显式配置 DATABASE_URL。"
+    )
 
 from app.main import app  # noqa: E402
 from app.models.admin import EducationContent  # noqa: E402
 from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution  # noqa: E402
 from app.models.risk import RiskAssessment  # noqa: E402
-from app.models.user import User  # noqa: E402
 
 
 async def prepare_user_data(user_id: int) -> int:
-    engine = create_async_engine(os.environ["DATABASE_URL"], future=True)
+    engine = create_async_engine(settings.database_url, future=True)
     session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
     async with session_maker() as db:

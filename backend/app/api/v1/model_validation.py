@@ -19,9 +19,9 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, model_validator
 
-from app.core.deps import require_role
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_admin
 from app.ml.model_validation import generate_clinical_validation_report
 from app.models.user import User
 
@@ -112,7 +112,7 @@ class ClinicalValidationRequest(BaseModel):
 async def run_clinical_validation(
     request: Request,
     payload: ClinicalValidationRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict[str, Any]:
     """运行完整的临床模型验证.
 

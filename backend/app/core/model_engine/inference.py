@@ -7,8 +7,7 @@
 - 特征工程 (`_build_structured_input`, 配套 `_get_numeric_pipe_cols`)
 - 线程安全监控计数器 (`_incr_counter` / `_incr_routing` / `_record_score_delta` 等)
 - 监控快照与持久化 (`get_metrics_snapshot` / `_persist_loop` / Prometheus 发布)
-- BERT micro-batch 收集器 (`_BertMicroBatchCollector`) 与 Lite 文本特征抽取器
-  (`LiteFeatureExtractor`)
+- Lite 文本特征抽取器 (`LiteFeatureExtractor`)
 
 通过 Mixin 多继承模式装配到 ModelEngine:
 
@@ -40,7 +39,6 @@ from typing import TYPE_CHECKING, Any, AsyncIterator
 if TYPE_CHECKING:
     from sklearn.pipeline import Pipeline
 
-    # 仅类型提示用: _BertMicroBatchCollector 持有 engine 引用 (运行时不导入, 避免循环依赖)
     from app.core.model_engine import ModelEngine
 
 # MAINT-P0-002: _STR_TO_NUM / _DEFAULTS 已抽离到 feature_maps.py,
@@ -181,137 +179,12 @@ class LiteFeatureExtractor:
         }
 
 
-class _BertMicroBatchCollector:
-    """PERF-P3-007: BERT micro-batching collector.
-
-    收集短时间内的多条文本预测请求, 批量推理提高吞吐量.
-    通过 asyncio.Queue 收集请求, 后台 worker 定期触发 batch 推理.
-
-    设计要点:
-    - max_batch_size=8: 一次 batch 最多 8 条文本 (CPU 推理友好)
-    - max_wait_ms=50: 最多等待 50ms 攒 batch, 避免低流量时延迟过高
-    - Future 管理: 每个请求返回 Future, batch 完成后设置结果
-    - 异常隔离: batch 推理失败时所有 Future 返回 None (走 TF-IDF 回退)
-    """
-
-    def __init__(
-        self,
-        engine: "ModelEngine",
-        max_batch_size: int = 8,
-        max_wait_ms: float = 50.0,
-    ) -> None:
-        self._engine = engine
-        self._max_batch_size = max_batch_size
-        self._max_wait_seconds = max_wait_ms / 1000.0
-        self._queue: asyncio.Queue[tuple[str, asyncio.Future[dict[str, Any] | None]]] = asyncio.Queue()
-        self._worker_task: asyncio.Task[None] | None = None
-        self._running = False
-
-    async def start(self) -> None:
-        """启动后台 batch worker."""
-        if self._worker_task is not None:
-            return
-        self._running = True
-        self._worker_task = asyncio.create_task(self._worker_loop())
-        logger.info(
-            "PERF-P3-007: BERT micro-batch collector started " "(max_batch_size=%d, max_wait_ms=%.0f)",
-            self._max_batch_size,
-            self._max_wait_seconds * 1000,
-        )
-
-    async def stop(self) -> None:
-        """停止后台 batch worker, 排空队列并取消未完成的 futures."""
-        self._running = False
-        if self._worker_task is not None:
-            self._worker_task.cancel()
-            try:
-                await self._worker_task
-            except asyncio.CancelledError:
-                pass
-            self._worker_task = None
-        # 排空队列, 取消未完成的 futures
-        while not self._queue.empty():
-            try:
-                _, fut = self._queue.get_nowait()
-                if not fut.done():
-                    fut.cancel()
-            except asyncio.QueueEmpty:
-                break
-        logger.info("PERF-P3-007: BERT micro-batch collector stopped")
-
-    async def submit(self, text: str) -> dict[str, Any] | None:
-        """提交单条文本到 batch 队列, 等待结果."""
-        loop = asyncio.get_running_loop()
-        fut: asyncio.Future[dict[str, Any] | None] = loop.create_future()
-        await self._queue.put((text, fut))
-        return await fut
-
-    async def _worker_loop(self) -> None:
-        """后台 worker: 收集请求并批量推理."""
-        while self._running:
-            try:
-                # 等待第一个请求 (1s 超时, 便于检查 _running 状态)
-                first_item = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-            except asyncio.TimeoutError:
-                continue
-            except asyncio.CancelledError:
-                break
-
-            first_text, first_fut = first_item
-            batch_texts: list[str] = [first_text]
-            batch_futs: list[asyncio.Future[dict[str, Any] | None]] = [first_fut]
-            deadline = asyncio.get_event_loop().time() + self._max_wait_seconds
-
-            # 收集更多请求 (最多 max_batch_size - 1 个, 最多等 max_wait_ms)
-            while len(batch_texts) < self._max_batch_size:
-                remaining = deadline - asyncio.get_event_loop().time()
-                if remaining <= 0:
-                    break
-                try:
-                    text, fut = await asyncio.wait_for(self._queue.get(), timeout=remaining)
-                    batch_texts.append(text)
-                    batch_futs.append(fut)
-                except asyncio.TimeoutError:
-                    break
-
-            # 批量推理
-            try:
-                results = await self._engine._predict_text_bert_batch(batch_texts)
-                for fut, result in zip(batch_futs, results):
-                    if not fut.done():
-                        fut.set_result(result)
-            except Exception as exc:
-                logger.error("PERF-P3-007: batch inference failed: %s", exc)
-                for fut in batch_futs:
-                    if not fut.done():
-                        fut.set_result(None)
-
-
 class InferenceMixin:
     """推理编排 / 路由 / 特征工程 / 监控方法集合.
 
     这些方法通过 Mixin 装配到 ModelEngine, 依赖 ModelEngine.__init__ 提供的
     监控计数器 / 统计字典 / 快照路径等实例属性.
     """
-
-    async def start_bert_batch_collector(self, max_batch_size: int = 8, max_wait_ms: float = 50.0) -> None:
-        """PERF-P3-007: 启动 BERT micro-batch collector.
-
-        启动后 _predict_text_bert 会自动走 batch 路径,
-        收集短时间内的多条请求批量推理, 提高吞吐量.
-        """
-        if self._bert_batch_collector is not None:
-            return
-        self._bert_batch_collector = _BertMicroBatchCollector(
-            self, max_batch_size=max_batch_size, max_wait_ms=max_wait_ms
-        )
-        await self._bert_batch_collector.start()
-
-    async def stop_bert_batch_collector(self) -> None:
-        """PERF-P3-007: 停止 BERT micro-batch collector."""
-        if self._bert_batch_collector is not None:
-            await self._bert_batch_collector.stop()
-            self._bert_batch_collector = None
 
     # ── M-03 修复：线程安全的监控计数器辅助方法 ──
     # 模型推理通过 asyncio.to_thread 在线程池中执行，监控计数器的

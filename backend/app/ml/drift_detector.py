@@ -93,6 +93,15 @@ class DriftDetector:
         Returns:
             Dictionary with KS statistic and p-value.
         """
+        # 决策四 (§六疑点2 复现): NaN 输入下 scipy ks_2samp 返回
+        # statistic=nan / p_value=nan -> is_drift=False, 无效数据被静默判为
+        # "无漂移". 与 compute_psi 的非有限清洗对齐: 剔除后按有限子集计算,
+        # 清洗后为空则走 empty_array 分支.
+        reference = np.asarray(reference, dtype=float)
+        current = np.asarray(current, dtype=float)
+        reference = reference[np.isfinite(reference)]
+        current = current[np.isfinite(current)]
+
         if len(reference) == 0 or len(current) == 0:
             logger.warning(
                 "Empty array detected in KS test: reference=%d, current=%d",
@@ -225,6 +234,18 @@ class DriftDetector:
             Dictionary with PSI value and interpretation.
         """
         import warnings
+
+        # 决策四 (§六疑点2 复现): NaN/inf 样本不剔除会产生语义随机的垃圾判定.
+        # 复现实测 (2026-10-02, venv numpy): NaN in current -> psi=46.05
+        # "major_drift" (误报); -inf in current -> psi=0.0 "no_drift" (漏报);
+        # all-NaN reference -> psi=1.0 "major_drift". 垃圾判定沿
+        # detect_*_drift -> DriftAlert -> auto-rollback 链路传播.
+        # 与 services/drift_detector.PsiKlCalculator._clean_array 语义对齐:
+        # 剔除非有限样本后按有限子集计算; 清洗后为空则走 empty_array 分支.
+        reference = np.asarray(reference, dtype=float)
+        current = np.asarray(current, dtype=float)
+        reference = reference[np.isfinite(reference)]
+        current = current[np.isfinite(current)]
 
         # Handle empty arrays
         if len(reference) == 0 or len(current) == 0:

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import CacheUnavailableError
 from app.core.contracts import (
+    DEFAULT_TENANT_ID,
     USER_ROLE_ADMIN,
     USER_ROLE_COUNSELOR,
     USER_ROLE_SUPER_ADMIN,
@@ -301,5 +302,21 @@ async def require_sa_or_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Grafana 端点需要管理员权限",
+        )
+    # AUDIT-2026-10-01 (P0-1)：原先只校验 role == admin。多租户部署下，
+    # 租户 B 的 admin 用 JWT 即可通过 /grafana/* 读取**全平台**的告警 / 运营数据
+    # （这些端点按全表聚合、不带 tenant 过滤）。此处补上平台租户限定。
+    # 注意：SA（Service Account）路径在上面已 return，不受本检查影响 ——
+    # 它本身就是平台级凭据（settings.grafana_service_token）。
+    user_tenant = user.tenant_id or DEFAULT_TENANT_ID
+    if user_tenant != DEFAULT_TENANT_ID:
+        logger.warning(
+            "Grafana JWT path blocked (platform-only): user_tenant=%s user_id=%s",
+            user_tenant,
+            user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Grafana 端点仅限平台管理员访问",
         )
     return user

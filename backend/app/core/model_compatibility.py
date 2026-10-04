@@ -70,16 +70,6 @@ MODEL_COMPATIBILITY_REGISTRY: dict[str, ModelCompatibilityInfo] = {
         required_dependencies=["scikit-learn>=1.5.0,<2.0.0", "joblib>=1.4.2"],
         fallback_strategy="heuristic_rule",
     ),
-    "text_bert_classifier": ModelCompatibilityInfo(
-        model_id="text_bert_classifier",
-        format="transformers",
-        sklearn_version=None,
-        torch_version="2.2.0",
-        transformers_version="4.36.2",
-        tensorflow_version=None,
-        required_dependencies=["torch>=2.2.0", "transformers>=4.36.2"],
-        fallback_strategy="heuristic_rule",
-    ),
     "text_improved_bilingual_model": ModelCompatibilityInfo(
         model_id="text_improved_bilingual_model",
         format="joblib",

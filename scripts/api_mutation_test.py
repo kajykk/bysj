@@ -61,9 +61,20 @@ def main():
 
     # 登录 3 种角色
     print("\n[A0] 3 角色登录")
-    admin_tok = login("admin", "***REMOVED***")
-    user_tok = login("user_none", "***REMOVED***")
-    counselor_tok = login("dr_wang", "***REMOVED***")
+    # AUDIT-2026-10-01 (P1-31): 不再硬编码 E2E 口令；从环境变量读取，缺失即失败。
+    _creds = {
+        "admin": os.getenv("E2E_ADMIN_PASSWORD"),
+        "user_none": os.getenv("E2E_USER_PASSWORD"),
+        "dr_wang": os.getenv("E2E_COUNSELOR_PASSWORD"),
+    }
+    _missing = sorted(k for k, v in _creds.items() if not v)
+    if _missing:
+        print(f"  缺少环境变量口令，无法登录: {_missing}")
+        print("  请先注入 E2E_ADMIN_PASSWORD / E2E_USER_PASSWORD / E2E_COUNSELOR_PASSWORD")
+        sys.exit(1)
+    admin_tok = login("admin", _creds["admin"])
+    user_tok = login("user_none", _creds["user_none"])
+    counselor_tok = login("dr_wang", _creds["dr_wang"])
     print(f"  admin token: {bool(admin_tok)} ({len(admin_tok) if admin_tok else 0} chars)")
     print(f"  user token:  {bool(user_tok)} ({len(user_tok) if user_tok else 0} chars)")
     print(f"  counselor:   {bool(counselor_tok)} ({len(counselor_tok) if counselor_tok else 0} chars)")

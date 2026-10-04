@@ -665,6 +665,15 @@ canary_rollback_triggered = Counter(
     labelnames=("canary_id", "reason"),
 )
 
+# AUDIT-2026-10-01 (P1-7)：Kill Switch 降级次数。
+# Redis 不可用时无法确认/写入权威暂停状态即为一次降级。这是**安全开关失效**的信号，
+# 建议对 op="write" 与 op="read" 分别配告警：写入降级意味着暂停操作未生效到多实例。
+kill_switch_degraded_total = Counter(
+    "kill_switch_degraded_total",
+    "Total kill switch degradations (authoritative state unavailable), labeled by op.",
+    labelnames=("op",),
+)
+
 
 def _format_labels(labels: dict[str, str]) -> str:
     """格式化为 {key="value",...}"""

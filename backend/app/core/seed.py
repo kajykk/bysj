@@ -44,35 +44,98 @@ _E2E_ADMIN_PASSWORD = os.getenv("E2E_ADMIN_PASSWORD")
 _E2E_COUNSELOR_PASSWORD = os.getenv("E2E_COUNSELOR_PASSWORD")
 _E2E_USER_PASSWORD = os.getenv("E2E_USER_PASSWORD")
 
+#: 与 README「默认账号」章节一致的最小种子口令长度（README 明写「口令长度 ≥ 18 位」）。
+_MIN_SEED_PASSWORD_LENGTH = 18
+
+#: 在仓库 / 文档 / CI 中公开出现过的示例口令。
+#: 这些值等同于已泄漏，生产环境一律拒绝——即便调用方通过追加字符等方式凑够了长度。
+_PUBLICLY_KNOWN_SEED_PASSWORDS = frozenset(
+    {
+        "***REMOVED***",
+        "***REMOVED***",
+        "***REMOVED***",
+        "***REMOVED***",
+    }
+)
+
+
+def _seed_password_classes(value: str) -> int:
+    """统计口令包含的字符类别数（小写 / 大写 / 数字 / 特殊），与 config.py 的判定口径一致。"""
+    return sum(
+        (
+            any(c.islower() for c in value),
+            any(c.isupper() for c in value),
+            any(c.isdigit() for c in value),
+            any(not c.isalnum() for c in value),
+        )
+    )
+
+
+def _validate_seed_password_strength(name: str, value: str) -> None:
+    """生产环境种子口令强度校验。
+
+    AUDIT-2026-10-01 (P1-32)：本函数补齐的是一个**注释声称存在、代码里却没有**的控制。
+    上一行注释写着「L-17 修复：…加强为至少 18 位且包含大小写/数字/特殊字符」，
+    但原来的 ``_validate_seed_passwords_for_production`` 只校验了「非空」（``if not val``），
+    因此生产环境用 ``E2E_ADMIN_PASSWORD=abc`` 也能通过校验并创建账号。
+
+    仅在 ``app_env == "production"`` 时调用：dev/test 仍可使用 .env.example 中的示例口令，
+    以免影响本地开发与 CI（CI 的 E2E 以 ``APP_ENV=test`` 运行）。
+    """
+    if value in _PUBLICLY_KNOWN_SEED_PASSWORDS or any(
+        known.lower() in value.lower() for known in _PUBLICLY_KNOWN_SEED_PASSWORDS
+    ):
+        raise RuntimeError(
+            f"生产环境拒绝使用公开示例口令：{name}。该值（或其变体）已随仓库公开，等同于已泄漏，"
+            "请改为部署环境特有的强口令——不要在公开示例值上追加字符，那样同样可被字典命中。"
+        )
+    if len(value) < _MIN_SEED_PASSWORD_LENGTH:
+        raise RuntimeError(
+            f"生产环境种子口令过短：{name} 为 {len(value)} 位，"
+            f"要求 ≥ {_MIN_SEED_PASSWORD_LENGTH} 位（见 README「默认账号」）。"
+            '生成方式：python -c "import secrets; print(secrets.token_urlsafe(24))"'
+        )
+    if _seed_password_classes(value) < 2:
+        raise RuntimeError(
+            f"生产环境种子口令熵不足：{name} 只使用了 1 类字符（如全小写）。"
+            "请混合大小写 / 数字 / 特殊字符。"
+        )
+
 
 def _validate_seed_passwords_for_production() -> None:
     """校验种子密码已通过环境变量配置。
 
     H-Core-7 修复：原实现为非生产环境提供硬编码默认密码，若 app_env 误配置为非生产，
     将启用已知弱口令后门。现默认值为 None，未配置时无论环境均抛 RuntimeError。
+
+    AUDIT-2026-10-01 (P1-32)：在原有「存在性」校验之外，为生产环境补充
+    「强度 + 公开示例值」校验（见 ``_validate_seed_password_strength``）。
     """
     from app.core.config import settings
 
-    missing = [
-        name
-        for name, val in [
-            ("E2E_ADMIN_PASSWORD", _E2E_ADMIN_PASSWORD),
-            ("E2E_COUNSELOR_PASSWORD", _E2E_COUNSELOR_PASSWORD),
-            ("E2E_USER_PASSWORD", _E2E_USER_PASSWORD),
-        ]
-        if not val
+    pairs = [
+        ("E2E_ADMIN_PASSWORD", _E2E_ADMIN_PASSWORD),
+        ("E2E_COUNSELOR_PASSWORD", _E2E_COUNSELOR_PASSWORD),
+        ("E2E_USER_PASSWORD", _E2E_USER_PASSWORD),
     ]
-    if not missing:
-        return
-    if settings.app_env.lower() == "production":
+    is_production = settings.app_env.lower() == "production"
+
+    missing = [name for name, val in pairs if not val]
+    if missing:
+        if is_production:
+            raise RuntimeError(
+                f"生产环境必须通过环境变量配置种子密码，缺失: {missing}。"
+                f"请在 .env 或部署环境中设置这些变量。"
+            )
         raise RuntimeError(
-            f"生产环境必须通过环境变量配置种子密码，缺失: {missing}。"
-            f"请在 .env 或部署环境中设置这些变量。"
+            f"种子密码未通过环境变量配置，缺失: {missing}。"
+            f"请在 .env 中设置这些变量（例如 E2E_ADMIN_PASSWORD 等）。"
         )
-    raise RuntimeError(
-        f"种子密码未通过环境变量配置，缺失: {missing}。"
-        f"请在 .env 中设置这些变量（例如 E2E_ADMIN_PASSWORD 等）。"
-    )
+
+    if is_production:
+        for name, value in pairs:
+            assert value is not None  # 上面已排除缺失
+            _validate_seed_password_strength(name, value)
 
 
 _COUNSELOR_SEED_DATA: list[dict[str, str]] = [

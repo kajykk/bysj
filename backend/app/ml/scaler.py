@@ -99,11 +99,35 @@ class SimpleStandardScaler:
         return self
 
     def transform(self, X: np.ndarray | DataFrame) -> np.ndarray:
-        """Transform data."""
+        """Transform data.
+
+        AUDIT-2026-10-01 (P0-3)：入口增加有限性与参数合法性校验。
+        原实现直接 ``(X - mean_) / scale_``：NaN / inf 原样透传；从 ``from_dict``
+        加载的 ``scale_ == 0`` 还会触发 divide-by-zero 产生 inf（实测）。
+        这些非有限值进入模型后会一路传到 ``_score_to_level``，而 NaN 与阈值比较
+        恒为 False，最终被误判为「无风险」等级 0。故在此提前失败。
+        """
         if self.mean_ is None or self.scale_ is None:
             raise RuntimeError("Scaler must be fitted before transform")
         if hasattr(X, "values"):
             X = X.values
+        X = np.asarray(X, dtype=float)
+
+        if not np.isfinite(self.mean_).all() or not np.isfinite(self.scale_).all():
+            raise ValueError(
+                "Scaler 参数含非有限值（NaN/Inf），工件已损坏，拒绝用于推理。"
+            )
+        if np.any(self.scale_ == 0):
+            raise ValueError(
+                "Scaler 的 scale_ 含 0（会放大为 inf），工件非法，拒绝用于推理。"
+            )
+        if not np.isfinite(X).all():
+            bad = np.argwhere(~np.isfinite(X))
+            first = tuple(int(i) for i in bad[0])
+            raise ValueError(
+                f"待变换特征含非有限值（NaN/Inf）：共 {int(bad.shape[0])} 处，"
+                f"首个位置 index={first}。拒绝继续，以免模型输出 NaN 后被误判为「无风险」。"
+            )
         return (X - self.mean_) / self.scale_
 
     def fit_transform(self, X: np.ndarray | DataFrame) -> np.ndarray:
@@ -121,11 +145,26 @@ class SimpleStandardScaler:
 
     @classmethod
     def from_dict(cls, data: dict) -> SimpleStandardScaler:
-        """Deserialize from dictionary."""
+        """Deserialize from dictionary.
+
+        AUDIT-2026-10-01 (P0-3)：``fit()`` 会把 ``scale_ == 0`` 替换为 1.0，
+        但本加载路径原本不做任何校验 —— 手工编辑过的/损坏的 scaler.json
+        带着 ``scale_ = 0`` 或 NaN 会被直接采用，之后每次 transform 都产出 inf/NaN。
+        这里补齐与 ``fit()`` 对等的校验。
+        """
         scaler = cls()
-        scaler.mean_ = np.array(data["mean"])
-        scaler.scale_ = np.array(data["scale"])
+        scaler.mean_ = np.asarray(data["mean"], dtype=float)
+        scaler.scale_ = np.asarray(data["scale"], dtype=float)
         scaler.n_features_in_ = data["n_features_in"]
+
+        if scaler.mean_.shape != scaler.scale_.shape:
+            raise ValueError(
+                f"Scaler 工件非法：mean 与 scale 长度不一致（{scaler.mean_.shape} vs {scaler.scale_.shape}）"
+            )
+        if not np.isfinite(scaler.mean_).all() or not np.isfinite(scaler.scale_).all():
+            raise ValueError("Scaler 工件非法：mean/scale 含非有限值（NaN/Inf）")
+        if np.any(scaler.scale_ == 0):
+            raise ValueError("Scaler 工件非法：scale 含 0（会导致除零产生 inf）")
         return scaler
 
     def save(self, path: Path | str) -> None:

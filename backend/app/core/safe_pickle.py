@@ -10,6 +10,10 @@ Pickle/joblib/torch.load 本质上可执行任意代码，因此必须在使用�
 2. **文件大小限制**：默认上限 500MB，防止超大文件导致 OOM/DoS。
 3. **SHA256 哈希校验**：可选地与预期哈希比对，检测文件篡改。
 4. **加载事件审计**：所有加载尝试（成功/失败）均写入日志，便于追溯。
+5. **反序列化类白名单**（AUDIT-2026-10-01 / P0-2）：受限 Unpickler 只放行
+   numpy/scipy/sklearn/joblib/xgboost/catboost/torch 等预期模块，把"pickle 任意
+   代码执行"降级为"加载失败"。前三层只保证"加载的是预期文件"，本层才管"文件内容
+   不会执行任意代码"—— 二者不可互相替代。
 
 使用示例::
 
@@ -146,6 +150,203 @@ def _validated_model_file(
     return path, size, file_hash, expected_hash
 
 
+class ModelUnpicklingError(ValueError):
+    """模型文件引用了不在白名单内的全局对象，已拒绝反序列化。
+
+    AUDIT-2026-10-01 (P0-2)：pickle 的 ``GLOBAL`` / ``STACK_GLOBAL`` 操作码可以引用
+    **任意可调用对象**，因此 ``joblib.load`` 等价于执行文件中的字节码。原先的
+    路径白名单 / 大小上限 / SHA256 三层防护都防不住这一本质风险 —— 它们只保证
+    "加载的是预期的那个文件"，不保证"文件内容不会执行任意代码"。
+    """
+
+
+# ── 反序列化白名单（AUDIT-2026-10-01 / P0-2）────────────────────────────
+#
+# 设计依据（数据驱动，非猜测）：用收集式 Unpickler 扫过仓库中全部真实模型工件
+# （models/ 与 model_assessment/，51 个候选、49 个可解析），导出了实际被引用的
+# 模块集合：numpy / scipy / sklearn / joblib / xgboost / catboost / _codecs /
+# _loss / collections / builtins(slice,bytearray) + 本项目自有的 app.*。
+#
+# 放行策略：对 ML 库按**模块前缀**放行（含子模块），使重新训练后出现的**新模型类**
+# 不会因为白名单过窄而加载失败；对 ``builtins`` 则收紧到具体名字。
+#
+# 明确的能力边界（不做过度承诺）：本白名单拦的是经典的
+# ``os.system`` / ``builtins.eval`` / ``subprocess.Popen`` / ``ctypes`` 一类直接 RCE；
+# 它**不能**防御"利用放行库内部既有可调用对象拼装 gadget"的高级攻击。
+# 这类攻击需要更强的沙箱（子进程 + seccomp/容器隔离），不在本次改动范围内。
+_ALLOWED_MODULE_PREFIXES: tuple[str, ...] = (
+    "numpy",
+    "scipy",
+    "sklearn",
+    "pandas",
+    "joblib",
+    "xgboost",
+    "lightgbm",
+    "catboost",
+    "torch",
+    "collections",
+    "copyreg",
+    "_codecs",
+    "_loss",
+    "app",  # 本项目自有类（如 app.core.score_adapter.ScoreAdapter）
+)
+
+#: ``builtins`` 中只放行基础容器/标量类型与切片对象（实测仅需 slice / bytearray）。
+#: **不放行** eval / exec / compile / __import__ / open / globals / locals / getattr 等。
+_ALLOWED_BUILTINS: frozenset[str] = frozenset(
+    {
+        "bytearray",
+        "bytes",
+        "slice",
+        "str",
+        "int",
+        "float",
+        "complex",
+        "bool",
+        "list",
+        "dict",
+        "set",
+        "frozenset",
+        "tuple",
+        "object",
+        "type",
+        "NoneType",
+        "range",
+    }
+)
+
+#: 跨模块统一拒绝的高危名字（纵深防御：即使模块前缀命中也不放行）。
+_DENIED_GLOBAL_NAMES: frozenset[str] = frozenset(
+    {
+        "eval",
+        "exec",
+        "execfile",
+        "compile",
+        "__import__",
+        "system",
+        "popen",
+        "Popen",
+        "spawn",
+        "spawnl",
+        "spawnv",
+        "spawnve",
+        "fork",
+        "execv",
+        "execve",
+        "execl",
+        "execlp",
+        "check_output",
+        "check_call",
+        "call_command",
+        "fromfile",
+        "loadtxt",
+        "genfromtxt",
+        "memmap",
+    }
+)
+
+
+def is_allowed_global(module: str, name: str) -> bool:
+    """判断 ``(module, name)`` 是否在反序列化白名单内。"""
+    if not isinstance(module, str) or not isinstance(name, str):
+        return False
+    if name in _DENIED_GLOBAL_NAMES:
+        return False
+    if module in ("builtins", "__builtin__"):
+        return name in _ALLOWED_BUILTINS
+    for prefix in _ALLOWED_MODULE_PREFIXES:
+        if module == prefix or module.startswith(prefix + "."):
+            return True
+    return False
+
+
+_restricted_unpickler_cls: type | None = None
+_restricted_unpickler_probed = False
+
+
+def _restricted_unpickler_class() -> type | None:
+    """构造受限的 joblib ``NumpyUnpickler`` 子类。
+
+    joblib 使用自带的 ``NumpyUnpickler``（其 ``find_class`` 源码注明
+    "Subclasses may override this."）来重建 numpy 数组，所以**必须**继承它而不是
+    ``pickle.Unpickler`` —— 实测仓库内有 8 个工件是 joblib 压缩格式，裸
+    ``pickle.Unpickler`` 直接报 ``invalid load key``。
+
+    注意：**只缓存成功结果**。早先版本用 ``@lru_cache`` 连失败一起缓存，导致一次
+    导入失败会让白名单在进程内**永久失效**（实测：这会退化成执行任意 pickle 载荷）。
+
+    Returns:
+        受限 Unpickler 类；joblib 不可用时返回 ``None``（由调用方 fail-closed 拒绝加载）。
+    """
+    global _restricted_unpickler_cls, _restricted_unpickler_probed
+    if _restricted_unpickler_probed:
+        return _restricted_unpickler_cls
+    try:
+        from joblib.numpy_pickle import NumpyUnpickler
+    except Exception as exc:  # noqa: BLE001
+        logger.error("无法导入 joblib.NumpyUnpickler，反序列化白名单不可用: %s", exc)
+        return None
+
+    class _RestrictedNumpyUnpickler(NumpyUnpickler):  # type: ignore[misc,valid-type]
+        """只允许白名单内全局对象的 NumpyUnpickler。"""
+
+        def find_class(self, module: str, name: str) -> Any:
+            if not is_allowed_global(module, name):
+                logger.error(
+                    "反序列化被拒绝：模型文件引用了非白名单对象 %s.%s", module, name
+                )
+                raise ModelUnpicklingError(
+                    f"模型文件引用了不在白名单内的对象 {module}.{name}；"
+                    "已拒绝反序列化（pickle GLOBAL 可执行任意代码）。"
+                    "若这是重新训练后新增的合法模型类，请把它所属模块加入 "
+                    "app/core/safe_pickle.py 的 _ALLOWED_MODULE_PREFIXES。"
+                )
+            return super().find_class(module, name)
+
+    _restricted_unpickler_cls = _RestrictedNumpyUnpickler
+    _restricted_unpickler_probed = True
+    return _restricted_unpickler_cls
+
+
+def _restricted_joblib_load(path: Path, label: str) -> Any:
+    """用受限 Unpickler 加载 joblib 工件（保持与 ``joblib.load`` 相同的解压路径）。
+
+    复刻 ``joblib.numpy_pickle.load`` 的流程：先经
+    ``_validate_fileobject_and_memmap`` 完成压缩探测/解压，再把解压后的文件对象交给
+    受限 Unpickler。这样既保留了 joblib 对 numpy 数组的特殊重建逻辑，又施加了白名单。
+
+    **fail-closed**：若白名单无法施加（joblib 内部 API 变更/缺失），一律拒绝加载并说明
+    原因 —— 绝不静默退回无白名单的 ``joblib.load``。实测过退回的后果：恶意载荷会被真的执行。
+    """
+    import joblib
+
+    unpickler_cls = _restricted_unpickler_class()
+    try:
+        import joblib.numpy_pickle as jnp
+    except Exception:  # noqa: BLE001
+        jnp = None
+    validate = getattr(jnp, "_validate_fileobject_and_memmap", None) if jnp is not None else None
+
+    if unpickler_cls is None or validate is None:
+        raise RuntimeError(
+            "无法施加反序列化白名单：joblib 内部 API 不可用"
+            f"（id={label}, joblib={getattr(joblib, '__version__', '?')}）。"
+            "出于安全考虑拒绝加载模型，而不是退回无白名单的 joblib.load。"
+            "请确认 joblib 版本未被降级/替换。"
+        )
+
+    filename = str(path)
+    with open(filename, "rb") as fh:
+        with validate(fh, filename, None) as (fobj, _mmap_mode):
+            if isinstance(fobj, str):
+                # joblib < 0.10 的旧格式（sidecar 文件），无法施加白名单 → fail-closed
+                raise RuntimeError(
+                    f"工件 {label} 使用 joblib < 0.10 的旧格式，无法施加反序列化白名单；"
+                    "出于安全考虑拒绝加载，请用当前版本重新生成该工件。"
+                )
+            return unpickler_cls(filename, fobj, True).load()
+
+
 def safe_joblib_load(
     file_path: Path | str,
     *,
@@ -182,8 +383,6 @@ def safe_joblib_load(
         FileNotFoundError: 文件不存在。
         ValueError: 路径越界、文件过大、哈希不匹配或反序列化失败。
     """
-    import joblib
-
     # ISS-006 修复: require_hash 默认 True; 生产环境强制 True, 即使调用方传 False
     if not require_hash:
         try:
@@ -231,7 +430,10 @@ def safe_joblib_load(
     )
 
     try:
-        return joblib.load(path)
+        return _restricted_joblib_load(path, label)
+    except ModelUnpicklingError:
+        # 白名单拒绝：语义上属于安全事件，原样上抛，不再包装成"反序列化失败"
+        raise
     except Exception as exc:
         raise ValueError(f"模型 '{label}' 反序列化失败：{exc.__class__.__name__}: {exc}") from exc
 

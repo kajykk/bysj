@@ -22,11 +22,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_role
-from app.core.tenant_context import require_platform_admin
+from app.core.deps import get_current_user
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_admin
 from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse

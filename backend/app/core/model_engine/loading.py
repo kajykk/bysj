@@ -48,7 +48,14 @@ _KNOWN_MODEL_HASHES: dict[str, str] = {}
 
 # SEC-AUDIT-06: 生产环境强制 reject (模型文件完整性不可妥协: 哈希不匹配即拒绝加载),
 # 开发/测试环境保留 warn 便于模型迭代 (本地 re-train 未更新侧车时仍可运行)
-_HASH_MISMATCH_POLICY: str = "reject" if settings.app_env == "production" else "warn"
+#
+# AUDIT-2026-10-01：staging 归入 strict。
+# 理由：staging 通常是生产的镜像环境，若这里放行哈希不匹配，
+# 「生产会拒绝」这个保证在预发布阶段就得不到验证 —— 要等真的上生产才第一次发现侧车陈旧。
+_HASH_MISMATCH_ENVS_STRICT: frozenset[str] = frozenset({"production", "staging"})
+_HASH_MISMATCH_POLICY: str = (
+    "reject" if settings.app_env.lower() in _HASH_MISMATCH_ENVS_STRICT else "warn"
+)
 
 
 def _get_expected_hash(model_id: str, file_path: Path) -> str | None:
@@ -312,9 +319,18 @@ class LoadingMixin:
 
         started = perf_counter()
         if model_path.suffix == ".pkl":
-            # P0-S1 修复：使用 safe_joblib_load 替代直接 joblib.load，启用路径白名单防止路径遍历
-            # safe_joblib_load 内部完成：路径校验、大小校验、哈希计算、joblib.load
-            # 此处保留 _verify_file_hash 用于与模型注册表的预期哈希比对（额外完整性层）
+            # P0-S1 修复：使用 safe_joblib_load 替代直接 joblib.load
+            # AUDIT-2026-10-01 (P0-2)：safe_joblib_load 现在还带**反序列化类白名单**
+            #   （只放行 numpy/sklearn/joblib/... 等预期模块），把"pickle 任意代码执行"
+            #   降级为"加载失败"。路径/大小/哈希管的是"加载的是不是预期文件"，
+            #   白名单管的才是"文件内容会不会执行任意代码"，二者不可互相替代。
+            # 完整性锚点说明（AUDIT-2026-10-01 更正）：
+            #   `_verify_file_hash` 才是**真实锚点校验**——它内部经 `_get_expected_hash`
+            #   取注册表或 `.sha256` 侧车的哈希再比对，生产环境 mismatch 即 raise。
+            #   下面传给 safe_joblib_load 的 `expected_hash` 与 `precomputed_hash`
+            #   取自同一文件的同一次计算结果（expected == precomputed），
+            #   因此那一层比对恒真、**不构成额外保护**；保留它只是为了满足
+            #   `require_hash=True` 的语义（否则会要求每个工件都有侧车）。
             try:
                 file_hash = _compute_file_sha256(model_path)
                 _verify_file_hash(model_id, model_path, file_hash)
@@ -335,6 +351,9 @@ class LoadingMixin:
                     model_path,
                     trusted_root=trusted_root,
                     model_id=model_id,
+                    # 注意：此处的 expected_hash 与 precomputed_hash 同源（都来自上面的
+                    # file_hash），因此这一层比对恒真、不是完整性保护——真正的锚点比对在
+                    # `_verify_file_hash`。保留原样以维持 require_hash 语义，不做行为变更。
                     expected_hash=file_hash,
                     # H-04 修复：传入预计算的哈希，避免 safe_joblib_load 内部重复计算
                     precomputed_hash=file_hash,

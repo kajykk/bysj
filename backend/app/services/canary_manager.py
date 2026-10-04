@@ -407,7 +407,7 @@ class CanaryManager:
         observability_collector.record_fallback(
             reason=f"canary_rollback: {reason}",
             model_version=canary.version,
-            response_summary={"canary_id": canary_id, "rollback_reason": reason},
+            request_payload={"canary_id": canary_id, "rollback_reason": reason},
         )
 
         logger.info("Canary %d rolled back: %s", canary_id, reason)

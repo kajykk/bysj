@@ -6,11 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_permission
-from app.core.tenant_context import require_platform_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_permission
 from app.models.user import User
 from app.schemas.canary import (
     CanaryCreateRequest,

@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from typing import Any
 
 from app.core.config import settings
@@ -62,15 +63,6 @@ _CONFIDENCE_QUALITY_FACTORS = {"complete": 1.0, "partial": 0.85, "poor": 0.6}
 _CONFIDENCE_MINIMUM = 0.2
 _CONFIDENCE_MISSING_FIELD_PENALTY = 0.1
 _CONFIDENCE_MAXIMUM_PENALTY = 0.3
-
-
-def _contains_cjk(text: str) -> bool:
-    """检测文本是否包含中日韩统一表意字符 (用于语言路由)."""
-    for ch in text:
-        o = ord(ch)
-        if 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF or 0xF900 <= o <= 0xFAFF:
-            return True
-    return False
 
 
 class PredictMixin:
@@ -557,21 +549,16 @@ class PredictMixin:
     async def _predict_text_ml(self, text: str) -> dict[str, Any]:
         """ML 模型预测文本情感。
 
-        四级回退策略 (v1.41: 按语言路由):
-        1. BERT 文本模型 (中文域模型, 仅对含中文文本启用; 纯英文走 TF-IDF 避免误判)
-        2. 双语 TF-IDF + LR（中英双语，jieba 中文分词）
-        3. 英文主 TF-IDF + LR -> 启发式回退（基于 TextAnalyzer 启发式情感分数）
+        三级回退策略 (2026-10: BERT 首选已移除——Docker 镜像无 transformers、
+        无本地 BERT 权重，Level 1 永远走异常路径，白白增加 ~60ms 并污染
+        fallback 计数；主路径为双语 TF-IDF + LR):
+        1. 双语 TF-IDF + LR（中英双语，jieba 中文分词）
+        2. 英文主 TF-IDF + LR -> 启发式回退（基于 TextAnalyzer 启发式情感分数）
 
         Returns:
             包含 prediction/probability/sentiment_score/model_used 的字典。
         """
-        # Level 1: BERT 文本模型 (中文域专用; 纯英文文本跳过, 避免中文 BERT 英文误判)
-        if _contains_cjk(text):
-            bert_result = await self._predict_text_bert(text)
-            if bert_result is not None:
-                return bert_result
-
-        # Level 2: 双语 TF-IDF + LR (中英双语, 覆盖中文流量)
+        # Level 1: 双语 TF-IDF + LR (中英双语, 覆盖中文流量)
         model_used = "text_improved_bilingual_model"
         try:
             tfidf = await self._load_model_async("text_improved_bilingual_tfidf")
@@ -606,186 +593,17 @@ class PredictMixin:
             "model_used": model_used,
         }
 
-    async def _predict_text_bert(self, text: str) -> dict[str, Any] | None:
-        # PERF-P3-007: 如果 batch collector 已启动, 走 batch 路径提高吞吐量
-        collector = getattr(self, "_bert_batch_collector", None)
-        if collector is not None and collector._running:
-            try:
-                return await collector.submit(text)
-            except asyncio.CancelledError:
-                # 请求被取消 (如 collector 停止), 回退到单条推理
-                pass
-
-        return await self._predict_text_bert_single(text)
-
     async def _predict_text_bert_single(self, text: str) -> dict[str, Any] | None:
-        """BERT 单条文本推理.
+        """已移除 (2026-10): BERT 首选分支下线，主路径为双语 TF-IDF + LR。
 
-        阶段三: 支持 feature extraction (冻结 BERT + LogReg) 和
-        fine_tune (AutoModelForSequenceClassification) 两种模式.
+        Docker 镜像无 transformers、无本地 BERT 权重，该分支永远走异常路径。
+        保留空壳以兼容旧的外部调用，恒返回 None（= 走 TF-IDF）。
         """
-        try:
-            bundle = await self._load_model_async("text_bert_classifier")
-            tokenizer = bundle["tokenizer"]
-
-            if bundle.get("mode") == "feature_extraction":
-                # M2 部署模式: BERT feature extraction + LogReg
-                import torch
-
-                bert_model = bundle["bert_model"]
-                classifier = bundle["classifier"]
-                scaler = bundle["scaler"]
-                threshold = bundle["threshold"]
-                max_len = bundle.get("max_seq_len", 256)
-
-                inputs = await asyncio.to_thread(
-                    tokenizer,
-                    text,
-                    return_tensors="pt",
-                    truncation=True,
-                    padding=True,
-                    max_length=max_len,
-                )
-                with torch.no_grad():
-                    outputs = await asyncio.to_thread(bert_model, **inputs)
-                    cls_emb = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-
-                emb_scaled = await asyncio.to_thread(scaler.transform, cls_emb)
-                proba = await asyncio.to_thread(classifier.predict_proba, emb_scaled)
-                score = float(proba[0, 1])
-                prediction = int(score >= threshold)
-                return {
-                    "prediction": prediction,
-                    "probability": round(score, 4),
-                    "sentiment_label": "negative" if prediction == 1 else "positive",
-                    "sentiment_score": round(score, 4),
-                    "model_used": "text_bert_classifier",
-                }
-
-            # 原有 fine_tune 模式: AutoModelForSequenceClassification
-            model = bundle["model"]
-            inputs = await asyncio.to_thread(
-                tokenizer,
-                text,
-                return_tensors="pt",
-                truncation=True,
-                padding=True,
-                max_length=256,
-            )
-            import torch
-
-            with torch.no_grad():
-                outputs = await asyncio.to_thread(model, **inputs)
-                logits = outputs.logits
-                probs = torch.softmax(logits, dim=-1)[0]
-                score = float(probs[1].item()) if probs.shape[-1] > 1 else float(probs[0].item())
-                prediction = int(torch.argmax(probs).item())
-            return {
-                "prediction": prediction,
-                "probability": round(score, 4),
-                "sentiment_label": "negative" if prediction == 1 else "positive",
-                "sentiment_score": round(score, 4),
-                "model_used": "text_bert_classifier",
-            }
-        except Exception as exc:
-            # P1-E 修复：BERT 文本模型预测失败必须记录日志，便于排查模型加载/推理问题
-            logger.warning("BERT text predict failed: %s", exc)
-            return None
+        return None
 
     async def _predict_text_bert_batch(self, texts: list[str]) -> list[dict[str, Any] | None]:
-        """PERF-P3-007: BERT batch 推理, 一次处理多条文本.
-
-        tokenizer 一次处理 list[str], model 一次 forward 整个 batch,
-        减少 Python→torch 调用开销, 提高吞吐量.
-
-        Args:
-            texts: 文本列表.
-
-        Returns:
-            结果列表 (与输入顺序一致), 每个元素为 dict 或 None (推理失败时).
-        """
-        if not texts:
-            return []
-        try:
-            bundle = await self._load_model_async("text_bert_classifier")
-            tokenizer = bundle["tokenizer"]
-
-            if bundle.get("mode") == "feature_extraction":
-                # M2 部署模式: BERT feature extraction + LogReg (batch)
-                import torch
-
-                bert_model = bundle["bert_model"]
-                classifier = bundle["classifier"]
-                scaler = bundle["scaler"]
-                threshold = bundle["threshold"]
-                max_len = bundle.get("max_seq_len", 256)
-
-                inputs = await asyncio.to_thread(
-                    tokenizer,
-                    texts,
-                    return_tensors="pt",
-                    truncation=True,
-                    padding=True,
-                    max_length=max_len,
-                )
-                with torch.no_grad():
-                    outputs = await asyncio.to_thread(bert_model, **inputs)
-                    cls_embs = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-
-                embs_scaled = await asyncio.to_thread(scaler.transform, cls_embs)
-                probas = await asyncio.to_thread(classifier.predict_proba, embs_scaled)
-
-                results: list[dict[str, Any] | None] = []
-                for i in range(len(texts)):
-                    score = float(probas[i, 1])
-                    prediction = int(score >= threshold)
-                    results.append(
-                        {
-                            "prediction": prediction,
-                            "probability": round(score, 4),
-                            "sentiment_label": "negative" if prediction == 1 else "positive",
-                            "sentiment_score": round(score, 4),
-                            "model_used": "text_bert_classifier",
-                        }
-                    )
-                return results
-
-            # 原有 fine_tune 模式: AutoModelForSequenceClassification
-            model = bundle["model"]
-            # tokenizer 支持 list[str] 输入, 一次处理整个 batch
-            inputs = await asyncio.to_thread(
-                tokenizer,
-                texts,
-                return_tensors="pt",
-                truncation=True,
-                padding=True,
-                max_length=256,
-            )
-            import torch
-
-            with torch.no_grad():
-                outputs = await asyncio.to_thread(model, **inputs)
-                logits = outputs.logits
-                probs = torch.softmax(logits, dim=-1)  # (batch_size, num_classes)
-
-            results: list[dict[str, Any] | None] = []
-            for i in range(len(texts)):
-                prob_i = probs[i]
-                score = float(prob_i[1].item()) if prob_i.shape[-1] > 1 else float(prob_i[0].item())
-                prediction = int(torch.argmax(prob_i).item())
-                results.append(
-                    {
-                        "prediction": prediction,
-                        "probability": round(score, 4),
-                        "sentiment_label": "negative" if prediction == 1 else "positive",
-                        "sentiment_score": round(score, 4),
-                        "model_used": "text_bert_classifier",
-                    }
-                )
-            return results
-        except Exception as exc:
-            logger.warning("BERT text batch predict failed: %s", exc)
-            return [None] * len(texts)
+        """已移除 (2026-10): 同 _predict_text_bert_single，恒返回全 None。"""
+        return [None] * len(texts)
 
     async def _apply_lite_calibration(self, probability: float) -> tuple[float, bool]:
         """v1.27: 对 lite LR 原始概率应用校准层 (产物缺失时行为不变).
@@ -924,6 +742,29 @@ class PredictMixin:
     async def predict_physiological(self, physiological: dict[str, float | int]) -> dict[str, Any]:
         async with self._timed_async("predict", "physiological"):
             score = await self._predict_physiological(physiological)
+            fallback_used = False
+            fallback_reason: str | None = None
+
+            # AUDIT-2026-10-01 (P0-3)：非有限分数必须在此截断。
+            # 原实现下 NaN 会：① `score >= 50` 判 False → prediction=0；
+            # ② `_score_to_level` 返回 0（"none"）；③ 响应仍写 calibrated=True。
+            # 三件事叠加＝把「算不出来」伪装成「无风险且已校准」，是本系统最危险的失效模式。
+            if not math.isfinite(score):
+                fallback_reason = f"生理模型产出非有限分数 score={score!r}，回退启发式"
+                logger.error("predict_physiological: %s", fallback_reason)
+                self._incr_fallback()
+                score = self._physiological_heuristic_fallback(
+                    physiological, reason=fallback_reason
+                )
+                fallback_used = True
+                if not math.isfinite(score):
+                    # 启发式也给不出有限值 → 显式失败，绝不伪装成"无风险"
+                    raise ModelException(
+                        "MODEL_NON_FINITE_SCORE",
+                        "生理模态无法产出有限风险分数（模型与启发式均失败），"
+                        "拒绝返回『无风险』判定。",
+                    )
+
             prediction = 1 if score >= 50 else 0
             probability = round(score / 100.0, 4)
 
@@ -952,10 +793,17 @@ class PredictMixin:
                 "probability": probability,
                 "risk_score": round(score, 2),
                 "risk_level": self._score_to_level(score, "physiological"),
-                "model_used": "physiological_model_v2_dl",
+                # AUDIT-2026-10-01 (P1-14)：回退时如实上报，不再谎报为 DL 模型 + calibrated
+                "model_used": (
+                    "physiological_heuristic_fallback"
+                    if fallback_used
+                    else "physiological_model_v2_dl"
+                ),
                 "confidence": round(confidence, 2),
                 "data_quality": data_quality,
-                "calibrated": True,
+                "calibrated": not fallback_used,
+                "fallback_used": fallback_used,
+                "fallback_reason": fallback_reason,
             }
 
     async def _predict_physiological(self, data: dict[str, float | int]) -> float:

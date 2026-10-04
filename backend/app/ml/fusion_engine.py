@@ -285,8 +285,11 @@ class FusionEngine:
         Returns:
             Risk level (0-4).
         """
-        from app.core.risk_thresholds import MODALITY_RISK_THRESHOLDS
+        from app.core.risk_thresholds import MODALITY_RISK_THRESHOLDS, ensure_finite_score
 
+        # AUDIT-2026-10-01 (P0-3)：融合分数同样必须先拦非有限值（NaN 会比较恒为 False
+        # 并落到 return 0 = "none"）。
+        ensure_finite_score(score, context="FusionEngine._score_to_level(fusion)")
         thresholds = MODALITY_RISK_THRESHOLDS.get(
             "fusion",
             {

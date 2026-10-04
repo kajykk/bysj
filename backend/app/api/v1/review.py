@@ -3,22 +3,31 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN
+from app.core.contracts import (
+    USER_ROLE_ADMIN,
+    USER_ROLE_COUNSELOR,
+    USER_ROLE_SUPER_ADMIN,
+    USER_STATUS_ACTIVE,
+)
 from app.core.database import get_db
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
-from app.models.user import User
+from app.core.states import BindingStatus
+from app.models.user import User, UserCounselorBinding
+from app.schemas.auth import UserBrief
 from app.schemas.common import ApiResponse
 from app.schemas.review import (
     CrisisCloseRequest,
     CrisisEscalateRequest,
     CrisisEventFilter,
     CrisisHandleRequest,
+    ReviewAssignRequest,
     ReviewEscalateRequest,
     ReviewPriority,
     ReviewResolveRequest,
@@ -28,6 +37,10 @@ from app.schemas.review import (
 from app.services.review_service import CrisisEventService, ReviewService
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
+
+# AUDIT-2026-10-01：可指派咨询师名单的返回上限。
+# 咨询师数量级有限，但仍设上限，避免无界结果集（管理员端点尤应如此）。
+_MAX_ASSIGNABLE_COUNSELORS = 500
 
 
 def _parse_date_param(value: str | None) -> datetime | None:
@@ -47,6 +60,26 @@ def _parse_date_param(value: str | None) -> datetime | None:
     return dt
 
 
+async def _ensure_counselor_bound_to_student(
+    db: AsyncSession, counselor_id: int, student_id: int
+) -> None:
+    """校验咨询师已与目标学生建立有效绑定（AUDIT-2026-10-01 P1-1）.
+
+    依据 ``user_counselor_bindings``（与 ``counselor.py`` 的绑定查询同源）。
+    未绑定时拒绝「领取」，避免任意咨询师凭一个 review_id 就攫取他人学生的危机复核数据。
+    """
+    stmt = select(UserCounselorBinding).where(
+        UserCounselorBinding.counselor_id == counselor_id,
+        UserCounselorBinding.user_id == student_id,
+        UserCounselorBinding.status == BindingStatus.ACTIVE,
+    )
+    if (await db.execute(stmt)).scalars().first() is None:
+        raise HTTPException(
+            status_code=403,
+            detail="无权领取该复核任务：该学生未绑定到当前咨询师",
+        )
+
+
 @router.get("/stats", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("60/minute")
 async def get_review_stats(
@@ -60,6 +93,40 @@ async def get_review_stats(
     assigned_to = current_user.id if current_user.role == "counselor" else None
     stats = await service.get_review_stats(assigned_to=assigned_to)
     return ok(stats.model_dump())
+
+
+@router.get(
+    "/assignable-counselors",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("60/minute")
+async def list_assignable_counselors(
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("review.handle"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """列出可作为复核任务受理人的咨询师（仅管理员）。
+
+    AUDIT-2026-10-01 (P1-1 配套)：``POST /reviews/{review_id}/assign`` 支持管理员用
+    ``assignee_id`` 指定分配给某位咨询师，但此前没有任何端点能提供候选名单，
+    该 UI 因此无法落地。本端点补上这个数据源。
+
+    只返回 ``role=counselor`` 且 ``status=active`` 的用户；非管理员调用返回 403。
+
+    注意：本路由必须定义在 ``/{review_id}`` **之前**，否则会被该动态路由吞掉。
+    """
+    if current_user.role not in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN):
+        raise HTTPException(status_code=403, detail="仅管理员可查看可分配的咨询师名单")
+
+    result = await db.execute(
+        select(User)
+        .where(User.role == USER_ROLE_COUNSELOR, User.status == USER_STATUS_ACTIVE)
+        .order_by(User.id)
+        .limit(_MAX_ASSIGNABLE_COUNSELORS)
+    )
+    users = result.scalars().all()
+    return ok({"items": [UserBrief.model_validate(u).model_dump() for u in users]})
 
 
 @router.get(
@@ -240,11 +307,41 @@ async def assign_review(
     request: Request,
     current_user: Annotated[User, Depends(require_permission("review.handle"))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    payload: Annotated[ReviewAssignRequest | None, Body()] = None,
 ) -> dict:
-    """分配复核任务"""
+    """分配 / 领取复核任务
+
+    AUDIT-2026-10-01 (P1-1) 修复：原实现只校验 ``review.handle`` 权限，**无任何归属校验**——
+    任何持有该权限的角色都能凭一个 ``review_id`` 把任意任务据为己有
+    （``assigned_to`` → 自己、``status`` → ``in_review``），从而使后续
+    ``get_review`` / ``resolve_review`` / ``escalate_review`` 的 owner 校验全部失效。
+
+    现按角色收紧：
+
+    - **admin / super_admin**：可把任务分配给任意咨询师（``assignee_id``）；不传则接管给自己。
+    - **counselor**：只能「领取」已绑定给自己的学生的任务（``user_counselor_bindings``），
+      且不允许代他人分配。
+    """
     service = ReviewService(db)
+    is_admin = current_user.role in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN)
+
+    task = await service.get_review_by_id(review_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="复核任务不存在")
+
+    requested = payload.assignee_id if payload else None
+    if is_admin:
+        assignee_id = requested or current_user.id
+    else:
+        if requested is not None and requested != current_user.id:
+            raise HTTPException(
+                status_code=403, detail="仅管理员可将复核任务分配给其他咨询师"
+            )
+        assignee_id = current_user.id
+        await _ensure_counselor_bound_to_student(db, current_user.id, task.user_id)
+
     try:
-        task = await service.assign_review(review_id, current_user.id)
+        task = await service.assign_review(review_id, assignee_id)
         return ok(service.to_response(task).model_dump())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -7,7 +7,7 @@ from sqlalchemy import update
 
 from app.core.config import settings
 from app.core.model_engine import model_engine
-from app.core.risk_thresholds import get_threshold_by_modality
+from app.core.risk_thresholds import ensure_finite_score, get_threshold_by_modality
 from app.models.assessment import StructuredAssessment
 from app.models.risk import RiskAssessment
 from app.services.intervention_service import InterventionRecommendation
@@ -54,6 +54,11 @@ class AssessmentMixin:
 
     def _score_to_level(self, score: float, modality: str = "structured") -> int:
         """根据配置阈值将分数转换为风险等级"""
+        # AUDIT-2026-10-01 (P0-3)：与 risk_thresholds.score_to_level 保持同一策略——
+        # NaN 不得静默降级为等级 0（"none"）。
+        ensure_finite_score(
+            score, context=f"RiskAssessmentService._score_to_level(modality={modality!r})"
+        )
         thresholds = get_threshold_by_modality(modality)
         if score >= thresholds["critical"]:
             return 4

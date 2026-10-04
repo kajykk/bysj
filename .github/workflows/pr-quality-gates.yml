@@ -86,6 +86,11 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+      - name: vue-tsc baseline gate (决策四: 45 存量错误增量门禁)
+        working-directory: frontend
+        # 45 个存量错误集中在 10 个 admin/counselor 表格组件的
+        # Element Plus DefaultRow 泛型 (§六 第9条); 门禁只阻断新增
+        run: npm run typecheck:baseline
       - name: npm audit (SEC-P3-003)
         working-directory: frontend
         # SEC-P3-003: 前端依赖安全审计, HIGH/CRITICAL 漏洞告警

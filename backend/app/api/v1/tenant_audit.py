@@ -21,6 +21,7 @@ from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_admin
 from app.models.admin import OperationLog
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -105,7 +106,7 @@ async def list_tenant_audit_logs(
 async def list_tenant_audit_logs_by_id(
     request: Request,
     tenant_id: int,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),

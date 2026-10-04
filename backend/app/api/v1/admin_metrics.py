@@ -14,8 +14,6 @@ from fastapi import APIRouter, Depends
 
 from app.api.v1.version import RELEASE_VERSION
 from app.core.config import settings
-from app.core.deps import require_role
-from app.core.tenant_context import require_platform_admin
 from app.core.metrics import (
     db_pool_size,
     http_requests_total,
@@ -23,6 +21,7 @@ from app.core.metrics import (
     websocket_connections_active,
 )
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
+from app.core.tenant_context import require_platform_admin
 
 router = APIRouter(prefix="/admin", tags=["admin", "metrics"])
 

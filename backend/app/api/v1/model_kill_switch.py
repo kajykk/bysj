@@ -14,17 +14,20 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_role
-from app.core.tenant_context import require_platform_admin
-from app.core.kill_switch import get_kill_switch_status, set_model_paused
+from app.core.kill_switch import (
+    KillSwitchUnavailableError,
+    get_kill_switch_status,
+    set_model_paused,
+)
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_admin
 from app.models.admin import OperationLog
 from app.models.user import User
 
@@ -60,9 +63,20 @@ async def activate_kill_switch(
 
     需提供暂停原因，操作记录到审计日志。
     """
-    state = await set_model_paused(
-        paused=True, admin_id=current_user.id, reason=payload.reason
-    )
+    try:
+        state = await set_model_paused(
+            paused=True, admin_id=current_user.id, reason=payload.reason
+        )
+    except KillSwitchUnavailableError as exc:
+        # AUDIT-2026-10-01 (P1-7)：绝不能返回「已暂停」——多实例部署下其他实例仍在预测。
+        logger.error("Kill switch 激活失败（未生效）: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "暂停操作未生效：无法写入权威状态（Redis 不可用）。"
+                "当前为 fail-closed 模式，各实例预测端点应已返回 503；请修复 Redis 后重试。"
+            ),
+        ) from exc
 
     # 写入审计日志
     db.add(
@@ -102,9 +116,21 @@ async def deactivate_kill_switch(
 
     恢复所有预测端点的正常服务。需提供恢复原因，操作记录到审计日志。
     """
-    state = await set_model_paused(
-        paused=False, admin_id=current_user.id, reason=payload.reason
-    )
+    try:
+        state = await set_model_paused(
+            paused=False, admin_id=current_user.id, reason=payload.reason
+        )
+    except KillSwitchUnavailableError as exc:
+        # 同上：无法确认已写入，就不能声称「已恢复」——否则界面显示恢复、
+        # 其他实例仍在返回 503，运维会误判故障已排除。
+        logger.error("Kill switch 解除失败（未生效）: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "恢复操作未生效：无法写入权威状态（Redis 不可用）。"
+                "各实例预测端点仍可能返回 503；请修复 Redis 后重试。"
+            ),
+        ) from exc
 
     # 写入审计日志
     db.add(

@@ -7,10 +7,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_permission
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.model_predict import (
@@ -34,7 +34,7 @@ router = APIRouter()
 async def import_dataset(
     request: Request,
     payload: DatasetImportRequest,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     service = ModelExperimentService()
     try:
@@ -58,7 +58,7 @@ async def import_dataset(
 async def train_model(
     request: Request,
     payload: TrainRequest,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     service = ModelPredictService()
     try:
@@ -83,7 +83,7 @@ async def train_model(
 async def evaluate_model(
     request: Request,
     payload: EvaluateRequest,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """PERF-P1-006: 异步模型评估.
 
@@ -109,7 +109,7 @@ async def evaluate_model(
 async def compare_models(
     request: Request,
     payload: CompareRequest,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """PERF-P1-006: 异步多模型对比.
 

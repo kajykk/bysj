@@ -48,9 +48,9 @@ from app.core.cache import (
     make_cache_key,
 )
 from app.core.database import get_db
-from app.core.deps import require_role
 from app.core.instance import get_instance_id
 from app.core.rate_limit import limiter
+from app.core.tenant_context import require_platform_admin
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ CACHE_TTL_JITTER = 60
 
 # 类型别名, 减少 endpoint 签名噪音
 DbDep = Annotated[AsyncSession, Depends(get_db)]
-AdminDep = Annotated[User, Depends(require_role("admin"))]
+AdminDep = Annotated[User, Depends(require_platform_admin())]
 
 
 # ===== 公共工具函数 =====

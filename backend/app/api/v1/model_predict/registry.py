@@ -7,9 +7,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.response import ok
+from app.core.tenant_context import require_platform_permission
 from app.models.user import User
 from app.schemas.common import ApiResponse
 
@@ -22,7 +22,7 @@ router = APIRouter()
     "/model-registry", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def list_model_registry(
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """列出 Model Registry V2 中的所有模型记录 (含状态/指标/产物路径)."""
     from app.core.model_registry_v2 import get_registry
@@ -41,7 +41,7 @@ async def list_model_registry(
 )
 async def get_shadow_stats(
     model_id: str,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """查询候选产物的影子对拍统计 (一致率/概率差异/样本数)."""
     from app.services.shadow_comparison_service import (
@@ -70,7 +70,7 @@ async def get_shadow_stats(
 )
 async def activate_registry_model(
     model_id: str,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     force: bool = False,
 ) -> dict:
     """将验证训练产物提升为 PRODUCTION, 使其接入推理链.
@@ -107,7 +107,7 @@ async def activate_registry_model(
     responses=COMMON_ERROR_RESPONSES,
 )
 async def run_auto_rollback_check(
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """手动触发一次自动回退检查: 回退率超阈值的 PRODUCTION 产物降级回 CANDIDATE."""
     from app.services.registry_auto_rollback import check_auto_rollback
@@ -127,7 +127,7 @@ async def run_auto_rollback_check(
 )
 async def rollback_registry_model(
     model_id: str,
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """人工回退: 将 PRODUCTION 训练产物降级为 CANDIDATE, 推理链回退静态模型."""
     from app.core.model_registry_v2 import rollback_training_model

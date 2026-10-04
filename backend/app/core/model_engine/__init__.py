@@ -22,7 +22,7 @@
 
 公共 API 保持完全兼容：所有既有调用点
 `from app.core.model_engine import ModelEngine / model_engine /
-LiteFeatureExtractor / LITE_FEATURE_ORDER / _BertMicroBatchCollector`
+LiteFeatureExtractor / LITE_FEATURE_ORDER`
 零改动（本包 __init__ 统一 re-export）。
 """
 
@@ -54,7 +54,6 @@ from .fusion import FusionMixin
 from .inference import (  # noqa: F401 — re-export for backward compat
     InferenceMixin,
     LiteFeatureExtractor,
-    _BertMicroBatchCollector,
 )
 from .loading import (
     CHUNK_SIZE,  # noqa: F401 — re-export for backward compat
@@ -76,8 +75,7 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
     - LoadingMixin   (loading.py)  : preload/_load_model/_load_model_async/
                                       _cache_get/_cache_put/_abs_path/
                                       _load_adapter(_async)/_patch_simple_imputer
-    - InferenceMixin (inference.py): start/stop_bert_batch_collector/
-                                      _incr_counter/_incr_routing/_incr_fallback/
+    - InferenceMixin (inference.py): _incr_counter/_incr_routing/_incr_fallback/
                                       _incr_crisis_override/_record_score_delta/
                                       _timed_async/get_metrics_snapshot/
                                       _persist_loop/_publish_to_prometheus/
@@ -87,7 +85,6 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
     - PredictMixin   (predict.py)  : predict_structured/_run_experimental_v121/
                                       _run_experimental_v123/_run_adapter/
                                       predict_text/_predict_text_ml/
-                                      _predict_text_bert(_single/_batch)/
                                       predict_lite/predict_physiological/
                                       _predict_physiological(_sync)/explain_prediction
     - FusionMixin    (fusion.py)   : predict_fusion
@@ -189,8 +186,6 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
             use_confidence_weighting=True,
             use_modality_missing_handling=True,
         )
-        # PERF-P3-007: BERT micro-batch collector (lazy init, None = 未启用)
-        self._bert_batch_collector: _BertMicroBatchCollector | None = None
 
 
 # ── T-P2-001 PHASE_2 → 包结构化拆分: 方法归属索引 ──
@@ -206,7 +201,7 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
 #
 # 核心预测方法 → PredictMixin (predict.py):
 #   predict_structured, _run_experimental_v121, _run_experimental_v123,
-#   _run_adapter, predict_text, _predict_text_ml, _predict_text_bert,
+#   _run_adapter, predict_text, _predict_text_ml,
 #   predict_lite, predict_physiological, _predict_physiological,
 #   _predict_physiological_sync, explain_prediction
 #
@@ -218,7 +213,7 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
 #   _abs_path, _load_adapter, _load_adapter_async, _patch_simple_imputer
 #
 # 推理编排/路由/特征工程/监控 → InferenceMixin (inference.py):
-#   start/stop_bert_batch_collector, _incr_counter/_incr_routing/
+#   _incr_counter/_incr_routing/
 #   _incr_fallback/_incr_crisis_override/_record_score_delta,
 #   _timed_async, get_metrics_snapshot, _persist_loop,
 #   _publish_to_prometheus, start_persist, stop_persist,

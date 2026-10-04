@@ -11,6 +11,7 @@ from app.core.cache import cache_get, cache_set
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.response import ok
+from app.core.tenant_context import require_platform_permission
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.services.model_predict_service import ModelPredictService
@@ -57,7 +58,7 @@ async def model_status(
     "/debug/performance", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def model_performance_debug(
-    _: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     # PERF-P1-002: 复用 model_status 缓存，仅提取 performance 部分
     status = await _get_cached_model_status()

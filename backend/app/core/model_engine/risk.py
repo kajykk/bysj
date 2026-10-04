@@ -28,6 +28,7 @@ from app.core.config import settings
 from app.core.risk_thresholds import (
     RISK_LEVEL_LABELS,
     RISK_LEVEL_THRESHOLDS,
+    ensure_finite_score,
     get_threshold_by_modality,
 )
 
@@ -48,6 +49,9 @@ class RiskMixin:
 
     @staticmethod
     def _score_to_level(score: float, modality: str | None = None) -> int:
+        # AUDIT-2026-10-01 (P0-3)：先拦非有限值。原实现下 NaN 会穿过全部 >= 比较
+        # 落到 return 0（= "none"），把「算不出来」表达成「无风险」。
+        ensure_finite_score(score, context=f"ModelEngine._score_to_level(modality={modality!r})")
         thresholds = get_threshold_by_modality(modality) if modality else RISK_LEVEL_THRESHOLDS
         if score >= thresholds["critical"]:
             return 4

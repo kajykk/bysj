@@ -22,9 +22,9 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.response import ok
+from app.core.tenant_context import require_platform_admin
 from app.models.admin import AlertSilence
 from app.models.user import User
 
@@ -160,7 +160,7 @@ def _serialize_silence(s: AlertSilence) -> dict:
 async def create_silence(
     payload: SilenceCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
     """v1.34: 创建静默规则 (v1.35: 同步到 AlertManager)."""
     # P1-SEC-021 修复：时间范围与持续期校验已迁移至 SilenceCreate 模型 validator
@@ -245,7 +245,7 @@ async def create_silence(
 @router.get("", response_model=dict, responses=COMMON_ERROR_RESPONSES)
 async def list_silences(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role("admin"))],
+    _: Annotated[User, Depends(require_platform_admin())],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     is_active: bool | None = Query(default=None),
@@ -273,7 +273,7 @@ async def list_silences(
 @router.get("/active", response_model=dict, responses=COMMON_ERROR_RESPONSES)
 async def list_active_silences(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role("admin"))],
+    _: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
     """v1.34: 列出当前生效的静默规则."""
     now = datetime.now(timezone.utc)
@@ -297,7 +297,7 @@ async def update_silence(
     silence_id: int,
     payload: SilenceUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
     """ISS-073: 编辑静默规则 (admin).
 
@@ -410,7 +410,7 @@ async def update_silence(
 async def enable_silence(
     silence_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
     """ISS-073: 启用已停用的静默规则 (admin).
 
@@ -480,7 +480,7 @@ async def enable_silence(
 async def delete_silence(
     silence_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
     """v1.34: 取消静默 (软删除, 保留审计)."""
     row = (await db.execute(select(AlertSilence).where(AlertSilence.id == silence_id))).scalar_one_or_none()

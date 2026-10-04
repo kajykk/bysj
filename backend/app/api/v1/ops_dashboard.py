@@ -23,11 +23,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_role
 from app.core.kill_switch import get_kill_switch_status
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_admin
 from app.models.admin import EducationContent, OperationLog
 from app.models.review import CrisisEvent, ReviewTask
 from app.models.user import User
@@ -52,7 +52,7 @@ def _naive_utc_now() -> datetime:
 @limiter.limit("30/minute")
 async def ops_dashboard_overview(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """运营看板总览.
@@ -109,7 +109,7 @@ async def ops_dashboard_overview(
 @limiter.limit("30/minute")
 async def ops_review_metrics(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     days: int = 7,
 ) -> dict[str, Any]:

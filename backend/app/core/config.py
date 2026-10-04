@@ -5,7 +5,7 @@ import sys
 import warnings
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # P1-E 修复：使用 logger 替代 print()，便于生产环境统一日志收集
@@ -247,6 +247,22 @@ class Settings(BaseSettings):
     websocket_auth_timeout_seconds: float = 10.0
     websocket_idle_timeout_seconds: float = 300.0
 
+    @field_validator("kill_switch_fail_mode")
+    @classmethod
+    def _validate_kill_switch_fail_mode(cls, v: str) -> str:
+        """AUDIT-2026-10-01 (P1-7)：只接受 closed / open / 留空。
+
+        拒绝静默忽略非法值：KILL_SWITCH_FAIL_MODE=Close（大小写）、"false"、
+        "closed "（多余空格）这类笔误会让人以为配好了防降级，实际却在走另一条分支。
+        与 app_env 校验同一思路：配置写错时启动即报错，而不是运行期才发现。
+        """
+        mode = (v or "").strip().lower()
+        if mode not in ("", "closed", "open"):
+            raise ValueError(
+                f"KILL_SWITCH_FAIL_MODE 必须是 'closed'、'open' 或留空，得到 {v!r}"
+            )
+        return mode
+
     @model_validator(mode="after")
     def apply_env_defaults(self) -> "Settings":
         # CI/部署兼容性：将同步 postgresql:// 协议自动转换为异步 postgresql+asyncpg://
@@ -424,6 +440,16 @@ class Settings(BaseSettings):
     # 仅在明确的计划内降级窗口（如 Redis 整体迁移且接受临时失效）才设为 False。
     rate_limit_require_redis: bool = True
 
+    # ── AUDIT-2026-10-01 (P1-7) 修复：模型暂停开关（Kill Switch）的故障降级模式 ──
+    # 与上面 rate_limit_require_redis 同属「Redis 不可用时该 fail-open 还是 fail-closed」问题。
+    # Kill Switch 是事故响应开关：Redis 读不到权威状态时若按「未暂停」放行，
+    # 多实例部署下「暂停模型预测」会静默失效 —— 这是本系统最不该 fail-open 的开关。
+    #   "closed" ── 视为「已暂停」：预测端点返回 503，恢复操作同样被拒绝（无法确认即不放行）
+    #   "open"   ── 按进程内内存状态放行（仅适用于单实例部署 / 无 Redis 的开发环境）
+    #   留空 ""  ── 按 app_env 自动判定：production → closed；development/test → open
+    # 默认留空：生产无需额外配置即获得 fail-closed；开发/测试不会被无 Redis 的常态打成 503。
+    kill_switch_fail_mode: str = ""
+
     structured_model_mode: str = "primary"  # "primary" | "fallback"
 
     # ── S-02: 结构化预测默认模型版本 ──
@@ -572,6 +598,20 @@ class Settings(BaseSettings):
         # M-Core-2 修复：通配符校验已移至 model_validator 启动时执行，
         # 此处仅做解析，避免每次请求重复校验。
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    @property
+    def kill_switch_fail_closed(self) -> bool:
+        """Kill Switch 在 Redis 不可用时是否 fail-closed（视为「已暂停」）。
+
+        AUDIT-2026-10-01 (P1-7)：唯一的判定入口，避免 `kill_switch.py` 与
+        其他地方各写一份 app_env 判断而漂移。判定顺序：
+          显式配置 closed/open → 以配置为准；留空 → production 为 closed，其余为 open。
+        """
+        if self.kill_switch_fail_mode == "closed":
+            return True
+        if self.kill_switch_fail_mode == "open":
+            return False
+        return self.app_env.lower() == "production"
 
     @property
     def SKLEARN_VERSION(self) -> str | None:

@@ -126,6 +126,41 @@ async def lifespan(app: FastAPI):
     else:
         startup_status.record("seed_database", "skipped")
 
+    # AUDIT-2026-10-01：模型侧车完整性审计（启动时一次性报告，不阻塞启动）。
+    # 用户决策：侧车强制是**滚动目标**（下个 release 起），现阶段先让「缺失 / 陈旧」可见，
+    # 而不是等运行时加载到某个模型才炸。
+    try:
+        from app.utils.checksum import audit_model_sidecars
+
+        _sidecar_audit = await asyncio.to_thread(
+            audit_model_sidecars, settings.model_dir
+        )
+        _sidecar_total = sum(len(v) for v in _sidecar_audit.values())
+        if _sidecar_audit["stale"] or _sidecar_audit["missing"]:
+            logger.warning(
+                "模型侧车审计: 共 %d 个 .pkl —— 一致 %d / 陈旧 %d / 缺侧车 %d",
+                _sidecar_total,
+                len(_sidecar_audit["ok"]),
+                len(_sidecar_audit["stale"]),
+                len(_sidecar_audit["missing"]),
+            )
+            if _sidecar_audit["stale"]:
+                logger.warning(
+                    "  陈旧（哈希与侧车不符；strict 环境会拒绝加载）: %s",
+                    _sidecar_audit["stale"][:10],
+                )
+            if _sidecar_audit["missing"]:
+                logger.warning(
+                    "  缺侧车（当前不强制，目标是下个 release）: 共 %d 个，前 10 个 %s",
+                    len(_sidecar_audit["missing"]),
+                    _sidecar_audit["missing"][:10],
+                )
+        else:
+            logger.info("模型侧车审计: %d 个 .pkl 全部有侧车且一致", _sidecar_total)
+    except Exception as exc:  # noqa: BLE001
+        # 审计失败绝不能影响启动
+        logger.warning("模型侧车审计跳过（非致命）: %s", exc)
+
     # STAB-P2-004: model preload 改为后台任务, 不阻塞启动
     # 原: await record_step_async("model_preload", _preload_models(), fatal=False) 阻塞启动
     # 新: asyncio.create_task 后台预加载, 模型未加载时按需加载 (model_engine._load_model 已有缓存+回退)
@@ -141,14 +176,6 @@ async def lifespan(app: FastAPI):
 
             await asyncio.to_thread(model_engine.preload)
             model_engine.start_persist()
-            # PERF-P3-007: 启动 BERT micro-batch collector (模型预加载完成后)
-            try:
-                await model_engine.start_bert_batch_collector()
-            except Exception as batch_exc:
-                logger.warning(
-                    "BERT micro-batch collector start failed (non-fatal): %s",
-                    batch_exc,
-                )
             duration_ms = (_time.monotonic() - start) * 1000
             startup_status.record("model_preload", "ok", duration_ms=duration_ms, fatal=False)
             logger.info("Model preload completed in background (%.0f ms)", duration_ms)
@@ -259,11 +286,6 @@ async def lifespan(app: FastAPI):
         shutdown_otel()
         from app.core.model_engine import model_engine as _me
 
-        # PERF-P3-007: 停止 BERT micro-batch collector (在 persist 之前停止)
-        try:
-            await _me.stop_bert_batch_collector()
-        except Exception:
-            logger.warning("Failed to stop BERT micro-batch collector")
         try:
             await _me.stop_persist()
         except Exception:

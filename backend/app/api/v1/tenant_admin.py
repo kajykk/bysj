@@ -24,10 +24,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_admin
 from app.models.admin import OperationLog
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -111,7 +111,7 @@ def _naive_utc_now() -> datetime:
 async def create_tenant(
     request: Request,
     payload: CreateTenantRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """创建新租户.
@@ -167,7 +167,7 @@ async def create_tenant(
 @limiter.limit("30/minute")
 async def list_tenants(
     request: Request,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -206,7 +206,7 @@ async def list_tenants(
 async def get_tenant(
     request: Request,
     tenant_id: int,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """获取指定租户详情."""
@@ -225,7 +225,7 @@ async def update_tenant(
     request: Request,
     tenant_id: int,
     payload: UpdateTenantRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """更新租户名称或配置."""
@@ -276,7 +276,7 @@ async def suspend_tenant(
     request: Request,
     tenant_id: int,
     payload: SuspendTenantRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """暂停租户.
@@ -330,7 +330,7 @@ async def activate_tenant(
     request: Request,
     tenant_id: int,
     payload: ActivateTenantRequest,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """激活已暂停的租户."""
@@ -380,7 +380,7 @@ async def activate_tenant(
 async def get_tenant_stats(
     request: Request,
     tenant_id: int,
-    current_user: Annotated[User, Depends(require_role("admin"))],
+    current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
     """获取租户统计信息（用户数、审计日志数等）."""

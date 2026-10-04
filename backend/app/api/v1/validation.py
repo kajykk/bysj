@@ -13,9 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import BACKEND_DIR
 from app.core.database import get_db
-from app.core.deps import require_permission
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_permission
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.validation import ValidationRunRequest, ValidationStatusResponse
@@ -342,7 +342,7 @@ def _validate_dataset_path(raw_path: str) -> Path:
 async def run_validation(
     request: Request,
     payload: ValidationRunRequest,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Start an asynchronous validation run.
@@ -460,7 +460,7 @@ async def _execute_validation(job_id: str) -> None:
 async def get_validation_status(
     request: Request,
     job_id: Annotated[str, Path()],
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """Get validation job status."""
     job = await job_store.get(job_id)
@@ -492,7 +492,7 @@ async def get_validation_status(
 async def get_validation_results(
     request: Request,
     job_id: Annotated[str, Path()],
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """Get validation job results."""
     job = await job_store.get(job_id)
@@ -518,7 +518,7 @@ async def get_validation_results(
 @limiter.limit("30/minute")
 async def list_validation_jobs(
     request: Request,
-    current_user: Annotated[User, Depends(require_permission("admin.predict.audit"))],
+    current_user: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
     """List all validation jobs."""
     jobs = await job_store.list_jobs()

@@ -9,12 +9,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import _is_sqlite, get_db
-from app.core.deps import require_permission
-from app.core.tenant_context import require_platform_permission
 from app.core.model_engine import model_engine as engine
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
+from app.core.tenant_context import require_platform_permission
 from app.models.monitoring import DriftAlert, MonitoringEventType, MonitoringLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
@@ -291,7 +290,7 @@ async def drift_alerts(
     "/dashboard-summary", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def dashboard_summary(
-    _: Annotated[User, Depends(require_permission("admin.dashboard.view"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.dashboard.view"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Get aggregated dashboard summary data."""

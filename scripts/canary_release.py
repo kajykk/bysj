@@ -177,7 +177,7 @@ def parse_args() -> argparse.Namespace:
     sub = parser.add_subparsers(dest="command", required=True)
 
     # start
-    p_start = sub.add_parser("start", help="启动金丝雀 (5% 流量)")
+    p_start = sub.add_parser("start", help="启动金丝雀 (5%% 流量)")
     p_start.add_argument("--api-url", default=os.environ.get("DWS_API_URL", "https://localhost"))
     p_start.add_argument("--admin-user", default="admin")
     p_start.add_argument("--admin-password", required=True)
