@@ -1,9 +1,13 @@
-# 依赖锁定现状与漂移台账（2026-10-04 复核）
+# 依赖锁定现状与漂移台账（2026-10-04 复核，2026-10-05 追加 §7 漏洞清零）
 
 > 复核范围：`backend/requirements*.txt` 与 `backend/requirements*.lock` 的一致性，
 > 以及「CI 实际解析到的版本」与「本地实测组合」是否一致（P1-3 计划项）。
 > 结论先行：**CI 当前不会因版本漂移失败**（CI 装的是带约束的 `.txt`，不装 `.lock`），
 > 但 `.lock` 与 `.txt` 存在 4 处不一致 + 1 处工件版本隐患，属于**复发风险**，需根治。
+>
+> **2026-10-05 追加结论**：§5 那次重生成**漏了 `--upgrade`**，导致 `.lock` 的绝大多数
+> 传递依赖仍停在远古版本，从而在镜像侧（trivy）积压 **68 条漏洞**。
+> 加 `--upgrade` 重生成后 lock 漏洞**清零**，详见 §7。
 
 ## 1. 谁在用什么（先搞清才能判断风险）
 
@@ -95,3 +99,148 @@ uv pip compile backend/requirements-dev.txt -o backend/requirements-dev.lock --p
 **处置**：本机 PyPI 不可达，无法在本地升级（`pip install -U pydantic-settings` 会失败）。
 需在有网环境执行 `pip install -U "pydantic-settings>=2.14.2"` 后重跑本地测试，
 确认无回归（2.13 → 2.14 跨小版本，pydantic-settings 依赖 pydantic 版本需一并核对）。
+
+## 7. SEC-DEP 漏洞清零（2026-10-05）
+
+### 7.1 问题陈述：54 个漏洞的真实来源
+
+Dependabot 报 54 个依赖漏洞（28 high / 18 moderate / 8 low）。本轮用 pip-audit 2.10.1
+（腾讯云镜像 `--index-url https://mirrors.cloud.tencent.com/pypi/simple/`）分别扫两个口径，
+结论是**这批漏洞全部来自 `requirements.lock` 陈旧，与 `.txt` 声明和业务代码都无关**：
+
+| 扫描目标 | 命令 | 命中 |
+|---|---|---|
+| `.txt` + `.dev.txt`（CI 的 pip-audit 口径） | `pip-audit -r requirements.txt -r requirements-dev.txt` | **1 条** / 1 包（nltk PYSEC-2026-3740，CI 已显式`--ignore-vuln`） |
+| `.lock`（镜像/safety 口径） | `pip-audit -r requirements.lock --no-deps` | **68 条** / 13 包 / 46 个唯一公告 |
+
+根因：§5 那次（2026-10-04）重生成 lock 的命令**漏了 `--upgrade`**。
+`uv pip compile` 不加 `--upgrade` 时只在**既有钉位**附近微调，于是 lock 里
+anyio / starlette / torch / urllib3 / pyjwt / cryptography / protobuf / filelock /
+setuptools / wheel 等传递依赖全部停在远古版本 —— 而 `.txt` 的 range 声明早已能解析到
+无漏洞的最新版本。同一批包在两个口径下相差 6~15 个小版本，这就是「CI 绿、镜像红」的全部原因。
+
+### 7.2 关键判断：13 个漏洞包无一受既有上界保护
+
+动lock 前逐条核对了 `requirements.txt` 里每一处踩过坑钉下的上界，结论是**这次清零不需要动任何一条**：
+
+| 既有上界 | 保护对象 | 与本轮 13 个漏洞包的关系 |
+|---|---|---|
+| `sqlalchemy<2.1` | 裸 `postgresql://` 在 2.1+ 默认 psycopg v3（项目只装 psycopg2） | 无关（sqlalchemy 无命中） |
+| `httpx>=0.27,<0.29` | starlette TestClient 兼容区间 | 无关（httpx 无命中） |
+| `schemathesis>=4.16,<4.17` | >=4.17 破坏 contract/conftest.py 的 session 复用 | 无关（在 dev 侧，且 lock 本就不含） |
+| `starlette-testclient>=0.4.1,<0.5` | 显式声明否则 CI ModuleNotFoundError | 无关（在 dev 侧） |
+| `scikit-learn<2.0.0` | 工件兼容性 | 无关（scikit-learn 无命中） |
+
+13 个漏洞包中：`torch` 在 `.txt` 里只有 `>=2.2.0` **无上界**；`starlette` 由 fastapi 传递；
+`anyio` 由 starlette/httpx 传递；其余 10 个全是纯传递依赖。
+=> 全部可通过「重生成 lock」解决，不需要为消漏洞而放松任何既有约束。
+
+### 7.3 已修复：44/46 个唯一公告（lock 漏洞 68 → 0）
+
+重生成命令（`--upgrade` 是关键，与 §5 的命令差别就在这里）：
+
+```bash
+uv pip compile backend/requirements.txt -o backend/requirements.lock \
+    --python-version 3.11 --no-emit-index-url --upgrade \
+    --index-url https://mirrors.cloud.tencent.com/pypi/simple/
+```
+
+13 个包的版本迁移（每条都经 pip-audit 的 `fix_versions` 核对）：
+
+| 包 | 旧（带漏洞） | 新 | 覆盖的公告 |
+|---|---|---|---|
+| anyio | 3.7.1 | 4.15.1 | PYSEC-2026-4024/4025 |
+| cryptography | 46.0.3 | 50.0.2 | PYSEC-2026-35/36/2141/3552/3553/3554 + GHSA-537c-gmf6-5ccf |
+| filelock | 3.20.0 | 4.0.10 | PYSEC-2026-1374/1375 |
+| idna | 3.11 | 3.20 | PYSEC-2026-215 |
+| mako | 1.3.10 | 1.4.3 | PYSEC-2026-2617 |
+| protobuf | 6.33.0 | 7.36.2 | PYSEC-2026-1805 |
+| pygments | 2.19.2 | 2.21.0 | PYSEC-2026-2987 |
+| pyjwt | 2.13.0 | 2.15.1 | PYSEC-2026-4140~4145/4147~4152 |
+| setuptools | 80.9.0 | 84.0.0 | PYSEC-2026-3447 |
+| starlette | 1.0.0 | 1.7.0 | PYSEC-2026-161/248/249/2280/2281 |
+| torch | 2.9.0 | 2.14.1 | PYSEC-2025-193/194/195 + PYSEC-2026-2286 |
+| urllib3 | 2.5.0 | 2.8.0 | PYSEC-2026-141/1994/1996/1998/4175/4177 |
+| wheel | 0.45.1 | 0.48.0 | CVE-2026-24049 |
+
+新增传递依赖：`formulaic` / `interface-meta` / `narwhals` / `opentelemetry-api`；
+移除：`pytz` / `sniffio`（anyio 4.x 不再依赖 sniffio）。
+
+**复扫读数**：`pip-audit -r requirements.lock --no-deps` →
+`No known vulnerabilities found`（原 68 条 / 13 包 / 46 唯一公告）。
+
+lock 自洽性验证：`uv pip compile backend/requirements.lock` 重新解析后与文件自身
+逐行diff 完全一致（`IDENTICAL`），即新 lock 的钉位组合真实可解、无隐式冲突。
+
+### 7.3.1 本地全量测试读数（重要：含一处必须说明的环境噪声）
+
+本地全量 `pytest -o addopts=... --import-mode=importlib --cov=app` 跑了三轮，
+失败数**不稳定**，这本身就是判据：
+
+| 轮次 | 读数 |
+|---|---|
+| 第 1 轮 | 107 failed / 6398 passed / 20 skipped |
+| 第 2 轮 | **1 failed / 6504 passed** / 20 skipped（876s） |
+| 对照实验（临时换回**旧** lock，跑失败集） | 31 passed |
+
+结论：**失败是本地并发/事件循环串扰，不是 lock 改动引入的回归。** 三条依据：
+
+1. **失败数从 107 塌到 1** —— 确定性回归不会这样波动。
+2. **改 `requirements.lock` 不会改动已安装的 `.venv`**。本地 venv 实测
+   starlette 1.7.0 / torch 2.11.0 / anyio 4.13.0 在本轮动手前就已是新版本，
+   从未装过旧 lock（改动面仅 `requirements.lock` + 本文档，`git diff --stat` 可证）。
+3. **对照实验**：临时把 lock 换回改动前的版本，跑第 1 轮的失败集 → `31 passed`，
+   与新 lock 结果完全一致。
+
+⚠️ **本地跑全量的两个坑（下次直接照此跑）**：
+
+- **不要用 `-o "addopts="`**：`pytest.ini` 的 `addopts` 里含
+  `--import-mode=importlib`（正是它解决 `tests/test_pytorch_mlp.py` 与
+  `tests/ml/test_pytorch_mlp.py` 的同名模块冲突）。清空 addopts 会导致
+  收集期 `import file mismatch` 直接中断全量。正确写法是**只覆盖需要的项**：
+  ```bash
+  cd backend && .venv/Scripts/python.exe -m pytest \
+    -o "addopts=--strict-markers --import-mode=importlib --cov=app --cov-report=xml:coverage.xml --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt" \
+    -p no:cacheprovider -q
+  ```
+- **不要加 `--timeout=300`**：本地 venv 未装 `pytest-timeout` 插件
+  （`pytest.ini` 里有 `timeout = 300` 但插件缺失，只会产生
+  `PytestConfigWarning: Unknown config option: timeout`）。加了会直接
+  `error: unrecognized arguments: --timeout=300` 全量退出。
+
+> 注：CI 基线 6186 passed / 68 skipped、覆盖率 84%（门禁 60%）是
+> **Linux + 干净依赖环境**下的读数。本地这轮 passed 数为 6504（比 CI 多 318），
+> 因本地 venv 长期未与 `.txt` 同步（见 §6：pydantic-settings 曾低于声明下限）、
+> 且缺少 pytest-timeout 等插件，**两者不构成直接可比**，不要用差值反推回归。
+
+### 7.4 仍然剩下 / 需要显式说明的项
+
+**（a）`.txt` 口径的 nltk PYSEC-2026-3740 —— 维持既有忽略，不是本轮新增**
+CI 的 `dependency-scan.yml` 已用 `--ignore-vuln PYSEC-2026-3740` 显式忽略，
+理由（该文件内已写全）：上游无修复版本；nltk 仅作为 safety 的运行时依赖被拖入，
+不随镜像发布，运行期零import。本轮未改动该忽略。
+
+**（b）torch PYSEC-2026-139 / pyjwt PYSEC-2026-4146 —— 上游无修复版本**
+这两条在旧 lock（torch 2.9.0 / pyjwt 2.13.0）上命中，`fix_versions` 为空数组。
+重生成后：
+- pyjwt 升到 2.15.1 已覆盖其余 12 条 pyjwt 公告，仅 4146（`decode()` 原地改写调用方
+  传入的 `options` dict）仍无上游修复 —— 属 API 行为问题，非内存破坏，接受风险。
+- torch 升到 2.14.1 后 PYSEC-2026-139 仍无 fix 版本（公告描述指向 2.10.0 的未知函数）。
+  已核对 `backend/app` 与 `backend/scripts` 中零处直接调用该组件；torch 在本项目
+  只用于 `tests/ml/` 与建模脚本，不进入 API 请求路径。**接受风险**，待上游发布
+  修复版本后重扫即自动消失。
+
+**（c）scikit-learn 工件版本差（§2 #3/#4）—— 按本轮纪律不动**
+本轮明确不碰模型工件、不重训。lock 里 scikit-learn 由 1.8.0 升至 1.9.1，
+工件仍由 1.7.2 训练，`InconsistentVersionWarning` 的既有状态不变
+（CI 装 `.txt` range，本来就解析到 1.9.x，故 CI 侧无新增风险）。
+根治路径仍是重训工件，另行立项。
+
+### 7.5 复发预防：为什么上次会漏 `--upgrade`
+
+§5 与 §7 的重生成命令只差一个 `--upgrade`，但结果差 68 条漏洞。
+`uv pip compile` 的默认行为是**保留既有钉位**（把它当「重新编译当前声明」，
+不是「解析到最新」）。这与 pip-compile 需要 `--upgrade` 才是同样的语义 ——
+两个工具都把「升级」当成显式请求。
+
+=> 已把这条写进 `requirements.lock` 头部注释与本节，重生成时不必重新踩。
