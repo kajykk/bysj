@@ -31,32 +31,36 @@ KAPPA_GATE = 0.6
 DEFAULT_N = 100
 
 GUIDE = """\
-## 标注指引（贴在 CSV 旁边，随模板一起给标注者）
+## 标注指引（随模板一起给标注者）
 
-### 你要标的到底是什么
-对每条 `text_excerpt`，判断**该段文本所描述的心理状态**是否达到「中度及以上抑郁」——
-即与 `phq9_binary == 1` 的语义一致。**不要**参考 `model_confidence` 列，它本轮不参与判断。
+### 金标准不需要你从零标 —— 语料自带临床量表
+`ref_phq9_score` / `ref_phq9_binary`（以及 GAD-7 两列）来自 **PHQ-9 / GAD-7 临床量表实测**，
+不是模型输出，因此**直接作为金标准**。你的工作是**校验**，不是从零标注：
 
-### 为什么要标两份
-- `human_label`：你的人工判断（金标准）
+- 认可：`human_review` 留空（默认采纳量表标签）
+- 不认可：在 `human_review` 填你的判断（0/1），并在 `notes` 写一句原因
+
+### ⚠️ 合规约束（2026-10-04 已定：只传脱敏后的结构化特征）
+`text_excerpt` 列**只给你（标注者）看，绝不发给 LLM**。发给 LLM 的只有结构化字段
+（量表分数、风险等级、置信度、模态可用性等聚合量）。
+若将来实验证明「只有结构化字段」达不到 kappa 门槛，结论是**不做**，而不是放宽到传原文。
+
+### 为什么要标两列
+- `human_review`：你对金标准的校验（留空=认可量表标签）
 - `llm_judgement`：稍后由 LLM 复核填入（留空）
-两列填完后才能算一致性与 Cohen's kappa。**标完之前不要看 LLM 的答案**（避免锚定）。
+两列都填完后才能算一致性 / Cohen's kappa。**校验前不要看 LLM 的答案**（避免锚定）。
 
 ### 边界与易错点
-1. `phq9_binary` 只是**参考**，不是答案。文本与量表可能不一致（这正是要测的）——
-   若你觉得文本明显不符，允许与参考列不同，请在 `notes` 写一句原因。
-2. 表达强度按**文本自身**判断，不按你的推测。文「我有点累」≠ 抑郁表述；
-   「我什么都做不下去了」才是。
-3. 否定/反讽：「我当然开心啊（笑）」这类按真实含义判，并在 notes 标注。
-4. 截断的文本（超过 `max_chars`）按可见部分判。
-5. 拿不准的**不要瞎猜**，把 `human_label` 留空并在 notes 写「不确定」——
-   留空样本会在 kappa 计算时被排除，比错标更有价值。
+1. 量表是自评分数，文本是访谈转录 —— 两者天然有偏差，这个偏差正是要测的对象。
+   所以"文本看起来不像"不等于金标准错了，请在 notes 里写清楚你的判断依据。
+2. 否定/反讽（如「我当然开心啊（笑）」）按真实含义判。
+3. 截断文本（超过 max_chars）按可见部分判。
+4. 拿不准就在 `human_review` 留空并在 notes 写「不确定」——留空样本会在 kappa 计算时
+   被排除，比错标更有价值。
 
 ### 完成后算什么
-- 一致率 accuracy(LLM == human)
-- Cohen's kappa（处理「偶然一致」，比准确率更严）
-- 门槛 **kappa >= 0.6**（见 app/core/confidence.py 的 KAPPA_GATE 注释处的文档约定）
-- 若通过，再算成本：单次调用成本 x 灰区日流量
+- 一致率 accuracy(LLM == 金标准) 与 Cohen's kappa（后者处理偶然一致，比准确率更严）
+- 门槛 **kappa >= 0.6**；成本门槛 单次 <= ¥0.01、月度 <= ¥50
 """
 
 
@@ -88,15 +92,19 @@ def main() -> None:
     template = pd.DataFrame({
         "sample_id": [f"J{i + 1:04d}" for i in range(len(out_df))],
         "group_id": out_df["source_idx"].astype("Int64").astype(str).replace("<NA>", ""),
-        "text_excerpt": out_df["text"].str.slice(0, args.max_chars),
+        # ↓ 以下两列【只给标注者看】; 合规约束: 自由文本不发给 LLM
+        "text_excerpt_NOT_FOR_LLM": out_df["text"].str.slice(0, args.max_chars),
         "text_len": out_df["text"].str.len(),
+        # ↓ 以下为【结构化特征】, 是可发给 LLM 的全部字段
         "ref_phq9_score": out_df["phq9_score"],
-        "ref_phq9_binary": out_df["phq9_binary"].astype(int),
-        "model_confidence": "",      # 待填: 现有模型对该样本的置信度（灰区筛选用）
+        "gold_phq9_binary": out_df["phq9_binary"].astype(int),   # 金标准(量表实测)
+        "ref_gad7_score": out_df["gad7_score"],
+        "ref_gad7_binary": out_df["gad7_binary"].astype(int),
+        "model_confidence": "",      # 待填: 现有模型置信度（筛灰区用）
         "llm_judgement": "",         # 待填: LLM 复核结论（0/1）
-        "llm_reason": "",            # 待填: LLM 给出的理由（评估可解释性）
-        "human_label": "",           # 待填: 人工金标准（0/1）
-        "notes": "",                 # 待填: 不确定 / 与参考不符的原因
+        "llm_reason": "",            # 待填: LLM 理由
+        "human_review": "",          # 待填: 校验金标准（留空=认可量表标签）
+        "notes": "",                 # 待填: 与金标准不符的原因 / 「不确定」
     })
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
@@ -104,8 +112,8 @@ def main() -> None:
 
     print(f"语料: {len(df):,} 组可用（已按 source_idx 去重）")
     print(f"标注模板: {args.out}")
-    print(f"样本数: {len(template)} | 正例 {int(template['ref_phq9_binary'].sum())} / "
-          f"负例 {int((1 - template['ref_phq9_binary']).sum())}")
+    print(f"样本数: {len(template)} | 正例 {int(template['gold_phq9_binary'].sum())} / "
+          f"负例 {int((1 - template['gold_phq9_binary']).sum())} (金标准=PHQ-9 量表分级)")
     print(f"正文截断: {args.max_chars} 字 | kappa 门槛: {KAPPA_GATE}")
     print("\n" + "=" * 62)
     print(GUIDE)
