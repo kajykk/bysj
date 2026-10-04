@@ -38,7 +38,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 # P1-D4 修复：原代码定义了两套密码变量（SEED_* 和 E2E_*），
 # SEED_* 被验证但从未使用，E2E_* 实际使用但未验证，导致生产环境校验失效。
 # 统一为 E2E_* 变量（实际使用的那个），并更新校验逻辑。
-# L-17 修复：原默认密码偏弱（***REMOVED*** 仅 11 位），加强为至少 18 位且包含大小写/数字/特殊字符
+# L-17 修复：原默认密码偏弱（E2E@User123 仅 11 位），加强为至少 18 位且包含大小写/数字/特殊字符
 # H-Core-7 修复：默认值改为 None，未配置时由校验逻辑抛 RuntimeError，防止弱口令后门
 _E2E_ADMIN_PASSWORD = os.getenv("E2E_ADMIN_PASSWORD")
 _E2E_COUNSELOR_PASSWORD = os.getenv("E2E_COUNSELOR_PASSWORD")
@@ -49,12 +49,13 @@ _MIN_SEED_PASSWORD_LENGTH = 18
 
 #: 在仓库 / 文档 / CI 中公开出现过的示例口令。
 #: 这些值等同于已泄漏，生产环境一律拒绝——即便调用方通过追加字符等方式凑够了长度。
+# 以下为已作废的公开示例口令（已轮换失效），仅用于生产环境拒绝校验；2026-10-02 历史清除后有意的死值引用。
 _PUBLICLY_KNOWN_SEED_PASSWORDS = frozenset(
     {
-        "***REMOVED***",
-        "***REMOVED***",
-        "***REMOVED***",
-        "***REMOVED***",
+        "E2E@Admin123",
+        "E2E@Counselor123",
+        "E2E@User123",
+        "DwsAdmin@Canary2026!",
     }
 )
 

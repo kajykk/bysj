@@ -1,7 +1,7 @@
 """AUDIT-2026-10-01 (P1-32): 生产环境种子口令强度策略的回归测试。
 
 背景：``app/core/seed.py`` 的注释声称
-「L-17 修复：原默认密码偏弱（***REMOVED*** 仅 11 位），加强为至少 18 位且包含大小写/数字/特殊字符」，
+「L-17 修复：原默认密码偏弱（E2E@User123 仅 11 位），加强为至少 18 位且包含大小写/数字/特殊字符」，
 但实现里 ``_validate_seed_passwords_for_production()`` 只校验了「非空」（``if not val``）——
 也就是说这条安全控制当时并不存在，生产环境用 ``E2E_ADMIN_PASSWORD=abc`` 也能建账号。
 
@@ -19,7 +19,7 @@ from app.core.config import settings
 _STRONG = "Xk7#mQ2vLp9ZtR4nWb6Yd1"
 
 #: 仓库与文档中公开出现过的示例口令（等同已泄漏）
-_PUBLIC_EXAMPLES = ("***REMOVED***", "***REMOVED***", "***REMOVED***")
+_PUBLIC_EXAMPLES = ("E2E@Admin123", "E2E@Counselor123", "E2E@User123")
 
 
 @pytest.fixture
@@ -62,12 +62,12 @@ def test_production_rejects_publicly_known_example_passwords(set_passwords, set_
 
 def test_production_rejects_exact_example_values(set_passwords, set_app_env):
     set_app_env("production")
-    set_passwords("***REMOVED***", "***REMOVED***", "***REMOVED***")
+    set_passwords("E2E@Admin123", "E2E@Counselor123", "E2E@User123")
     with pytest.raises(RuntimeError):
         _validate()
 
 
-@pytest.mark.parametrize("weak", ["abc", "short", "***REMOVED***45678"])  # 后者含公开示例前缀
+@pytest.mark.parametrize("weak", ["abc", "short", "E2E@Admin12345678"])  # 后者含公开示例前缀
 def test_production_rejects_too_short_password(set_passwords, set_app_env, weak):
     set_app_env("production")
     set_passwords(weak, weak, weak)
@@ -104,7 +104,7 @@ def test_production_missing_passwords_still_raises(set_passwords, set_app_env):
 def test_non_production_does_not_enforce_strength(set_passwords, set_app_env, env):
     """dev/test 下示例口令/弱口令应放行——CI 的 E2E 以 APP_ENV=test 运行。"""
     set_app_env(env)
-    set_passwords("***REMOVED***", "***REMOVED***", "***REMOVED***")
+    set_passwords("E2E@Admin123", "E2E@Counselor123", "E2E@User123")
     _validate()
 
     set_passwords("abc", "abc", "abc")
