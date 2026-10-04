@@ -27,7 +27,7 @@
 | 文本 TF-IDF+LR（232 维稠密） | F1=0.789 / AUC=0.881（n=26,381） | 基线 |
 | 生理 MLP（input_dim=13，NumPy + PyTorch 双实现） | F1=0.857 / AUC=0.958 | 基线 |
 | 融合 m4 stacking（n=1,275） | 多模态加权融合 + 优先级规则引擎 | 实验 |
-| BERT ONNX（fp32 388MB / int8 97.75MB） | CPU 优化两档 | 实验/影子对拍 |
+| BERT ONNX（fp32 388MB / int8 97.75MB） | CPU 优化两档 | 实验/影子对拍；**2026-10-04 定性：注册条目与 `models/text/bert_text_classifier/` 权重已归档**（见 §6） |
 
 ## 4. 历史/重复产物（deprecated，不得作为生产引用）
 
@@ -41,3 +41,16 @@
 多模态加权融合与缺失模态权重重分配、危机词优先规则、KS/PSI 漂移检测、
 金丝雀流量分配与自动回滚、NumPy SMOTE、McNemar/Bonferroni 统计检验、
 SHAP 近似可解释、实验管理服务群。运行期 `/health` 中 `models: ok` 即全部产物加载成功。
+
+## 6. 2026-10-04 决策：模型镜像**不引入** transformers
+
+**结论：不装。**（结束此前「装不装」的悬置状态）
+
+| 项 | 事实 |
+|---|---|
+| 理由 1 | BERT 已下线：`text_bert_classifier` 注册条目与权重（`backend/models/_archive/bert_text_classifier_20261004/`，从未被 git 跟踪，仅 6.8KB 占位产物）同日归档 |
+| 理由 2 | 生产文本主路径是**双语 TF-IDF + LR**（`text_improved_bilingual_*`），不依赖 transformers |
+| 理由 3 | 装 transformers 只增镜像体积与供应链攻击面，对当前指标**零收益**（`requirements.txt` / `requirements.lock` 均无 transformers） |
+| 替代路线 | 长文本能力的实质升级走 **P2-1 句向量升级立项**（paraphrase-multilingual-MiniLM 等 sentence-transformers 路线）；**涨点才换，不涨不换** |
+
+复核口径：`grep -rn "transformers" backend/requirements*.txt backend/requirements*.lock Dockerfile*` 应无命中（BERT 量化实验脚本 `scripts/p2_bert_quantization.py` 属离线实验工具，不入镜像）。

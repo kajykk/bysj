@@ -268,9 +268,12 @@ class CompareRequest(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
     dataset_name: str = Field(..., min_length=1, max_length=120)
+    # 2026-10-04 (P0-1): 默认比较列表移除 bert_text_classifier —— 其权重已于同日归档到
+    # models/_archive/bert_text_classifier_20261004/。留在默认值里会让「不传 model_names」
+    # 的请求稳定命中一个已不存在的模型路径(静默降级为 500/回退, 反而更难排查)。
+    # 前端 ExperimentTab 三个操作均显式传 model_names, 不受此变更影响。
     model_names: list[str] = Field(
         default_factory=lambda: [
-            "bert_text_classifier",
             "text_depression_model",
             "dnn_fusion_model_best",
         ]

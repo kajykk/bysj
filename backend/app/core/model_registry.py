@@ -29,7 +29,6 @@ MODEL_PATHS: dict[str, str] = {
     "structured_random_forest_quick": "models/artifacts/depression_tabular/best_model.pkl",
     "structured_best_ensemble_quick": "models/artifacts/depression_tabular/best_model.pkl",
     "structured_best_threshold": "models/artifacts/depression_tabular/metrics.json",
-    "text_bert_classifier": "models/text/bert_text_classifier",
     "text_improved_bilingual_model": "models/text/improved_bilingual_model.pkl",
     "text_improved_bilingual_tfidf": "models/text/improved_bilingual_tfidf.pkl",
     "text_depression_model": "models/artifacts/text_depression_classifier/text_model.pkl",
@@ -44,6 +43,11 @@ MODEL_PATHS: dict[str, str] = {
     "physiological_features_v2_dl": "models/artifacts/physiological_optimized/feature_names.json",
     # S-03 (V4 ML 优化): v1.21 模型已清理并归档到 models/_archive/structured_v1.21/
     # 4 个 v1.21 注册条目 (binary_lr/binary_rf/multiclass_lr/multiclass_rf) 及相关 scaler/manifest 已移除
+    # 2026-10-04 (P0-1 遗留①): text_bert_classifier 注册条目与 models/text/bert_text_classifier/
+    # 权重一并移除。该目录从未被 git 跟踪(本地仅 6.8KB 占位产物, 非真实 BERT 权重),
+    # 生产文本主路径为双语 TF-IDF+LR(见 tests/test_model_engine.py: _predict_text_ml
+    # 永不请求 text_bert_classifier)。产物归档至 models/_archive/bert_text_classifier_20261004/
+    # (不入库, 沿用 v1.21 归档先例)。替代升级路线见 P2-1 句向量升级立项。
     "structured_v1.23_external_lr": "models/v1.23_external_lr/model.pkl",
     "structured_v1.23_external_scaler": "models/v1.23_external_lr/scaler.pkl",
     "structured_v1.24_adapter": "models/v1.24_adapter/score_adapter.pkl",

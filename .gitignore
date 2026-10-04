@@ -105,6 +105,14 @@ frontend/lighthouse*.json
 
 # SQLite databases
 *.db
+# 本地数据库备份（形如 depression_system.db.bak-20261001220916）：
+# 备份属本地运维产物，不应进工作区/版本库；需要保留请放到仓库外目录。
+*.db.bak-*
+*.db.backup-*
+
+# Local-only Docker Compose overrides (per-developer ports/credentials, never shared)
+docker-compose.override.yml
+docker-compose.override.yaml
 
 # Logs
 backend/logs/
