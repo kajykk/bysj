@@ -31,6 +31,19 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+      # CI-AUDIT-2026-10-02: 增加 Redis 服务 — 应用 WebSocket pubsub / 限流 / 缓存
+      # 依赖 Redis (rate_limit_require_redis=True)。此前 contract-tests.yml 没有 Redis,
+      # 导致 test_valid_physiological_data 返回 422 (pubsub 连 6379 失败)。与
+      # e2e-tests.yml / test-harness.yml 的既有服务声明保持一致。
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -73,6 +86,7 @@ jobs:
           fi
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379/0
       - name: Upload contract test results
         if: always()
         uses: actions/upload-artifact@v7
