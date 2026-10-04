@@ -159,6 +159,33 @@ def call_deepseek(payloads: list[dict], api_key: str, model: str,
     return results
 
 
+def load_api_key() -> str:
+    """按优先级取 API key: 环境变量 > backend/.env（后者已 gitignored）。
+
+    两种放法（都不会入库）:
+      1) 临时, 仅当前终端:  $env:DEEPSEEK_API_KEY="sk-xxx"        (PowerShell)
+      2) 持久, 项目本地:    写入 E:\\code\\bysj\\backend\\.env 一行
+                            DEEPSEEK_API_KEY=sk-xxx
+                            该文件已被 .gitignore 覆盖, 但**备份/分享仓库时要记得剔除**。
+    绝对不要: 写进代码、写进提交、贴在聊天里。
+    """
+    key = os.environ.get("DEEPSEEK_API_KEY", "")
+    if key:
+        return key
+    env_file = BACKEND / ".env"
+    if env_file.exists():
+        try:
+            from dotenv import load_dotenv
+
+            load_dotenv(env_file)   # 默认不覆盖已存在的环境变量
+            key = os.environ.get("DEEPSEEK_API_KEY", "")
+            if key:
+                print(f"已从 {env_file.name} 读取 DEEPSEEK_API_KEY")
+        except ImportError:
+            print("提示: 未安装 python-dotenv, 只能用环境变量传 key")
+    return key
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=100, help="评估样本数")
@@ -170,10 +197,12 @@ def main() -> None:
                     help="美元兑人民币汇率假设（成本换算用，默认 7.2）")
     args = ap.parse_args()
 
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+    api_key = load_api_key()
     if not api_key and not args.dry_run:
-        print("错误: 未设置环境变量 DEEPSEEK_API_KEY。")
-        print("  PowerShell: $env:DEEPSEEK_API_KEY=\"<key>\"  (不要写进代码或仓库)")
+        print("错误: 未找到 DEEPSEEK_API_KEY。任选一种方式:")
+        print('  1) 当前终端临时:  $env:DEEPSEEK_API_KEY="sk-xxx"')
+        print('  2) 写入 backend/.env 一行:  DEEPSEEK_API_KEY=sk-xxx   (该文件已 gitignored)')
+        print("  不要写进代码或提交。")
         sys.exit(2)
 
     corpus = pd.read_csv(CORPUS)
