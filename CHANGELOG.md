@@ -57,11 +57,12 @@
   并刷新评估元数据（09-08）
 - 模型评估证据与降级可观测性（09-30）
 
-## 2026-10：安全与可观测性收口（2026-10-01 ~ 2026-10-05，进行中）
+## 2026-10：安全与可观测性收口（2026-10-01 ~ 2026-10-05）
 
-> 本段随开发滚动补记。范围为 2026-10 至今的提交。
+> 本段随开发滚动补记。
 > 里程碑收口日定为 **2026-10-31**：CHANGELOG 自 `986b9d1`（08-24）起未收口，
 > 积压 122 笔提交、6 周（节奏 2.9 提交/天）。按 4 周窗口收口，避免继续积压。
+> 跨到 10-06 的进展见下节。
 
 ### 依赖漏洞清零
 
@@ -135,16 +136,39 @@
   `T` 暴露给插槽），只能逐处 `as` 断言、分散 15 个文件 →
   触止损线停止，**维持现状 + 保留棘轮门禁**（`vue-tsc-baseline.mjs`
   `BASELINE=45`，实测存量未恶化）。不用 `as any` 压掉，否则门禁失去意义（10-05）
-- **`echarts` 5.6.0 → 6.1.0**（GHSA-fgmj-fm8m-jvvx, XSS）：需跨大版本，
-  有破坏性变更。且 `dependabot.yml` 已全局忽略 `semver-major`
-  （有实测依据：PR #25–#45 确为真实不兼容），Dependabot 不会自动开PR →
-  须随下个前端迭代人工规划迁移 + 图表视觉回归（10-05）
 - **`tracing.inject_trace_into_headers` 出站 trace 传播**：全仓出站仅
   2 个文件且均为投递第三方 Alertmanager，W3C traceparent 无消费方，
   技术收益 ≈ 0 → 关闭，改由 payload 带 `request_id`（10-05）
-- `apply_escalation` 持事务优化：结构已确认（循环结束才 commit，
-  外部通知耗时全在事务内），但**需先量化 `notifier.send` 生产 P95**
-  再决定改结构或仅加监控（10-05）
+
+---
+
+## 2026-10 · 06：里程碑前遗留收口
+
+> 承接上段「明确未做」中两项已推进的条目。
+
+### 依赖安全
+
+- `echarts` 5.6.0 → **6.1.0**（GHSA-fgmj-fm8m-jvvx / CVE-2026-45249, XSS）。
+  跨大版本人工规划迁移（`dependabot.yml` 已全局忽略 `semver-major`，
+  Dependabot 不会自动开PR）→ 逐条核对官方 v6 升级指南，**破坏面为零**：
+  默认主题变更零影响（11 处 series 全部显式指定 `itemStyle.color`，
+  不依赖默认色板）、未用 `outerBoundsMode` / `label.rich`、
+  已是 ESM `import * as`、zrender 6 由 npm 自动带入。
+  体积实测对照：628.7KB → 667.7KB（+39KB / +6.2%），tree-shaking 未退化。
+  验证：typecheck 仍 45（零新增）/ build ✓ / 1165 passed（10-06）
+
+### 可观测性
+
+- **escalation 事务持有时长埋点就位**（为量化前置，见上段最后一条）：
+  新增 `escalation_notify_duration_seconds{result}`（单次 `notifier.send()`
+  耗时）与 `escalation_cycle_duration_seconds`（一次 `apply_escalation()`
+  ≈ 事务持有时长）。设计要点：`result` 区分成功/失败（**慢且失败最糟**）、
+  buckets 显式扩至 120s/300s（默认上限 10s 会让webhook 全落 `+Inf`）、
+  失败路径在 `finally` 记录、**指标上报绝不抛异常**（P1 关键路径）。
+  **判读标准与改动约束已写进代码注释**：P99 < 1s → 只加监控不改结构；
+  达秒级 → 按批commit 切分；且 `alert.detail` 更新与 `alert_escalated`
+  日志**必须同事务**，不可为缩短事务而拆开。
+  剩余：待生产采集一个完整周期分布后决策（10-06）
 
 ---
 
