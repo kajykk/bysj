@@ -39,7 +39,13 @@ def test_metrics_summary_admin_success(client: TestClient, as_role) -> None:
         assert "websocket" in data
         assert "database" in data
         assert "model_inference" in data
-        assert data["version"] == "v1.32-observability-complete"
+        # 断言 SSOT 而非版本号字面量(2026-10-06): 原先硬编码
+        # "v1.32-observability-complete"，导致每次递增 RELEASE_CODENAME 都红
+        # (v1.33 封口时 CI Coverage 实测复现)。改为引用唯一权威源，
+        # 递增版本号无需再动此测试。
+        from app.core.config import RELEASE_CODENAME
+
+        assert data["version"] == RELEASE_CODENAME
         assert "timestamp" in data
 
 
