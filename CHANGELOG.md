@@ -15,6 +15,139 @@
 
 ---
 
+## 2026-09：工程治理与供应链收敛（2026-09-01 ~ 2026-09-30）
+
+>补记说明：本段于 2026-10-05 补记，起点为 `986b9d1`（2026-08-24）。
+> 此前 CHANGELOG 自该提交起未收口，9 月共 48 笔非 merge 提交首次入库。
+> 日期取自 `git log --date=short`，非发布日历。
+
+### 供应链与依赖治理
+
+- 安全扫描红灯清零：定位 trivy 告警真实根因为基础镜像自带
+  setuptools/msgpack 旧版元数据，升级后清零剩余 HIGH（09-15）；
+  容器扫描告警按风险接受处理并记录论证（09-15）
+- Dependabot 忽略 pip/npm 大版本升级，并记录 `requirements.txt` 被整段重写的
+  限制；关闭 pip 版本更新（09-16）
+- 修复 dependency-scan 假门禁（空扫描即通过 + 退出码不可用）（09-16）
+- `requirements.in` 下限对齐至 `requirements.txt` 的 CVE 修复下限（09-16）
+- 锁定 SQLAlchemy <2.1 + 建库显式 psycopg2 驱动（09-26）
+- 前端依赖批量升级（Dependabot 合入，09-16 ~ 09-17）：element-plus 2.14.5、
+  vite 6.4.3、vitest 4.1.11、dompurify 3.4.15、@playwright/test 1.63.0、
+  @types/node 22.20.2、workbox-window 7.4.1、puppeteer 24.43.1
+- 后端覆盖率门禁 40% → 60%（09-24）
+
+### CI 门禁修复
+
+- 修复 v1.39-alerting-e2e 端口漂移：改为从 compose 动态解析宿主端口，
+  消除硬编码端口与 compose 两套事实导致的持续红灯（09-16）
+- 修复 db_breaker 单例分裂及 5 项过期/环境依赖测试（09-12）
+- 显式声明 starlette-testclient 依赖，修复 contract-tests / Coverage 失败（09-12）
+- 修复重构后失效的源码结构断言与返回值解包（09-12）
+
+### 审查整改
+
+- 第三轮审查收口：GDPR 存在性误判、日志注入、**生产弱 JWT 密钥**
+  （引入 `_validate_jwt_secret_strength`，生产要求 ≥32 字符且字符类别 ≥2）（09-30）
+- 修复审查发现的 5 项 P0 与 3 项 P1（09-30）
+- P0-P3 工程硬化（09-23）
+
+### 模型与可观测
+
+- 双语文本模型兄弟泄漏定量 + 组级去泄漏真口径；回退模型按组级真口径重训
+  并刷新评估元数据（09-08）
+- 模型评估证据与降级可观测性（09-30）
+
+## 2026-10：安全与可观测性收口（2026-10-01 ~ 2026-10-05，进行中）
+
+> 本段随开发滚动补记。范围为 2026-10 至今的提交。
+> 里程碑收口日定为 **2026-10-31**：CHANGELOG 自 `986b9d1`（08-24）起未收口，
+> 积压 122 笔提交、6 周（节奏 2.9 提交/天）。按 4 周窗口收口，避免继续积压。
+
+### 依赖漏洞清零
+
+- 重生成 `requirements.lock` 清零 **68 条依赖漏洞**；
+  补漏 `requirements-dev.lock`（20+ 条 → 1 条无修复版）；记录SEC-DEP 清零台账（10-04~ 10-05）
+- `dompurify` 3.4.15 → 3.4.16修补 XSS（GHSA-p98j-92pf-mc4p）。
+  按`dependency.scope` 取证确认 54 条 Dependabot 告警中 **52 条为 development
+  scope（不进生产产物）**，仅 2 条 runtime需处理（10-05）
+- axios 升出 GHSA 漏洞区间（09-24，见上）
+
+### CI 门禁修复
+
+- **v1.39-alerting-e2e 红灯闭环**（09-23 起的持续红灯，非间歇故障）：
+  根因为 workflow 占位 `JWT_SECRET_KEY` 仅 26 字符，低于 09-30 新增的
+  生产强度下限（32）→ `Settings()` 抛错 → `alembic_migrate` exit 1。
+  修复密钥 + 补失败取证（原先只抓 backend/grafana 日志，漏掉唯一报错的
+  migrate 容器，artifact 仅 254 字节）；新增 8 条闸门测试（10-05）
+- 修复 Lint 与 E2E Smoke 门禁失败（10-05）
+
+### 阻断项与严重项修复（代码审查驱动）
+
+- **PII 盲索引迁移**引用不存在的 `app_config` 表 → 改用应用层
+  `compute_blind_index`；空 email 存量不再编造 hash（10-05）
+- **幂等占位值** `"1"`（合法 JSON 标量）被误当首次响应重放 → 改为非法 JSON
+  占位 + dict 守卫（10-05）
+- **三处跨层反向依赖**（core→services / services→api / tasks→api）→ observability
+  下沉 + API 层 `__getattr__` 兼容转发（10-05）
+- **告警 P1→P0 升级后 severity 不回写**导致状态机永久卡死 → `apply_escalation`
+  统一兜底 + 确定性时钟消除时序 flake（10-05）
+- `is_latest` 补部分唯一索引（`uq_risk_assessments_latest` /
+  `uq_warning_notifications_assessment`）+ 新迁移（10-05）
+- 前端可空字段 `.toFixed()` 致结果卡**白屏丢数据** + CSV 出现 `"NaN%"`
+  （10-05）
+
+### 可观测性接线（此前监控资产空转）
+
+- **Sentry 接上业务调用点**（此前 `init_sentry` 正常但零业务调用点）：
+  预警推送重试耗尽（全系统后果最重 = 漏报）/ 批量漏报汇总 /
+  模型产物清理保护集解析失败（误删在用模型 → 推理 503）（10-05）
+- **Celery `request_id` 传播**（合规审计缺口）：原先仅 HTTP 中间件写ContextVar，
+  任务在独立 worker 进程 → 日志 `req_id`恒为 `-`，无法回答"某次风险评分由
+  哪次请求产生"。经 `before_task_publish` / `task_prerun` / `task_postrun`
+  三信号补齐（10-05）
+- 指标递增失败日志 debug → **warning**（6 处）：原为双重静默 ——
+  指标失败使 Grafana 曲线变平（看似"降级率 0%"），日志又仅 debug（10-05）
+- `daily_intervention_check` **超时丢失当日全部 TaskExecution**：
+  原为单事务，`soft_time_limit` 超时即全量回滚 → 改为按 plan 粒度提交
+  （幂等依赖 `uq_task_execution_task_user_date`）（10-05）
+
+### 性能
+
+- `admin_service_stats` 12 条串行 count → 1 条 SQL（仪表盘首屏）；
+  语义等价性在真实 PG 15.12 上逐项验证（12/12 一致）
+- `intervention_service.get_active` 消除 N+1
+- ML 缓存键加**模型指纹**（mtime+size）：修复模型热替换后最长 60s 内返回
+  旧模型 `risk_score` / `risk_level`（10-05）
+
+### 模型与评估
+
+- P2-1 结论反转：MiniLM **不换**（10-04 误判为"换"因基线做差）；
+  置信度阈值收敛到唯一事实源
+- BERT 权重归档 + 禁用实验入口（指向已归档权重必然失败）；
+  镜像 transformers 决策 + 修正相关事实错误（10-04）
+- P2-2 DeepSeek 第二意见**不做**（消融证明无独立判别力）；
+  离线评估脚本与 API key 读取已就绪备查（10-05）
+
+### 明确未做（附理由）
+
+- **前端 45 个 vue-tsc 存量类型错误**：实测根因在 Element Plus 库侧
+  （`DefaultRow = Record<PropertyKey, any>`，且 `el-table-column` 未把泛型
+  `T` 暴露给插槽），只能逐处 `as` 断言、分散 15 个文件 →
+  触止损线停止，**维持现状 + 保留棘轮门禁**（`vue-tsc-baseline.mjs`
+  `BASELINE=45`，实测存量未恶化）。不用 `as any` 压掉，否则门禁失去意义（10-05）
+- **`echarts` 5.6.0 → 6.1.0**（GHSA-fgmj-fm8m-jvvx, XSS）：需跨大版本，
+  有破坏性变更。且 `dependabot.yml` 已全局忽略 `semver-major`
+  （有实测依据：PR #25–#45 确为真实不兼容），Dependabot 不会自动开PR →
+  须随下个前端迭代人工规划迁移 + 图表视觉回归（10-05）
+- **`tracing.inject_trace_into_headers` 出站 trace 传播**：全仓出站仅
+  2 个文件且均为投递第三方 Alertmanager，W3C traceparent 无消费方，
+  技术收益 ≈ 0 → 关闭，改由 payload 带 `request_id`（10-05）
+- `apply_escalation` 持事务优化：结构已确认（循环结束才 commit，
+  外部通知耗时全在事务内），但**需先量化 `notifier.send` 生产 P95**
+  再决定改结构或仅加监控（10-05）
+
+---
+
 ## 2026-08 · 下旬：安全治理、RBAC 扩展与供应链加固（2026-08-15 ~ 2026-08-17）
 
 - 新增平台管理员 `super_admin` 独立角色：后端权限矩阵 / 租户守卫 / DB 约束，前端路由 / 菜单 / 权限 / i18n 全触点（08-15）
