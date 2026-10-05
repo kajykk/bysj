@@ -245,9 +245,17 @@ class TestObservabilityEquivalence:
         DB 派生部分（historical_recent / recent_flushes，逐字段比对不受影响），
         活体内存统计按固定零值注入。生产代码不动。
         """
-        from app.api.v1.observability import aggregate as obs_agg
+        from app.services.observability import aggregate as obs_agg
 
         zero_mem = {"acquired": 0, "skipped": 0, "fallback": 0, "errors": 0}
+        # ARCH-FIX-2026-10-05: patch 目标必须是**实现所在模块**。
+        # `_compute_lock_stats` 定义在 app/services/observability/aggregate.py,
+        # 它在自己的模块 globals 里查找 `_fetch_lock_memory_stats`。
+        # 原先 patch 的是 app.api.v1.observability.aggregate（此时只是 re-export
+        # 转发层），monkeypatch 在转发层设的属性对被测函数不可见 → 补丁静默失效,
+        # 于是全量运行时读到被其他测试污染的进程级活体计数
+        # （CI 上 acquired=7 vs 基线 0），单跑却「通过」——
+        # 典型的 patch 打错层导致的假绿。
         monkeypatch.setattr(
             obs_agg,
             "_fetch_lock_memory_stats",
