@@ -594,6 +594,44 @@ startup_component_failures_total = Counter(
 )
 
 
+# ── escalation 事务持有量化 (AUDIT-2026-10-05, OPEN-1) ──
+#
+# 背景: apply_escalation 的 for 循环结束后才 commit, 而循环内每条决策都
+# await notifier.send(...) —— **外部 HTTP 通知耗时全部计入 DB 事务时长**。
+# 通知慢则事务久, 事务久则行锁久, P1 升级是告警链路关键路径, 锁等待会
+# 连带影响并发写入。
+#
+# 为什么要埋点而不是直接改结构: 审查报告称"最坏 2.5h持事务"是**估算**,
+# 本地造不出生产级延迟分布。无数据就改事务边界是赌博。
+# 本组指标用于采集真实 P50/P95/P99, 作为"是否按批切分事务"的决策依据。
+#
+# 判读方式(2026-10-05 记):
+#   escalation_notify_duration_seconds P99 < 1s  -> 现状可接受, 只加监控不改结构
+#   P99 达秒级-> 按批 commit 切分事务
+#注意: 无论结论如何, alert.detail 更新与 alert_escalated 日志写入
+#      **必须同事务**, 不可为缩短事务而拆开(否则 detail 已升但日志缺失)。
+#
+# 标签:
+#   result: success / failure (通知成败, 与耗时同等重要 —— 慢且失败最糟)
+escalation_notify_duration_seconds = Histogram(
+    "escalation_notify_duration_seconds",
+    "Duration of a single notifier.send() call during alert escalation, in seconds. "
+    "AUDIT-2026-10-05 OPEN-1: 外部通知耗时全在 DB 事务内, 需量化 P95 再决定是否切事务.",
+    labelnames=("result",),
+    # 默认 buckets 偏小(0.005~10s), 而 webhook 可能达数十秒; 显式扩展到 120s
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0),
+)
+
+# 单次 apply_escalation 全过程耗时(含全部通知), 直接对应"持事务多久"
+escalation_cycle_duration_seconds = Histogram(
+    "escalation_cycle_duration_seconds",
+    "Total wall-clock duration of one apply_escalation() call, in seconds. "
+    "AUDIT-2026-10-05 OPEN-1: 该值近似等于事务持有时长.",
+    # 批次可能处理多条告警, 上限给到 300s
+    buckets=(0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0),
+)
+
+
 # ── S4 P3: ML 模型质量指标 (v2.0 优化计划要求 AUC/F1/ECE/P95 接入 Grafana) ──
 # 标签:
 #   modality: structured / text / physiological / fusion

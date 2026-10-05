@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from app.models.admin import OperationLog
 
 if TYPE_CHECKING:
@@ -479,3 +481,110 @@ def test_compute_escalation_p1_to_p0_detail_has_timestamp() -> None:
     assert "escalated_at" in decision.detail
     assert "escalation_level" in decision.detail
     assert decision.detail["escalation_level"] == 1
+
+
+class TestEscalationLatencyInstrumentation:
+    """AUDIT-2026-10-05 (OPEN-1): 事务持有时长埋点。
+
+    背景: apply_escalation 循环结束后才 commit, 而循环内每条决策都
+    await notifier.send(...) —— 外部通知耗时全在事务内。审查报告的
+    "最坏 2.5h"是估算, 本地造不出生产延迟分布, 故先埋点量化 P95,
+    再决定是否切分事务。
+
+    判读方式(写进代码避免半年后忘记):
+      P99 < 1s  -> 现状可接受, 只加监控不改结构
+      P99 达秒级 -> 按批 commit 切分
+    """
+
+    def test_observe_helper_never_raises(self):
+        """指标链路故障绝不能抛 —— 它在 P1 关键路径上。"""
+        from app.monitoring.escalation import _observe_escalation_latency
+
+        with patch("app.core.metrics.escalation_notify_duration_seconds") as m:
+            m.observe.side_effect = RuntimeError("registry not initialized")
+            # 不应抛异常
+            _observe_escalation_latency(0.0, "success")
+
+    def test_observe_helper_records_notify_latency(self):
+        from app.monitoring.escalation import _observe_escalation_latency
+
+        with patch("app.core.metrics.escalation_notify_duration_seconds") as m:
+            _observe_escalation_latency(0.0, "failure")
+        m.observe.assert_called_once()
+        assert m.observe.call_args.kwargs.get("result") == "failure", (
+            "result 标签必须上报 —— 慢且失败才是最糟的情况"
+        )
+
+    def test_observe_helper_records_cycle_latency(self):
+        """cycle=True 走另一个指标 —— 它才近似等于事务持有时长。"""
+        from app.monitoring.escalation import _observe_escalation_latency
+
+        with patch("app.core.metrics.escalation_cycle_duration_seconds") as cyc:
+            with patch("app.core.metrics.escalation_notify_duration_seconds") as nt:
+                _observe_escalation_latency(0.0, "success", cycle=True)
+        cyc.observe.assert_called_once()
+        nt.observe.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_apply_escalation_reports_cycle_metric(self):
+        """apply_escalation 结束后必须上报 cycle 耗时(决策依据的核心指标)。"""
+        from app.monitoring.escalation import EscalationDecision, apply_escalation
+
+        detail = {"rule": "R1", "severity": "P0", "escalation_level": 1}
+        d = EscalationDecision(
+            alert_id=1,
+            should_escalate=True,
+            new_severity="P0",
+            reason="test",
+            detail=detail,
+        )
+        row = MagicMock()
+        row.detail = json.dumps(detail)
+        db = AsyncMock()
+        res = MagicMock()
+        res.scalar_one_or_none.return_value = row
+        db.execute = AsyncMock(return_value=res)
+
+        with patch(
+            "app.monitoring.escalation.CompositeNotifier"
+        ) as mock_notifier_cls:
+            mock_notifier_cls.return_value.send = AsyncMock()
+            with patch(
+                "app.core.metrics.escalation_cycle_duration_seconds"
+            ) as cyc:
+                result = await apply_escalation(db, [d])
+
+        assert len(result) == 1
+        cyc.observe.assert_called_once(), "cycle耗时未上报, 无法量化事务持有时长"
+
+    @pytest.mark.asyncio
+    async def test_notify_failure_still_records_failure_label(self):
+        """通知失败也要上报(result=failure), 不能静默跳过。"""
+        from app.monitoring.escalation import EscalationDecision, apply_escalation
+
+        detail = {"rule": "R1", "severity": "P0", "escalation_level": 1}
+        d = EscalationDecision(
+            alert_id=1,
+            should_escalate=True,
+            new_severity="P0",
+            reason="test",
+            detail=detail,
+        )
+        row = MagicMock()
+        row.detail = json.dumps(detail)
+        db = AsyncMock()
+        res = MagicMock()
+        res.scalar_one_or_none.return_value = row
+        db.execute = AsyncMock(return_value=res)
+
+        with patch("app.monitoring.escalation.CompositeNotifier") as mock_cls:
+            mock_cls.return_value.send = AsyncMock(side_effect=ConnectionError("am down"))
+            with patch(
+                "app.core.metrics.escalation_notify_duration_seconds"
+            ) as nt:
+                # 通知失败不应中断整体流程, 仍返回 executed
+                result = await apply_escalation(db, [d])
+
+        assert len(result) == 1, "通知失败时决策仍应计入executed"
+        assert nt.observe.called, "通知失败未上报耗时"
+        assert nt.observe.call_args.kwargs.get("result") == "failure"

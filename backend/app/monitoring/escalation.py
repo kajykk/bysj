@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -35,6 +36,32 @@ ESCALATION_THRESHOLDS = {
     "P0_repeat": timedelta(minutes=30),
     "P0_final": timedelta(hours=1),
 }
+
+
+def _observe_escalation_latency(
+    start: float, result: str, *, cycle: bool = False
+) -> None:
+    """上报 escalation 耗时指标 (AUDIT-2026-10-05 OPEN-1)。
+
+    **绝不抛异常** —— 指标链路故障不得阻断告警升级 (P1 关键路径)。
+    """
+    elapsed = time.perf_counter() - start
+    try:
+        from app.core import metrics as m
+
+        if cycle:
+            m.escalation_cycle_duration_seconds.observe(elapsed)
+        else:
+            m.escalation_notify_duration_seconds.observe(elapsed, result=result)
+    except Exception as exc:  # noqa: BLE001
+        # 仅 debug: 指标上报失败本身不影响业务, 但需留痕便于排查
+        logger.debug(
+            "escalation 耗时指标上报失败 (cycle=%s result=%s): %s",
+            cycle,
+            result,
+            exc,
+            exc_info=True,
+        )
 
 
 @dataclass
@@ -161,7 +188,15 @@ async def apply_escalation(
 
     Returns:
         实际执行的升级 (should_escalate=True)
+
+    AUDIT-2026-10-05 (OPEN-1): 埋点采集事务持有时长。
+    本函数**循环结束后才commit**, 而循环内每条决策都 await notifier.send(...)
+    —— 外部 HTTP 耗时全部计入事务时长, 事务久则行锁久。审查报告的
+    "最坏 2.5h 持事务"是估算而非实测, 故此处只加埋点不改事务边界:
+    先拿到真实 P95, 再决定"仅加监控"还是"按批切分事务"。
+    改动约束: alert.detail 更新与 alert_escalated 日志写入必须同事务。
     """
+    cycle_start = time.perf_counter()
     notifier = CompositeNotifier()
     executed: list[EscalationDecision] = []
     for d in decisions:
@@ -202,6 +237,8 @@ async def apply_escalation(
 
         # 触发通知
         if d.new_severity:
+            notify_start = time.perf_counter()
+            result = "success"
             try:
                 payload = AlertPayload(
                     rule=d.detail.get("rule", "UnknownAlert"),
@@ -214,10 +251,15 @@ async def apply_escalation(
                 )
                 await notifier.send(payload, db=db)
             except Exception as exc:
+                result = "failure"
                 logger.error("Escalation notify failed: %s", exc)
+            finally:
+                # 指标不可用不应影响主流程(与项目既有降级惯例一致)
+                _observe_escalation_latency(notify_start, result)
         executed.append(d)
     if executed:
         await db.commit()
+    _observe_escalation_latency(cycle_start, "success", cycle=True)
     return executed
 
 
