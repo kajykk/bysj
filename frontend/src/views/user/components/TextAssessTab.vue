@@ -214,9 +214,17 @@
                 :title="textPredictResult.prediction === 1 ? t('textAssess.predictHighRisk') : t('textAssess.predictLowRisk')"
               >
                 <template #sub-title>
+                  <!--
+                    SEC-FIX-2026-10-05: sentiment_score 原直接 .toFixed(2)。
+                    后端 schemas/model_predict.py:39 该字段是 Optional
+                    （模型回退路径可能不返回），为 null 时渲染期抛 TypeError
+                    导致整棵子树白屏、用户刚提交的结果卡消失。
+                    下方 246/252 行本就做了 != null 防御，此处是遗漏。
+                    类型已在 api/userRiskApi.ts 一并修正为 number | null。
+                  -->
                   <p>{{ t('textAssess.probabilityLabel') }}{{ (textPredictResult.probability * 100).toFixed(2) }}%</p>
                   <p>{{ t('textAssess.sentimentLabelField') }}{{ textPredictResult.sentiment_label || t('textAssess.sentimentLabel') }}</p>
-                  <p>{{ t('textAssess.sentimentScoreFieldLabel') }}{{ textPredictResult.sentiment_score.toFixed(2) }}</p>
+                  <p>{{ t('textAssess.sentimentScoreFieldLabel') }}{{ textPredictResult.sentiment_score != null ? textPredictResult.sentiment_score.toFixed(2) : '-' }}</p>
                   <p>{{ t('textAssess.modelNameFieldLabel') }}{{ textPredictResult.model_used }}</p>
                 </template>
               </el-result>

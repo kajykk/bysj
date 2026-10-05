@@ -51,7 +51,11 @@
         width="120"
       >
         <template #default="{ row }">
-          {{ (row.probability * 100).toFixed(2) }}%
+          <!--
+            SEC-FIX-2026-10-05: probability 为后端 Optional 字段，
+            无防御时 (null * 100).toFixed(2) 静默显示 "NaN%"。
+          -->
+          {{ row.probability != null ? (row.probability * 100).toFixed(2) + '%' : '-' }}
         </template>
       </el-table-column>
       <el-table-column

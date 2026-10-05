@@ -19,6 +19,36 @@ export type TextPredictionHistoryItem = TextPredictModelResult & {
 
 const HISTORY_MAX = 20
 
+/**
+ * 运行时守卫：校验 localStorage 里读出的历史项是否仍符合当前契约。
+ *
+ * SEC-FIX-2026-10-05: 原实现只校验 `Array.isArray(parsed)` 就整体赋值。
+ * localStorage 里的数据跨版本存活，而代码里的类型会随迭代变化 —— 后端契约
+ * 一改（例如 probability 变可空、或字段改名），旧记录读出来就是残缺对象，
+ * 模板里 `(undefined * 100).toFixed(2)` 会抛错导致白屏。
+ *
+ * 键名带 `_v1` 后缀只保证「大版本」隔离，数据体内没有版本字段，因此这里
+ * 做逐项字段校验；不通过的整批丢弃并清空，避免把脏数据带进渲染。
+ */
+function isValidHistoryItem(x: unknown): x is TextPredictionHistoryItem {
+  if (!x || typeof x !== 'object') return false
+  const o = x as Record<string, unknown>
+  // prediction / probability 为必填数值；sentiment_* 后端 Optional，允许缺失/null
+  if (typeof o.prediction !== 'number') return false
+  if (typeof o.probability !== 'number') return false
+  if (typeof o.time !== 'string') return false
+  if (typeof o.content_preview !== 'string') return false
+  if (o.sentiment_score !== null && o.sentiment_score !== undefined &&
+      typeof o.sentiment_score !== 'number') {
+    return false
+  }
+  if (o.sentiment_label !== null && o.sentiment_label !== undefined &&
+      typeof o.sentiment_label !== 'string') {
+    return false
+  }
+  return true
+}
+
 export function useTextPredictionHistory(historyKey: string) {
   const { t } = useI18n()
   const textPredictionHistory = ref<TextPredictionHistoryItem[]>([])
@@ -27,10 +57,15 @@ export function useTextPredictionHistory(historyKey: string) {
     try {
       const raw = localStorage.getItem(historyKey)
       if (!raw) return
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        textPredictionHistory.value = parsed
+      const parsed: unknown = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return
+      const valid = parsed.filter(isValidHistoryItem)
+      if (valid.length !== parsed.length) {
+        // 存在契约不匹配的旧记录：丢弃它们而不是让渲染期抛错。
+        // 只在确有脏数据时清理，正常路径不写 localStorage。
+        if (valid.length === 0) localStorage.removeItem(historyKey)
       }
+      textPredictionHistory.value = valid as TextPredictionHistoryItem[]
     } catch {
       textPredictionHistory.value = []
     }
@@ -72,7 +107,10 @@ export function useTextPredictionHistory(historyKey: string) {
       row.time,
       row.content_preview,
       row.prediction,
-      (row.probability * 100).toFixed(2),
+      // SEC-FIX-2026-10-05: probability 后端为 Optional（模型回退路径可能
+      // 不返回）。无防御时 (null * 100).toFixed(2) 不会报错，而是静默产出
+      // "NaN%" 写进 CSV —— 用户拿到一份含 NaN 的分析记录却毫无察觉。
+      row.probability != null ? (row.probability * 100).toFixed(2) : '',
       row.sentiment_label,
       row.sentiment_score != null ? row.sentiment_score.toFixed(2) : '',
       row.model_used,

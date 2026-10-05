@@ -66,11 +66,30 @@ export interface TextAnalyzeResult {
   sentiment_label: string
 }
 
+/**
+ * 文本模型预测结果。
+ *
+ * SEC-FIX-2026-10-05: `sentiment_label` / `sentiment_score` 原声明为必填
+ * （`string` / `number`），与后端契约不符 —— backend/app/schemas/model_predict.py:38-39
+ * 两者都是 `Optional`：
+ *
+ *     sentiment_label: str | None = None
+ *     sentiment_score: float | None = None
+ *
+ * 谎报非空的后果：TypeScript 静态检查完全放行，运行时后端返回 null 则
+ * 模板里 `null.toFixed(2)` 抛 TypeError，Vue 渲染函数异常导致该组件子树
+ * **白屏** —— 用户刚提交的分析文本与结果卡片一起消失，控制台只有一条报错。
+ *
+ * 修复顺序必须是「先改类型、再改模板」：只改模板不改类型，strict 永远
+ * 抓不到下一处同类漏网。
+ */
 export interface TextPredictModelResult {
   prediction: number
   probability: number
-  sentiment_label: string
-  sentiment_score: number
+  /** 可空：模型回退路径可能不返回情绪标签。 */
+  sentiment_label: string | null
+  /** 可空：模型回退路径可能只返回 heuristic 分，不写回该字段。 */
+  sentiment_score: number | null
   model_used: string
 }
 
