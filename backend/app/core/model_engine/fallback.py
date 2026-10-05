@@ -120,7 +120,9 @@ class FallbackMixin:
 
             _incr_model_fallback("structured", "heuristic_fallback")
         except Exception:
-            logger.debug("model_fallback_total inc failed (structured/heuristic)", exc_info=True)
+            logger.warning(
+                "model_fallback_total inc failed (structured/heuristic)", exc_info=True
+            )
         return risk_score, probability, prediction
 
     def _text_heuristic_fallback(self, text: str) -> dict[str, Any]:
@@ -138,7 +140,9 @@ class FallbackMixin:
 
             _incr_model_fallback("text", "heuristic_fallback")
         except Exception:
-            logger.debug("model_fallback_total inc failed (text/heuristic)", exc_info=True)
+            logger.warning(
+                "model_fallback_total inc failed (text/heuristic)", exc_info=True
+            )
         logger.info(
             "Text heuristic fallback: score=%.4f prediction=%d",
             heuristic_score,
@@ -168,7 +172,9 @@ class FallbackMixin:
 
             _incr_model_fallback("lite", "anxiety_only")
         except Exception:
-            logger.debug("model_fallback_total inc failed (lite/anxiety_only)", exc_info=True)
+            logger.warning(
+            "model_fallback_total inc failed (lite/anxiety_only)", exc_info=True
+        )
 
         return {
             "prediction": prediction,
@@ -226,7 +232,9 @@ class FallbackMixin:
 
             _incr_model_fallback("physiological", reason or "heuristic_fallback")
         except Exception:
-            logger.debug("model_fallback_total inc failed (physiological)", exc_info=True)
+            logger.warning(
+            "model_fallback_total inc failed (physiological)", exc_info=True
+        )
         logger.info(
             "Physiological heuristic fallback: sleep=%.2f hr=%.2f bp=%.2f ex=%.2f st=%.2f -> %.2f (reason: %s)",
             sleep_score,

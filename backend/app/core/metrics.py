@@ -780,8 +780,11 @@ def track_model_inference(model_name: str) -> Iterator[None]:
             model_inference_total.inc(model_name=model_name, status=status)
             model_inference_duration_seconds.observe(duration, model_name=model_name)
         except Exception as exc:
-            # 指标失败不影响主流程，但记录日志便于排查
-            logger.debug("model_inference metrics inc failed: %s", exc)
+            # AUDIT-2026-10-05: 指标失败不影响主流程, 但日志级别从 debug 提到
+            # warning —— 指标递增失败会让 Grafana 曲线**变平**(看起来"降级率 0%"),
+            # 若此处也用 debug 则形成双重静默: 曲线平 + 无日志, 运维无从察觉
+            # 指标链路本身已断。warning 保证生产默认级别下可见。
+            logger.warning("model_inference metrics inc failed: %s", exc)
 
 
 def reset_registry() -> None:

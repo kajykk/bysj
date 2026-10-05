@@ -122,8 +122,16 @@ def _incr_model_fallback(model: str, reason: str) -> None:
 
         model_fallback_total.inc(model=model, reason=reason)
     except Exception:
-        # 指标不可用时不影响主流程（如测试环境未初始化 registry）
-        logger.debug("model_fallback_total inc failed (model=%s reason=%s)", model, reason, exc_info=True)
+        # AUDIT-2026-10-05: 级别从 debug 提到 warning。理由同上——
+        # 指标递增失败时 Grafana 的降级率曲线会**变平**(运维看到"降级率 0%"),
+        # 若日志同时静默则"模型正在静默降级"与"指标链路已断"两种情况都不可见。
+        # 降级路径本身已在调用方打 error 日志, 此处 warning 补齐指标侧盲区。
+        logger.warning(
+            "model_fallback_total inc failed (model=%s reason=%s)",
+            model,
+            reason,
+            exc_info=True,
+        )
 
 
 class LoadingMixin:

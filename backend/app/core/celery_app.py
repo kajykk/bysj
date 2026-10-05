@@ -4,9 +4,10 @@ import logging
 
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import task_failure
+from celery.signals import before_task_publish, task_failure, task_postrun, task_prerun
 
 from app.core.config import settings
+from app.core.tracing import get_current_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -304,3 +305,77 @@ def _mask_sensitive(value):
         # 因为 namedtuple 构造函数接受位置参数而非可迭代对象。统一返回 tuple。
         return tuple(masked) if isinstance(value, tuple) else masked
     return value
+
+
+# ============================================================
+# AUDIT-2026-10-05: Celery request_id 传播（合规审计缺口修复）
+#
+# 问题: request_id 原先只由 HTTP 中间件写入 ContextVar, 而 Celery 任务运行在
+# 独立 worker 进程/线程 —— ContextVar 从未被设置, 任务内所有日志 req_id 都是
+# "-"。"某次风险评分由哪次请求产生"在任务侧无法回答, 对医疗心理健康系统
+# 属审计缺口。
+#
+# 方案: 入队时把 request_id 放进 task headers, worker 执行前恢复到 ContextVar。
+#   - publish: 缺 request_id 时新建一个 (定时任务本就没有上游请求)
+#   - prerun:  绑定并打出, 使任务日志与调用方可关联
+#   - postrun: 还原, 防同一 worker 线程上的后续任务继承上一个 ID
+#
+# 注意: Celery 的 request_id(任务 UUID) 与本模块的业务 request_id 是两套东西,
+# 故单独用 TASK_REQUEST_ID_HEADER 承载, 不复用 Celery 内建 request 字段。
+# ============================================================
+
+
+@before_task_publish.connect
+def _propagate_request_id(headers=None, **kwargs):
+    """入队时补齐 request_id, 保证 worker 侧必有可用的 ID。"""
+    try:
+        if headers is None:
+            return
+        from app.core.request_id import (
+            TASK_REQUEST_ID_HEADER,
+            new_request_id,
+        )
+
+        # 已有则不覆盖 —— 那是调用方的真实链路 ID (可能来自上游 HTTP 请求)
+        if headers.get(TASK_REQUEST_ID_HEADER) or headers.get("request_id"):
+            return
+
+        # 优先继承 HTTP 链路的 request_id (fire-and-forget 场景),
+        # 否则新建 (beat 定时触发场景)。
+        current = get_current_request_id()
+        rid = current or new_request_id()
+        headers[TASK_REQUEST_ID_HEADER] = rid
+    except Exception as exc:  # pragma: no cover - 信号回调不应影响入队
+        logger.warning("[celery] request_id 入队传播失败: %s", exc)
+
+
+@task_prerun.connect
+def _bind_request_id(task_id=None, task=None, **kwargs):
+    """任务执行前把 request_id 恢复到 ContextVar。"""
+    try:
+        from app.core.request_id import bind_task_request_id, resolve_task_request_id
+
+        headers = getattr(task, "request", None)
+        headers = getattr(headers, "headers", None) or getattr(task, "headers", None)
+        rid = resolve_task_request_id(headers)
+        bind_task_request_id(rid)
+        if task_id:
+            logger.info(
+                "[celery] task 启动: task_id=%s name=%s request_id=%s",
+                task_id,
+                getattr(task, "name", "unknown"),
+                rid,
+            )
+    except Exception as exc:  # pragma: no cover
+        logger.warning("[celery] request_id 绑定失败: %s", exc)
+
+
+@task_postrun.connect
+def _unbind_request_id(task_id=None, task=None, **kwargs):
+    """任务结束后还原, 防 ID 泄漏给同一线程的下一个任务。"""
+    try:
+        from app.core.request_id import unbind_task_request_id
+
+        unbind_task_request_id()
+    except Exception as exc:  # pragma: no cover
+        logger.warning("[celery] request_id 还原失败: %s", exc)
