@@ -142,9 +142,14 @@
 
 ---
 
-## 2026-10 · 06：里程碑前遗留收口
+## 2026-10 · 06：里程碑 v1.33-hardening-complete 封口
 
-> 承接上段「明确未做」中两项已推进的条目。
+> 承接上段「明确未做」中两项已推进的条目，并完成里程碑收口。
+> `RELEASE_CODENAME` 由 `v1.32-observability-complete` 递增为
+> **`v1.33-hardening-complete`**（SSOT：`backend/app/core/config.py:23`；
+> 递增前已验证全仓唯一声明处、无残留引用、别名 `RELEASE_VERSION` 等价）。
+> CHANGELOG 补记范围 `986b9d1`（08-24）至本次封口 —— 积压 **122 笔提交 / 6 周**
+> （节奏 2.9 提交/天）一次性入库，按主题聚合而非逐条罗列。
 
 ### 依赖安全
 
@@ -169,6 +174,41 @@
   达秒级 → 按批commit 切分；且 `alert.detail` 更新与 `alert_escalated`
   日志**必须同事务**，不可为缩短事务而拆开。
   剩余：待生产采集一个完整周期分布后决策（10-06）
+
+---
+
+### 相对 v1.32 的增量摘要
+
+| 维度 | 内容 |
+|---|---|
+| 安全 | `requirements.lock` 漏洞清零（68 条）、`dompurify` 3.4.16、`echarts` 6.1.0 |
+| 正确性 | PII 盲索引迁移、幂等占位值、告警 P1→P0 状态机卡死、scheduler 超时丢当日 TaskExecution、前端可空字段白屏 |
+| 可观测 | Sentry 接业务调用点、Celery `request_id` 传播、指标失败日志提至 warning、escalation 事务持有埋点 |
+| 性能 | admin 12→1 条 SQL、`get_active` 去 N+1、ML 缓存键加模型指纹 |
+| 架构 | 解三处跨层反向依赖（observability 下沉 + API 层兼容转发）|
+| 文档 | CHANGELOG 补记 2026-09 / 2026-10 两段 |
+
+### 里程碑遗留（仍未关闭，均带触发条件）
+
+- **前端 45 个 vue-tsc 存量类型错误**：根因在 Element Plus 库侧
+  （`DefaultRow = Record<PropertyKey, any>`，且 `el-table-column` 未把泛型 `T`
+  暴露给插槽），只能逐处 `as` 断言、分散 15 个文件 → 触止损线停止，
+  维持现状 + 保留棘轮门禁（`vue-tsc-baseline.mjs` `BASELINE=45`，实测存量未恶化）。
+  **禁止用 `as any` 压掉**，否则门禁失去意义。
+  重启条件：下次前端迭代，或 Element Plus 升级后插槽类型有变化。
+- **`tracing.inject_trace_into_headers` 出站 trace 传播**：**已判定关闭**。
+  全仓出站仅 2 个文件且均为投递第三方 Alertmanager，W3C `traceparent` 无消费方，
+  技术收益 ≈ 0 → 改由 webhook payload 带 `request_id`。
+  重启条件：出现第一个需要跨服务追踪的**我方**服务调用时。
+- **escalation 持事务结构优化**：埋点已就位
+  （`escalation_notify_duration_seconds{result}` 与
+  `escalation_cycle_duration_seconds`），**但生产数据尚未采集**
+  （两个指标未接入任何看板/告警规则，且埋点提交 `536463b` 尚未部署）。
+  判读标准已写进代码注释：P99 < 1s → 只加监控不改结构；达秒级 → 按批 commit 切分。
+  无论结论如何，`alert.detail` 更新与 `alert_escalated` 日志**必须同事务**。
+- **Dependabot 54 条告警**：全部来自 `frontend/package-lock.json`
+  （`scope`：development 52 / runtime 2），与 Python 后端无关。
+  52 条 devDeps 传递链不进生产产物，不逐条升级。
 
 ---
 

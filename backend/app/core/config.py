@@ -20,7 +20,14 @@ DEFAULT_SQLITE_URL = f"sqlite+aiosqlite:///{(BACKEND_DIR / 'depression_system.db
 # README 与 docs 不再独立维护版本数字，统一以 "见 backend/app/core/config.py" 方式引用；
 # 运行时可通过 /api/v1/version 端点查询。
 # L-API-1 修复：RELEASE_VERSION 为向后兼容别名 (历史代码引用)，等价于 RELEASE_CODENAME。
-RELEASE_CODENAME = "v1.32-observability-complete"
+# v1.33-hardening-complete (2026-10-06): 相对 v1.32 的增量 —
+#   - 安全: requirements.lock 漏洞清零(68 条) / dompurify 3.4.16 / echarts 6.1.0
+#   - 正确性: PII 盲索引迁移修复、幂等占位值、告警 P1→P0 状态机卡死、
+#             scheduler 超时丢当日 TaskExecution、前端可空字段白屏
+#   - 可观测: Sentry 接业务调用点(原零调用)、Celery request_id 传播、
+#             指标失败日志提至 warning、escalation 事务持有埋点
+#   - 性能: admin 12→1 条SQL、get_active 去 N+1、ML 缓存键加模型指纹
+RELEASE_CODENAME = "v1.33-hardening-complete"
 RELEASE_VERSION = RELEASE_CODENAME
 
 # Runtime dependency detection (lazy import to avoid DLL init issues on Windows)
@@ -90,6 +97,12 @@ _MIN_JWT_SECRET_LENGTH = 32
 # 仅含 2 类字符时（如纯 hex 密钥：小写 + 数字）要求的补偿长度。
 # 64 位 hex = 256 bit 熵，强度足够，不应被误杀；但 32 位 hex 只有 128 bit 且易被字典命中。
 _MIN_JWT_SECRET_LENGTH_WHEN_LOW_ENTROPY = 48
+
+# AUDIT-2026-10-06 (P1-3): 允许回落「开发用默认凭据」的环境白名单。
+# 刻意不含 staging / uat / prod —— 对外部署必须显式配置凭据，
+# 否则任何知道公开常量的人都能拉全量指标或注入伪造告警。
+# 判定入口统一为 Settings.dev_credentials_allowed，避免各调用点各写一份漂移。
+_DEV_CREDENTIAL_ENVS = frozenset({"development", "dev", "local", "test", "testing", "pytest"})
 
 
 def _validate_jwt_secret_strength(secret: str) -> None:
@@ -598,6 +611,22 @@ class Settings(BaseSettings):
         # M-Core-2 修复：通配符校验已移至 model_validator 启动时执行，
         # 此处仅做解析，避免每次请求重复校验。
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    @property
+    def dev_credentials_allowed(self) -> bool:
+        """凭据未配置时，是否允许回落到内置的「开发用默认值」。
+
+        AUDIT-2026-10-06 (P1-3)：原判定写作 ``app_env == "production"`` 取反，
+        于是 **staging / uat / "prod" / "Production "（带空格）等一切非严格
+        production 的对外部署都会静默启用硬编码凭据** —— 谁都能用公开常量
+        拉全量指标或注入伪造告警。
+
+        改为**白名单制**：只有显式声明为本地开发/测试的环境才回落默认值，
+        其余环境（含 staging/uat）一律 fail-closed，拒绝服务并要求运维显式配置。
+
+        与 ``kill_switch_fail_closed`` 同一思路：判定只写一份，避免各调用点漂移。
+        """
+        return self.app_env.strip().lower() in _DEV_CREDENTIAL_ENVS
 
     @property
     def kill_switch_fail_closed(self) -> bool:
