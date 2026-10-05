@@ -18,6 +18,7 @@ from typing import Any
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.admin import OperationLog
 from app.services.observability._common import (
     DEFAULT_LIMIT,
     _BucketExpr,
@@ -25,7 +26,6 @@ from app.services.observability._common import (
     _naive_utc,
     _norm_json_value,
 )
-from app.models.admin import OperationLog
 
 logger = logging.getLogger(__name__)
 

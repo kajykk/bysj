@@ -145,6 +145,19 @@ jobs:
       - name: Install Playwright
         working-directory: frontend
         run: npx playwright install --with-deps chromium
+      # SEC-FIX-2026-10-05: 注入 E2E 种子口令（照 e2e-tests.yml 的做法随机生成）。
+      # 本 job 只跑 @smoke（纯 mock API，不连真实后端），理论上不需要这些口令；
+      # 但 e2e/shared.ts 与 e2e/seed.spec.ts 在收集阶段会加载全部 spec，
+      # 缺口令会导致整个 project 报 `No tests found`。
+      # 代码侧已把两处改为惰性求值（不再在模块加载期抛错），此处注入是第二道保险：
+      # 万一将来有 spec 恢复成模块级求值，也不会把整个 job 打挂。
+      - name: Generate E2E seed passwords
+        run: |
+          {
+            echo "E2E_ADMIN_PASSWORD=$(openssl rand -base64 24)"
+            echo "E2E_COUNSELOR_PASSWORD=$(openssl rand -base64 24)"
+            echo "E2E_USER_PASSWORD=$(openssl rand -base64 24)"
+          } >> "$GITHUB_ENV"
       - name: Run E2E smoke tests (mock API)
         working-directory: frontend
         run: npx playwright test --project=chromium-smoke --reporter=list

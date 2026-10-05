@@ -8,8 +8,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.db_breaker import CircuitBreakerOpenError
-from app.core.exceptions import ModelException
 from app.core.deps import require_permission
+from app.core.exceptions import ModelException
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok

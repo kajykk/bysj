@@ -39,7 +39,6 @@ from typing import TYPE_CHECKING, Any, AsyncIterator
 if TYPE_CHECKING:
     from sklearn.pipeline import Pipeline
 
-    from app.core.model_engine import ModelEngine
 
 # MAINT-P0-002: _STR_TO_NUM / _DEFAULTS 已抽离到 feature_maps.py,
 # 此处通过别名导入保持内部 _ 前缀命名约定
