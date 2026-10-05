@@ -344,10 +344,22 @@ async def _daily_intervention_check_impl():
         # L-ML-9 确认：end_date 为 Date 列（naive），today 取 naive UTC 日期，与 H-ML-5 保持一致
         today = datetime.now(UTC).date()
 
+        # AUDIT-2026-10-05-P0修复：按 plan 粒度提交 + 消除 N+1。
+        #
+        # 原实现在循环全部结束后才 commit（单次事务），而本任务
+        # soft_time_limit=160s：一旦中途超时，SoftTimeLimitExceeded 会让整个
+        # 事务回滚，**当日已创建的全部 TaskExecution 丢失**。
+        # 心理健康场景下"干预任务未生成"等同漏报，故按 plan 边界提交 ——
+        # 已完成的 plan 独立落盘，超时只影响未处理完的部分。
+        #
+        # 幂等前提：TaskExecution 上有唯一约束
+        # uq_task_execution_task_user_date(task_id, user_id, scheduled_date)，
+        # 重跑不会产生重复行，因此按批次提交是安全的。
         for plan in plans:
             if plan.end_date and plan.end_date < today:
                 plan.status = "completed"
                 completed_plan_count += 1
+                await db.commit()
                 continue
 
             tasks_stmt = select(InterventionTask).where(
@@ -355,45 +367,53 @@ async def _daily_intervention_check_impl():
             )
             tasks = (await db.execute(tasks_stmt)).scalars().all()
 
-            for task in tasks:
-                if (task.schedule or "daily").strip().lower() == "daily":
-                    existing_stmt = select(TaskExecution).where(
-                        TaskExecution.task_id == task.id,
-                        TaskExecution.user_id == plan.user_id,
-                        TaskExecution.scheduled_date == today,
-                    )
-                    existing = (await db.execute(existing_stmt)).scalar_one_or_none()
-                    if existing is None:
-                        execution = TaskExecution(
+            # 只处理 daily 任务（原实现对全部 tasks 查 TaskExecution，
+            # 但仅 daily 分支会创建记录，非daily 的查询纯属浪费）
+            daily_tasks = [
+                t for t in tasks if (t.schedule or "daily").strip().lower() == "daily"
+            ]
+
+            if daily_tasks:
+                task_ids = [t.id for t in daily_tasks]
+
+                # 一次性查出这些 task 在 today 已有执行记录的行，
+                # 取代原实现「每 task 一次 SELECT」与末尾「两次 count」共 N+3 次查询
+                existing_stmt = select(TaskExecution.task_id).where(
+                    TaskExecution.user_id == plan.user_id,
+                    TaskExecution.task_id.in_(task_ids),
+                    TaskExecution.scheduled_date == today,
+                )
+                existing_ids = set((await db.execute(existing_stmt)).scalars().all())
+
+                for task in daily_tasks:
+                    if task.id in existing_ids:
+                        continue
+                    db.add(
+                        TaskExecution(
                             task_id=task.id,
                             user_id=plan.user_id,
                             scheduled_date=today,
                             status="pending",
                         )
-                        db.add(execution)
-                        execution_created_count += 1
+                    )
+                    execution_created_count += 1
 
-            total_tasks_stmt = (
-                select(func.count())
-                .select_from(TaskExecution)
-                .where(
+                # 进度统计：单条聚合替代两条 count
+                progress_stmt = select(
+                    func.count(TaskExecution.id),
+                    func.count(TaskExecution.id).filter(
+                        TaskExecution.status == "completed"
+                    ),
+                ).where(
                     TaskExecution.user_id == plan.user_id,
-                    TaskExecution.task_id.in_([t.id for t in tasks]),
+                    TaskExecution.task_id.in_(task_ids),
                 )
-            )
-            completed_tasks_stmt = (
-                select(func.count())
-                .select_from(TaskExecution)
-                .where(
-                    TaskExecution.user_id == plan.user_id,
-                    TaskExecution.status == "completed",
-                    TaskExecution.task_id.in_([t.id for t in tasks]),
-                )
-            )
-            total = (await db.execute(total_tasks_stmt)).scalar_one()
-            completed = (await db.execute(completed_tasks_stmt)).scalar_one()
-            if total > 0:
-                plan.progress = int(completed / total * 100)
+                total, completed = (await db.execute(progress_stmt)).one()
+                if total > 0:
+                    plan.progress = int(completed / total * 100)
+
+            # 按 plan 边界提交：保证超时只丢当前未完成的 plan
+            await db.commit()
 
         await db.commit()
         logger.info(

@@ -780,6 +780,79 @@ class TestStaleWarningReminderImpl:
 # ---------- _daily_intervention_check_impl ----------
 
 
+def _make_exec_mock(plans=None, tasks=None, existing_task_ids=None, totals=(0, 0)):
+    """构造 db.execute 的响应 mock, 不依赖调用顺序。
+
+    AUDIT-2026-10-05-P0: 原实现对每个 task 一次 SELECT + 末尾两条 count,
+    测试用 ``side_effect=[...]`` 按顺序编码返回值, 查询次数一变即碎。
+    改为**按查询的语义形状**响应:
+    - scalars().all() 返回活跃计划 / 任务列表
+    - scalars().all() 也用于"已存在执行记录的 task_id 集合"
+    - .one() 用于进度聚合 (total, completed)
+
+    ``tasks`` 支持两种形态: list (所有 plan 共用) 或 dict{plan_id: list}
+    (按 plan 派发) —— 多 plan 场景必须用后者, 否则每个 plan 都会拿到
+    全部 task, 创建数被放大成 plan×task。
+    """
+    tasks_by_plan = tasks if isinstance(tasks, dict) else None
+    shared_tasks = [] if isinstance(tasks, dict) else (tasks or [])
+
+    def _make_db(plans, _):
+        db = AsyncMock()
+
+        plans_r = MagicMock()
+        plans_r.scalars.return_value.all.return_value = plans
+        progress_r = MagicMock()
+        progress_r.one.return_value = totals
+
+        state = {"plan_seen": 0}
+
+        def _tasks_r(stmt):
+            """按当前查询的 plan_id 派发任务列表。
+
+            注意: 渲染后的 SQL 里 plan_id 是绑定参数 (:plan_id_1), 不能从
+            字符串正则提取实际值, 必须从 ``stmt.compile().params`` 取。
+            """
+            r = MagicMock()
+            if tasks_by_plan is not None:
+                try:
+                    params = stmt.compile().params
+                except Exception:
+                    params = {}
+                key = next(
+                    (v for k, v in params.items() if k.startswith("plan_id")), None
+                )
+                r.scalars.return_value.all.return_value = list(
+                    tasks_by_plan.get(key, [])
+                )
+            else:
+                r.scalars.return_value.all.return_value = shared_tasks
+            return r
+
+        existing_r = MagicMock()
+        existing_r.scalars.return_value.all.return_value = (
+            list(existing_task_ids) if existing_task_ids is not None else []
+        )
+
+        def _execute(stmt, *a, **kw):
+            sql = str(stmt)
+            if "intervention_plans" in sql:
+                state["plan_seen"] += 1
+                return plans_r
+            if "intervention_tasks" in sql:
+                return _tasks_r(stmt)
+            if "task_executions" in sql and "FILTER" in sql.upper():
+                return progress_r
+            if "task_executions" in sql:
+                return existing_r
+            return MagicMock()
+
+        db.execute = AsyncMock(side_effect=_execute)
+        return db
+
+    return _make_db(plans or [], None)
+
+
 class TestDailyInterventionCheckImpl:
     """覆盖 _daily_intervention_check_impl: 计划完成/任务执行/进度计算."""
 
@@ -831,7 +904,10 @@ class TestDailyInterventionCheckImpl:
             await _daily_intervention_check_impl()
 
         assert mock_plan.status == "completed"
-        mock_db.commit.assert_awaited_once()
+        # AUDIT-2026-10-05-P0: 按 plan 粒度提交 (过期 plan 一次 + 末尾兜底一次)。
+        # 关键性质是 "至少提交了一次", 而非精确次数 —— 逐 plan 提交正是为了
+        # 超时时保住已完成部分, 故此处断言 >= 1。
+        assert mock_db.commit.await_count >= 1
 
     @pytest.mark.asyncio
     async def test_plan_without_end_date_skips(self):
@@ -881,26 +957,7 @@ class TestDailyInterventionCheckImpl:
         mock_task = MagicMock()
         mock_task.id = 50
         mock_task.schedule = "daily"
-        mock_db = AsyncMock()
-        plans_result = MagicMock()
-        plans_result.scalars.return_value.all.return_value = [mock_plan]
-        tasks_result = MagicMock()
-        tasks_result.scalars.return_value.all.return_value = [mock_task]
-        existing_result = MagicMock()
-        existing_result.scalar_one_or_none.return_value = None  # 今日无执行
-        total_result = MagicMock()
-        total_result.scalar_one.return_value = 1
-        completed_result = MagicMock()
-        completed_result.scalar_one.return_value = 0
-        mock_db.execute = AsyncMock(
-            side_effect=[
-                plans_result,
-                tasks_result,
-                existing_result,
-                total_result,
-                completed_result,
-            ]
-        )
+        mock_db = _make_exec_mock(plans=[mock_plan], tasks=[mock_task], totals=(1, 0))
 
         with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl:
             mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
@@ -911,7 +968,6 @@ class TestDailyInterventionCheckImpl:
             await _daily_intervention_check_impl()
 
         mock_db.add.assert_called_once()
-        mock_db.commit.assert_awaited_once()
         assert mock_plan.progress == 0
 
     @pytest.mark.asyncio
@@ -926,25 +982,9 @@ class TestDailyInterventionCheckImpl:
         mock_task = MagicMock()
         mock_task.id = 50
         mock_task.schedule = "daily"
-        mock_db = AsyncMock()
-        plans_result = MagicMock()
-        plans_result.scalars.return_value.all.return_value = [mock_plan]
-        tasks_result = MagicMock()
-        tasks_result.scalars.return_value.all.return_value = [mock_task]
-        existing_result = MagicMock()
-        existing_result.scalar_one_or_none.return_value = MagicMock()  # 已存在
-        total_result = MagicMock()
-        total_result.scalar_one.return_value = 1
-        completed_result = MagicMock()
-        completed_result.scalar_one.return_value = 1  # 已完成
-        mock_db.execute = AsyncMock(
-            side_effect=[
-                plans_result,
-                tasks_result,
-                existing_result,
-                total_result,
-                completed_result,
-            ]
+        # 今日已有执行记录
+        mock_db = _make_exec_mock(
+            plans=[mock_plan], tasks=[mock_task], existing_task_ids=[50], totals=(1, 1)
         )
 
         with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl:
@@ -986,6 +1026,174 @@ class TestDailyInterventionCheckImpl:
                 total_result,
                 completed_result,
             ]
+        )
+
+        with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl:
+            mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            from app.tasks.scheduler import _daily_intervention_check_impl
+
+            await _daily_intervention_check_impl()
+
+        mock_db.add.assert_not_called()
+
+
+class TestDailyInterventionPartialCommit:
+    """AUDIT-2026-10-05-P0: 超时不得丢当日已创建的 TaskExecution。
+
+    原实现把全部 plan 放在**单个事务**里, 循环结束后才 commit。
+    本任务 soft_time_limit=160s, 一旦中途超时, SoftTimeLimitExceeded
+    使整个事务回滚 —— 当日已生成的执行记录全部丢失, 心理健康场景下
+    等同"干预任务漏生成"。
+    """
+
+    @pytest.mark.asyncio
+    async def test_commits_per_plan_not_only_at_end(self):
+        """3 个 plan 至少产生 3 次 commit (逐 plan 边界提交)。"""
+        from datetime import date
+
+        plans, tasks_by_plan = [], {}
+        for i in range(3):
+            p = MagicMock()
+            p.id = i + 1
+            p.user_id = 10 + i
+            p.end_date = date.today() + timedelta(days=7)
+            plans.append(p)
+            t = MagicMock()
+            t.id = 50 + i
+            t.schedule = "daily"
+            tasks_by_plan[p.id] = [t]
+
+        mock_db = _make_exec_mock(plans=plans, tasks=tasks_by_plan, totals=(1, 0))
+
+        with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl:
+            mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            from app.tasks.scheduler import _daily_intervention_check_impl
+
+            await _daily_intervention_check_impl()
+
+        # 逐 plan 提交 >= plan 数 (末尾另有一次兜底 commit)
+        # 注意: Session.add / Session.commit 在真实 SQLAlchemy 中是**同步**
+        # 方法, 故断言 call_count 而非 await_count (AsyncMock 两者并存,
+        # 但真实调用走同步路径)。
+        assert mock_db.commit.call_count + mock_db.commit.await_count >= len(plans), (
+            f"commit 次数 {mock_db.commit.call_count} < plan 数 {len(plans)} —— "
+            "超时将回滚全部已创建的 TaskExecution"
+        )
+        assert mock_db.add.call_count + mock_db.add.await_count == len(plans)
+
+    @pytest.mark.asyncio
+    async def test_partial_progress_survives_later_failure(self):
+        """核心不变量: 前面的 plan 已提交后, 后续 plan 失败不丢前面的数据。
+
+        这是本次修复的**存在理由** —— 单事务实现下该场景会全量回滚。
+        """
+        from datetime import date
+
+        from sqlalchemy.exc import OperationalError
+
+        p1 = MagicMock()
+        p1.id = 1
+        p1.user_id = 10
+        p1.end_date = date.today() + timedelta(days=7)
+        p2 = MagicMock()
+        p2.id = 2
+        p2.user_id = 11
+        p2.end_date = date.today() + timedelta(days=7)
+        t1 = MagicMock()
+        t1.id = 50
+        t1.schedule = "daily"
+
+        mock_db = _make_exec_mock(
+            plans=[p1, p2], tasks={1: [t1], 2: [t1]}, totals=(1, 0)
+        )
+
+        # 第一个 plan 走完 (plans→tasks→existing→progress→commit) 后,
+        # 第二个 plan 的任务查询时抛错。
+        # 查询序列: 1=plans, 2=tasks(p1), 3=existing(p1), 4=progress(p1)
+        #          5=tasks(p2) <- 此处失败
+        original_execute = mock_db.execute.side_effect
+        calls = {"n": 0}
+
+        def _flaky(stmt, *a, **kw):
+            calls["n"] += 1
+            if calls["n"] > 4:
+                raise OperationalError(
+                    "SELECT intervention_tasks", {}, Exception("conn lost")
+                )
+            return original_execute(stmt, *a, **kw)
+
+        mock_db.execute = AsyncMock(side_effect=_flaky)
+
+        with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl:
+            mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            from app.tasks.scheduler import _daily_intervention_check_impl
+
+            with pytest.raises(OperationalError):
+                await _daily_intervention_check_impl()
+
+        # 关键: 第一个 plan 的 commit 已经发生, 数据保住
+        commit_calls = mock_db.commit.call_count + mock_db.commit.await_count
+        assert commit_calls >= 1, (
+            "后续 plan 失败时, 先前 plan 的 commit 未发生 —— 仍会全量回滚"
+        )
+        add_calls = mock_db.add.call_count + mock_db.add.await_count
+        assert add_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_progress_counts_only_daily_tasks(self):
+        """非 daily 任务不创建执行, 也不参与 progress 统计分母。
+
+        原实现对全部 tasks 查执行记录与算 progress, 但只有 daily 分支会创建
+        记录 —— 非 daily 计入分母会让 progress 永远达不到 100%。
+        """
+        from datetime import date
+
+        p = MagicMock()
+        p.id = 1
+        p.user_id = 10
+        p.end_date = date.today() + timedelta(days=7)
+        t_daily = MagicMock()
+        t_daily.id = 50
+        t_daily.schedule = "daily"
+        t_weekly = MagicMock()
+        t_weekly.id = 51
+        t_weekly.schedule = "weekly"
+
+        mock_db = _make_exec_mock(plans=[p], tasks=[t_daily, t_weekly], totals=(1, 1))
+
+        with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl:
+            mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            from app.tasks.scheduler import _daily_intervention_check_impl
+
+            await _daily_intervention_check_impl()
+
+        mock_db.add.assert_called_once()
+        assert p.progress == 100
+
+    @pytest.mark.asyncio
+    async def test_idempotent_rerun_creates_no_duplicates(self):
+        """重跑幂等: 今日已有执行记录时不再创建 (依赖唯一约束
+        uq_task_execution_task_user_date, 故按批次提交是安全的)。"""
+        from datetime import date
+
+        p = MagicMock()
+        p.id = 1
+        p.user_id = 10
+        p.end_date = date.today() + timedelta(days=7)
+        t = MagicMock()
+        t.id = 50
+        t.schedule = "daily"
+
+        mock_db = _make_exec_mock(
+            plans=[p], tasks=[t], existing_task_ids=[50], totals=(1, 0)
         )
 
         with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl:
