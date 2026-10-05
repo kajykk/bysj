@@ -224,8 +224,11 @@ class TestCleanupUploadsDir:
         # 用户 1 的文件 10 天前 (应保留)
         self._make_user_file("1", "recent.txt", mtime_days_ago=10)
 
+        # ARCH-FIX-2026-10-05: 路径解析已下沉到 app/core/paths.py（解 tasks → api
+# 反向依赖），scheduler 现在从 core.paths 取，因此 patch 目标必须改为
+# app.tasks.scheduler —— 打在被测代码真正使用的位置上。
         with patch(
-            "app.api.v1.uploads._resolve_upload_dir", return_value=self.uploads_dir
+            "app.tasks.scheduler.resolve_upload_dir", return_value=self.uploads_dir
         ):
             removed = _cleanup_uploads_dir_impl(max_age_days=30)
 
@@ -242,8 +245,11 @@ class TestCleanupUploadsDir:
         # 用户 1 的文件 31 天前 (应删除)
         self._make_user_file("1", "old.txt", mtime_days_ago=31)
 
+        # ARCH-FIX-2026-10-05: 路径解析已下沉到 app/core/paths.py（解 tasks → api
+# 反向依赖），scheduler 现在从 core.paths 取，因此 patch 目标必须改为
+# app.tasks.scheduler —— 打在被测代码真正使用的位置上。
         with patch(
-            "app.api.v1.uploads._resolve_upload_dir", return_value=self.uploads_dir
+            "app.tasks.scheduler.resolve_upload_dir", return_value=self.uploads_dir
         ):
             removed = _cleanup_uploads_dir_impl(max_age_days=30)
 
@@ -260,8 +266,11 @@ class TestCleanupUploadsDir:
         old_time = time.time() - 100 * 86400
         os.utime(old_file, (old_time, old_time))
 
+        # ARCH-FIX-2026-10-05: 路径解析已下沉到 app/core/paths.py（解 tasks → api
+# 反向依赖），scheduler 现在从 core.paths 取，因此 patch 目标必须改为
+# app.tasks.scheduler —— 打在被测代码真正使用的位置上。
         with patch(
-            "app.api.v1.uploads._resolve_upload_dir", return_value=self.uploads_dir
+            "app.tasks.scheduler.resolve_upload_dir", return_value=self.uploads_dir
         ):
             removed = _cleanup_uploads_dir_impl(max_age_days=30)
 
@@ -273,8 +282,11 @@ class TestCleanupUploadsDir:
         # 用户 1 的文件 31 天前 (应删除, 然后目录为空)
         self._make_user_file("1", "old.txt", mtime_days_ago=31)
 
+        # ARCH-FIX-2026-10-05: 路径解析已下沉到 app/core/paths.py（解 tasks → api
+# 反向依赖），scheduler 现在从 core.paths 取，因此 patch 目标必须改为
+# app.tasks.scheduler —— 打在被测代码真正使用的位置上。
         with patch(
-            "app.api.v1.uploads._resolve_upload_dir", return_value=self.uploads_dir
+            "app.tasks.scheduler.resolve_upload_dir", return_value=self.uploads_dir
         ):
             _cleanup_uploads_dir_impl(max_age_days=30)
 
@@ -284,7 +296,7 @@ class TestCleanupUploadsDir:
     def test_cleanup_returns_zero_when_dir_not_exists(self):
         """TC-RES-013: uploads 目录不存在时返回 0."""
         with patch(
-            "app.api.v1.uploads._resolve_upload_dir",
+            "app.tasks.scheduler.resolve_upload_dir",
             return_value=Path("/nonexistent/path"),
         ):
             removed = _cleanup_uploads_dir_impl(max_age_days=30)
@@ -296,8 +308,11 @@ class TestCleanupUploadsDir:
         # 修改时间是 30 天前 + 1 秒 (即 cutoff 之后, 应保留)
         self._make_user_file("1", "boundary.txt", mtime_days_ago=29.9)
 
+        # ARCH-FIX-2026-10-05: 路径解析已下沉到 app/core/paths.py（解 tasks → api
+# 反向依赖），scheduler 现在从 core.paths 取，因此 patch 目标必须改为
+# app.tasks.scheduler —— 打在被测代码真正使用的位置上。
         with patch(
-            "app.api.v1.uploads._resolve_upload_dir", return_value=self.uploads_dir
+            "app.tasks.scheduler.resolve_upload_dir", return_value=self.uploads_dir
         ):
             removed = _cleanup_uploads_dir_impl(max_age_days=30)
 

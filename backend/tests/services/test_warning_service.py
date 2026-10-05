@@ -99,6 +99,11 @@ class TestWarningService:
         """TC-COV-WRN-009: List warnings with read/unread filter."""
         service = WarningService(db_session)
         # Create warnings
+        # ARCH-FIX-2026-10-05: risk_assessment_id 必须逐条不同 ——
+        # uq_warning_notifications_assessment 是「同一评估至多一条告警」的
+        # 部分唯一索引，同一 id 插第二条会 IntegrityError。这是修复前就存在的
+        # 业务约束（同一评估重复告警本身无意义），原测试两行都用 id=1
+        # 恰好从未被数据库约束住。
         warning1 = WarningNotification(
             user_id=1,
             risk_assessment_id=1,
@@ -110,7 +115,7 @@ class TestWarningService:
         )
         warning2 = WarningNotification(
             user_id=1,
-            risk_assessment_id=1,
+            risk_assessment_id=2,  # 原为 1，违反唯一索引
             previous_level=1,
             current_level=3,
             trigger_reason="测试2",
@@ -178,10 +183,12 @@ class TestWarningService:
         """TC-COV-WRN-012: Mark all warnings as read."""
         service = WarningService(db_session)
         # Create multiple unread warnings
+        # ARCH-FIX-2026-10-05: risk_assessment_id 逐条不同（i+1），否则违反
+        # uq_warning_notifications_assessment 部分唯一索引（同一评估至多一条告警）。
         for i in range(3):
             warning = WarningNotification(
                 user_id=1,
-                risk_assessment_id=1,
+                risk_assessment_id=i + 1,  # 原为 1
                 previous_level=1,
                 current_level=2,
                 trigger_reason=f"测试{i}",
@@ -266,6 +273,8 @@ class TestWarningService:
     ):
         """TC-COV-WRN-017: list_warnings 按 risk_level 过滤。"""
         service = WarningService(db_session)
+        # ARCH-FIX-2026-10-05: risk_assessment_id 逐条不同，否则违反
+        # uq_warning_notifications_assessment 部分唯一索引。
         warning1 = WarningNotification(
             user_id=1,
             risk_assessment_id=1,
@@ -277,7 +286,7 @@ class TestWarningService:
         )
         warning2 = WarningNotification(
             user_id=1,
-            risk_assessment_id=1,
+            risk_assessment_id=2,  # 原为 1
             previous_level=1,
             current_level=3,
             trigger_reason="level3",

@@ -120,8 +120,15 @@ ignore_imports = [
     "app.core.model_engine.predict -> app.ml.model_loader",
     "app.core.model_engine.predict -> app.ml.data_cleaner",
     "app.core.model_engine.predict -> app.ml.feature_engineering",
-    # app/core/model_engine/predict.py: 影子模式对拍 fire-and-forget (延迟导入, 失败不影响生产)
-    "app.core.model_engine.predict -> app.services.shadow_mode_service",
+    # ARCH-FIX-2026-10-05: 原先在此豁免
+    #   "app.core.model_engine.predict -> app.services.shadow_mode_service"
+    # （core → services 的跨层反向依赖，forbidden 契约里 app.services 正是被禁目标）。
+    # 该依赖已通过依赖倒置解除：predict.py 改为调用注入的 self._shadow_sink
+    # （core/model_engine/shadow_sink.py 的 ShadowSink 协议），实现由 main.py
+    # 在启动时注入。因此**这条豁免已无对应 import 可匹配，必须删除** ——
+    # import-linter 对「无匹配的豁免」会直接报 No matches 并使契约测试失败
+    # （tests/test_importlinter_config.py::test_lint_imports_passes）。
+    # 这条豁免的删除本身就是 core→services 反向依赖已解除的证据。
 ]
 
 # MAINT-P3-005: 依赖锁定 (lock files)
