@@ -103,6 +103,28 @@ async def _notify_warning(
         warning_notify_failed_total.inc()
     except Exception:  # noqa: BLE001 - 指标不可用不应影响主流程
         logger.debug("warning_notify_failed_total 指标上报失败", exc_info=True)
+
+    # AUDIT-2026-10-05: 接入 Sentry。
+    # 该路径此前只有日志 + 指标, Sentry 侧**零业务调用点** —— 监控资产空转,
+    # 以为接了异常聚合, 实际排查仍只能 grep 日志。此处是全系统后果最重的
+    # 失败点(预警已入库但咨询师未收到, 心理健康场景等同漏报), 最该上报。
+    # 附加业务上下文, 便于在 Sentry 直接定位到具体 warning/user/counselor。
+    try:
+        from app.core.sentry import capture_exception
+
+        capture_exception(
+            last_exc if last_exc else RuntimeError("预警推送重试耗尽"),
+            warning_id=warning_id,
+            user_id=user_id,
+            counselor_id=counselor_id,
+            risk_level=risk_level,
+            trigger_reason=trigger_reason,
+            attempts=_NOTIFY_MAX_ATTEMPTS,
+            module="scheduler.notify_warning_with_retry",
+        )
+    except Exception:  # noqa: BLE001 - 上报失败绝不能影响主流程
+        logger.debug("Sentry capture_exception 调用失败", exc_info=True)
+
     return False
 
 
@@ -280,6 +302,18 @@ async def _daily_risk_scan_impl():
                 _NOTIFY_MAX_ATTEMPTS,
                 failed_notifications[:100],
             )
+            # AUDIT-2026-10-05: 批量漏报单条已上报, 此处再上报一次汇总 ——
+            # 一次扫描成片失败意味着问题不是单点连接抖动, 需要按事件聚类告警。
+            try:
+                from app.core.sentry import capture_message
+
+                capture_message(
+                    f"风险扫描批量漏报: {len(failed_notifications)}/"
+                    f"{len(pending_notifications)} 条预警未送达咨询师",
+                    level="error",
+                )
+            except Exception:  # noqa: BLE001
+                logger.debug("Sentry capture_message 调用失败", exc_info=True)
 
 
 @celery_app.task(bind=True, max_retries=1, time_limit=120, soft_time_limit=100)
@@ -877,6 +911,19 @@ def _cleanup_experiment_artifacts_impl(keep_recent: int = 10) -> int:
                 model_path_str,
                 exc,
             )
+            # AUDIT-2026-10-05: 该失败会中止清理并raise, 但保护集残缺的风险是
+            # "误删正在服务的模型文件 -> 线上推理 503", 后果为 P0, 必须上报。
+            try:
+                from app.core.sentry import capture_exception
+
+                capture_exception(
+                    exc,
+                    model_name=model_name,
+                    model_path=model_path_str,
+                    module="scheduler.model_artifact_cleanup",
+                )
+            except Exception:  # noqa: BLE001
+                logger.debug("Sentry capture_exception 调用失败", exc_info=True)
             raise RuntimeError(
                 f"active model path 解析失败, 产物清理已中止 (model={model_name}): {exc}"
             ) from exc

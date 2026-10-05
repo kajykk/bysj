@@ -1337,3 +1337,129 @@ class TestBeatSchedule:
             schedule["canary-auto-rollback-check"]["task"]
             == "app.tasks.scheduler.canary_auto_rollback_check"
         )
+
+
+class TestSentryWiring:
+    """AUDIT-2026-10-05: Sentry 业务调用点接线。
+
+    此前 `core/sentry.py` 的 `capture_exception` / `capture_message`
+    **零业务调用点** —— 监控资产空转, 以为接了异常聚合, 实际排查仍只能
+    grep 日志。本类锁定三处最关键的上报点, 并防退化。
+    """
+
+    @pytest.mark.asyncio
+    async def test_notify_warning_retry_exhausted_reports_to_sentry(self):
+        """推送重试耗尽必须上报, 且带上可定位的业务上下文。"""
+        with patch(
+            "app.core.ws.notify_warning",
+            new=AsyncMock(side_effect=ConnectionError("ws down")),
+        ), patch("app.core.contracts.normalize_risk_level", return_value="high"), patch(
+            "app.core.sentry.capture_exception"
+        ) as mock_cap:
+            from app.tasks.scheduler import _notify_warning
+
+            ok = await _notify_warning(
+                user_id=7,
+                warning_id=99,
+                risk_level=3,
+                trigger_reason="PHQ9 急升",
+                counselor_id=3,
+            )
+
+        assert ok is False, "重试耗尽应返回 False"
+        mock_cap.assert_called_once()
+        kwargs = mock_cap.call_args.kwargs
+        # 缺任何一个定位字段, Sentry 上都只能看到"某处失败"
+        for key in ("warning_id", "user_id", "counselor_id", "risk_level", "module"):
+            assert key in kwargs, f"Sentry 上下文缺 {key}, 无法定位具体预警"
+
+    @pytest.mark.asyncio
+    async def test_notify_warning_success_does_not_report(self):
+        """成功路径不得上报 —— 否则 Sentry 被噪音淹没。"""
+        with patch("app.core.ws.notify_warning", new=AsyncMock()), patch(
+            "app.core.ws.notify_counselor", new=AsyncMock()
+        ), patch("app.core.contracts.normalize_risk_level", return_value="low"), patch(
+            "app.core.sentry.capture_exception"
+        ) as mock_cap:
+            from app.tasks.scheduler import _notify_warning
+
+            ok = await _notify_warning(
+                user_id=1,
+                warning_id=1,
+                risk_level=1,
+                trigger_reason="r",
+                counselor_id=1,
+            )
+
+        assert ok is True
+        mock_cap.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sentry_failure_does_not_break_notify_path(self):
+        """Sentry 自身故障绝不能影响主流程 (监控故障不得放大成业务故障)。"""
+        with patch(
+            "app.core.ws.notify_warning",
+            new=AsyncMock(side_effect=ConnectionError("ws down")),
+        ), patch("app.core.contracts.normalize_risk_level", return_value="high"), patch(
+            "app.core.sentry.capture_exception", side_effect=RuntimeError("sentry down")
+        ):
+            from app.tasks.scheduler import _notify_warning
+
+            ok = await _notify_warning(
+                user_id=1,
+                warning_id=2,
+                risk_level=3,
+                trigger_reason="r",
+                counselor_id=1,
+            )
+
+        assert ok is False, "Sentry 故障时仍应正常返回 False 而非抛异常"
+
+    def test_sentry_call_sites_are_exception_guarded(self):
+        """防退化闸门: 任何 Sentry 调用点都必须包在 try/except 里。
+
+        两重作用:
+        1. 上报失败不中断主流程;
+        2. 防止 Sentry 再次被删成"零业务调用点"而无人察觉。
+        """
+        import ast
+        import pathlib
+
+        app_dir = pathlib.Path(__file__).resolve().parents[2] / "app"
+        unguarded = []
+        call_sites = 0
+        for f in app_dir.rglob("*.py"):
+            if f.name == "sentry.py":  # 自身定义不算调用点
+                continue
+            text = f.read_text(encoding="utf-8", errors="replace")
+            if "capture_exception" not in text and "capture_message" not in text:
+                continue
+            tree = ast.parse(text)
+            guarded = 0
+            total = 0
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call):
+                    fn = node.func
+                    name = getattr(fn, "id", None) or getattr(fn, "attr", None)
+                    if name in ("capture_exception", "capture_message"):
+                        total += 1
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Try):
+                    names_in_try = {
+                        getattr(n.func, "id", None) or getattr(n.func, "attr", None)
+                        for n in ast.walk(node)
+                        if isinstance(n, ast.Call)
+                    }
+                    guarded += len(
+                        names_in_try & {"capture_exception", "capture_message"}
+                    )
+            call_sites += total
+            if guarded < total:
+                unguarded.append(
+                    f"{f.relative_to(app_dir)} ({guarded}/{total} 已保护)"
+                )
+
+        assert call_sites > 0, (
+            "Sentry 业务调用点为 0 —— 监控资产空转, 本次修复的成果已被回退"
+        )
+        assert not unguarded, f"以下 Sentry 调用点未包 try/except: {unguarded}"
