@@ -83,6 +83,24 @@ class InterventionService:
         completed_tasks = 0
         task_items: list[dict] = []
 
+        # AUDIT-2026-10-05: 消除 N+1。
+        # 原实现对每个 task 调一次 _get_or_create_execution(内含一次 SELECT,
+        # 缺失时再 INSERT) —— T 个任务 = 2T 次串行往返。该方法是用户端高频入口,
+        # 60ms 几乎全是 DB 往返时间。
+        # 改为: 循环前一次性批量查出今日已有执行记录, 循环内只做内存查找,
+        # 缺失时才创建 (创建路径仍走 _get_or_create_execution 以保留
+        # savepoint 隔离与并发唯一约束兜底)。
+        today_executions: dict[int, TaskExecution] = {}
+        if tasks:
+            exec_stmt = select(TaskExecution).where(
+                TaskExecution.user_id == user_id,
+                TaskExecution.task_id.in_([t.id for t in tasks]),
+                TaskExecution.scheduled_date == today,
+            )
+            today_executions = {
+                e.task_id: e for e in (await self.db.execute(exec_stmt)).scalars().all()
+            }
+
         for task in tasks:
             should_execute = self._should_execute_today(
                 task.schedule or "daily", plan.start_date
@@ -91,27 +109,32 @@ class InterventionService:
                 continue
 
             total_tasks += 1
-            if create_missing:
-                execution = await self._get_or_create_execution(task.id, user_id, today)
+            cached = today_executions.get(task.id)
+            if cached is not None:
+                execution = cached
+            elif create_missing:
+                execution = await self._get_or_create_execution(
+                    task.id, user_id, today
+                )
+                today_executions[task.id] = execution
             else:
-                # 只读模式：仅查询已有执行记录，不创建新记录（用于 GET 端点，保证幂等性）
-                execution = await self._get_execution(task.id, user_id, today)
-                if execution is None:
-                    task_items.append(
-                        {
-                            "id": task.id,
-                            "task_name": task.task_name,
-                            "task_type": task.task_type,
-                            "description": task.description,
-                            "schedule": task.schedule,
-                            "duration_minutes": task.duration_minutes,
-                            "today_status": "pending",
-                            "feedback_score": None,
-                            "feedback_note": None,
-                            "modality_based_actions": [],
-                        }
-                    )
-                    continue
+                # 只读模式：今日无执行记录则不创建, 直接按 pending 呈现
+                # （用于 GET 端点，保证幂等性）
+                task_items.append(
+                    {
+                        "id": task.id,
+                        "task_name": task.task_name,
+                        "task_type": task.task_type,
+                        "description": task.description,
+                        "schedule": task.schedule,
+                        "duration_minutes": task.duration_minutes,
+                        "today_status": "pending",
+                        "feedback_score": None,
+                        "feedback_note": None,
+                        "modality_based_actions": [],
+                    }
+                )
+                continue
 
             status = execution.status
             if status == "completed":

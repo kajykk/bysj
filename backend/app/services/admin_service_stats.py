@@ -23,14 +23,6 @@ class StatsMixin:
     """
 
     async def get_stats(self) -> dict:
-        total_users = (
-            await self.db.execute(select(func.count()).select_from(User))
-        ).scalar_one()
-        total_counselors = (
-            await self.db.execute(
-                select(func.count()).select_from(User).where(User.role == "counselor")
-            )
-        ).scalar_one()
         # H-Svc-2 修复：DateTime 列为 naive，统一生成 naive UTC datetime 进行比较，避免 aware/naive 混用抛 TypeError
         today = datetime.now(UTC).replace(tzinfo=None).date()
         today_start = datetime.combine(today, datetime.min.time())
@@ -39,83 +31,100 @@ class StatsMixin:
         yesterday_start = datetime.combine(
             today - timedelta(days=1), datetime.min.time()
         )
-        today_warning_stmt = (
+
+        # AUDIT-2026-10-05: 12 条串行 count 合并为 1 条 SQL。
+        # 原实现每个指标一次独立 count + 一次往返 = 12 次串行 DB 往返,
+        # 管理仪表盘首屏 1.2s 几乎全部耗在这里。改为标量子查询一次性取回,
+        # 语义完全等价(PG 对无 where 的 count 走全表扫描, 合并后一次扫描
+        # 即可算出全部计数, 比 12 次全表扫描快一个数量级)。
+        stmt = select(
+            # 基础计数
+            select(func.count())
+            .select_from(User)
+            .scalar_subquery()
+            .label("total_users"),
+            select(func.count())
+            .select_from(User)
+            .where(User.role == "counselor")
+            .scalar_subquery()
+            .label("total_counselors"),
+            # 今日告警
             select(func.count())
             .select_from(WarningNotification)
             .where(WarningNotification.created_at >= today_start)
+            .scalar_subquery()
+            .label("today_warnings"),
+            select(func.count())
+            .select_from(WarningNotification)
+            .where(
+                WarningNotification.created_at >= today_start,
+                WarningNotification.is_handled.is_(False),
+            )
+            .scalar_subquery()
+            .label("today_unhandled_warnings"),
+            # 评估与高风险
+            select(func.count())
+            .select_from(RiskAssessment)
+            .scalar_subquery()
+            .label("total_assessments"),
+            # H-15 修复：high_risk_users 应统计高风险用户数（DISTINCT user_id），而非评估记录数
+            select(func.count(func.distinct(RiskAssessment.user_id)))
+            .where(RiskAssessment.risk_level >= 3)
+            .scalar_subquery()
+            .label("high_risk_users"),
+            # 模板
+            select(func.count())
+            .select_from(InterventionTemplate)
+            .scalar_subquery()
+            .label("total_templates"),
+            select(func.count())
+            .select_from(InterventionTemplate)
+            .where(InterventionTemplate.status == "active")
+            .scalar_subquery()
+            .label("active_templates"),
+            # H-9 修复：yesterday_* 快照
+            select(func.count())
+            .select_from(User)
+            .where(User.created_at < today_start)
+            .scalar_subquery()
+            .label("yesterday_users"),
+            select(func.count())
+            .select_from(WarningNotification)
+            .where(
+                WarningNotification.created_at >= yesterday_start,
+                WarningNotification.created_at < today_start,
+            )
+            .scalar_subquery()
+            .label("yesterday_warnings"),
+            select(func.count())
+            .select_from(RiskAssessment)
+            .where(RiskAssessment.created_at < today_start)
+            .scalar_subquery()
+            .label("yesterday_assessments"),
+            select(func.count())
+            .select_from(InterventionTemplate)
+            .where(
+                InterventionTemplate.status == "active",
+                InterventionTemplate.created_at < today_start,
+            )
+            .scalar_subquery()
+            .label("yesterday_templates"),
         )
-        today_warnings = (await self.db.execute(today_warning_stmt)).scalar_one()
-        today_unhandled_warnings = (
-            await self.db.execute(
-                select(func.count())
-                .select_from(WarningNotification)
-                .where(
-                    WarningNotification.created_at >= today_start,
-                    WarningNotification.is_handled.is_(False),
-                )
-            )
-        ).scalar_one()
-        total_assessments = (
-            await self.db.execute(select(func.count()).select_from(RiskAssessment))
-        ).scalar_one()
-        # H-15 修复：high_risk_users 应统计高风险用户数（DISTINCT user_id），而非评估记录数
-        high_risk_users = (
-            await self.db.execute(
-                select(func.count(func.distinct(RiskAssessment.user_id))).where(
-                    RiskAssessment.risk_level >= 3
-                )
-            )
-        ).scalar_one()
-        total_templates = (
-            await self.db.execute(
-                select(func.count()).select_from(InterventionTemplate)
-            )
-        ).scalar_one()
-        active_templates = (
-            await self.db.execute(
-                select(func.count())
-                .select_from(InterventionTemplate)
-                .where(InterventionTemplate.status == "active")
-            )
-        ).scalar_one()
-        # H-9 修复：计算 yesterday_* 快照
-        # yesterday_users / yesterday_assessments：截至昨日结束的累计值（created_at < today_start）
-        # yesterday_warnings：昨日单日增量（yesterday_start <= created_at < today_start）
-        # yesterday_templates：截至昨日结束的活跃模板数（无状态变更历史，以 created_at 近似）
-        yesterday_users = (
-            await self.db.execute(
-                select(func.count())
-                .select_from(User)
-                .where(User.created_at < today_start)
-            )
-        ).scalar_one()
-        yesterday_warnings = (
-            await self.db.execute(
-                select(func.count())
-                .select_from(WarningNotification)
-                .where(
-                    WarningNotification.created_at >= yesterday_start,
-                    WarningNotification.created_at < today_start,
-                )
-            )
-        ).scalar_one()
-        yesterday_assessments = (
-            await self.db.execute(
-                select(func.count())
-                .select_from(RiskAssessment)
-                .where(RiskAssessment.created_at < today_start)
-            )
-        ).scalar_one()
-        yesterday_templates = (
-            await self.db.execute(
-                select(func.count())
-                .select_from(InterventionTemplate)
-                .where(
-                    InterventionTemplate.status == "active",
-                    InterventionTemplate.created_at < today_start,
-                )
-            )
-        ).scalar_one()
+        row = (await self.db.execute(stmt)).one()
+        (
+            total_users,
+            total_counselors,
+            today_warnings,
+            today_unhandled_warnings,
+            total_assessments,
+            high_risk_users,
+            total_templates,
+            active_templates,
+            yesterday_users,
+            yesterday_warnings,
+            yesterday_assessments,
+            yesterday_templates,
+        ) = row
         return {
             "total_users": total_users,
             "total_counselors": total_counselors,

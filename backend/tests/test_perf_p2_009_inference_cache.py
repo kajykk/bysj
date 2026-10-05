@@ -449,3 +449,71 @@ class TestRoutingInfoLog:
         assert not engine_called, "缓存命中时不应调用 model_engine"
         # routing_info 日志不应出现 (因为直接返回了缓存)
         assert "Model routing" not in caplog.text
+
+
+# =============================================================================
+# 7. 模型指纹: 热替换后缓存必须失效
+# =============================================================================
+
+
+class TestModelFingerprintInvalidatesCache:
+    """AUDIT-2026-10-05: 缓存键必须含模型身份。
+
+    此前 ML 缓存键只由入参构成, 不含模型身份 —— 模型热替换(canary 切换 /
+    重新训练 / 手动换文件)后, 最长一个 TTL(60s)内缓存仍返回**旧模型的
+    risk_score / risk_level**。对心理健康系统等于给出已被替换掉的评估结论。
+
+    核心不变量: 模型文件一变, 缓存键必须变。
+    """
+
+    def test_fingerprint_is_deterministic(self):
+        from app.services.model_predict.inference import _model_fingerprint
+
+        assert _model_fingerprint() == _model_fingerprint(), (
+            "指纹必须稳定, 否则每次请求都是新键, 缓存永不命中"
+        )
+
+    def test_fingerprint_handles_unreadable_paths(self):
+        """文件不可访问时返回确定性值而非抛异常 —— 指纹失败不得阻断推理。"""
+        from app.services.model_predict import inference as inf
+
+        with patch.object(inf, "MODEL_PATHS", {"m": "/nonexistent/path/model.pkl"}):
+            fp = inf._model_fingerprint()
+        assert isinstance(fp, str) and fp
+
+    def test_fingerprint_empty_registry(self):
+        from app.services.model_predict import inference as inf
+
+        with patch.object(inf, "MODEL_PATHS", {}):
+            assert inf._model_fingerprint() == "unknown"
+
+    def test_cache_key_contains_fingerprint(self):
+        from app.services.model_predict.inference import _ml_cache_key, _model_fingerprint
+
+        key = _ml_cache_key("tabular", {"x": 1})
+        assert _model_fingerprint() in key, "缓存键未含模型指纹 —— 换模型后旧缓存仍会命中"
+
+    def test_cache_key_stable_for_same_input(self):
+        from app.services.model_predict.inference import _ml_cache_key
+
+        assert _ml_cache_key("text", {"text": "abc"}) == _ml_cache_key("text", {"text": "abc"})
+
+    def test_cache_key_changes_when_model_changes(self):
+        """核心闸门: 换一份模型文件 -> 缓存键必须不同。"""
+        from app.services.model_predict import inference as inf
+
+        params = {"x": 1}
+        with patch.object(inf, "MODEL_PATHS", {"m": "/nonexistent/a.pkl"}):
+            key_a = inf._ml_cache_key("tabular", params)
+        with patch.object(inf, "MODEL_PATHS", {"m2": "/nonexistent/b.pkl"}):
+            key_b = inf._ml_cache_key("tabular", params)
+
+        assert key_a != key_b, (
+            "模型集合变化后缓存键未变 —— 热替换后仍会返回旧模型结果"
+        )
+
+    def test_endpoints_are_isolated(self):
+        """不同 endpoint 的键不得相同(加了指纹前缀后仍要保持隔离)。"""
+        from app.services.model_predict.inference import _ml_cache_key
+
+        assert _ml_cache_key("tabular", {"a": 1}) != _ml_cache_key("text", {"a": 1})

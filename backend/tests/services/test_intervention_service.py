@@ -1309,3 +1309,176 @@ class TestInterventionServiceGetOrCreateExecution:
         service = InterventionService(mock_db)
         with pytest.raises(IntegrityError):
             await service._get_or_create_execution(1, 1, date.today())
+
+
+class TestGetActiveNoNPlusOne:
+    """AUDIT-2026-10-05: get_active 的 N+1 消除, 本类锁住不复发。
+
+    原实现对每个 task 调一次 _get_or_create_execution(内含SELECT),
+    T 个任务 = T 次额外往返。修复后循环前一次批量查询 + 循环内内存查找。
+
+    闸门断言的是**缓存命中路径**(今日执行记录已存在)下的查询次数:
+    该路径下每个 task 不应再产生任何查询, 故总查询数与任务数无关。
+    这才是 N+1 的定义性特征 —— 注意不能测"记录缺失"路径, 那种情况下
+    逐条创建是正确行为(需要 savepoint 与唯一约束兜底), 不属于 N+1。
+    """
+
+    @staticmethod
+    def _build(n_tasks: int):
+        from datetime import date, timedelta
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.services.intervention_service import InterventionService
+
+        plan = MagicMock()
+        plan.id = 1
+        plan.user_id = 1
+        plan.plan_name = "p"
+        plan.risk_level = 2
+        plan.start_date = date.today() - timedelta(days=1)
+        plan.end_date = None
+        plan.progress = 0
+
+        tasks, executions = [], []
+        for i in range(n_tasks):
+            t = MagicMock()
+            t.id = i + 1
+            t.schedule = "daily"  # 全部命中, 确保走进循环体
+            t.task_name = f"t{i}"
+            t.task_type = "behavioral"
+            t.description = None
+            t.duration_minutes = 10
+            t.modality_actions = None
+            tasks.append(t)
+            # 今日执行记录**已存在** -> 缓存命中, 不应再查
+            e = MagicMock()
+            e.task_id = i + 1
+            e.status = "pending"
+            e.feedback_score = None
+            e.feedback_note = None
+            e.modality_based_actions = []
+            executions.append(e)
+
+        counter = {"n": 0}
+        db = MagicMock()
+
+        def _execute(stmt, *a, **kw):
+            counter["n"] += 1
+            sql = str(stmt)
+            r = MagicMock()
+            if "intervention_plans" in sql:
+                r.scalar_one_or_none.return_value = plan
+            elif "intervention_tasks" in sql:
+                r.scalars.return_value.all.return_value = tasks
+            else:  # 批量 execution 查询
+                r.scalars.return_value.all.return_value = executions
+            return r
+
+        db.execute = AsyncMock(side_effect=_execute)
+        db.add = MagicMock()
+        db.commit = AsyncMock()
+        db.rollback = AsyncMock()
+        db.flush = AsyncMock()
+
+        return InterventionService(db), counter, db
+
+    @pytest.mark.asyncio
+    async def test_query_count_constant_regardless_of_task_count(self):
+        """3 个任务与 10 个任务的查询次数必须相同。"""
+        svc_small, c_small, _ = self._build(3)
+        await svc_small.get_active(1, create_missing=True)
+        small_queries = c_small["n"]
+
+        svc_big, c_big, _ = self._build(10)
+        await svc_big.get_active(1, create_missing=True)
+        big_queries = c_big["n"]
+
+        assert small_queries == big_queries, (
+            f"查询次数随任务数增长: 3 个任务={small_queries} 次, "
+            f"10 个任务={big_queries} 次 —— N+1 未消除"
+        )
+        # 固定值断言: plan + tasks + 批量execution = 3 次, 与任务数无关
+        assert small_queries == 3, f"预期 3 次查询(plan/tasks/批量executions), 实际 {small_queries}"
+
+    @pytest.mark.asyncio
+    async def test_no_per_task_query_when_cache_hit(self):
+        """缓存命中时不得调用 _get_or_create_execution / _get_execution。"""
+        svc, _, db = self._build(5)
+        with patch.object(
+            svc, "_get_or_create_execution", new=AsyncMock()
+        ) as mock_create:
+            await svc.get_active(1, create_missing=True)
+        mock_create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_created_records_are_cached_within_call(self):
+        """同一次调用内, 已创建的记录要进缓存, 避免后续 task 重复创建。"""
+        from datetime import date
+
+        from app.services.intervention_service import InterventionService
+
+        plan = MagicMock()
+        plan.id = 1
+        plan.user_id = 1
+        plan.start_date = date.today()
+        plan.end_date = None
+
+        tasks = []
+        for i in range(3):
+            t = MagicMock()
+            t.id = i + 1
+            t.schedule = "daily"
+            t.task_name = f"t{i}"
+            t.task_type = "behavioral"
+            t.description = None
+            t.duration_minutes = 10
+            tasks.append(t)
+
+        # 批量查询返回"已有第 1 个", 其余需创建
+        existing = MagicMock()
+        existing.task_id = 1
+        existing.status = "pending"
+        existing.feedback_score = None
+        existing.feedback_note = None
+        existing.modality_based_actions = []
+
+        calls = {"create": 0}
+
+        async def _fake_create(task_id, user_id, d):
+            calls["create"] += 1
+            e = MagicMock()
+            e.task_id = task_id
+            e.status = "pending"
+            e.feedback_score = None
+            e.feedback_note = None
+            e.modality_based_actions = []
+            return e
+
+        db = MagicMock()
+
+        def _execute(stmt, *a, **kw):
+            sql = str(stmt)
+            r = MagicMock()
+            if "intervention_plans" in sql:
+                r.scalar_one_or_none.return_value = plan
+            elif "intervention_tasks" in sql:
+                r.scalars.return_value.all.return_value = tasks
+            else:
+                r.scalars.return_value.all.return_value = [existing]
+            return r
+
+        db.execute = AsyncMock(side_effect=_execute)
+        db.add = MagicMock()
+        db.commit = AsyncMock()
+        db.rollback = AsyncMock()
+        db.flush = AsyncMock()
+
+        svc = InterventionService(db)
+        with patch.object(svc, "_get_or_create_execution", side_effect=_fake_create):
+            await svc.get_active(1, create_missing=True)
+
+        # 3 个 task, 1 个已缓存 -> 只应创建 2 个
+        assert calls["create"] == 2, (
+            f"预期创建 2 个(第1 个已缓存), 实际 {calls['create']} —— "
+            "缓存未生效, 退化为逐条创建"
+        )

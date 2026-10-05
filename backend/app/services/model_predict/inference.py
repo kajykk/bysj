@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,50 @@ from .fusion import FusionMixin
 
 logger = logging.getLogger(__name__)
 _ML_INFERENCE_CACHE_TTL: int = getattr(settings, "ml_inference_cache_ttl", 60)
+
+
+def _model_fingerprint() -> str:
+    """模型产物指纹, 用于 ML 缓存键前缀。
+
+    AUDIT-2026-10-05: 此前 ML 推理缓存键只由入参构成, 不含模型身份。模型热替换
+    (canary 切换 / 重新训练 / 手动替换文件) 后, 最长一个 TTL(默认 60s)内缓存
+    仍返回**旧模型的 risk_score / risk_level** —— 对心理健康系统等于给出
+    已被替换掉的评估结论。
+
+    取所有注册模型文件的 (mtime, size) 组合做指纹:
+    - 不需要人工维护版本号, 换文件即自动失效;
+    - mtime 精度不足时 size 作为第二重保险(同秒内不同大小仍能区分);
+    - 任一文件不可访问时返回 "unknown", 退化为不含指纹(行为同修复前),
+      不因指纹计算失败而让推理不可用。
+    """
+    try:
+        parts: list[str] = []
+        for name, raw_path in sorted(MODEL_PATHS.items()):
+            try:
+                p = Path(raw_path)
+                if not p.exists():
+                    parts.append(f"{name}:missing")
+                    continue
+                st = p.stat()
+                parts.append(f"{name}:{int(st.st_mtime)}:{st.st_size}")
+            except OSError:
+                parts.append(f"{name}:unreadable")
+        if not parts:
+            return "unknown"
+        # 哈希而非直接拼接: key 长度可控
+        return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:12]
+    except Exception:  # noqa: BLE001 - 指纹失败绝不能阻断推理
+        logger.debug("模型指纹计算失败, 缓存键退化为无版本前缀", exc_info=True)
+        return "unknown"
+
+
+def _ml_cache_key(endpoint: str, params: dict[str, Any] | None) -> str:
+    """构造带模型指纹前缀的 ML 缓存键。
+
+    模型指纹变化 → 键前缀变化 → 旧模型的缓存条目自然失效, 无需显式清理
+    (Redis 里旧条目会按 TTL 自行过期)。
+    """
+    return make_cache_key(f"ml:{_model_fingerprint()}:{endpoint}", params)
 
 
 class InferenceService(FusionMixin):
@@ -90,7 +135,7 @@ class InferenceService(FusionMixin):
 
     async def predict_tabular(self, features: dict[str, float | int | str | bool]) -> dict:
         if _ML_INFERENCE_CACHE_TTL > 0:
-            cache_key = make_cache_key("ml:tabular", features)
+            cache_key = _ml_cache_key("tabular", features)
             cached = await cache_get(cache_key)
             if cached is not None:
                 logger.debug("[predict_tabular] cache hit key=%s", cache_key)
@@ -116,7 +161,7 @@ class InferenceService(FusionMixin):
             raise ValueError("text cannot be empty")
         cleaned = text.strip()
         if _ML_INFERENCE_CACHE_TTL > 0:
-            cache_key = make_cache_key("ml:text", {"text": cleaned})
+            cache_key = _ml_cache_key("text", {"text": cleaned})
             cached = await cache_get(cache_key)
             if cached is not None:
                 logger.debug("[predict_text] cache hit key=%s", cache_key)
@@ -129,7 +174,7 @@ class InferenceService(FusionMixin):
 
     async def predict_physiological(self, physiological: dict[str, float | int]) -> dict:
         if _ML_INFERENCE_CACHE_TTL > 0:
-            cache_key = make_cache_key("ml:physiological", physiological)
+            cache_key = _ml_cache_key("physiological", physiological)
             cached = await cache_get(cache_key)
             if cached is not None:
                 logger.debug("[predict_physiological] cache hit key=%s", cache_key)
