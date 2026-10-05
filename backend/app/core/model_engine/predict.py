@@ -534,16 +534,28 @@ class PredictMixin:
 
         生产请求仍用 TF-IDF (或现有 BERT) 结果, 此处仅异步触发 M2 BERT 推理
         做对拍记录, 不阻塞主请求, 失败不影响生产.
+
+        ARCH-FIX-2026-10-05: 原实现在此直接
+        `from app.services.shadow_mode_service import get_shadow_mode_service`,
+        构成 core → services 的跨层反向依赖。core 被 import 时就会拉起
+        services + ML 依赖树, 使「只想用 ModelEngine 做纯推理」的脚本/单测
+        也必须能 import 完整依赖树（缺 transformers 即在 import 期炸）。
+        现改为调用注入的 self._shadow_sink（见 core/model_engine/shadow_sink.py），
+        依赖方向变为 services → core。未注入时是 NullShadowSink（no-op），
+        因此影子模式不可用绝不影响生产推理。
         """
         if not getattr(settings, "shadow_mode_text_enabled", False):
             return
         try:
-            from app.services.shadow_mode_service import get_shadow_mode_service
-
-            service = get_shadow_mode_service()
+            sink = getattr(self, "_shadow_sink", None)
+            if sink is None:
+                return
             sample_rate = getattr(settings, "shadow_mode_text_sample_rate", 1.0)
-            service.fire_shadow_predict(text, production_result, sample_rate=sample_rate)
+            sink.fire_shadow_predict(text, production_result, sample_rate=sample_rate)
         except Exception as e:
+            # 对拍是旁路功能, 任何失败都不得影响生产结果。
+            # 注意用 debug 而非 error: 这条路径失败通常是影子侧配置问题,
+            # 高频触发时会淹没真实故障日志。
             logger.debug("[SHADOW] 触发失败 (不影响生产): %s", str(e)[:150])
 
     async def _predict_text_ml(self, text: str) -> dict[str, Any]:

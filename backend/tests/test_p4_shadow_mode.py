@@ -184,40 +184,105 @@ class TestShadowModeService:
 
 
 class TestShadowModeIntegration:
-    """model_engine_predict._maybe_fire_shadow_predict 集成测试."""
+    """model_engine_predict._maybe_fire_shadow_predict 集成测试.
+
+    ARCH-FIX-2026-10-05（依赖倒置）:
+        原实现由 core 层自己去 import services 层取影子服务
+        （`from app.services.shadow_mode_service import get_shadow_mode_service`），
+        构成 core → services 的跨层反向依赖。现在改为 core 只声明 ShadowSink
+        协议、实现由 main.py 启动时注入。
+
+        因此测试也从「断言 core 是否去取 service」改为「断言 core 是否调用注入的
+        sink」。这更贴近新契约本身：core 的责任是"触发已注入的对拍接收端"，
+        而不是"自己去哪里拿服务"。
+    """
 
     def test_maybe_fire_shadow_predict_disabled(self):
         """影子模式禁用时, _maybe_fire_shadow_predict 直接返回不触发."""
         from app.core.model_engine_predict import PredictMixin
 
         engine = MagicMock(spec=PredictMixin)
+        engine._shadow_sink = MagicMock()
         # model_engine_predict 在模块级绑定 settings, 需 patch 其自身引用
         with patch("app.core.model_engine.predict.settings") as mock_settings:
             mock_settings.shadow_mode_text_enabled = False
-            with patch(
-                "app.services.shadow_mode_service.get_shadow_mode_service"
-            ) as mock_get_service:
-                # 调用未绑定方法 (手动传 self)
-                PredictMixin._maybe_fire_shadow_predict(
-                    engine, "test", {"prediction": 0}
-                )
-                # 禁用时不应加载/调用影子服务
-                mock_get_service.assert_not_called()
+            # 调用未绑定方法 (手动传 self)
+            PredictMixin._maybe_fire_shadow_predict(
+                engine, "test", {"prediction": 0}
+            )
+            # 禁用时不应触发对拍
+            engine._shadow_sink.fire_shadow_predict.assert_not_called()
+
+    def test_maybe_fire_shadow_predict_calls_injected_sink(self):
+        """ARCH-FIX-2026-10-05: 启用时调用注入的 sink, 且不 import services 层."""
+        from app.core.model_engine_predict import PredictMixin
+
+        engine = MagicMock(spec=PredictMixin)
+        sink = MagicMock()
+        engine._shadow_sink = sink
+
+        with patch("app.core.model_engine.predict.settings") as mock_settings:
+            mock_settings.shadow_mode_text_enabled = True
+            mock_settings.shadow_mode_text_sample_rate = 0.25
+
+            PredictMixin._maybe_fire_shadow_predict(
+                engine, "hello", {"prediction": 1}
+            )
+
+        sink.fire_shadow_predict.assert_called_once_with(
+            "hello", {"prediction": 1}, sample_rate=0.25
+        )
 
     def test_maybe_fire_shadow_predict_exception_safe(self):
         """钩子内部异常不影响生产 (logger.debug 记录)."""
         from app.core.model_engine_predict import PredictMixin
 
         engine = MagicMock(spec=PredictMixin)
+        sink = MagicMock()
+        sink.fire_shadow_predict.side_effect = RuntimeError("sink boom")
+        engine._shadow_sink = sink
+
         with patch("app.core.model_engine.predict.settings") as mock_settings:
             mock_settings.shadow_mode_text_enabled = True
             mock_settings.shadow_mode_text_sample_rate = 1.0
-            # 让 get_shadow_mode_service 抛异常
-            with patch(
-                "app.services.shadow_mode_service.get_shadow_mode_service",
-                side_effect=RuntimeError("import fail"),
-            ):
-                # 不应抛异常 (异常被吞掉)
-                PredictMixin._maybe_fire_shadow_predict(
-                    engine, "test", {"prediction": 0}
-                )
+            # 不应抛异常 (异常被吞掉)
+            PredictMixin._maybe_fire_shadow_predict(
+                engine, "test", {"prediction": 0}
+            )
+
+    def test_maybe_fire_shadow_predict_no_sink_is_noop(self):
+        """未注入 sink（如单测/CLI/worker）时应静默 no-op，不报错.
+
+        影子对拍是可选旁路功能，它不可用绝不能影响生产推理。
+        """
+        from app.core.model_engine_predict import PredictMixin
+
+        engine = MagicMock(spec=PredictMixin)
+        # 模拟完全没有 _shadow_sink 属性的情况（如旧的 mock 或未走 __init__ 的对象）
+        del engine._shadow_sink
+
+        with patch("app.core.model_engine.predict.settings") as mock_settings:
+            mock_settings.shadow_mode_text_enabled = True
+            mock_settings.shadow_mode_text_sample_rate = 1.0
+            PredictMixin._maybe_fire_shadow_predict(
+                engine, "test", {"prediction": 0}
+            )
+
+    def test_null_shadow_sink_is_noop(self):
+        """NullShadowSink 默认实现：调用它不做任何事，也不抛异常."""
+        from app.core.model_engine.shadow_sink import NullShadowSink, ShadowSink
+
+        sink = NullShadowSink()
+        assert isinstance(sink, ShadowSink), "NullShadowSink 应满足 ShadowSink 协议"
+        # 不抛异常即为通过
+        sink.fire_shadow_predict("t", {"prediction": 0}, sample_rate=1.0)
+
+    def test_shadow_sink_protocol_is_runtime_checkable(self):
+        """自定义实现只要结构相符即可注入（依赖倒置的前提）."""
+        from app.core.model_engine.shadow_sink import ShadowSink
+
+        class MySink:
+            def fire_shadow_predict(self, text, production_result, sample_rate=1.0):
+                return None
+
+        assert isinstance(MySink(), ShadowSink)

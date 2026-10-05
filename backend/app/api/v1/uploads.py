@@ -39,6 +39,7 @@ from app.core.contracts import (
 )
 from app.core.database import get_db
 from app.core.deps import get_current_user, oauth2_scheme
+from app.core.paths import PUBLIC_DIRS, resolve_upload_dir
 from app.core.rate_limit import get_real_client_ip
 from app.models.admin import OperationLog
 from app.models.user import User
@@ -47,8 +48,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/uploads", tags=["uploads"], include_in_schema=False)
 
-# 公共资源白名单目录（owner 段命中即视为公共资源）
-PUBLIC_DIRS: frozenset[str] = frozenset({"audio", "content"})
+# ARCH-FIX-2026-10-05: 公共资源白名单目录已下沉到 app/core/paths.py。
+# 此处保留 PUBLIC_DIRS 名字是为了兼容既有导入方与测试的 patch 路径。
 
 # 安全的文件名模式：禁止路径分隔符、null 字节、点号开头的隐藏文件
 # 允许 UUID.ext / uuid.ext / name-1.ext 等常见格式
@@ -58,15 +59,11 @@ _SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9_\-]+\.[A-Za-z0-9]{1,8}$")
 _SAFE_USERID_RE = re.compile(r"^\d+$")
 
 
-def _resolve_upload_dir() -> Path:
-    """获取 uploads 目录绝对路径。
-
-    与 main.py 中的 upload_dir 定义保持一致：
-    ``Path(__file__).resolve().parent.parent.parent / "uploads"``
-    即 backend/uploads/。
-    """
-    # app/api/v1/uploads.py -> backend/uploads/
-    return Path(__file__).resolve().parent.parent.parent / "uploads"
+# ARCH-FIX-2026-10-05: 原实现硬编码「相对本文件的路径推导」，并因此让
+# tasks/scheduler.py 的定时清理任务反向 import 本 HTTP 模块（tasks → api
+# 跨层反向依赖）。现委托 app/core/paths.py，Celery worker 不再依赖 FastAPI
+# router 的导入链。保留下划线别名是因为既有代码（含 tests）按此名引用。
+_resolve_upload_dir = resolve_upload_dir
 
 
 def _safe_join(base: Path, *parts: str) -> Path:

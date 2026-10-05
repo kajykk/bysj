@@ -11,6 +11,7 @@ from app.core.celery_app import celery_app
 from app.core.celery_async import get_celery_loop
 from app.core.celery_async import run_async as _run_async
 from app.core.database import AsyncSessionLocal
+from app.core.paths import PUBLIC_DIRS, resolve_upload_dir
 from app.models.admin import OperationLog
 from app.models.counselor import CounselorProfile
 from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
@@ -733,9 +734,7 @@ def _cleanup_uploads_dir_impl(max_age_days: int = 30, referenced: set[str] | Non
     生产环境如需强一致, 应在文件上传时记录创建时间到独立元数据表, 或改用
     DB 创建时间驱动清理 (SEC-AUDIT-07 已保证被引用的文件不会被误删).
     """
-    from app.api.v1.uploads import PUBLIC_DIRS, _resolve_upload_dir
-
-    uploads_dir = _resolve_upload_dir()
+    uploads_dir = resolve_upload_dir()
     if not uploads_dir.exists():
         logger.info("uploads/ directory does not exist, skip cleanup")
         return 0

@@ -80,6 +80,29 @@ def _warn_redis_missing_for_multiworker() -> None:
         )
 
 
+def _init_shadow_sink() -> None:
+    """把影子对拍接收端注入 model_engine（ARCH-FIX-2026-10-05）.
+
+    依赖倒置：core 层只声明 ShadowSink 协议，具体实现（services 层的
+    ShadowModeService）在这里注入，使依赖方向变为 services → core。
+
+    开关关闭时不注入 —— model_engine 保持 NullShadowSink（no-op），
+    影子对拍是可选旁路功能，它不可用绝不能影响生产推理。
+    """
+    if not getattr(settings, "shadow_mode_text_enabled", False):
+        return
+
+    from app.core.model_engine import model_engine
+    from app.services.shadow_mode_service import get_shadow_mode_service
+
+    sink = get_shadow_mode_service()
+    model_engine.set_shadow_sink(sink)
+    logger.info(
+        "[SHADOW] 影子对拍接收端已注入 (sample_rate=%.2f)",
+        getattr(settings, "shadow_mode_text_sample_rate", 1.0),
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # R-006 修复: 启动状态收集器 (进程级单例)，记录每个组件的启动结果
@@ -107,6 +130,11 @@ async def lifespan(app: FastAPI):
     from app.core.celery_breaker import init_celery_breaker
 
     record_step_sync("init_celery_breaker", init_celery_breaker, fatal=True)
+    # ARCH-FIX-2026-10-05: 把影子对拍接收端注入 model_engine。
+    # 原先 core/model_engine/predict.py 直接 import services 层来触发对拍
+    # （core → services 的跨层反向依赖），现改为依赖倒置：core 声明
+    # ShadowSink 协议，实现由这里在启动时注入。未注入时是 no-op。
+    record_step_sync("init_shadow_sink", _init_shadow_sink, fatal=False)
     app.state.seed_ready = False
     # P0-1.1: startup 探针初始状态为 False, 启动完成后置 True
     app.state.started = False

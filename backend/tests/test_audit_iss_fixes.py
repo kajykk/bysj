@@ -71,7 +71,7 @@ async def test_export_failure_increments_error_counter() -> None:
     metrics.observability_export_errors_total._values.clear()
     exporter = ObservabilityExporter()
     with patch(
-        "app.api.v1.observability._compute_channel_stats",
+        "app.services.observability._compute_channel_stats",
         new=AsyncMock(side_effect=Exception("DB down")),
     ):
         await exporter._safe_set_channel(
@@ -101,13 +101,13 @@ async def test_collect_all_runs_safely_with_session_local(
         return {"by_status": {"firing": 3}}
 
     with patch(
-        "app.api.v1.observability._compute_channel_stats", new=AsyncMock(
+        "app.services.observability._compute_channel_stats", new=AsyncMock(
             side_effect=_fake_compute_fail
         )
     ), patch(
-        "app.api.v1.observability._compute_am_sync", new=AsyncMock(side_effect=_fake_compute_ok)
+        "app.services.observability._compute_am_sync", new=AsyncMock(side_effect=_fake_compute_ok)
     ), patch(
-        "app.api.v1.observability._compute_lock_stats",
+        "app.services.observability._compute_lock_stats",
         new=AsyncMock(
             return_value={
                 "memory": {
@@ -119,10 +119,10 @@ async def test_collect_all_runs_safely_with_session_local(
             }
         ),
     ), patch(
-        "app.api.v1.observability._compute_escalation",
+        "app.services.observability._compute_escalation",
         new=AsyncMock(return_value={"escalation_rate": 0.2, "total_fired": 10}),
     ), patch(
-        "app.api.v1.observability._compute_trend", new=AsyncMock(side_effect=_fake_trend)
+        "app.services.observability._compute_trend", new=AsyncMock(side_effect=_fake_trend)
     ), patch(
         "app.services.observability_exporter.AsyncSessionLocal"
     ) as mock_session_local:

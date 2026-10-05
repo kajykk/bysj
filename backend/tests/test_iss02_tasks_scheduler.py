@@ -63,8 +63,13 @@ def test_cleanup_uploads_removes_old_user_files(tmp_path, monkeypatch):
     os.utime(old_file, (old_ts, old_ts))
     os.utime(new_file, (now_ts, now_ts))
 
-    monkeypatch.setattr("app.api.v1.uploads._resolve_upload_dir", lambda: base)
-    monkeypatch.setattr("app.api.v1.uploads.PUBLIC_DIRS", frozenset({"audio", "content"}))
+    # ARCH-FIX-2026-10-05: 清理任务的路径解析与公共目录白名单已下沉到
+    # app/core/paths.py（原先 tasks 反向 import api 层，属跨层反向依赖）。
+    # 因此注入点必须改为 scheduler 真正使用的模块 —— patch api 层已无效。
+    monkeypatch.setattr("app.tasks.scheduler.resolve_upload_dir", lambda: base)
+    monkeypatch.setattr(
+        "app.tasks.scheduler.PUBLIC_DIRS", frozenset({"audio", "content"})
+    )
 
     removed = _cleanup_uploads_dir_impl(max_age_days=30)
 
@@ -79,8 +84,11 @@ def test_cleanup_uploads_removes_old_user_files(tmp_path, monkeypatch):
 
 def test_cleanup_uploads_missing_dir_returns_zero(tmp_path, monkeypatch):
     missing = tmp_path / "does_not_exist"
-    monkeypatch.setattr("app.api.v1.uploads._resolve_upload_dir", lambda: missing)
-    monkeypatch.setattr("app.api.v1.uploads.PUBLIC_DIRS", frozenset({"audio", "content"}))
+    # ARCH-FIX-2026-10-05: 注入点随路径策略下沉而变更（见上）。
+    monkeypatch.setattr("app.tasks.scheduler.resolve_upload_dir", lambda: missing)
+    monkeypatch.setattr(
+        "app.tasks.scheduler.PUBLIC_DIRS", frozenset({"audio", "content"})
+    )
     assert _cleanup_uploads_dir_impl() == 0
 
 

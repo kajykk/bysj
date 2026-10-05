@@ -64,6 +64,7 @@ from .loading import (
 )
 from .predict import PredictMixin
 from .risk import RiskMixin
+from .shadow_sink import NullShadowSink, ShadowSink
 
 
 class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, FallbackMixin, RiskMixin):
@@ -175,6 +176,14 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
         self._persist_task: asyncio.Task | None = None
         self._snapshot_path = Path(__file__).resolve().parents[3] / "logs"
         self.crisis_detector = CrisisDetector()
+        # ARCH-FIX-2026-10-05: 影子对拍接收端改为注入, 解除 core → services
+        # 的跨层反向依赖。原实现在 _maybe_fire_shadow_predict 里直接
+        # `from app.services.shadow_mode_service import ...`, 导致 core 被
+        # import 时就拉起 services + ML 依赖树 —— 任何只想用 ModelEngine 做
+        # 纯推理的脚本/单测都必须能 import 完整依赖树, 缺 transformers 就在
+        # import 期炸掉而非调用推理时。
+        # 现在 core 只声明能力(ShadowSink 协议), 实现由 main.py 启动时注入。
+        self._shadow_sink: ShadowSink = NullShadowSink()
         # MAINT-P2-003: 延迟导入 app.ml, 避免 app.core 顶层依赖 app.ml
         from app.ml.fusion_engine import FusionEngine
         from app.ml.fusion_priority_engine import FusionPriorityEngine
@@ -186,6 +195,17 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
             use_confidence_weighting=True,
             use_modality_missing_handling=True,
         )
+
+    def set_shadow_sink(self, sink: ShadowSink) -> None:
+        """注入影子对拍接收端（ARCH-FIX-2026-10-05，解除 core → services 依赖）.
+
+        由应用启动流程（main.py lifespan）调用，传入
+        app.services.shadow_mode_service.ShadowModeService 实例。
+        core 层只声明能力，不认识具体实现。
+
+        传入 None 可重置为 no-op（用于测试隔离）。
+        """
+        self._shadow_sink = sink if sink is not None else NullShadowSink()
 
 
 # ── T-P2-001 PHASE_2 → 包结构化拆分: 方法归属索引 ──

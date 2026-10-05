@@ -288,13 +288,13 @@ def with_instance_meta(
 # ===== compute 函数 re-export (patch 路径兼容) =====
 # 测试通过 monkeypatch.setattr(obs_mod, "_compute_*") 替换, 必须在本模块命名空间可见.
 # 端点的 __globals__ 即本模块, lambda 内引用 _compute_* 会从此处查找.
-from app.api.v1.observability.aggregate import (  # noqa: E402
+from app.services.observability.aggregate import (  # noqa: E402
     _compute_am_sync,
     _compute_channel_stats,
     _compute_lock_stats,
     _compute_silence_hit_rate,
 )
-from app.api.v1.observability.query import (  # noqa: E402
+from app.services.observability.query import (  # noqa: E402
     _compute_escalation,
     _compute_response_time,
     _compute_trend,

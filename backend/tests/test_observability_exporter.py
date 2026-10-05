@@ -81,19 +81,19 @@ async def test_collect_all_writes_gauges() -> None:
     trend_data = {"by_status": {"firing": 10}}
 
     with patch(
-        "app.api.v1.observability._compute_channel_stats",
+        "app.services.observability._compute_channel_stats",
         new=AsyncMock(return_value=channel_data),
     ), patch(
-        "app.api.v1.observability._compute_am_sync",
+        "app.services.observability._compute_am_sync",
         new=AsyncMock(return_value=am_sync_data),
     ), patch(
-        "app.api.v1.observability._compute_lock_stats",
+        "app.services.observability._compute_lock_stats",
         new=AsyncMock(return_value=lock_data),
     ), patch(
-        "app.api.v1.observability._compute_escalation",
+        "app.services.observability._compute_escalation",
         new=AsyncMock(return_value=escalation_data),
     ), patch(
-        "app.api.v1.observability._compute_trend",
+        "app.services.observability._compute_trend",
         new=AsyncMock(return_value=trend_data),
     ), patch(
         "app.services.observability_exporter.AsyncSessionLocal"
@@ -127,13 +127,13 @@ async def test_collect_all_continues_on_error() -> None:
     exporter._counter_initialized = True
 
     with patch(
-        "app.api.v1.observability._compute_channel_stats",
+        "app.services.observability._compute_channel_stats",
         new=AsyncMock(side_effect=Exception("DB down")),
     ), patch(
-        "app.api.v1.observability._compute_am_sync",
+        "app.services.observability._compute_am_sync",
         new=AsyncMock(return_value={"success_rate": 0.50, "total": 100}),
     ), patch(
-        "app.api.v1.observability._compute_lock_stats",
+        "app.services.observability._compute_lock_stats",
         new=AsyncMock(
             return_value={
                 "memory": {
@@ -145,10 +145,10 @@ async def test_collect_all_continues_on_error() -> None:
             }
         ),
     ), patch(
-        "app.api.v1.observability._compute_escalation",
+        "app.services.observability._compute_escalation",
         new=AsyncMock(return_value={"escalation_rate": 0.20, "total_fired": 100}),
     ), patch(
-        "app.api.v1.observability._compute_trend",
+        "app.services.observability._compute_trend",
         new=AsyncMock(return_value={"by_status": {"firing": 5}}),
     ), patch(
         "app.services.observability_exporter.AsyncSessionLocal"
@@ -729,7 +729,7 @@ class TestSafeSetAlertTotalH8Fix:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_trend",
+            "app.services.observability._compute_trend",
             new=AsyncMock(return_value={"by_status": {"firing": 100}}),
         ):
             await exporter._safe_set_alert_total(db, start, end)
@@ -749,7 +749,7 @@ class TestSafeSetAlertTotalH8Fix:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_trend",
+            "app.services.observability._compute_trend",
             new=AsyncMock(return_value={"by_status": {"firing": 50}}),
         ):
             with caplog.at_level(
@@ -771,7 +771,7 @@ class TestSafeSetAlertTotalH8Fix:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_trend",
+            "app.services.observability._compute_trend",
             new=AsyncMock(return_value={"by_status": {"firing": 115}}),
         ):
             await exporter._safe_set_alert_total(db, start, end)
@@ -790,7 +790,7 @@ class TestSafeSetAlertTotalH8Fix:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_trend",
+            "app.services.observability._compute_trend",
             new=AsyncMock(return_value={"by_status": {"firing": 100}}),
         ):
             await exporter._safe_set_alert_total(db, start, end)
@@ -810,7 +810,7 @@ class TestSafeSetAlertTotalH8Fix:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_trend",
+            "app.services.observability._compute_trend",
             new=AsyncMock(return_value={"by_status": {"firing": 95}}),
         ):
             await exporter._safe_set_alert_total(db, start, end)
@@ -830,7 +830,7 @@ class TestSafeSetAlertTotalH8Fix:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_trend",
+            "app.services.observability._compute_trend",
             new=AsyncMock(side_effect=RuntimeError("trend crashed")),
         ):
             with caplog.at_level(
@@ -854,7 +854,7 @@ class TestSafeSetAlertTotalH8Fix:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_trend",
+            "app.services.observability._compute_trend",
             new=AsyncMock(return_value={}),  # 缺少 by_status 键
         ):
             await exporter._safe_set_alert_total(db, start, end)
@@ -880,7 +880,7 @@ class TestSafeSetChannel:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_channel_stats",
+            "app.services.observability._compute_channel_stats",
             new=AsyncMock(side_effect=Exception("channel crashed")),
         ):
             with caplog.at_level(
@@ -899,7 +899,7 @@ class TestSafeSetChannel:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_channel_stats",
+            "app.services.observability._compute_channel_stats",
             new=AsyncMock(return_value={}),  # 无 total (无记录)
         ):
             await exporter._safe_set_channel(db, start, end)
@@ -914,7 +914,7 @@ class TestSafeSetChannel:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_channel_stats",
+            "app.services.observability._compute_channel_stats",
             new=AsyncMock(return_value={"total": 10}),  # 缺 overall_success_rate
         ):
             await exporter._safe_set_channel(db, start, end)
@@ -938,7 +938,7 @@ class TestSafeSetAmSync:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_am_sync",
+            "app.services.observability._compute_am_sync",
             new=AsyncMock(side_effect=Exception("am sync crashed")),
         ):
             with caplog.at_level(
@@ -957,7 +957,7 @@ class TestSafeSetAmSync:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_am_sync",
+            "app.services.observability._compute_am_sync",
             new=AsyncMock(return_value={}),  # 无 total (无记录)
         ):
             await exporter._safe_set_am_sync(db, start, end)
@@ -972,7 +972,7 @@ class TestSafeSetAmSync:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_am_sync",
+            "app.services.observability._compute_am_sync",
             new=AsyncMock(return_value={"total": 10}),  # 缺 success_rate
         ):
             await exporter._safe_set_am_sync(db, start, end)
@@ -995,7 +995,7 @@ class TestSafeSetLock:
         db = _make_db_mock()
 
         with patch(
-            "app.api.v1.observability._compute_lock_stats",
+            "app.services.observability._compute_lock_stats",
             new=AsyncMock(side_effect=Exception("lock crashed")),
         ):
             with caplog.at_level(
@@ -1025,7 +1025,7 @@ class TestSafeSetLock:
             }
         }
         with patch(
-            "app.api.v1.observability._compute_lock_stats",
+            "app.services.observability._compute_lock_stats",
             new=AsyncMock(return_value=lock_data),
         ):
             await exporter._safe_set_lock(db)
@@ -1042,7 +1042,7 @@ class TestSafeSetLock:
         db = _make_db_mock()
 
         with patch(
-            "app.api.v1.observability._compute_lock_stats",
+            "app.services.observability._compute_lock_stats",
             new=AsyncMock(return_value={}),
         ):
             await exporter._safe_set_lock(db)
@@ -1069,7 +1069,7 @@ class TestSafeSetEscalation:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_escalation",
+            "app.services.observability._compute_escalation",
             new=AsyncMock(side_effect=Exception("escalation crashed")),
         ):
             with caplog.at_level(
@@ -1088,7 +1088,7 @@ class TestSafeSetEscalation:
         start, end = _time_window()
 
         with patch(
-            "app.api.v1.observability._compute_escalation",
+            "app.services.observability._compute_escalation",
             new=AsyncMock(return_value={}),
         ):
             await exporter._safe_set_escalation(db, start, end)

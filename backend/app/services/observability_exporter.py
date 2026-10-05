@@ -220,7 +220,7 @@ class ObservabilityExporter:
         Grafana NoData → 规则 noDataState=OK 不告警 (空闲误报修复)。
         """
         try:
-            from app.api.v1.observability import _compute_channel_stats
+            from app.services.observability import _compute_channel_stats
 
             # channel=None 表示聚合所有通道 (与 API 端点默认行为一致)
             cs = await _compute_channel_stats(db, start, end, None)
@@ -240,7 +240,7 @@ class ObservabilityExporter:
         H-AUDIT-01: 同 _safe_set_channel — 无记录不发样本 (NoData → OK)。
         """
         try:
-            from app.api.v1.observability import _compute_am_sync
+            from app.services.observability import _compute_am_sync
 
             # operation=None 表示聚合所有操作 (与 API 端点默认行为一致)
             am = await _compute_am_sync(db, start, end, None)
@@ -256,7 +256,7 @@ class ObservabilityExporter:
         H-AUDIT-01: 同 _safe_set_channel — 无记录不发样本 (NoData → OK)。
         """
         try:
-            from app.api.v1.observability import _compute_lock_stats
+            from app.services.observability import _compute_lock_stats
 
             lk = await _compute_lock_stats(db)
             # _compute_lock_stats 返回嵌套结构: {"memory": {...}, "historical_recent": {...}}
@@ -278,7 +278,7 @@ class ObservabilityExporter:
         H-AUDIT-01: 同 _safe_set_channel — 无 fired 记录不发样本 (NoData → OK)。
         """
         try:
-            from app.api.v1.observability import _compute_escalation
+            from app.services.observability import _compute_escalation
 
             # severity=None 表示聚合所有严重度 (与 API 端点默认行为一致)
             es = await _compute_escalation(db, start, end, None)
@@ -293,7 +293,7 @@ class ObservabilityExporter:
     ) -> None:
         """8. 告警总量 (Counter, 仅累加 delta)."""
         try:
-            from app.api.v1.observability import _compute_trend
+            from app.services.observability import _compute_trend
 
             # bucket="1h", severity=None, status=None, group_by="none"
             # 表示获取全量合计 (与 API 端点默认行为一致)
