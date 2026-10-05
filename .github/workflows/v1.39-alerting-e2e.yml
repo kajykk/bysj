@@ -36,7 +36,13 @@ jobs:
       # CI 注入的占位 env var (prometheus/grafana 配置由模板生成, 见 Generate Prometheus 步骤)
       POSTGRES_PASSWORD: ci-postgres-pwd
       REDIS_PASSWORD: ci-redis-pwd
-      JWT_SECRET_KEY: ci-jwt-secret-for-e2e-only
+      # AUDIT-2026-09-30-P1-6 起config.py 有 _validate_jwt_secret_strength:
+      # production 模式要求 >= 32 字符且字符类别 >= 2。原先这里的 26 字符占位值
+      # (ci-jwt-secret-for-e2e-only) 自2026-08-06 写下后再未更新, 校验落地后
+      # 每次触发都必然让 alembic_migrate 在 Settings() 处 ValidationError 退出 1,
+      # 进而 compose 报 "didn't complete successfully", 整个 Start stack 步骤红灯。
+      # 2026-10-05 定位并修复; 下界按 config.py 的_MIN_JWT_SECRET_LENGTH 保持同步。
+      JWT_SECRET_KEY: ci-e2e-jwt-secret-0123456789abcdef-XYZ
       GRAFANA_ADMIN_PASSWORD: ci-grafana-admin
       GRAFANA_SA_TOKEN: ci-grafana-sa-token
       GRAFANA_WEBHOOK_URL: https://example.invalid/ci-webhook
@@ -220,11 +226,20 @@ jobs:
           fi
           echo "PASS: TC-AT-017 sre-webhook 不指向公网测试服务"
 
+      # 取证修复 (2026-10-05): 原实现只抓 backend + grafana 两个容器日志, 而
+      # Start stack 失败的唯一报错方是 alembic_migrate —— 结果失败时 artifact 仅
+      # 254 字节 (≈两个空文件), 根因在日志里完全不可见, 只能靠本地复现才定位到。
+      # 改为: 抓全量容器日志 + compose ps 状态快照 (含退出码), 保证下次失败
+      # 第一手就有可读证据。docker compose logs --no-color 全服务落盘。
       - name: Upload logs on failure
         if: failure()
         run: |
-          docker compose logs backend --tail 200 > backend.log 2>&1 || true
-          docker compose logs grafana --tail 200 > grafana.log 2>&1 || true
+          docker compose ps -a --no-color > compose-ps.txt 2>&1 || true
+          docker compose logs --no-color --tail 300 > compose-all.log 2>&1 || true
+          # 单独留一份, 便于 artifact 预览时直接命中关键服务
+          docker compose logs --no-color --tail 300 alembic_migrate > alembic-migrate.log 2>&1 || true
+          echo "--- artifact 内容自检 ---"
+          wc -c compose-ps.txt compose-all.log alembic-migrate.log
 
       - name: Upload logs artifact
         if: always()
@@ -232,10 +247,13 @@ jobs:
         with:
           name: v139-alerting-e2e-logs
           path: |
-            backend.log
-            grafana.log
+            compose-ps.txt
+            compose-all.log
+            alembic-migrate.log
           retention-days: 7
-          if-no-files-found: ignore
+          # 不再 if-no-files-found: ignore —— 忽略即让"日志为空"变成静默假象,
+          # 这正是本次根因看不见的直接原因; 抓不到就该让 artifact 步骤显式失败。
+          if-no-files-found: error
 
       - name: Stop stack
         if: always()
