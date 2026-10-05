@@ -231,8 +231,14 @@ jobs:
       # 254 字节 (≈两个空文件), 根因在日志里完全不可见, 只能靠本地复现才定位到。
       # 改为: 抓全量容器日志 + compose ps 状态快照 (含退出码), 保证下次失败
       # 第一手就有可读证据。docker compose logs --no-color 全服务落盘。
-      - name: Upload logs on failure
-        if: failure()
+      #
+      # if: always() 而非 failure() —— 下方 artifact 步骤是 always() 且
+      # if-no-files-found: error; 若日志抓取仅在失败时跑, 则**成功路径下文件
+      # 不存在**, artifact 步骤会因找不到文件而失败 (run 37309958431 实测:
+      # 业务 7 步全绿, 唯step15 失败)。改成始终抓取, 使 error 闸门只在
+      # "连日志都落不了盘" 时才触发, 那才是真正需要暴露的静默假象。
+      - name: Collect logs
+        if: always()
         run: |
           docker compose ps -a --no-color > compose-ps.txt 2>&1 || true
           docker compose logs --no-color --tail 300 > compose-all.log 2>&1 || true

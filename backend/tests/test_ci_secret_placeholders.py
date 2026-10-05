@@ -170,3 +170,32 @@ class TestFailureArtifactsCaptureMigrateLogs:
         assert "if-no-files-found:" in block and "error" in block, (
             "upload-artifact 步骤必须显式声明 if-no-files-found: error"
         )
+
+    def test_log_collection_is_always_not_failure_only(self):
+        """日志抓取必须是 if: always(), 不能是 if: failure()。
+
+        实测回归 (run 37309958431): 日志抓取原为 if: failure(), 而 artifact
+        步骤是 if: always() + if-no-files-found: error —— 成功路径下日志抓取
+        被跳过, 文件不存在, artifact 步骤因找不到文件而失败, 业务 7 步全绿却
+        整轮红灯。error 闸门只该在"日志压根落不了盘"时触发。
+        """
+        text = self._content()
+        idx = text.find("name: Collect logs")
+        if idx == -1:
+            idx = text.find("name: Upload logs on failure")
+        assert idx != -1, "未找到日志抓取步骤"
+
+        # 该步骤的 if: 条件出现在其后的第一个非注释行
+        condition = ""
+        for line in text[idx:].splitlines()[1:]:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if stripped.startswith("if:"):
+                condition = stripped
+            break
+
+        assert condition == "if: always()", (
+            f"日志抓取步骤的 if条件为 {condition!r}, 应为 if: always() —— "
+            "否则成功路径下文件不存在, artifact 的 error 闸门会误伤"
+        )
