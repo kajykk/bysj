@@ -82,13 +82,31 @@ def compute_escalation(alert: OperationLog, now: datetime) -> EscalationDecision
     age = now - alert.created_at
 
     # P1 10 分钟未确认 -> 升级到 P0
+    #
+    # SEC-FIX-2026-10-05（状态机卡死）:
+    #   原实现只在返回的 detail 里写 escalation_level=1，却**从不更新 severity**。
+    #   而 compute_escalation 的 severity 取自 detail["severity"]（第 81 行），
+    #   于是升级后 severity 仍是 "P1"：
+    #     - 第 85 行因 `escalation_level < 1` 不成立被跳过；
+    #     - 第 95/105 行的 `severity == "P0"` 判定**永假**。
+    #   结果：P1 告警在 10 分钟升级为 level=1 后永久停滞，
+    #   docstring 承诺的「30 分钟未确认 P0 → 再次通知」与
+    #   「1 小时 → 记录 OperationLog 合规追踪」**永不发生** —— 已升级的告警
+    #   从此静默，无人再被提醒。这是 P1 告警的默认路径，不是边界情况。
+    #   （原生 severity=P0 的告警不走本分支，能正常走完 2→3 级。）
     if severity == "P1" and age >= ESCALATION_THRESHOLDS["P1_to_P0"] and escalation_level < 1:
         return EscalationDecision(
             alert_id=alert.id,
             should_escalate=True,
             new_severity="P0",
             reason=f"P1 unconfirmed for {int(age.total_seconds() // 60)}min, escalating to P0",
-            detail={**detail, "escalation_level": 1, "escalated_at": now.isoformat()},
+            # severity 必须一并提升为 "P0"，否则下一轮判定全部落空。
+            detail={
+                **detail,
+                "severity": "P0",
+                "escalation_level": 1,
+                "escalated_at": now.isoformat(),
+            },
         )
 
     # P0 30 分钟 -> 再次发送
@@ -153,7 +171,16 @@ async def apply_escalation(
         row = (await db.execute(select(OperationLog).where(OperationLog.id == d.alert_id))).scalar_one_or_none()
         if row is None:
             continue
-        row.detail = json.dumps(d.detail, ensure_ascii=False)
+        # SEC-FIX-2026-10-05: 落库时以 new_severity 为准提升 severity。
+        # compute_escalation 现在会在 P1→P0 分支一并写入 severity，但
+        # 其他分支（P0 的 2→3 级）new_severity 也是 "P0"，不改变原值，
+        # 因此这里做一次统一兜底，保证 detail["severity"] 与决策一致。
+        # 缺了这一步就会复现原缺陷：detail 里 escalation_level 升了但
+        # severity 没升，下一轮 severity=="P0" 判定永假 → 永久停滞。
+        detail_to_persist = d.detail
+        if d.new_severity and detail_to_persist.get("severity") != d.new_severity:
+            detail_to_persist = {**detail_to_persist, "severity": d.new_severity}
+        row.detail = json.dumps(detail_to_persist, ensure_ascii=False)
         # 记录升级事件
         escalation_log = OperationLog(
             operator_id=None,
