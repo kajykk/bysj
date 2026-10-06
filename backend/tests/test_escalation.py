@@ -157,6 +157,36 @@ def test_compute_escalation_invalid_detail_json() -> None:
     assert "no escalation" in decision.reason
 
 
+def test_corrupted_detail_is_observable(caplog) -> None:
+    """AUDIT-2026-10-06 (P1-6): detail 解析失败不再静默置 {} —— 必须计数 + 打 warning.
+
+    后果（原实现无任何痕迹，只能从下游现象反推）：
+      1) acknowledged 丢失 → 已确认的告警被误判为未确认，持续升级到 P0；
+      2) escalation_level 归零 → 同一告警被重复升级。
+    """
+    from app.core.metrics import alert_detail_parse_failed_total
+
+    def _count() -> float:
+        # 自研指标实现：无 prometheus_client 全局 REGISTRY，只能 collect() 取值
+        for labels, value in alert_detail_parse_failed_total.collect():
+            if labels.get("stage") == "escalation":
+                return value
+        return 0.0
+
+    alert = _make_alert(severity="P1", age_minutes=10)
+    alert.detail = "not-valid-json{"
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    before = _count()
+    with caplog.at_level("WARNING", logger="app.monitoring.escalation"):
+        decision = compute_escalation(alert, now)
+
+    # 行为不变（仍按空 detail 处理、不升级），但必须留下痕迹
+    assert decision.should_escalate is False
+    assert _count() == before + 1
+    assert "解析失败" in caplog.text
+
+
 def test_compute_escalation_none_detail() -> None:
     """detail 为 None 时应回退到空 dict, 不升级."""
     alert = _make_alert(severity="P1", age_minutes=10)

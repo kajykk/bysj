@@ -174,19 +174,62 @@ async def _daily_risk_scan_impl():
                 break
             last_user_id = users[-1].id
 
-            for user in users:
-                scanned_count += 1
-                # PERF-P2-002: 使用 is_latest 标志替代 ORDER BY created_at DESC LIMIT 1
-                latest_risk_stmt = (
-                    select(RiskAssessment)
-                    .where(
-                        RiskAssessment.user_id == user.id,
-                        RiskAssessment.is_latest.is_(True),
-                    )
-                    .limit(1)
-                )
-                latest_risk = (await db.execute(latest_risk_stmt)).scalar_one_or_none()
+            # PERF-2026-10-06: 消除 N+1。
+            # 原实现对每个用户单独发 3 条查询（latest_risk / WarningSetting /
+            # UserCounselorBinding），1 万活跃用户 = 3 万次往返 + 500 次分页，
+            # 且整段在同一事务内。改为**按页批量预取**：3×N → 3（每页固定 3 条）。
+            user_ids = [u.id for u in users]
+            scanned_count += len(users)
 
+            # 1) 本页全部用户的最新风险评估（沿用 PERF-P2-002 的 is_latest 标志）
+            latest_risk_stmt = select(RiskAssessment).where(
+                RiskAssessment.user_id.in_(user_ids),
+                RiskAssessment.is_latest.is_(True),
+            )
+            latest_risk_map = {
+                r.user_id: r
+                for r in (await db.execute(latest_risk_stmt)).scalars().all()
+            }
+
+            # 2) 仅对「超过 7 天未评估且风险 >= 2」的用户批量取阈值设置
+            stale_high_risk_ids: list[int] = []
+            for uid in user_ids:
+                risk = latest_risk_map.get(uid)
+                if risk is None:
+                    continue
+                days = (datetime.now(UTC) - _to_aware_utc(risk.created_at)).days
+                if days > 7 and risk.risk_level >= 2:
+                    stale_high_risk_ids.append(uid)
+
+            setting_map: dict[int, WarningSetting] = {}
+            if stale_high_risk_ids:
+                setting_stmt = select(WarningSetting).where(
+                    WarningSetting.user_id.in_(stale_high_risk_ids)
+                )
+                setting_map = {
+                    s.user_id: s for s in (await db.execute(setting_stmt)).scalars().all()
+                }
+
+            # 3) 仅对「达到阈值」的用户批量取咨询师绑定
+            eligible_ids = [
+                uid
+                for uid in stale_high_risk_ids
+                if latest_risk_map[uid].risk_level
+                >= (setting_map[uid].threshold_level if uid in setting_map else 2)
+            ]
+            binding_map: dict[int, UserCounselorBinding] = {}
+            if eligible_ids:
+                bind_stmt = select(UserCounselorBinding).where(
+                    UserCounselorBinding.user_id.in_(eligible_ids),
+                    UserCounselorBinding.status == "active",
+                )
+                binding_map = {
+                    b.user_id: b
+                    for b in (await db.execute(bind_stmt)).scalars().unique().all()
+                }
+
+            for user in users:
+                latest_risk = latest_risk_map.get(user.id)
                 if latest_risk is None:
                     continue
 
@@ -194,18 +237,11 @@ async def _daily_risk_scan_impl():
                     datetime.now(UTC) - _to_aware_utc(latest_risk.created_at)
                 ).days
                 if days_since > 7 and latest_risk.risk_level >= 2:
-                    setting_stmt = select(WarningSetting).where(
-                        WarningSetting.user_id == user.id
-                    )
-                    setting = (await db.execute(setting_stmt)).scalar_one_or_none()
+                    setting = setting_map.get(user.id)
                     threshold = setting.threshold_level if setting else 2
 
                     if latest_risk.risk_level >= threshold:
-                        bind_stmt = select(UserCounselorBinding).where(
-                            UserCounselorBinding.user_id == user.id,
-                            UserCounselorBinding.status == "active",
-                        )
-                        binding = (await db.execute(bind_stmt)).scalar_one_or_none()
+                        binding = binding_map.get(user.id)
                         trigger_reason = (
                             f"用户风险等级{latest_risk.risk_level}级且超过"
                             f"{days_since}天未评估，建议关注"

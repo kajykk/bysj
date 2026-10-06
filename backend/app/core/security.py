@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Any
@@ -116,6 +117,31 @@ def get_password_hash(password: str) -> str:
     validate_password_bytes(password)
     truncated = password.encode("utf-8")[:MAX_PASSWORD_BYTES]
     return bcrypt.hashpw(truncated, bcrypt.gensalt()).decode("utf-8")
+
+
+async def verify_password_async(plain_password: str, hashed_password: str) -> bool:
+    """``verify_password`` 的异步包装 (PERF-2026-10-06).
+
+    bcrypt.checkpw 单次耗时约 100–200ms，且在部分构建下不释放 GIL。
+    直接在 ``async def`` 里调用会阻塞整个事件循环 —— 同 worker 上的
+    全部并发请求（含 /predict/*）都会停顿。这里卸载到线程池。
+
+    注意：语义与同步版本完全一致（含超长密码直接返回 False、
+    哈希非法返回 False），只有执行位置变了。
+    """
+    return await asyncio.to_thread(verify_password, plain_password, hashed_password)
+
+
+async def get_password_hash_async(password: str) -> str:
+    """``get_password_hash`` 的异步包装 (PERF-2026-10-06).
+
+    bcrypt.hashpw + gensalt 单次约 200–300ms，是注册/改密路径上
+   最重的一次 CPU 开销，同样卸载到线程池。
+
+    Raises:
+        ValueError: 密码超过 MAX_PASSWORD_BYTES（与同步版本一致）
+    """
+    return await asyncio.to_thread(get_password_hash, password)
 
 
 def _build_token(

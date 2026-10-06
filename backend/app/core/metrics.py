@@ -366,6 +366,18 @@ warning_notify_failed_total = Counter(
     "Total warning WebSocket notifications that failed after all retries (silent miss).",
 )
 
+# AUDIT-2026-10-06 (P1-6): OperationLog.detail 的 JSON 解析失败计数。
+# 告警去重与升级状态机都把状态缓存在 detail 里；解析失败会导致
+#   - dedup:      指纹比对永不成立 → 同一告警重复发送（告警风暴）
+#   - escalation: acknowledged / escalation_level 丢失 → 已确认告警被重复升级到 P0
+# 原实现在这两处是 `continue` / `detail = {}` 且**零日志**，故障只能从下游现象反推。
+# 建议告警规则：increase(alert_detail_parse_failed_total[1h]) > 0
+alert_detail_parse_failed_total = Counter(
+    "alert_detail_parse_failed_total",
+    "Total OperationLog.detail JSON parse failures in the alert pipeline, by stage.",
+    ["stage"],
+)
+
 # ISS-103 修复: ObservabilityExporter 导出失败计数 (按 metric 名分标签)
 observability_export_errors_total = Counter(
     "observability_export_errors_total",

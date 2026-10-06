@@ -134,6 +134,22 @@ async def get_current_user(
     if not user.role:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户角色缺失")
 
+    # AUDIT-2026-10-06 (P0-1): token 租户声明与用户当前租户比对。
+    # 场景：用户被迁到租户 B 后，手上租户 A 的旧 token（最长 2h）仍能通过校验。
+    # 缺了这层，"改租户/跨租户迁移" 要等 token 自然过期才生效。
+    token_tenant = payload.get("tenant_id")
+    if isinstance(token_tenant, int) and token_tenant != (user.tenant_id or DEFAULT_TENANT_ID):
+        logger.warning(
+            "Rejecting token with stale tenant claim: token_tenant=%s, user_tenant=%s, user_id=%s",
+            token_tenant,
+            user.tenant_id,
+            user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token租户与当前用户租户不匹配",
+        )
+
     # SEC-P1-001: 校验 JWT role 与 DB role 一致 (防止降权后继续使用旧 token)
     token_role = payload.get("role")
     if token_role and token_role != user.role:
@@ -174,25 +190,54 @@ def _role_for_request(request: Request) -> str | None:
 
 
 def require_role(*roles: str):
+    """角色层级校验依赖工厂.
+
+    AUDIT-2026-10-06 (P0-1)：原实现**只校验角色、不校验租户**，与
+    ``tenant_context.require_role_tenant_scoped`` 形成两套标准 —— 使用本依赖的
+    约 40 个路由（user_data / user_content / user_warning / user_intervention /
+    user_risk / counselor / review …）完全没有租户绑定，租户 A 的用户改
+    ``X-Tenant-ID`` 头即可在租户 B 上下文里通过校验。
+
+    现在租户一致性校验收敛为**所有角色依赖的默认行为**：本函数委托
+    ``_check_role_and_tenant``，与 ``require_role_tenant_scoped`` /
+    ``require_platform_admin`` 共用同一份判定，消除双标准漂移。
+    """
     allowed = set(roles)
 
     async def checker(
         request: Request,
         current_user: Annotated[User, Depends(get_current_user)],
     ) -> User:
-        # 未知角色直接拒绝，防止注入异常角色名绕过权限
-        if current_user.role not in ROLE_HIERARCHY:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
-        effective = ROLE_HIERARCHY[current_user.role]
-        if effective.intersection(allowed):
-            return current_user
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
+        # 延迟导入：tenant_context 模块级 import 了 core.deps，
+        # 这里若在模块顶层 import 会形成启动期循环依赖。
+        from app.core.tenant_context import _check_role_and_tenant
+
+        # 角色层级校验 + 租户上下文一致性校验（未知角色同样在内部被拒绝）
+        _check_role_and_tenant(request, current_user, allowed)
+        return current_user
 
     return checker
 
 
 def require_permission(permission: str):
-    async def checker(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    """细粒度权限校验依赖工厂（不含角色层级，仅查 PERMISSION_MATRIX）.
+
+    AUDIT-2026-10-06 (P0-1)：与 ``require_role`` 同源问题 —— 原实现只看权限矩阵，
+    不做租户绑定。这里补上租户一致性校验（复用 ``_check_role_and_tenant``），
+    但**保留原有的轻量语义**：不额外要求角色属于某个层级
+    （因此传入全量角色集合，只借用它做租户校验）。
+    """
+
+    async def checker(
+        request: Request,
+        current_user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        # 延迟导入：tenant_context 模块级 import 了 core.deps。
+        from app.core.tenant_context import _check_role_and_tenant
+
+        # 只借用它做「角色已知 + 租户一致」两项校验，不限制角色层级
+        _check_role_and_tenant(request, current_user, set(ROLE_HIERARCHY.keys()))
+
         granted = PERMISSION_MATRIX.get(current_user.role, set())
         if permission not in granted:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")

@@ -273,7 +273,13 @@ def list_training_jobs() -> list[dict[str, Any]]:
         if redis_jobs:
             return redis_jobs
     except Exception:
-        pass
+        # AUDIT-2026-10-06 (P1-9): 原实现裸 `pass` —— Redis 读取失败时静默回退
+        # 进程内内存表，用户看到的是残缺的本进程子集（Redis 里可能还有正在运行的
+        # 任务），而服务端不留任何痕迹。补日志，使降级可见。
+        logger.warning(
+            "读取 Redis 训练任务列表失败, 回退进程内内存表 (结果可能不完整)",
+            exc_info=True,
+        )
     with TRAINING_JOBS_LOCK:
         return [dict(item) for item in TRAINING_JOBS.values()]
 

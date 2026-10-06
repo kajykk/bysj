@@ -37,7 +37,10 @@ def _close_thread_smtp() -> None:
         try:
             conn.quit()
         except Exception:
-            pass
+            # AUDIT-2026-10-06 (P1-9): 原实现裸 `pass`。quit() 失败意味着服务端
+            # 连接可能残留到超时才释放；此处补 debug 日志，便于在 SMTP 连接数
+            # 异常增长时归因（连接本身已在下方置空，不会重复复用）。
+            logger.debug("SMTP quit() 失败, 连接未优雅关闭", exc_info=True)
         _SMTP_TLS.conn = None
 
 

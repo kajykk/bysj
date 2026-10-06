@@ -9,14 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
 from app.core.config import settings
+from app.core.contracts import DEFAULT_TENANT_ID
 from app.core.pii_crypto import blind_index_candidates, compute_blind_index
 from app.core.security import (
     create_access_token,
     create_password_reset_token,
     create_refresh_token,
     decode_token,
-    get_password_hash,
-    verify_password,
+    get_password_hash_async,
+    verify_password_async,
 )
 from app.models.auth import RefreshTokenSession
 from app.models.user import User, UserProfile
@@ -38,11 +39,17 @@ logger = logging.getLogger(__name__)
 _DUMMY_PASSWORD_HASH: str | None = None
 
 
-def _get_dummy_password_hash() -> str:
-    """懒加载时序攻击防护的 dummy bcrypt 哈希。"""
+async def _get_dummy_password_hash_async() -> str:
+    """懒加载时序攻击防护的 dummy bcrypt 哈希 (异步).
+
+    PERF-2026-10-06: 首次调用会执行一次 bcrypt.gensalt + hashpw（约 200–300ms），
+    走线程池，避免用户不存在路径反而阻塞事件循环。
+    """
     global _DUMMY_PASSWORD_HASH
     if _DUMMY_PASSWORD_HASH is None:
-        _DUMMY_PASSWORD_HASH = get_password_hash("dummy-password-for-timing-protection")
+        _DUMMY_PASSWORD_HASH = await get_password_hash_async(
+            "dummy-password-for-timing-protection"
+        )
     return _DUMMY_PASSWORD_HASH
 
 
@@ -72,7 +79,7 @@ class AuthService:
             username=payload.username,
             email=payload.email,
             email_hash=email_hash,
-            password_hash=get_password_hash(payload.password),
+            password_hash=await get_password_hash_async(payload.password),
             role="user",  # SEC-001 修复：强制注册用户为 user 角色，咨询师账号需管理员创建
             status="active",
         )
@@ -90,25 +97,54 @@ class AuthService:
 
         return {"id": user.id, "username": user.username, "role": user.role}
 
-    async def login(self, payload: LoginRequest) -> dict:
+    async def login(self, payload: LoginRequest, tenant_id: int | None = None) -> dict:
+        """登录（AUDIT-2026-10-06：按请求租户隔离）。
+
+        Args:
+            payload: 登录请求
+            tenant_id: 当前请求解析出的租户 ID（由路由从 request.state 传入）。
+                None 视为默认租户，保证单租户部署/既有调用不受影响。
+        """
         stmt = (
             select(User)
-            .options(load_only(User.id, User.username, User.password_hash, User.role, User.status))
-            .where(User.username == payload.username)
+            # AUDIT-2026-10-06: tenant_id 必须显式 load_only —— 否则访问
+            # user.tenant_id 会触发惰性加载，在 async 上下文抛 MissingGreenlet。
+            .options(
+                load_only(
+                    User.id,
+                    User.username,
+                    User.password_hash,
+                    User.role,
+                    User.status,
+                    User.tenant_id,
+                )
+            )
+            .where(
+                User.username == payload.username,
+                # AUDIT-2026-10-06 (P0-1): 登录必须绑定请求租户。
+                # 原实现按 username 全局查 —— 租户 A 的用户可以在租户 B 的
+                # 上下文里登录成功并拿到有效 JWT（ADR-001 要求的租户隔离在
+                # 认证入口完全缺失）。tenant_id=None 时回退默认租户，
+                # 保证单租户部署与既有 API 行为不变。
+                User.tenant_id == (tenant_id if tenant_id is not None else DEFAULT_TENANT_ID),
+            )
         )
         user = (await self.db.execute(stmt)).scalar_one_or_none()
         if not user:
             # 时序攻击防护：用户不存在时仍执行一次 bcrypt 验证，消耗相同时间
-            verify_password(payload.password, _get_dummy_password_hash())
+            await verify_password_async(payload.password, await _get_dummy_password_hash_async())
             raise ValueError("用户名或密码错误")
-        if not verify_password(payload.password, user.password_hash):
+        if not await verify_password_async(payload.password, user.password_hash):
             raise ValueError("用户名或密码错误")
         if user.status != "active":
             raise ValueError("用户已被禁用")
 
-        access_token = create_access_token({"sub": str(user.id), "role": user.role})
+        # tenant_id 进 JWT：下游 get_current_user 用它比对"token 签发时的租户"
+        # 与"用户当前租户"，使跨租户迁移/改租户立即生效，不必等 token 过期。
+        claims = {"sub": str(user.id), "role": user.role, "tenant_id": user.tenant_id or DEFAULT_TENANT_ID}
+        access_token = create_access_token(claims)
         refresh_jti = uuid4().hex
-        refresh_token = create_refresh_token({"sub": str(user.id), "role": user.role}, jti=refresh_jti)
+        refresh_token = create_refresh_token(claims, jti=refresh_jti)
 
         expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
             days=settings.refresh_token_expire_days
@@ -213,8 +249,11 @@ class AuthService:
             )
         )
 
-        new_access = create_access_token({"sub": str(user.id), "role": user.role})
-        new_refresh = create_refresh_token({"sub": str(user.id), "role": user.role}, jti=new_jti)
+        # 轮换出的新 token 同样带租户声明（取用户当前租户，而非旧 token 里的值，
+        # 这样跨租户迁移在下次刷新时即生效）。
+        claims = {"sub": str(user.id), "role": user.role, "tenant_id": user.tenant_id or DEFAULT_TENANT_ID}
+        new_access = create_access_token(claims)
+        new_refresh = create_refresh_token(claims, jti=new_jti)
         await self.db.commit()
 
         return {
@@ -234,14 +273,14 @@ class AuthService:
         if user is None:
             raise ValueError("用户不存在")
         try:
-            password_valid = verify_password(payload.old_password, user.password_hash)
+            password_valid = await verify_password_async(payload.old_password, user.password_hash)
         except Exception:
             # P1-E 修复：记录密码验证异常，防止服务端异常（如 bcrypt 库问题）被静默视为密码错误
             logger.warning("Password verification failed for user %s", user_id, exc_info=True)
             password_valid = False
         if not password_valid:
             raise ValueError("当前密码错误")
-        user.password_hash = get_password_hash(payload.new_password)
+        user.password_hash = await get_password_hash_async(payload.new_password)
         # P1-SEC-002 修复：密码修改后撤销所有 refresh token，强制重新登录
         await self._revoke_all_user_refresh_tokens(user_id)
         # SEC-FIX (P2-4): 改密后同时撤销当前 access token——原实现 access token
@@ -302,7 +341,7 @@ class AuthService:
             payload.email, "email"
         ):
             raise ValueError("用户信息不匹配")
-        user.password_hash = get_password_hash(payload.new_password)
+        user.password_hash = await get_password_hash_async(payload.new_password)
         # P1-SEC-003 修复：密码重置后撤销所有 refresh token，防止旧 token 继续使用
         await self._revoke_all_user_refresh_tokens(user_id)
         await self.db.commit()

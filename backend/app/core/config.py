@@ -415,6 +415,10 @@ class Settings(BaseSettings):
     enable_exif_strip: bool = True
     # ClamAV 病毒扫描: 对接 clamd 守护进程, 无连接时降级跳过
     enable_clamav_scan: bool = False  # 默认关闭, 需要 clamd 守护进程
+    # AUDIT-2026-10-06 (P1-4): clamd 不可达 / 扫描异常时是否允许放行。
+    # 默认 False = fail-closed：扫不出来就拒绝上传（病毒扫描不再是摆设）。
+    # 仅在运维明确评估过风险（例如内网隔离环境）时才置 True。
+    clamav_fail_open: bool = False
     clamav_host: str = "localhost"
     clamav_port: int = 3310
     clamav_unix_socket: str = ""  # 非空时优先使用 Unix socket

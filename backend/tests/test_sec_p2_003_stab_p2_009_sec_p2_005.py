@@ -158,16 +158,35 @@ class TestClamavScanBehavior:
             assert "disabled" in msg.lower()
 
     def test_clamav_pyclamd_not_available(self, tmp_path: Path) -> None:
-        """pyclamd 不可用时返回 safe (降级)."""
+        """pyclamd 不可用时默认 fail-closed（AUDIT-2026-10-06 P1-4 修复）。
+
+        原断言为 `safe is True`（把"病毒扫描完全失效"固化成了可接受行为），
+        现状是 enable_clamav_scan 默认 False + 三路异常全放行 = 扫描形同虚设。
+        现在：未显式开启 clamav_fail_open 时拒绝上传。
+        """
         from app.services.file_security_service import scan_with_clamav
 
         fake_file = tmp_path / "test.txt"
         fake_file.write_bytes(b"hello")
         with patch("app.core.config.settings.enable_clamav_scan", True), \
+             patch("app.core.config.settings.clamav_fail_open", False), \
              patch("builtins.__import__", side_effect=_import_without_clamd):
             safe, msg = scan_with_clamav(fake_file)
-            assert safe is True
-            assert "pyclamd" in msg.lower() or "skip" in msg.lower()
+        assert safe is False
+        assert "pyclamd" in msg.lower()
+
+    def test_clamav_pyclamd_not_available_fail_open_opt_in(self, tmp_path: Path) -> None:
+        """显式 clamav_fail_open=True 时才降级放行（运维主动承担风险）。"""
+        from app.services.file_security_service import scan_with_clamav
+
+        fake_file = tmp_path / "test.txt"
+        fake_file.write_bytes(b"hello")
+        with patch("app.core.config.settings.enable_clamav_scan", True), \
+             patch("app.core.config.settings.clamav_fail_open", True), \
+             patch("builtins.__import__", side_effect=_import_without_clamd):
+            safe, msg = scan_with_clamav(fake_file)
+        assert safe is True
+        assert "pyclamd" in msg.lower() or "skip" in msg.lower()
 
 
 class TestProcessUploadedFile:

@@ -22,6 +22,7 @@ from sqlalchemy import and_, desc, select
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.metrics import alert_detail_parse_failed_total
 from app.monitoring.notifier import AlertPayload
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,22 @@ async def should_send(
         try:
             detail = json.loads(row.detail or "{}")
         except Exception:
+            # AUDIT-2026-10-06 (P1-6): 原实现裸 `continue` —— 损坏的 detail 被跳过，
+            # 指纹比对永不成立，同一告警在窗口期内会被重复发送（告警风暴），
+            # 且服务端零痕迹。改为：计数 + 结构化日志（含 log_id 便于修复数据）。
+            try:
+                # 注意：app.core.metrics 是自研 Counter（无 labels() 链式 API），
+                # 必须写成 inc(amount, **labels)。写错会被这里静默吞掉，计数永不 +1。
+                alert_detail_parse_failed_total.inc(1, stage="dedup")
+            except Exception:  # noqa: BLE001 - 计数失败绝不能影响去重主流程
+                logger.debug("告警 detail 解析失败计数上报失败", exc_info=True)
+            logger.warning(
+                "[dedup] OperationLog.detail 解析失败, 该条不参与去重 "
+                "(log_id=%s, fingerprint=%s) — 可能导致告警重复发送",
+                getattr(row, "id", None),
+                alert.fingerprint,
+                exc_info=True,
+            )
             continue
         if detail.get("fingerprint") == alert.fingerprint:
             logger.info(

@@ -140,8 +140,13 @@ def _patched_limit(*args, **kwargs):
             return_annotation = hints.get("return", sig.return_annotation)
             wrapped.__signature__ = sig.replace(parameters=new_params, return_annotation=return_annotation)
         except Exception:
-            # 类型提示解析失败时回退到原始行为 (后续会以原错误暴露)
-            pass
+            # AUDIT-2026-10-06 (P1-9): 原实现裸 `pass`，注释称「后续会以原错误暴露」
+            # 但该路径没有任何记录，后续报错与此处根因脱节。补 debug 日志。
+            logger.debug(
+                "限流装饰器签名修补失败, 回退原始签名 (func=%s)",
+                getattr(func, "__name__", func),
+                exc_info=True,
+            )
         return wrapped
 
     return decorator

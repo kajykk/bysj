@@ -9,9 +9,12 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, model_validator
+
+logger = logging.getLogger(__name__)
 
 # P1-SEC-024 修复：AlertManager payload 大小限制，防止恶意大 payload 耗尽资源
 _ALERT_MAX_LABELS = 50
@@ -63,8 +66,19 @@ def _validate_url_safety(url: str | None, field_name: str = "url") -> str | None
     except ValueError:
         raise
     except Exception:
-        # 解析失败时放行（AlertManager 的 generatorURL 通常是合法 URL）
-        pass
+        # AUDIT-2026-10-06 (P1-9): 原实现是裸 `pass` —— 解析异常既无日志，
+        # 又落到底部 `return url` 把**未中性化**的原始 URL 放出去（fail-open）。
+        # 该函数是 SSRF 防护的纵深防御层（后端当前不抓取这些字段，但未来
+        # 一旦有人抓取，异常路径就是最容易被忽略的口子）。
+        # 改为：记录异常（含 url 前缀，便于排查）+ fail-closed 置 None。
+        logger.warning(
+            "[alerts] URL 安全校验解析失败, 已中性化 (field=%s, url_prefix=%r): %s",
+            field_name,
+            url[:64],
+            "parse error",
+            exc_info=True,
+        )
+        return None
     return url
 
 

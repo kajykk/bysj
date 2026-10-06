@@ -117,3 +117,49 @@ async def test_dedup_respects_window() -> None:
     assert (await should_send(_alert("fp-1"), db, window=timedelta(minutes=5))) is False
     # 2 分钟窗口 -> 发送
     assert (await should_send(_alert("fp-1"), db, window=timedelta(minutes=2))) is True
+
+
+# ---------- AUDIT-2026-10-06 (P1-6): detail 解析失败必须可观测 ----------
+
+
+def _detail_parse_failures() -> float:
+    """读取告警 detail 解析失败计数器的当前值.
+
+    注意：app.core.metrics 是**自研**指标实现（无 prometheus_client 的
+    全局 REGISTRY / labels() 链式 API），只能通过 Counter.collect() 取值。
+    """
+    from app.core.metrics import alert_detail_parse_failed_total
+
+    for labels, value in alert_detail_parse_failed_total.collect():
+        if labels.get("stage") == "dedup":
+            return value
+    return 0.0
+
+
+async def test_corrupted_detail_is_observable(caplog) -> None:
+    """损坏的 detail 不再静默 `continue`: 必须计数 + 打 warning.
+
+    背景：原实现解析失败即 `continue`，指纹比对永不成立 → 同一告警在窗口期内
+    重复发送（告警风暴），而服务端零痕迹，只能从下游现象反推。
+    """
+    # 构造一条 detail 为非法 JSON 的历史记录
+    log = OperationLog(
+        operator_id=None,
+        operator_role="system",
+        action_type="alert_fired",
+        target_type="alert",
+        target_id=None,
+        detail='{"fingerprint": "fp-1", 损坏',
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    db = _make_db_with_logs([log])
+
+    before = _detail_parse_failures()
+    with caplog.at_level("WARNING", logger="app.monitoring.dedup"):
+        result = await should_send(_alert("fp-1"), db)
+
+    # 行为不变：解析失败的记录不参与去重 -> 发送（这正是告警风暴的成因）
+    assert result is True
+    # 但必须留下痕迹：计数器 +1 且打出 warning
+    assert _detail_parse_failures() == before + 1
+    assert "解析失败" in caplog.text

@@ -810,8 +810,12 @@ class TestDetectAnomalyAccessTask:
             result = detect_anomaly_access_task()
         assert result["detected"] == 0
 
-    def test_task_max_retries_exceeded_returns_error(self):
-        """重试耗尽时返回 error dict."""
+    def test_task_max_retries_exceeded_reraises(self):
+        """重试耗尽时应重新抛出, 让 Celery 标记 FAILURE.
+
+        AUDIT-2026-10-06 (P1-7): 原实现 `return {"error": ...}` 被 Celery 判为
+        SUCCESS，异常检测静默停摆。断言异常向外传播。
+        """
         from app.tasks.anomaly_detection import detect_anomaly_access_task
 
         with patch(
@@ -822,8 +826,8 @@ class TestDetectAnomalyAccessTask:
             "retry",
             side_effect=detect_anomaly_access_task.MaxRetriesExceededError,
         ):
-            result = detect_anomaly_access_task()
-        assert result == {"error": "db error"}
+            with pytest.raises(RuntimeError, match="db error"):
+                detect_anomaly_access_task()
 
 
 # ===== 10. 基础函数 (_get_loop / _run_async / _utcnow_naive) =====

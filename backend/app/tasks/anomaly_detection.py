@@ -68,8 +68,10 @@ def detect_anomaly_access_task(self):
         try:
             self.retry(exc=exc)
         except self.MaxRetriesExceededError:
-            logger.error("[anomaly] detect max retries exceeded")
-            return {"error": str(exc)}
+            # AUDIT-2026-10-06 (P1-7): 同族修复 —— 原 return {"error": ...}
+            # 会让 Celery 标记 SUCCESS，异常检测静默停摆。
+            logger.error("[anomaly] detect max retries exceeded, marking task FAILURE")
+            raise exc
 
 
 async def _detect_impl() -> dict:

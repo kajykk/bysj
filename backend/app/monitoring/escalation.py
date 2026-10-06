@@ -24,6 +24,7 @@ from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.metrics import alert_detail_parse_failed_total
 from app.models.admin import OperationLog
 from app.monitoring.notifier import AlertPayload, CompositeNotifier
 
@@ -97,6 +98,22 @@ def compute_escalation(alert: OperationLog, now: datetime) -> EscalationDecision
         if alert.detail:
             detail = json.loads(alert.detail)
     except Exception:
+        # AUDIT-2026-10-06 (P1-6): 原实现静默置 `{}` —— 两个后果都很难从下游反推：
+        #   1) acknowledged 丢失 → 已确认的告警被误判为未确认，持续升级到 P0；
+        #   2) escalation_level 归零 → 同一告警被重复升级。
+        # 改为：计数 + 结构化日志（含 alert_id 便于修复数据）。
+        try:
+            # 注意：app.core.metrics 是自研 Counter（无 labels() 链式 API），
+            # 必须写成 inc(amount, **labels)。
+            alert_detail_parse_failed_total.inc(1, stage="escalation")
+        except Exception:  # noqa: BLE001 - 计数失败绝不能影响升级决策
+            logger.debug("告警 detail 解析失败计数上报失败", exc_info=True)
+        logger.warning(
+            "[escalation] OperationLog.detail 解析失败, 按空 detail 处理 "
+            "(alert_id=%s) — 可能导致已确认告警被重复升级",
+            alert.id,
+            exc_info=True,
+        )
         detail = {}
 
     # 已确认 -> 不升级

@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import bindparam, delete, func, select, update
 
 from app.models.admin import OperationLog
 from app.models.risk import RiskAssessment
@@ -98,15 +98,27 @@ class ArchiveMixin:
         )
         rows = (await self.db.execute(stmt)).all()
 
-        masked_count = 0
-        for row in rows:
-            log_id, ip = row[0], row[1]
+        # PERF-2026-10-06: 原实现对每条记录单独发一次 UPDATE
+        # （``update(...).where(OperationLog.id == log_id)``），
+        # 30 天窗口 10 万条日志 = **10 万次往返**（约 100 秒持事务）+ 全表行锁。
+        # 改为：Python 侧算好掩码值，用 executemany 批量提交（1 次往返）。
+        updates: list[dict] = []
+        for log_id, ip in rows:
             if not ip:
                 continue
             masked = _mask_ip(ip)
             if masked != ip:
-                await self.db.execute(update(OperationLog).where(OperationLog.id == log_id).values(ip_address=masked))
-                masked_count += 1
+                updates.append({"b_id": log_id, "b_ip": masked})
+
+        masked_count = 0
+        if updates:
+            await self.db.execute(
+                update(OperationLog)
+                .where(OperationLog.id == bindparam("b_id"))
+                .values(ip_address=bindparam("b_ip")),
+                updates,
+            )
+            masked_count = len(updates)
 
         await self.db.commit()
         logger.info(

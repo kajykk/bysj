@@ -13,6 +13,7 @@ from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.pii_crypto import mask_pii
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
+from app.core.tenant_context import get_request_tenant_id
 from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.auth import (
@@ -149,7 +150,8 @@ async def login(
 ) -> dict:
     service = AuthService(db)
     try:
-        data = await service.login(payload)
+        # AUDIT-2026-10-06 (P0-1): 登录绑定请求租户，杜绝跨租户登录
+        data = await service.login(payload, tenant_id=get_request_tenant_id(request))
         user_info = data.get("user") or {}
         # P2-B 修复：复用 mask_pii 进行 username 脱敏，避免重复逻辑
         _masked_user = mask_pii(payload.username, keep_first=2)

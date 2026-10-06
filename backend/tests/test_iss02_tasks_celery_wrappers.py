@@ -33,10 +33,17 @@ def test_escalate_success(monkeypatch):
     assert out == {"escalated": 1}
 
 
-def test_escalate_error_returns_dict(monkeypatch):
+def test_escalate_error_reraises(monkeypatch):
+    """重试耗尽时应重新抛出, 让 Celery 标记 FAILURE。
+
+    AUDIT-2026-10-06 (P1-7 补漏): 原断言 `out == {"error": "boom"}`，
+    但生产代码已改为 `raise exc` —— `return {"error": ...}` 会被 Celery
+    判为 SUCCESS，异常升级静默停摆。与 test_anomaly_detection.py 的
+    同族修复保持一致。
+    """
     monkeypatch.setattr(alerts, "_run_async", MagicMock(side_effect=RuntimeError("boom")))
-    out = alerts.escalate_pending_alerts_task.__wrapped__.__func__(_make_task_self())
-    assert out == {"error": "boom"}
+    with pytest.raises(RuntimeError, match="boom"):
+        alerts.escalate_pending_alerts_task.__wrapped__.__func__(_make_task_self())
 
 
 # ===== alerts: archive_old_alerts_task =====
@@ -46,10 +53,11 @@ def test_archive_success(monkeypatch):
     assert out == {"archived": 5}
 
 
-def test_archive_error_returns_dict(monkeypatch):
+def test_archive_error_reraises(monkeypatch):
+    """重试耗尽时应重新抛出 (P1-7 补漏, 同上)。"""
     monkeypatch.setattr(alerts, "_run_async", MagicMock(side_effect=RuntimeError("boom")))
-    out = alerts.archive_old_alerts_task.__wrapped__.__func__(_make_task_self())
-    assert out == {"error": "boom"}
+    with pytest.raises(RuntimeError, match="boom"):
+        alerts.archive_old_alerts_task.__wrapped__.__func__(_make_task_self())
 
 
 # ===== observability: flush_lock_stats_task =====
@@ -59,10 +67,11 @@ def test_flush_success(monkeypatch):
     assert out == {"success": True}
 
 
-def test_flush_error_returns_dict(monkeypatch):
+def test_flush_error_reraises(monkeypatch):
+    """重试耗尽时应重新抛出 (P1-7 补漏, 同上)。"""
     monkeypatch.setattr(observability, "_run_async", MagicMock(side_effect=RuntimeError("boom")))
-    out = observability.flush_lock_stats_task.__wrapped__.__func__(_make_task_self())
-    assert out == {"error": "boom"}
+    with pytest.raises(RuntimeError, match="boom"):
+        observability.flush_lock_stats_task.__wrapped__.__func__(_make_task_self())
 
 
 # ===== anomaly_detection: detect_anomaly_access_task =====
@@ -72,10 +81,11 @@ def test_detect_success(monkeypatch):
     assert out == {"detected": 3}
 
 
-def test_detect_error_returns_dict(monkeypatch):
+def test_detect_error_reraises(monkeypatch):
+    """重试耗尽时应重新抛出 (P1-7 补漏, 同上)。"""
     monkeypatch.setattr(anomaly_detection, "_run_async", MagicMock(side_effect=RuntimeError("boom")))
-    out = anomaly_detection.detect_anomaly_access_task.__wrapped__.__func__(_make_task_self())
-    assert out == {"error": "boom"}
+    with pytest.raises(RuntimeError, match="boom"):
+        anomaly_detection.detect_anomaly_access_task.__wrapped__.__func__(_make_task_self())
 
 
 # ===== scheduler: _run_async(_impl()) 模式包装任务 (错误路径传播 MaxRetriesExceededError) =====

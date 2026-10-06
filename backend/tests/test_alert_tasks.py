@@ -150,8 +150,13 @@ def test_utcnow_naive_returns_naive_datetime() -> None:
 # ---------- escalate retry exceeded (MaxRetriesExceededError 路径) ----------
 
 
-def test_escalate_max_retries_exceeded_returns_error() -> None:
-    """TC-COV-ALERT-004: escalate 重试耗尽时应捕获 MaxRetriesExceededError 并返回 error dict."""
+def test_escalate_max_retries_exceeded_reraises() -> None:
+    """TC-COV-ALERT-004: escalate 重试耗尽时应重新抛出, 让 Celery 标记 FAILURE.
+
+    AUDIT-2026-10-06 (P1-7): 原实现 `return {"error": ...}` 会被 Celery 判为
+    SUCCESS —— 告警升级静默停摆且无任何 FAILURE 事件可观测。此处断言新语义：
+    异常必须继续向外传播（异常链保留原始 RuntimeError）。
+    """
     from app.tasks.alerts import escalate_pending_alerts_task
 
     with patch(
@@ -161,9 +166,8 @@ def test_escalate_max_retries_exceeded_returns_error() -> None:
         "retry",
         side_effect=escalate_pending_alerts_task.MaxRetriesExceededError,
     ):
-        result = escalate_pending_alerts_task()
-
-    assert result == {"error": "db error"}
+        with pytest.raises(RuntimeError, match="db error"):
+            escalate_pending_alerts_task()
 
 
 # ---------- _escalate_impl ----------
@@ -222,8 +226,12 @@ async def test_escalate_impl_empty_decisions() -> None:
 # ---------- archive retry exceeded (MaxRetriesExceededError 路径) ----------
 
 
-def test_archive_max_retries_exceeded_returns_error() -> None:
-    """TC-COV-ALERT-007: archive 重试耗尽时应捕获 MaxRetriesExceededError 并返回 error dict."""
+def test_archive_max_retries_exceeded_reraises() -> None:
+    """TC-COV-ALERT-007: archive 重试耗尽时应重新抛出, 让 Celery 标记 FAILURE.
+
+    AUDIT-2026-10-06 (P1-7): 同 escalate —— 归档静默停止会让 OperationLog 无限增长
+    却无 FAILURE 事件。断言异常向外传播。
+    """
     from app.tasks.alerts import archive_old_alerts_task
 
     with patch(
@@ -233,9 +241,8 @@ def test_archive_max_retries_exceeded_returns_error() -> None:
         "retry",
         side_effect=archive_old_alerts_task.MaxRetriesExceededError,
     ):
-        result = archive_old_alerts_task()
-
-    assert result == {"error": "disk full"}
+        with pytest.raises(RuntimeError, match="disk full"):
+            archive_old_alerts_task()
 
 
 # ---------- _archive_impl (lines 132-199) ----------

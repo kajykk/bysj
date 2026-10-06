@@ -12,6 +12,7 @@ from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.request_id import get_or_create_request_id
 from app.core.response import ok
 from app.core.states import BindingStatus
+from app.core.tenant_context import get_request_tenant_id
 from app.models.admin import OperationLog
 from app.models.counselor import ClientGroup
 from app.models.user import User, UserCounselorBinding
@@ -124,7 +125,12 @@ async def list_users(
 ) -> dict:
     service = CounselorService(db)
     data = await service.list_my_users(
-        current_user.id, page, page_size, risk_level=risk_level
+        current_user.id,
+        page,
+        page_size,
+        risk_level=risk_level,
+        # AUDIT-2026-10-06 (P0-1): 传入请求租户，服务层据此做数据层租户隔离
+        tenant_id=get_request_tenant_id(request),
     )
     # SEC-P1-004 修复：记录咨询师查看用户列表审计日志
     db.add(

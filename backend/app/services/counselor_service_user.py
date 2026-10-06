@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from sqlalchemy import func, select
 
-from app.core.contracts import normalize_risk_level
+from app.core.contracts import DEFAULT_TENANT_ID, normalize_risk_level
 from app.core.states import BindingStatus
+from app.core.tenant_query import tenant_scoped_filter, tenant_scoped_query
 from app.models.assessment import StructuredAssessment
 from app.models.intervention import InterventionPlan
 from app.models.risk import RiskAssessment
@@ -26,11 +27,24 @@ class UserMixin:
         page: int,
         page_size: int,
         risk_level: int | None = None,
+        tenant_id: int | None = None,
     ) -> dict:
+        """列出当前咨询师绑定的用户。
+
+        AUDIT-2026-10-06 (P0-1): 接入 ``tenant_scoped_query`` —— 原实现只按
+        counselor_id 过滤，**没有任何租户条件**。路由层的 ``require_role("counselor")``
+        已保证"咨询师租户 == 请求租户"，但绑定关系本身不带 tenant_id；
+        一旦出现跨租户绑定（历史数据 / 绑定接口漏校验），咨询师就能看到
+        其他租户用户的 username / nickname / 风险等级。
+        这里加数据层纵深防御。
+        """
         offset = (page - 1) * page_size
+        effective_tenant = tenant_id if tenant_id is not None else DEFAULT_TENANT_ID
         base_conditions = [
             UserCounselorBinding.counselor_id == counselor_id,
             UserCounselorBinding.status == BindingStatus.ACTIVE,
+            # 租户隔离（数据层）：咨询师只能看到本租户的用户
+            tenant_scoped_filter(User, effective_tenant),
         ]
 
         # 按风险等级过滤：筛选最新风险评估匹配指定等级的用户
@@ -47,7 +61,7 @@ class UserMixin:
             base_conditions.append(User.id.in_(matching_user_ids))
 
         stmt = (
-            select(User)
+            tenant_scoped_query(User, effective_tenant)
             .join(UserCounselorBinding, UserCounselorBinding.user_id == User.id)
             .where(*base_conditions)
             .order_by(User.id.desc())

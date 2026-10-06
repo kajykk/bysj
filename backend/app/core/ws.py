@@ -255,7 +255,10 @@ class ConnectionManager:
                     try:
                         await pubsub.aclose()
                     except Exception:
-                        pass
+                        # AUDIT-2026-10-06 (P1-9): 原实现裸 `pass`。多 worker 下
+                        # 每次重连循环都可能泄漏一个 Redis pubsub 订阅连接；
+                        # 补 debug 日志，便于定位连接数泄漏。
+                        logger.debug("WebSocket pubsub aclose() 失败", exc_info=True)
 
     async def _handle_pubsub_message(self, msg: dict) -> None:
         """P2-1: 处理 pubsub 消息. 跳过本节点发布的消息 (避免回环)."""

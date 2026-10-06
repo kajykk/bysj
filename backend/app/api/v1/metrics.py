@@ -46,7 +46,15 @@ _DEV_METRICS_TOKEN = "dev-only-metrics-token"
 def _require_metrics_token(authorization: str | None) -> None:
     expected_token = settings.metrics_access_token
     if not expected_token:
-        if settings.app_env.lower() == "production":
+        # AUDIT-2026-10-06 (P1-3): 原判定为 `app_env == "production"` 取反 —— staging/uat/
+        # "prod"/"Production " 等一切非严格 production 的部署都会静默启用下面的公开常量，
+        # 任何人都能用它拉走全量指标（告警/熔断/SLO/降级率）。
+        # 改为白名单：只有本地开发/测试环境回落默认值，其余一律 fail-closed。
+        if not settings.dev_credentials_allowed:
+            logger.error(
+                "[metrics] METRICS_ACCESS_TOKEN 未配置且 app_env=%s 不在开发白名单, 拒绝访问",
+                settings.app_env,
+            )
             raise HTTPException(
                 status_code=503,
                 detail="Metrics disabled: METRICS_ACCESS_TOKEN not configured",

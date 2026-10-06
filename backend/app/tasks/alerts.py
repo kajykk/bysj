@@ -59,8 +59,14 @@ def escalate_pending_alerts_task(self):
         try:
             self.retry(exc=exc)
         except self.MaxRetriesExceededError:
-            logger.error("[alerts] escalate max retries exceeded")
-            return {"error": str(exc)}
+            # AUDIT-2026-10-06 (P1-7): 原实现在此 `return {"error": ...}`，
+            # Celery 会把任务标记为 SUCCESS —— 告警升级链路静默停摆，
+            # 且基于 task 状态的监控/告警规则完全看不到。
+            # 改为重新抛出**原始异常**（与 tasks/model_training.py 的范式一致），
+            # 让 Celery 正确标记 FAILURE 且失败原因指向真实根因
+            # （而非被 MaxRetriesExceededError 遮盖）。
+            logger.error("[alerts] escalate max retries exceeded, marking task FAILURE")
+            raise exc
 
 
 async def _escalate_impl() -> list[dict]:
@@ -112,8 +118,10 @@ def archive_old_alerts_task(self):
         try:
             self.retry(exc=exc)
         except self.MaxRetriesExceededError:
-            logger.error("[alerts] archive max retries exceeded")
-            return {"error": str(exc)}
+            # AUDIT-2026-10-06 (P1-7): 同 escalate —— 归档静默停止会让
+            # OperationLog 无限增长，却不会有任何 FAILURE 事件可观测。
+            logger.error("[alerts] archive max retries exceeded, marking task FAILURE")
+            raise exc
 
 
 async def _archive_impl() -> int:

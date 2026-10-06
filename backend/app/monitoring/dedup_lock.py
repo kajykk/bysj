@@ -51,7 +51,9 @@ def _get_redis_url() -> str | None:
         if settings.redis_url and settings.redis_url.startswith("redis"):
             return settings.redis_url
     except Exception:
-        pass
+        # AUDIT-2026-10-06 (P1-9): 原实现裸 `pass` —— 配置读取异常被掩盖，
+        # 产生「明明配了 Redis 却走 env 兜底」的疑难现象且无日志可查。
+        logger.warning("读取 settings.redis_url 失败, 回退环境变量 REDIS_URL", exc_info=True)
     return os.getenv("REDIS_URL")
 
 

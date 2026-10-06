@@ -51,8 +51,12 @@ def flush_lock_stats_task(self):
         try:
             self.retry(exc=exc)
         except self.MaxRetriesExceededError:
-            logger.error("[observability] flush_lock_stats max retries exceeded")
-            return {"error": str(exc)}
+            # AUDIT-2026-10-06 (P1-7): 原实现 return {"error": ...} 会让 Celery
+            # 标记 SUCCESS，去重锁健康度统计静默丢失且无 FAILURE 事件。
+            logger.error(
+                "[observability] flush_lock_stats max retries exceeded, marking task FAILURE"
+            )
+            raise exc
 
 
 async def _flush_lock_stats_impl() -> bool:

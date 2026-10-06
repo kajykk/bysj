@@ -25,6 +25,22 @@ def test_metrics_endpoint_returns_200(client: TestClient) -> None:
     assert "text/plain" in response.headers.get("content-type", "")
 
 
+def test_metrics_fails_closed_outside_dev_env(client: TestClient, monkeypatch) -> None:
+    """AUDIT-2026-10-06 (P1-3): 非开发环境下不得回落内置 dev token.
+
+    原判定为 `app_env == "production"` 取反 —— staging 等对外部署会用公开常量
+    `dev-only-metrics-token` 放行，任何人都能拉走全量指标。
+    这里锁定新语义：非白名单环境一律 503。
+    """
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "app_env", "staging")
+    assert settings.dev_credentials_allowed is False
+
+    response = client.get("/api/v1/metrics", headers=_METRICS_AUTH)
+    assert response.status_code == 503
+
+
 def test_metrics_endpoint_format_valid(client: TestClient) -> None:
     """返回的 exposition 格式应包含 HELP 和 TYPE 注释."""
     response = client.get("/api/v1/metrics", headers=_METRICS_AUTH)
@@ -35,11 +51,17 @@ def test_metrics_endpoint_format_valid(client: TestClient) -> None:
 
 
 def test_metrics_contains_app_info(client: TestClient) -> None:
-    """应包含 app_info 指标."""
+    """应包含 app_info 指标 (含当前发布版本).
+
+    注: 原实现硬编码断言 "v1.32", 而 RELEASE_VERSION 早已升到 v1.33 ——
+    版本一升这条就红, 与被测行为无关。改为断言常量本身, 防止再次随发布漂移。
+    """
+    from app.core.config import RELEASE_VERSION
+
     response = client.get("/api/v1/metrics", headers=_METRICS_AUTH)
     body = response.text
     assert "app" in body
-    assert "v1.32" in body
+    assert RELEASE_VERSION in body
 
 
 def test_http_request_counter_increments(client: TestClient) -> None:

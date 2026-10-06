@@ -475,20 +475,25 @@ class TestDailyRiskScanImpl:
 
         mock_setting = MagicMock()
         mock_setting.threshold_level = 2
+        mock_setting.user_id = 1
         mock_binding = MagicMock()
         mock_binding.counselor_id = 42
+        mock_binding.user_id = 1
         insert_result = MagicMock()
         insert_result.scalar_one_or_none.return_value = 999  # 原子插入成功, 返回自增 id
 
         mock_db = AsyncMock()
         users_result = MagicMock()
         users_result.scalars.return_value.all.return_value = [mock_user]
+        # PERF-2026-10-06: 改为按页批量预取 —— 风险/阈值/绑定各一条
+        # `in_(user_ids)` 查询，取值走 scalars().all() 建 map（不再是逐用户单查）
+        mock_risk.user_id = 1
         risk_result = MagicMock()
-        risk_result.scalar_one_or_none.return_value = mock_risk
+        risk_result.scalars.return_value.all.return_value = [mock_risk]
         setting_result = MagicMock()
-        setting_result.scalar_one_or_none.return_value = mock_setting
+        setting_result.scalars.return_value.all.return_value = [mock_setting]
         bind_result = MagicMock()
-        bind_result.scalar_one_or_none.return_value = mock_binding
+        bind_result.scalars.return_value.unique.return_value.all.return_value = [mock_binding]
         mock_db.execute = AsyncMock(
             side_effect=[
                 users_result,
@@ -621,12 +626,14 @@ class TestDailyRiskScanImpl:
         mock_db = AsyncMock()
         users_result = MagicMock()
         users_result.scalars.return_value.all.return_value = [mock_user]
+        # PERF-2026-10-06: 批量预取形状（见上一个用例的注释）
+        mock_risk.user_id = 1
         risk_result = MagicMock()
-        risk_result.scalar_one_or_none.return_value = mock_risk
+        risk_result.scalars.return_value.all.return_value = [mock_risk]
         setting_result = MagicMock()
-        setting_result.scalar_one_or_none.return_value = None  # 走 else, threshold=2
+        setting_result.scalars.return_value.all.return_value = []  # 无设置 -> threshold=2
         bind_result = MagicMock()
-        bind_result.scalar_one_or_none.return_value = None  # 无绑定
+        bind_result.scalars.return_value.unique.return_value.all.return_value = []  # 无绑定
         insert_result = MagicMock()
         insert_result.scalar_one_or_none.return_value = 888  # 原子插入成功
         mock_db.execute = AsyncMock(

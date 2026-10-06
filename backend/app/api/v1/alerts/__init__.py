@@ -62,6 +62,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
+# 开发/测试环境且未配置 ALERTMANAGER_WEBHOOK_SECRET 时的回落值。
+# 仅本地开发用：Settings.dev_credentials_allowed 为 False 的环境（staging/uat/prod）
+# 一律 fail-closed，此值永不生效。bandit B105 在此属预期（常量即字面量，故 # nosec）。
+_DEV_WEBHOOK_SECRET = "dev-only-webhook-secret"  # nosec B105
+
 # P1-SEC-022 修复：查询时间范围限制，防止超大窗口导致 DoS
 # (常量定义在 _helpers._HISTORY_MAX_RANGE_DAYS, 此处保留兼容性 re-export 占位)
 
@@ -75,17 +80,24 @@ def _verify_webhook_secret(authorization: str | None) -> None:
 
     expected_secret = settings.alertmanager_webhook_secret
     if not expected_secret:
-        if settings.app_env.lower() == "production":
-            # 生产环境且未配置密钥：拒绝访问
-            logger.error("[alerts/webhook] ALERTMANAGER_WEBHOOK_SECRET not configured in production")
+        # AUDIT-2026-10-06 (P1-3): 原判定为 `app_env == "production"` 取反 ——
+        # staging/uat/"prod"/"Production " 等一切非严格 production 的部署都会
+        # 静默启用下面的公开常量，任何人都能向本端点注入伪造告警，经
+        # CompositeNotifier 触发真实 webhook/slack/email 通道（告警风暴 + 钓鱼面）。
+        # 改为白名单：只有本地开发/测试环境回落默认值，其余一律 fail-closed。
+        if not settings.dev_credentials_allowed:
+            logger.error(
+                "[alerts/webhook] ALERTMANAGER_WEBHOOK_SECRET 未配置且 app_env=%s 不在开发白名单, 拒绝访问",
+                settings.app_env,
+            )
             raise HTTPException(
                 status_code=503,
                 detail="Webhook disabled: ALERTMANAGER_WEBHOOK_SECRET not configured",
             )
-        # C-API-1 修复：非生产环境使用默认 dev secret，不再完全开放。
+        # C-API-1 修复：开发环境使用默认 dev secret，不再完全开放。
         # 原实现开发环境完全无鉴权，任何外部请求都能注入伪造告警，
         # 通过 CompositeNotifier 触发真实通知通道（webhook/slack/email），造成告警风暴。
-        expected_secret = "dev-only-webhook-secret"
+        expected_secret = _DEV_WEBHOOK_SECRET
     # 所有环境统一鉴权校验
     if not authorization or not authorization.startswith("Bearer "):
         logger.warning("[alerts/webhook] missing or malformed Authorization header")

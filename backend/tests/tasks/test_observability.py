@@ -105,8 +105,12 @@ def test_flush_lock_stats_task_retries_on_exception() -> None:
     mock_retry.assert_called_once()
 
 
-def test_flush_lock_stats_task_max_retries_exceeded_returns_error() -> None:
-    """TC-COV-OBS-008: 重试耗尽时应捕获 MaxRetriesExceededError 并返回 error dict."""
+def test_flush_lock_stats_task_max_retries_exceeded_reraises() -> None:
+    """TC-COV-OBS-008: 重试耗尽时应重新抛出, 让 Celery 标记 FAILURE.
+
+    AUDIT-2026-10-06 (P1-7 补漏): 原实现 `return {"error": ...}` 被 Celery
+    判为 SUCCESS，锁统计刷新失败会静默停摆。断言异常向外传播。
+    """
     from app.tasks.observability import flush_lock_stats_task
 
     with patch(
@@ -116,9 +120,8 @@ def test_flush_lock_stats_task_max_retries_exceeded_returns_error() -> None:
         "retry",
         side_effect=flush_lock_stats_task.MaxRetriesExceededError,
     ):
-        result = flush_lock_stats_task()
-
-    assert result == {"error": "persist fail"}
+        with pytest.raises(RuntimeError, match="persist fail"):
+            flush_lock_stats_task()
 
 
 def test_flush_lock_stats_task_logs(caplog) -> None:
@@ -145,9 +148,10 @@ def test_flush_lock_stats_task_max_retries_logs_error(caplog) -> None:
         side_effect=flush_lock_stats_task.MaxRetriesExceededError,
     ):
         with caplog.at_level(logging.ERROR, logger="app.tasks.observability"):
-            result = flush_lock_stats_task()
+            with pytest.raises(RuntimeError, match="fail"):
+                flush_lock_stats_task()
 
-    assert result == {"error": "fail"}
+    # 日志断言保留 —— 重试耗尽必须留痕, 这是排障的唯一线索
     assert any(
         "flush_lock_stats max retries exceeded" in r.message for r in caplog.records
     )
