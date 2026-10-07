@@ -73,17 +73,21 @@
           width="80"
         />
         <el-table-column
-          prop="assessment_type"
+          prop="type"
           :label="t('userAssessments.colType')"
           width="120"
-        />
+        >
+          <template #default="{ row }">
+            {{ typeLabel(row.type) }}
+          </template>
+        </el-table-column>
         <el-table-column
           prop="score"
           :label="t('userAssessments.colScore')"
           width="100"
         />
         <el-table-column
-          prop="risk_level"
+          prop="riskLevel"
           :label="t('userAssessments.colRiskLevel')"
           width="120"
         />
@@ -93,7 +97,7 @@
           min-width="220"
         />
         <el-table-column
-          prop="created_at"
+          prop="createdAt"
           :label="t('userAssessments.colTime')"
           min-width="180"
         />
@@ -122,9 +126,13 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { userApi, type AssessmentRecordItem } from '@/api/userApi'
+import { userApi } from '@/api/userApi'
 import { type DataHistoryItem } from '@/api/userTypes'
 import { type UnifiedPageResult } from '@/types/contracts'
+import {
+  type AssessmentHistoryRow,
+  toAssessmentHistoryRows,
+} from './utils/assessmentHistory'
 import FilterBar from '@/components/common/FilterBar.vue'
 import PageTable from '@/components/common/PageTable.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
@@ -143,10 +151,26 @@ const auth = useAuthStore()
 const router = useRouter()
 const queryState = useListQueryState('ua')
 
+/**
+ * 后端 `GET /user/data/history` 的返回项是 `{ id, type, created_at, data }`
+ * （见 backend/app/services/user_data_service.py:371-464），**不含**顶层的
+ * `assessment_type` / `score` / `risk_level` / `summary`。表格列因此必须走
+ * `toAssessmentHistoryRows` 映射，直接用后端原字段会让三列恒为空白。
+ */
 const loading = ref(false)
-const rows = ref<AssessmentRecordItem[]>([])
+const rows = ref<AssessmentHistoryRow[]>([])
 const total = ref(0)
 const pageError = ref('')
+
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  structured: 'typeStructured',
+  text: 'typeText',
+  physiological: 'typePhysiological',
+}
+const typeLabel = (value?: string) => {
+  const key = TYPE_LABEL_KEYS[value || '']
+  return key ? t(`userAssessments.${key}`) : value || '-'
+}
 
 const page = computed(() => queryState.page.value)
 const pageSize = computed(() => queryState.pageSize.value)
@@ -201,7 +225,7 @@ const fetchData = async () => {
         }
       }
     )
-    rows.value = data.items
+    rows.value = toAssessmentHistoryRows(data.items)
     total.value = data.total
   } catch (error) {
     pageError.value = normalizeHttpError(error, t('userAssessments.loadFailed')).detail
@@ -220,7 +244,7 @@ const onPageSizeChange = async (value: number) => {
   fetchData()
 }
 
-const openDetail = (row: AssessmentRecordItem) => {
+const openDetail = (row: AssessmentHistoryRow) => {
   router.push({ path: `/user/assessments/${row.id}`, query: router.currentRoute.value.query })
 }
 
@@ -280,16 +304,25 @@ const handleExport = async () => {
       )
     }
 
+    // 导出列与表格列对齐（同一套映射），避免「表里看到的」和「导出的」两套口径。
+    const exportRows = allItems.map((item) => ({
+      ...toAssessmentHistoryRows([item])[0],
+      detail: JSON.stringify(item?.data ?? {})
+    }))
+
     exportToCSV(
-      allItems as unknown as Record<string, unknown>[],
+      exportRows as unknown as Record<string, unknown>[],
       [
         { key: 'id', label: t('userAssessments.colId') },
         { key: 'type', label: t('userAssessments.colType') },
-        { key: 'created_at', label: t('userAssessments.colTime') },
+        { key: 'score', label: t('userAssessments.colScore') },
+        { key: 'riskLevel', label: t('userAssessments.colRiskLevel') },
+        { key: 'summary', label: t('userAssessments.colSummary') },
+        { key: 'createdAt', label: t('userAssessments.colTime') },
         {
-          key: 'data',
+          key: 'detail',
           label: t('userAssessments.colDetail'),
-          formatter: (value: unknown) => (value == null ? '' : JSON.stringify(value))
+          formatter: (value: unknown) => (value == null ? '' : String(value))
         }
       ],
       `assessment_history_${new Date().toISOString().slice(0, 10)}.csv`

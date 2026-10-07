@@ -80,6 +80,7 @@ declare module 'vue' {
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElTour: typeof import('element-plus/es')['ElTour']
     ElTourStep: typeof import('element-plus/es')['ElTourStep']
+    ElUpload: typeof import('element-plus/es')['ElUpload']
     EmptyAssessment: typeof import('./components/common/illustrations/EmptyAssessment.vue')['default']
     EmptyReport: typeof import('./components/common/illustrations/EmptyReport.vue')['default']
     EmptyState: typeof import('./components/common/EmptyState.vue')['default']

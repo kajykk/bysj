@@ -80,10 +80,11 @@
 defineOptions({ name: 'AssessmentsStatsCard' })
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { userApi, type AssessmentRecordItem } from '@/api/userApi'
+import { userApi, type DataHistoryItem } from '@/api/userApi'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
+import { summarizeAssessmentHistory } from '../../utils/assessmentHistory'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -108,15 +109,23 @@ const loadStats = async () => {
   }
   loading.value = true
   try {
-    const data = await userApi.getUserAssessmentHistory({ page: 1, page_size: 200 })
-    const items = (data.items || []) as AssessmentRecordItem[]
-    stats.total = data.total ?? items.length
-    stats.structured = items.filter((i) => i.assessment_type === 'structured').length
-    stats.text = items.filter((i) => i.assessment_type === 'text').length
-    stats.physiological = items.filter((i) => i.assessment_type === 'physiological').length
-    stats.highRisk = items.filter((i) => i.risk_level === 3).length
-    stats.mediumRisk = items.filter((i) => i.risk_level === 2).length
-    stats.lowRisk = items.filter((i) => i.risk_level === 1).length
+    // FIX-2026-10-08：`GET /user/data/history` 的 `type` 是**单值**且后端默认
+    // 为 structured（backend/app/api/v1/user_data.py:138-140），一次请求拿不到
+    // 全部类型。统计卡要按类型分布计数，必须按三种类型各取一次再合并；
+    // 改前只发一次不带 type 的请求，于是 text / physiological 两类恒为 0。
+    const types = ['structured', 'text', 'physiological'] as const
+    const pages = await Promise.all(
+      types.map((type) => userApi.getUserAssessmentHistory({ page: 1, page_size: 200, type }))
+    )
+    const items: DataHistoryItem[] = pages.flatMap((page) => page.items || [])
+    const summary = summarizeAssessmentHistory(items)
+    stats.total = summary.total
+    stats.structured = summary.structured
+    stats.text = summary.text
+    stats.physiological = summary.physiological
+    stats.highRisk = summary.highRisk
+    stats.mediumRisk = summary.mediumRisk
+    stats.lowRisk = summary.lowRisk
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {
