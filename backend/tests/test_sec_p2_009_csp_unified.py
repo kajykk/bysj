@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
@@ -154,6 +155,52 @@ class TestNginxCSPConfig:
                     f"SEC-P2-009: nginx CSP script-src 不应包含 'unsafe-inline': "
                     f"{script_src_part.strip()}"
                 )
+
+    def test_nginx_csp_script_src_no_unsafe_eval(self):
+        """nginx CSP script-src 不应允许 unsafe-eval.
+
+        CSP-unsafe-eval 加固 (2026-10-08): 实测 dist/assets 全量 chunk 无
+        `new Function` / 裸 `eval(` / `Function('`; 真实 Chromium 遍历 19 条登录后
+        路由 (ECharts 已渲染 canvas) A/B 对比, 去掉 'unsafe-eval' 后
+        securitypolicyviolation 0 条且渲染与基线逐字符一致。
+        历史归因 (ed2a3a6, 2026-08-07 称 vue-i18n 运行时 new Function 导致白屏)
+        对当前产物不成立 —— @intlify 全包不含 new Function。
+        """
+        content = self._get_nginx_conf_path().read_text(encoding="utf-8")
+        csp_lines = [
+            line for line in content.split("\n") if "Content-Security-Policy" in line
+        ]
+        csp_value = " ".join(csp_lines)
+        assert "script-src" in csp_value, "nginx CSP 缺少 script-src 指令"
+        script_src_part = csp_value.split("script-src")[1].split(";")[0]
+        assert "'unsafe-eval'" not in script_src_part, (
+            f"CSP-unsafe-eval: nginx CSP script-src 不应包含 'unsafe-eval': "
+            f"{script_src_part.strip()}"
+        )
+
+    def test_nginx_csp_matches_frontend_prod_policy_script_src(self):
+        """nginx CSP 的 script-src 应与 csp.ts PROD_POLICY 一致 (避免两套口径漂移)."""
+        content = self._get_nginx_conf_path().read_text(encoding="utf-8")
+        csp_lines = [
+            line for line in content.split("\n") if "Content-Security-Policy" in line
+        ]
+        nginx_script_src = " ".join(csp_lines).split("script-src")[1].split(";")[0].strip()
+
+        csp_ts = (
+            Path(__file__).resolve().parent.parent.parent
+            / "frontend"
+            / "src"
+            / "csp.ts"
+        ).read_text(encoding="utf-8")
+        # 取 PROD_POLICY 数组内的 script-src 字面量（用正则取引号内容，避免切到注释）
+        prod_block = csp_ts.split("PROD_POLICY")[1].split("].join")[0]
+        match = re.search(r'"script-src\s+([^"]*)"', prod_block)
+        assert match, "csp.ts PROD_POLICY 中未找到 script-src 字面量"
+        ts_script_src = match.group(1).strip()
+        assert nginx_script_src == ts_script_src, (
+            f"nginx script-src={nginx_script_src!r} 与 csp.ts PROD_POLICY "
+            f"script-src={ts_script_src!r} 不一致"
+        )
 
     def test_nginx_uses_always_directive(self):
         """nginx add_header 使用 always 关键字 (确保所有响应都设置)."""
