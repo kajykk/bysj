@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.request
 from datetime import datetime, timezone
@@ -21,7 +22,10 @@ from pathlib import Path
 
 API_URL = "http://127.0.0.1:8001"
 ADMIN_USER = "canary_admin"
-ADMIN_PASSWORD = "Canary!Admin123456"
+# AUDIT-2026-10-07 (S-2): 原为硬编码口令字面量。
+# 该文件虽已归档, 但随仓库分发给任何拿到仓库的人, 凭据暴露面不变 ——
+# 「归档搬走文件, 没搬走凭据」。改为 env 读取。
+ADMIN_PASSWORD = os.environ.get("CANARY_ADMIN_PASSWORD", "").strip()
 CANARY_ID = 4  # id=2 被探针误杀回滚后重启; id=3 是回滚 API 冒烟测试占位
 STAGE_MIN_SECONDS = 24 * 3600  # 每级 ≥24h
 NEXT_TRAFFIC = {5: 25, 25: 100}

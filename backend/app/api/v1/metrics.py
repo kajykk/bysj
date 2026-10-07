@@ -40,7 +40,7 @@ from app.schemas.metrics_query import PrometheusQueryResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["metrics"])
-_DEV_METRICS_TOKEN = "dev-only-metrics-token"
+_DEV_METRICS_TOKEN = "dev-only-metrics-token"  # nosec  受控开发回退值: 仅 settings.dev_credentials_allowed 白名单内的 dev/test 环境生效, 非开发环境一律 503 fail-closed (见下方 _require_metrics_token)。非生产凭据。
 
 
 def _require_metrics_token(authorization: str | None) -> None:

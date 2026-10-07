@@ -59,7 +59,25 @@ jobs:
         run: ruff format --check app/
       - name: Bandit security scan (blocking on Medium+)
         working-directory: backend
+        # AUDIT-2026-10-07 (P0-4): 原为 `bandit -r app/ -c pyproject.toml -ll`,
+        # 与 pyproject 的 exclude_dirs=["scripts"] 叠加, 使 scripts/ 从未被 CI 扫过
+        # —— 审查在此发现 Grafana admin 口令扩散 5 文件、后端 admin 真实口令、已提交 JWT。
         run: bandit -r app/ -c pyproject.toml -ll
+      # 凭据类专项 (blocking): 硬编码口令/密钥 (B105-B108/B110) 的 severity 是 LOW。
+      # AUDIT-2026-10-07 实测校正: 不能用 `-ll -t B105...` —— `-ll` 会先按
+      # severity=medium 把 LOW 结果滤掉, 叠加的 -t 无效 (实测 results=0)。
+      # 对照: (-t B105)=1 / (-ll -t B105)=0 / (--severity-level low ... -t B105)=1。
+      # 故必须显式指定 severity-level/confidence-level。
+      # 探针实测: 同一批文件, 修复前 0 处, 修复后 40 处(其中 8 处真实凭据已修)。
+      # 二次修正: 原命令只扫 ../scripts/ 与 scripts/, 漏掉 app/ —— 而 CI 的
+      # `bandit -r app/ -ll` 因 -ll 过滤 LOW, 凭据类规则在 app/ 上等于没跑。
+      # 三路径合并为一次扫描, 保证 app/ 与两级 scripts/ 都受同一阈值约束。
+      - name: Bandit credential scan (app/ + scripts/, blocking)
+        working-directory: backend
+        run: >-
+          bandit -r app/ ../scripts/ scripts/ -c pyproject.toml
+          --severity-level low --confidence-level medium
+          -t B105,B106,B107,B108,B110
       - name: Mypy type check (non-blocking, tech debt)
         working-directory: backend
         continue-on-error: true

@@ -33,11 +33,25 @@ repos:
   # CI 侧 secret-scan.yml 服务端兜底, 不依赖本钩子。
   - repo: local
     hooks:
+      # ----- 增量扫描: 拦本次提交新引入的凭据 (原有钩子, 保留) -----
       - id: gitleaks
-        name: Gitleaks 密钥泄漏扫描
-        entry: gitleaks protect --staged --redact
+        name: Gitleaks 密钥泄漏扫描 (本次暂存)
+        entry: gitleaks protect --staged --redact --no-banner
         language: system
         pass_filenames: false
+
+      # ----- 全量历史兜底扫描 (AUDIT-2026-10-07 P0-4 新增) -----
+      # 实测结论 (探针实验, /tmp/pc_probe): `gitleaks protect --staged` 只扫描
+      # **本次暂存快照**, 不含 git 历史 —— 把已入库文件内容清空后再暂存,
+      # 同一条规则即 "no leaks found"。即: 凭据一旦 commit 进历史, staged 钩子
+      # 永远看不见它。这解释了为何 6f1a651 凭据清除后仍能被写回而不被发现。
+      # 故补一条全量历史钩子: 对已入库内容同样设防, 与 staged 钩子互补。
+      - id: gitleaks-history
+        name: Gitleaks 全量历史扫描 (已入库内容兜底)
+        entry: gitleaks detect --redact --no-banner --log-opts=--all
+        language: system
+        pass_filenames: false
+        always_run: true
 
   # ===== Backend: Ruff (lint + format) =====
   # MAINT-P3-003: ruff 替代 black + isort + flake8, 统一 Python 代码风格
@@ -59,8 +73,26 @@ repos:
     hooks:
       - id: bandit
         name: Bandit security scan (backend)
-        args: ['-c', 'backend/pyproject.toml', '-ll']
-        files: ^backend/app/.*\.py$
+        args: ['-c', 'backend/pyproject.toml', '--severity-level', 'low',
+               '--confidence-level', 'medium', '-t', 'B105,B106,B107,B108,B110']
+        # AUDIT-2026-10-07 (P0-4): 原为 ^backend/app/.*\.py$, 与全局 exclude 的
+        # backend/scripts/.* 及 pyproject.toml 的 exclude_dirs=["scripts"] 三者叠加,
+        # 使 scripts/ 从未被扫描过。运维脚本是凭据泄漏高风险面, 必须纳入。
+        #
+        # 二次修正: 中间版本写成 ^(backend/app|backend/scripts)/ 仍漏掉 **顶层 scripts/**,
+        # 而顶层 scripts/ 恰恰是凭据最密集的位置 (S-1/S-2/S-3 全部在此)。
+        # 该钩子为按文件过滤, 顶层 scripts/ 匹配不到就不会被送进 bandit;
+        # 而 gitleaks 是 pass_filenames: false, 也不按文件过滤 —— 二者叠加等于
+        # 顶层 scripts/ 在 pre-commit 阶段完全不被扫。CI 的 `bandit -r ../scripts/`
+        # 能兜住, 但那是事后, 凭据已经写进工作区/提交对象。
+        # 不误伤 frontend/ 与 docs/ (非 .py 自会被扩展名挡掉)。
+        files: ^(backend/(app|scripts)/|scripts/).*\.py$
+        # 实测校正 (关键,勿改回 `-ll -t`):
+        # 硬编码口令类 (B105-B108/B110) 的 severity 是 LOW。
+        # `-ll -t B105` 的过滤后 results=0 —— `-ll` 会先按 severity=medium 把 LOW
+        # 结果滤掉, 叠加的 -t 完全无效。
+        # 实测对照: (-t B105)=1 / (-ll -t B105)=0 / (--severity-level low
+        # --confidence-level medium -t B105)=1。故必须用显式 severity/confidence 覆盖。
 
   # ===== Frontend: ESLint + Prettier =====
   # 使用本地安装的 eslint/prettier (language: system), 避免 pre-commit 独立安装
@@ -87,11 +119,16 @@ default_language_version:
   python: python3.12
 
 # 排除目录 (不需要检查的文件)
+# AUDIT-2026-10-07 (P0-4): 移除 backend/scripts/.* —— 它对所有钩子全局生效,
+# 使该目录完全脱离一切 pre-commit 扫描。
+# 实测校正: 全局 exclude 对 `pass_filenames: false` 的钩子(如 gitleaks)无效,
+# 但对按文件过滤的钩子(bandit/ruff/eslint/prettier)确实生效, 是三处叠加的原因之一。
+# scripts/ 是运维脚本, 历史上在此硬编码过 Grafana admin 口令与后端 admin 真实口令,
+# 不应豁免安全扫描。
 exclude: |
   (?x)^(
       backend/alembic/.*|
       backend/tests/.*|
-      backend/scripts/.*|
       frontend/dist/.*|
       frontend/node_modules/.*|
       frontend/coverage/.*|

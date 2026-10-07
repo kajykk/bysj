@@ -91,7 +91,10 @@ def run() -> None:
     client = TestClient(app)
 
     username = f"smoke_{uuid4().hex[:8]}"
-    password = "Smoke@12345"
+    # AUDIT-2026-10-07 (S-2): 原为硬编码口令字面量。该账号是本脚本注册的
+    # 一次性冒烟用户 (username 已按时间戳生成), 固定口令无意义且会进 git 历史。
+    # 改为每次运行随机生成 —— 测试账号本就不该有可预测的凭据。
+    password = secrets.token_urlsafe(16)
     email = f"{username}@test.com"
 
     reg = client.post(

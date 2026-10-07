@@ -64,11 +64,34 @@ def load_test_data() -> list[dict]:
 
 
 def get_token(api_url: str) -> str:
-    """获取 admin JWT token."""
-    # 使用预生成的有效 token (从容器内生成)
-    # 生成命令: docker exec dws-backend python /tmp/gen_token.py
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6ImFkbWluIiwidHlwZSI6ImFjY2VzcyIsImV4cCI6MTc4NTI1NTg3OCwianRpIjoiMjdiNmE3YjYyMjlmNGZhZTljMmY2NWY3YTc0ZjE0MzgifQ.tOHeJ9qpReFWGeGHIgQNS0-qtEYTOGvAamnBU2kWF_s"
-    return token
+    """获取 admin JWT token —— 运行时登录, 不使用硬编码字面量。
+
+    AUDIT-2026-10-07 (S-3): 原实现直接 return 一个预生成的 JWT 字面量, 且该值
+    已进入 git 历史。三个加重问题:
+      1. 凭据入库后即使删除也仍在历史中, 且曾出现「清除后被写回」;
+      2. 函数签名收了 api_url 却完全不用, 调用方 main():186 传入后被静默丢弃,
+         结构上暗示「本该动态获取」实为写死, 误导后续维护者;
+      3. 同项目 trigger_canary_traffic.py 的 login() 已是正确范式, 此处未对齐。
+    故改为真实登录; 口令从环境变量读取, 缺失即 fail-fast。
+    """
+    import os
+
+    password = os.environ.get("ADMIN_PASSWORD", "").strip()
+    if not password:
+        raise RuntimeError(
+            "ADMIN_PASSWORD 未设置。该脚本需要 admin 账号口令以登录取token, "
+            "拒绝使用硬编码凭据。请设置环境变量后重试。"
+        )
+    body = json.dumps({"username": "admin", "password": password}).encode()
+    req = urllib.request.Request(
+        api_url.rstrip("/") + "/api/v1/auth/login",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        payload = json.loads(resp.read().decode())
+    return payload["data"]["access_token"]
 
 
 def call_fusion_api(
@@ -195,6 +218,9 @@ def main() -> int:
     risk_levels: list[int] = []
     errors: list[str] = []
     latencies: list[float] = []
+    # AUDIT-2026-10-07 (S-3): 与 risk_scores 同步 append 的 label 配对列表,
+    # 避免失败样本剔除后 zip(risk_scores, y_true) 长度不一致导致分组错配。
+    eval_labels: list[int] = []
 
     for i, row in enumerate(rows, 1):
         text = row.get("text", "").strip()
@@ -232,6 +258,9 @@ def main() -> int:
             else:
                 pred = 1 if risk_score >= args.threshold else 0
             y_pred.append(pred)
+            # AUDIT-2026-10-07 (S-3): 与 risk_scores 同步记录 label, 供分组统计
+            # 配对使用(见下方 risk_score 分布段)。
+            eval_labels.append(label)
 
             model_used = result.get("model_used", [])
             if isinstance(model_used, list):
@@ -246,11 +275,12 @@ def main() -> int:
             )
         except Exception as e:
             errors.append(f"样本 {i} (text='{text[:20]}...'): {e}")
-            y_pred.append(0)  # 失败视为预测 0
-            risk_scores.append(0.0)
-            risk_levels.append(0)
-            latencies.append(0.0)
-            print(f"  [{i:2d}/{len(rows)}] ERROR: {e}")
+            # AUDIT-2026-10-07 (S-3): 原为 y_pred.append(0) +保留 y_true,
+            # 等于把「调用失败(401/429/超时)」计为「预测健康」并送进混淆矩阵。
+            # 失败不是预测结果, 必须成对剔除, 否则 F1 被系统性拉低且结论失真
+            # ——而本脚本结论被当作 Phase 1 关卡证据引用。
+            y_true.pop()  # 回滚 L240 已append 的 label, 与 y_pred 保持对齐
+            print(f"  [{i:2d}/{len(rows)}] ERROR (已剔除该样本): {e}")
 
         # 限流规避: 端点 20/minute, 请求间隔 3.5s 确保不触发 429
         if i < len(rows):
@@ -303,8 +333,13 @@ def main() -> int:
         print(f"  min={min(risk_scores):.2f}  max={max(risk_scores):.2f}  "
               f"avg={sum(risk_scores)/len(risk_scores):.2f}")
         # 按 label 分组
-        depressed_scores = [s for s, l in zip(risk_scores, y_true) if l == 1]
-        healthy_scores = [s for s, l in zip(risk_scores, y_true) if l == 0]
+        # AUDIT-2026-10-07 (S-3): 原用 zip(risk_scores, y_true)。失败样本已从
+        # y_true 剔除, 但 risk_scores 只在成功时 append, 两者长度不一致,
+        # zip 会静默错配(取较短者) —— 分组均值随之失真。
+        # 改为维护显式配对列表, 保证 (score, label) 严格对应。
+        paired = list(zip(risk_scores, eval_labels))
+        depressed_scores = [s for s, l in paired if l == 1]
+        healthy_scores = [s for s, l in paired if l == 0]
         if depressed_scores:
             print(f"  抑郁组 (label=1, n={len(depressed_scores)}): "
                   f"avg={sum(depressed_scores)/len(depressed_scores):.2f}")
@@ -335,11 +370,22 @@ def main() -> int:
             "p99": round(sorted(latencies)[int(len(latencies) * 0.99) - 1], 1) if len(latencies) > 1 else 0,
         },
         "errors": errors,
+        # AUDIT-2026-10-07 (S-3): 显式记录剔除数, 让引用方(STATE.md)能看到
+        # F1 是在多少有效样本上得出的 —— 样本被大量剔除时 F1 再高也不可信。
+        "n_errors": len(errors),
+        "n_excluded": len(errors),
+        "valid": not errors,
     }
     summary_path = PROJECT_ROOT / "scripts" / ".production_f1_result.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"摘要已写入: {summary_path}")
 
+    # AUDIT-2026-10-07 (S-3): 有失败样本时一律判为不达标。原实现只看 F1,
+    # 会出现「大量请求失败 + 剩余样本 F1 达标 => exit 0 报告通过」,
+    # 把失败包装成了达标证据。正确的 F1 比没有 F1 更危险。
+    if errors:
+        print(f"[不达标] 存在 {len(errors)} 个失败样本, F1 结论不可信 (已从混淆矩阵剔除)")
+        return 1
     return 0 if metrics["f1"] >= 0.92 else 1
 
 

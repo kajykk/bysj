@@ -19,9 +19,13 @@ METRICS_URL = f"{BASE}/api/v1/metrics"
 # 从 settings 读取 token (生产环境与非生产环境不同)
 try:
     from app.core.config import settings
-    TOKEN = settings.metrics_access_token or "dev-only-metrics-token"
+    TOKEN = settings.metrics_access_token
+    if not TOKEN:
+        # AUDIT-2026-10-07 (S-2): 原 or "<硬编码字面量>" 兜底, 已移除。
+        raise RuntimeError("settings.metrics_access_token 未配置。")
 except Exception:
-    TOKEN = "dev-only-metrics-token"
+    # AUDIT-2026-10-07 (S-2): 原为硬编码 token 字面量兜底, 已移除。
+    raise RuntimeError("无法读取 settings.metrics_access_token。")
 
 EXPECTED_CATEGORIES = {
     "模型质量": ["model_inference_total", "model_inference_duration"],

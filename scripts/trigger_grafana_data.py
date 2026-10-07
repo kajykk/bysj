@@ -13,6 +13,7 @@ Usage:
 import asyncio
 import urllib.request
 import json
+import os
 import sys
 
 BASE = "http://localhost:8000"
@@ -25,7 +26,16 @@ async def reset_admin_password() -> str:
     from sqlalchemy import text
     from app.services.auth_service import AuthService
 
-    new_password = "Admin@Canary2026"
+    # AUDIT-2026-10-07 (S-1): 原为硬编码口令字面量, 改为从环境变量读取。
+    # 该脚本会调用 reset_password_by_admin 改写生产库的 admin 口令 ——
+    # 硬编码值等于把一个仓库内公开的值反复设为线上超管凭据。
+    # 不设默认值: 未显式配置即应失败, 而非静默用一个弱口令。
+    new_password = os.environ.get("ADMIN_RESET_PASSWORD", "").strip()
+    if not new_password:
+        raise RuntimeError(
+            "ADMIN_RESET_PASSWORD 未设置。该脚本会重置 admin 账号口令, "
+            "拒绝使用默认值。请显式设置环境变量后重试。"
+        )
     async with AsyncSessionLocal() as db:
         svc = AuthService(db)
         try:

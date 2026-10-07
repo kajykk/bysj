@@ -88,10 +88,18 @@ ignore_errors = true
 
 # MAINT-P3-003: bandit 安全扫描门禁
 # 策略: 中等严重度 + 中等置信度, 排除测试目录
+#
+# AUDIT-2026-10-07 (P0-4) 实测校正 —— 凭据类规则必须单独降阈值:
+# bandit 把「硬编码口令/密钥」(B105-B108, B110) 归类为 SEVERITY.LOW + CONFIDENCE.MEDIUM。
+# 探针实验 (/tmp/bt2, 4 处硬编码口令): 默认阈值发现 11 项(其中 LOW 3 项),
+# 但仓库既有配置 `-ll` (medium+) 下**发现数为 0** —— 即凭据类问题被阈值整体滤掉,
+# 即使文件范围放开也一个都拦不住。
+# 故: 全局阈值保持 medium+ 不变(避免大量噪音阻塞开发), 但对凭据类测试 ID 单独
+# 降到 low 级别, 由下方 pre-commit / CI 的 `-t` 参数显式指定。
 [tool.bandit]
 severity = "medium"
 confidence = "medium"
-exclude_dirs = ["tests", "alembic", "scripts", "build", "dist"]
+exclude_dirs = ["tests", "alembic", "build", "dist"]
 skips = [
     "B101",  # assert_used: 测试中常用 assert, 不作为错误
     "B311",  # random: 测试中常用 random, 不作为安全问题

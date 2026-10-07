@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 import urllib.request
 
 BASE = "http://localhost:8001/api/v1"
-TOKEN_FILE = r"e:\code\bysj\scripts\.admin_token.txt"
+TOKEN_FILE = r"e:\code\bysj\scripts\.admin_token.txt"  # nosec: B105 -- AUDIT-2026-10-07 (P0-4): 非凭据: 值为脚本自身生成的令牌文件路径, 非令牌本身; 真实令牌由 .admin_token.txt 承载且该文件已被 .gitignore 排除
 LOG_FILE = r"e:\code\bysj\scripts\canary_monitor.log"
 CANARY_ID = 3
 CANARY_START = datetime(2026, 7, 22, 4, 24, 35, tzinfo=timezone.utc)

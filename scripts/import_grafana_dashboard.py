@@ -13,12 +13,25 @@ from pathlib import Path
 
 GRAFANA_URL = "http://localhost:3000"
 ADMIN_USER = "admin"
-ADMIN_PASSWORD = "CkF14AETkpmIHNq8"
+# AUDIT-2026-10-07 (S-2): 原为硬编码口令字面量, 改为从权威实现读取。
+# 不设默认值 —— 默认值存在即等于默认可用凭据。
+from lib.grafana_client import require_admin_password
+
+# AUDIT-2026-10-07 (S-2): 惰性读取, 不在导入期执行 —— 否则未配置环境变量时
+# 本模块 import 即抛错, 连带所有引用方崩溃。真正用到凭据时才 fail-fast。
+ADMIN_PASSWORD: str | None = None
+
+
+def _admin_password() -> str:
+    global ADMIN_PASSWORD
+    if ADMIN_PASSWORD is None:
+        ADMIN_PASSWORD = require_admin_password()
+    return ADMIN_PASSWORD
 DASHBOARD_JSON = Path(__file__).resolve().parent.parent / "outputs" / "grafana_dashboard_v2.json"
 
 
 def make_auth_header() -> dict:
-    credentials = f"{ADMIN_USER}:{ADMIN_PASSWORD}"
+    credentials = f"{ADMIN_USER}:{_admin_password()}"
     encoded = base64.b64encode(credentials.encode()).decode()
     return {"Authorization": f"Basic {encoded}", "Content-Type": "application/json"}
 

@@ -173,7 +173,7 @@ def create_access_token(data: dict[str, Any]) -> str:
     return _build_token(
         data,
         timedelta(minutes=settings.access_token_expire_minutes),
-        token_type="access",
+        token_type="access",  # nosec  JWT token_type 枚举标签 'access', 非凭据。
     )
 
 
@@ -181,7 +181,7 @@ def create_refresh_token(data: dict[str, Any], jti: str | None = None) -> str:
     return _build_token(
         data,
         timedelta(days=settings.refresh_token_expire_days),
-        token_type="refresh",
+        token_type="refresh",  # nosec  JWT token_type 枚举标签 'refresh', 非凭据。
         jti=jti,
     )
 
@@ -191,7 +191,7 @@ def create_password_reset_token(data: dict[str, Any]) -> str:
     return _build_token(
         data,
         timedelta(minutes=settings.password_reset_token_expire_minutes),
-        token_type="password_reset",
+        token_type="password_reset",  # nosec  JWT token_type 枚举标签 'password_reset', 非凭据。
     )
 
 

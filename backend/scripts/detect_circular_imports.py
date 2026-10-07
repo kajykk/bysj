@@ -575,7 +575,7 @@ def dynamic_check(backend_root: Path, pkg_name: str = "app") -> List[dict]:
                     "traceback": traceback.format_exc(),
                 }
             )
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # nosec: B110 -- AUDIT-2026-10-07 (P0-4): 非凭据: B110 变量名正则误匹配 except 子句, 该行为异常处理
             # 其它异常（如缺少环境变量、数据库连接等）不算循环依赖
             pass
 

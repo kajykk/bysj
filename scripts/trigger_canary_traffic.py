@@ -3,16 +3,23 @@
 通过 HTTP API 触发 fusion 推理请求, 金丝雀路由会将 5% 流量分发到 M4 stacking.
 """
 import json
+import os
 import sys
 import urllib.request
 
 
 API = "http://localhost:8000/api/v1"
 USERNAME = "admin"
-PASSWORD = "Admin@Canary2026"
+# AUDIT-2026-10-07 (S-1): 原为硬编码口令字面量, 改为从环境变量读取。
+# 不设默认值: 默认值即默认可用凭据, 漏配时静默回落弱口令比直接失败更危险。
+PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
 
 
 def login() -> str:
+    if not PASSWORD:
+        raise RuntimeError(
+            "ADMIN_PASSWORD 未设置, 拒绝使用空口令登录。"
+        )
     body = json.dumps({"username": USERNAME, "password": PASSWORD}).encode()
     req = urllib.request.Request(
         f"{API}/auth/login",

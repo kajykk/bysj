@@ -325,7 +325,7 @@ async def require_sa_or_admin(
             email="grafana-sa@bysj.local",
             email_hash="grafana-sa-blind-index-placeholder",
             phone=None,
-            password_hash="!grafana-sa-token!",
+            password_hash="!grafana-sa-token!",  # nosec  哨兵哈希: '!' 前缀使该账号不可密码登录, 仅供 Grafana 服务账号占位。非可用凭据。
             role=USER_ROLE_ADMIN,
             status=USER_STATUS_ACTIVE,
             avatar_url=None,

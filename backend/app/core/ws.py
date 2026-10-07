@@ -369,7 +369,7 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
     try:
         token_data = decode_token(token)
         token_type = token_data.get("type")
-        if token_type != "access":
+        if token_type != "access":  # nosec  WebSocket token_type 枚举标签 'access', 非凭据。
             _inc_ws_auth_failure("invalid_token_type")
             await ws.close(
                 code=4001,

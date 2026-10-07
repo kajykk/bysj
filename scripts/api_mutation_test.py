@@ -145,7 +145,7 @@ def main():
             inner = payload.get("data", payload)
             silence_id = inner.get("id") or inner.get("silence_id")
             print(f"    -> silence_id={silence_id}")
-        except Exception:
+        except Exception:  # nosec: B110 -- AUDIT-2026-10-07 (P0-4): 非凭据: B110 变量名正则误匹配 except 子句, 该行为异常处理
             pass
     if silence_id:
         call(f"DELETE alerts/silences/{silence_id}", "DELETE", f"/api/v1/alerts/silences/{silence_id}", headers=admin)

@@ -92,7 +92,7 @@ class FusionMixin:
                 from app.core.metrics import model_inference_total
 
                 model_inference_total.inc(1, model_name="fusion_canary", status="success")
-            except Exception:
+            except Exception:  # nosec  指标自增失败不得影响推理主流程, 故 except: pass。
                 pass
             await self._log_canary_event(
                 event_type="inference",
