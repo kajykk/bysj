@@ -468,10 +468,37 @@ async def export_crisis_events(
     db: Annotated[AsyncSession, Depends(get_db)],
     start_date: date = Query(..., description="开始日期 (YYYY-MM-DD)"),
     end_date: date = Query(..., description="结束日期 (YYYY-MM-DD)"),
+    tenant_id: int | None = Query(
+        None,
+        ge=1,
+        description=(
+            "限定租户 ID；省略则导出**全部租户**"
+            "（平台管理员的跨租户危机总览，属有意设计）"
+        ),
+    ),
 ) -> PlainTextResponse:
-    """导出危机事件 CSV（管理员权限）。"""
+    """导出危机事件 CSV（平台管理员权限）。
+
+    省略 ``tenant_id`` 时导出全部租户；给定则只导出该租户。
+    """
+    # AUDIT-2026-10-08：新增可选 ``tenant_id`` 收窄导出范围。
+    #
+    # 本端点受 ``require_platform_admin()`` 保护（用户须属 ``DEFAULT_TENANT_ID``），
+    # 租户 B 的管理员会被 403 拦在门外，因此「默认导出全部租户」是平台监管的
+    # **有意设计**而非漏过滤 —— 这里补的是「按需收窄」的能力，以及把实际范围
+    # 写进审计日志，而不是把默认值改成单租户。（放在注释而非 docstring，是因为
+    # docstring 会进 OpenAPI 描述，暴露给调用方。）
     if start_date > end_date:
         raise HTTPException(status_code=422, detail="开始日期不能晚于结束日期")
+
+    # 收窄到指定租户时先校验该租户存在 —— 否则拼错 ID 会静默导出 0 行，
+    # 让人误以为「这段时间没有危机事件」。
+    if tenant_id is not None:
+        from app.models.tenant import Tenant
+
+        exists = await db.get(Tenant, tenant_id)
+        if exists is None:
+            raise HTTPException(status_code=404, detail=f"租户 {tenant_id} 不存在")
 
     # M-15 修复：限制导出日期范围，防止一次性导出过大数据集导致性能问题
     from datetime import timedelta
@@ -506,6 +533,13 @@ async def export_crisis_events(
                     "filename": safe_filename,
                     "content_size": 0,
                     "completed": False,
+                    # AUDIT-2026-10-08：记录本次导出覆盖的租户范围。
+                    # 危机数据批量导出是高敏操作，事后必须能回答「当时导了哪些
+                    # 租户」—— CSV 里的 user_id 已脱敏，无法从产物反推。
+                    "tenant_scope": (
+                        "all_tenants" if tenant_id is None else f"tenant:{tenant_id}"
+                    ),
+                    "tenant_id": tenant_id,
                 },
                 ensure_ascii=False,
             ),
@@ -516,7 +550,7 @@ async def export_crisis_events(
 
         content_size = 0
         try:
-            async for chunk in service.iter_export_crisis_csv(start_date, end_date):
+            async for chunk in service.iter_export_crisis_csv(start_date, end_date, tenant_id):
                 content_size += len(chunk)
                 yield chunk
         finally:
@@ -530,6 +564,10 @@ async def export_crisis_events(
                         "filename": safe_filename,
                         "content_size": content_size,
                         "completed": True,
+                        "tenant_scope": (
+                            "all_tenants" if tenant_id is None else f"tenant:{tenant_id}"
+                        ),
+                        "tenant_id": tenant_id,
                     },
                     ensure_ascii=False,
                 )

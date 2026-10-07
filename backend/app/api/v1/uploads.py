@@ -29,6 +29,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi import Path as FastPath
 from fastapi.responses import FileResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.contracts import (
@@ -41,8 +42,9 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, oauth2_scheme
 from app.core.paths import PUBLIC_DIRS, resolve_upload_dir
 from app.core.rate_limit import get_real_client_ip
+from app.core.states import BindingStatus
 from app.models.admin import OperationLog
-from app.models.user import User
+from app.models.user import User, UserCounselorBinding
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +164,9 @@ async def serve_upload(
     **用户私有文件** (owner 为纯数字)：
     - 必须鉴权 (Authorization header 或 ``?token=`` query 参数)
     - ``user`` 角色：只能访问 ``owner == current_user.id`` 的文件
-    - ``counselor``/``admin`` 角色：可访问任意用户文件
+    - ``counselor`` 角色：只能访问**与自己存在有效绑定**的用户的文件
+      （AUDIT-2026-10-08 P1-5 修复：此前可访问任意用户文件）
+    - ``admin``/``super_admin`` 角色：可访问任意用户文件（平台管理职责）
     - filename 必须匹配 ``^[A-Za-z0-9_\\-]+\\.[A-Za-z0-9]{1,8}$`` (UUID.ext)
     """
     if not owner or not filename:
@@ -219,6 +223,30 @@ async def serve_upload(
         USER_ROLE_SUPER_ADMIN,
     ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
+
+    # AUDIT-2026-10-08 (P1-5)：``counselor`` 此前只要角色对就能读**任意**用户的
+    # 私有文件，等于任意咨询师拿到一个 user_id 就能遍历全校师生的心理健康评估
+    # 音频/报告（文件名是 UUID，但 user_id 是连续整数，极易枚举）。
+    # 收紧为「仅限已建立有效咨询绑定的用户」，与
+    # ``CounselorService.get_user_detail`` 的绑定校验同源同口径。
+    #
+    # 租户隔离由绑定关系隐含保证：绑定两端（counselor_id / user_id）都指向本租户
+    # 的用户，而跨租户绑定本身在绑定接口层已被拒绝。故此处不再叠加 tenant_id
+    # 比较 —— 那会要求 users JOIN，而此端点是 ``FileResponse`` 直出热路径。
+    if current_user.role == USER_ROLE_COUNSELOR and current_user.id != user_id:
+        # db 为 None 说明该端点被以无 DB 依赖的方式调用（仅测试构造签名），
+        # 此时无法验证绑定 —— 对 counselor 而言这是fail-closed 的正确方向。
+        if db is None:
+            raise HTTPException(status_code=404, detail="文件不存在")
+        binding_stmt = select(UserCounselorBinding).where(
+            UserCounselorBinding.counselor_id == current_user.id,
+            UserCounselorBinding.user_id == user_id,
+            UserCounselorBinding.status == BindingStatus.ACTIVE,
+        )
+        bound = (await db.execute(binding_stmt)).scalar_one_or_none()
+        if bound is None:
+            # 统一 404：不区分「无绑定」与「文件不存在」，避免探测绑定关系
+            raise HTTPException(status_code=404, detail="文件不存在")
 
     # filename 安全校验：私有文件的 filename 必须是单段 UUID.ext
     # 取最后一段（防止用户传入 a/b/c.jpg）

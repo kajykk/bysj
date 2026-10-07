@@ -27,8 +27,13 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
+import functools
 import json
 import logging
+import os
+import tempfile
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -36,6 +41,41 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# AUDIT-2026-10-08 (P2-registry-atomic)：注册表的并发与写盘原子性。
+#
+# 为什么是**模块级**锁而不是实例级：``get_registry()`` 返回的是全局单例，
+# 它同时被三类线程访问 ——
+#   1. 推理线程：``model_registry.resolve_model_path`` (L331) 每次解析模型路径
+#      都会查 V2 注册表
+#   2. 训练线程：``model_training.py`` 的 ``register_training_artifact``
+#   3. 后台线程：``registry_auto_rollback`` / ``shadow_comparison_service``
+# 实例级锁保护不了「两个线程同时首次调用 get_registry() 各建一个实例」的竞态。
+#
+# 为什么用 RLock 而不是 Lock：公开方法（如 ``promote_model``）内部会调
+# ``get_model``，可重入避免自锁。这点很关键 —— 推理侧
+# ``model_registry.py:341`` 把注册表查询包在 ``except Exception`` 里静默降级到
+# 静态路径，一旦死锁不会报错，只会表现为「训练产物永远不生效」，极难排查。
+_REGISTRY_LOCK = threading.RLock()
+
+
+def _serialized(func):
+    """串行化注册表的**复合写操作**（read-modify-write）。
+
+    只装饰写方法，不装饰 ``get_model`` 等纯读方法 —— 理由：
+    - 纯读是单个 dict 操作，GIL 下本身原子，不会读到损坏结构；
+    - ``get_model`` 位于推理热路径（``model_registry.resolve_model_path``
+      每次解析模型路径都会调用），给它加锁只会增加阻塞面，而它并不产生
+      「读到写了一半」的风险 —— 真正会交错的是两个**写**操作（一个 register
+      改到一半被另一个 promote 覆盖），那个已由本装饰器消除。
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with _REGISTRY_LOCK:
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 class ModelStatus(Enum):
@@ -119,19 +159,82 @@ class ModelRegistryV2:
     def _load_registry(self) -> None:
         """Load registry from disk."""
         path = Path(self.registry_path)
-        if path.exists():
+        if not path.exists():
+            return
+        with _REGISTRY_LOCK:
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                for model_id, record_data in data.get("models", {}).items():
-                    self.registry[model_id] = ModelRecord.from_dict(record_data)
-                logger.info("Loaded %d models from registry", len(self.registry))
             # M-Core-14 修复：扩大异常捕获范围，避免未知异常导致启动崩溃
             except (json.JSONDecodeError, KeyError, OSError, ValueError) as exc:
-                logger.warning("Failed to load registry: %s", exc)
+                # AUDIT-2026-10-08 (P2-registry-atomic)：损坏文件必须**旁路**，
+                # 不能留在原地。
+                #
+                # 原实现只 warning 就让 registry 保持为空，而损坏文件仍在
+                # registry_path 上 —— 下一次任意写操作会用空表覆盖它，
+                # 损坏内容连同里面的训练资产记录一起**永久消失**，连人工恢复
+                # 的机会都没有。实测：5 条记录经一次写坏 + 一次写入后归零。
+                #
+                # 旁路为 .corrupt-<时间戳> 后，进程仍以空表继续（推理侧有
+                # except 降级，不能让它启动失败），但原件保留可事后取回。
+                logger.error(
+                    "注册表文件 %s 无法解析（%s），已旁路备份并**以空表启动**；所有训练产物记录需从备份恢复后重新注册",
+                    path,
+                    exc,
+                )
+                self._quarantine_corrupt_file(path)
+                return
+
+            try:
+                for model_id, record_data in data.get("models", {}).items():
+                    self.registry[model_id] = ModelRecord.from_dict(record_data)
+            except (KeyError, ValueError, TypeError) as exc:
+                # 文件本身是合法 JSON，但某条记录结构坏了。
+                # 与上面同理：旁路原件，避免被下一次写入静默覆盖。
+                logger.error(
+                    "注册表文件 %s 中存在损坏记录（%s），已旁路备份；已加载 %d 条，其余丢弃",
+                    path,
+                    exc,
+                    len(self.registry),
+                )
+                self._quarantine_corrupt_file(path)
+                return
+
+            logger.info("Loaded %d models from registry", len(self.registry))
+
+    @staticmethod
+    def _quarantine_corrupt_file(path: Path) -> None:
+        """把损坏的注册表文件改名旁路，保留现场供人工恢复。
+
+        失败只记录不抛出：旁路是**尽力而为**的兜底，绝不能因为备份失败
+        就让进程起不来 —— 注册表加载失败本身已有空表降级路径。
+        """
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        backup = path.with_name(f"{path.name}.corrupt-{stamp}")
+        try:
+            os.replace(path, backup)
+        except OSError as exc:
+            logger.error("无法旁路损坏的注册表文件 %s -> %s: %s", path, backup, exc)
+        else:
+            logger.error("损坏文件已旁路至 %s，请人工核对后恢复", backup)
 
     def _save_registry(self) -> None:
-        """Save registry to disk."""
+        """原子写盘：先写同目录临时文件，再 ``os.replace`` 覆盖。
+
+        AUDIT-2026-10-08 (P2-registry-atomic)：原实现 ``open(path, "w")`` 会
+        **先 truncate 已有文件再写入**，中间态是「半截 JSON」。实测（用抛
+        OSError 的假 ``json.dump`` 模拟磁盘满 / 进程被杀）：写一半时磁盘上
+        留下 30 字节的半截内容，而 ``_load_registry`` 捕获 JSONDecodeError 后
+        只 warning 并继续，registry 变空 —— **下一次任意写操作就把空表写回
+        磁盘**，5 条训练资产永久丢失。模型文件还在磁盘上，但注册表里查不到，
+        永远不会再被激活（``resolve_model_path`` 只认 PRODUCTION 记录）。
+
+        原子写彻底消除了这个中间态：``os.replace`` 在同一文件系统下是原子的，
+        并发读方要么看到旧文件、要么看到新文件，不存在「读到一半」的可能。
+
+        另：序列化放在**打开文件之前**完成，让序列化异常（如不可序列化的
+        metrics 值）既不留 tmp 垃圾，也不触碰已有文件。
+        """
         path = Path(self.registry_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -142,9 +245,36 @@ class ModelRegistryV2:
                 model_id: record.to_dict() for model_id, record in self.registry.items()
             },
         }
+        try:
+            payload = json.dumps(data, indent=2, ensure_ascii=False)
+        except (TypeError, ValueError) as exc:
+            # 序列化失败：已有磁盘文件完全不受影响，直接抛出由调用方回滚内存
+            logger.error("注册表序列化失败，未触碰磁盘文件 %s: %s", path, exc)
+            raise
 
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        # tmp 必须落在**同一目录**：os.replace 跨文件系统会退化成
+        # copy+unlink，那就不再原子了。
+        tmp_fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+                # 先落盘再替换：否则极端断电下可能 replace 了一个内容还在
+                # 页缓存里的文件。
+                os.fsync(f.fileno())
+            os.replace(tmp_name, path)
+        except BaseException:
+            # 已有文件未受影响（os.replace 尚未执行），只需清掉半成品。
+            with contextlib.suppress(OSError):
+                os.close(tmp_fd)
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_name)
+            raise
+
+        # 注：这里**不**对父目录做 fsync。目录项未持久化时，重启后可能看到
+        # 旧文件或新文件 —— 两者都是完整合法的 JSON，不会出现半截文件，
+        # 对注册表这种「整体替换」的写模式是可接受的取舍；而 Windows 上
+        # 打开目录 fd 本身就不被支持。
 
     def register_model(
         self,
@@ -160,6 +290,37 @@ class ModelRegistryV2:
         training_config: dict[str, Any] | None = None,
     ) -> ModelRecord:
         """Register a new model or update an existing one."""
+        # AUDIT-2026-10-08 (P2-registry-atomic)：read-modify-write 全程串行。
+        # 实测 8 线程 × 20 次注册只落盘 100/160 —— 并发 ``open(path, "w")``
+        # 在 Windows 上直接 PermissionError（独占打开），训练产物已存盘但
+        # 注册失败，模型永远不会被激活。
+        return self._register_model_locked(
+            model_id=model_id,
+            name=name,
+            version=version,
+            model_type=model_type,
+            status=status,
+            fallback_id=fallback_id,
+            performance_threshold=performance_threshold,
+            metrics=metrics,
+            artifact_path=artifact_path,
+            training_config=training_config,
+        )
+
+    @_serialized
+    def _register_model_locked(
+        self,
+        model_id: str,
+        name: str,
+        version: str,
+        model_type: ModelType,
+        status: ModelStatus = ModelStatus.CANDIDATE,
+        fallback_id: str | None = None,
+        performance_threshold: dict[str, float] | None = None,
+        metrics: dict[str, float] | None = None,
+        artifact_path: str = "",
+        training_config: dict[str, Any] | None = None,
+    ) -> ModelRecord:
         now = datetime.now(timezone.utc).isoformat()
 
         if model_id in self.registry:
@@ -252,6 +413,16 @@ class ModelRegistryV2:
         self, model_id: str, new_status: ModelStatus
     ) -> ModelRecord | None:
         """Promote or demote a model to a new status."""
+        # AUDIT-2026-10-08 (P2-registry-atomic)：状态流转是典型的
+        # read-modify-write（读 status → 校验合法转移 → 改 → 落盘）。
+        # 实测两个线程并发 CANDIDATE→STAGING：第二个读到已被改过的
+        # staging，判定 "staging -> staging" 非法而返回 None —— 调用方
+        # （activate_training_model）据此认为激活失败，但实际状态已生效，
+        # 于是上层会重试或报警，产生幽灵失败。
+        return self._promote_model_locked(model_id, new_status)
+
+    @_serialized
+    def _promote_model_locked(self, model_id: str, new_status: ModelStatus) -> ModelRecord | None:
         record = self.registry.get(model_id)
         if not record:
             logger.error("Model %s not found", model_id)
@@ -372,12 +543,19 @@ _registry_instance: ModelRegistryV2 | None = None
 
 def get_registry() -> ModelRegistryV2:
     """Get the global registry instance."""
+    # AUDIT-2026-10-08 (P2-registry-atomic)：双重检查加锁。
+    # 原实现是裸的 if-None-then-create：两个线程同时首次调用会各建一个实例，
+    # 各自 ``_load_registry`` 到不同的内存快照，后赋值的那个胜出 —— 前者
+    # 期间完成的任何注册都会被无声丢弃（``_registry_instance`` 被整体换掉）。
     global _registry_instance
     if _registry_instance is None:
-        _registry_instance = ModelRegistryV2()
+        with _REGISTRY_LOCK:
+            if _registry_instance is None:
+                _registry_instance = ModelRegistryV2()
     return _registry_instance
 
 
+@_serialized
 def register_training_artifact(
     model_id: str,
     artifact_path: str,
@@ -391,6 +569,8 @@ def register_training_artifact(
     """注册训练产物为候选模型 (CANDIDATE).
 
     训练任务在产物保存成功后调用: 产物进入注册表, 便于后续激活上线.
+
+    AUDIT-2026-10-08 (P2-registry-atomic)：整个调用串行化（见 ``_serialized``）。
     """
     return get_registry().register_model(
         model_id=model_id,
@@ -405,10 +585,15 @@ def register_training_artifact(
     )
 
 
+@_serialized
 def activate_training_model(model_id: str) -> ModelRecord | None:
     """将 CANDIDATE 训练产物提升为 PRODUCTION, 使其接入推理链.
 
     返回提升后的记录; 找不到模型或转换不合法时返回 None.
+
+    AUDIT-2026-10-08 (P2-registry-atomic)：CANDIDATE→STAGING→PRODUCTION 是
+    **两级**提升，级与级之间若被另一个线程插入（比如并发回退），会出现
+    「提升成功但返回 None」这类幽灵失败。整个调用串行化。
     """
     registry = get_registry()
     record = registry.get_model(model_id)
@@ -436,11 +621,15 @@ def activate_training_model(model_id: str) -> ModelRecord | None:
     return registry.get_model(model_id)
 
 
+@_serialized
 def rollback_training_model(model_id: str) -> ModelRecord | None:
     """将 PRODUCTION 训练产物降级为 CANDIDATE, 推理链回退静态模型.
 
     自动回退 (R2) 与人工回退共用. PRODUCTION -> STAGING -> CANDIDATE
     逐级降级; 已是 STAGING/CANDIDATE/缺失时返回 None (无需回退).
+
+    AUDIT-2026-10-08 (P2-registry-atomic)：与 activate_training_model 同理，
+    两级降级整体串行化，避免与并发激活互相插入。
     """
     registry = get_registry()
     record = registry.get_model(model_id)

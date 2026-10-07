@@ -305,3 +305,115 @@ class TestExportCrisisEvents:
             date(2023, 5, 10), date(2023, 12, 31)
         )
         assert filename == "crisis_events_20230510_20231231.csv"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 租户范围（AUDIT-2026-10-08）
+#
+# 与 P1-3/P1-4/P1-5 那三处不同：本端点的默认跨租户是**有意设计** —— 它受
+# ``require_platform_admin()`` 保护（用户须属 DEFAULT_TENANT_ID，租户 B 的
+# admin 被 403 拦住），平台管理员需要跨租户危机总览做升级处置。
+# 因此这里不测「默认必须单租户」，而测两件事：
+#   1. 默认仍是全量（防止有人误把平台能力改窄）
+#   2. 传入 tenant_id 时确实收窄（新增能力真的生效）
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestExportTenantScope:
+    """导出范围的默认全量 + 按需收窄。"""
+
+    @staticmethod
+    def _rows(csv_content: str) -> list[list[str]]:
+        """剥掉表头，返回数据行。"""
+        reader = csv.reader(io.StringIO(csv_content))
+        return list(reader)[1:]
+
+    async def test_default_exports_all_tenants(self, service, db_session, seeded_user_id):
+        """省略 tenant_id 时导出全部租户 —— 平台监管的有意设计，不得被改窄。"""
+        from app.core.pii_crypto import compute_blind_index
+        from app.core.security import get_password_hash
+        from app.models.user import User
+
+        # 造一个租户 2 的用户 + 其危机事件
+        pwd = get_password_hash("testpass123")
+        email = "t2@test.com"
+        other = User(
+            id=100,
+            username="t2_user",
+            email=email,
+            email_hash=compute_blind_index(email, "email"),
+            password_hash=pwd,
+            role="user",
+            status="active",
+            tenant_id=2,
+        )
+        db_session.add(other)
+        await db_session.flush()
+        db_session.add(
+            CrisisEvent(
+                user_id=100,
+                trigger_source="keyword",
+                crisis_score=60.0,
+                status="detected",
+            )
+        )
+        await db_session.commit()
+
+        csv_content, _ = await service.export_crisis_events(date(2020, 1, 1), date(2099, 1, 1))
+        rows = self._rows(csv_content)
+        # 租户 1（seeded_user_id=1 及 user 2）+ 租户 2（user 100）都在
+        masked = {r[1] for r in rows}
+        assert "10****" in masked, f"默认导出应含租户 2 的用户，实际 {masked}"
+
+    async def test_tenant_id_narrows_scope(self, service, db_session, seeded_user_id):
+        """传入 tenant_id 时只导出该租户 —— 新增的收窄能力必须真的生效。"""
+        from app.core.pii_crypto import compute_blind_index
+        from app.core.security import get_password_hash
+        from app.models.user import User
+
+        pwd = get_password_hash("testpass123")
+        email = "t2b@test.com"
+        db_session.add(
+            User(
+                id=101,
+                username="t2_user_b",
+                email=email,
+                email_hash=compute_blind_index(email, "email"),
+                password_hash=pwd,
+                role="user",
+                status="active",
+                tenant_id=2,
+            )
+        )
+        await db_session.flush()
+        db_session.add(
+            CrisisEvent(
+                user_id=101,
+                trigger_source="keyword",
+                crisis_score=55.0,
+                status="detected",
+            )
+        )
+        await db_session.commit()
+
+        # 收窄到租户 1
+        csv1, _ = await service.export_crisis_events(
+            date(2020, 1, 1), date(2099, 1, 1), tenant_id=1
+        )
+        masked1 = {r[1] for r in self._rows(csv1)}
+        assert "10****" not in masked1, f"收窄到租户 1 后仍含租户 2 数据：{masked1}"
+
+        # 收窄到租户 2
+        csv2, _ = await service.export_crisis_events(
+            date(2020, 1, 1), date(2099, 1, 1), tenant_id=2
+        )
+        masked2 = {r[1] for r in self._rows(csv2)}
+        assert "10****" in masked2, f"收窄到租户 2 应含其数据：{masked2}"
+
+    async def test_backward_compatible_two_arg_call(self, service, seeded_crisis_events):
+        """旧调用方用两个位置参数调用仍然可用（tenant_id 默认 None）。"""
+        csv_content, filename = await service.export_crisis_events(
+            date(2020, 1, 1), date(2099, 1, 1)
+        )
+        assert csv_content
+        assert filename.startswith("crisis_events_")

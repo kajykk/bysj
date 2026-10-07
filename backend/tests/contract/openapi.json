@@ -18257,7 +18257,7 @@
           "admin"
         ],
         "summary": "Export Crisis Events",
-        "description": "导出危机事件 CSV（管理员权限）。",
+        "description": "导出危机事件 CSV（平台管理员权限）。\n\n省略 ``tenant_id`` 时导出全部租户；给定则只导出该租户。",
         "operationId": "export_crisis_events_api_v1_admin_crisis_events_export_get",
         "security": [
           {
@@ -18288,6 +18288,25 @@
               "title": "End Date"
             },
             "description": "结束日期 (YYYY-MM-DD)"
+          },
+          {
+            "name": "tenant_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "限定租户 ID；省略则导出**全部租户**（平台管理员的跨租户危机总览，属有意设计）",
+              "title": "Tenant Id"
+            },
+            "description": "限定租户 ID；省略则导出**全部租户**（平台管理员的跨租户危机总览，属有意设计）"
           }
         ],
         "responses": {

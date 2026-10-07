@@ -154,9 +154,29 @@ async def _daily_risk_scan_impl():
         # 用户规模大时全量加载会同时占满内存与连接; 分页后单批内存有界, 长列表可中断续跑.
         scanned_count = 0
         warning_count = 0
-        # H-ML-6 修复：收集待发送的通知，commit 之后再发送
-        # 原 flush 后立即 notify，若 commit 失败 rollback，用户收到告警但 DB 无记录
-        pending_notifications: list[tuple[int, int, int, str, int | None]] = []
+        pages_committed = 0
+        # AUDIT-2026-10-08 (P2-daily-risk-scan)：按**页**提交 + 按页发送通知。
+        #
+        # 原实现在整个 while 循环结束后才 commit 一次，而本任务
+        # soft_time_limit=270s（time_limit=300s）。一旦扫描中途超时，
+        # SoftTimeLimitExceeded 会让这**一个长事务**整体回滚 ——
+        # 前面若干页已经生成的告警全部丢失，且日志只报 "will retry"，
+        # 看不出丢了多少页。心理健康场景下「高危用户未生成告警」等同漏报。
+        #
+        # 改为按页提交后，超时最多丢**当前正在处理的那一页**，此前各页独立落盘。
+        #
+        # 幂等前提（与 _daily_intervention_check_impl 的按 plan 提交同理）：
+        # 告警写入是原子 INSERT ... WHERE NOT EXISTS，去重条件为
+        # 「同 user_id + trigger_reason 含'超过N天未评估' + created_at 在近 1 天」。
+        # 该条件查询的是**已提交**的数据，故重试重跑时已落盘的页会被去重跳过，
+        # 不会重复告警、也不会重复推送。
+        # （该 LIKE 模式原本写死为 '%超过7天未评估%' 而恒不命中，已在本轮一并
+        #   修正 —— 详见下方 dedupe_condition 处注释。）
+        #
+        # 通知同样改为按页发送：若仍攒到最后统一发，超时时已提交页的告警会
+        # 落库但无人知晓 —— 那正是 H-ML-6 要消除的「DB 有记录但咨询师不知道」。
+        # 发送点始终在 commit **之后**，H-ML-6 的语义不变。
+        failed_notifications: list[int] = []
 
         last_user_id: int | None = None
         while True:
@@ -228,6 +248,10 @@ async def _daily_risk_scan_impl():
                     for b in (await db.execute(bind_stmt)).scalars().unique().all()
                 }
 
+            # AUDIT-2026-10-08：本页待发通知。按页提交后即发送并清空，
+            # 不再攒到循环结束（那样超时会让已落库的页无人知晓）。
+            page_notifications: list[tuple[int, int, int, str, int | None]] = []
+
             for user in users:
                 latest_risk = latest_risk_map.get(user.id)
                 if latest_risk is None:
@@ -251,7 +275,18 @@ async def _daily_risk_scan_impl():
                         # 会重复插入同原因告警). returning() 拿到自增 id, 空结果即重复, 跳过.
                         dedupe_condition = and_(
                             WarningNotification.user_id == user.id,
-                            WarningNotification.trigger_reason.like("%超过7天未评估%"),
+                            # AUDIT-2026-10-08 (P2-daily-risk-scan)：模式必须与
+                            # trigger_reason 的**实际生成格式**一致。
+                            # 原写死 "%超过7天未评估%"，但 trigger_reason 里的
+                            # 天数是变量（f"...且超过{days_since}天未评估..."），
+                            # 而本分支的进入条件是 days_since > 7（即 >= 8）——
+                            # 实测 days=8/9/10/30 全部不匹配，只有 days 恰好为 7
+                            # 才命中，而 7 根本进不来。**去重条件恒不命中**。
+                            #
+                            # 后果不仅是「同一用户每天重复告警」：按页提交后若
+                            # 超时重试，已落盘的页不会被去重跳过 → 重复告警 +
+                            # 重复推送。故这里必须一并修正。
+                            WarningNotification.trigger_reason.like("%超过%天未评估%"),
                             # H-ML-5 修复: DB 列为 naive datetime, 使用 naive UTC 比较
                             WarningNotification.created_at
                             >= datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
@@ -293,7 +328,7 @@ async def _daily_risk_scan_impl():
                             warning_count += 1
                             # H-ML-6 修复：先收集通知，等 commit 成功后再发送
                             # 原 flush 后立即 notify，若 commit 失败 rollback，用户收到告警但 DB 无记录
-                            pending_notifications.append(
+                            page_notifications.append(
                                 (
                                     user.id,
                                     inserted_id,
@@ -303,38 +338,49 @@ async def _daily_risk_scan_impl():
                                 )
                             )
 
+            # AUDIT-2026-10-08 (P2-daily-risk-scan)：按页提交。
+            # 本页告警在这一步独立落盘 —— 后续页（或本页发通知时）若超时/失败，
+            # 已提交的页不受影响。放在发通知**之前**，保持 H-ML-6 的
+            # 「先落库再推送」语义：commit 失败则本页一条通知都不发。
+            await db.commit()
+            pages_committed += 1
+
+            # AUDIT-2026-09-28-P0-2：收集推送失败的预警，汇总上报
+            for (
+                user_id,
+                warning_id,
+                risk_level,
+                trigger_reason,
+                counselor_id,
+            ) in page_notifications:
+                ok = await _notify_warning(
+                    user_id, warning_id, risk_level, trigger_reason, counselor_id
+                )
+                if not ok:
+                    failed_notifications.append(warning_id)
+
             if len(users) < _RISK_SCAN_PAGE_SIZE:
                 break
 
+        # 兜底提交：无活跃用户时循环一次都没进，仍需一次 commit，
+        # 保证调用方（含既有测试）观察到的提交语义不变。
         await db.commit()
         logger.info(
-            "Daily risk scan summary: scanned=%d users, generated=%d warnings",
+            "Daily risk scan summary: scanned=%d users, generated=%d warnings, "
+            "pages_committed=%d",
             scanned_count,
             warning_count,
+            pages_committed,
         )
 
-        # H-ML-6 修复：commit 成功后再发通知，避免 rollback 后用户收到告警但 DB 无记录
-        # AUDIT-2026-09-28-P0-2：收集推送失败的预警，汇总上报（原先失败被完全吞掉）
-        failed_notifications: list[int] = []
-        for (
-            user_id,
-            warning_id,
-            risk_level,
-            trigger_reason,
-            counselor_id,
-        ) in pending_notifications:
-            ok = await _notify_warning(
-                user_id, warning_id, risk_level, trigger_reason, counselor_id
-            )
-            if not ok:
-                failed_notifications.append(warning_id)
-
+        # AUDIT-2026-09-28-P0-2：汇总上报推送失败的预警（原先失败被完全吞掉）。
+        # 通知本身已在每页 commit 之后发送（见上），此处只做汇总。
         if failed_notifications:
             logger.error(
                 "AUDIT-P0-2 本次风险扫描有 %d/%d 条预警未送达咨询师（已重试 %d 次仍失败），"
                 "需人工或兜底任务补发. warning_ids=%s",
                 len(failed_notifications),
-                len(pending_notifications),
+                warning_count,
                 _NOTIFY_MAX_ATTEMPTS,
                 failed_notifications[:100],
             )
@@ -345,7 +391,7 @@ async def _daily_risk_scan_impl():
 
                 capture_message(
                     f"风险扫描批量漏报: {len(failed_notifications)}/"
-                    f"{len(pending_notifications)} 条预警未送达咨询师",
+                    f"{warning_count} 条预警未送达咨询师",
                     level="error",
                 )
             except Exception:  # noqa: BLE001

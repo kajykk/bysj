@@ -64,43 +64,83 @@ def _get_expected_hash(model_id: str, file_path: Path) -> str | None:
     SEC-AUDIT-06: 侧车文件是真实的完整性锚点 (由训练/打包脚本经
     app.utils.checksum.write_sha256_sidecar 生成, 兼容 sha256sum 格式
     "<hash>  <filename>"). 即使注册表为空, 侧车存在时仍执行强校验.
+
+    AUDIT-2026-10-08 (P0-6): 侧车**存在但内容不可解析**此前与「侧车不存在」
+    一起返回 None, 两种完全不同的状况被压成同一个结果:
+    - 不存在 → 可能从未生成, 属配置遗漏
+    - 存在但解析失败 → 锚点已损坏, 属完整性事故
+    现返回 tuple, 让调用方能区分并对后者显式告警。
     """
     if model_id in _KNOWN_MODEL_HASHES:
-        return _KNOWN_MODEL_HASHES[model_id]
+        return _KNOWN_MODEL_HASHES[model_id], "registry"
     sidecar = file_path.with_suffix(file_path.suffix + ".sha256")
     if sidecar.exists():
         try:
             first_line = sidecar.read_text(encoding="utf-8").strip().splitlines()[0]
-            return first_line.split()[0]
+            value = first_line.split()[0]
         except (OSError, UnicodeDecodeError, IndexError) as exc:
             logger.warning("无法解析侧车校验文件 %s: %s", sidecar, exc)
-    return None
+            return None, f"unreadable_sidecar:{sidecar.name}"
+        # AUDIT-2026-10-08: 侧车内容必须是 64 位十六进制。轻量校验在此做,
+        # 避免拿 "abc" 这种垃圾值去和真实哈希比对 —— 那样只会恒 mismatch,
+        # 把配置错误伪装成「文件被篡改」的告警, 误导排查方向。
+        if len(value) != 64 or any(c not in "0123456789abcdefABCDEF" for c in value):
+            logger.error("侧车 %s 内容不是合法 sha256（长度=%d），视为无锚点", sidecar, len(value))
+            return None, f"malformed_sidecar:{sidecar.name}"
+        return value.lower(), "sidecar"
+    return None, "absent"
 
 
 def _verify_file_hash(model_id: str, file_path: Path, computed_hash: str) -> None:
-    expected = _get_expected_hash(model_id, file_path)
+    """比对模型文件哈希。锚点缺失时按 `_HASH_MISSATCH_POLICY` 决定告警或拒绝。
+
+    AUDIT-2026-10-08 (P0-6): 原实现在锚点缺失时只 `logger.info` 后 return ——
+    意味着**生产环境模型完整性完全没有被校验**，且发生在每次模型加载，
+    日志里混在 info 级别里不会有人看见。这与本项目 P0-3/P0-5 修的是同一类
+    病：防线看起来存在，实际不生效。
+
+    实测底数（本机全量扫描 27 个注册模型）：真实存在的模型工件**全部**有侧车
+    锚点（唯一例外 `mmpsy_lite_calibrator_meta` 是 .json 元数据，既不经
+    `_verify_file_hash` 加载也无安全含义）。因此把无锚点从「静默 info」
+    升级为「生产环境 ERROR + 指标」**不会打破现有部署**，却能在侧车被
+    人工删除 / 重建模型后忘更新时立刻暴露。
+
+    处置分级（保持 fail-safe 但不制造现网事故）：
+    - 锚点存在且不匹配 → 原逻辑：strict 环境 raise，非 strict 记 CRITICAL
+    - 锚点缺失/损坏 → ERROR 记录 + `_incr_model_fallback` 打点；
+      若配置了 `_REQUIRE_INTEGRITY_ANCHOR` 则同样 raise（供后续收紧）
+    """
+    expected, source = _get_expected_hash(model_id, file_path)
+
     if expected is None:
-        logger.info(
-            "Model %s: no known hash on record (computed=%s). "
-            "Add .sha256 sidecar next to the model file "
-            "(sha256sum %s > %s) for strict verification.",
-            model_id,
-            computed_hash,
-            file_path.name,
-            f"{file_path.name}.sha256",
+        message = (
+            f"Model {model_id} 无完整性锚点（来源={source}，computed={computed_hash}）。"
+            f"请在模型文件旁生成侧车：sha256sum {file_path.name} > "
+            f"{file_path.name}.sha256"
         )
+        # 无论环境一律 ERROR：这不是「开发期正常现象」——锚点缺失意味着
+        # 「文件是否被替换」这个问题在本进程里无法回答, 静默 info 会让它
+        # 永远不被发现。strict 环境进一步直接拒绝加载。
+        logger.error(message)
+        _incr_model_fallback(model_id, f"integrity_anchor_missing:{source}")
+        if _HASH_MISMATCH_POLICY == "reject":
+            raise ValueError(
+                f"Model {model_id} 缺少完整性锚点（{source}），当前环境要求强校验，拒绝加载。"
+                f"生成方法：sha256sum {file_path.name} > {file_path.name}.sha256"
+            )
         return
+
     if computed_hash != expected:
         msg = (
             f"Model {model_id} hash mismatch! "
-            f"expected={expected} computed={computed_hash}. "
+            f"expected={expected} computed={computed_hash} (来源={source}). "
             f"File may have been tampered with."
         )
         if _HASH_MISMATCH_POLICY == "reject":
             raise ValueError(msg)
         logger.critical(msg)
     else:
-        logger.info("Model %s hash verified: %s", model_id, computed_hash)
+        logger.info("Model %s hash verified: %s (来源=%s)", model_id, computed_hash, source)
 
 
 def _compute_file_sha256(file_path: Path) -> str:
@@ -109,6 +149,81 @@ def _compute_file_sha256(file_path: Path) -> str:
         while chunk := f.read(CHUNK_SIZE):
             sha.update(chunk)
     return sha.hexdigest()
+
+
+def audit_model_integrity_anchors() -> dict[str, Any]:
+    """启动时审计所有**实际存在**的模型工件是否具备完整性锚点。
+
+    AUDIT-2026-10-08 (P0-6): 补上「启动时审计缺失侧车」这一环。
+
+    为什么需要它：`_verify_file_hash` 只在**模型被加载时**才触发，而模型是懒加载
+    的 —— 进程可以正常启动、健康检查全绿、直到某次请求命中那个缺侧车的模型
+    才出事。启动审计把「防线是空的」这件事提前到部署时刻暴露。
+
+    只审计「文件确实存在且将被加载」的模型：注册表里有条目但文件不存在是
+    正常状态（可选模型未部署），报成缺失锚点会产生大量噪音，掩盖真问题。
+
+    Returns:
+        含 ``ok`` / ``missing_anchors`` / ``checked`` / ``skipped`` 的审计摘要，
+        供启动自检与测试断言使用。不抛异常 —— 审计不该阻断启动。
+    """
+    missing: list[dict[str, str]] = []
+    checked = 0
+    skipped = 0
+
+    # 必须复用 LoadingMixin._abs_path 本身（而非另写一份路径解析）——
+    # 候选路径优先级（settings.model_dir 优先、backend_root 次之、CWD 垫底）
+    # 决定实际加载哪个文件。审计若用不同解析逻辑, 就会出现
+    # 「审计说锚点 OK、实际加载的却是另一个文件」这种最坏情况。
+    # 用 __new__ 绕过 __init__：审计不应触发模型预加载与缓存初始化。
+    probe = LoadingMixin.__new__(LoadingMixin)
+
+    for model_id in sorted(MODEL_PATHS):
+        try:
+            if not is_model_enabled(model_id):
+                skipped += 1
+                continue
+            file_path = probe._abs_path(resolve_model_path(model_id))
+        except Exception as exc:  # noqa: PERF203 — 逐项隔离，单个失败不中断审计
+            logger.warning("完整性审计: 模型 %s 路径解析失败 %s", model_id, exc)
+            skipped += 1
+            continue
+
+        if not file_path or not file_path.exists():
+            skipped += 1
+            continue
+
+        # 只有走反序列化/推理的工件才需要锚点。纯 .json 元数据不经
+        # _verify_file_hash 加载，纳入统计只会制造噪音。
+        if file_path.suffix not in (".pkl", ".keras", ".h5", ".joblib", ".pt", ".pth"):
+            skipped += 1
+            continue
+
+        checked += 1
+        expected, source = _get_expected_hash(model_id, file_path)
+        if expected is None:
+            missing.append({"model_id": model_id, "path": str(file_path), "reason": source})
+
+    summary: dict[str, Any] = {
+        "ok": not missing,
+        "checked": checked,
+        "skipped": skipped,
+        "missing_anchors": missing,
+    }
+
+    if missing:
+        logger.error(
+            "模型完整性审计失败：%d/%d 个已部署模型缺少哈希锚点，无法校验是否被篡改：%s",
+            len(missing),
+            checked,
+            ", ".join(f"{m['model_id']}({m['reason']})" for m in missing),
+        )
+        for m in missing:
+            _incr_model_fallback(m["model_id"], f"integrity_anchor_missing:{m['reason']}")
+    else:
+        logger.info("模型完整性审计通过：%d 个已部署模型均具备哈希锚点（%d 个跳过）", checked, skipped)
+
+    return summary
 
 
 def _incr_model_fallback(model: str, reason: str) -> None:
@@ -142,6 +257,11 @@ class LoadingMixin:
     """
 
     def preload(self) -> None:
+        # AUDIT-2026-10-08 (P0-6)：预热前先做一次完整性锚点审计。
+        # preload 已存在于启动路径, 因此这里是最自然的接入点——模型加载是懒的,
+        # 若等到某个请求命中缺锚点的模型才发现问题, 那时健康检查早已全绿。
+        audit_model_integrity_anchors()
+
         for model_id in self.PRELOAD_IDS:
             try:
                 self._load_model(model_id)

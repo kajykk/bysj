@@ -144,8 +144,14 @@ TENANT_SENSITIVE_MODELS = {"User", "OperationLog"}
 #     core/seed.py, tasks/scheduler.py
 #   [已鉴权取值] 按已校验的 user_id 取单条，不构成列表越权：
 #     core/ws.py, services/gdpr_service_export.py
-#   [产品决策] 用户名/邮箱全局唯一（注册）；复核候选用户为平台范围：
-#     services/auth_service.py, api/v1/review.py
+#   [产品决策] 用户名/邮箱全局唯一（注册）：
+#     services/auth_service.py
+#   ~~[产品决策] 复核候选用户为平台范围：api/v1/review.py~~
+#     AUDIT-2026-10-08 (P1-3) 已移除该条目：``list_assignable_counselors``
+#     原以「复核候选是平台范围」为由放行裸 ``select(User)``，导致跨租户咨询师
+#     名单（含手机号等 PII）泄露。现已接入 ``tenant_scoped_query``，
+#     super_admin 亦不豁免（它同样是租户内管理员）。棘轮测试要求修复后必须
+#     移除条目，防止白名单退化成「什么都往里塞」的免责名单。
 #   [绑定关系] 绑定表不带 tenant_id，租户隔离依赖 API 层 require_role
 #     services/counselor_service_binding.py
 #     （咨询师用户列表已用 tenant_scoped_filter 接上，故不在白名单里）
@@ -155,7 +161,6 @@ UNFILTERED_QUERY_ALLOWLIST: set[str] = {
     "api/v1/alerts/__init__.py",
     "api/v1/content_governance.py",
     "api/v1/ops_dashboard.py",
-    "api/v1/review.py",
     "core/seed.py",
     "core/ws.py",
     "monitoring/dedup.py",

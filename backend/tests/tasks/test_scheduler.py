@@ -517,7 +517,11 @@ class TestDailyRiskScanImpl:
         # H-ML-7: 不再通过 ORM add/flush 写入
         mock_db.add.assert_not_called()
         mock_db.flush.assert_not_awaited()
-        mock_db.commit.assert_awaited_once()
+        # AUDIT-2026-10-08: 按页提交后为「本页一次 + 末尾兜底一次」。
+        # 与 _daily_intervention_check_impl 的按 plan 提交同口径 ——
+        # 关键性质是「至少提交了一次」（软超时时保住已完成页），
+        # 而非精确次数，故断言 >= 1。
+        assert mock_db.commit.await_count >= 1
         # H-ML-6: commit 成功后才发通知 (带上原子插入返回的 id 与绑定咨询师)
         mock_notify.assert_awaited_once()
         notify_args = mock_notify.await_args.args
@@ -1470,3 +1474,284 @@ class TestSentryWiring:
             "Sentry 业务调用点为 0 —— 监控资产空转, 本次修复的成果已被回退"
         )
         assert not unguarded, f"以下 Sentry 调用点未包 try/except: {unguarded}"
+
+
+# ---------- _daily_risk_scan_impl 按页提交（AUDIT-2026-10-08） ----------
+
+
+def _mk_user(uid: int):
+    u = MagicMock()
+    u.id = uid
+    return u
+
+
+def _mk_risk(uid: int, level: int = 3, days_old: int = 10):
+    r = MagicMock()
+    r.id = 1000 + uid
+    r.user_id = uid
+    r.risk_level = level
+    r.created_at = datetime.now(UTC) - timedelta(days=days_old)
+    return r
+
+
+def _mk_scalars_result(items):
+    m = MagicMock()
+    m.scalars.return_value.all.return_value = items
+    return m
+
+
+def _mk_unique_result(items):
+    m = MagicMock()
+    m.scalars.return_value.unique.return_value.all.return_value = items
+    return m
+
+
+def _mk_insert_result(warning_id):
+    m = MagicMock()
+    m.scalar_one_or_none.return_value = warning_id
+    return m
+
+
+def _mk_page_execute_seq(user_ids, warning_id_base=9000):
+    """构造一页内 ``db.execute`` 的返回序列。
+
+    一页的查询顺序（PERF-2026-10-06 批量预取后固定）：
+    users → latest_risk → warning_setting → binding → 每个命中用户一次 INSERT
+    """
+    risks = [_mk_risk(uid) for uid in user_ids]
+    settings = []
+    for uid in user_ids:
+        s = MagicMock()
+        s.user_id = uid
+        s.threshold_level = 2
+        settings.append(s)
+    bindings = []
+    for uid in user_ids:
+        b = MagicMock()
+        b.user_id = uid
+        b.counselor_id = 100 + uid
+        bindings.append(b)
+
+    seq = [
+        _mk_scalars_result([_mk_user(uid) for uid in user_ids]),
+        _mk_scalars_result(risks),
+        _mk_scalars_result(settings),
+        _mk_unique_result(bindings),
+    ]
+    seq += [_mk_insert_result(warning_id_base + i) for i, _ in enumerate(user_ids)]
+    return seq
+
+
+class TestDailyRiskScanPagedCommit:
+    """``_daily_risk_scan_impl`` 按页提交。
+
+    AUDIT-2026-10-08：原实现在整个 while 循环结束后才 commit 一次。本任务
+    ``soft_time_limit=270s``，扫描中途超时会让这**一个长事务**整体回滚 ——
+    前面若干页已生成的告警全部丢失，日志只报 "will retry"，看不出丢了多少页。
+    心理健康场景下「高危用户未生成告警」等同漏报。
+
+    与 ``_daily_intervention_check_impl`` 的按 plan 提交（AUDIT-2026-10-05-P0）
+    是同一类问题的同一套修法，测试口径也对齐：断言「至少提交过」而非精确次数。
+    """
+
+    @pytest.mark.asyncio
+    async def test_each_page_commits_independently(self):
+        """两页都成功时，每页各提交一次（+ 末尾兜底）。"""
+        with patch("app.tasks.scheduler._RISK_SCAN_PAGE_SIZE", 2):
+            seq = _mk_page_execute_seq([1, 2], 9000) + _mk_page_execute_seq(
+                [3], 9100
+            )
+            mock_db = AsyncMock()
+            mock_db.execute = AsyncMock(side_effect=seq)
+
+            with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl, patch(
+                "app.tasks.scheduler._notify_warning", new=AsyncMock()
+            ) as mock_notify:
+                mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+                mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+                from app.tasks.scheduler import _daily_risk_scan_impl
+
+                await _daily_risk_scan_impl()
+
+        # 2 页各一次 + 末尾兜底一次
+        assert mock_db.commit.await_count >= 2, (
+            f"commit 次数 {mock_db.commit.await_count} < 页数 2 —— "
+            "未按页提交，超时仍会回滚全部已生成告警"
+        )
+        assert mock_notify.await_count == 3, "3 条告警应各推送一次"
+
+    @pytest.mark.asyncio
+    async def test_later_page_failure_keeps_earlier_page_committed(self):
+        """核心性质：第二页失败时，第一页的告警**已经落盘**。
+
+        改前这会让整个长事务回滚 —— 第一页生成的 2 条告警全部丢失。
+        """
+        from sqlalchemy.exc import OperationalError
+
+        first_page = _mk_page_execute_seq([1, 2], 9000)
+        calls = {"n": 0}
+
+        async def _flaky(stmt, *a, **kw):
+            calls["n"] += 1
+            if calls["n"] > len(first_page):
+                raise OperationalError(
+                    "SELECT users", {}, Exception("conn lost")
+                )
+            return first_page[calls["n"] - 1]
+
+        with patch("app.tasks.scheduler._RISK_SCAN_PAGE_SIZE", 2):
+            mock_db = AsyncMock()
+            mock_db.execute = AsyncMock(side_effect=_flaky)
+
+            with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl, patch(
+                "app.tasks.scheduler._notify_warning", new=AsyncMock()
+            ) as mock_notify:
+                mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+                mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+                from app.tasks.scheduler import _daily_risk_scan_impl
+
+                with pytest.raises(OperationalError):
+                    await _daily_risk_scan_impl()
+
+        # 关键：第一页的 commit 已经发生，数据保住
+        assert mock_db.commit.await_count >= 1, (
+            "第二页失败时第一页的 commit 未发生 —— 仍会全量回滚，"
+            "已生成的高危告警丢失"
+        )
+        # 第一页的通知也已发出（commit 之后才发，H-ML-6 语义不变）
+        assert mock_notify.await_count == 2, (
+            f"第一页 2 条告警应已推送，实际 {mock_notify.await_count}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_page_commit_failure_skips_that_page_notification(self):
+        """H-ML-6 语义不变：某页 commit 失败 → 该页一条通知都不发。"""
+        seq = _mk_page_execute_seq([1, 2], 9000)
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=seq)
+        mock_db.commit = AsyncMock(side_effect=RuntimeError("commit failed"))
+
+        with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl, patch(
+            "app.tasks.scheduler._notify_warning", new=AsyncMock()
+        ) as mock_notify:
+            mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            from app.tasks.scheduler import _daily_risk_scan_impl
+
+            with pytest.raises(RuntimeError):
+                await _daily_risk_scan_impl()
+
+        mock_notify.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_no_active_users_still_commits_once(self):
+        """无活跃用户时不进循环，仅末尾兜底提交一次（保持既有语义）。"""
+        mock_db = AsyncMock()
+        empty = MagicMock()
+        empty.scalars.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=empty)
+
+        with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl:
+            mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            from app.tasks.scheduler import _daily_risk_scan_impl
+
+            await _daily_risk_scan_impl()
+
+        mock_db.commit.assert_awaited_once()
+
+
+class TestDailyRiskScanDedupePattern:
+    """去重 LIKE 模式必须匹配 trigger_reason 的**实际生成格式**。
+
+    AUDIT-2026-10-08：原模式写死为 ``'%超过7天未评估%'``，而 trigger_reason
+    是 ``f"用户风险等级{n}级且超过{days}天未评估，建议关注"`` —— 天数**是变量**，
+    且本分支进入条件为 ``days_since > 7``（即 >= 8）。实测 days=8/9/10/30
+    全部不匹配，只有 days 恰好为 7 才命中，而 7 根本进不来 —— **去重恒不命中**。
+
+    后果：
+    1. 同一用户每天被重复告警（心理健康场景下是骚扰，且淹没真实新增风险信号）
+    2. 按页提交后若超时重试，已落盘的页不会被去重跳过 → 重复告警 + 重复推送
+
+    本测试从**实际构造出的 INSERT 语句**里提取 LIKE 参数与 trigger_reason 值，
+    再用真实 SQLite 验证二者匹配 —— 不硬编码模式，避免测试与代码脱节。
+    """
+
+    @pytest.mark.asyncio
+    async def test_like_pattern_matches_generated_reason(self):
+        """代码里的 LIKE 模式必须能匹配代码生成的 trigger_reason。"""
+        import sqlite3
+
+        from sqlalchemy.dialects import sqlite as sqlite_dialect
+
+        seq = _mk_page_execute_seq([1], 9000)
+        mock_db = AsyncMock()
+        captured: list = []
+
+        async def _cap(stmt, *a, **kw):
+            captured.append(stmt)
+            return seq.pop(0)
+
+        mock_db.execute = AsyncMock(side_effect=_cap)
+
+        with patch("app.tasks.scheduler.AsyncSessionLocal") as mock_sl, patch(
+            "app.tasks.scheduler._notify_warning", new=AsyncMock()
+        ):
+            mock_sl.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            mock_sl.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            from app.tasks.scheduler import _daily_risk_scan_impl
+
+            await _daily_risk_scan_impl()
+
+        # 最后一个 statement 是 INSERT ... FROM SELECT
+        compiled = captured[-1].compile(dialect=sqlite_dialect.dialect())
+        params = list(compiled.params.values())
+
+        patterns = [p for p in params if isinstance(p, str) and p.startswith("%")]
+        reasons = [
+            p
+            for p in params
+            if isinstance(p, str) and not p.startswith("%") and "未评估" in p
+        ]
+
+        assert patterns, "未能从 INSERT 语句中提取到 LIKE 模式"
+        assert reasons, "未能从 INSERT 语句中提取到 trigger_reason"
+
+        # 用真实 SQLite 验证 LIKE 语义
+        conn = sqlite3.connect(":memory:")
+        try:
+            conn.execute("CREATE TABLE w (trigger_reason TEXT)")
+            conn.execute("INSERT INTO w VALUES (?)", (reasons[0],))
+            for pattern in patterns:
+                hit = conn.execute(
+                    "SELECT COUNT(*) FROM w WHERE trigger_reason LIKE ?", (pattern,)
+                ).fetchone()[0]
+                assert hit == 1, (
+                    f"LIKE 模式 {pattern!r} 匹配不到实际生成的 "
+                    f"trigger_reason {reasons[0]!r} —— 去重失效，"
+                    "同一用户会被反复告警，且按页提交后重试会产生重复告警"
+                )
+        finally:
+            conn.close()
+
+    def test_pattern_not_hardcoded_to_seven_days(self):
+        """守卫：``.like(...)`` 的实参不得再退化成写死的「7天」。
+
+        只匹配真实的方法调用（``like(`` 后紧跟引号），避免误伤注释里的
+        历史说明文字。
+        """
+        import inspect
+        import re
+
+        from app.tasks import scheduler as sched
+
+        src = inspect.getsource(sched._daily_risk_scan_impl)
+        hard_coded = re.search(r"like\(\s*[\"']%超过7天未评估%[\"']", src)
+        assert hard_coded is None, (
+            "去重模式退化为写死的 7 天 —— 天数是变量，该模式恒不命中"
+        )

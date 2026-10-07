@@ -9,7 +9,9 @@ from typing import AsyncIterator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.tenant_query import tenant_scoped_filter
 from app.models.review import CrisisEvent
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +58,27 @@ class CrisisExportService:
         self,
         start_date: date,
         end_date: date,
+        tenant_id: int | None = None,
     ) -> AsyncIterator[str]:
         """ISS-110: 逐行生成 CSV 文本 (每行单独 yield), 供 StreamingResponse 流式输出.
 
         内存占用 O(1): 每行写入独立 io.StringIO 后立即 yield, 不累积全量字符串.
+
+        Args:
+            start_date / end_date: 导出日期范围
+            tenant_id: 为 ``None``（默认）时**导出全部租户**；给定则只导出该租户。
+
+        ⚠ 默认跨租户是**有意设计，不是漏过滤**（AUDIT-2026-10-08 澄清）：
+        本服务的唯一调用方 ``GET /api/v1/admin/crisis-events/export`` 受
+        ``require_platform_admin()`` 保护，该依赖在「角色 + 请求租户一致」之上
+        再限定**用户必须属于 ``DEFAULT_TENANT_ID``**（见
+        ``app/core/tenant_context.py:352``）。租户 B 的 admin 根本到不了这里
+        （``tests/api/test_cross_tenant_security.py::TestPlatformAdminSplit``
+        已断言 403）。平台管理员需要跨租户的危机总览来做升级处置，把这里改成
+        强制单租户会打断该用例。
+
+        因此正确处置不是「加死过滤」，而是把范围**显式化并可按需收窄**：
+        ``tenant_id=None`` 表示平台管理员有意选择全量，且该选择会被写进审计日志。
         """
         # 查询数据
         # M-4 修复：使用 aware UTC datetime，避免与 aware 列比较时抛 TypeError 或时区偏移
@@ -75,6 +94,15 @@ class CrisisExportService:
             .order_by(CrisisEvent.created_at.desc())
             .execution_options(yield_per=1000)
         )
+
+        # AUDIT-2026-10-08：按需收窄到单个租户。``crisis_events`` 表本身没有
+        # tenant_id 列，租户归属只能沿 user_id 关联 users.tenant_id 推导
+        # （与 CrisisEventService.get_crisis_events 同一套做法）。
+        if tenant_id is not None:
+            stmt = stmt.join(User, User.id == CrisisEvent.user_id).where(
+                tenant_scoped_filter(User, tenant_id)
+            )
+
         result = await self.db.stream(stmt)
 
         buffer = io.StringIO()
@@ -121,24 +149,33 @@ class CrisisExportService:
             )
             event_count += 1
 
-        logger.info("Exported %d crisis events to %s", event_count, self.build_filename(start_date, end_date))
+        # AUDIT-2026-10-08：把导出的租户范围写进日志。批量导出危机数据属高敏操作，
+        # 「导了哪些租户」必须可回溯 —— 事后无法从 CSV 内容反推（user_id 已脱敏）。
+        logger.info(
+            "Exported %d crisis events to %s (tenant_scope=%s)",
+            event_count,
+            self.build_filename(start_date, end_date),
+            "all_tenants" if tenant_id is None else f"tenant:{tenant_id}",
+        )
 
     async def export_crisis_events(
         self,
         start_date: date,
         end_date: date,
+        tenant_id: int | None = None,
     ) -> tuple[str, str]:
         """导出危机事件为 CSV 格式 (聚合全量字符串, 兼容旧调用方).
 
         Args:
             start_date: 开始日期
             end_date: 结束日期
+            tenant_id: 见 :meth:`iter_export_crisis_csv` —— ``None`` 表示全部租户
 
         Returns:
             (csv_content, filename) 元组
         """
         chunks: list[str] = []
-        async for chunk in self.iter_export_crisis_csv(start_date, end_date):
+        async for chunk in self.iter_export_crisis_csv(start_date, end_date, tenant_id):
             chunks.append(chunk)
 
         return "".join(chunks), self.build_filename(start_date, end_date)

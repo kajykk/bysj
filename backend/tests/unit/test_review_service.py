@@ -462,10 +462,18 @@ class TestCrisisEventService:
         with pytest.raises(ValueError, match="不能超过 100"):
             await crisis_service.record_crisis_event(data)
 
-    async def test_get_crisis_events_with_data(self, crisis_service):
-        """TC-CRISIS-COV-003: 覆盖 get_crisis_events 查询及 _to_response 转换。"""
+    async def test_get_crisis_events_with_data(
+        self, crisis_service, seeded_user_id
+    ):
+        """TC-CRISIS-COV-003: 覆盖 get_crisis_events 查询及 _to_response 转换。
+
+        AUDIT-2026-10-08 (P1-4)：``get_crisis_events`` 现要求显式传 ``tenant_id``
+        并按租户 JOIN ``users``（``crisis_events`` 表自身无 ``tenant_id`` 列）。
+        故本测试需引入 ``seeded_user_id`` —— 此前只造 ``CrisisEvent(user_id=1)``
+        而无对应 ``User`` 行，JOIN 后必然查不到任何结果。
+        """
         data = CrisisEventCreate(
-            user_id=1,
+            user_id=seeded_user_id,
             trigger_source="text",
             crisis_keywords=["自伤"],
             crisis_score=0.8,
@@ -474,20 +482,20 @@ class TestCrisisEventService:
         await crisis_service.record_crisis_event(data)
 
         filter_data = CrisisEventFilter()
-        result = await crisis_service.get_crisis_events(filter_data)
+        result = await crisis_service.get_crisis_events(filter_data, tenant_id=1)
         assert result["total"] >= 1
         assert len(result["items"]) >= 1
         item = result["items"][0]
-        assert item["user_id"] == 1
+        assert item["user_id"] == seeded_user_id
         assert item["trigger_source"] == "text"
         assert "自伤" in item["crisis_keywords"]
         assert item["crisis_score"] == 0.8
         assert item["status"] == "detected"
 
-    async def test_get_crisis_events_with_filters(self, crisis_service):
+    async def test_get_crisis_events_with_filters(self, crisis_service, seeded_user_id):
         """TC-CRISIS-COV-004: 覆盖 get_crisis_events 按状态和日期范围过滤。"""
         data = CrisisEventCreate(
-            user_id=1,
+            user_id=seeded_user_id,
             trigger_source="text",
             crisis_keywords=["自伤"],
             crisis_score=0.8,
@@ -496,7 +504,7 @@ class TestCrisisEventService:
 
         # 按状态过滤
         filter_data = CrisisEventFilter(status="detected")
-        result = await crisis_service.get_crisis_events(filter_data)
+        result = await crisis_service.get_crisis_events(filter_data, tenant_id=1)
         assert result["total"] >= 1
 
         # 按日期范围过滤
@@ -505,19 +513,19 @@ class TestCrisisEventService:
             start_date=now.replace(hour=0, minute=0, second=0, microsecond=0),
             end_date=now,
         )
-        result = await crisis_service.get_crisis_events(filter_data)
+        result = await crisis_service.get_crisis_events(filter_data, tenant_id=1)
         assert result["total"] >= 1
 
         # 按不存在的状态过滤
         filter_data = CrisisEventFilter(status="nonexistent")
-        result = await crisis_service.get_crisis_events(filter_data)
+        result = await crisis_service.get_crisis_events(filter_data, tenant_id=1)
         assert result["total"] == 0
 
-    async def test_get_crisis_events_pagination(self, crisis_service):
+    async def test_get_crisis_events_pagination(self, crisis_service, seeded_user_id):
         """TC-CRISIS-COV-005: 覆盖 get_crisis_events 分页。"""
         for i in range(3):
             data = CrisisEventCreate(
-                user_id=1,
+                user_id=seeded_user_id,
                 trigger_source="text",
                 crisis_keywords=[f"kw_{i}"],
                 crisis_score=0.5,
@@ -525,7 +533,7 @@ class TestCrisisEventService:
             await crisis_service.record_crisis_event(data)
 
         filter_data = CrisisEventFilter(page=1, page_size=2)
-        result = await crisis_service.get_crisis_events(filter_data)
+        result = await crisis_service.get_crisis_events(filter_data, tenant_id=1)
         assert result["total"] >= 3
         assert len(result["items"]) <= 2
         assert result["page"] == 1

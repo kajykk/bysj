@@ -19,6 +19,7 @@ from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.core.states import BindingStatus
+from app.core.tenant_query import tenant_scoped_query
 from app.models.user import User, UserCounselorBinding
 from app.schemas.auth import UserBrief
 from app.schemas.common import ApiResponse
@@ -119,8 +120,16 @@ async def list_assignable_counselors(
     if current_user.role not in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN):
         raise HTTPException(status_code=403, detail="仅管理员可查看可分配的咨询师名单")
 
+    # AUDIT-2026-10-08 (P1-3)：接入 ``tenant_scoped_query`` —— 原实现是裸
+    # ``select(User)``，**没有任何租户条件**。租户 A 的管理员因此能拿到租户 B
+    # 全部在岗咨询师的姓名 / 手机号（``UserBrief`` 含 PII），且列表还会被
+    # ``_MAX_ASSIGNABLE_COUNSELORS`` 截断 —— 跨租户数据挤占本租户的候选名额。
+    #
+    # super_admin 不做豁免：它同样是某个租户内的管理员，``current_user.tenant_id``
+    # 就是它应处的范围。若后续产品确需「平台级查看全部租户」，应新增显式的
+    # 平台级端点并写明其数据可见范围，而不是靠「漏过滤」隐式实现。
     result = await db.execute(
-        select(User)
+        tenant_scoped_query(User, current_user.tenant_id)
         .where(User.role == USER_ROLE_COUNSELOR, User.status == USER_STATUS_ACTIVE)
         .order_by(User.id)
         .limit(_MAX_ASSIGNABLE_COUNSELORS)
@@ -154,7 +163,9 @@ async def list_crisis_events(
         page=page,
         page_size=page_size,
     )
-    result = await service.get_crisis_events(filter_data)
+    # AUDIT-2026-10-08 (P1-4)：显式传入当前用户租户。此前服务层完全不隔离租户，
+    # 且 crisis_events 表无 tenant_id 列，需经 User 关联推导。
+    result = await service.get_crisis_events(filter_data, tenant_id=current_user.tenant_id)
     return ok(result)
 
 

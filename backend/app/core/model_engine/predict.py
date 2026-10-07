@@ -65,6 +65,24 @@ _CONFIDENCE_MISSING_FIELD_PENALTY = 0.1
 _CONFIDENCE_MAXIMUM_PENALTY = 0.3
 
 
+class NonFiniteLiteProbabilityError(ValueError):
+    """lite 模型**加载成功但产出非有限概率**（NaN / ±Inf）。
+
+    AUDIT-2026-10-08 (P0-5)：单列一个异常类型，而不是复用通用的
+    ``NonFiniteRiskScoreError``，是为了让 ``predict_lite`` 的 ``except`` 能
+    区分两种本质不同的失效：
+
+    - 模型文件缺失 / 加载失败 → 查部署与产物
+    - 模型加载成功但产出 NaN   → 查特征分布漂移、scaler 状态、模型权重
+
+    改前两者都被同一个 ``except Exception`` 吞掉并统一报成
+    "lite_model_unavailable"，前者会把排查引向错误方向。
+
+    继承 ``ValueError`` 而非 ``ModelException``：它表示**推理期数值失效**而非
+    服务不可用，降级到 anxiety_only 是恰当处置，不需要 5xx。
+    """
+
+
 class PredictMixin:
     """核心预测方法集合.
 
@@ -187,7 +205,29 @@ class PredictMixin:
                 prediction = int(prediction[0])
                 proba = await asyncio.to_thread(model.predict_proba, feature_scaled)
                 probability = float(proba[0][1])
-                risk_score = round(probability * 100, 2)
+
+                # AUDIT-2026-10-08 (P0-5)：改前本路径靠下游 `_score_to_level` 的
+                # `ensure_finite_score` 抛错兜底（fail-closed，方向正确），但代价是
+                # 整个请求 500 —— 模型算不出来时用户什么都拿不到，而启发式本来
+                # 可以给出可用结果。实测确认：假模型 predict_proba → NaN 时改前
+                # 抛 NonFiniteRiskScoreError，响应中断。
+                # 改为与 physiological（L760-778 已有的成熟范式）一致：
+                # 先拦非有限 → 回退启发式 → 启发式也失败才显式抛错。
+                if not math.isfinite(probability):
+                    reason = f"结构化模型产出非有限概率 probability={probability!r}，回退启发式"
+                    logger.error("predict_structured: %s (model=%s)", reason, model_used)
+                    self._incr_fallback()
+                    risk_score, probability, prediction = self._structured_heuristic_fallback(raw)
+                    if not math.isfinite(risk_score):
+                        raise ModelException(
+                            "NON_FINITE_SCORE",
+                            "结构化模型与启发式均无法产出有限风险分数，拒绝返回『无风险』判定。",
+                        )
+                    model_used = "structured_heuristic_fallback"
+                    fallback_used = True
+                    fallback_reason = reason
+                else:
+                    risk_score = round(probability * 100, 2)
             else:
                 model_used = "structured_heuristic_fallback"
                 fallback_used = True
@@ -347,15 +387,31 @@ class PredictMixin:
                     exp_scaled = exp_array
                 exp_proba = await asyncio.to_thread(exp_model.predict_proba, exp_scaled)
                 experimental_real_probability = float(exp_proba[0][1])
-                experimental_real_score = round(experimental_real_probability * 100, 2)
-                experimental_real_level = self._score_to_level(experimental_real_score, modality="structured")
-                experimental_real_model = "structured_v1.21_binary_lr"
-                logger.info(
-                    "v1.22 experimental path: score=%.2f level=%d (default_score=%.2f)",
-                    experimental_real_score,
-                    experimental_real_level,
-                    default_score,
-                )
+                # AUDIT-2026-10-08 (P0-5 补)：影子路径同样要拦非有限值。
+                # 实测（假模型 predict_proba → NaN）：v1.23 路径下 _score_to_level
+                # 会在赋分之后抛 NonFiniteRiskScoreError，被下方 `except Exception`
+                # 吞掉，日志谎报成 "LR unavailable"（与已修的 lite 路径同一类误导），
+                # 而 experimental_*_score **已被赋值为 NaN**，再经 result.update()
+                # 进入响应体 —— NaN 不是合法 JSON（allow_nan=False 时 json.dumps
+                # 直接抛错），会让严格客户端解析失败。
+                # 本路径只做对照评测、不参与主判定，故处置为「本路作废」：
+                # 保持 None / model=None，且日志如实说明是产出非有限而非模型缺失。
+                if not math.isfinite(experimental_real_probability):
+                    logger.error(
+                        "v1.22 experimental real binary LR 产出非有限概率 %r，"
+                        "本路对照结果作废（不影响主判定），请查特征分布与模型权重",
+                        experimental_real_probability,
+                    )
+                else:
+                    experimental_real_score = round(experimental_real_probability * 100, 2)
+                    experimental_real_level = self._score_to_level(experimental_real_score, modality="structured")
+                    experimental_real_model = "structured_v1.21_binary_lr"
+                    logger.info(
+                        "v1.22 experimental path: score=%.2f level=%d (default_score=%.2f)",
+                        experimental_real_score,
+                        experimental_real_level,
+                        default_score,
+                    )
             except Exception as exc:
                 logger.warning("v1.22 experimental real binary LR unavailable: %s", exc)
         else:
@@ -403,16 +459,27 @@ class PredictMixin:
             ext_df = _pd.DataFrame([ext_values], columns=ext_feature_order)
             ext_proba = await asyncio.to_thread(ext_model.predict_proba, ext_df)
             experimental_external_probability = float(ext_proba[0][1])
-            experimental_external_score = round(experimental_external_probability * 100, 2)
-            experimental_external_level = self._score_to_level(experimental_external_score, modality="structured")
-            experimental_external_model = "structured_v1.23_external_lr"
-            experimental_external_available = True
-            logger.info(
-                "v1.23 experimental path: score=%.2f level=%d (default_score=%.2f)",
-                experimental_external_score,
-                experimental_external_level,
-                default_score,
-            )
+            # AUDIT-2026-10-08 (P0-5 补)：同上（v1.22 处有完整说明）。
+            # 与 v1.22 的差别：本路**当前是活的**（v1.21 已 deprecated 走 else 分支），
+            # 实测确认 NaN 会进入响应体的 experimental_external_score 与
+            # experimental_external_delta 两个字段。
+            if not math.isfinite(experimental_external_probability):
+                logger.error(
+                    "v1.23 experimental external LR 产出非有限概率 %r，"
+                    "本路对照结果作废（不影响主判定），请查特征分布与模型权重",
+                    experimental_external_probability,
+                )
+            else:
+                experimental_external_score = round(experimental_external_probability * 100, 2)
+                experimental_external_level = self._score_to_level(experimental_external_score, modality="structured")
+                experimental_external_model = "structured_v1.23_external_lr"
+                experimental_external_available = True
+                logger.info(
+                    "v1.23 experimental path: score=%.2f level=%d (default_score=%.2f)",
+                    experimental_external_score,
+                    experimental_external_level,
+                    default_score,
+                )
         except Exception as exc:
             logger.warning("v1.23 experimental external LR unavailable: %s", exc)
 
@@ -593,6 +660,29 @@ class PredictMixin:
         vector = await asyncio.to_thread(tfidf.transform, [text])
         proba = await asyncio.to_thread(model.predict_proba, vector)
         probability = float(proba[0][1])
+
+        # AUDIT-2026-10-08 (P0-5)：本项目唯一**完全无防护**的推理出口。
+        # 与 structured/lite 不同，本路径不经过 `_score_to_level`，所以
+        # `risk_thresholds.ensure_finite_score` 兜不到这里。实测（假模型
+        # predict_proba → NaN）改前实际输出：
+        #   probability=nan, prediction=0, sentiment_label="positive"
+        # 也就是说「模型算不出来」被原样表达成「正面情绪、无风险」，且响应里
+        # 连 fallback_used 都没有 —— 调用方无从察觉。这正是 P0-3 注释里描述的
+        # 最危险失效模式，在本路径上是真实发生的。
+        #
+        # 处置：回退到启发式（与 Level 2/3 一致的降级语义），并**如实标记**
+        # fallback_used / fallback_reason，绝不静默给出「无风险」。
+        if not math.isfinite(probability):
+            reason = f"文本模型产出非有限概率 probability={probability!r}，回退启发式情感分析"
+            logger.error("_predict_text_ml: %s (model_used=%s)", reason, model_used)
+            result = self._text_heuristic_fallback(text)
+            # _text_heuristic_fallback 自身已带 model_used=text_heuristic_fallback,
+            # 这里补上模型侧失效的原因, 便于排查「究竟是模型坏了还是输入差」。
+            result["fallback_used"] = True
+            result["fallback_reason"] = reason
+            result["ml_model_used"] = model_used
+            return result
+
         if model_used == "text_improved_bilingual_model":
             prediction = 1 if probability >= settings.text_bilingual_decision_threshold else 0
         else:
@@ -675,7 +765,7 @@ class PredictMixin:
 
             if length < 20:
                 logger.warning(
-                    "Lite model: text too short (%d chars), " "falling back to anxiety_only",
+                    "Lite model: text too short (%d chars), falling back to anxiety_only",
                     length,
                 )
                 self._incr_fallback()
@@ -716,6 +806,19 @@ class PredictMixin:
                 scaled = await asyncio.to_thread(scaler.transform, feature_array)
                 proba = await asyncio.to_thread(model.predict_proba, scaled)
                 probability = float(proba[0][1])
+
+                # AUDIT-2026-10-08 (P0-5)：`_apply_lite_calibration` 里的 np.clip
+                # 对 NaN **无效**（clip 保留 NaN），所以校准层不会拦住它。
+                # 改前唯一的拦截点是下游 `_score_to_level` 抛 NonFiniteRiskScoreError，
+                # 而那正好被下面的 `except Exception` 捕获 → 回落 anxiety_only，
+                # 并把 fallback_reason 谎报成 "lite_model_unavailable_or_text_insufficient"。
+                # 实测确认：假模型 predict_proba → NaN 时，日志出现
+                #   "Lite model unavailable: ...不是有限数值（nan）...falling back"
+                # 排查时会被误导去查模型文件，而真实原因是模型**加载成功但产出非有限**。
+                # 这里提前显式拦截，让 reason 如实反映失效来源。
+                if not math.isfinite(probability):
+                    raise NonFiniteLiteProbabilityError(f"lite 模型产出非有限概率 probability={probability!r}")
+
                 probability, probability_calibrated = await self._apply_lite_calibration(probability)
                 threshold = (
                     settings.lite_calibrated_decision_threshold
@@ -746,10 +849,22 @@ class PredictMixin:
                     "crisis_keywords_matched": safety["crisis_keywords_matched"],
                 }
 
-            except Exception as exc:
-                logger.warning("Lite model unavailable: %s, falling back to " "anxiety_only", exc)
+            except NonFiniteLiteProbabilityError as exc:
+                # AUDIT-2026-10-08 (P0-5)：模型加载成功但产出非有限 —— 与
+                # 「模型不可用」分开报，否则排查会被引向模型文件/部署，
+                # 而真实原因是特征分布或权重异常。降级处置相同（anxiety_only）。
+                logger.error("Lite model produced non-finite probability: %s", exc)
                 self._incr_fallback()
-                return self._anxiety_only_fallback(gad7_score)
+                result = self._anxiety_only_fallback(gad7_score)
+                result["fallback_reason"] = f"lite_model_non_finite_output: {exc}"
+                return result
+
+            except Exception as exc:
+                logger.warning("Lite model unavailable: %s, falling back to anxiety_only", exc)
+                self._incr_fallback()
+                result = self._anxiety_only_fallback(gad7_score)
+                result["fallback_reason"] = f"lite_model_unavailable: {exc}"
+                return result
 
     async def predict_physiological(self, physiological: dict[str, float | int]) -> dict[str, Any]:
         async with self._timed_async("predict", "physiological"):
@@ -765,16 +880,13 @@ class PredictMixin:
                 fallback_reason = f"生理模型产出非有限分数 score={score!r}，回退启发式"
                 logger.error("predict_physiological: %s", fallback_reason)
                 self._incr_fallback()
-                score = self._physiological_heuristic_fallback(
-                    physiological, reason=fallback_reason
-                )
+                score = self._physiological_heuristic_fallback(physiological, reason=fallback_reason)
                 fallback_used = True
                 if not math.isfinite(score):
                     # 启发式也给不出有限值 → 显式失败，绝不伪装成"无风险"
                     raise ModelException(
                         "MODEL_NON_FINITE_SCORE",
-                        "生理模态无法产出有限风险分数（模型与启发式均失败），"
-                        "拒绝返回『无风险』判定。",
+                        "生理模态无法产出有限风险分数（模型与启发式均失败），拒绝返回『无风险』判定。",
                     )
 
             prediction = 1 if score >= 50 else 0
@@ -806,11 +918,7 @@ class PredictMixin:
                 "risk_score": round(score, 2),
                 "risk_level": self._score_to_level(score, "physiological"),
                 # AUDIT-2026-10-01 (P1-14)：回退时如实上报，不再谎报为 DL 模型 + calibrated
-                "model_used": (
-                    "physiological_heuristic_fallback"
-                    if fallback_used
-                    else "physiological_model_v2_dl"
-                ),
+                "model_used": ("physiological_heuristic_fallback" if fallback_used else "physiological_model_v2_dl"),
                 "confidence": round(confidence, 2),
                 "data_quality": data_quality,
                 "calibrated": not fallback_used,

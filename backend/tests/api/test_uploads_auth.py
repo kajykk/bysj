@@ -6,7 +6,9 @@
 3. 用户私有文件无 token 返回 401
 4. user 角色访问自己文件 200
 5. user 角色访问他人文件 404 (不暴露存在性)
-6. counselor 角色访问任意用户文件 200
+6. counselor 角色访问**未绑定**用户文件 404（AUDIT-2026-10-08 P1-5 修复，
+   原为「可访问任意用户文件 200」）
+6b. counselor 角色访问**已绑定**用户文件 200
 7. admin 角色访问任意用户文件 200
 7b. super_admin 角色访问任意用户文件 200（AUDIT-2026-10-01 P1-2 回归）
 7c. 未知角色 403
@@ -142,23 +144,29 @@ class TestPrivateUploadAuth:
         # 不暴露 403，统一返回 404
         assert resp.status_code == 404
 
-    def test_private_counselor_access_any_user(
+    def test_private_counselor_access_unbound_user_returns_404(
         self, client: TestClient, mock_upload_dir: Path, as_role
     ):
-        """counselor 角色可访问任意用户文件。"""
+        """AUDIT-2026-10-08 (P1-5) 回归：counselor 访问**未绑定**用户文件返回 404。
+
+        原行为：counselor 只要角色对就能读任意用户私有文件（含心理健康评估
+        音频/报告）。文件名是 UUID 但 user_id 是连续整数，任意咨询师遍历
+        user_id 即可拖取全校师生的敏感文件。
+
+        现在收紧为「仅限已建立有效咨询绑定的用户」，与
+        ``CounselorService.get_user_detail`` 的绑定校验同源同口径。
+        本测试用 ``client``（mock 用户、无可用绑定数据），走``db is None``
+        的 fail-closed 分支 —— 无法验证绑定即拒绝，这是正确的默认方向。
+        """
         as_role("counselor", user_id=99)
-        # counselor 访问 user_id=1 的文件
         resp = client.get(
             "/uploads/1/abc123.jpg", headers={"Authorization": "Bearer test-token"}
         )
-        assert resp.status_code == 200
-        assert resp.content == b"user1-avatar"
-        # counselor 访问 user_id=2 的文件
+        assert resp.status_code == 404
         resp = client.get(
             "/uploads/2/def456.pdf", headers={"Authorization": "Bearer test-token"}
         )
-        assert resp.status_code == 200
-        assert resp.content == b"user2-report"
+        assert resp.status_code == 404
 
     def test_private_admin_access_any_user(
         self, client: TestClient, mock_upload_dir: Path, as_role

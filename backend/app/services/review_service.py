@@ -8,8 +8,10 @@ from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.event_bus import event_bus
+from app.core.tenant_query import tenant_scoped_filter
 from app.models.admin import OperationLog
 from app.models.review import CrisisEvent, ReviewTask
+from app.models.user import User
 from app.schemas.review import (
     CrisisEventCreate,
     CrisisEventFilter,
@@ -359,9 +361,30 @@ class CrisisEventService:
     async def get_crisis_events(
         self,
         filter_data: CrisisEventFilter,
+        tenant_id: int,
     ) -> dict:
-        """查询危机事件"""
-        query = select(CrisisEvent)
+        """查询危机事件（**必须**限定租户范围）。
+
+        AUDIT-2026-10-08 (P1-4)：原实现是裸 ``select(CrisisEvent)``，无任何租户
+        条件。危机事件含 ``input_summary``（用户自述原文摘要）与
+        ``crisis_keywords``（自伤/自杀等关键词），属**最高敏感级**数据；跨租户
+        泄露的后果不是「多看到几条记录」，而是直接暴露他校学生的心理危机内容。
+
+        为什么必须 JOIN ``User``：``crisis_events`` 表**本身没有 tenant_id 列**
+        （``models/review.py`` 中 ``__mapper_args__ = {"tenant_id": False}``），
+        无法像多数表那样直接 ``tenant_scoped_query(CrisisEvent, ...)`` ——
+        那会抛 ``TenantColumnMissingError``。租户归属只能沿 ``user_id`` 关联到
+        ``users.tenant_id`` 推导，故此处用 ``tenant_scoped_filter(User, ...)``。
+
+        为什么 ``tenant_id`` 是**必填**而非 ``None`` 时兜底默认租户：
+        ``crisis_event.view`` 权限在 ``app/core/deps.py`` 里对 admin/super_admin
+        开放，若在此处给 ``None`` 一个「看起来能跑」的默认值，等于把「调用方忘记
+        传租户」变成静默的全量返回（租户 1），而不是响亮失败。宁可调用方编译不过，
+        也不要跨租户危机数据被读出来。
+        """
+        query = (
+            select(CrisisEvent).join(User, User.id == CrisisEvent.user_id).where(tenant_scoped_filter(User, tenant_id))
+        )
 
         if filter_data.status:
             query = query.where(CrisisEvent.status == filter_data.status)
