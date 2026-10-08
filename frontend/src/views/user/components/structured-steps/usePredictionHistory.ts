@@ -25,7 +25,10 @@ export function usePredictionHistory() {
 
   const loadPredictionHistory = () => {
     try {
-      const raw = localStorage.getItem(PREDICTION_HISTORY_KEY)
+      // SEC-FIX-2026-10-09: 结构化评估历史含风险分/风险等级（敏感健康信息），
+      // 与 PhysioTab / useTextPredictionHistory 同口径改用 sessionStorage：
+      // 关闭标签页即清除，不依赖用户主动登出。
+      const raw = sessionStorage.getItem(PREDICTION_HISTORY_KEY)
       if (!raw) return
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) {
@@ -37,12 +40,12 @@ export function usePredictionHistory() {
   }
 
   const savePredictionHistory = () => {
-    localStorage.setItem(PREDICTION_HISTORY_KEY, JSON.stringify(predictionHistory.value.slice(0, 20)))
+    sessionStorage.setItem(PREDICTION_HISTORY_KEY, JSON.stringify(predictionHistory.value.slice(0, 20)))
   }
 
   const clearPredictionHistory = () => {
     predictionHistory.value = []
-    localStorage.removeItem(PREDICTION_HISTORY_KEY)
+    sessionStorage.removeItem(PREDICTION_HISTORY_KEY)
     ElMessage.success(t('structuredAssess.historyCleared'))
   }
 

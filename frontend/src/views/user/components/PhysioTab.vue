@@ -265,9 +265,12 @@ const physioHistoryWithTrend = computed(() => {
   })
 })
 
+// SEC-FIX-2026-10-09: 生理记录（心率/血压/睡眠/运动）属敏感健康信息，
+// 存储位置由 localStorage 改为 sessionStorage —— 关闭标签页即清除，
+// 不再依赖用户主动登出（详见 useTextPredictionHistory 顶部说明）。
 const loadPhysioHistory = () => {
   try {
-    const raw = localStorage.getItem(PHYSIO_HISTORY_KEY)
+    const raw = sessionStorage.getItem(PHYSIO_HISTORY_KEY)
     if (!raw) return
     const parsed = JSON.parse(raw)
     if (Array.isArray(parsed)) {
@@ -279,12 +282,12 @@ const loadPhysioHistory = () => {
 }
 
 const savePhysioHistory = () => {
-  localStorage.setItem(PHYSIO_HISTORY_KEY, JSON.stringify(physioHistory.value.slice(0, 20)))
+  sessionStorage.setItem(PHYSIO_HISTORY_KEY, JSON.stringify(physioHistory.value.slice(0, 20)))
 }
 
 const clearPhysioHistory = () => {
   physioHistory.value = []
-  localStorage.removeItem(PHYSIO_HISTORY_KEY)
+  sessionStorage.removeItem(PHYSIO_HISTORY_KEY)
   ElMessage.success(t('physioAssess.historyCleared'))
 }
 

@@ -1,8 +1,16 @@
 /**
  * R-E3: 文本预测历史记录持久化 composable.
  *
- * 从 TextAssessTab.vue 抽出 localStorage 读写、清空与 CSV 导出逻辑，
+ * 从 TextAssessTab.vue 抽出历史读写、清空与 CSV 导出逻辑，
  * 键按用户会话隔离（SEC-FIX H4 补强）。
+ *
+ * SEC-FIX-2026-10-09: 存储位置由 localStorage 改为 sessionStorage。
+ * 本历史含用户心理自述文本片段（content_preview，前 60 字 × 最多 20 条），
+ * 属敏感健康信息。原实现依赖 `clearSensitiveLocalStorage()` 在**登出/登录时**
+ * 清理，但绝大多数用户是直接关闭浏览器而不点退出登录 —— 数据因此长期明文
+ * 落盘，共享/公用设备上下一位打开浏览器即可读取上一位用户的心理自述。
+ * 改到 sessionStorage 后，关闭标签页即清除，无需依赖用户的登出动作；
+ * 刷新页面仍保留，历史功能不受影响。
  */
 
 import { ref } from 'vue'
@@ -55,7 +63,7 @@ export function useTextPredictionHistory(historyKey: string) {
 
   const load = () => {
     try {
-      const raw = localStorage.getItem(historyKey)
+      const raw = sessionStorage.getItem(historyKey)
       if (!raw) return
       const parsed: unknown = JSON.parse(raw)
       if (!Array.isArray(parsed)) return
@@ -63,7 +71,7 @@ export function useTextPredictionHistory(historyKey: string) {
       if (valid.length !== parsed.length) {
         // 存在契约不匹配的旧记录：丢弃它们而不是让渲染期抛错。
         // 只在确有脏数据时清理，正常路径不写 localStorage。
-        if (valid.length === 0) localStorage.removeItem(historyKey)
+        if (valid.length === 0) sessionStorage.removeItem(historyKey)
       }
       textPredictionHistory.value = valid as TextPredictionHistoryItem[]
     } catch {
@@ -72,7 +80,7 @@ export function useTextPredictionHistory(historyKey: string) {
   }
 
   const save = () => {
-    localStorage.setItem(
+    sessionStorage.setItem(
       historyKey,
       JSON.stringify(textPredictionHistory.value.slice(0, HISTORY_MAX)),
     )
@@ -80,7 +88,7 @@ export function useTextPredictionHistory(historyKey: string) {
 
   const clear = () => {
     textPredictionHistory.value = []
-    localStorage.removeItem(historyKey)
+    sessionStorage.removeItem(historyKey)
     ElMessage.success(t('textAssess.historyCleared'))
   }
 

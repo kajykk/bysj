@@ -58,21 +58,40 @@ export function historyKeyWithUser(
   return `${base}_anon_${getAnonSessionId()}`
 }
 
-export function clearSensitiveLocalStorage(): void {
-  if (typeof window === 'undefined' || !window.localStorage) return
+/**
+ * 从单个 Storage 中移除命中敏感模式的 key.
+ */
+function removeMatchingKeys(storage: Storage | undefined): void {
+  if (!storage) return
   try {
     const keysToRemove: string[] = []
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i)
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i)
       if (!key) continue
       if (SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(key))) {
         keysToRemove.push(key)
       }
     }
     for (const key of keysToRemove) {
-      window.localStorage.removeItem(key)
+      storage.removeItem(key)
     }
   } catch {
-    // localStorage 不可用 (隐私模式/配额) 时静默降级
+    // storage 不可用 (隐私模式/配额) 时静默降级
   }
+}
+
+/**
+ * 登出/登录时清理敏感健康数据.
+ *
+ * SEC-FIX-2026-10-09: 三处历史（text_prediction / physio / prediction）已从
+ * localStorage 迁到 sessionStorage（关闭标签页即清除，不依赖用户主动登出）。
+ * 因此这里必须**同时清两种 storage**：
+ *   - localStorage：清理迁移前遗留的历史数据（老用户浏览器里可能仍有）
+ *   - sessionStorage：清理当前会话内的数据（登出后不应残留在内存态存储里）
+ * 只清 localStorage 的话，迁移后"登出即清"这条防线会失效。
+ */
+export function clearSensitiveLocalStorage(): void {
+  if (typeof window === 'undefined') return
+  removeMatchingKeys(window.localStorage)
+  removeMatchingKeys(window.sessionStorage)
 }
