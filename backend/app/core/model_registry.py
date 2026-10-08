@@ -33,6 +33,16 @@ MODEL_PATHS: dict[str, str] = {
     "text_improved_bilingual_tfidf": "models/text/improved_bilingual_tfidf.pkl",
     "text_depression_model": "models/artifacts/text_depression_classifier/text_model.pkl",
     "text_depression_tfidf": "models/artifacts/text_depression_classifier/text_tfidf.pkl",
+    # 2026-10-09 实测真相：这三个条目指向的 models/keras/ 是**仓库根的训练期影子目录**
+    # （权重文件 2026-02，未纳入版本控制，backend/Dockerfile 只 COPY backend/models/）。
+    # 部署侧 backend/models/ 下不存在 keras 子目录，因此这三条在生产/CI 恒为 MISSING，
+    # preload 走 FileNotFoundError → 回退启发式/加权融合。
+    # 历史坑：修复前 _abs_path 会把相对 model_dir 的父目录解析成 CWD，导致从仓库根启动时
+    # 静默加载这批 2026-02 陈旧权重（同一份代码、两种行为）。现已锚定 backend_root
+    # 并移除 CWD 兜底，见 tests/test_model_path_resolution.py 防复发闸门。
+    # 保留条目的原因：model_compatibility 登记与实验性对比仍引用这些 ID，移除会破坏
+    # test_model_compatibility_registry 的断言；若要真正启用 TF 融合，需先把权重
+    # 落到 backend/models/keras/ 并纳入交付流程。
     "fusion_dnn_best": "models/keras/dnn_fusion_model_best.keras",
     "fusion_cross_modal_best": "models/keras/cross_modal_fusion_model_best.keras",
     "fusion_transformer_best": "models/keras/transformer_fusion_model_best.keras",

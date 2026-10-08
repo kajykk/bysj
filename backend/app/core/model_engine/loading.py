@@ -303,28 +303,55 @@ class LoadingMixin:
         # 背景：仓库根存在陈旧的训练期影子 models/（如 models/text 下的旧版
         # 双语模型），从仓库根启动时 raw（CWD 相对）会先命中影子文件，
         # 导致生产模型被静默替换为不可反序列化的旧产物。
-        candidate_paths: list[Path] = []
+        #
+        # P0 修复补全 (2026-10-09): 上面这条修复**没有真正生效**。默认
+        # settings.model_dir == "models" 是相对路径，于是
+        # `Path("models").parent` == `Path(".")`，导致候选 1 的
+        # `model_dir.parent / raw` 退化为 CWD 相对路径、并被排在最前面 ——
+        # 与注释声明的「CWD 垫底」恰好相反。实测（两种 CWD 对照）：
+        #   CWD=仓库根   models/keras/*_best.keras -> 命中仓库根影子（2026-02，未入库）
+        #   CWD=backend  同三个路径                -> MISSING（回退启发式）
+        # 即同一份代码、同一份 registry，fusion 是否用 TF 权重取决于启动目录。
+        # 另外 models/physiological/* 只在仓库根存在，漂移面比 keras 更大。
+        # 部署侧权威源是 backend/models/（backend/Dockerfile:197
+        # `COPY models/ /app/models/`，compose 挂 ./backend/models 且
+        # MODEL_DIR=/app/models 为绝对路径），故相对路径一律以 backend_root 为锚。
+        backend_root = Path(__file__).resolve().parents[3]
 
         model_dir = Path(settings.model_dir)
+        if not model_dir.is_absolute():
+            model_dir = backend_root / model_dir
+
+        candidate_paths: list[Path] = []
         if raw.parts and raw.parts[0] == "models":
             candidate_paths.append(model_dir.parent / raw)
         else:
             candidate_paths.append(model_dir / raw)
 
-        backend_root = Path(__file__).resolve().parents[3]
         candidate_paths.append(backend_root / raw)
-        if raw.parts and raw.parts[0] == "models":
-            candidate_paths.append(backend_root / raw)
-        else:
+        if raw.parts and raw.parts[0] != "models":
             candidate_paths.append(backend_root / "models" / raw)
-
-        # CWD 相对路径仅作最后兜底
-        candidate_paths.append(raw)
 
         for p in candidate_paths:
             if p.exists():
                 return p
 
+        # 不再保留 "CWD 相对" 兜底（原实现在末尾追加 raw）。
+        # 理由：它是训练期影子目录（仓库根 models/）唯一的加载入口；保留它，
+        # 同一份 registry 在 CWD=仓库根 与 CWD=backend 下会解析到不同年代、
+        # 且未纳入版本控制的权重（实测见上）。心理健康场景下，用不可复现的
+        # 陈旧权重参与风险判定，比"明确缺失→回退启发式"更危险。
+        # 部署侧 MODEL_DIR 为绝对路径且 backend/models 是唯一权威源，此改动
+        # 不影响生产解析结果（/app/models 命中路径不变）。
+        logger.warning(
+            "Model %s not found under model_dir=%s nor backend_root=%s; "
+            "falling back to heuristic/statistical path. "
+            "(CWD-relative resolution is intentionally disabled to avoid "
+            "silently loading untracked training leftovers.)",
+            rel_path,
+            model_dir,
+            backend_root,
+        )
         return candidate_paths[0]
 
     def _load_adapter(self) -> Any:
