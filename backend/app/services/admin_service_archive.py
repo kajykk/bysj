@@ -112,12 +112,34 @@ class ArchiveMixin:
 
         masked_count = 0
         if updates:
+            # FIX-2026-10-09: 改用 Core 层 update(OperationLog.__table__)。
+            # PERF-2026-10-06 把逐条 UPDATE 改成 ORM executemany 批量更新时，
+            # 用 `update(OperationLog).where(OperationLog.id == bindparam("b_id"))`
+            # 会踩 SQLAlchemy 的 ORM bulk update 语义，实测两种报错（本地 venv 2.0.49）：
+            #   1) 不加 execution_options ->
+            #      "bulk synchronize of persistent objects not supported when using
+            #       bulk update with additional WHERE criteria"
+            #   2) 加 synchronize_session=False ->
+            #      "No primary key value supplied for column(s) operation_logs.id;
+            #       per-row ORM Bulk UPDATE by Primary Key requires ..."
+            #      （因为 where 命中主键列 + 参数键名是别名 b_id，被判成按主键更新）
+            # 后果：**GDPR IP 脱敏完全跑不通**，scheduler 定时任务每次都抛错，
+            # 30 天以上的 ip_address 永远不会被掩码 —— 一条静默的合规失效。
+            # Core 层 update 没有 ORM 同步/P bulk 语义，就是一次纯 executemany，
+            # 语义明确且不受 ORM 版本差异影响。本方法只写 ip_address 并按 id 定位，
+            # 执行后立即 commit，不依赖会话内持久对象的内存状态。
             await self.db.execute(
-                update(OperationLog)
-                .where(OperationLog.id == bindparam("b_id"))
+                update(OperationLog.__table__)
+                .where(OperationLog.__table__.c.id == bindparam("b_id"))
                 .values(ip_address=bindparam("b_ip")),
                 updates,
             )
+            # Core 层 update 不经过 ORM 会话同步。本服务运行在
+            # expire_on_commit=False 的会话里（生产 SessionFactory 同配置），
+            # commit 后会话内已加载的 OperationLog 对象**不会自动过期**，
+            # 后续读取会拿到更新前的旧 ip_address（脏读）。
+            # 因此显式 expire_all()，让下一次访问重新从库加载。
+            self.db.expire_all()
             masked_count = len(updates)
 
         await self.db.commit()
