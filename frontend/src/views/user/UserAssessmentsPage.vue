@@ -133,6 +133,7 @@ import {
   type AssessmentHistoryRow,
   toAssessmentHistoryRows,
 } from './utils/assessmentHistory'
+import { writeAssessmentDetailCache, encodeStatePayload } from './utils/assessmentDetailCache'
 import FilterBar from '@/components/common/FilterBar.vue'
 import PageTable from '@/components/common/PageTable.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
@@ -159,6 +160,11 @@ const queryState = useListQueryState('ua')
  */
 const loading = ref(false)
 const rows = ref<AssessmentHistoryRow[]>([])
+/**
+ * 原始列表项，详情页要用它做本地渲染（FIX-2026-10-08）。
+ * 表格行 `AssessmentHistoryRow` 是为展示裁剪过的，不含 `data` 载荷。
+ */
+const rawItems = ref<DataHistoryItem[]>([])
 const total = ref(0)
 const pageError = ref('')
 
@@ -226,7 +232,11 @@ const fetchData = async () => {
       }
     )
     rows.value = toAssessmentHistoryRows(data.items)
+    rawItems.value = data.items
     total.value = data.total
+    // 详情页改为本地渲染（ID 空间错配修复）：把本页原始项留一份快照，
+    // 供详情页在新标签页/收藏后打开时兜底取用。
+    writeAssessmentDetailCache(data.items)
   } catch (error) {
     pageError.value = normalizeHttpError(error, t('userAssessments.loadFailed')).detail
   } finally {
@@ -244,8 +254,21 @@ const onPageSizeChange = async (value: number) => {
   fetchData()
 }
 
+/**
+ * FIX-2026-10-08：把原始项随路由带进详情页。
+ *
+ * 详情端点 `/user/risk/assessments/{id}` 查的是 `risk_assessments`，与列表行的
+ * id 来源（structured_assessments / text_entries / physiological_records）
+ * 是两个独立 ID 空间 —— 拿列表 id 去查必然 404，撞上同号更是显示别人的记录。
+ * 列表响应里已带齐详情所需全部字段，直接带过去本地渲染。
+ */
 const openDetail = (row: AssessmentHistoryRow) => {
-  router.push({ path: `/user/assessments/${row.id}`, query: router.currentRoute.value.query })
+  const item = rawItems.value.find((raw) => Number(raw?.id) === Number(row.id)) ?? null
+  router.push({
+    path: `/user/assessments/${row.id}`,
+    query: router.currentRoute.value.query,
+    state: { assessmentItem: encodeStatePayload(item) },
+  })
 }
 
 const handleReset = async () => {

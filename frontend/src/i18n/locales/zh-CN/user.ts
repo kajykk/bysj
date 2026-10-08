@@ -587,9 +587,15 @@ pageTitle: '评估记录',
       lowRisk: '低风险'
     }
   },
-  userAssessmentDetail: {
-cardTitle: '评估记录详情',
+userAssessmentDetail: {
+    cardTitle: '评估记录详情',
     emptyText: '未找到记录',
+    // FIX-2026-10-08：详情页改为前端本地渲染，无载荷时 fail-closed
+    noPayloadTitle: '未找到该记录的详情数据',
+    noPayloadDescription:
+      '评估详情只在列表页内可用（记录来自三个不同的数据表），请从评估列表重新打开该记录。',
+    fullTextTitle: '文本内容',
+    rawPayloadTitle: '原始量表数据',
     labelRecordId: '记录ID',
     labelAssessmentType: '评估类型',
     labelScore: '得分',
@@ -603,7 +609,23 @@ cardTitle: '评估记录详情',
     typeText: '文本',
     typePhysiological: '生理',
     typeRecord: '记录',
-    loadFailed: '详情加载失败'
+    loadFailed: '详情加载失败',
+    // 后端 GET /user/data/history 的 data 载荷键（user_data_service.py:371-464）
+    field: {
+      assessmentType: '量表',
+      score: '得分',
+      severity: '严重程度',
+      entryType: '记录类型',
+      moodScore: '心情评分',
+      sentimentScore: '情绪分',
+      sentimentLabel: '情绪倾向',
+      source: '数据来源',
+      sleepHours: '睡眠时长（小时）',
+      sleepQuality: '睡眠质量',
+      exerciseMinutes: '运动时长（分钟）',
+      heartRate: '心率（次/分）',
+      steps: '步数'
+    }
   },
   userRisk: {
 tabReport: '概览报告',

@@ -10,7 +10,10 @@ import { describe, it, expect } from 'vitest'
 import type { DataHistoryItem } from '@/api/userTypes'
 import {
   NO_VALUE,
+  buildDetailFields,
   buildSummary,
+  extractFullText,
+  extractRawPayload,
   extractRiskLevelText,
   extractScore,
   summarizeAssessmentHistory,
@@ -187,5 +190,80 @@ describe('summarizeAssessmentHistory —— 统计卡', () => {
 describe('extractRiskLevelText —— 等级文案', () => {
   it('未知 severity 退化为占位符而不是 "unknown" 原文', () => {
     expect(extractRiskLevelText(text())).toBe(NO_VALUE)
+  })
+})
+
+// 详情页本地渲染（FIX-2026-10-08）
+describe('buildDetailFields —— 详情页字段展开', () => {
+  it('structured：只补充展开「量表」，不与通用行的得分/风险等级重复', () => {
+    expect(buildDetailFields(structured())).toEqual([{ label: 'assessmentType', value: 'PHQ-9' }])
+  })
+
+  it('text：展开记录类型/心情/情绪分/情绪倾向', () => {
+    expect(buildDetailFields(text()).map(f => f.label)).toEqual([
+      'entryType',
+      'moodScore',
+      'sentimentScore',
+      'sentimentLabel',
+    ])
+  })
+
+  it('snake_case 的后端键一律转成 camelCase（i18n 键规范强制）', () => {
+    for (const label of buildDetailFields(structured()).map(f => f.label)) {
+      expect(label).not.toMatch(/_/)
+    }
+  })
+
+  it('只输出载荷里真实存在的字段，不给可空列排一排 "-"', () => {
+    const item = structured({
+      data: { assessment_type: 'PHQ-9', score: null, severity: undefined },
+    } as Partial<DataHistoryItem>)
+    expect(buildDetailFields(item)).toEqual([{ label: 'assessmentType', value: 'PHQ-9' }])
+  })
+
+  it('text 的 mood_score 为 0 是合法值，必须保留（不能用真值判断过滤掉）', () => {
+    const item = text({ data: { entry_type: 'diary', mood_score: 0 } } as Partial<DataHistoryItem>)
+    expect(buildDetailFields(item)).toEqual([
+      { label: 'entryType', value: 'diary' },
+      { label: 'moodScore', value: '0' },
+    ])
+  })
+
+  it('未知类型不臆造字段（返回空数组而不是把整个载荷倒出来）', () => {
+    expect(buildDetailFields({ id: 1, type: 'mystery', created_at: '', data: { a: 1 } })).toEqual(
+      []
+    )
+  })
+
+  it('NaN 分数不出现在详情里', () => {
+    const item = structured({ data: { score: Number.NaN } } as Partial<DataHistoryItem>)
+    // toFiniteNumber 只认有限数；NaN 走 String() 会变成 "NaN"，这里显式拒绝
+    expect(buildDetailFields(item).map(f => f.value)).not.toContain('NaN')
+  })
+})
+
+describe('extractFullText / extractRawPayload —— 详情页的独占内容', () => {
+  it('text：给出 content 全文（列表里是截断到 60 字的摘要）', () => {
+    const long =
+      '最近两周睡眠很差，几乎每天凌晨两三点才睡着，白天上课完全集中不了注意力，' +
+      '和室友的交流也变少了，感觉自己什么都做不好，情绪越来越低落，有时候会忍不住哭，' +
+      '但又不知道怎么开口求助。'
+    const item = text({ data: { content: long } } as Partial<DataHistoryItem>)
+    expect(extractFullText(item)).toBe(long)
+    expect(buildSummary(item).length).toBeLessThan(long.length)
+  })
+
+  it('非 text 类型没有全文', () => {
+    expect(extractFullText(structured())).toBe('')
+  })
+
+  it('structured：data_payload 美化输出', () => {
+    expect(extractRawPayload(structured())).toBe('{\n  "q1": 3\n}')
+  })
+
+  it('data_payload 为 null 时返回空串而不是 "null"', () => {
+    expect(
+      extractRawPayload(structured({ data: { data_payload: null } } as Partial<DataHistoryItem>))
+    ).toBe('')
   })
 })

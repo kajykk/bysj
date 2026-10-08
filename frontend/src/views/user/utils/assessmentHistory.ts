@@ -193,3 +193,110 @@ export function summarizeAssessmentHistory(
   }
   return stats
 }
+
+// ---------------------------------------------------------------------------
+// 详情页（FIX-2026-10-08：ID 空间错配 → 前端本地渲染，不改后端）
+// ---------------------------------------------------------------------------
+
+/**
+ * 详情页不再请求 `/user/risk/assessments/{id}`：
+ * 那个端点查的是 `risk_assessments`，而列表行的 id 来自
+ * `structured_assessments` / `text_entries` / `physiological_records`，
+ * 是**两个独立 ID 空间** —— 用列表 id 去查必然 404，万一撞上同号记录，
+ * 显示的还是另一条记录的数据。列表响应里已经带齐了详情所需的全部载荷，
+ * 本函数负责把它展开成可渲染的字段。
+ *
+ * `label` 是 i18n 键的**短名**，由页面拼成 `userAssessmentDetail.field.<label>`；
+ * 纯函数层不引入 i18n，保持可单测。
+ *
+ * 后端 payload 键是 snake_case，而仓库 i18n 键要求是 camelCase
+ * （由 `src/i18n/locales/i18n.test.ts` 的「命名规范验证」强制），
+ * 故在此转换 —— 与 `utils/riskFormatters.ts` 的 snakeToCamel 同口径。
+ */
+export interface DetailField {
+  /** camelCase 的 i18n 短名，同时用作 v-for 的稳定 key。 */
+  label: string
+  /** 已格式化的展示值。 */
+  value: string
+}
+
+function toCamelKey(key: string): string {
+  return key.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+}
+
+/** 字段定义表：键 → 取值方式。只有载荷里真实存在的字段才会被输出。 */
+function detailFieldValue(
+  item: DataHistoryItem,
+  key: string,
+  transform?: (raw: unknown) => string | null
+): string | null {
+  const payload = payloadOf(item)
+  if (!(key in payload)) return null
+  const raw = payload[key]
+  if (raw === null || raw === undefined || raw === '') return null
+  if (transform) return transform(raw)
+  // 数字统一走有限性校验：String(NaN) === 'NaN'，漏出去就成了「分数: NaN」。
+  if (typeof raw === 'number') {
+    const finite = toFiniteNumber(raw)
+    return finite === null ? null : String(finite)
+  }
+  if (typeof raw === 'object') return JSON.stringify(raw)
+  return String(raw)
+}
+
+/**
+ * 各类型要**额外**展开的载荷键。
+ *
+ * structured 只列 `assessment_type`：得分与风险等级已由详情页的通用行承载，
+ * 且通用行会把 severity 翻译成「较高」（这里只能拿到 'high' 原文），
+ * 重复展示既冗余又不一致。
+ */
+const DETAIL_FIELD_KEYS: Record<string, string[]> = {
+  structured: ['assessment_type'],
+  text: ['entry_type', 'mood_score', 'sentiment_score', 'sentiment_label'],
+  physiological: [
+    'source',
+    'sleep_hours',
+    'sleep_quality',
+    'exercise_minutes',
+    'heart_rate',
+    'steps',
+  ],
+}
+
+/**
+ * 按类型展开载荷字段。
+ *
+ * 只输出载荷里**实际存在且非空**的字段 —— 后端某些列可空，
+ * 输出空行会让详情页出现一排「-」，比不显示更难读。
+ */
+export function buildDetailFields(item: DataHistoryItem): DetailField[] {
+  const keys = DETAIL_FIELD_KEYS[item?.type]
+  if (!keys) return []
+  const fields: DetailField[] = []
+  for (const key of keys) {
+    const value = detailFieldValue(item, key)
+    if (value === null) continue
+    fields.push({ label: toCamelKey(key), value })
+  }
+  return fields
+}
+
+/**
+ * 文本类记录的正文全文。
+ * 列表摘要把它截断到 60 字，「查看详情」的全部价值就在这段被截断的内容上，
+ * 所以详情页必须给全文，不能复用列表的摘要。
+ */
+export function extractFullText(item: DataHistoryItem): string {
+  if (item?.type !== 'text') return ''
+  return firstText(payloadOf(item), ['content'])
+}
+
+/** 结构化评估的 `data_payload` 原文（量表题目得分等），非对象时返回空串。 */
+export function extractRawPayload(item: DataHistoryItem): string {
+  if (item?.type !== 'structured') return ''
+  const raw = payloadOf(item).data_payload
+  if (raw === null || raw === undefined) return ''
+  if (typeof raw === 'object') return JSON.stringify(raw, null, 2)
+  return String(raw)
+}

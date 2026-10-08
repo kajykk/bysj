@@ -145,6 +145,19 @@ export const userRiskApi = {
     requestData<TextAnalyzeResult>(request.post('/user/data/text/analyze', payload)),
   recordPhysiological: (payload: Record<string, unknown>) => requestData<{ record_id: number }>(request.post('/user/data/physiological/record', payload)),
   predictTextModel: (text: string) => requestData<TextPredictModelResult>(request.post('/model/predict/text', { text })),
+  /**
+   * ⚠️ 不要用它渲染「评估历史详情」（FIX-2026-10-08）。
+   *
+   * 后端 `GET /user/risk/assessments/{id}` 查的是 `risk_assessments`
+   * （backend/app/api/v1/user_risk.py:112-139），而「评估历史」列表行
+   * `GET /user/data/history` 的 id 来自 structured_assessments / text_entries /
+   * physiological_records —— **两个独立 ID 空间**。用列表 id 调这里必然 404，
+   * 撞上同号更是显示另一条记录的数据。
+   *
+   * 评估历史详情已改为前端本地渲染列表已下发的 `data` 载荷
+   * （见 views/user/UserAssessmentDetailPage.vue），本方法目前无生产调用方，
+   * 仅保留 API 层映射；若后端后续新增与列表同源的详情端点，请在那里对接。
+   */
   getAssessmentDetail: (id: number) => requestData<AssessmentRecordItem>(dedupedGet(`/user/risk/assessments/${id}`)),
 
   /**

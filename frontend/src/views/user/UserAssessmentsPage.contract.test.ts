@@ -16,9 +16,13 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { ElMessageBox } from 'element-plus'
 import i18n from '@/i18n'
 
-const { historyMock } = vi.hoisted(() => ({ historyMock: vi.fn() }))
+const { historyMock, pushMock } = vi.hoisted(() => ({
+  historyMock: vi.fn(),
+  pushMock: vi.fn(),
+}))
 
 vi.mock('@/api/userApi', () => ({
   userApi: { getUserAssessmentHistory: historyMock },
@@ -34,7 +38,11 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ query: {} }),
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), currentRoute: { value: { query: {} } } }),
+  useRouter: () => ({
+    replace: vi.fn(),
+    push: pushMock,
+    currentRoute: { value: { query: {} } },
+  }),
 }))
 
 // el-table 在 jsdom 里需要 ResizeObserver
@@ -132,5 +140,41 @@ describe('UserAssessmentsPage 表格契约', () => {
   it('时间列渲染 created_at，不是空', async () => {
     const wrapper = await mountPage()
     expect(wrapper.text()).toMatch(/2026-10-0[123]/)
+  })
+})
+
+// FIX-2026-10-08：详情页改为本地渲染，列表必须在跳转时把原始载荷带过去
+describe('UserAssessmentsPage → 详情页的载荷传递', () => {
+  beforeEach(() => {
+    historyMock.mockReset()
+    historyMock.mockResolvedValue(makeHistoryResponse())
+    pushMock.mockReset()
+    // ActionColumn 的 confirmText 默认是 '确定'，点击会先进 ElMessageBox 确认框；
+    // 定向 spy 让确认立即通过，才能走到真正的跳转逻辑。
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+  })
+
+  it('点「查看详情」时把原始 item 放进 router state（否则详情页无数据可渲染）', async () => {
+    const wrapper = await mountPage()
+    const detailButton = wrapper
+      .findAll('.el-table__row button')
+      .find(el => el.text().includes('详情'))
+    expect(detailButton).toBeTruthy()
+    await detailButton!.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalled()
+    const arg = pushMock.mock.calls[0][0]
+    expect(arg.path).toBe('/user/assessments/11')
+    // 关键：state 里必须带上含 data 载荷的原始项，而不是裁剪过的表格行
+    // 载荷以字符串形式传递（见 encodeStatePayload），反序列化后比对
+    expect(JSON.parse(arg.state?.assessmentItem).id).toBe(11)
+    expect(JSON.parse(arg.state?.assessmentItem).data).toEqual({
+      assessment_type: 'PHQ-9',
+      score: 72.5,
+      severity: 'high',
+      data_payload: {},
+    })
   })
 })

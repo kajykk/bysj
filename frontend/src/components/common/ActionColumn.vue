@@ -1,7 +1,13 @@
+<!--
+  FIX-2026-10-08：原写法 `v-if="disabledReason"` 把「禁用原因」当成「禁用条件」用了
+  —— 只要调用方传了 reason，按钮就永久不可点，与 disabled prop 无关。
+  实锤：UserAssessmentsPage 的「查看详情」实测带 is-disabled、点击后 router.push 0 次。
+  改为 `disabled && disabledReason`：禁用与否只看 disabled，reason 只是禁用时的提示。
+-->
 <template>
   <div class="action-column">
     <el-tooltip
-      v-if="disabledReason"
+      v-if="disabled && disabledReason"
       :content="disabledReason"
       placement="top"
     >
@@ -75,7 +81,9 @@ const emit = defineEmits<{
 }>()
 
 const handleClick = async () => {
-  if (props.disabled || props.loading || props.disabledReason) return
+  // FIX-2026-10-08：原判断里的 `|| props.disabledReason` 会让「传了原因文案」变成
+  // 「不可点击」。权限判断应只由 disabled 表达，文案不参与行为决策。
+  if (props.disabled || props.loading) return
 
   if (props.confirmText) {
     try {

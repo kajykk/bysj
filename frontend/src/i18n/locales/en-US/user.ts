@@ -590,6 +590,12 @@ pageTitle: 'Assessment Records',
   userAssessmentDetail: {
 cardTitle: 'Assessment Record Detail',
     emptyText: 'Record not found',
+    // FIX-2026-10-08：详情页改为前端本地渲染，无载荷时 fail-closed
+    noPayloadTitle: 'Detail data not available',
+    noPayloadDescription:
+      'Assessment details are only available from the list page (records come from three different tables). Please reopen it from the assessment list.',
+    fullTextTitle: 'Full text',
+    rawPayloadTitle: 'Raw questionnaire payload',
     labelRecordId: 'Record ID',
     labelAssessmentType: 'Assessment Type',
     labelScore: 'Score',
@@ -603,7 +609,23 @@ cardTitle: 'Assessment Record Detail',
     typeText: 'Text',
     typePhysiological: 'Physiological',
     typeRecord: 'Record',
-    loadFailed: 'Failed to load detail'
+    loadFailed: 'Failed to load detail',
+    // 后端 GET /user/data/history 的 data 载荷键（user_data_service.py:371-464）
+    field: {
+      assessmentType: 'Scale',
+      score: 'Score',
+      severity: 'Severity',
+      entryType: 'Entry Type',
+      moodScore: 'Mood Score',
+      sentimentScore: 'Sentiment Score',
+      sentimentLabel: 'Sentiment',
+      source: 'Source',
+      sleepHours: 'Sleep (hours)',
+      sleepQuality: 'Sleep Quality',
+      exerciseMinutes: 'Exercise (minutes)',
+      heartRate: 'Heart Rate (bpm)',
+      steps: 'Steps'
+    }
   },
   userRisk: {
 tabReport: 'Overview Report',
