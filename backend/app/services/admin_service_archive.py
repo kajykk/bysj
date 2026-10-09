@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import bindparam, delete, func, select, update
+from sqlalchemy import inspect as sa_inspect
 
 from app.models.admin import OperationLog
 from app.models.risk import RiskAssessment
@@ -138,8 +139,18 @@ class ArchiveMixin:
             # expire_on_commit=False 的会话里（生产 SessionFactory 同配置），
             # commit 后会话内已加载的 OperationLog 对象**不会自动过期**，
             # 后续读取会拿到更新前的旧 ip_address（脏读）。
-            # 因此显式 expire_all()，让下一次访问重新从库加载。
-            self.db.expire_all()
+            #
+            # 只过期**本批**受影响的对象，而不是 session.expire_all()：
+            # 后者会把会话里所有已加载实体全部标记过期，高并发/长事务下
+            # 后续任何访问都触发重载（一次批量 UPDATE 引发全会话 N+1）。
+            # identity 取自主键，不触发懒加载（直接读 obj.id 会在对象已过期时 IO）。
+            batch_ids = {int(u["b_id"]) for u in updates}
+            for obj in list(self.db.identity_map.values()):
+                if not isinstance(obj, OperationLog):
+                    continue
+                identity = sa_inspect(obj).identity
+                if identity and identity[0] in batch_ids:
+                    self.db.expire(obj)
             masked_count = len(updates)
 
         await self.db.commit()
