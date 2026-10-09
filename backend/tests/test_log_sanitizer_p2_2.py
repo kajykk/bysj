@@ -132,7 +132,11 @@ class TestNestedContainers:
     def test_non_sensitive_container_preserved(self) -> None:
         rec = self._record("cfg=%s", {"host": "db.internal", "port": 5432})
         SanitizingFilter().filter(rec)
-        assert rec.args == {"host": "db.internal", "port": 5432}
+        # FIX-2026-10-09: 脱敏改为「先渲染、再对文本脱敏」，dict args 的内容
+        # 被并入 msg 且 args 清空。断言改为检查渲染结果里非敏感值原样保留。
+        rendered = rec.getMessage()
+        assert "db.internal" in rendered
+        assert "5432" in rendered
 
     def test_self_referential_structure_does_not_hang(self) -> None:
         """自引用结构不能无限递归。"""

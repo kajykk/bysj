@@ -311,6 +311,43 @@ class TestSanitizingFilter:
             )
             assert "***MASKED***" in str(record.args.get("password", ""))
 
+    def test_filter_preserves_format_placeholders(self):
+        """脱敏不得破坏 msg 与 args 的 %-占位符对应关系.
+
+        FIX-2026-10-09 的回归闸门。生产真实翻车点（实测）::
+
+            logger.info("mask_old_ips: masked=%d (cutoff=%s, days=%d)", 0, ts, 30)
+
+        旧实现直接 sanitize_text(record.msg)，键名清单里的 `ip` 让
+        "mask_old_ips: masked" 整段被打码 → 占位符从 3 个变 2 个而 args 仍 3 个
+        → getMessage() 抛 TypeError，该条日志被 logging 直接丢弃。
+
+        改前必红（getMessage 抛异常），改后必绿。
+        """
+        f = SanitizingFilter()
+        record = self._make_record(
+            "mask_old_ips: masked=%d (cutoff=%s, days=%d)",
+            (0, "2026-10-09T00:00:00", 30),
+        )
+        f.filter(record)
+
+        rendered = record.getMessage()  # 改前在此抛 TypeError
+        assert "days=30" in rendered, f"参数错位导致渲染结果失真: {rendered}"
+        assert "***MASKED***" in rendered, f"敏感键未被脱敏: {rendered}"
+
+    def test_filter_renders_args_before_sanitizing(self):
+        """脱敏应覆盖 args 里的真实值（格式化后再脱敏，覆盖面更广）。"""
+        f = SanitizingFilter()
+        record = self._make_record(
+            "client login %s from %s",
+            ("alice@example.com", "192.168.1.100"),
+        )
+        f.filter(record)
+
+        rendered = record.getMessage()
+        assert "alice@example.com" not in rendered, f"args 中的邮箱未被脱敏: {rendered}"
+        assert "192.168.1.100" not in rendered, f"args 中的 IP 未被脱敏: {rendered}"
+
     def test_filter_no_exception_on_invalid_record(self):
         """filter 对异常 record 不抛异常."""
         f = SanitizingFilter()

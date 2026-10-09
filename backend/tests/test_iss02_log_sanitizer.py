@@ -107,7 +107,12 @@ class TestSanitizingFilter:
             "x", logging.INFO, "p", 1, "value=%s", ("token=abc",), None
         )
         f.filter(rec)
-        assert rec.args == ("token=***MASKED***",)
+        # FIX-2026-10-09: 脱敏改为「先由 logging 渲染成 msg、再对文本脱敏」，
+        # args 被清空（否则二次格式化会炸）。断言渲染结果而非 args 的值 ——
+        # 要求是「明文不得出现在任何载体」，载体由 args 变成 msg 不改变该要求。
+        rendered = rec.getMessage()
+        assert "abc" not in rendered
+        assert "***MASKED***" in rendered
 
     def test_filter_masks_args_dict(self):
         f = SanitizingFilter()
@@ -184,9 +189,11 @@ class TestLogInjectionGuard:
             ("https://x.com/\nFAKE LOG LINE",), None,
         )
         f.filter(rec)
-        assert rec.args == ("https://x.com/\\nFAKE LOG LINE",)
-        # 实际格式化后仍是单行
-        assert "\n" not in (rec.msg % rec.args)
+        # FIX-2026-10-09: 同上，改为断言渲染后的文本仍是单行（args 已并入 msg）
+        rendered = rec.getMessage()
+        assert "\n" not in rendered
+        assert "\\n" in rendered
+        assert "FAKE LOG LINE" in rendered
 
     def test_pii_masking_still_works_alongside_escape(self):
         """控制字符转义不得破坏既有 PII 脱敏。

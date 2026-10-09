@@ -298,18 +298,47 @@ class SanitizingFilter(logging.Filter):
             总是返回 True (不丢弃任何记录, 仅修改内容).
         """
         try:
-            # 1. 脱敏 record.msg (主消息)
             if isinstance(record.msg, str):
-                record.msg = sanitize_text(record.msg)
-
-            # 2. 脱敏 record.args (格式化参数, 可能包含 PII)
-            if record.args:
-                # 2a. 按「敏感键 + 占位符」位置脱敏：logger.info("password=%s", pwd)
-                #     的真实值在 args 里，键名模式只作用于 msg，覆盖不到。
-                record.args = self._mask_sensitive_args(record.args, record.msg)
+                if isinstance(record.args, dict):
+                    # dict 类 args 必须**先按键名打码**再渲染：
+                    # `logger.info("cfg %(password)s", {"password": "x"})` 渲染后
+                    # 键名已经消失，只对最终文本做值级脱敏会得到 "cfg x" —— 明文泄漏。
+                    # （dict args 的 %-映射在 LogRecord 构造期已解包，这里拿到的是 dict）
+                    record.args = self._sanitize_args(record.args)
+                if record.args:
+                    # FIX-2026-10-09: **先格式化、再脱敏**，绝不直接改 msg。
+                    #
+                    # 背景（实测，非推测）：本 filter 早先直接 sanitize_text(record.msg)，
+                    # 这会破坏 msg 与 args 的 %-占位符对应关系。生产上真实翻车：
+                    #   admin_service_archive.mask_old_ips 记录
+                    #   logger.info("mask_old_ips: masked=%d (cutoff=%s, days=%d)", 0, ts, 30)
+                    # 键名清单含 `ip`，正则把 "mask_old_ips: masked" 当成
+                    # "敏感键=值" 整段替换成 "mask_old_ip=***MASKED***"，
+                    # 占位符从 3 个变成 2 个而 args 仍是 3 个 →
+                    #   TypeError: %d format: a real number is required, not str
+                    # logging 内部只在 handleError 里打印 "--- Logging error ---"，
+                    # **该条日志直接丢失**（合规审计场景下这是可观测性损失）。
+                    #
+                    # 改法：先由 logging 自己把 msg+args 渲染成最终文本，对最终文本
+                    # 做一次脱敏，然后把 msg 固定为字面量并清空 args。这样既不会
+                    # 破坏占位符结构，脱敏覆盖面还更广 —— args 里的真实值、msg 里
+                    # 的字面量 PII 都在同一段文本内被处理。
+                    try:
+                        rendered = record.getMessage()
+                    except Exception:
+                        # 参数与占位符本身就不匹配（与脱敏无关），放弃脱敏原样放行，
+                        # 交由 logging 自身报错 —— 不把脱敏器变成故障放大器。
+                        return True
+                    record.msg = sanitize_text(rendered)
+                    record.args = None
+                else:
+                    record.msg = sanitize_text(record.msg)
+            elif record.args:
+                # msg 非字符串（dict / 自定义对象）→ 只能走 args 侧脱敏
+                record.args = self._mask_sensitive_args(record.args, str(record.msg))
                 record.args = self._sanitize_args(record.args)
 
-            # 3. 脱敏 exc_info 中的异常消息 (如有)
+            # 脱敏 exc_info 中的异常消息 (如有)
             # exc_info 是 (type, value, traceback) 元组, 修改 value.args
             if record.exc_info and len(record.exc_info) >= 2:
                 exc_value = record.exc_info[1]
