@@ -148,7 +148,11 @@ class TestRequirePermission:
         """TC-COV-DEPS-013: user with permission can access."""
         checker = require_permission("user.assessment.read")
         user = _mock_user("user")
-        result = await checker(user)
+        # AUDIT-2026-10-06 (P0-1) 给 checker 加了 request 形参（租户一致性校验），
+        # 本测试仍按旧签名 `checker(user)` 调用 → TypeError。与 TestRequireRole
+        # 同类用例对齐，补上 request。
+        request = _mock_request_with_token()
+        result = await checker(request, user)
         assert result == user
 
     @pytest.mark.asyncio
@@ -156,8 +160,9 @@ class TestRequirePermission:
         """TC-COV-DEPS-014: user without permission is forbidden."""
         checker = require_permission("admin.operation_log.view")
         user = _mock_user("user")
+        request = _mock_request_with_token()
         with pytest.raises(HTTPException) as exc_info:
-            await checker(user)
+            await checker(request, user)
         assert exc_info.value.status_code == 403
         assert "权限不足" in exc_info.value.detail
 
@@ -166,7 +171,8 @@ class TestRequirePermission:
         """TC-COV-DEPS-015: admin with permission can access."""
         checker = require_permission("admin.operation_log.view")
         user = _mock_user("admin")
-        result = await checker(user)
+        request = _mock_request_with_token()
+        result = await checker(request, user)
         assert result == user
 
 

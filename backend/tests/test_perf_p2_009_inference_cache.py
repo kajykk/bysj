@@ -481,9 +481,13 @@ class TestModelFingerprintInvalidatesCache:
             fp = inf._model_fingerprint()
         assert isinstance(fp, str) and fp
 
-    def test_fingerprint_empty_registry(self):
+    def test_fingerprint_empty_registry(self, monkeypatch):
         from app.services.model_predict import inference as inf
 
+        # PERF-2 给 _model_fingerprint 加了 10s TTL 记忆化（模块级 _fingerprint_cache）。
+        # 不复位就会命中上一个用例算出的指纹，本例拿到旧值而不是 "unknown"。
+        # 用 monkeypatch 复位以免污染后续用例。
+        monkeypatch.setattr(inf, "_fingerprint_cache", None)
         with patch.object(inf, "MODEL_PATHS", {}):
             assert inf._model_fingerprint() == "unknown"
 
@@ -498,13 +502,18 @@ class TestModelFingerprintInvalidatesCache:
 
         assert _ml_cache_key("text", {"text": "abc"}) == _ml_cache_key("text", {"text": "abc"})
 
-    def test_cache_key_changes_when_model_changes(self):
+    def test_cache_key_changes_when_model_changes(self, monkeypatch):
         """核心闸门: 换一份模型文件 -> 缓存键必须不同。"""
         from app.services.model_predict import inference as inf
 
+        # 同上：复位 10s TTL 指纹缓存，否则两次 key 会因记忆化而相同
+        monkeypatch.setattr(inf, "_fingerprint_cache", None)
         params = {"x": 1}
         with patch.object(inf, "MODEL_PATHS", {"m": "/nonexistent/a.pkl"}):
             key_a = inf._ml_cache_key("tabular", params)
+        # 第一次调用已把结果写回 10s TTL 缓存，第二次前必须再复位一次，
+        # 否则 key_b 命中记忆化结果 → 键相同 → 闸门失效。
+        monkeypatch.setattr(inf, "_fingerprint_cache", None)
         with patch.object(inf, "MODEL_PATHS", {"m2": "/nonexistent/b.pkl"}):
             key_b = inf._ml_cache_key("tabular", params)
 

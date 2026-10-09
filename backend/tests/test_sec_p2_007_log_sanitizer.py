@@ -238,8 +238,15 @@ class TestEdgeCases:
         assert sanitize_text(123) == 123  # type: ignore[arg-type]
 
     def test_no_pii_text(self):
-        """无 PII 的文本原样返回."""
-        text = "user login successful from 192.168.1.1"
+        """无 PII 的文本原样返回.
+
+        FIX-2026-10-09: 原样本是 `"user login successful from 192.168.1.1"`，
+        但 AUDIT-2026-10-06 (P2-2) 已把**裸 IPv4** 纳入值级脱敏（IPv4 属 GDPR
+        个人数据）—— 样本自带 PII，与本用例「无 PII」的意图自相矛盾，
+        属于样本过时而非实现问题。故换成真正无 PII 的文本；
+        裸 IP 的脱敏由 TestIpAddress 单独覆盖。
+        """
+        text = "user login successful, session ended"
         assert sanitize_text(text) == text
 
     def test_multiple_pii_in_one_line(self):

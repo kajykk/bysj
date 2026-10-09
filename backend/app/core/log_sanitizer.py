@@ -136,6 +136,92 @@ _CARD_PATTERN = re.compile(
 # API Key 常见前缀 (OpenAI sk-/Stripe sk_/pk_/GitHub ghp_/gho_/ghu_/ghs_/ghr_)
 _APIKEY_PATTERN = re.compile(r"\b(sk-[A-Za-z0-9]{20,}|pk_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,})")
 
+
+# ── 高敏键名（整段打码，不做部分掩码）──────────────────────────────
+# FIX-2026-10-09 (方案 B): 键名替换需要分层。既有测试固化了原设计：
+#   - test_id_card_masked     「id_card 作为敏感键时整体被脱敏」
+#   - test_id_card_standalone 裸身份证号反而「保留首尾」
+#   - test_email_preserves_first_char / test_phone_masked 低敏键保留部分线索
+# 因此 email/phone/ip/username 等走部分掩码；密码/令牌/证件/卡号/密钥类整段打码。
+# `key` 放在最后：它是通用后缀，`cache_key` 之类在部分掩码失败后同样落到整段打码。
+_STRICT_MASK_KEY_ALTS = (
+    r"password|passwd|pwd|"
+    r"token|access_token|refresh_token|id_token|"
+    r"secret|client_secret|api_secret|"
+    r"api_key|apikey|api-key|"
+    r"authorization|auth|"
+    r"jwt|bearer|"
+    r"credit_card|credit_card_number|card_number|cvv|cvc|"
+    r"ssn|id_card|id_number|"
+    r"private_key|privatekey|"
+    r"session|credential|key"
+)
+_STRICT_MASK_KEY_PATTERN = re.compile(
+    r"(?i)^(?:" + _STRICT_MASK_KEY_ALTS + r")[\w.-]*$",
+)
+
+
+def _mask_card(m: re.Match) -> str:
+    """信用卡掩码：16 位连续或 4-4-4-4 分组。"""
+    if m.group(1):  # 16 位连续
+        return f"{m.group(1)}******{m.group(4)}"
+    # 4-4-4-4 分组
+    return f"{m.group(5)} **** **** {m.group(8)}"
+
+
+def _partial_mask_value(value: str) -> str | None:
+    """对单个敏感键的**值**尝试部分掩码。
+
+    FIX-2026-10-09 (方案 B): 键名模式 (``email=xxx``) 早先一律整段替换成
+    ``***MASKED***``，把值级模式的部分掩码覆盖掉了 —— 于是
+    ``email: alice@test.com`` 变成 ``email=***MASKED***``，域名/首字符这类
+    排查线索一并丢失，而 AUDIT-2026-10-06 的两条测试期望的正是部分掩码。
+
+    这里复用值级规则做「能认出来就部分遮蔽，认不出来才整段打码」：
+      - ``alice@test.com`` -> ``a***@test.com``
+      - ``13912345678``    -> ``139****5678``
+      - ``192.168.1.100``  -> ``***IP_MASKED***``
+      - ``secret``         -> ``None``（无特征串，由调用方整段打码）
+
+    安全性不变：部分掩码后的值仍不含完整明文，不违背「宁可过度脱敏也不可漏」。
+    """
+    masked = _EMAIL_PATTERN.sub(lambda m: f"{m.group(1)}***@{m.group(3)}", value)
+    masked = _IPV4_PATTERN.sub("***IP_MASKED***", masked)
+    masked = _PHONE_PATTERN.sub(lambda m: f"{m.group(1)}****{m.group(3)}", masked)
+    masked = _ID_CARD_PATTERN.sub(lambda m: f"{m.group(1)}********{m.group(3)}{m.group(4)}", masked)
+    masked = _CARD_PATTERN.sub(_mask_card, masked)
+    if masked == value:
+        return None  # 值里没有任何可识别特征 -> 无法部分掩码
+    return masked
+
+
+def _mask_key_value(m: re.Match) -> str:
+    """键名模式替换：按敏感度分层处理（FIX-2026-10-09 方案 B）。
+
+    分层依据来自既有测试所固化的原设计：
+      - 高敏键（password / token / id_card / card / key …）→ **整段打码**。
+        见 test_id_card_masked 的注释「id_card 作为敏感键时整体被脱敏」。
+      - 低敏键（email / phone / ip …）→ 值能认出来就**部分掩码**，保留
+        域名/首字符/网段这类排查线索。见 test_email_preserves_first_char。
+      - 认不出特征的值（password=secret）→ 整段打码。
+
+    幂等：低敏键的值里已含 ``*`` 说明上一轮已部分掩码，原样保留 ——
+    否则第二次 sanitize 会把 ``a***@test.com`` / ``139****5678`` 当成无法识别
+    而整段打码，破坏 test_double_sanitize_same_result。
+    高敏键不走这条豁免：``token=***JWT_MASKED***`` 仍按整段打码处理
+    （JWT 标记是上游模式的产物，见 test_jwt_masked）。
+    """
+    key, value = m.group(1), m.group(2)
+    if _STRICT_MASK_KEY_PATTERN.match(key):
+        return f"{key}=***MASKED***"
+    if "*" in value:
+        return f"{key}={value}"
+    partial = _partial_mask_value(value)
+    if partial is not None:
+        return f"{key}={partial}"
+    return f"{key}=***MASKED***"
+
+
 # AUDIT-2026-09-30-P1-5: 控制字符（C0 + DEL + C1）转义，防止 log injection。
 #
 # 背景：`POST /api/v1/monitoring/metrics/frontend` 是无鉴权端点（仅 30/min 限流），
@@ -183,10 +269,24 @@ def sanitize_text(text: str) -> str:
     result = _BEARER_PATTERN.sub(lambda m: f"{m.group(1)} ***MASKED***", result)
 
     # 4. JSON 格式敏感键值对 ("key":"value")
-    result = _SENSITIVE_KEY_JSON_PATTERN.sub(lambda m: f'"{m.group(1)}":"***MASKED***"', result)
+    # FIX-2026-10-09 (方案 B): 与第 5 步同口径 —— 值能部分掩码就保留线索。
+    # 写法上仍用 ":" 分隔以保持 JSON 结构合法。
+    def _mask_json_kv(m: re.Match) -> str:
+        # 与 _mask_key_value 同口径分层；写法用 ":" 保持输出仍是合法 JSON
+        key, value = m.group(1), m.group(2)
+        if _STRICT_MASK_KEY_PATTERN.match(key):
+            return f'"{key}":"***MASKED***"'
+        if "*" in value:
+            return f'"{key}":"{value}"'
+        partial = _partial_mask_value(value)
+        if partial is not None:
+            return f'"{key}":"{partial}"'
+        return f'"{key}":"***MASKED***"'
+
+    result = _SENSITIVE_KEY_JSON_PATTERN.sub(_mask_json_kv, result)
 
     # 5. 普通敏感键值对 (key=value / key: value)
-    result = _SENSITIVE_KEY_PATTERN.sub(lambda m: f"{m.group(1)}=***MASKED***", result)
+    result = _SENSITIVE_KEY_PATTERN.sub(_mask_key_value, result)
 
     # 6. Email (保留首位字符 + 域名, 便于排查)
     result = _EMAIL_PATTERN.sub(lambda m: f"{m.group(1)}***@{m.group(3)}", result)
