@@ -12,7 +12,7 @@
 
 此前该服务仅有 tests/scripts/p3_verify_drift_monitoring.py 手工验证脚本,
 无 pytest 覆盖.
-"""
+    """
 
 from __future__ import annotations
 
@@ -238,3 +238,90 @@ class TestGaugePushSemantics:
         ]
         assert pushed_modalities == ["structured"]
         assert mock_kl.set.call_count == 1
+
+
+class TestDriftAlertDedupKey:
+    """P0 回归: 去重键必须包含 model_version (否则历史未解决告警永久挡住新告警)."""
+
+    async def test_dedup_includes_model_version(self, db_session):
+        """同 feature+drift_type 下, 不同 model_version 的未解决告警互不遮挡."""
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        from sqlalchemy import select
+
+        from app.models.monitoring import CanaryRecord, CanaryStatus, DriftAlert
+
+        # 金丝雀 v2 运行中
+        canary = CanaryRecord(
+            version="v2.0.0",
+            traffic_percent=5,
+            status=CanaryStatus.RUNNING,
+            started_at=_dt.now(_tz.utc).replace(tzinfo=None),
+        )
+        db_session.add(canary)
+        # v1.0.0 遗留未解决告警 (金丝雀启动前产生)
+        db_session.add(
+            DriftAlert(
+                model_version="v1.0.0",
+                feature_name="structured_score",
+                drift_type="prediction_drift",
+                severity="HIGH",
+                metric_value=0.8,
+                threshold=0.25,
+                created_at=_dt.now(_tz.utc).replace(tzinfo=None),
+            )
+        )
+        await db_session.flush()
+
+        service = DriftMonitoringService()
+        created = await service._create_drift_alert(
+            db_session=db_session,
+            modality="structured",
+            feature="structured_score",
+            psi=0.6,
+            kl=0.1,
+            baseline_n=100,
+            current_n=100,
+        )
+        assert created is True
+
+        alerts = (
+            await db_session.execute(
+                select(DriftAlert).where(
+                    DriftAlert.feature_name == "structured_score"
+                )
+            )
+        ).scalars().all()
+        # 旧版本未解决告警不再阻挡新版本告警
+        assert len(alerts) == 2
+        assert {a.model_version for a in alerts} == {"v1.0.0", "v2.0.0"}
+
+    async def test_same_model_version_still_deduped(self, db_session):
+        """同一 model_version 的未解决告警仍然去重, 避免告警风暴."""
+        from sqlalchemy import select
+
+        from app.models.monitoring import DriftAlert
+
+        service = DriftMonitoringService()
+        kwargs = dict(
+            db_session=db_session,
+            modality="text",
+            feature="text_score",
+            psi=0.5,
+            kl=0.1,
+            baseline_n=100,
+            current_n=100,
+        )
+        # 无运行中金丝雀 -> model_version=None
+        assert await service._create_drift_alert(**kwargs) is True
+        assert await service._create_drift_alert(**kwargs) is False
+
+        alerts = (
+            await db_session.execute(
+                select(DriftAlert).where(DriftAlert.feature_name == "text_score")
+            )
+        ).scalars().all()
+        assert len(alerts) == 1
+        assert alerts[0].model_version is None
+        assert alerts[0].created_at is not None

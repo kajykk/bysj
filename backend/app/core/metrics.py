@@ -715,6 +715,27 @@ canary_rollback_triggered = Counter(
     labelnames=("canary_id", "reason"),
 )
 
+# P0 金丝雀兜底接管可观测计数：outcome=acquired/skipped/unavailable(Redis 不可用)。
+# 目的是让"兜底心跳/锁失效"不再是只有 debug 日志的静默窗口。
+canary_rollback_check_lock_total = Counter(
+    "canary_rollback_check_lock_total",
+    "Canary auto-rollback check cross-process lock outcomes.",
+    labelnames=("outcome",),
+)
+
+# P0 金丝雀兜底接管原因：reason=celery_open/heartbeat_missing/heartbeat_stale/heartbeat_fresh。
+canary_rollback_takeover_total = Counter(
+    "canary_rollback_takeover_total",
+    "Canary auto-rollback fallback takeover decisions, labeled by reason.",
+    labelnames=("reason",),
+)
+
+# P0 金丝雀回滚检查心跳年龄（秒），None=无心跳/不可读。
+canary_rollback_heartbeat_age_seconds = Gauge(
+    "canary_rollback_heartbeat_age_seconds",
+    "Age in seconds of the last successful canary auto-rollback check (NaN if unknown).",
+)
+
 # AUDIT-2026-10-01 (P1-7)：Kill Switch 降级次数。
 # Redis 不可用时无法确认/写入权威暂停状态即为一次降级。这是**安全开关失效**的信号，
 # 建议对 op="write" 与 op="read" 分别配告警：写入降级意味着暂停操作未生效到多实例。
