@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -24,6 +25,15 @@ from app.services.canary_fallback_monitor import (
     _is_test_environment,
     is_canary_fallback_running,
 )
+
+
+def _arb_module():
+    """返回 auto_rollback_service 子模块对象.
+
+    注意: app.services 把 auto_rollback_service 实例 re-export 到包命名空间,
+    直接 from app.services import auto_rollback_service 拿到的是实例而非模块。
+    """
+    return sys.modules["app.services.auto_rollback_service"]
 
 
 class TestIsTestEnvironment:
@@ -43,11 +53,11 @@ class TestIsTestEnvironment:
 
 
 class TestCanaryFallbackLoopSkipWhenCeleryAvailable:
-    """测试 Celery 可用时跳过 fallback (避免双重执行)."""
+    """测试 beat 正常 (心跳新鲜) 时跳过 fallback (避免双重执行)."""
 
     @pytest.mark.asyncio
-    async def test_loop_skips_when_celery_closed(self):
-        """TC-CFB-003: celery_breaker.state=closed 时不执行 rollback check."""
+    async def test_loop_skips_when_celery_closed_and_heartbeat_fresh(self):
+        """TC-CFB-003: celery_breaker=closed 且心跳新鲜时不执行 rollback check."""
         # 构造 celery_breaker mock (state=closed)
         mock_breaker = MagicMock()
         mock_breaker.get_state_snapshot.return_value = {"state": "closed"}
@@ -58,6 +68,9 @@ class TestCanaryFallbackLoopSkipWhenCeleryAvailable:
 
         # mock AsyncSessionLocal (不应被调用)
         mock_session_local = MagicMock()
+
+        # P0: 心跳新鲜 = beat 正在按 30s 节奏执行 → 跳过
+        mock_heartbeat = AsyncMock(return_value=1.0)
 
         # 用 Event 控制循环执行次数
         iteration_done = asyncio.Event()
@@ -72,6 +85,10 @@ class TestCanaryFallbackLoopSkipWhenCeleryAvailable:
             patch(
                 "app.services.auto_rollback_service.auto_rollback_service",
                 mock_rollback_service,
+            ),
+            patch(
+                "app.services.auto_rollback_service.get_check_heartbeat_age",
+                mock_heartbeat,
             ),
             patch(
                 "app.services.canary_fallback_monitor.AsyncSessionLocal",
@@ -89,15 +106,20 @@ class TestCanaryFallbackLoopSkipWhenCeleryAvailable:
 
     @pytest.mark.asyncio
     async def test_loop_logs_debug_when_celery_closed(self, caplog):
-        """TC-CFB-004: celery_breaker.state=closed 记录 debug 日志."""
+        """TC-CFB-004: celery_breaker=closed 且心跳新鲜记录 debug 日志."""
         mock_breaker = MagicMock()
         mock_breaker.get_state_snapshot.return_value = {"state": "closed"}
+        mock_heartbeat = AsyncMock(return_value=1.0)
 
         async def fake_sleep(seconds):
             raise asyncio.CancelledError()
 
         with (
             patch("app.core.celery_breaker.celery_breaker", mock_breaker),
+            patch(
+                "app.services.auto_rollback_service.get_check_heartbeat_age",
+                mock_heartbeat,
+            ),
             patch("app.services.canary_fallback_monitor.asyncio.sleep", fake_sleep),
         ):
             with caplog.at_level(
@@ -379,12 +401,25 @@ class TestCanaryFallbackLoopErrorHandling:
 
     @pytest.mark.asyncio
     async def test_loop_continues_on_breaker_snapshot_exception(self):
-        """TC-CFB-011: breaker.get_state_snapshot 抛异常时记录错误但继续循环."""
+        """TC-CFB-011 (P0 变更): breaker 异常时记录错误但继续循环, 且不再 fail-open 跳过.
+
+        原实现把 breaker 异常当成 "跳过检查", 与 breaker=closed 一样形成静默失效窗口。
+        现在异常被记录后继续走心跳判定; 心跳缺失 → 必须接管。
+        """
         mock_breaker = MagicMock()
         mock_breaker.get_state_snapshot.side_effect = RuntimeError("breaker corrupted")
 
         mock_rollback_service = MagicMock()
         mock_rollback_service.check_all_canaries = AsyncMock(return_value=[])
+
+        mock_session = AsyncMock()
+        mock_session_local = MagicMock()
+        mock_session_local.return_value.__aenter__ = AsyncMock(
+            return_value=mock_session
+        )
+        mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        mock_heartbeat = AsyncMock(return_value=None)  # 无心跳 → 接管
 
         async def fake_sleep(seconds):
             raise asyncio.CancelledError()
@@ -395,13 +430,255 @@ class TestCanaryFallbackLoopErrorHandling:
                 "app.services.auto_rollback_service.auto_rollback_service",
                 mock_rollback_service,
             ),
+            patch(
+                "app.services.auto_rollback_service.get_check_heartbeat_age",
+                mock_heartbeat,
+            ),
+            patch(
+                "app.services.canary_fallback_monitor.AsyncSessionLocal",
+                mock_session_local,
+            ),
             patch("app.services.canary_fallback_monitor.asyncio.sleep", fake_sleep),
         ):
             with pytest.raises(asyncio.CancelledError):
                 await _canary_fallback_loop()
 
-        # breaker 异常时, rollback check 不应被调用
-        mock_rollback_service.check_all_canaries.assert_not_called()
+        # breaker 异常不得导致跳过检查 (fail-open 已修复)
+        mock_rollback_service.check_all_canaries.assert_called_once()
+
+
+class TestCanaryFallbackHeartbeatTakeover:
+    """P0 回归: 兜底接管不再依赖 celery_breaker 状态 (静默失效窗口)."""
+
+    @pytest.mark.asyncio
+    async def test_takes_over_when_breaker_closed_but_heartbeat_stale(self):
+        """TC-CFB-P0-001: breaker=closed 但心跳超时 → 必须执行 check_all_canaries.
+
+        这正是原缺陷场景: worker 挂掉 / beat 停摆时 breaker 仍为 closed,
+        旧实现只 debug 日志后跳过, 金丝雀永不自动回滚。
+        """
+        mock_breaker = MagicMock()
+        mock_breaker.get_state_snapshot.return_value = {"state": "closed"}
+
+        mock_rollback_service = MagicMock()
+        mock_rollback_service.check_all_canaries = AsyncMock(return_value=[])
+
+        mock_session = AsyncMock()
+        mock_session_local = MagicMock()
+        mock_session_local.return_value.__aenter__ = AsyncMock(
+            return_value=mock_session
+        )
+        mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        # 心跳年龄 = 5 分钟 >> 3×30s 阈值
+        mock_heartbeat = AsyncMock(return_value=300.0)
+
+        async def fake_sleep(seconds):
+            raise asyncio.CancelledError()
+
+        with (
+            patch("app.core.celery_breaker.celery_breaker", mock_breaker),
+            patch(
+                "app.services.auto_rollback_service.auto_rollback_service",
+                mock_rollback_service,
+            ),
+            patch(
+                "app.services.auto_rollback_service.get_check_heartbeat_age",
+                mock_heartbeat,
+            ),
+            patch(
+                "app.services.canary_fallback_monitor.AsyncSessionLocal",
+                mock_session_local,
+            ),
+            patch("app.services.canary_fallback_monitor.asyncio.sleep", fake_sleep),
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                await _canary_fallback_loop()
+
+        mock_rollback_service.check_all_canaries.assert_called_once()
+        # source 标签必须带上接管原因, 便于排障
+        call_kwargs = mock_rollback_service.check_all_canaries.call_args.kwargs
+        assert call_kwargs["source"] == "fallback:heartbeat_stale"
+
+    @pytest.mark.asyncio
+    async def test_takes_over_when_no_heartbeat_at_all(self):
+        """TC-CFB-P0-002: 完全无心跳 (进程重启/Redis 不可读) → 必须接管."""
+        mock_breaker = MagicMock()
+        mock_breaker.get_state_snapshot.return_value = {"state": "closed"}
+
+        mock_rollback_service = MagicMock()
+        mock_rollback_service.check_all_canaries = AsyncMock(return_value=[])
+
+        mock_session = AsyncMock()
+        mock_session_local = MagicMock()
+        mock_session_local.return_value.__aenter__ = AsyncMock(
+            return_value=mock_session
+        )
+        mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        mock_heartbeat = AsyncMock(return_value=None)
+
+        async def fake_sleep(seconds):
+            raise asyncio.CancelledError()
+
+        with (
+            patch("app.core.celery_breaker.celery_breaker", mock_breaker),
+            patch(
+                "app.services.auto_rollback_service.auto_rollback_service",
+                mock_rollback_service,
+            ),
+            patch(
+                "app.services.auto_rollback_service.get_check_heartbeat_age",
+                mock_heartbeat,
+            ),
+            patch(
+                "app.services.canary_fallback_monitor.AsyncSessionLocal",
+                mock_session_local,
+            ),
+            patch("app.services.canary_fallback_monitor.asyncio.sleep", fake_sleep),
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                await _canary_fallback_loop()
+
+        mock_rollback_service.check_all_canaries.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_takeover_logs_warning_not_debug(self, caplog):
+        """TC-CFB-P0-003: 接管必须记录 warning (不再是静默 debug)."""
+        mock_breaker = MagicMock()
+        mock_breaker.get_state_snapshot.return_value = {"state": "closed"}
+        mock_heartbeat = AsyncMock(return_value=300.0)
+
+        mock_rollback_service = MagicMock()
+        mock_rollback_service.check_all_canaries = AsyncMock(return_value=[])
+
+        mock_session = AsyncMock()
+        mock_session_local = MagicMock()
+        mock_session_local.return_value.__aenter__ = AsyncMock(
+            return_value=mock_session
+        )
+        mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        async def fake_sleep(seconds):
+            raise asyncio.CancelledError()
+
+        with (
+            patch("app.core.celery_breaker.celery_breaker", mock_breaker),
+            patch(
+                "app.services.auto_rollback_service.auto_rollback_service",
+                mock_rollback_service,
+            ),
+            patch(
+                "app.services.auto_rollback_service.get_check_heartbeat_age",
+                mock_heartbeat,
+            ),
+            patch(
+                "app.services.canary_fallback_monitor.AsyncSessionLocal",
+                mock_session_local,
+            ),
+            patch("app.services.canary_fallback_monitor.asyncio.sleep", fake_sleep),
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                await _canary_fallback_loop()
+
+        warning_logs = [
+            r
+            for r in caplog.records
+            if r.levelname == "WARNING" and "心跳已超时" in r.message
+        ]
+        assert len(warning_logs) >= 1
+
+    def test_takeover_threshold_is_multiple_of_interval(self):
+        """TC-CFB-P0-004: 接管阈值 = N×轮询间隔, 默认 3×30s = 90s."""
+        from app.services.canary_fallback_monitor import (
+            CANARY_FALLBACK_TAKEOVER_MULTIPLIER,
+            CANARY_FALLBACK_TAKEOVER_SECONDS,
+        )
+
+        assert CANARY_FALLBACK_TAKEOVER_MULTIPLIER == 3
+        assert (
+            CANARY_FALLBACK_TAKEOVER_SECONDS
+            == CANARY_FALLBACK_INTERVAL_SECONDS * CANARY_FALLBACK_TAKEOVER_MULTIPLIER
+        )
+
+
+class TestCanaryCheckCrossProcessLock:
+    """P0 回归: beat 与兜底共用一把跨进程锁 (half_open 下不再并发两次回滚)."""
+
+    @pytest.mark.asyncio
+    async def test_check_all_canaries_skips_when_lock_held(self, db_session):
+        """TC-CFB-P0-005: 锁被占用时跳过本轮检查, 并记录 info 日志 (不静默)."""
+        arb = _arb_module()
+
+        svc = arb.AutoRollbackService()
+        fake_client = MagicMock()
+        fake_client.set = AsyncMock(return_value=None)  # 锁已被其他进程持有
+
+        with (
+            patch.object(arb, "_redis_client_or_none", AsyncMock(return_value=fake_client)),
+            patch.object(
+                arb, "publish_check_heartbeat", AsyncMock(return_value=True)
+            ) as hb,
+        ):
+            results = await svc.check_all_canaries(db_session, source="test")
+        assert results == []
+        hb.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_check_all_canaries_publishes_heartbeat_on_success(self, db_session):
+        """TC-CFB-P0-006: 成功执行后必须写心跳, 兜底据此判断 beat 存活."""
+        arb = _arb_module()
+
+        svc = arb.AutoRollbackService()
+        fake_client = MagicMock()
+        fake_client.set = AsyncMock(return_value=True)
+
+        with (
+            patch.object(arb, "_redis_client_or_none", AsyncMock(return_value=fake_client)),
+            patch.object(arb, "publish_check_heartbeat", AsyncMock(return_value=True)) as hb,
+        ):
+            await svc.check_all_canaries(db_session, source="celery")
+        hb.assert_awaited_once()
+        assert hb.await_args.kwargs["source"] == "celery"
+
+    @pytest.mark.asyncio
+    async def test_lock_unavailable_is_logged_and_counted(self, caplog):
+        """TC-CFB-P0-007: Redis 不可用时锁降级, 但必须 error 日志 + 计数, 不静默."""
+        arb = _arb_module()
+
+        with patch.object(arb, "_redis_client_or_none", AsyncMock(return_value=None)):
+            with caplog.at_level(logging.WARNING):
+                acquired = await arb.try_acquire_check_lock()
+
+        assert acquired is True  # 降级放行, 保证 beat 路径不受 Redis 故障影响
+        assert any("Redis 不可用" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_age_none_when_redis_unavailable(self):
+        """TC-CFB-P0-008: Redis 不可读时心跳年龄为 None (调用方按接管处理)."""
+        arb = _arb_module()
+
+        with patch.object(arb, "_redis_client_or_none", AsyncMock(return_value=None)):
+            assert await arb.get_check_heartbeat_age() is None
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_age_parsed_from_payload(self):
+        """TC-CFB-P0-009: 心跳年龄按写入时间解析; 进程重启后 key 过期即返回 None."""
+        import json
+        from datetime import datetime, timedelta, timezone
+
+        arb = _arb_module()
+
+        fake_client = MagicMock()
+        written_at = datetime.now(timezone.utc) - timedelta(seconds=42)
+        fake_client.get = AsyncMock(
+            return_value=json.dumps({"source": "celery", "checked": 0, "at": written_at.isoformat()})
+        )
+
+        with patch.object(arb, "_redis_client_or_none", AsyncMock(return_value=fake_client)):
+            age = await arb.get_check_heartbeat_age()
+        assert age is not None
+        assert 40 <= age <= 60
 
 
 class TestStartStopMonitor:

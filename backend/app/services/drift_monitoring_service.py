@@ -212,6 +212,30 @@ class DriftMonitoringService:
             alert_created=alert_created,
         )
 
+    async def _resolve_canary_version(
+        self, db_session: AsyncSession
+    ) -> str | None:
+        """返回当前运行中的金丝雀版本, 用于 DriftAlert.model_version 归属.
+
+        提取为独立方法: 去重键与告警写入必须使用同一个版本值, 否则会出现
+        "按 A 版本去重、却按 B 版本写入" 的错配。确定性排序 + limit(1)
+        避免并发存在多条 RUNNING 时抛 MultipleResultsFound。
+        查询失败不静默: 记录日志并返回 None (该告警不参与自动回滚, 但仍留痕告警闭环)。
+        """
+        try:
+            running_canary_stmt = (
+                select(CanaryRecord.version)
+                .where(CanaryRecord.status == CanaryStatus.RUNNING)
+                .order_by(CanaryRecord.started_at.desc(), CanaryRecord.id.desc())
+                .limit(1)
+            )
+            return (
+                await db_session.execute(running_canary_stmt)
+            ).scalars().first()
+        except Exception:
+            logger.exception("查询运行中金丝雀版本失败, 告警将不参与自动回滚")
+            return None
+
     async def _create_drift_alert(
         self,
         db_session: AsyncSession,
@@ -250,17 +274,39 @@ class DriftMonitoringService:
         suspected_version_mismatch = psi > PSI_SUSPECTED_VERSION_MISMATCH
 
         # 检查是否已有未解决的告警 (对所有 PSI > 0.25 启用去重)
-        existing_stmt = (
-            select(DriftAlert)
-            .where(
-                DriftAlert.feature_name == feature,
-                DriftAlert.drift_type == "prediction_drift",
-                DriftAlert.resolved_at.is_(None),
-            )
-            .order_by(DriftAlert.created_at.desc())
-            .limit(1)
+        # P0 修复：去重键必须包含 model_version。旧实现只按 feature_name+drift_type+未解决
+        # 去重, 金丝雀启动前的历史未解决告警 (含 model_version=None 的版本失配告警)
+        # 会永久挡住新版本/新模态的告警, 导致漂移维度自动回滚永远拿不到新证据。
+        # 注意 PSI>2.0 的版本失配告警 model_version=None, 用 is_(None) 与真实版本告警
+        # 天然隔离, 两者互不遮挡, 且它们依旧不参与自动回滚 (既有语义不变)。
+        target_version = (
+            None if suspected_version_mismatch else await self._resolve_canary_version(db_session)
         )
-        existing_result = await db_session.execute(existing_stmt)
+        if target_version is None:
+            dedup_stmt = (
+                select(DriftAlert)
+                .where(
+                    DriftAlert.feature_name == feature,
+                    DriftAlert.drift_type == "prediction_drift",
+                    DriftAlert.resolved_at.is_(None),
+                    DriftAlert.model_version.is_(None),
+                )
+                .order_by(DriftAlert.created_at.desc())
+                .limit(1)
+            )
+        else:
+            dedup_stmt = (
+                select(DriftAlert)
+                .where(
+                    DriftAlert.feature_name == feature,
+                    DriftAlert.drift_type == "prediction_drift",
+                    DriftAlert.resolved_at.is_(None),
+                    DriftAlert.model_version == target_version,
+                )
+                .order_by(DriftAlert.created_at.desc())
+                .limit(1)
+            )
+        existing_result = await db_session.execute(dedup_stmt)
         existing = existing_result.scalar_one_or_none()
 
         if existing is not None:
@@ -305,19 +351,11 @@ class DriftMonitoringService:
 
         severity = DriftSeverity.CRITICAL if psi > 0.5 else DriftSeverity.HIGH
 
-        # 查询当前运行中的金丝雀版本用于 model_version 归属.
+        # model_version 归属 = 当前运行中的金丝雀版本 (已在去重阶段解析并复用)。
         # 修复: 此前将 modality 存入 model_version, 导致 auto_rollback_service 按
         # canary.version 匹配时恒为 0, 漂移维度自动回滚静默失效.
         # modality 归属仍在 details["modality"] 中.
-        running_canary_stmt = (
-            select(CanaryRecord.version)
-            .where(CanaryRecord.status == CanaryStatus.RUNNING)
-            .order_by(CanaryRecord.started_at.desc())
-            .limit(1)
-        )
-        canary_version = (
-            await db_session.execute(running_canary_stmt)
-        ).scalar_one_or_none()
+        canary_version = target_version
 
         alert = DriftAlert(
             model_version=canary_version,
