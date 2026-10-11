@@ -8,6 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 try:
     import magic
@@ -181,6 +182,10 @@ async def _save_upload_stream(file: UploadFile, save_path: Path) -> tuple[int, b
     修复：只读取文件头部 8KB 用于 MIME 校验，避免将整个文件读入内存。
     原实现将整个文件（最多 20MB）追加到内存，并发上传会导致 OOM。
     python-magic 的 from_buffer 只需前几 KB 即可识别 MIME 类型。
+
+    P1 问题 2 修复：``Path.open`` / ``f.write`` / ``unlink`` 是同步阻塞 IO，
+    直接在 async 函数中调用会阻塞事件循环（并发上传时拖慢同 worker 的所有请求）。
+    现统一交给 ``run_in_threadpool`` 执行。
     """
     size = 0
     head_bytes = b""
@@ -194,10 +199,11 @@ async def _save_upload_stream(file: UploadFile, save_path: Path) -> tuple[int, b
             size += len(chunk)
             if size > MAX_FILE_SIZE:
                 # 先关闭文件句柄，再删除文件（Windows需要）
-                f.close()
-                save_path.unlink(missing_ok=True)
+                await run_in_threadpool(f.close)
+                await run_in_threadpool(save_path.unlink, missing_ok=True)
                 raise HTTPException(status_code=400, detail="文件大小超过20MB限制")
-            f.write(chunk)
+            # 同步写盘 → 线程池，避免阻塞事件循环
+            await run_in_threadpool(f.write, chunk)
             # 只收集文件头部用于 MIME 校验，避免全量加载
             if not head_collected:
                 remaining = _HEAD_LIMIT - len(head_bytes)
