@@ -14,17 +14,104 @@ from app.schemas.review import (
 )
 from app.services.review_service import CrisisEventService, ReviewService
 
+# P0-FIX-2026-10-11：复核任务与危机事件两表都没有 tenant_id 列，服务层已改为
+# 沿 user_id JOIN users 推导租户，且把 tenant_id 设为**必填关键字参数**（漏传
+# 直接 TypeError，绝不静默返回跨租户数据）。
+#
+# 因此本文件所有需要 JOIN users 的用例都必须先有真实 User 行 —— 下面两个
+# 适配子类把 tenant_id=1 绑定好，让用例正文继续只关注业务断言；租户隔离本身
+# 由 tests/unit/test_review_tenant_isolation.py 单独验证（那里直接调用真实
+# 方法并显式传不同 tenant_id）。
+
+_TENANT_ID = 1
+
+
+class _ReviewServiceT1(ReviewService):
+    """测试适配层：绑定 tenant_id=1。"""
+
+    async def get_reviews(self, filter_data):  # type: ignore[override]
+        return await super().get_reviews(filter_data, tenant_id=_TENANT_ID)
+
+    async def get_review_by_id(self, review_id, *, tenant_id=_TENANT_ID):  # type: ignore[override]
+        # tenant_id 需可透传: ReviewService.resolve_review / escalate_review
+        # 内部会以 self.get_review_by_id(..., tenant_id=...) 回调本适配层。
+        return await super().get_review_by_id(review_id, tenant_id=tenant_id)
+
+    async def assign_review(self, review_id, counselor_id):  # type: ignore[override]
+        return await super().assign_review(
+            review_id, counselor_id, tenant_id=_TENANT_ID
+        )
+
+    async def resolve_review(
+        self, review_id, counselor_id, resolution_note, *, is_admin=False
+    ):  # type: ignore[override]
+        return await super().resolve_review(
+            review_id,
+            counselor_id,
+            resolution_note,
+            is_admin=is_admin,
+            tenant_id=_TENANT_ID,
+        )
+
+    async def escalate_review(
+        self, review_id, counselor_id, reason, *, is_admin=False
+    ):  # type: ignore[override]
+        return await super().escalate_review(
+            review_id,
+            counselor_id,
+            reason,
+            is_admin=is_admin,
+            tenant_id=_TENANT_ID,
+        )
+
+    async def get_review_stats(
+        self, days=30, *, assigned_to=None
+    ):  # type: ignore[override]
+        return await super().get_review_stats(
+            days, assigned_to=assigned_to, tenant_id=_TENANT_ID
+        )
+
+
+class _CrisisEventServiceT1(CrisisEventService):
+    """测试适配层：绑定 tenant_id=1。"""
+
+    async def handle_crisis_event(
+        self, event_id, handled_by, action, note=None
+    ):  # type: ignore[override]
+        return await super().handle_crisis_event(
+            event_id,
+            handled_by,
+            action,
+            note,
+            tenant_id=_TENANT_ID,
+        )
+
+    async def escalate_crisis_event(
+        self, event_id, handled_by, reason
+    ):  # type: ignore[override]
+        return await super().escalate_crisis_event(
+            event_id, handled_by, reason, tenant_id=_TENANT_ID
+        )
+
+    async def close_crisis_event(
+        self, event_id, handled_by, note=None
+    ):  # type: ignore[override]
+        return await super().close_crisis_event(
+            event_id, handled_by, note, tenant_id=_TENANT_ID
+        )
+
 
 class TestReviewService:
     """Tests for ReviewService."""
 
     @pytest.fixture
-    def review_service(self, db_session):
-        return ReviewService(db_session)
+    def review_service(self, db_session, seeded_user_id):
+        # P0-FIX-2026-10-11: 依赖 seeded_user_id 保证 users 表有行（租户过滤需 JOIN）
+        return _ReviewServiceT1(db_session)
 
     @pytest.fixture
-    def crisis_service(self, db_session):
-        return CrisisEventService(db_session)
+    def crisis_service(self, db_session, seeded_user_id):
+        return _CrisisEventServiceT1(db_session)
 
     async def test_create_review_task(self, review_service):
         """TC-REVIEW-HP-001: 根据预测结果创建复核任务"""
@@ -207,7 +294,8 @@ class TestReviewService:
 
     async def test_get_reviews_pagination(self, review_service):
         """TC-REVIEW-HP-009: 分页返回正确数量"""
-        for i in range(5):
+        # P0-FIX-2026-10-11: 租户过滤需 JOIN users，仅 seeded_user_id 造了 id=1,2,3
+        for i in range(3):
             data = ReviewTaskCreate(user_id=i + 1, risk_level=2, risk_score=50.0)
             await review_service.create_review_task(data)
 
@@ -217,7 +305,7 @@ class TestReviewService:
         assert len(result.items) <= 2
         assert result.page == 1
         assert result.page_size == 2
-        assert result.total >= 5
+        assert result.total >= 3
 
     async def test_get_review_stats(self, review_service):
         """测试复核统计"""
@@ -399,8 +487,8 @@ class TestCrisisEventService:
     """Tests for CrisisEventService."""
 
     @pytest.fixture
-    def crisis_service(self, db_session):
-        return CrisisEventService(db_session)
+    def crisis_service(self, db_session, seeded_user_id):
+        return _CrisisEventServiceT1(db_session)
 
     async def test_record_crisis_event(self, crisis_service):
         """TC-CRISIS-HP-001: 记录危机事件"""

@@ -492,6 +492,45 @@ def seeded_user_id(db_session: AsyncSession) -> int:
 
 
 @pytest.fixture
+def in_memory_token_blocklist(monkeypatch):
+    """把 token_blocklist 换成进程内内存实现，取消对 Redis 的硬依赖。
+
+    P0-FIX-2026-10-11: ``auth_service.reset_password`` 现在会校验重置令牌的 jti
+    是否已被核销，而 ``is_token_revoked`` / ``revoke_token`` 走 ``app.core.cache``
+    的 strict 模式 —— 本机与 CI 若未起 Redis，请求会以「失败关闭」抛
+    ``CacheUnavailableError``，把**与令牌无关**的用例（如邮箱大小写兼容、
+    邮箱匹配）一起打红。
+
+    本 fixture 只替换撤销状态的存取介质，**语义与真实实现一致**（同样按 jti、
+    同样失败时抛 CacheUnavailableError），因此不会掩盖撤销逻辑本身的缺陷；
+    需要验证真实 Redis 行为的用例请标记 ``needs_redis``（见 conftest 顶部
+    的 fail-fast fixture）。
+
+    注意：这是**非 autouse** fixture —— 不默认作用于全量测试，避免让那些
+    真正想验证 blocklist 撤销语义的用例失去真实环境。
+    """
+    from app.core import token_blocklist as tb
+
+    _store: dict[str, int] = {}
+
+    async def _fake_is_revoked(jti: str) -> bool:
+        if not jti:
+            return False
+        return jti in _store
+
+    async def _fake_revoke(jti: str, ttl: int) -> bool:
+        if not jti or ttl <= 0:
+            return False
+        _store[jti] = ttl
+        return True
+
+    monkeypatch.setattr(tb, "is_token_revoked", _fake_is_revoked)
+    monkeypatch.setattr(tb, "revoke_token", _fake_revoke)
+    # 返回内核销表本身，便于用例直接断言「该 jti 已被写入」
+    return _store
+
+
+@pytest.fixture
 def user_token() -> str:
     return "test-token"
 

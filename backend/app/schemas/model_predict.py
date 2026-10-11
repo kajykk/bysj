@@ -97,9 +97,37 @@ class PhysiologicalPredictRequest(BaseModel):
 
 
 class FusionPredictRequest(BaseModel):
+    # P0-FIX-2026-10-11: 本模型此前**完全没有入参约束**，与同文件
+    # TextPredictRequest（max_length=5000）形成明显不一致。
+    # 后果：
+    #   * text 无长度上限 —— 融合推理会把整段文本喂进 BERT 分词，超长输入
+    #     在推理侧被截断（行为不可预期）且请求体可被撑到很大，是廉价的
+    #     资源耗尽面；
+    #   * features / physiological 键数无上限 —— 与 StructuredPredictRequest
+    #     已有的 50 键上限不一致，同一份特征表在不同端点校验结果不同。
     features: dict[str, Any] | None = Field(default=None, description="结构化特征")
-    text: str | None = Field(default=None, description="文本特征")
+    text: str | None = Field(
+        default=None,
+        max_length=5000,
+        description="文本特征（与 TextPredictRequest 同上限）",
+    )
     physiological: dict[str, Any] | None = Field(default=None, description="生理特征")
+
+    @field_validator("features")
+    @classmethod
+    def features_max_keys(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        if v is not None and len(v) > 50:
+            raise ValueError("features 字典最多包含 50 个键")
+        return v
+
+    @field_validator("physiological")
+    @classmethod
+    def physiological_max_keys(
+        cls, v: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        if v is not None and len(v) > 50:
+            raise ValueError("physiological 字典最多包含 50 个键")
+        return v
 
 
 class FusionDetailItem(BaseModel):

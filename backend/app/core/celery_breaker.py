@@ -172,15 +172,16 @@ def init_celery_breaker() -> None:
 
     在应用启动时调用, 确保使用最新的配置值。
     """
-    global celery_breaker
+    # P0-FIX-2026-10-11: 必须**就地**更新既有单例，不能重新赋值模块全局
+    # （`from ... import celery_breaker` 是值拷贝绑定，重绑定会让已导入模块继续
+    # 持有旧实例 → 熔断器状态分裂）。详见 db_breaker.CircuitBreaker.configure 的
+    # 说明与 ml_breaker.init_ml_breaker 的同款修复。
     from app.core.config import settings
 
-    celery_breaker = CircuitBreaker(
+    celery_breaker.configure(
         failure_threshold=settings.celery_failure_threshold,
         recovery_timeout=settings.celery_recovery_timeout,
         half_open_max_calls=settings.celery_half_open_max_calls,
-        name="celery",
-        failure_classifier=_is_celery_failure,
     )
     logger.info(
         "circuit_breaker.celery.init threshold=%d recovery=%ds half_open_max=%d",

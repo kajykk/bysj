@@ -92,7 +92,9 @@ async def get_review_stats(
     service = ReviewService(db)
     # ISS-071 修复：统计口径与 list_reviews 对齐——咨询师仅统计分配给自己的任务
     assigned_to = current_user.id if current_user.role == "counselor" else None
-    stats = await service.get_review_stats(assigned_to=assigned_to)
+    stats = await service.get_review_stats(
+        assigned_to=assigned_to, tenant_id=current_user.tenant_id
+    )
     return ok(stats.model_dump())
 
 
@@ -165,7 +167,9 @@ async def list_crisis_events(
     )
     # AUDIT-2026-10-08 (P1-4)：显式传入当前用户租户。此前服务层完全不隔离租户，
     # 且 crisis_events 表无 tenant_id 列，需经 User 关联推导。
-    result = await service.get_crisis_events(filter_data, tenant_id=current_user.tenant_id)
+    result = await service.get_crisis_events(
+        filter_data, tenant_id=current_user.tenant_id
+    )
     return ok(result)
 
 
@@ -193,6 +197,8 @@ async def handle_crisis_event(
             handled_by=current_user.id,
             action=payload.action,
             note=payload.note,
+            # P0-FIX-2026-10-11：危机事件含 input_summary 自述原文，必须限定租户
+            tenant_id=current_user.tenant_id,
         )
         return ok(service._to_response(event))
     except ValueError as e:
@@ -219,6 +225,7 @@ async def escalate_crisis_event(
             event_id=event_id,
             handled_by=current_user.id,
             reason=payload.reason,
+            tenant_id=current_user.tenant_id,
         )
         return ok(service._to_response(event))
     except ValueError as e:
@@ -245,6 +252,7 @@ async def close_crisis_event(
             event_id=event_id,
             handled_by=current_user.id,
             note=payload.note,
+            tenant_id=current_user.tenant_id,
         )
         return ok(service._to_response(event))
     except ValueError as e:
@@ -280,7 +288,10 @@ async def list_reviews(
         page_size=page_size,
     )
 
-    result = await service.get_reviews(filter_data)
+    # P0-FIX-2026-10-11：复核任务列表必须限定租户（review_tasks 无 tenant_id 列）
+    result = await service.get_reviews(
+        filter_data, tenant_id=current_user.tenant_id
+    )
     return ok(result.model_dump())
 
 
@@ -296,7 +307,10 @@ async def get_review(
 ) -> dict:
     """查看复核详情"""
     service = ReviewService(db)
-    task = await service.get_review_by_id(review_id)
+    # P0-FIX-2026-10-11：跨租户按 404 处理，不泄露 id 是否存在于他租户
+    task = await service.get_review_by_id(
+        review_id, tenant_id=current_user.tenant_id
+    )
     if not task:
         raise HTTPException(status_code=404, detail="复核任务不存在")
 
@@ -336,7 +350,9 @@ async def assign_review(
     service = ReviewService(db)
     is_admin = current_user.role in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN)
 
-    task = await service.get_review_by_id(review_id)
+    task = await service.get_review_by_id(
+        review_id, tenant_id=current_user.tenant_id
+    )
     if not task:
         raise HTTPException(status_code=404, detail="复核任务不存在")
 
@@ -352,7 +368,9 @@ async def assign_review(
         await _ensure_counselor_bound_to_student(db, current_user.id, task.user_id)
 
     try:
-        task = await service.assign_review(review_id, assignee_id)
+        task = await service.assign_review(
+            review_id, assignee_id, tenant_id=current_user.tenant_id
+        )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -375,7 +393,9 @@ async def resolve_review(
     service = ReviewService(db)
     # C-API-5 修复：咨询师水平越权防护 - resolve 必须校验 owner。
     # 原实现仅校验 review.handle 权限，任何咨询师都能 resolve 任意任务（含未分配给自己的）。
-    task = await service.get_review_by_id(review_id)
+    task = await service.get_review_by_id(
+        review_id, tenant_id=current_user.tenant_id
+    )
     if not task:
         raise HTTPException(status_code=404, detail="复核任务不存在")
     if current_user.role == "counselor" and task.assigned_to != current_user.id:
@@ -386,6 +406,7 @@ async def resolve_review(
             current_user.id,
             payload.resolution_note,
             is_admin=current_user.role in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN),
+            tenant_id=current_user.tenant_id,
         )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:
@@ -409,7 +430,9 @@ async def escalate_review(
     service = ReviewService(db)
     # C-API-5 修复：咨询师水平越权防护 - escalate 必须校验 owner。
     # 原实现仅校验 review.handle 权限，任何咨询师都能 escalate 任意任务（含未分配给自己的）。
-    task = await service.get_review_by_id(review_id)
+    task = await service.get_review_by_id(
+        review_id, tenant_id=current_user.tenant_id
+    )
     if not task:
         raise HTTPException(status_code=404, detail="复核任务不存在")
     if current_user.role == "counselor" and task.assigned_to != current_user.id:
@@ -420,6 +443,7 @@ async def escalate_review(
             current_user.id,
             payload.reason,
             is_admin=current_user.role in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN),
+            tenant_id=current_user.tenant_id,
         )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:

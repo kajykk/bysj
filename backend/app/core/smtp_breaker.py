@@ -132,15 +132,16 @@ def init_smtp_breaker() -> None:
 
     在应用启动时调用, 确保使用最新的配置值。
     """
-    global smtp_breaker
+    # P0-FIX-2026-10-11: 必须**就地**更新既有单例，不能重新赋值模块全局
+    # （`from ... import smtp_breaker` 是值拷贝绑定，重绑定会让已导入模块继续
+    # 持有旧实例 → 熔断器状态分裂）。详见 db_breaker.CircuitBreaker.configure 的
+    # 说明与 ml_breaker.init_ml_breaker 的同款修复。
     from app.core.config import settings
 
-    smtp_breaker = CircuitBreaker(
+    smtp_breaker.configure(
         failure_threshold=settings.smtp_failure_threshold,
         recovery_timeout=settings.smtp_recovery_timeout,
         half_open_max_calls=settings.smtp_half_open_max_calls,
-        name="smtp",
-        failure_classifier=_is_smtp_failure,
     )
     logger.info(
         "circuit_breaker.smtp.init threshold=%d recovery=%ds half_open_max=%d",

@@ -5,8 +5,33 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
+from xml.sax.saxutils import escape as _xml_escape
 
 logger = logging.getLogger(__name__)
+
+
+def _para_text(value: Any) -> str:
+    """P0-FIX-2026-10-11: 用户可控文本交给 ReportLab ``Paragraph`` 前必须转义。
+
+    ``Paragraph`` 会把传入字符串当作 mini-XML 解析（``<b>`` / ``<i>`` /
+    ``<font ...>`` / ``<br/>`` 等内联标记会被真正解释）。本服务的 title /
+    subtitle / user_info / sections / recommendations 全部来自业务数据，
+    其中含大量自由文本（学生姓名、班级、咨询师备注、问卷开放式回答、
+    量表结论），可以合法携带 ``<`` ``>`` ``&``。
+
+    后果有两层：
+    1. 可用性——裸 ``&`` 或未闭合标签会让 reportlab 解析失败，
+       ``doc.build()`` 抛异常，整份 PDF 生成失败（报告导出功能对该用户不可用，
+       且异常被 ``except Exception`` 吞成 ``success=False``，排查成本高）。
+    2. 内容污染——攻击者可借 ``<font size=20 color=red>`` / ``<para>``
+       注入排版指令，篡改咨询报告的可读结论（心理健康场景属于高风险篡改面）。
+
+    注：``Table`` 的单元格不走 XML 解析（字符串按字面绘制），因此
+    **不要**对表格单元格做转义，否则 ``&`` 会被显示成 ``&amp;``。
+    """
+    if value is None:
+        return ""
+    return _xml_escape(str(value))
 
 
 @dataclass
@@ -163,19 +188,23 @@ class PDFReportService:
 
                 # Title
                 title_style = styles["Heading1"]
-                story.append(Paragraph(report_data.title, title_style))
+                # P0-FIX-2026-10-11: 所有业务文本经 _para_text 转义后再进 Paragraph
+                story.append(Paragraph(_para_text(report_data.title), title_style))
                 story.append(Spacer(1, 0.2 * inch))
 
                 # Subtitle
                 if report_data.subtitle:
-                    story.append(Paragraph(report_data.subtitle, styles["Heading2"]))
+                    story.append(
+                        Paragraph(_para_text(report_data.subtitle), styles["Heading2"])
+                    )
                     story.append(Spacer(1, 0.1 * inch))
 
                 # Generated at
                 if report_data.generated_at:
                     story.append(
                         Paragraph(
-                            f"Generated: {report_data.generated_at}", styles["Normal"]
+                            f"Generated: {_para_text(report_data.generated_at)}",
+                            styles["Normal"],
                         )
                     )
                     story.append(Spacer(1, 0.2 * inch))
@@ -183,7 +212,8 @@ class PDFReportService:
                 # User info
                 if report_data.user_info:
                     user_text = " | ".join(
-                        f"{k}: {v}" for k, v in report_data.user_info.items()
+                        f"{_para_text(k)}: {_para_text(v)}"
+                        for k, v in report_data.user_info.items()
                     )
                     story.append(Paragraph(user_text, styles["Normal"]))
                     story.append(Spacer(1, 0.2 * inch))
@@ -193,9 +223,13 @@ class PDFReportService:
                     section_title = section.get("title", "")
                     section_content = section.get("content", "")
                     if section_title:
-                        story.append(Paragraph(section_title, styles["Heading2"]))
+                        story.append(
+                            Paragraph(_para_text(section_title), styles["Heading2"])
+                        )
                     if section_content:
-                        story.append(Paragraph(section_content, styles["Normal"]))
+                        story.append(
+                            Paragraph(_para_text(section_content), styles["Normal"])
+                        )
                     story.append(Spacer(1, 0.1 * inch))
 
                 # Tables
@@ -226,7 +260,9 @@ class PDFReportService:
                 if report_data.recommendations:
                     story.append(Paragraph("Recommendations", styles["Heading2"]))
                     for rec in report_data.recommendations:
-                        story.append(Paragraph(f"• {rec}", styles["Normal"]))
+                        story.append(
+                            Paragraph(f"• {_para_text(rec)}", styles["Normal"])
+                        )
                     story.append(Spacer(1, 0.2 * inch))
 
                 doc.build(story)
@@ -319,19 +355,23 @@ class PDFReportService:
 
             # Title
             title_style = styles["Heading1"]
-            story.append(Paragraph(report_data.title, title_style))
+            # P0-FIX-2026-10-11: 所有业务文本经 _para_text 转义后再进 Paragraph
+            story.append(Paragraph(_para_text(report_data.title), title_style))
             story.append(Spacer(1, 0.2 * inch))
 
             # Subtitle
             if report_data.subtitle:
-                story.append(Paragraph(report_data.subtitle, styles["Heading2"]))
+                story.append(
+                    Paragraph(_para_text(report_data.subtitle), styles["Heading2"])
+                )
                 story.append(Spacer(1, 0.1 * inch))
 
             # Generated at
             if report_data.generated_at:
                 story.append(
                     Paragraph(
-                        f"Generated: {report_data.generated_at}", styles["Normal"]
+                        f"Generated: {_para_text(report_data.generated_at)}",
+                        styles["Normal"],
                     )
                 )
                 story.append(Spacer(1, 0.2 * inch))
@@ -339,7 +379,8 @@ class PDFReportService:
             # User info
             if report_data.user_info:
                 user_text = " | ".join(
-                    f"{k}: {v}" for k, v in report_data.user_info.items()
+                    f"{_para_text(k)}: {_para_text(v)}"
+                    for k, v in report_data.user_info.items()
                 )
                 story.append(Paragraph(user_text, styles["Normal"]))
                 story.append(Spacer(1, 0.2 * inch))
@@ -349,9 +390,13 @@ class PDFReportService:
                 section_title = section.get("title", "")
                 section_content = section.get("content", "")
                 if section_title:
-                    story.append(Paragraph(section_title, styles["Heading2"]))
+                    story.append(
+                        Paragraph(_para_text(section_title), styles["Heading2"])
+                    )
                 if section_content:
-                    story.append(Paragraph(section_content, styles["Normal"]))
+                    story.append(
+                        Paragraph(_para_text(section_content), styles["Normal"])
+                    )
                 story.append(Spacer(1, 0.1 * inch))
 
             # Tables
@@ -382,7 +427,7 @@ class PDFReportService:
             if report_data.recommendations:
                 story.append(Paragraph("Recommendations", styles["Heading2"]))
                 for rec in report_data.recommendations:
-                    story.append(Paragraph(f"• {rec}", styles["Normal"]))
+                    story.append(Paragraph(f"• {_para_text(rec)}", styles["Normal"]))
                 story.append(Spacer(1, 0.2 * inch))
 
             doc.build(story)

@@ -69,8 +69,16 @@ async def model_performance_debug(
     "/training/jobs", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def list_training_jobs(
-    _: Annotated[User, Depends(require_permission("user.predict.use"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
+    """列出训练任务。
+
+    P0-FIX-2026-10-11: 原权限是 ``user.predict.use`` —— 那是**普通学生**权限
+    （与 ``/predict/*`` 同级），但 ``/training/jobs`` 属后台运维域：兄弟端点
+    ``POST /experiment/train`` 本身就要求 ``admin.predict.audit``。
+    结果任何登录用户都能列出全平台训练任务（含数据集名、训练参数、模型指标），
+    跨租户且越权。
+    """
     service = ModelPredictService()
     return ok({"jobs": service.list_training_jobs()})
 
@@ -82,7 +90,15 @@ async def list_training_jobs(
 )
 async def get_training_job(
     job_id: str,
-    _: Annotated[User, Depends(require_permission("user.predict.use"))],
+    _: Annotated[User, Depends(require_platform_permission("admin.predict.audit"))],
 ) -> dict:
+    """按 id 读训练任务详情。
+
+    P0-FIX-2026-10-11: 同 ``list_training_jobs``，权限由学生级提到平台管理员级。
+    此处原先是典型 IDOR —— 凭一个 job_id 即可读到不属于自己的任务详情。
+    注意：``job_id`` 仍未做归属校验（任务记录里没有 tenant 字段），
+    平台管理员可见全平台任务属既定语义；租户级隔离需另建归属字段，
+    已记入 P1。
+    """
     service = ModelPredictService()
     return ok(service.get_training_job(job_id))

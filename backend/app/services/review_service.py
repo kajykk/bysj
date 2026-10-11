@@ -122,12 +122,31 @@ class ReviewService:
 
         return task
 
+    # P0-FIX-2026-10-11: ``review_tasks`` / ``crisis_events`` 两张表**都没有
+    # tenant_id 列**（见 models/review.py），租户归属只能沿 ``user_id`` 关联到
+    # ``users.tenant_id`` 推导。此前本服务所有读/写端点都是裸 ``select(...)``
+    # 按主键取记录，意味着：**只要知道一个 id，任何租户的咨询师都能读写他校
+    # 学生的危机事件与复核任务**（危机事件含 input_summary 自述原文与
+    # crisis_keywords 自伤关键词，属最高敏感级数据）。
+    #
+    # 租户隔离必须落在**服务层**而不是 API 层：API 层已有若干 owner 校验，
+    # 但那只挡「同租户内的水平越权」，挡不住跨租户；且 assign/resolve/
+    # escalate 三条链路最终都经过 ``get_review_by_id``，在服务层加一道即可
+    # 覆盖全部。因此这里把 ``tenant_id`` 设为**必填**（关键字参数，无默认值），
+    # 漏传直接 TypeError，而不是静默返回跨租户数据。
+
     async def get_reviews(
         self,
         filter_data: ReviewTaskFilter,
+        *,
+        tenant_id: int,
     ) -> ReviewTaskListResponse:
-        """查询复核任务列表"""
-        query = select(ReviewTask)
+        """查询复核任务列表（**必须**限定租户范围）"""
+        query = (
+            select(ReviewTask)
+            .join(User, User.id == ReviewTask.user_id)
+            .where(tenant_scoped_filter(User, tenant_id))
+        )
 
         if filter_data.status:
             query = query.where(ReviewTask.status == filter_data.status.value)
@@ -158,13 +177,58 @@ class ReviewService:
             page_size=filter_data.page_size,
         )
 
-    async def get_review_by_id(self, review_id: int) -> ReviewTask | None:
-        """根据 ID 获取复核任务"""
-        result = await self.db.execute(select(ReviewTask).where(ReviewTask.id == review_id))
+    async def get_review_by_id(
+        self, review_id: int, *, tenant_id: int
+    ) -> ReviewTask | None:
+        """根据 ID 获取复核任务（**必须**限定租户范围）。
+
+        P0-FIX-2026-10-11：跨租户返回 None，调用方按 404 处理，
+        从而不泄露「该 id 在别的租户存在」这一事实。
+        """
+        stmt = (
+            select(ReviewTask)
+            .join(User, User.id == ReviewTask.user_id)
+            .where(
+                ReviewTask.id == review_id,
+                tenant_scoped_filter(User, tenant_id),
+            )
+        )
+        result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def assign_review(self, review_id: int, counselor_id: int) -> ReviewTask:
-        """分配复核任务给咨询师"""
+    async def _ensure_review_in_tenant(self, review_id: int, tenant_id: int) -> None:
+        """P0-FIX-2026-10-11：校验复核任务属于当前租户，否则抛 ValueError。
+
+        与 ``get_review_by_id`` 的区别：这里要**响亮失败**并区分「不存在」与
+        「跨租户」，供写操作（assign）使用；读操作用返回 None 的版本以免
+        泄露 id 是否存在于他租户。
+        """
+        stmt = (
+            select(ReviewTask.id)
+            .join(User, User.id == ReviewTask.user_id)
+            .where(
+                ReviewTask.id == review_id,
+                tenant_scoped_filter(User, tenant_id),
+            )
+        )
+        if (await self.db.execute(stmt)).scalar_one_or_none() is None:
+            logger.warning(
+                "跨租户访问复核任务被拒绝: review_id=%s tenant_id=%s",
+                review_id,
+                tenant_id,
+            )
+            raise ValueError(f"Review task {review_id} not found")
+
+    async def assign_review(
+        self, review_id: int, counselor_id: int, *, tenant_id: int
+    ) -> ReviewTask:
+        """分配复核任务给咨询师（**必须**限定租户范围）"""
+        # P0-FIX-2026-10-11：先做租户归属校验。不把它并进下面的
+        # ``with_for_update()`` 查询，是因为 JOIN + FOR UPDATE 会在 Postgres 上
+        # 连带锁住 users 行（增加锁竞争），且 SQLite 下 FOR UPDATE 本就被忽略。
+        # 租户归属不随并发变化，先校验再按主键加锁是安全的。
+        await self._ensure_review_in_tenant(review_id, tenant_id)
+
         # ISS-061 修复：使用 with_for_update() 行级锁，防止并发分配同一复核任务
         result = await self.db.execute(select(ReviewTask).where(ReviewTask.id == review_id).with_for_update())
         task = result.scalar_one_or_none()
@@ -189,9 +253,10 @@ class ReviewService:
         resolution_note: str,
         *,
         is_admin: bool = False,
+        tenant_id: int,
     ) -> ReviewTask:
-        """处理复核任务"""
-        task = await self.get_review_by_id(review_id)
+        """处理复核任务（**必须**限定租户范围）"""
+        task = await self.get_review_by_id(review_id, tenant_id=tenant_id)
         if not task:
             raise ValueError(f"Review task {review_id} not found")
 
@@ -219,9 +284,10 @@ class ReviewService:
         reason: str,
         *,
         is_admin: bool = False,
+        tenant_id: int,
     ) -> ReviewTask:
-        """升级复核任务"""
-        task = await self.get_review_by_id(review_id)
+        """升级复核任务（**必须**限定租户范围）"""
+        task = await self.get_review_by_id(review_id, tenant_id=tenant_id)
         if not task:
             raise ValueError(f"Review task {review_id} not found")
 
@@ -262,13 +328,22 @@ class ReviewService:
         await self.db.refresh(task)
         return task
 
-    async def get_review_stats(self, days: int = 30, *, assigned_to: int | None = None) -> ReviewStats:
+    async def get_review_stats(
+        self,
+        days: int = 30,
+        *,
+        assigned_to: int | None = None,
+        tenant_id: int,
+    ) -> ReviewStats:
         """获取复核统计.
 
         ISS-071 修复: 支持 assigned_to 范围过滤, 使统计卡口径与
         list_reviews (咨询师仅看分配给自己的任务) 一致; 为 None 时统计全部。
+
+        P0-FIX-2026-10-11: ``tenant_id`` 必填。原实现统计全平台复核任务数，
+        租户 A 的管理员能从「危机数 / 高危数」反推他校的心理危机规模。
         """
-        scope_filters = []
+        scope_filters = [tenant_scoped_filter(User, tenant_id)]
         if assigned_to is not None:
             scope_filters.append(ReviewTask.assigned_to == assigned_to)
 
@@ -291,8 +366,10 @@ class ReviewService:
             crisis_expr,
             high_risk_expr,
         )
-        if scope_filters:
-            stats_query = stats_query.where(*scope_filters)
+        # P0-FIX-2026-10-11: review_tasks 无 tenant_id 列，JOIN User 推导租户
+        stats_query = stats_query.select_from(
+            ReviewTask.__table__.join(User.__table__, User.id == ReviewTask.user_id)
+        ).where(*scope_filters)
         row = (await self.db.execute(stats_query)).one()
 
         return ReviewStats(
@@ -419,8 +496,14 @@ class CrisisEventService:
         handled_by: int,
         action: str,
         note: str | None = None,
+        *,
+        tenant_id: int,
     ) -> CrisisEvent:
         """处理危机事件 (status: detected/reviewed/escalated → reviewed)
+
+        P0-FIX-2026-10-11：``tenant_id`` 为必填。原实现按主键裸取，任何租户
+        的咨询师都能把**他校学生**的危机事件改成「已处理」——不只是读到
+        input_summary，而是能直接改写危机处置状态，后果是真实的危机被静默关闭。
 
         ISS-072 修复：
         - 状态从 "handled" 改为 "reviewed"（与前端筛选器一致）
@@ -431,8 +514,7 @@ class CrisisEventService:
         if action not in _ALLOWED_CRISIS_ACTIONS:
             raise ValueError(f"无效的 action: {action}，允许值: {', '.join(sorted(_ALLOWED_CRISIS_ACTIONS))}")
 
-        result = await self.db.execute(select(CrisisEvent).where(CrisisEvent.id == event_id))
-        event = result.scalar_one_or_none()
+        event = await self._get_crisis_event_scoped(event_id, tenant_id)
         if not event:
             raise ValueError(f"Crisis event {event_id} not found")
 
@@ -462,13 +544,16 @@ class CrisisEventService:
         event_id: int,
         handled_by: int,
         reason: str,
+        *,
+        tenant_id: int,
     ) -> CrisisEvent:
         """升级危机事件 (status: detected|reviewed → escalated)
 
+        P0-FIX-2026-10-11：``tenant_id`` 为必填（同 handle_crisis_event）。
+
         ISS-072 修复：新增端点，将事件升级到 escalated 状态（通知更高层级介入）。
         """
-        result = await self.db.execute(select(CrisisEvent).where(CrisisEvent.id == event_id))
-        event = result.scalar_one_or_none()
+        event = await self._get_crisis_event_scoped(event_id, tenant_id)
         if not event:
             raise ValueError(f"Crisis event {event_id} not found")
 
@@ -497,13 +582,17 @@ class CrisisEventService:
         event_id: int,
         handled_by: int,
         note: str | None = None,
+        *,
+        tenant_id: int,
     ) -> CrisisEvent:
         """关闭危机事件 (status: detected|reviewed|escalated → resolved)
 
+        P0-FIX-2026-10-11：``tenant_id`` 为必填。resolved 是**终态**，
+        被跨租户关闭后在本租户内不可再开启——这是三个端点里后果最重的一个。
+
         ISS-072 修复：新增端点，将事件关闭到 resolved 终态。
         """
-        result = await self.db.execute(select(CrisisEvent).where(CrisisEvent.id == event_id))
-        event = result.scalar_one_or_none()
+        event = await self._get_crisis_event_scoped(event_id, tenant_id)
         if not event:
             raise ValueError(f"Crisis event {event_id} not found")
 
@@ -526,6 +615,24 @@ class CrisisEventService:
         await self.db.commit()
         await self.db.refresh(event)
         return event
+
+    async def _get_crisis_event_scoped(
+        self, event_id: int, tenant_id: int
+    ) -> CrisisEvent | None:
+        """P0-FIX-2026-10-11：按「事件 + 所属学生租户」取单条危机事件。
+
+        与 ``get_crisis_events`` 同源：``crisis_events`` 无 tenant_id 列，
+        只能 JOIN ``User`` 推导。跨租户返回 None（调用方按 404 处理）。
+        """
+        stmt = (
+            select(CrisisEvent)
+            .join(User, User.id == CrisisEvent.user_id)
+            .where(
+                CrisisEvent.id == event_id,
+                tenant_scoped_filter(User, tenant_id),
+            )
+        )
+        return (await self.db.execute(stmt)).scalar_one_or_none()
 
     def _validate_crisis_transition(self, current: str, target: str) -> None:
         """ISS-072 修复：危机事件状态机校验，禁止非法状态跳变."""

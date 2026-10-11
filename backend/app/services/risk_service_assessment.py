@@ -225,15 +225,21 @@ class AssessmentMixin:
         self.db.add(risk)
         await self.db.flush()
 
+        # P0-FIX-2026-10-11: 调度点必须在 commit 之后。
+        # 原实现把 _schedule_warning_and_intervention 放在 commit 之前 —— 而该任务在
+        # 独立 AsyncSessionLocal 中按 risk_id 重新查询 RiskAssessment（见
+        # risk_service._trigger_warning_and_intervention 的 docstring「已 commit, 可见」）。
+        # ensure_future 的任务在下一次事件循环迭代即执行，此时本事务尚未 commit，
+        # 新 session（READ COMMITTED）看到的是 commit 前快照 → 高概率命中
+        # `risk is None` → 静默 return，中高风险学生的预警与干预计划被丢弃，
+        # 只留一条 logger.warning，且因竞态表现为「时有时无」，极难排查。
+        #
         # PERF-P1-004: warning + intervention 改为 fire-and-forget, 不阻塞响应
         # 原实现: await self._check_warning_trigger() + await self._auto_generate_intervention()
         #   共 7-10 次 DB 查询 (previous risk / warning setting / duplicate check / insert warning /
         #   binding lookup / plan FOR UPDATE / template lookup / binding lookup / insert plan+tasks)
         # 改造后: 调度异步任务在独立 session 中执行, 响应路径仅保留 flush + commit
         # 延迟导入避免与主模块 risk_service.py 形成循环导入
-        from app.services.risk_service import _schedule_warning_and_intervention
-
-        _schedule_warning_and_intervention(user_id, risk.id, result["risk_level"])
 
         intervention_level: str | None = None
         intervention_actions: list[str] = []
@@ -254,6 +260,12 @@ class AssessmentMixin:
             # 实际 plan 创建在异步任务中完成, 无模板时仅 log warning
 
         await self.db.commit()
+
+        # P0-FIX-2026-10-11: 必须在 commit 之后调度 —— 详见上方注释。
+        # 延迟导入避免与主模块 risk_service.py 形成循环导入
+        from app.services.risk_service import _schedule_warning_and_intervention
+
+        _schedule_warning_and_intervention(user_id, risk.id, result["risk_level"])
 
         return {
             "assessment_id": assessment.id,

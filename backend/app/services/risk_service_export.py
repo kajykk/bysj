@@ -10,8 +10,20 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import select
+from xml.sax.saxutils import escape as _xml_escape
 
 from app.models.risk import RiskAssessment
+
+
+def _para_text(value: object) -> str:
+    """P0-FIX-2026-10-11: Paragraph 会把文本当 mini-XML 解析，业务值必须先转义。
+
+    severity / risk_level 来自 DB 行，若含 ``<``/``&`` 会让 reportlab 解析失败，
+    导致整份 PDF 导出失败。表格单元格不走 XML 解析，故只转义 Paragraph 输入。
+    """
+    if value is None:
+        return ""
+    return _xml_escape(str(value))
 
 
 class ExportMixin:
@@ -172,7 +184,9 @@ class ExportMixin:
                 elements.append(Paragraph("Latest Assessment Summary", heading_style))
                 elements.append(
                     Paragraph(
-                        f"Risk Score: {latest['risk_score']}  |  Level: {latest['risk_level']}  |  Severity: {latest['severity']}",
+                        f"Risk Score: {_para_text(latest['risk_score'])}  |  "
+                        f"Level: {_para_text(latest['risk_level'])}  |  "
+                        f"Severity: {_para_text(latest['severity'])}",
                         body_style,
                     )
                 )

@@ -179,7 +179,9 @@ class TestAuthService:
             await service.reset_password(payload)
 
     @pytest.mark.asyncio
-    async def test_reset_password_email_mismatch(self, db_session, seeded_user_id):
+    async def test_reset_password_email_mismatch(
+        self, db_session, seeded_user_id, in_memory_token_blocklist
+    ):
         """TC-COV-AUTH-007c: Reset password with mismatched email raises error."""
         service = AuthService(db_session)
         from app.core.security import create_password_reset_token
@@ -196,7 +198,9 @@ class TestAuthService:
             await service.reset_password(payload)
 
     @pytest.mark.asyncio
-    async def test_reset_password_success(self, db_session, seeded_user_id):
+    async def test_reset_password_success(
+        self, db_session, seeded_user_id, in_memory_token_blocklist
+    ):
         """TC-COV-AUTH-007d: Reset password successfully."""
         service = AuthService(db_session)
         from app.core.security import create_password_reset_token
@@ -335,7 +339,7 @@ class TestAuthServiceEmailCaseInsensitivity:
 
     @pytest.mark.asyncio
     async def test_reset_password_accepts_legacy_unnormalized_hash(
-        self, db_session
+        self, db_session, in_memory_token_blocklist
     ) -> None:
         """存量未迁移行, 且用户输入与注册时字面形式一致 → 双查兜底命中."""
         from sqlalchemy import select
@@ -375,7 +379,7 @@ class TestAuthServiceEmailCaseInsensitivity:
 
     @pytest.mark.asyncio
     async def test_reset_password_after_migration_accepts_any_case(
-        self, db_session
+        self, db_session, in_memory_token_blocklist
     ) -> None:
         """迁移完成后 (email_hash 为归一化值), 任意大小写输入均能命中."""
         from sqlalchemy import select
@@ -412,7 +416,9 @@ class TestAuthServiceEmailCaseInsensitivity:
         await service.reset_password(reset_payload)
 
     @pytest.mark.asyncio
-    async def test_legacy_hash_not_found_when_case_differs(self, db_session) -> None:
+    async def test_legacy_hash_not_found_when_case_differs(
+        self, db_session, in_memory_token_blocklist
+    ) -> None:
         """已知局限断言: 未迁移行 + 用户输入大小写不同 → 双查无法兜底.
 
         这条测试固化的是"迁移不可省略"这一事实, 而非期望行为。

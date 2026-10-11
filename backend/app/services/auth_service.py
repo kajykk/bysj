@@ -330,6 +330,44 @@ class AuthService:
         except (PyJWTError, ValueError, TypeError) as exc:
             raise ValueError("无效或已过期的重置令牌") from exc
 
+        # P0-FIX-2026-10-11: 重置令牌必须**一次性核销**。
+        #
+        # 原实现只校验签名与 exp，令牌在其有效期内（默认 30 分钟）可**无限次**
+        # 重置。后果不只是"多改一次密码"：
+        #   * 攻击者截获一封重置邮件（旧邮件、邮箱历史记录、日志里的明文 URL）
+        #     后，可在受害者已改密之后**再次**用它把密码改回攻击者已知值 —— 这是
+        #     典型的「重置令牌重放 → 账号接管」链路；
+        #   * 受害者改密成功后，令牌仍在有效期内，任何拿到链接的人都能登入。
+        #
+        # 实现：复用已有的 token_blocklist（jti 级别撤销），与 logout /
+        # change_password 同一套基础设施，不引入新表新依赖。
+        jti = token_data.get("jti")
+        exp = token_data.get("exp")
+        if not jti or not exp:
+            raise ValueError("重置令牌缺少必要信息")
+
+        from app.core.cache import CacheUnavailableError
+        from app.core.token_blocklist import is_token_revoked, revoke_token
+
+        try:
+            already_used = await is_token_revoked(jti)
+        except CacheUnavailableError as exc:
+            # 失败关闭：撤销状态查不到时**拒绝**重置，而不是放行。
+            # 宁可让用户重新申请一次，也不能在此处静默降级为「令牌可重放」。
+            raise ValueError("重置服务暂时不可用，请稍后重试") from exc
+        if already_used:
+            raise ValueError("重置令牌已被使用，请重新申请")
+
+        # 先核销再改密：并发提交的两个请求里，第二个会在上面的检查处被拒。
+        # 若核销成功但后续步骤失败，用户需重新申请——这是刻意的取舍，
+        # 方向是「宁可少一次可用令牌，绝不多一次重放机会」。
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        if not await revoke_token(jti, ttl=max(1, int(exp) - now_ts)):
+            logger.error(
+                "reset_password: 重置令牌核销失败 (jti=%s)，令牌在有效期内仍可能被重放",
+                jti[:12],
+            )
+
         user = await self.db.get(User, user_id)
         # P0-D1 修复：email 已通过 EncryptedString 加密存储，密文具有随机性（Fernet IV），
         # 直接比较密文永远不相等，导致密码重置流程失效。

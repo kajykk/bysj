@@ -83,9 +83,13 @@ async def test_websocket_accepts_token_from_first_auth_message(monkeypatch):
         return True
 
     monkeypatch.setattr(ws_module.ws_manager, "connect", _fake_connect)
-    monkeypatch.setattr(
-        ws_module.ws_manager, "disconnect", lambda user_id, websocket: None
-    )
+
+    # P0-FIX-2026-10-11: disconnect 已改为 async（加锁以消除与 connect 的 lost-update
+    # 竞态），monkeypatch 需同步使用 async 函数，否则 `await None` 抛 TypeError。
+    async def _fake_disconnect(user_id, websocket):
+        return None
+
+    monkeypatch.setattr(ws_module.ws_manager, "disconnect", _fake_disconnect)
 
     await ws_module.websocket_endpoint(ws, user_id=1)
 

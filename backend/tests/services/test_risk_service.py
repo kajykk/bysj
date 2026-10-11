@@ -645,6 +645,72 @@ class TestAssessStructured:
 class TestWarningInterventionFireAndForget:
     """PERF-P1-004: 验证 _schedule_warning_and_intervention + _trigger_warning_and_intervention."""
 
+    @pytest.mark.asyncio
+    async def test_schedule_called_after_commit(self, db_session, seeded_user_id):
+        """P0-FIX-2026-10-11: 调度必须在最后一次 commit 之后.
+
+        回归背景: 原实现把 ``_schedule_warning_and_intervention`` 放在
+        ``await self.db.commit()`` **之前**。而该任务在独立 ``AsyncSessionLocal``
+        中按 ``risk_id`` 重新查询 ``RiskAssessment``(见 ``_trigger_warning_and_intervention``
+        的 docstring「已 commit, 可见」)。``asyncio.ensure_future`` 的任务在下一次
+        事件循环迭代即执行, 此时本事务尚未提交, READ COMMITTED 下新 session 看不到
+        该行 → 命中 ``risk is None`` 静默 return, **中高风险学生的预警与干预计划被
+        丢弃**, 且因竞态表现为「时有时无」, 极难排查。
+
+        本用例通过记录 commit / schedule 的调用顺序把该契约固化下来。
+        """
+        service = RiskService(db_session)
+        student_payload = {
+            "identity_type": "student",
+            "is_student": "1",
+            "study_year": 3,
+            "age": 20,
+            "gender": 1,
+            "cgpa": 3.5,
+            "stress_level": 7,
+            "sleep_duration": 5,
+            "social_support": 3,
+            "financial_pressure": 6,
+            "family_history": 0,
+            "academic_pressure": 7,
+            "exercise_frequency": 2,
+            "anxiety": 8,
+            "panic_attack": 4,
+            "treatment_seeking": 0,
+            "total_score": 30,
+        }
+        mock_result = {
+            "prediction": 1,
+            "probability": 0.85,
+            "risk_score": 75.0,
+            "risk_level": 3,
+            "model_used": "structured_logistic_regression_quick",
+        }
+        order: list[str] = []
+        real_commit = db_session.commit
+
+        async def spy_commit(*args, **kwargs):
+            order.append("commit")
+            return await real_commit(*args, **kwargs)
+
+        with patch("app.services.risk_service_assessment.model_engine") as mock_engine, patch(
+            "app.services.risk_service._schedule_warning_and_intervention"
+        ) as mock_sched, patch.object(db_session, "commit", side_effect=spy_commit):
+            mock_engine.predict_structured = AsyncMock(return_value=mock_result)
+            mock_engine.explain_prediction = AsyncMock(return_value=[])
+            mock_sched.side_effect = lambda *a, **kw: order.append("schedule")
+            await service.assess_structured(seeded_user_id, student_payload)
+
+        assert order.count("commit") >= 1, "预期 assess_structured 会提交事务"
+        assert order.count("schedule") == 1, f"预期调度一次, 实际: {order}"
+        last_commit = max(i for i, v in enumerate(order) if v == "commit")
+        sched_idx = order.index("schedule")
+        assert sched_idx > last_commit, (
+            f"调度顺序错误: {order}。_schedule_warning_and_intervention 必须在 "
+            f"self.db.commit() 之后调用, 否则异步任务在独立 session 中查不到刚写入的 "
+            f"RiskAssessment (READ COMMITTED), 预警与干预会被静默丢弃。"
+        )
+
     def test_schedule_does_not_block(self):
         """_schedule_warning_and_intervention 应调度任务但不阻塞当前调用."""
         from app.services.risk_service import (

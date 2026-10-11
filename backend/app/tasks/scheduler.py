@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -411,7 +412,25 @@ def stale_warning_reminder(self):
     logger.info("Stale warning reminder completed")
 
 
-async def _stale_warning_reminder_impl():
+async def _stale_warning_reminder_impl() -> dict[str, int]:
+    """扫描 24h 未处理的高等级预警，留下**可复核的痕迹**并上报。
+
+    P0-FIX-2026-10-11：原实现只 ``logger.info`` 打一行就算结束 —— 整个任务是
+    纯空跑。这个问题在心理健康场景里不是"功能没做完"，而是**失效的兜底**：
+    风险扫描负责产生预警，这个任务本该在预警被漏掉时兜底提醒，结果它自己也
+    只在日志里嘟囔，运维看不到、咨询师收不到、事后无法复盘。
+
+    现在做两件真实的事：
+    1. 逐条写 ``OperationLog``（action_type=``warning.stale_reminder``）—— 持久、
+       可查询、可被第二人复核，且天然带 counselor_id 指向责任咨询师；
+    2. 有滞留时发一条 **error 级** Sentry 事件（无滞留则完全静默，避免噪声）。
+
+    刻意**不**做的事：不改 ``WarningNotification`` 的状态字段、不重复给咨询师
+    发 WebSocket 推送。前者会与咨询师的实际处理动作抢写同一条记录、把
+    ``is_handled`` 语义搞乱；后者在没有降级通道的前提下重推只会刷屏并掩盖
+    "为什么没送达"这个真问题。重复推送的缺口另见 P1（需引入独立的提醒记录表）。
+    """
+    reminded = 0
     async with AsyncSessionLocal() as db:
         # H-ML-5 修复：DB 列为 naive datetime，使用 naive UTC 比较
         cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)
@@ -423,13 +442,72 @@ async def _stale_warning_reminder_impl():
         stale_warnings = (await db.execute(unhandled_stmt)).scalars().all()
 
         for warning in stale_warnings:
-            if warning.counselor_id:
+            if not warning.counselor_id:
+                # 没有归属咨询师的预警无法提醒到人，但仍需留痕，
+                # 否则「分配环节漏掉」这个根因在数据上完全看不见。
+                logger.warning(
+                    "stale_warning_reminder: Warning %d (user=%d, level=%d) "
+                    "滞留超 24h 且未分配咨询师",
+                    warning.id,
+                    warning.user_id,
+                    warning.current_level,
+                )
+            else:
                 logger.info(
                     "Reminder: Warning %d for user %d is unhandled for >24h (counselor: %d)",
                     warning.id,
                     warning.user_id,
                     warning.counselor_id,
                 )
+            db.add(
+                OperationLog(
+                    operator_id=None,
+                    operator_role="system",
+                    action_type="warning.stale_reminder",
+                    target_type="warning_notification",
+                    target_id=warning.id,
+                    detail=json.dumps(
+                        {
+                            "user_id": warning.user_id,
+                            "counselor_id": warning.counselor_id,
+                            "current_level": warning.current_level,
+                            "created_at": (
+                                warning.created_at.isoformat()
+                                if warning.created_at
+                                else None
+                            ),
+                            "cutoff": cutoff.isoformat(),
+                        },
+                        ensure_ascii=False,
+                        # 审计字段不应因为某个值类型异常就拖垮**整批**提醒：
+                        # 序列化失败会让本条以外的滞留预警全部丢失。
+                        # default=str 只会让异常值退化成其字符串形式，
+                        # 详情仍可人工复盘，不影响「是否滞留」的判定。
+                        default=str,
+                    ),
+                )
+            )
+            reminded += 1
+
+        if reminded:
+            await db.commit()
+
+    if reminded:
+        logger.warning(
+            "stale_warning_reminder: %d 条高等级预警滞留超 24h 未处理，已留痕待跟进",
+            reminded,
+        )
+        try:
+            from app.core.sentry import capture_message
+
+            capture_message(
+                f"{reminded} 条高等级预警滞留超 24h 未处理（current_level>=3）",
+                level="error",
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("Sentry capture_message 调用失败", exc_info=True)
+
+    return {"reminded": reminded}
 
 
 @celery_app.task(bind=True, max_retries=1, time_limit=180, soft_time_limit=160)
@@ -981,10 +1059,18 @@ def _cleanup_experiment_artifacts_impl(keep_recent: int = 10) -> int:
     # 后续 `str(file_path.resolve()) in active_paths` 判定随即失效，
     # 可能导致 shutil.rmtree 删除**正在服务的模型文件**（线上推理直接 503）。
     # 保护集是删除前的最后一道闸：宁可整个清理中止，也不能带残缺保护集继续删。
+    # P0-FIX-2026-10-11: 保护集必须同时覆盖**目录型**模型。
+    # 原实现只收集 `Path(model_path).resolve()`（可能是目录），比对侧却只遍历
+    # `is_file()` 的文件，两者永远不相等 → 对 BERT 这类目录型模型（见
+    # core/model_engine/loading.py 的 AutoTokenizer.from_pretrained(model_path)）
+    # 保护判定恒 False，shutil.rmtree 会直接删除**正在服务的模型目录**，
+    # 线上推理 503 且模型文件物理删除不可恢复。
+    # 因此拆成「文件集」+「目录集」，目录侧改用前缀匹配。
     active_paths: set[str] = set()
+    active_dirs: set[str] = set()
     for model_name, model_path_str in MODEL_PATHS.items():
         try:
-            active_paths.add(str(Path(model_path_str).resolve()))
+            resolved = str(Path(model_path_str).resolve())
         except Exception as exc:  # noqa: BLE001
             logger.error(
                 "AUDIT-P0-3 解析注册模型路径失败, 中止本次产物清理以避免误删: "
@@ -1010,30 +1096,61 @@ def _cleanup_experiment_artifacts_impl(keep_recent: int = 10) -> int:
                 f"active model path 解析失败, 产物清理已中止 (model={model_name}): {exc}"
             ) from exc
 
+        active_paths.add(resolved)
+        # 目录型模型（BERT 等）：单独收录，比对时用前缀匹配
+        if Path(model_path_str).is_dir():
+            active_dirs.add(resolved)
+
+    def _is_protected(resolved_path: str) -> bool:
+        """判定某个已解析路径是否落在 active 模型保护集内。"""
+        if resolved_path in active_paths:
+            return True
+        # 目录型模型：路径本身或其下任意文件都受保护
+        for active_dir in active_dirs:
+            if resolved_path == active_dir or resolved_path.startswith(active_dir + os.sep):
+                return True
+        return False
+
     removed = 0
     for entry, _ in to_remove:
         try:
             # 安全检查: 如果目录中的文件被注册为 active 模型, 跳过
             is_active = False
-            for file_path in entry.rglob("*"):
-                if file_path.is_file():
-                    try:
-                        if str(file_path.resolve()) in active_paths:
+
+            # P0-FIX-2026-10-11: 先校验 entry 自身 —— 目录型模型（BERT）的注册路径
+            # 就是该目录，仅遍历文件永远命中不到。
+            try:
+                if _is_protected(str(entry.resolve())):
+                    is_active = True
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "AUDIT-P0-3 无法解析产物目录真实路径, 保守跳过删除: "
+                    "entry=%s error=%s",
+                    entry,
+                    exc,
+                )
+                is_active = True
+
+            if not is_active:
+                for file_path in entry.rglob("*"):
+                    if file_path.is_file():
+                        try:
+                            if _is_protected(str(file_path.resolve())):
+                                is_active = True
+                                break
+                        except Exception as exc:  # noqa: BLE001
+                            # AUDIT-2026-09-28-P0-3: resolve 失败意味着无法判定该
+                            # 文件的真实位置，保守视为 active 并跳过删除——
+                            # 宁可少清理一个目录，也不可误删在服模型。
+                            logger.warning(
+                                "AUDIT-P0-3 无法解析产物文件真实路径, 保守跳过删除: "
+                                "entry=%s file=%s error=%s",
+                                entry,
+                                file_path,
+                                exc,
+                            )
                             is_active = True
                             break
-                    except Exception as exc:  # noqa: BLE001
-                        # AUDIT-2026-09-28-P0-3: resolve 失败意味着无法判定该文件的
-                        # 真实位置，保守视为 active 并跳过删除——
-                        # 宁可少清理一个目录，也不可误删在服模型。
-                        logger.warning(
-                            "AUDIT-P0-3 无法解析产物文件真实路径, 保守跳过删除: "
-                            "entry=%s file=%s error=%s",
-                            entry,
-                            file_path,
-                            exc,
-                        )
-                        is_active = True
-                        break
             if is_active:
                 logger.info("skip cleanup: %s contains active model artifact", entry)
                 continue

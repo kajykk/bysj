@@ -91,11 +91,37 @@ class ConnectionManager:
             )
             return True
 
-    def disconnect(self, user_id: int, ws: WebSocket) -> None:
-        if user_id in self._connections:
-            self._connections[user_id] = [w for w in self._connections[user_id] if w is not ws]
-            if not self._connections[user_id]:
-                del self._connections[user_id]
+    async def disconnect(self, user_id: int, ws: WebSocket) -> None:
+        """移除一条连接（幂等）。
+
+        P0-FIX-2026-10-11: 原实现是同步的 ``def`` 且**完全不加锁**，而 ``connect()``
+        在 ``async with self._lock`` 内执行 ``self._connections[user_id].append(ws)``。
+        两者并发时（``disconnect`` 同时被 ``_local_send_to_user`` 与
+        ``websocket_endpoint`` 的收尾分支调用）：
+
+        - ``disconnect`` 的「读旧快照 → 重建列表 → 整体赋回」与 ``connect`` 的
+          ``append`` 之间无互斥，产生 **lost update**：新建的连接被下一次
+          ``disconnect`` 的旧快照覆盖而静默丢失（用户上线后收不到任何消息）；
+        - 或已关闭的连接残留在列表中，使 ``websocket_connections_active`` 与
+          ``max_global_connections`` 计数漂移，最终全局连接数「满」导致**永久拒绝
+          所有新连接**，只能重启进程。
+
+        另外修正了指标递减的幂等性：原实现只要 ``user_id`` 仍在字典里就递减，
+        即使本次并未真正移除任何连接（重复 disconnect 同一 ws 时必然发生），
+        会让计数一路走负。
+        """
+        removed = False
+        async with self._lock:
+            conns = self._connections.get(user_id)
+            if conns is not None:
+                remaining = [w for w in conns if w is not ws]
+                removed = len(remaining) != len(conns)
+                if not remaining:
+                    self._connections.pop(user_id, None)
+                else:
+                    self._connections[user_id] = remaining
+
+        if removed:
             try:
                 from app.core.metrics import websocket_connections_active
 
@@ -103,7 +129,13 @@ class ConnectionManager:
             except Exception as exc:
                 # P1-E 修复：监控指标采集失败必须记录日志，便于发现指标系统异常
                 logger.warning("websocket_connections_active.dec failed: %s", exc)
-        logger.info("WebSocket disconnected for user_id=%d", user_id)
+            logger.info("WebSocket disconnected for user_id=%d", user_id)
+        else:
+            # 幂等 no-op：不得重复递减指标，否则计数漂移会让全局连接数提前「满」
+            logger.debug(
+                "WebSocket disconnect no-op for user_id=%d (connection already removed)",
+                user_id,
+            )
 
     async def send_to_user(self, user_id: int, message: dict) -> None:
         """P2-1: 跨进程发送消息给指定用户的所有 WebSocket 连接.
@@ -139,7 +171,7 @@ class ConnectionManager:
                 logger.debug("WebSocket send failed for user_id=%d: %s", user_id, exc)
                 dead.append(ws)
         for ws in dead:
-            self.disconnect(user_id, ws)
+            await self.disconnect(user_id, ws)
 
     async def _publish_to_redis(self, user_id: int, message: dict) -> bool:
         """P2-1: 通过 Redis pubsub 发布消息. 失败时返回 False (调用方仅记录,不阻塞).
@@ -434,7 +466,7 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
             except asyncio.TimeoutError:
                 # P0-P2 修复：idle timeout 后必须从 ws_manager 移除连接，否则连接已关闭
                 # 但仍保留在 _connections 字典中，导致内存泄漏和 online_count 统计错误
-                ws_manager.disconnect(user_id, ws)
+                await ws_manager.disconnect(user_id, ws)
                 await ws.close(code=4000, reason="idle timeout")
                 break
             try:
@@ -462,10 +494,10 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
             except json.JSONDecodeError:
                 await ws.send_text(json.dumps({"type": "error", "message": "消息格式错误"}, ensure_ascii=False))
     except WebSocketDisconnect:
-        ws_manager.disconnect(user_id, ws)
+        await ws_manager.disconnect(user_id, ws)
     except Exception:
         logger.exception("websocket.runtime.error user_id=%s", user_id)
-        ws_manager.disconnect(user_id, ws)
+        await ws_manager.disconnect(user_id, ws)
 
 
 async def notify_warning(user_id: int, warning_id: int, risk_level: str, trigger_reason: str) -> None:

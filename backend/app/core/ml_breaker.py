@@ -126,15 +126,20 @@ def init_ml_breaker() -> None:
 
     在应用启动时调用, 确保使用最新的配置值。
     """
-    global ml_breaker
+    # P0-FIX-2026-10-11: 必须**就地**更新既有单例，不能重新赋值模块全局。
+    # 原实现用 `global ml_breaker; ml_breaker = CircuitBreaker(...)`，而 Python 的
+    # `from app.core.ml_breaker import ml_breaker` 是**值拷贝绑定**：任何在
+    # init_ml_breaker() 之前完成导入的模块会一直持有启动时创建的那个实例，新参数
+    # 与后续状态对它完全无效 → 熔断器状态分裂（一部分代码看到 OPEN，另一部分仍
+    # CLOSED 并继续向已故障的 ML 下游发请求）。
+    # 同目录 db_breaker.py 的注释早就明文禁止这种写法，此处对齐为 configure()。
+    # name / failure_classifier 在构造时已固定且与此处一致，无需重设。
     from app.core.config import settings
 
-    ml_breaker = CircuitBreaker(
+    ml_breaker.configure(
         failure_threshold=settings.ml_failure_threshold,
         recovery_timeout=settings.ml_recovery_timeout,
         half_open_max_calls=settings.ml_half_open_max_calls,
-        name="ml",
-        failure_classifier=_is_ml_failure,
     )
     logger.info(
         "circuit_breaker.ml.init threshold=%d recovery=%ds half_open_max=%d timeout=%ds",
