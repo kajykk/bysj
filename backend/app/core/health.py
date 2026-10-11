@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
+from starlette.concurrency import run_in_threadpool
 
 from app.core.celery_app import celery_app
 
@@ -160,42 +161,55 @@ async def check_models() -> bool:
     - 复用 model_registry.resolve_model_path 解析路径
     - 任一核心模型缺失即返回 False
     - 异常时返回 False 并记录日志, 不抛出
+
+    P1 问题 2 修复：``Path.resolve()`` / ``c.exists()`` 是同步阻塞 IO,
+    在 async 函数中直接调用会阻塞事件循环（/health 由负载均衡器高频轮询,
+    NFS/网络盘下 stat 变慢会拖住整个 worker）。现将纯文件系统部分整体
+    下沉到同步函数, 由 ``run_in_threadpool`` 执行。
     """
     try:
-        from app.core.config import settings
-        from app.core.model_registry import resolve_model_path
-
-        model_dir = Path(settings.model_dir)
-        backend_root = Path(__file__).resolve().parents[2]
-        for model_id in _CORE_MODEL_IDS:
-            path = Path(resolve_model_path(model_id))
-            # 路径解析逻辑与 ModelPredictService.get_model_status 一致,
-            # 并补充 ModelEngine._abs_path 的 CWD 相对 / backend 根候选,
-            # 避免本地开发 (CWD=backend, 产物在 backend/models) 时误报缺失
-            candidates: list[Path] = []
-            if not path.is_absolute():
-                if path.parts and path.parts[0] == "models":
-                    candidates.append(model_dir.parent / path)
-                else:
-                    candidates.append(model_dir / path)
-                candidates.append(Path(path))  # CWD 相对 (backend/ 下即 backend/models/...)
-                if path.parts and path.parts[0] == "models":
-                    candidates.append(backend_root / path)
-                else:
-                    candidates.append(backend_root / "models" / path)
-            else:
-                candidates.append(path)
-            if not any(c.exists() for c in candidates):
-                logger.warning(
-                    "Model health check failed: core model missing id=%s path=%s",
-                    model_id,
-                    candidates[0],
-                )
-                return False
-        return True
+        return await run_in_threadpool(_core_models_present)
     except Exception:
         logger.warning("Model health check failed", exc_info=True)
         return False
+
+
+def _core_models_present() -> bool:
+    """同步检查核心模型文件是否存在（应在 run_in_threadpool 中调用）.
+
+    拆分自 ``check_models`` 以隔离同步 IO, 见该函数 P1 问题 2 修复说明。
+    """
+    from app.core.config import settings
+    from app.core.model_registry import resolve_model_path
+
+    model_dir = Path(settings.model_dir)
+    backend_root = Path(__file__).resolve().parents[2]
+    for model_id in _CORE_MODEL_IDS:
+        path = Path(resolve_model_path(model_id))
+        # 路径解析逻辑与 ModelPredictService.get_model_status 一致,
+        # 并补充 ModelEngine._abs_path 的 CWD 相对 / backend 根候选,
+        # 避免本地开发 (CWD=backend, 产物在 backend/models) 时误报缺失
+        candidates: list[Path] = []
+        if not path.is_absolute():
+            if path.parts and path.parts[0] == "models":
+                candidates.append(model_dir.parent / path)
+            else:
+                candidates.append(model_dir / path)
+            candidates.append(Path(path))  # CWD 相对 (backend/ 下即 backend/models/...)
+            if path.parts and path.parts[0] == "models":
+                candidates.append(backend_root / path)
+            else:
+                candidates.append(backend_root / "models" / path)
+        else:
+            candidates.append(path)
+        if not any(c.exists() for c in candidates):
+            logger.warning(
+                "Model health check failed: core model missing id=%s path=%s",
+                model_id,
+                candidates[0],
+            )
+            return False
+    return True
 
 
 # L-14 修复：移除无意义的 @lru_cache 装饰器，直接返回常量
