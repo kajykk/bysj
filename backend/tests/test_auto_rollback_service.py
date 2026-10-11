@@ -348,11 +348,15 @@ class TestCheckCanaryHealthWithMetrics:
         assert "exceeds threshold" in result.reason
         assert result.metrics["avg_latency_ms"] == 800.0
 
-    async def test_resolved_drift_alerts_excluded(
+    async def test_resolved_drift_alerts_still_counted_in_window(
         self,
         db_session: AsyncSession,
     ) -> None:
-        """已 resolved 的 drift alert 不计入 (DriftAlert.resolved_at.is_(None))"""
+        """P0 语义变更: 判据改为「窗口内新建告警数」, 不再要求 resolved_at IS NULL.
+
+        窗口内新建后又被人工作废的告警仍然是漂移证据; 若继续用 resolved_at IS NULL
+        过滤, 未解决告警量级被去重压到 ≤模态数, 漂移维度自动回滚永远不可达。
+        """
         canary = await _seed_running_canary(db_session, version="v-resolved")
         for _ in range(5):
             await _add_monitoring_log(
@@ -361,11 +365,11 @@ class TestCheckCanaryHealthWithMetrics:
                 model_version="v-resolved",
                 latency_ms=100.0,
             )
-        for _ in range(5):
+        for _ in range(2):
             await _add_drift_alert(
                 db_session, model_version="v-resolved", resolved=True
             )
-        for _ in range(3):
+        for _ in range(1):
             await _add_drift_alert(
                 db_session, model_version="v-resolved", resolved=False
             )
@@ -373,8 +377,235 @@ class TestCheckCanaryHealthWithMetrics:
 
         service = AutoRollbackService()
         result = await service.check_canary_health(db_session, canary.id)
+        # 窗口内新建的告警全部计数 (2 resolved + 1 unresolved = 3 > 2 → 触发回滚)
+        assert result.metrics["drift_alerts_per_hour"] == 3
+        assert result.should_rollback is True
+        assert result.reason.startswith("drift_alerts_per_hour")
+
+    async def test_drift_alerts_outside_window_not_counted(
+        self,
+        db_session: AsyncSession,
+    ) -> None:
+        """窗口外 (created_at 早于 1h) 的告警不计入, 防止历史积压误触发回滚."""
+        canary = await _seed_running_canary(db_session, version="v-old-drift")
+        for _ in range(5):
+            await _add_monitoring_log(
+                db_session,
+                event_type=MonitoringEventType.INFERENCE,
+                model_version="v-old-drift",
+                latency_ms=100.0,
+            )
+        for _ in range(20):
+            await _add_drift_alert(
+                db_session, model_version="v-old-drift", minutes_ago=90
+            )
+        await db_session.flush()
+
+        service = AutoRollbackService()
+        result = await service.check_canary_health(db_session, canary.id)
+        assert result.should_rollback is False
+        assert result.metrics["drift_alerts_per_hour"] == 0
+
+    # ===== P0 回归: 漂移维度自动回滚可达性 (缺陷一 fail-open) =====
+
+    async def test_drift_regression_rollback_when_window_alerts_exceed_effective_threshold(
+        self,
+        db_session: AsyncSession,
+    ) -> None:
+        """核心回归: 故障注入 → 窗口内告警量达到可达阈值 → 必须回滚.
+
+        旧判据 (未解决告警 > 10) 在 4 模态下永远不可达 (最多 4 条), 属于 fail-open。
+        这里用 4 个模态各 1 条 (= drift_monitoring_service 单次检测可产生的最大量级)
+        构造真实可达场景, 断言必须触发回滚。
+        """
+        canary = await _seed_running_canary(db_session, version="v-drift-p0")
+        for _ in range(5):
+            await _add_monitoring_log(
+                db_session,
+                event_type=MonitoringEventType.INFERENCE,
+                model_version="v-drift-p0",
+                latency_ms=100.0,
+            )
+        for feature in ("structured_score", "text_score", "physiological_score", "risk_score"):
+            alert = DriftAlert(
+                model_version="v-drift-p0",
+                feature_name=feature,
+                drift_type="prediction_drift",
+                severity=DriftSeverity.HIGH,
+                metric_value=0.6,
+                threshold=0.25,
+                created_at=_naive_utcnow() - timedelta(minutes=10),
+            )
+            db_session.add(alert)
+        await db_session.flush()
+
+        service = AutoRollbackService()
+        result = await service.check_canary_health(db_session, canary.id)
+        assert result.should_rollback is True
+        assert result.reason.startswith("drift_alerts_per_hour")
+        assert result.metrics["drift_alerts_per_hour"] == 4
+        # 有效阈值被 min_drift_alerts_in_window 夹紧到 2 (≤ 模态数, 保证可达)
+        assert result.metrics["max_drift_alerts_per_hour"] == 2
+
+    async def test_drift_regression_no_rollback_below_threshold(
+        self,
+        db_session: AsyncSession,
+    ) -> None:
+        """反向保护: 未达阈值不得回滚 (防止判据改得过松)."""
+        canary = await _seed_running_canary(db_session, version="v-drift-low")
+        for _ in range(5):
+            await _add_monitoring_log(
+                db_session,
+                event_type=MonitoringEventType.INFERENCE,
+                model_version="v-drift-low",
+                latency_ms=100.0,
+            )
+        for feature in ("structured_score", "text_score"):
+            db_session.add(
+                DriftAlert(
+                    model_version="v-drift-low",
+                    feature_name=feature,
+                    drift_type="prediction_drift",
+                    severity=DriftSeverity.HIGH,
+                    metric_value=0.6,
+                    threshold=0.25,
+                    created_at=_naive_utcnow() - timedelta(minutes=10),
+                )
+            )
+        await db_session.flush()
+
+        service = AutoRollbackService()
+        result = await service.check_canary_health(db_session, canary.id)
         assert result.should_rollback is False
         assert result.reason == "within_thresholds"
+        assert result.metrics["drift_alerts_per_hour"] == 2
+
+    async def test_drift_regression_version_mismatch_alerts_never_rollback(
+        self,
+        db_session: AsyncSession,
+    ) -> None:
+        """PSI > 2.0 的版本失配告警 (model_version=None) 仍不参与自动回滚.
+
+        既有语义必须保留: 这些告警只走人工复核闭环。
+        """
+        canary = await _seed_running_canary(db_session, version="v-mismatch")
+        for _ in range(5):
+            await _add_monitoring_log(
+                db_session,
+                event_type=MonitoringEventType.INFERENCE,
+                model_version="v-mismatch",
+                latency_ms=100.0,
+            )
+        for feature in ("structured_score", "text_score", "physiological_score", "risk_score"):
+            db_session.add(
+                DriftAlert(
+                    model_version=None,
+                    feature_name=feature,
+                    drift_type="prediction_drift",
+                    severity=DriftSeverity.MEDIUM,
+                    metric_value=8.4,
+                    threshold=2.0,
+                    details={"possible_model_version_mismatch": True},
+                    created_at=_naive_utcnow() - timedelta(minutes=10),
+                )
+            )
+        await db_session.flush()
+
+        service = AutoRollbackService()
+        result = await service.check_canary_health(db_session, canary.id)
+        assert result.should_rollback is False
+        assert result.metrics["drift_alerts_per_hour"] == 0
+
+    async def test_drift_regression_resolved_history_does_not_block_new_canary(
+        self,
+        db_session: AsyncSession,
+    ) -> None:
+        """金丝雀启动前的历史未解决告警不应污染新版本窗口 (created_at 在窗口外)."""
+        canary = await _seed_running_canary(db_session, version="v-fresh")
+        for _ in range(5):
+            await _add_monitoring_log(
+                db_session,
+                event_type=MonitoringEventType.INFERENCE,
+                model_version="v-fresh",
+                latency_ms=100.0,
+            )
+        # 历史未解决告警 (3 天前), 属于旧版本
+        for feature in ("structured_score", "text_score", "physiological_score", "risk_score"):
+            db_session.add(
+                DriftAlert(
+                    model_version="v-old",
+                    feature_name=feature,
+                    drift_type="prediction_drift",
+                    severity=DriftSeverity.HIGH,
+                    metric_value=0.9,
+                    threshold=0.25,
+                    created_at=_naive_utcnow() - timedelta(days=3),
+                )
+            )
+        await db_session.flush()
+
+        service = AutoRollbackService()
+        result = await service.check_canary_health(db_session, canary.id)
+        assert result.should_rollback is False
+        assert result.metrics["drift_alerts_per_hour"] == 0
+
+    async def test_drift_regression_check_all_canaries_rolls_back_on_drift(
+        self,
+        db_session: AsyncSession,
+        mock_observability_for_rollback,
+    ) -> None:
+        """端到端: 漂移超阈值时 check_all_canaries 必须真正把金丝雀置为 ROLLED_BACK."""
+        canary = await _seed_running_canary(db_session, version="v-e2e-drift")
+        for feature in ("structured_score", "text_score", "physiological_score"):
+            db_session.add(
+                DriftAlert(
+                    model_version="v-e2e-drift",
+                    feature_name=feature,
+                    drift_type="prediction_drift",
+                    severity=DriftSeverity.CRITICAL,
+                    metric_value=0.9,
+                    threshold=0.25,
+                    created_at=_naive_utcnow() - timedelta(minutes=5),
+                )
+            )
+        await db_session.flush()
+
+        service = AutoRollbackService()
+        results = await service.check_all_canaries(db_session, source="test")
+        assert len(results) == 1
+        assert results[0].should_rollback is True
+
+        refreshed = (
+            await db_session.execute(
+                select(CanaryRecord).where(CanaryRecord.id == canary.id)
+            )
+        ).scalar_one()
+        assert refreshed.status == CanaryStatus.ROLLED_BACK
+
+    async def test_drift_regression_resolved_at_recent_but_created_in_window_counts(
+        self,
+        db_session: AsyncSession,
+    ) -> None:
+        """窗口内新建后即被 resolve 的告警仍应计入 (旧判据会漏掉这类证据)."""
+        canary = await _seed_running_canary(db_session, version="v-quick-resolve")
+        for feature in ("structured_score", "text_score", "physiological_score"):
+            db_session.add(
+                DriftAlert(
+                    model_version="v-quick-resolve",
+                    feature_name=feature,
+                    drift_type="prediction_drift",
+                    severity=DriftSeverity.HIGH,
+                    metric_value=0.7,
+                    threshold=0.25,
+                    resolved_at=_naive_utcnow(),
+                    created_at=_naive_utcnow() - timedelta(minutes=30),
+                )
+            )
+        await db_session.flush()
+
+        service = AutoRollbackService()
+        result = await service.check_canary_health(db_session, canary.id)
+        assert result.should_rollback is True
         assert result.metrics["drift_alerts_per_hour"] == 3
 
     async def test_no_metrics_returns_within_thresholds(

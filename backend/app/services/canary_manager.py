@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.monitoring import CanaryRecord, CanaryStatus
@@ -96,27 +96,32 @@ class CanaryManager:
         """
         if route_prefix is None:
             # 全局查询: 仅匹配 route_prefix IS NULL (向后兼容)
+            # P0 修复: 补 .limit(1) + started_at.desc(), id.desc() 确定性排序。
+            # 旧实现无 limit 却用 scalar_one_or_none(), 一旦并发/历史数据留下多条
+            # RUNNING 就会抛 MultipleResultsFound (fusion 层吞成 warning, API 层 500)。
             result = await db_session.execute(
                 select(CanaryRecord)
                 .where(
                     CanaryRecord.status == CanaryStatus.RUNNING,
                     CanaryRecord.route_prefix.is_(None),
                 )
-                .order_by(CanaryRecord.started_at.desc())
+                .order_by(CanaryRecord.started_at.desc(), CanaryRecord.id.desc())
+                .limit(1)
             )
-            return result.scalar_one_or_none()
+            return result.scalars().first()
 
         # STAB-P2-006: 特定路由查询 - 优先匹配 route_prefix, 回退到全局
-        # 1. 先查找 route_prefix 精确匹配的活跃金丝雀
+        # 1. 先查找 route_prefix 精确匹配的活跃金丝雀 (同 P0: limit(1) + 确定性排序)
         result = await db_session.execute(
             select(CanaryRecord)
             .where(
                 CanaryRecord.status == CanaryStatus.RUNNING,
                 CanaryRecord.route_prefix == route_prefix,
             )
-            .order_by(CanaryRecord.started_at.desc())
+            .order_by(CanaryRecord.started_at.desc(), CanaryRecord.id.desc())
+            .limit(1)
         )
-        canary = result.scalar_one_or_none()
+        canary = result.scalars().first()
         if canary is not None:
             return canary
 
@@ -127,9 +132,10 @@ class CanaryManager:
                 CanaryRecord.status == CanaryStatus.RUNNING,
                 CanaryRecord.route_prefix.is_(None),
             )
-            .order_by(CanaryRecord.started_at.desc())
+            .order_by(CanaryRecord.started_at.desc(), CanaryRecord.id.desc())
+            .limit(1)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def decide_version(
         self,
@@ -188,6 +194,38 @@ class CanaryManager:
             reason="stable_traffic",
         )
 
+    async def _lock_route_prefix(
+        self, db_session: AsyncSession, route_prefix: str | None
+    ) -> None:
+        """对同一 route_prefix 的金丝雀启动请求取事务级互斥锁 (PostgreSQL).
+
+        P0 修复：start_canary 原本是 check-then-insert, 并发下可产生两条 RUNNING,
+        本次禁止新增迁移, 因此用既有 advisory-lock 设施 (同 review_service) 在应用层串行化。
+        SQLite 不支持 pg_advisory_xact_lock, 直接跳过 (单连接无并发竞态)。
+        锁失败不静默: 记录 error 日志并抛出, 由 API 层返回 5xx, 绝不放行到插入。
+        """
+        bind = db_session.bind
+        if bind is None or bind.dialect.name != "postgresql":
+            return
+        # 用稳定 hash 代替原始字符串, 避免超长/含中文 route_prefix 影响 advisory lock 参数
+        scope_hash = int(
+            hashlib.sha256((route_prefix or "__global__").encode()).hexdigest()[:8],
+            16,
+        )
+        try:
+            await db_session.execute(
+                text("SELECT pg_advisory_xact_lock(2000, :scope)"),
+                {"scope": scope_hash},
+            )
+        except Exception as exc:
+            logger.error(
+                "获取金丝雀启动 advisory lock 失败 (route_prefix=%s): %s",
+                route_prefix,
+                exc,
+                exc_info=True,
+            )
+            raise
+
     async def start_canary(
         self,
         db_session: AsyncSession,
@@ -216,6 +254,16 @@ class CanaryManager:
         Returns:
             Created canary record.
         """
+        # P0 修复: 并发 start_canary 的 check-then-insert 竞态。
+        # 旧实现先查后插、无行锁/唯一约束, 两个并发请求可同时通过检查产生两条 RUNNING
+        # (随后 get_active_canary 的 scalar_one_or_none 抛 MultipleResultsFound)。
+        # 应用层手段 (本次不新增 alembic 迁移):
+        # 1) PostgreSQL: 先取事务级 advisory lock, 同一 route_prefix 的启动请求串行化
+        #    (沿用 review_service.create_review_task 的既有做法, namespace=2000);
+        # 2) 冲突查询加 with_for_update() 行锁 + limit(1), 在已有 RUNNING 行时串行化。
+        # SQLite 不支持 advisory lock / FOR UPDATE, 开发与测试环境退化为单连接串行。
+        await self._lock_route_prefix(db_session, route_prefix)
+
         # Check if there's already a running canary with the same route_prefix
         # STAB-P2-006: 精确匹配 route_prefix, 不使用 get_active_canary (避免回退到全局误判冲突)
         if route_prefix is None:
@@ -229,8 +277,14 @@ class CanaryManager:
                 CanaryRecord.route_prefix == route_prefix,
             )
         existing = (
-            await db_session.execute(conflict_stmt.order_by(CanaryRecord.started_at.desc()))
-        ).scalar_one_or_none()
+            await db_session.execute(
+                conflict_stmt.order_by(
+                    CanaryRecord.started_at.desc(), CanaryRecord.id.desc()
+                )
+                .limit(1)
+                .with_for_update()
+            )
+        ).scalars().first()
         if existing:
             scope_desc = (
                 f"route_prefix={route_prefix}"

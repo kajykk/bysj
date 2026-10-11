@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -236,13 +237,12 @@ class TestGetActiveCanary:
         canary_manager: CanaryManager,
         db_session: AsyncSession,
     ) -> None:
-        """多条 RUNNING 时 (数据完整性违规场景) scalar_one_or_none 抛 MultipleResultsFound.
+        """P0 回归: 多条 RUNNING (数据完整性违规) 时不再抛 MultipleResultsFound.
 
-        注: 正常情况下 start_canary 会阻止多个 RUNNING 同时存在, 此测试验证
-        当出现数据完整性违规时, get_active_canary 不会静默返回错误记录.
+        原实现无 .limit(1) 却用 scalar_one_or_none(), 一旦并发留下两条 RUNNING
+        就会抛 MultipleResultsFound (fusion 层吞成 warning, API 层 500)。
+        现在必须确定性返回 started_at 最新的一条。
         """
-        from sqlalchemy.exc import MultipleResultsFound
-
         old_time = _naive_utcnow() - timedelta(hours=2)
         new_time = _naive_utcnow()
         old_canary = CanaryRecord(
@@ -259,10 +259,11 @@ class TestGetActiveCanary:
         )
         db_session.add_all([old_canary, new_canary])
         await db_session.flush()
-        # 多条 RUNNING 时, scalar_one_or_none 抛 MultipleResultsFound
-        # (源码使用 scalar_one_or_none 而非 first, 强制要求数据完整性)
-        with pytest.raises(MultipleResultsFound):
-            await canary_manager.get_active_canary(db_session)
+
+        result = await canary_manager.get_active_canary(db_session)
+        assert result is not None
+        assert result.version == "v1.5.0-new"
+        assert result.id == new_canary.id
 
     async def test_returns_latest_single_running(
         self,
@@ -1015,3 +1016,201 @@ class TestCanaryManagerMisc:
     def test_global_canary_manager_exists(self) -> None:
         assert global_canary_manager is not None
         assert isinstance(global_canary_manager, CanaryManager)
+
+
+class TestCanaryConcurrencySafety:
+    """P0 回归: 并发下状态机安全 (缺陷三).
+
+    - start_canary: check-then-insert 竞态不得产生重复 RUNNING
+- get_active_canary: 重复 RUNNING 时不得抛 MultipleResultsFound
+    """
+
+    async def test_concurrent_start_canary_creates_single_running(
+        self,
+        canary_manager: CanaryManager,
+        db_session: AsyncSession,
+    ) -> None:
+        """两个并发 start_canary 只允许一条 RUNNING, 第二个必须被 ValueError 拒绝.
+
+        说明: SQLite 不支持 pg_advisory_xact_lock, 因此这里用「先启动成功再并发启动」
+        覆盖实际可达的竞态结果 —— 冲突检查 + limit(1) + with_for_update 保证在已有
+        RUNNING 时第二个请求被拒绝 (旧实现无 limit(1) 时会抛 MultipleResultsFound)。
+        真正跨进程并发由下面的 advisory lock 顺序测试覆盖 (仅 PostgreSQL 生效)。
+        """
+        import asyncio
+
+        first = await canary_manager.start_canary(
+            db_session, version="v9.9.9-a", traffic_percent=1
+        )
+        await db_session.flush()
+
+        results = await asyncio.gather(
+            canary_manager.start_canary(
+                db_session, version="v9.9.9-b", traffic_percent=1
+            ),
+            canary_manager.start_canary(
+                db_session, version="v9.9.9-c", traffic_percent=1
+            ),
+            return_exceptions=True,
+        )
+        await db_session.flush()
+
+        created = [r for r in results if isinstance(r, CanaryRecord)]
+        rejected = [r for r in results if isinstance(r, ValueError)]
+        assert created == []
+        assert len(rejected) == 2
+        assert all("already running" in str(r) for r in rejected)
+
+        from sqlalchemy import func, select
+
+        running = (
+            await db_session.execute(
+                select(func.count())
+                .select_from(CanaryRecord)
+                .where(CanaryRecord.status == CanaryStatus.RUNNING)
+            )
+        ).scalar()
+        assert running == 1
+        assert first.status == CanaryStatus.RUNNING
+
+    async def test_start_canary_takes_advisory_lock_before_conflict_check(
+        self,
+    ) -> None:
+        """跨进程互斥: PostgreSQL 下必须先取 advisory lock, 再做冲突检查/插入."""
+        recorded: list[str] = []
+
+        class _Result:
+            def scalars(self):
+                return self
+
+            def first(self):
+                return None
+
+        fake_session = MagicMock()
+        fake_session.bind.dialect.name = "postgresql"
+
+        async def fake_execute(stmt, params=None):
+            rendered = str(stmt)
+            if "pg_advisory_xact_lock" in rendered:
+                recorded.append("advisory")
+                recorded.append(f"params:{sorted((params or {}).keys())}")
+            else:
+                recorded.append("conflict_check")
+            return _Result()
+
+        fake_session.execute = AsyncMock(side_effect=fake_execute)
+        fake_session.flush = AsyncMock()
+        fake_session.refresh = AsyncMock()
+
+        canary = CanaryManager()
+        await canary.start_canary(fake_session, version="v-lock-test", traffic_percent=1)
+
+        assert recorded[0] == "advisory"
+        assert recorded[1] == "params:['scope']"
+        assert recorded[-1] == "conflict_check"
+
+    async def test_advisory_lock_failure_is_not_silent(self, caplog) -> None:
+        """advisory lock 获取失败必须记录日志并抛出, 绝不放行到插入."""
+        fake_session = MagicMock()
+        fake_session.bind.dialect.name = "postgresql"
+        fake_session.execute = AsyncMock(side_effect=RuntimeError("pg down"))
+        fake_session.flush = AsyncMock()
+
+        canary = CanaryManager()
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(RuntimeError):
+                await canary._lock_route_prefix(fake_session, "/api/v1/reports")
+        assert any("advisory lock" in r.message for r in caplog.records)
+
+    async def test_get_active_canary_tolerates_duplicate_running(
+        self,
+        canary_manager: CanaryManager,
+        db_session: AsyncSession,
+    ) -> None:
+        """遗留重复 RUNNING 时返回最新一条, 不抛 MultipleResultsFound."""
+        from sqlalchemy.exc import MultipleResultsFound
+
+        base = _naive_utcnow()
+        for idx, offset in enumerate([timedelta(hours=3), timedelta(hours=1), timedelta(0)]):
+            db_session.add(
+                CanaryRecord(
+                    version=f"v-dup-{idx}",
+                    traffic_percent=10,
+                    status=CanaryStatus.RUNNING,
+                    started_at=base - offset,
+                )
+            )
+        await db_session.flush()
+
+        try:
+            result = await canary_manager.get_active_canary(db_session)
+        except MultipleResultsFound:  # pragma: no cover - 修复后不应触发
+            pytest.fail("get_active_canary 不应在多条 RUNNING 时抛 MultipleResultsFound")
+
+        assert result is not None
+        assert result.version == "v-dup-2"
+
+    async def test_get_active_canary_route_prefix_tolerates_duplicates(
+        self,
+        canary_manager: CanaryManager,
+        db_session: AsyncSession,
+    ) -> None:
+        """带 route_prefix 的重复 RUNNING 同样不得抛异常."""
+        base = _naive_utcnow()
+        for idx, offset in enumerate([timedelta(hours=2), timedelta(hours=0)]):
+            db_session.add(
+                CanaryRecord(
+                    version=f"v-rp-{idx}",
+                    traffic_percent=5,
+                    status=CanaryStatus.RUNNING,
+                    route_prefix="/api/v1/reports",
+                    started_at=base - offset,
+                )
+            )
+        await db_session.flush()
+
+        result = await canary_manager.get_active_canary(
+            db_session, route_prefix="/api/v1/reports"
+        )
+        assert result is not None
+        assert result.version == "v-rp-1"
+
+    async def test_start_canary_advisory_lock_skipped_on_sqlite(
+        self,
+        canary_manager: CanaryManager,
+        db_session: AsyncSession,
+    ) -> None:
+        """SQLite 无 advisory lock 能力时必须跳过而非报错 (开发/测试环境)."""
+        await canary_manager._lock_route_prefix(db_session, None)  # 不抛异常
+
+    async def test_start_canary_conflict_check_uses_limit_one(
+        self,
+        canary_manager: CanaryManager,
+        db_session: AsyncSession,
+    ) -> None:
+        """重复 RUNNING 存在时 start_canary 必须抛 ValueError 而非 MultipleResultsFound."""
+        from sqlalchemy.exc import MultipleResultsFound
+
+        base = _naive_utcnow()
+        db_session.add(
+            CanaryRecord(
+                version="v-existing",
+                traffic_percent=5,
+                status=CanaryStatus.RUNNING,
+                started_at=base - timedelta(hours=1),
+            )
+        )
+        db_session.add(
+            CanaryRecord(
+                version="v-existing-2",
+                traffic_percent=5,
+                status=CanaryStatus.RUNNING,
+                started_at=base,
+            )
+        )
+        await db_session.flush()
+
+        with pytest.raises(ValueError) as exc:
+            await canary_manager.start_canary(db_session, version="v-new")
+        assert not isinstance(exc.value, MultipleResultsFound)
+        assert "already running" in str(exc.value)
