@@ -12,13 +12,12 @@
 from __future__ import annotations
 
 import inspect
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.services import model_predict_service as _mps
 from app.services.model_predict_service import ModelPredictService
-
 
 # =============================================================================
 # 1. 源码静态扫描
@@ -526,3 +525,264 @@ class TestModelFingerprintInvalidatesCache:
         from app.services.model_predict.inference import _ml_cache_key
 
         assert _ml_cache_key("tabular", {"a": 1}) != _ml_cache_key("text", {"a": 1})
+
+
+# =============================================================================
+# 7. P0 回归: 金丝雀灰度组与稳定组缓存隔离
+#
+# 缺陷: predict_fusion 的缓存键只由 features/text/physiological 构成,
+#       而路由决策 decide_version() 依赖 user_id —— 两个用户对同一输入会
+#       命中同一条缓存。后果:
+#         1) 命中灰度的用户读到 stable 结果, 本该走 canary 的流量被静默替换;
+#         2) 灰度指标失真 -> AutoRollbackService 的回滚判据建立在错误样本上。
+# 修复: 缓存键纳入路由结果 (user_id + route + canary_version), 命中后再做
+#       一次路由一致性校验, 不一致则丢弃重算。
+# =============================================================================
+
+
+def _make_canary_decision(use_canary: bool, version: str | None):
+    """构造 TrafficDecision 替身。"""
+    from app.services.canary_manager import TrafficDecision
+
+    return TrafficDecision(
+        use_canary=use_canary,
+        canary_version=version,
+        stable_version="v1.16-risk-calibration",
+        reason="test",
+    )
+
+
+class _FakeRedisCache:
+    """最小可用的缓存替身：真正按键存取，让「键是否隔离」可被真实验证。"""
+
+    def __init__(self) -> None:
+        self.store: dict[str, object] = {}
+        self.sets: list[str] = []
+
+    async def cache_get(self, key: str):
+        return self.store.get(key)
+
+    async def cache_set(self, key: str, value, ttl=None) -> bool:  # noqa: ANN001
+        self.sets.append(key)
+        self.store[key] = value
+        return True
+
+
+class TestCanaryCacheIsolation:
+    """P0 回归: 灰度组与稳定组缓存必须隔离。"""
+
+    @pytest.fixture
+    def fake_cache(self, monkeypatch):
+        cache = _FakeRedisCache()
+        monkeypatch.setattr(_mps, "cache_get", cache.cache_get)
+        monkeypatch.setattr(_mps, "cache_set", cache.cache_set)
+        return cache
+
+    @pytest.fixture
+    def engine_calls(self, monkeypatch):
+        """记录 model_engine.predict_fusion 的调用次数。"""
+        calls: list[dict] = []
+
+        async def _mock_predict(**kwargs):
+            calls.append(kwargs)
+            return {"risk_score": 70, "risk_level": 3, "model_used": ["engine"]}
+
+        from app.services.model_predict import fusion as fus
+
+        # 注意: 不能替换 fus.model_engine 整个引用 —— ModelPredictService 构造时
+        # 会调 _sync_modules() 把它重置回共享 engine 实例, 补丁会被覆盖。
+        # 与既有用例一致, 直接改共享 engine 对象上的方法属性。
+        monkeypatch.setattr(_mps.model_engine, "predict_fusion", _mock_predict)
+        monkeypatch.setattr(fus, "call_with_ml_breaker", lambda coro: coro)
+        # _log_canary_event 是 mixin 方法, 需打在类上才能挡掉 DB 写入
+        monkeypatch.setattr(fus.FusionMixin, "_log_canary_event", AsyncMock())
+        return calls
+
+    @pytest.fixture
+    def patch_routing(self, monkeypatch):
+        """按 user_id 决定是否走灰度: user 1 进灰度, user 2 走稳定。"""
+
+        def _patch(use_map: dict[int, bool], version: str = "v-canary-1"):
+            import sys
+
+            # 注意: app.services 包把 canary_manager 实例 re-export 到包命名空间,
+            # 直接 from app.services import canary_manager 拿到的是实例而非模块,
+            # 需从 sys.modules 取子模块对象(同 predict_fusion 内的延迟 import 路径)。
+            cm_mod = sys.modules["app.services.canary_manager"]
+
+            async def _fake_decide_version(db_session, user_id, stable_version, **kw):  # noqa: ANN001
+                if use_map.get(user_id, False):
+                    return _make_canary_decision(True, version)
+                return _make_canary_decision(False, None)
+
+            class _FakeCM:
+                decide_version = staticmethod(_fake_decide_version)
+
+            class _FakeSess:
+                async def __aenter__(self):
+                    return self
+
+                async def __aexit__(self, *exc):
+                    return False
+
+            monkeypatch.setattr(cm_mod, "canary_manager", _FakeCM())
+            monkeypatch.setattr("app.core.database.AsyncSessionLocal", lambda: _FakeSess())
+            return _fake_decide_version
+
+        return _patch
+
+    async def test_canary_user_not_served_stable_cache(
+        self, fake_cache, engine_calls, patch_routing
+    ):
+        """核心回归: 稳定组先跑写入缓存, 灰度组用户必须重算而非复用 stable 结果。"""
+        patch_routing({1: True, 2: False})
+        service = ModelPredictService()
+        payload = {"features": {"age": 25}, "text": "same input"}
+
+        stable_result = await service.predict_fusion(**payload, user_id=2)
+        assert stable_result["canary_routed"] is False
+        assert len(fake_cache.sets) == 1
+
+        canary_result = await service.predict_fusion(**payload, user_id=1)
+
+        assert canary_result["canary_routed"] is True
+        assert canary_result["canary_version"] == "v-canary-1"
+        assert len(engine_calls) == 2, (
+            "灰度用户命中了稳定组缓存 —— 本该走 canary 的流量被静默替换"
+        )
+
+    async def test_canary_and_stable_write_different_keys(
+        self, fake_cache, engine_calls, patch_routing
+    ):
+        """灰度组与稳定组写入的缓存键必须不同。"""
+        patch_routing({1: True, 2: False})
+        service = ModelPredictService()
+        payload = {"features": {"age": 25}, "text": "same input"}
+
+        await service.predict_fusion(**payload, user_id=2)
+        await service.predict_fusion(**payload, user_id=1)
+
+        assert len(fake_cache.sets) == 2
+        assert fake_cache.sets[0] != fake_cache.sets[1], (
+            "灰度组与稳定组写入同一缓存键 —— 两组数据互相污染"
+        )
+
+    async def test_canary_user_caches_its_own_result(
+        self, fake_cache, engine_calls, patch_routing
+    ):
+        """灰度组自己的结果也必须入缓存(修复前被 not canary_routed 短路丢弃)。"""
+        patch_routing({1: True, 2: False})
+        service = ModelPredictService()
+        payload = {"features": {"age": 25}, "text": "same input"}
+
+        await service.predict_fusion(**payload, user_id=1)
+        assert len(fake_cache.sets) == 1, "灰度结果未入缓存, 灰度流量每次都重算"
+
+        await service.predict_fusion(**payload, user_id=1)
+        assert len(engine_calls) == 1, "灰度用户未命中自身缓存"
+
+    async def test_stale_route_mismatch_is_discarded(
+        self, fake_cache, engine_calls, patch_routing
+    ):
+        """纵深防御: 命中键正确但条目内容与路由不符时, 必须丢弃重算.
+
+        键已按路由分桶, 正常路径不会串; 但外部写入 Redis / 历史遗留 / 其他服务
+        写脏数据都可能让「键对、内容错」的条目被查到。此时一致性校验是最后防线。
+        """
+        from app.services.model_predict import fusion as fus
+
+        patch_routing({1: True, 2: False})
+        service = ModelPredictService()
+        payload = {"features": {"age": 25}, "text": "same input"}
+
+        # 灰度用户将查询的键, 但塞进一条「stable 标记」的内容
+        canary_lookup_key = fus.make_cache_key(
+            "ml:fusion",
+            {
+                "features": payload["features"],
+                "text": payload["text"],
+                "physiological": None,
+                "route": "canary",
+                "canary_version": "v-canary-1",
+                "user_id": 1,
+            },
+        )
+        await fake_cache.cache_set(
+            canary_lookup_key,
+            {"risk_score": 1, "canary_routed": False, "canary_version": None},
+        )
+
+        result = await service.predict_fusion(**payload, user_id=1)
+
+        assert result["canary_routed"] is True, "路由不一致的脏缓存被当有效命中返回"
+        assert result["risk_score"] != 1, "返回了内容不符的脏缓存"
+        assert len(engine_calls) == 1, "脏缓存被命中后未触发重算"
+
+    async def test_stale_entry_with_wrong_version_is_discarded(
+        self, fake_cache, engine_calls, patch_routing
+    ):
+        """同键但灰度版本已切换时, 旧版本条目必须丢弃(避免返回旧版本结果)。"""
+        from app.services.model_predict import fusion as fus
+
+        # 当前运行的是 v-canary-2
+        patch_routing({1: True, 2: False}, version="v-canary-2")
+        service = ModelPredictService()
+        payload = {"features": {"age": 25}, "text": "same input"}
+
+        key = fus.make_cache_key(
+            "ml:fusion",
+            {
+                "features": payload["features"],
+                "text": payload["text"],
+                "physiological": None,
+                "route": "canary",
+                "canary_version": "v-canary-2",
+                "user_id": 1,
+            },
+        )
+        # 内容标记的是上一个灰度版本 v-canary-1
+        await fake_cache.cache_set(
+            key, {"risk_score": 1, "canary_routed": True, "canary_version": "v-canary-1"}
+        )
+
+        result = await service.predict_fusion(**payload, user_id=1)
+
+        assert result["canary_version"] == "v-canary-2"
+        assert result["risk_score"] != 1, "返回了旧灰度版本的结果"
+
+    def test_cached_matches_route_rejects_foreign_entry(self):
+        """_cached_matches_route 必须拒绝「别的分组/版本」产出的条目。"""
+        from app.services.model_predict.fusion import _cached_matches_route
+
+        canary_entry = {"canary_routed": True, "canary_version": "v-canary-1"}
+        stable_entry = {"canary_routed": False, "canary_version": None}
+
+        assert _cached_matches_route(canary_entry, True, "v-canary-1") is True
+        assert _cached_matches_route(stable_entry, False, None) is True
+        # 灰度请求读到 stable 条目 -> 拒绝
+        assert _cached_matches_route(stable_entry, True, "v-canary-1") is False
+        # 稳定请求读到自称灰度的条目 -> 拒绝
+        assert _cached_matches_route(canary_entry, False, None) is False
+        # 灰度版本已切换 -> 拒绝旧版本结果
+        assert _cached_matches_route(canary_entry, True, "v-canary-2") is False
+        # 灰度请求遇到无标记条目 -> 拒绝(该路径必须严格自证)
+        assert _cached_matches_route({"risk_score": 1}, True, "v-canary-1") is False
+        # 稳定请求遇到无标记条目 -> 放行(兼容既有写入方, 见函数 docstring)
+        assert _cached_matches_route({"risk_score": 1}, False, None) is True
+        # 非 dict -> 拒绝
+        assert _cached_matches_route("not-a-dict", False, None) is False
+        assert _cached_matches_route(None, True, "v-canary-1") is False
+
+    async def test_different_users_get_different_keys(
+        self, fake_cache, engine_calls, patch_routing
+    ):
+        """同为稳定组的两个不同用户, 键也不应互相复用(避免个性化结果串味)。"""
+        patch_routing({1: False, 2: False})
+        service = ModelPredictService()
+        payload = {"features": {"age": 25}, "text": "same input"}
+
+        await service.predict_fusion(**payload, user_id=1)
+        await service.predict_fusion(**payload, user_id=2)
+
+        assert len(fake_cache.sets) == 2
+        assert fake_cache.sets[0] != fake_cache.sets[1]
