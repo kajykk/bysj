@@ -81,14 +81,15 @@ const stats = reactive({
 const loadStats = async () => {
   loading.value = true
   try {
-    // 一次性全量聚合（不过滤），呈现操作人角色分布概览
-    const data = await adminApi.listAdminOperationLogs({ page: 1, page_size: 200 })
-    const items = data.items || []
-    stats.total = data.total ?? items.length
-    stats.user = items.filter((i) => i.operator_role === 'user').length
-    stats.counselor = items.filter((i) => i.operator_role === 'counselor').length
-    stats.admin = items.filter((i) => i.operator_role === 'admin').length
-    stats.superAdmin = items.filter((i) => i.operator_role === 'super_admin').length
+    // P1-15 / F-03：改用后端 SQL 层聚合端点。改前 page_size:200 拉全量操作
+    // 日志到前端 filter，日志超 200 条时分子截断、分母不截断，分布是错的；
+    // 且 detail 含 IP/request_id，传输 200 条完整记录的泄露面也随放大。
+    const data = await adminApi.getOperationLogStats()
+    stats.total = data.total
+    stats.user = data.user
+    stats.counselor = data.counselor
+    stats.admin = data.admin
+    stats.superAdmin = data.super_admin
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {

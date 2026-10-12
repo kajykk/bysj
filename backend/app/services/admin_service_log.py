@@ -120,6 +120,36 @@ class LogMixin:
             "page_size": page_size,
         }
 
+    async def get_operation_log_stats(self) -> dict:
+        """操作日志角色分布统计（P1-15 / F-03 修复）。
+
+        原前端 ``page_size:200`` 拉全量操作日志到浏览器 filter：日志超 200 条时
+        分子截断、分母不截断，角色分布是错的；且操作日志 detail 含 IP、
+        request_id 等字段，传输 200 条完整记录的泄露面也随放大。改为 SQL 层
+        条件聚合。口径与 ``list_operation_logs``（不带过滤）一致：
+        total 统计全部日志（含 operator_role 为 'system' 或 NULL 的系统行），
+        四个角色桶各计各的，与前端卡片结构一致。
+        """
+        stmt = select(
+            func.count().label("total"),
+            func.count().filter(OperationLog.operator_role == "user").label("user"),
+            func.count()
+            .filter(OperationLog.operator_role == "counselor")
+            .label("counselor"),
+            func.count().filter(OperationLog.operator_role == "admin").label("admin"),
+            func.count()
+            .filter(OperationLog.operator_role == "super_admin")
+            .label("super_admin"),
+        ).select_from(OperationLog)
+        row = (await self.db.execute(stmt)).one()
+        return {
+            "total": int(row.total or 0),
+            "user": int(row.user or 0),
+            "counselor": int(row.counselor or 0),
+            "admin": int(row.admin or 0),
+            "super_admin": int(row.super_admin or 0),
+        }
+
     async def export_operation_logs(
         self,
         action_type: str | None = None,

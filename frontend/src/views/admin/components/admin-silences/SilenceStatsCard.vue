@@ -63,12 +63,12 @@ const stats = reactive({
 const loadStats = async () => {
   loading.value = true
   try {
-    // 一次性全量聚合（不过滤），呈现生效/停用分布概览
-    const data = await alertsApi.listSilences({ page: 1, page_size: 200 })
-    const items = data.items || []
-    stats.total = data.total ?? items.length
-    stats.active = items.filter((i) => i.is_active).length
-    stats.inactive = items.filter((i) => !i.is_active).length
+    // P1-15 / F-03：改用后端 SQL 层聚合端点。改前 page_size:200 拉全量静默
+    // 规则到前端 filter，规则超 200 条时分子截断、分母不截断，分布是错的。
+    const data = await alertsApi.getSilenceStats()
+    stats.total = data.total
+    stats.active = data.active
+    stats.inactive = data.inactive
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {

@@ -89,6 +89,54 @@ class WarningService:
             "page_size": page_size,
         }
 
+    async def get_stats(self, user_id: int) -> dict:
+        """预警统计（P1-15 / F-03 修复）。
+
+        原前端 ``page_size:200`` 拉全量预警到浏览器 filter：数据超 200 条时
+        分子（分级/已处理/未读）只覆盖前 200 条，而分母用服务端 total ——
+        「高危 46 / 共 260」式的统计结果是错的。改为 SQL 层条件聚合。
+
+        口径与 ``list_warnings`` 的响应字段一一对应：
+        - 分级按 ``current_level`` 原始数值（3/2/1），与前端
+          ``normalizeWarningRiskLevel`` 把标签映射回数值后比较一致；
+          ``current_level`` 为 0/4 或越界值（normalize 出 'none'/'critical'/
+          'unknown'）不计入三档，与前端相同；
+        - 已处理 = ``is_handled``（handle/ignore/escalate 均置 True，
+          与前端 ``isWarningHandled`` 的 status 集合一致）；
+        - 未读 = ``is_read`` 为 False。
+        """
+        stmt = (
+            select(
+                func.count().label("total"),
+                func.count()
+                .filter(WarningNotification.current_level == 3)
+                .label("high_risk"),
+                func.count()
+                .filter(WarningNotification.current_level == 2)
+                .label("medium_risk"),
+                func.count()
+                .filter(WarningNotification.current_level == 1)
+                .label("low_risk"),
+                func.count()
+                .filter(WarningNotification.is_handled.is_(True))
+                .label("handled"),
+                func.count()
+                .filter(WarningNotification.is_read.is_(False))
+                .label("unread"),
+            )
+            .select_from(WarningNotification)
+            .where(WarningNotification.user_id == user_id)
+        )
+        row = (await self.db.execute(stmt)).one()
+        return {
+            "total": int(row.total or 0),
+            "high_risk": int(row.high_risk or 0),
+            "medium_risk": int(row.medium_risk or 0),
+            "low_risk": int(row.low_risk or 0),
+            "handled": int(row.handled or 0),
+            "unread": int(row.unread or 0),
+        }
+
     async def mark_read(self, user_id: int, warning_id: int) -> bool:
         stmt = select(WarningNotification).where(
             WarningNotification.id == warning_id,

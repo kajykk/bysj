@@ -44,6 +44,20 @@ async def list_warnings(
     return ok(data)
 
 
+# P1-15 / F-03：咨询师预警统计（SQL 层聚合），替代前端 page_size:200 全量拉取。
+# 统计卡不过滤 only_unhandled，服务层同样按全量口径聚合。
+@router.get("/warnings/stats", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@limiter.limit("60/minute")
+async def get_warning_stats(
+    request: Request,
+    current_user: Annotated[User, Depends(require_role("counselor"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    service = CounselorService(db)
+    data = await service.get_warning_stats(current_user.id)
+    return ok(data)
+
+
 @router.put(
     "/warnings/{warning_id}/handle",
     response_model=ApiResponse,
@@ -155,6 +169,34 @@ async def list_users(
         )
     )
     await db.commit()
+    return ok(data)
+
+
+# P1-15 / F-03：绑定用户风险分布统计（SQL 层聚合）。
+# 注意：本路由必须定义在 ``/users/{user_id}`` **之前**，否则会被该动态路由吞掉
+# （与 review.py 的 assignable-counselors 同模式）。
+# 与 list_users 的差异：不写审计日志 —— 聚合计数属低敏感读取，且统计卡随页面
+# 打开频繁触发，写日志会把「看统计」放大成操作日志里的批量记录，污染
+# OperationLogStatsCard 的角色分布口径。
+@router.get("/users/stats", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+@limiter.limit("60/minute")
+async def get_user_stats(
+    request: Request,
+    current_user: Annotated[User, Depends(require_role("counselor"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """绑定用户的风险等级分布统计。
+
+    替代前端 ``page_size:200`` 拉全量用户到浏览器 filter 的做法 ——
+    绑定用户超 200 人时分子截断、分母不截断，分布是错的。口径与
+    ``list_my_users`` 一致（见 UserMixin.get_user_stats 文档）。
+    """
+    service = CounselorService(db)
+    data = await service.get_user_stats(
+        current_user.id,
+        # AUDIT-2026-10-06 (P0-1): 传入请求租户，服务层据此做数据层租户隔离
+        tenant_id=get_request_tenant_id(request),
+    )
     return ok(data)
 
 

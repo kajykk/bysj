@@ -83,6 +83,50 @@ class WarningMixin:
             "page_size": page_size,
         }
 
+    async def get_warning_stats(self, counselor_id: int) -> dict:
+        """咨询师预警统计（P1-15 / F-03 修复）。
+
+        原前端 ``page_size:200`` 拉全量到浏览器 filter：数据超 200 条时
+        分子截断、分母不截断，统计结果是错的。改为 SQL 层条件聚合。
+
+        口径与 ``list_warnings``（不带 ``only_unhandled`` 的全量视图）一致：
+        - 已处理/未处理 = ``is_handled`` 布尔本身（前端 ``isHandled`` 即
+          ``isWarningHandled``，对 handle/ignore/escalate 三种处置均为 True）；
+        - 分级按 ``current_level`` 原始数值（3/2/1），0/4 与越界值不计入
+          三档（与前端 normalizeWarningRiskLevel 映射后比较的行为一致）。
+        """
+        stmt = (
+            select(
+                func.count().label("total"),
+                func.count()
+                .filter(WarningNotification.is_handled.is_(False))
+                .label("unhandled"),
+                func.count()
+                .filter(WarningNotification.is_handled.is_(True))
+                .label("handled"),
+                func.count()
+                .filter(WarningNotification.current_level == 3)
+                .label("high_risk"),
+                func.count()
+                .filter(WarningNotification.current_level == 2)
+                .label("medium_risk"),
+                func.count()
+                .filter(WarningNotification.current_level == 1)
+                .label("low_risk"),
+            )
+            .select_from(WarningNotification)
+            .where(WarningNotification.counselor_id == counselor_id)
+        )
+        row = (await self.db.execute(stmt)).one()
+        return {
+            "total": int(row.total or 0),
+            "unhandled": int(row.unhandled or 0),
+            "handled": int(row.handled or 0),
+            "high_risk": int(row.high_risk or 0),
+            "medium_risk": int(row.medium_risk or 0),
+            "low_risk": int(row.low_risk or 0),
+        }
+
     async def handle_warning(
         self,
         counselor_id: int,

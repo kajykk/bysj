@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 
 from app.core.contracts import DEFAULT_TENANT_ID, normalize_risk_level
 from app.core.states import BindingStatus
@@ -114,6 +114,82 @@ class UserMixin:
         ]
 
         return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+    async def get_user_stats(
+        self,
+        counselor_id: int,
+        tenant_id: int | None = None,
+    ) -> dict:
+        """绑定用户的风险等级分布统计（P1-15 / F-03 修复）。
+
+        原前端 ``page_size:200`` 拉全量用户到浏览器 filter：绑定用户超 200 人时
+        分子截断、分母不截断，分布统计是错的。改为 SQL 层条件聚合。
+
+        口径与 ``list_my_users`` 逐行归一化严格一致：
+        - 范围 = 该咨询师的 ACTIVE 绑定 × 租户过滤（与 list_my_users 同条件，
+          含 AUDIT-2026-10-06 (P0-1) 的数据层租户隔离）；
+        - 等级取**最新**风险评估（``is_latest``，PERF-P2-002 的唯一真相来源）；
+          无最新评估 / ``risk_level`` 为 NULL / 等级为 0 均落入 ``none`` 档 ——
+          前端 ``UserOverviewStatsCard.normalizeRiskLevel`` 对
+          ``risk_level ?? latest_risk_level`` 的归一化中，None 经
+          ``String(value ?? 'none')`` 映射为 0，无评估时列表项 ``risk_level``
+          本身就是 0；
+        - 越界值（>4）不计入任何档，与前端数字直传时不落桶一致。
+        """
+        effective_tenant = tenant_id if tenant_id is not None else DEFAULT_TENANT_ID
+        stmt = (
+            select(
+                func.count(User.id).label("total"),
+                func.count()
+                .filter(
+                    or_(
+                        RiskAssessment.id.is_(None),
+                        RiskAssessment.risk_level.is_(None),
+                        RiskAssessment.risk_level == 0,
+                    )
+                )
+                .label("none"),
+                func.count()
+                .filter(RiskAssessment.risk_level == 1)
+                .label("low"),
+                func.count()
+                .filter(RiskAssessment.risk_level == 2)
+                .label("medium"),
+                func.count()
+                .filter(RiskAssessment.risk_level == 3)
+                .label("high"),
+                func.count()
+                .filter(RiskAssessment.risk_level == 4)
+                .label("critical"),
+            )
+            .select_from(
+                User.__table__.join(
+                    UserCounselorBinding,
+                    UserCounselorBinding.user_id == User.id,
+                ).outerjoin(
+                    RiskAssessment,
+                    and_(
+                        RiskAssessment.user_id == User.id,
+                        RiskAssessment.is_latest.is_(True),
+                    ),
+                )
+            )
+            .where(
+                UserCounselorBinding.counselor_id == counselor_id,
+                UserCounselorBinding.status == BindingStatus.ACTIVE,
+                # 租户隔离（数据层），与 list_my_users 同条件
+                tenant_scoped_filter(User, effective_tenant),
+            )
+        )
+        row = (await self.db.execute(stmt)).one()
+        return {
+            "total": int(row.total or 0),
+            "none": int(row.none or 0),
+            "low": int(row.low or 0),
+            "medium": int(row.medium or 0),
+            "high": int(row.high or 0),
+            "critical": int(row.critical or 0),
+        }
 
     async def get_user_detail(self, counselor_id: int, user_id: int) -> dict | None:
         binding_stmt = select(UserCounselorBinding).where(

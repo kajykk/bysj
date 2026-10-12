@@ -74,7 +74,6 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/userApi'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
-import { isWarningHandled, normalizeWarningRiskLevel } from '@/utils/warning'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 
@@ -100,14 +99,16 @@ const loadStats = async () => {
   }
   loading.value = true
   try {
-    const data = await userApi.getUserWarnings({ page: 1, page_size: 200 })
-    const items = data.items || []
-    stats.total = data.total ?? items.length
-    stats.highRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 3).length
-    stats.mediumRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 2).length
-    stats.lowRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 1).length
-    stats.handled = items.filter((i) => isWarningHandled(i)).length
-    stats.unread = items.filter((i) => !i.is_read).length
+    // P1-15 / F-03：改用后端 SQL 层聚合端点。改前 page_size:200 拉全量预警到
+    // 前端 filter，预警超 200 条时分子（分级/已处理/未读）只覆盖前 200 条，
+    // 而分母用服务端 total，统计结果是错的。
+    const data = await userApi.getUserWarningStats()
+    stats.total = data.total
+    stats.highRisk = data.high_risk
+    stats.mediumRisk = data.medium_risk
+    stats.lowRisk = data.low_risk
+    stats.handled = data.handled
+    stats.unread = data.unread
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {

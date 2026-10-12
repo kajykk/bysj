@@ -73,8 +73,6 @@ defineOptions({ name: 'CounselorWarningStatsCard' })
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { counselorApi } from '@/api/counselorApi'
-import { isHandled } from './sharedCounselorWarningsUtils'
-import { normalizeWarningRiskLevel } from '@/utils/warning'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 
 const { t } = useI18n()
@@ -92,15 +90,15 @@ const stats = reactive({
 const loadStats = async () => {
   loading.value = true
   try {
-    // 取全量（不过滤 only_unhandled）以统计整体概览；失败时用空值降级，不阻断主列表。
-    const data = await counselorApi.getCounselorWarnings({ page: 1, page_size: 200 })
-    const items = data.items || []
-    stats.total = data.total ?? items.length
-    stats.unhandled = items.filter((i) => !isHandled(i)).length
-    stats.handled = items.filter((i) => isHandled(i)).length
-    stats.highRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 3).length
-    stats.mediumRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 2).length
-    stats.lowRisk = items.filter((i) => normalizeWarningRiskLevel(i.risk_level) === 1).length
+    // P1-15 / F-03：改用后端 SQL 层聚合端点。改前 page_size:200 拉全量预警到
+    // 前端 filter，预警超 200 条时分子截断、分母不截断，统计结果是错的。
+    const data = await counselorApi.getCounselorWarningStats()
+    stats.total = data.total
+    stats.unhandled = data.unhandled
+    stats.handled = data.handled
+    stats.highRisk = data.high_risk
+    stats.mediumRisk = data.medium_risk
+    stats.lowRisk = data.low_risk
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {

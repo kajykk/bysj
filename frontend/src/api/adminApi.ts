@@ -6,6 +6,26 @@ import type { TaskType } from './taskTypes'
 
 export type { AuditCompliance, AuditLogsResult, ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
 
+// ===== 统计（P1-15 / F-03：SQL 层聚合，替代 page_size:200 全量拉取）=====
+
+/** 危机事件状态分布统计（GET /reviews/crisis-events/stats），口径同 getCrisisEvents 不带过滤。 */
+export interface CrisisEventStats {
+  total: number
+  detected: number
+  reviewed: number
+  escalated: number
+  resolved: number
+}
+
+/** 操作日志角色分布统计（GET /admin/operation-logs/stats），口径同 listAdminOperationLogs 不带过滤。 */
+export interface OperationLogStats {
+  total: number
+  user: number
+  counselor: number
+  admin: number
+  super_admin: number
+}
+
 export const adminApi = {
   listAdminTemplates: (query?: PageQuery) => requestPageData<TemplateItem>(dedupedGet('/admin/templates', { params: buildPageParams(query) })),
 
@@ -46,6 +66,12 @@ export const adminApi = {
     requestPageData<OperationLogItem>(dedupedGet('/admin/operation-logs', {
       params: { ...buildPageParams(query), action_type: query?.action_type, operator_role: query?.operator_role, operator_name: query?.operator_name, start_time: query?.start_time, end_time: query?.end_time }
     })),
+
+  // P1-15 / F-03: 操作日志角色分布统计（SQL 层聚合）。原实现 page_size:200
+  // 拉全量到前端 filter，日志超 200 条时分子截断、分母不截断，分布是错的；
+  // 且 detail 含 IP/request_id，传输 200 条完整记录的泄露面也随放大。
+  getOperationLogStats: () =>
+    requestData<OperationLogStats>(dedupedGet('/admin/operation-logs/stats')),
 
   // ISS-080: 导出全部筛选条件下的操作日志（不分页）
   exportAdminOperationLogs: (query?: { action_type?: string; operator_role?: string; operator_name?: string; start_time?: string; end_time?: string }) =>
@@ -95,6 +121,13 @@ export const adminApi = {
         end_date: query?.end_date
       }
     })),
+
+  // P1-15 / F-03: 危机事件状态分布统计（SQL 层聚合，租户隔离口径同列表）。
+  // 原实现 page_size:200 拉全量到前端 filter，事件超 200 条时分子截断、
+  // 分母不截断，分布是错的；且事件含 input_summary/crisis_keywords，
+  // 传输 200 条完整记录的泄露面也随放大。
+  getCrisisEventStats: () =>
+    requestData<CrisisEventStats>(dedupedGet('/reviews/crisis-events/stats')),
 
   exportCrisisEvents: (startDate: string, endDate: string): Promise<Blob> =>
     dedupedGet('/admin/crisis-events/export', {

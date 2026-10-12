@@ -242,6 +242,33 @@ async def create_silence(
     return ok(_serialize_silence(silence))
 
 
+@router.get("/stats", response_model=dict, responses=COMMON_ERROR_RESPONSES)
+async def get_silence_stats(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_platform_admin())],
+) -> dict:
+    """v1.36: 静默规则统计（SQL 层聚合，P1-15 / F-03）。
+
+    原前端 ``page_size:200`` 拉全量静默规则到浏览器 filter：规则超 200 条时
+    分子截断、分母不截断，生效/停用分布是错的。改为 SQL 层条件聚合。
+    口径与 ``list_silences``（不带过滤）一致：total 统计全部规则，
+    active/inactive 按 ``is_active`` 布尔分桶。
+    """
+    stmt = select(
+        func.count().label("total"),
+        func.count().filter(AlertSilence.is_active.is_(True)).label("active"),
+        func.count().filter(AlertSilence.is_active.is_(False)).label("inactive"),
+    ).select_from(AlertSilence)
+    row = (await db.execute(stmt)).one()
+    return ok(
+        {
+            "total": int(row.total or 0),
+            "active": int(row.active or 0),
+            "inactive": int(row.inactive or 0),
+        }
+    )
+
+
 @router.get("", response_model=dict, responses=COMMON_ERROR_RESPONSES)
 async def list_silences(
     db: Annotated[AsyncSession, Depends(get_db)],

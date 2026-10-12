@@ -7,9 +7,36 @@ import type { ConsultationGroupItem, ConsultationItem, CounselorBrief, ReviewIte
 export type { WarningItem, UserBindingInfo } from './userTypes'
 export type { ConsultationGroupItem, ConsultationItem, CounselorBrief, ReviewItem, ReviewStats, UserManageItem, UserRiskHistoryItem, UserAssessmentItem, UserInterventionItem } from './counselorTypes'
 
+// ===== 统计（P1-15 / F-03：SQL 层聚合，替代 page_size:200 全量拉取）=====
+
+/** 咨询师预警统计（GET /counselor/warnings/stats），口径同 getCounselorWarnings 不带过滤。 */
+export interface CounselorWarningStats {
+  total: number
+  unhandled: number
+  handled: number
+  high_risk: number
+  medium_risk: number
+  low_risk: number
+}
+
+/** 咨询师绑定用户风险分布统计（GET /counselor/users/stats），口径同 getCounselorUsers 不带过滤。 */
+export interface CounselorUserStats {
+  total: number
+  none: number
+  low: number
+  medium: number
+  high: number
+  critical: number
+}
+
 export const counselorApi = {
   getCounselorWarnings: (query?: PageQuery & { only_unhandled?: boolean }) =>
     requestPageData<WarningItem>(dedupedGet('/counselor/warnings', { params: { ...buildPageParams(query), only_unhandled: query?.only_unhandled } })),
+
+  // P1-15 / F-03: 咨询师预警统计（SQL 层聚合）。原实现 page_size:200 拉全量到
+  // 前端 filter，超 200 条时分子截断、分母不截断，分布统计是错的。
+  getCounselorWarningStats: () =>
+    requestData<CounselorWarningStats>(dedupedGet('/counselor/warnings/stats')),
 
   handleCounselorWarning: (warningId: number, action: 'handle' | 'ignore', note?: string) =>
     requestData<{ message: string }>(request.put(`/counselor/warnings/${warningId}/handle`, { action, note })),
@@ -20,6 +47,11 @@ export const counselorApi = {
 
   getCounselorUsers: (query?: PageQuery & { risk_level?: number }) =>
     requestPageData<UserManageItem>(dedupedGet('/counselor/users', { params: { ...buildPageParams(query), risk_level: query?.risk_level } })),
+
+  // P1-15 / F-03: 绑定用户风险分布统计（SQL 层聚合）。原实现 page_size:200
+  // 拉全量到前端 filter，绑定用户超 200 人时分子截断、分母不截断，分布是错的。
+  getCounselorUserStats: () =>
+    requestData<CounselorUserStats>(dedupedGet('/counselor/users/stats')),
 
   getCounselorUserDetail: (userId: number) => requestData<UserManageItem>(dedupedGet(`/counselor/users/${userId}`)),
 

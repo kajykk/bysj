@@ -72,18 +72,10 @@
 defineOptions({ name: 'UserOverviewStatsCard' })
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { counselorApi, type UserManageItem } from '@/api/counselorApi'
+import { counselorApi } from '@/api/counselorApi'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 
 const { t } = useI18n()
-
-const normalizeRiskLevel = (
-  value: UserManageItem['risk_level'] | UserManageItem['latest_risk_level']
-): number => {
-  if (typeof value === 'number') return value
-  const map: Record<string, number> = { none: 0, low: 1, medium: 2, high: 3, critical: 4 }
-  return map[String(value ?? 'none')] ?? 0
-}
 
 const loading = ref(true)
 const stats = reactive({
@@ -98,24 +90,17 @@ const stats = reactive({
 const loadStats = async () => {
   loading.value = true
   try {
-    const data = await counselorApi.getCounselorUsers({ page: 1, page_size: 200 })
-    const items = data.items || []
-    stats.total = data.total ?? items.length
-    stats.none = items.filter(
-      (i) => normalizeRiskLevel(i.risk_level ?? i.latest_risk_level) === 0
-    ).length
-    stats.low = items.filter(
-      (i) => normalizeRiskLevel(i.risk_level ?? i.latest_risk_level) === 1
-    ).length
-    stats.medium = items.filter(
-      (i) => normalizeRiskLevel(i.risk_level ?? i.latest_risk_level) === 2
-    ).length
-    stats.high = items.filter(
-      (i) => normalizeRiskLevel(i.risk_level ?? i.latest_risk_level) === 3
-    ).length
-    stats.critical = items.filter(
-      (i) => normalizeRiskLevel(i.risk_level ?? i.latest_risk_level) === 4
-    ).length
+    // P1-15 / F-03：改用后端 SQL 层聚合端点。改前 page_size:200 拉全量用户到
+    // 前端 filter，绑定用户超 200 人时分子截断、分母不截断，分布是错的。
+    // 口径同 getCounselorUsers：取最新风险评估（is_latest）的 risk_level，
+    // 无评估/等级为 0 落入 none 档。
+    const data = await counselorApi.getCounselorUserStats()
+    stats.total = data.total
+    stats.none = data.none
+    stats.low = data.low
+    stats.medium = data.medium
+    stats.high = data.high
+    stats.critical = data.critical
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {

@@ -300,6 +300,24 @@ async def list_operation_logs(
     return ok(data)
 
 
+# P1-15 / F-03：操作日志角色分布统计（SQL 层聚合），替代前端 page_size:200
+# 全量拉取。口径与 list_operation_logs（不带过滤）一致。
+@router.get(
+    "/operation-logs/stats",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("60/minute")
+async def get_operation_log_stats(
+    request: Request,
+    current_user: Annotated[User, Depends(require_platform_admin())],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    service = AdminService(db)
+    data = await service.get_operation_log_stats()
+    return ok(data)
+
+
 @router.get(
     "/operation-logs/export",
     response_model=ApiResponse,

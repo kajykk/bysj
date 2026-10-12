@@ -7,6 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.model_engine import model_engine
+from app.core.risk_thresholds import MODALITY_RISK_THRESHOLDS
 from app.models.assessment import (
     DataDraft,
     PhysiologicalRecord,
@@ -17,6 +18,15 @@ from app.models.risk import RiskAssessment
 from app.services.risk_service import RiskService
 
 logger = logging.getLogger(__name__)
+
+# P1-15 / F-03：评估统计卡的风险分档阈值。
+# 与前端 src/views/user/utils/assessmentHistory.ts 的 summarizeAssessmentHistory
+# 逐条分档口径一致（high 62 / moderate 42 / mild 22，即 fusion 档），
+# 避免统计卡与列表页对同一条记录给出不同分档。阈值取 SSOT 常量而非字面量。
+_FUSION_THRESHOLDS = MODALITY_RISK_THRESHOLDS["fusion"]
+_HIGH_SCORE = _FUSION_THRESHOLDS["high"]
+_MODERATE_SCORE = _FUSION_THRESHOLDS["moderate"]
+_MILD_SCORE = _FUSION_THRESHOLDS["mild"]
 
 # M18 修复：将 save_assessment_result 的核心逻辑下沉到 service 层，避免反向依赖 API 层
 _PHYSIO_FEATURE_LABELS: dict[str, str] = {
@@ -328,6 +338,66 @@ class UserDataService:
         await self.db.commit()
         await self.db.refresh(record)
         return record.id
+
+    async def get_history_stats(self, user_id: int) -> dict:
+        """评估历史统计（P1-15 / F-03 修复）。
+
+        原前端对 structured/text/physiological **各发一次** ``page_size:200``
+        请求（``type`` 是单值参数，一次拿不到全部类型）再合并 filter：数据超
+        200 条时分子截断、分母不截断；且一次页面打开最多传输 600 条完整记录
+        （text 类型含用户正文）。改为单条 SQL 的标量子查询聚合，一次往返。
+
+        分档口径与前端 ``summarizeAssessmentHistory`` 逐条计算一致：
+        只统计有 0-100 风险分的结构化记录（``score`` 为 NULL 时
+        ``score >= 阈值`` 为 NULL，不计入任何档，与前端 ``extractScore``
+        返回 null 时 ``continue`` 的行为一致）。
+        """
+
+        def _count_stmt(model, *conditions):
+            stmt = select(func.count()).select_from(model)
+            for cond in conditions:
+                stmt = stmt.where(cond)
+            return stmt.scalar_subquery()
+
+        stmt = select(
+            _count_stmt(StructuredAssessment, StructuredAssessment.user_id == user_id).label(
+                "structured"
+            ),
+            _count_stmt(TextEntry, TextEntry.user_id == user_id).label("text"),
+            _count_stmt(
+                PhysiologicalRecord, PhysiologicalRecord.user_id == user_id
+            ).label("physiological"),
+            _count_stmt(
+                StructuredAssessment,
+                StructuredAssessment.user_id == user_id,
+                StructuredAssessment.score >= _HIGH_SCORE,
+            ).label("high_risk"),
+            _count_stmt(
+                StructuredAssessment,
+                StructuredAssessment.user_id == user_id,
+                StructuredAssessment.score >= _MODERATE_SCORE,
+                StructuredAssessment.score < _HIGH_SCORE,
+            ).label("medium_risk"),
+            _count_stmt(
+                StructuredAssessment,
+                StructuredAssessment.user_id == user_id,
+                StructuredAssessment.score >= _MILD_SCORE,
+                StructuredAssessment.score < _MODERATE_SCORE,
+            ).label("low_risk"),
+        )
+        row = (await self.db.execute(stmt)).one()
+        structured = int(row.structured or 0)
+        text = int(row.text or 0)
+        physiological = int(row.physiological or 0)
+        return {
+            "total": structured + text + physiological,
+            "structured": structured,
+            "text": text,
+            "physiological": physiological,
+            "high_risk": int(row.high_risk or 0),
+            "medium_risk": int(row.medium_risk or 0),
+            "low_risk": int(row.low_risk or 0),
+        }
 
     async def get_history(
         self,

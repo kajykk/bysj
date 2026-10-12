@@ -77,6 +77,25 @@ export interface SilenceListQuery extends PageQuery {
   is_active?: boolean
 }
 
+// ===== 统计（P1-15 / F-03：SQL 层聚合，替代 page_size:200 全量拉取）=====
+
+/** 告警历史统计（GET /alerts/history/stats），口径同 listAlertHistory 不带过滤。 */
+export interface AlertHistoryStats {
+  total: number
+  p0: number
+  p1: number
+  p2: number
+  firing: number
+  resolved: number
+}
+
+/** 静默规则统计（GET /alerts/silences/stats），口径同 listSilences 不带过滤。 */
+export interface SilenceStats {
+  total: number
+  active: number
+  inactive: number
+}
+
 // ===== API =====
 
 export const alertsApi = {
@@ -93,6 +112,11 @@ export const alertsApi = {
         }
       })
     ),
+
+  // P1-15 / F-03: 告警历史统计（SQL 层聚合）。原实现 page_size:200 拉全量到
+  // 前端 filter，超 200 条时分子截断、分母不截断，分布统计是错的。
+  getAlertHistoryStats: () =>
+    requestData<AlertHistoryStats>(dedupedGet('/alerts/history/stats')),
 
   // 确认告警: POST /alerts/{id}/ack
   ackAlert: (id: number) =>
@@ -127,6 +151,11 @@ export const alertsApi = {
         }
       })
     ),
+
+  // P1-15 / F-03: 静默规则统计（SQL 层聚合）。原实现 page_size:200 拉全量到
+  // 前端 filter，超 200 条时分子截断、分母不截断，生效/停用分布是错的。
+  getSilenceStats: () =>
+    requestData<SilenceStats>(dedupedGet('/alerts/silences/stats')),
 
   // 当前生效的静默规则: GET /alerts/silences/active
   listActiveSilences: () =>

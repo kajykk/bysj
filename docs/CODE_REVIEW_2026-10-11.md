@@ -543,6 +543,11 @@ stats.highRisk = items.filter(i => normalizeWarningRiskLevel(i.risk_level) === 3
 **后果**：每页打开都传 200 条完整记录（含正文）做 5 次全量 filter；数据超 200 条时**分子截断、分母不截断 → 统计结果是错的**。
 **建议**：后端提供 `/stats` 聚合端点（本仓 `counselorApi.getReviewStats()` 已是正确范例）；前端抽 `useStatsCard()`。
 
+> **整改进展（第六轮，2026-10-13）**：已修复。后端 9 个 SQL 聚合端点 + 前端 9 卡
+> 改调，回退对照 18/18 全绿。**修正报告一处描述**：实测 7/9 列表端点 `page_size`
+> 法定上限为 100，旧前端发 200 直接被服务端 422 拒绝、被空 catch 吞掉 —— 这些卡
+> **恒显示全 0**，比「分子截断」更严重。详见文末第六轮追记。
+
 ### F-04 导出无上限全量翻页
 `frontend/src/views/user/UserAssessmentsPage.vue:286-320`
 
@@ -1091,3 +1096,110 @@ null、也覆盖了 `probability` 为 0，**唯独漏了 `probability` 为 null*
 + 形状判据（spy `Promise.prototype.finally`，精确作用于清理函数本身）。
 ⚠️ 附带教训：`vi.spyOn(...).mockRestore()` 会**清空 `mock.calls`**，
 必须先取计数再 restore——第一版就是因此把红色判据写成了绿色。
+
+---
+
+## P1 整改追记（2026-10-13，第六轮）：F-03 / #15 统计卡全量拉取
+
+### 问题
+
+9 个 `*StatsCard.vue` 用 `page_size: 200` 拉全量数据到前端 filter 做统计
+（审查报告 F-03）：数据超窗口时分子截断、分母不截断，统计是错的；且完整记录
+（含 `input_summary`、PII 字段）的传输面随窗口放大。
+
+### 重大实测发现：比报告描述的更严重——统计卡恒显示全 0
+
+写闸门时实测：**7/9 列表端点的 `page_size` 法定上限是 100**（M-API-3 统一上限，
+只有 alerts/silences 两个告警端点是 200）。旧前端对这 7 个端点发的是
+`page_size=200` → 服务端直接 **422 Unprocessable Entity** → 被卡片空的
+`catch {}` 吞掉 → **这些统计卡从来就没有正确过，恒显示全 0**；
+报告描述的「分子截断」只发生在 alerts/silences 两端。
+该实证已固化为闸门用例 `test_old_frontend_approach_page_size_200_is_rejected`
+（钉住 422，防止回归老路）。
+
+### 修复
+
+- **后端 9 个 SQL 层聚合端点**（`func.count().filter()` 单条查询全量分桶，
+  沿用 `review_service.get_review_stats` 既有模式）：
+  `user/warnings/stats`、`user/data/history/stats`、`user/intervention/stats`、
+  `counselor/warnings/stats`、`counselor/users/stats`、`reviews/crisis-events/stats`、
+  `alerts/history/stats`、`alerts/silences/stats`、`admin/operation-logs/stats`。
+  要点：`NULLIF` 防除零（SQLite/PG 行为不一致）、half-up 舍入对齐前端
+  `Math.round`、分档阈值取 `MODALITY_RISK_THRESHOLDS["fusion"]` SSOT、
+  `/counselor/users/stats` 必须置于 `/users/{user_id}`` 之前（否则被吞 → 422）、
+  危机事件经 JOIN `User` 推导租户（表无 tenant_id 列）、stats 端点不写审计日志
+  （避免看统计产生批量 OperationLog 污染自家统计口径）。
+- **前端 9 卡改调聚合端点**，移除本地 filter 与不再使用的工具导入；
+  保留空 catch 降级语义（不阻断主列表）。
+
+### 本轮验证读数
+
+- 后端闸门 `tests/api/test_p1_audit_2026_10_13_round6.py`：**19 passed**
+  （反截断判据：60 条特征旧记录落在列表窗口外 + 法定窗口内普通记录，
+  先断言「窗口内确实没有特征记录」再断言聚合全量真值）。
+- **回退对照实验 18/18**（9 个后端 stats 实现 + 9 张前端卡片，逐一单独回退）：
+  每个目标回退后**恰好**映射用例变红、其余保持绿，恢复后全绿
+  ⇒ 每条闸门真正绑定各自的端点，无恒绿、无串味。
+- 受影响既有测试（17 个文件）：**323 passed**。
+- 契约：`openapi.json` 重新生成（**+1127/-69 行**，9 个 stats 路径全部收录），
+  `tests/contract/` 全量 **278 passed**（1204s，schemathesis）。
+- 前端全量：**99 files / 1278 passed / 4 skipped**（基线 98 / 1268 / 4，
+  净增 10 条卡片级闸门）。
+- `vue-tsc`：**42 errors**（基线 45，余量 3）；本轮改动文件**零错误**。
+- `eslint`（改动文件集）：仅存量 1 错（`adminApi.ts:4 AuditCompliance`，
+  HEAD 即存在，与本轮无关，不回改）。
+- `vite build`：**precache 146 entries**（9245.67 KiB），与第五轮读数一致
+  ⇒ 本轮改动对产物零影响（manifest 146 条 URL 全部实测存在于本次 dist/）。
+  ⚠️ 中途一次误判值得记录：本机直接 `vite build` 会被环境安全垫拦截清空
+  dist/ 的 248 个残留文件（阈值 50），改用自定义 outDir 后得到 148 ——
+  实为**伪影**：`vite.config.ts` 的 `workbox.globDirectory: 'dist'` 是硬编码的，
+  自定义 outDir 时 PWA 插件 glob 的仍是**陈旧的 dist/**，manifest 里的资产
+  URL 与计数全部来自旧构建。将 dist/ 移开后全量构建到规范位置才得到
+  可信读数 146。**「自定义 outDir 绕开清理」在此仓会静默改变 glob 语义。**
+
+### 种子数据三个坑（闸门首跑 10 失败的根因，均已修复）
+
+1. `PhysiologicalRecord` 的时间列是 **`recorded_at`**，不是 `created_at`。
+2. `UserCounselorBinding.bind_code` **非空且唯一**（4–10 字符）。
+3. seed 用户 1/2/3 的 `tenant_id` 均为 **NULL**，危机事件列表/统计经
+   JOIN `User.tenant_id` 推导租户时会被整体排除 → 必须显式造
+   `tenant_id=1/2` 的用户再种事件（否则 `total == 0`）。
+
+### 本轮方法论收获：回退驱动的失败解析连续三轮「假通过」
+
+前端回退实验第一版跑完 9/9「全部通过」，但与手工变异实锤
+（`× WarningStatsCard` 一条红）矛盾 → 是**驱动的失败解析漏判**，连踩三坑：
+
+1. **Windows `subprocess` 默认按 GBK 解码** vitest 的 UTF-8 输出，
+   失败标记 `×` 变乱码 → `failed` 集合恒空。必须显式 `encoding="utf-8"`。
+2. vitest 输出带 **ANSI 颜色码**，失败时最后一条含 "Tests" 的行是
+   `Failed Tests 1` 分隔线（大写 Failed）→ 摘要行要正则精确匹配
+   `Tests N failed`，不能 `line contains "Tests"` 取最后一条。
+3. `×` 行**尾随时长后缀**（`…聚合值 8ms`）→ 与用例名精确匹配失败，
+   须先剥离 `\s+\d+(ms|s)$`。
+
+⇒ 与第五轮「jsdom 不派发 unhandledrejection」同类：**验证工具自身的失效
+会伪装成「修复有效」**。已在驱动里加自检——变异轮摘要检不出 "failed"
+直接判实验无效（本次正是它连抓两轮），而不是默默放行。
+
+### 第四个坑：自定义 outDir 让 PWA glob 静默指向陈旧目录
+
+本机 `vite build` 被环境安全垫拦截（dist/ 残留 248 文件超删除阈值），
+改用 `--outDir dist-p1r6` 后构建"成功"且得到 148 entries——但
+`vite.config.ts` 的 `workbox.globDirectory: 'dist'` 是**硬编码**的：
+自定义 outDir 时插件 glob 的仍是旧 dist/，manifest 的资产 URL 与计数
+全部来自旧构建（148 = 旧 dist 里的 146 + 旧 sw.js/workbox 两个残留）。
+两次"独立"构建读数一致，只是因为它们 glob 的是同一个陈旧目录 ——
+**看似互相印证，实为同源伪影**。移开 dist/ 后规范构建得到 146（与第五轮
+一致，且 146 条 URL 全部实测存在于本次产物）。⇒ 在此仓验证构建产物，
+**必须在规范 outDir 下构建**；用自定义 outDir 绕开清理问题会引入
+更难发现的第二类错误。
+
+### 未验证 / 记账
+
+- 后端全量测试套件（约 37 分钟）未在本机跑全量，以「受影响既有测试 323
+  passed + 闸门 19 passed + 契约 278 passed」覆盖；CI 全量为准。
+- `vite build` 的 146 为规范 outDir（dist/）读数；本机需先移开残留 dist/
+  才能构建（环境安全垫阈值），CI 全新检出环境不受此限。
+- P2 #31（租户隔离机制化）、#32（SSOT 去重）、仓库 prettier 格式单独一轮，
+  仍按既定排期推进。

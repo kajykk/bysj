@@ -167,6 +167,22 @@ async def history(
     return ok(result)
 
 
+@router.get("/history/stats", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+async def get_history_stats(
+    current_user: Annotated[User, Depends(require_role("user"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """评估历史统计（SQL 层聚合）。
+
+    P1-15 / F-03：替代前端对三种类型各发一次 ``page_size:200`` 请求再合并
+    filter 的做法 —— 数据超 200 条时分子截断、分母不截断，统计结果是错的。
+    分档口径与前端 ``summarizeAssessmentHistory`` 一致（见
+    UserDataService.get_history_stats 文档）。
+    """
+    service = UserDataService(db)
+    return ok(await service.get_history_stats(current_user.id))
+
+
 @router.get("/binding", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
 async def get_binding(
     current_user: Annotated[User, Depends(require_role("user"))],

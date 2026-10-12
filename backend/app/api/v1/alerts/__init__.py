@@ -371,6 +371,65 @@ async def list_alert_history(
     )
 
 
+def _severity_condition(severity: str):
+    """severity 的 SQL 匹配条件（与 list_alert_history 的 M5/ISS-042 修复同口径）。
+
+    detail 是 JSON 字符串，用尾随引号实现精确值匹配（``"severity": "P1"``
+    不会误匹配 ``P10``），并同时匹配有无空格两种序列化格式。
+    """
+    return or_(
+        OperationLog.detail.contains(f'"severity": "{severity}"'),
+        OperationLog.detail.contains(f'"severity":"{severity}"'),
+    )
+
+
+@router.get("/history/stats", response_model=dict, responses=COMMON_ERROR_RESPONSES)
+@limiter.limit("60/minute")
+async def get_alert_history_stats(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_platform_admin())],
+) -> dict:
+    """v1.36: 告警历史统计（SQL 层聚合，P1-15 / F-03）。
+
+    原前端 ``page_size:200`` 拉全量告警历史到浏览器 filter：告警超 200 条时
+    分子截断、分母不截断，严重度/状态分布是错的。改为 SQL 层条件聚合。
+
+    口径与 ``list_alert_history``（不带过滤）一致：
+    - 行范围 = ``action_type in ('alert_fired', 'alert_resolved')``；
+    - severity 匹配见 ``_severity_condition``（与列表的 ISS-042 修复同口径）；
+    - status 由 action_type 推断（firing=alert_fired / resolved=alert_resolved）。
+    """
+    conditions = [OperationLog.action_type.in_(["alert_fired", "alert_resolved"])]
+    stmt = (
+        select(
+            func.count().label("total"),
+            func.count().filter(_severity_condition("P0")).label("p0"),
+            func.count().filter(_severity_condition("P1")).label("p1"),
+            func.count().filter(_severity_condition("P2")).label("p2"),
+            func.count()
+            .filter(OperationLog.action_type == "alert_fired")
+            .label("firing"),
+            func.count()
+            .filter(OperationLog.action_type == "alert_resolved")
+            .label("resolved"),
+        )
+        .select_from(OperationLog)
+        .where(and_(*conditions))
+    )
+    row = (await db.execute(stmt)).one()
+    return ok(
+        {
+            "total": int(row.total or 0),
+            "p0": int(row.p0 or 0),
+            "p1": int(row.p1 or 0),
+            "p2": int(row.p2 or 0),
+            "firing": int(row.firing or 0),
+            "resolved": int(row.resolved or 0),
+        }
+    )
+
+
 @router.post("/{alert_id}/ack", response_model=dict, responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("30/minute")
 async def acknowledge_alert(

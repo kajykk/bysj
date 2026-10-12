@@ -69,6 +69,21 @@ async def get_intervention_history(
     return ok(data)
 
 
+@router.get("/stats", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+async def get_intervention_stats(
+    current_user: Annotated[User, Depends(require_role("user"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """干预计划统计（SQL 层聚合）。
+
+    P1-15 / F-03：替代前端 ``page_size:200`` 拉全量到浏览器 filter 的做法 ——
+    数据超 200 条时分子截断、分母不截断，统计结果是错的。口径与
+    ``get_history`` 一致（见 InterventionService.get_stats 文档）。
+    """
+    service = InterventionService(db)
+    return ok(await service.get_stats(current_user.id))
+
+
 @router.put(
     "/tasks/{task_id}/complete",
     response_model=ApiResponse,

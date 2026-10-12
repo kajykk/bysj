@@ -80,11 +80,10 @@
 defineOptions({ name: 'AssessmentsStatsCard' })
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { userApi, type DataHistoryItem } from '@/api/userApi'
+import { userApi } from '@/api/userApi'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
-import { summarizeAssessmentHistory } from '../../utils/assessmentHistory'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -109,23 +108,17 @@ const loadStats = async () => {
   }
   loading.value = true
   try {
-    // FIX-2026-10-08：`GET /user/data/history` 的 `type` 是**单值**且后端默认
-    // 为 structured（backend/app/api/v1/user_data.py:138-140），一次请求拿不到
-    // 全部类型。统计卡要按类型分布计数，必须按三种类型各取一次再合并；
-    // 改前只发一次不带 type 的请求，于是 text / physiological 两类恒为 0。
-    const types = ['structured', 'text', 'physiological'] as const
-    const pages = await Promise.all(
-      types.map((type) => userApi.getUserAssessmentHistory({ page: 1, page_size: 200, type }))
-    )
-    const items: DataHistoryItem[] = pages.flatMap((page) => page.items || [])
-    const summary = summarizeAssessmentHistory(items)
+    // P1-15 / F-03：改用后端 SQL 层聚合端点。改前对三种类型各发一次
+    // page_size:200 请求再合并 filter（type 是单值参数），超 200 条时
+    // 分子截断、分母不截断，且一次打开最多传输 600 条完整记录。
+    const summary = await userApi.getUserAssessmentHistoryStats()
     stats.total = summary.total
     stats.structured = summary.structured
     stats.text = summary.text
     stats.physiological = summary.physiological
-    stats.highRisk = summary.highRisk
-    stats.mediumRisk = summary.mediumRisk
-    stats.lowRisk = summary.lowRisk
+    stats.highRisk = summary.high_risk
+    stats.mediumRisk = summary.medium_risk
+    stats.lowRisk = summary.low_risk
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {

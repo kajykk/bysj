@@ -173,6 +173,25 @@ async def list_crisis_events(
     return ok(result)
 
 
+# P1-15 / F-03：危机事件状态分布统计（SQL 层聚合），替代前端 page_size:200
+# 全量拉取。统计口径与 list_crisis_events（不带过滤）一致。
+@router.get(
+    "/crisis-events/stats",
+    response_model=ApiResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+@limiter.limit("60/minute")
+async def get_crisis_event_stats(
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("crisis_event.view"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """危机事件状态分布统计（tenant 隔离，口径同列表）。"""
+    service = CrisisEventService(db)
+    result = await service.get_stats(tenant_id=current_user.tenant_id)
+    return ok(result)
+
+
 # ISS-072 修复：危机事件状态流转端点（处理 / 升级 / 关闭）
 
 

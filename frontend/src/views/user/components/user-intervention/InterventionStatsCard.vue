@@ -72,15 +72,13 @@ const stats = reactive({
 const loadStats = async () => {
   loading.value = true
   try {
-    const data = await userApi.getInterventionHistory({ page: 1, page_size: 200 })
-    const items = data.items || []
-    stats.active = items.filter((i) => i.status === 'active').length
-    stats.completed = items.filter((i) => i.status === 'completed').length
-    stats.cancelled = items.filter((i) => i.status === 'cancelled').length
-    const rates = items.map((i) => Number(i.completion_rate) || 0)
-    stats.avgCompletion = rates.length
-      ? Math.round(rates.reduce((sum, r) => sum + r, 0) / rates.length)
-      : 0
+    // P1-15 / F-03：改用后端 SQL 层聚合端点。改前 page_size:200 拉全量计划到
+    // 前端 filter，计划超 200 条时分子截断、分母不截断，统计结果是错的。
+    const data = await userApi.getInterventionStats()
+    stats.active = data.active
+    stats.completed = data.completed
+    stats.cancelled = data.cancelled
+    stats.avgCompletion = data.avg_completion
   } catch {
     // 统计加载失败时使用空值，不阻断主页面
   } finally {

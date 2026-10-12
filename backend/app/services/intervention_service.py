@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import UTC, date, datetime
 
 from sqlalchemy import func, select
@@ -246,6 +247,85 @@ class InterventionService:
             "total": total,
             "page": page,
             "page_size": page_size,
+        }
+
+    async def get_stats(self, user_id: int) -> dict:
+        """干预计划统计（P1-15 / F-03 修复）。
+
+        原前端 ``page_size:200`` 拉全量计划到浏览器 filter：数据超 200 条时
+        分子（active/completed/cancelled 与完成率）只覆盖前 200 条而分母不截断，
+        统计结果错误；且每页打开都传输 200 条完整计划记录。改为 SQL 层聚合。
+
+        口径与 ``get_history`` 逐条计算严格一致：
+        - 完成率 = 该计划下已完成 TaskExecution 数 / InterventionTask 总数 × 100，
+          无任务的计划记 0（``get_history`` 的 ``total_tasks_in_plan`` 为 0 分支）；
+        - 均值为**全部计划**的算术平均（含 0 值计划），四舍五入口径与前端
+          ``Math.round`` 对齐（half-up，非 Python 银行家舍入）。
+        """
+        # 每计划任务总数（子查询）
+        task_counts = (
+            select(
+                InterventionTask.plan_id.label("plan_id"),
+                func.count().label("task_count"),
+            )
+            .group_by(InterventionTask.plan_id)
+            .subquery()
+        )
+        # 每计划已完成执行数（子查询）；execution 同样按 user_id 限定，
+        # 与 get_history 的 TaskExecution.user_id == user_id 一致
+        exec_counts = (
+            select(
+                InterventionTask.plan_id.label("plan_id"),
+                func.count().label("exec_count"),
+            )
+            .select_from(
+                TaskExecution.__table__.join(
+                    InterventionTask.__table__,
+                    TaskExecution.task_id == InterventionTask.id,
+                )
+            )
+            .where(
+                TaskExecution.status == "completed",
+                TaskExecution.user_id == user_id,
+            )
+            .group_by(InterventionTask.plan_id)
+            .subquery()
+        )
+        # NULLIF 防除零：SQLite 整除零返回 NULL、PostgreSQL 直接报错，
+        # 统一转为 NULL 后 COALESCE 为 0（无任务计划记 0 分）
+        plan_rate = func.coalesce(
+            exec_counts.c.exec_count * 100.0
+            / func.nullif(task_counts.c.task_count, 0),
+            0.0,
+        )
+        stmt = (
+            select(
+                func.count()
+                .filter(InterventionPlan.status == "active")
+                .label("active"),
+                func.count()
+                .filter(InterventionPlan.status == "completed")
+                .label("completed"),
+                func.count()
+                .filter(InterventionPlan.status == "cancelled")
+                .label("cancelled"),
+                func.coalesce(func.avg(plan_rate), 0.0).label("avg_completion"),
+            )
+            .select_from(
+                InterventionPlan.__table__
+                .outerjoin(task_counts, task_counts.c.plan_id == InterventionPlan.id)
+                .outerjoin(exec_counts, exec_counts.c.plan_id == InterventionPlan.id)
+            )
+            .where(InterventionPlan.user_id == user_id)
+        )
+        row = (await self.db.execute(stmt)).one()
+        avg_completion = float(row.avg_completion or 0.0)
+        return {
+            "active": int(row.active or 0),
+            "completed": int(row.completed or 0),
+            "cancelled": int(row.cancelled or 0),
+            # half-up 舍入，对齐前端 Math.round
+            "avg_completion": int(math.floor(avg_completion + 0.5)),
         }
 
     async def complete_task(

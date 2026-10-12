@@ -90,15 +90,15 @@ const stats = reactive({
 const loadStats = async () => {
   loading.value = true
   try {
-    // 聚合告警历史（默认 history 视图），呈现全局严重度/状态分布
-    const data = await alertsApi.listAlertHistory({ page: 1, page_size: 200 })
-    const items = data.items || []
-    stats.total = data.total ?? items.length
-    stats.p0 = items.filter((i) => i.severity === 'P0').length
-    stats.p1 = items.filter((i) => i.severity === 'P1').length
-    stats.p2 = items.filter((i) => i.severity === 'P2').length
-    stats.firing = items.filter((i) => i.status === 'firing').length
-    stats.resolved = items.filter((i) => i.status === 'resolved').length
+    // P1-15 / F-03：改用后端 SQL 层聚合端点。改前 page_size:200 拉全量告警
+    // 历史到前端 filter，告警超 200 条时分子截断、分母不截断，分布是错的。
+    const data = await alertsApi.getAlertHistoryStats()
+    stats.total = data.total
+    stats.p0 = data.p0
+    stats.p1 = data.p1
+    stats.p2 = data.p2
+    stats.firing = data.firing
+    stats.resolved = data.resolved
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {

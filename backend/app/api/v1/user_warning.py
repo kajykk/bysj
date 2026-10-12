@@ -35,6 +35,21 @@ async def list_warnings(
     return ok(data)
 
 
+@router.get("/warnings/stats", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
+async def get_warning_stats(
+    current_user: Annotated[User, Depends(require_role("user"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """预警统计（SQL 层聚合）。
+
+    P1-15 / F-03：替代前端 ``page_size:200`` 拉全量到浏览器 filter 的做法 ——
+    数据超 200 条时分子截断、分母不截断，统计结果是错的。口径与
+    ``list_warnings`` 响应字段一致（见 WarningService.get_stats 文档）。
+    """
+    service = WarningService(db)
+    return ok(await service.get_stats(current_user.id))
+
+
 @router.put(
     "/warnings/{warning_id}/read",
     response_model=ApiResponse,

@@ -81,14 +81,16 @@ const stats = reactive({
 const loadStats = async () => {
   loading.value = true
   try {
-    // 一次性全量聚合（不过滤日期/状态），呈现全局状态分布概览
-    const data = await adminApi.getCrisisEvents({ page: 1, page_size: 200 })
-    const items = data.items || []
-    stats.total = data.total ?? items.length
-    stats.detected = items.filter((i) => i.status === 'detected').length
-    stats.reviewed = items.filter((i) => i.status === 'reviewed').length
-    stats.escalated = items.filter((i) => i.status === 'escalated').length
-    stats.resolved = items.filter((i) => i.status === 'resolved').length
+    // P1-15 / F-03：改用后端 SQL 层聚合端点（租户隔离口径同列表）。改前
+    // page_size:200 拉全量事件到前端 filter，事件超 200 条时分子截断、
+    // 分母不截断，分布是错的；且事件含 input_summary/crisis_keywords，
+    // 传输 200 条完整记录的泄露面也随放大。
+    const data = await adminApi.getCrisisEventStats()
+    stats.total = data.total
+    stats.detected = data.detected
+    stats.reviewed = data.reviewed
+    stats.escalated = data.escalated
+    stats.resolved = data.resolved
   } catch {
     // 统计加载失败时使用空值，不阻断主列表
   } finally {

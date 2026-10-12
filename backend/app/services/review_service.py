@@ -490,6 +490,52 @@ class CrisisEventService:
             "page_size": filter_data.page_size,
         }
 
+    async def get_stats(self, tenant_id: int) -> dict:
+        """危机事件状态分布统计（P1-15 / F-03 修复）。
+
+        原前端 ``page_size:200`` 拉全量事件到浏览器 filter：事件超 200 条时
+        分子截断、分母不截断，分布是错的；且危机事件含 ``input_summary``
+        （用户自述原文摘要）与 ``crisis_keywords``，传输 200 条完整记录的
+        泄露面也随放大。改为 SQL 层条件聚合。
+
+        口径与 ``get_crisis_events``（不带任何过滤）一致：
+        - 范围同样 JOIN ``User`` 推导租户（crisis_events 无 tenant_id 列，
+          理由见 get_crisis_events 文档），``tenant_id`` 必填；
+        - total 统计全部状态（含 closed 等未展示状态），四个状态桶各计各的，
+          与前端卡片「总数 + 四状态」的结构一致。
+        """
+        stmt = (
+            select(
+                func.count().label("total"),
+                func.count()
+                .filter(CrisisEvent.status == "detected")
+                .label("detected"),
+                func.count()
+                .filter(CrisisEvent.status == "reviewed")
+                .label("reviewed"),
+                func.count()
+                .filter(CrisisEvent.status == "escalated")
+                .label("escalated"),
+                func.count()
+                .filter(CrisisEvent.status == "resolved")
+                .label("resolved"),
+            )
+            .select_from(
+                CrisisEvent.__table__.join(
+                    User.__table__, User.id == CrisisEvent.user_id
+                )
+            )
+            .where(tenant_scoped_filter(User, tenant_id))
+        )
+        row = (await self.db.execute(stmt)).one()
+        return {
+            "total": int(row.total or 0),
+            "detected": int(row.detected or 0),
+            "reviewed": int(row.reviewed or 0),
+            "escalated": int(row.escalated or 0),
+            "resolved": int(row.resolved or 0),
+        }
+
     async def handle_crisis_event(
         self,
         event_id: int,
