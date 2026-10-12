@@ -48,6 +48,14 @@ class ThresholdMixin:
         payload: dict,
         ip_address: str | None = None,
         request_id: str | None = None,
+        *,
+        # AUDIT-2026-10-13 (P1-21)：操作者角色必须由调用方如实传入。
+        # 改前硬编码 ``operator_role="admin"``，而本端点的鉴权依赖
+        # ``require_platform_admin()`` 同时放行 admin 与 super_admin ——
+        # 于是 super_admin 的高危操作（改预警阈值）在审计日志里被记成
+        # "admin"，事后无法区分「谁做的」。关键字参数且无默认值：漏传直接
+        # TypeError，不给「忘记传」留静默兜底。
+        admin_role: str,
     ) -> int:
         row = (
             await self.db.execute(
@@ -107,7 +115,7 @@ class ThresholdMixin:
         self.db.add(
             OperationLog(
                 operator_id=admin_id,
-                operator_role="admin",
+                operator_role=admin_role,
                 action_type="upsert_warning_threshold",
                 target_type="warning_threshold",
                 target_id=row.id,

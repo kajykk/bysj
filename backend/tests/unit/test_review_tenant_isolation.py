@@ -205,7 +205,7 @@ class TestCrisisEventTenantIsolation:
 
         with pytest.raises(ValueError, match="not found"):
             await crisis_service.handle_crisis_event(
-                event.id, 2, "notify_counselor", tenant_id=1
+                event.id, 2, "notify_counselor", tenant_id=1, operator_role="counselor"
             )
 
         fresh = await crisis_service._get_crisis_event_scoped(
@@ -220,7 +220,7 @@ class TestCrisisEventTenantIsolation:
 
         with pytest.raises(ValueError, match="not found"):
             await crisis_service.escalate_crisis_event(
-                event.id, 2, "越权升级", tenant_id=1
+                event.id, 2, "越权升级", tenant_id=1, operator_role="counselor"
             )
 
         fresh = await crisis_service._get_crisis_event_scoped(
@@ -235,7 +235,9 @@ class TestCrisisEventTenantIsolation:
         event = await self._make_event(crisis_service, other_tenant_student)
 
         with pytest.raises(ValueError, match="not found"):
-            await crisis_service.close_crisis_event(event.id, 2, "越权关闭", tenant_id=1)
+            await crisis_service.close_crisis_event(
+                event.id, 2, "越权关闭", tenant_id=1, operator_role="counselor"
+            )
 
         fresh = await crisis_service._get_crisis_event_scoped(
             event.id, OTHER_TENANT_ID

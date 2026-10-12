@@ -821,3 +821,81 @@ experimentSummary.value = { ..., val_accuracy: res.metrics.accuracy, ... } // �
 - 本轮**未跑 backend 全量**（约 37 分钟），以 CI 全量为准。
 - 前端 P1（#11-14、#27-30）本轮未动，留待下一轮；本轮仅后端。
 - 报告剩余 P1 未处理项：#15、#16、#17、#19、#21、#22、#24。
+
+---
+
+# 附：P1 整改追记（2026-10-13，第三轮）
+
+> 同为**追加快照**，不修改上文任何既有表格与结论。
+> 闸门文件：`backend/tests/test_p1_audit_2026_10_13_round2.py`（8 条，均做过回退红信号对照）。
+
+## P1-16 `add_group_member` 重复 insert 只回滚 savepoint
+
+`counselor_service_group.py` 改前在 `IntegrityError` 时执行 `await self.db.rollback()`——
+它回滚的是**整个 Session 事务**，会把调用方（API 层/上层服务）在此之前 flush 的**其它待提交
+改动一并丢弃**。而这些改动不在本函数视野里，现场表现为「别处的数据莫名没写进去」，极难归因。
+
+改为 `async with self.db.begin_nested()`：异常只回滚到 savepoint，外层事务完好，
+后续审计日志与 commit 照常进行。闸门断言的是「同事务里先前的改动**仍然存活**」——
+这正是改前唯一会丢的东西。
+
+## P1-21 审计日志 `operator_role` 不再硬编码 `"admin"`
+
+全仓 20 处 `operator_role="admin"`。问题在于这些端点的鉴权依赖
+`require_platform_admin()` / `require_permission(...)`，它们**同时放行多个角色**
+（含 `super_admin`、咨询师）→ super_admin 改预警阈值被记成 "admin"、咨询师关闭危机事件
+也被记成 "admin"。第二人复核时无法区分「谁做的」，审计日志失去取证价值。
+
+处置：
+- API 层 17 处 → `operator_role=current_user.role`（逐处确认 `current_user` 在作用域）。
+- 服务层 3 处（`upsert_config` / `upsert_threshold` / `_write_crisis_audit_log`）→
+  新增**必填关键字参数且无默认值**：漏传直接 `TypeError`，不给「忘记传」留静默兜底
+  （与 P0-1 租户隔离同一套手法）。三个危机处置方法同步透传。
+
+闸门三条：签名必填（introspect）+ 审计角色如实落库 + **全仓 API 层源码扫描**
+（兜住「新增端点时又抄了一遍硬编码」）。
+
+⚠️ 连带：`tests/unit/test_review_service.py` 的 `_CrisisEventServiceT1` 适配层、
+`tests/unit/test_review_tenant_isolation.py` 的 3 处调用、以及
+`tests/services/test_admin_service.py` 的 9 处调用需同步补参数。适配层必须**允许透传**
+（`operator_role="counselor"` 默认值仅作测试便利），否则调用方一传就
+`unexpected keyword argument`。
+
+## P1-19 —— **实测推翻报告，故不改动实现，只加锁定闸门**
+
+报告原文称「`pytorch_mlp` 架构元信息改 JSON 侧车（当前生产 100% 不可用）」。
+实测（torch 2.11.0+cpu，2026-10-13）：
+
+    weights_only=True  OK; keys = [dropout_rate, hidden_dims, input_dim, param_count,
+                                   state_dict, use_batch_norm]
+    PyTorchMLP.load()  OK; input_dim = 10 hidden_dims = [32, 16]
+
+成因：检查点里只有 primitive 类型（int/float/bool/list）+ `state_dict`，而 torch 的
+`weights_only` 反序列化器**允许 primitive**，所以 `safe_torch_load` 在生产被强制
+`weights_only=True`（ISS-046）后依然能加载。**报告该条结论失实，改了也白改。**
+
+但仍加了闸门：一旦将来有人往检查点塞非 primitive 元信息（自定义类/模块对象），
+`weights_only=True` 会加载失败 → CI 立刻红，那才是真需要改 JSON 侧车的信号。
+
+⇒ **沉淀：审查报告条目本身也要取证。连续两轮（#25 时区、#19 侧车）发现陈旧/失实条目，
+后续 P1/P2 落地前应先用最小实测确认「问题当前是否真的存在」。**
+
+## P1-22 经取证降级（暂不改）
+
+报告称 14 处 `offset = (page-1)*page_size` 缺下界校验。实测 API 层**已有 25 处**
+`page: int = Query(default=1, ge=1)` 覆盖，HTTP 路径下取不到负 offset；服务层的
+残余风险仅来自内部调用方。抽公共 `paginate()` 需动 18 处，收益主要是防御性，
+故本轮不处理，降级留待与 #17/#24 一并做。
+
+## 本轮验证读数
+
+- 新增闸门 8 条全绿；回退均现红：#16 回退 `rollback()` → 1 红；#21 回退一处硬编码
+  → 源码扫描 1 红；#21 去掉必填默认值 → 签名闸门 1 红。
+- 受影响既有测试：91（review/tenant/gdpr）+ 58（export/kill_switch/silence/upload）
+  + 139（admin/tenant/silence/content API）+ 73（admin_service/metrics + 两轮闸门）
+  = **361 passed**。
+
+## 未做（如实记账）
+
+- 未跑 backend 全量，以 CI 为准。
+- 剩余 P1：#15、#17、#19（已加闸门，无需改实现）、#22（已降级）、#24；前端 #11-14、#27-30。

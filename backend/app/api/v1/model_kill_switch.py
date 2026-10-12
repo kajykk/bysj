@@ -82,7 +82,7 @@ async def activate_kill_switch(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="model.kill_switch.activate",
             target_type="kill_switch",
             target_id=None,
@@ -136,7 +136,7 @@ async def deactivate_kill_switch(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="model.kill_switch.deactivate",
             target_type="kill_switch",
             target_id=None,

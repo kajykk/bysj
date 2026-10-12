@@ -112,7 +112,7 @@ async def review_content(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="content.review",
             target_type="education_content",
             target_id=content_id,
@@ -173,7 +173,7 @@ async def takedown_content(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="content.takedown",
             target_type="education_content",
             target_id=content_id,
@@ -229,7 +229,7 @@ async def restore_content(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="content.restore",
             target_type="education_content",
             target_id=content_id,

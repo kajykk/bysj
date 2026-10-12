@@ -131,7 +131,7 @@ async def export_tenant_data(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="tenant.export",
             target_type="tenant",
             target_id=tenant_id,

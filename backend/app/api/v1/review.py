@@ -199,6 +199,8 @@ async def handle_crisis_event(
             note=payload.note,
             # P0-FIX-2026-10-11：危机事件含 input_summary 自述原文，必须限定租户
             tenant_id=current_user.tenant_id,
+            # P1-21：审计日志如实记录操作者角色（不再硬编码 "admin"）
+            operator_role=current_user.role,
         )
         return ok(service._to_response(event))
     except ValueError as e:
@@ -226,6 +228,7 @@ async def escalate_crisis_event(
             handled_by=current_user.id,
             reason=payload.reason,
             tenant_id=current_user.tenant_id,
+            operator_role=current_user.role,
         )
         return ok(service._to_response(event))
     except ValueError as e:
@@ -253,6 +256,7 @@ async def close_crisis_event(
             handled_by=current_user.id,
             note=payload.note,
             tenant_id=current_user.tenant_id,
+            operator_role=current_user.role,
         )
         return ok(service._to_response(event))
     except ValueError as e:

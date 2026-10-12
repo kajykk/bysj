@@ -142,7 +142,7 @@ async def create_tenant(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="tenant.create",
             target_type="tenant",
             target_id=tenant.id,
@@ -250,7 +250,7 @@ async def update_tenant(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="tenant.update",
             target_type="tenant",
             target_id=tenant_id,
@@ -295,7 +295,7 @@ async def suspend_tenant(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="tenant.suspend",
             target_type="tenant",
             target_id=tenant_id,
@@ -346,7 +346,7 @@ async def activate_tenant(
     db.add(
         OperationLog(
             operator_id=current_user.id,
-            operator_role="admin",
+            operator_role=current_user.role,
             action_type="tenant.activate",
             target_type="tenant",
             target_id=tenant_id,

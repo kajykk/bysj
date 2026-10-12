@@ -269,7 +269,7 @@ async def admin_export_user_data(
     # 审计日志：导出操作
     audit_log = OperationLog(
         operator_id=current_user.id,
-        operator_role="admin",
+        operator_role=current_user.role,
         action_type="admin.gdpr.export_user",
         target_type="user",
         target_id=user_id,
@@ -342,7 +342,7 @@ async def admin_delete_user_account(
     # 额外审计日志：记录管理员越权操作（与用户自删的 gdpr.account.deleted 区分）
     admin_audit_log = OperationLog(
         operator_id=current_user.id,
-        operator_role="admin",
+        operator_role=current_user.role,
         action_type="admin.gdpr.delete_user",
         target_type="user",
         target_id=user_id,

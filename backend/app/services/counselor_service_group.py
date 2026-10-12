@@ -123,11 +123,19 @@ class GroupMixin:
         if existing is not None:
             return True
 
-        self.db.add(ClientGroupMember(group_id=group_id, user_id=user_id))
+        # AUDIT-2026-10-13 (P1-16)：并发下重复 insert 只应回滚**这一条**，
+        # 不能回滚整个事务。改前用 ``await self.db.rollback()`` —— 它回滚的是
+        # 整个 Session 事务，会把调用方（API 层 / 上层服务）在此之前 flush 的
+        # 其它待提交改动**一并丢弃**，而这些改动不在本函数的视野里，失败表现为
+        # 「别处的数据莫名没写进去」。
+        # 改用 savepoint（``begin_nested``）：异常时只回滚到该 savepoint，
+        # 外层事务完好，后续的审计日志与 commit 照常进行。
         try:
-            await self.db.flush()
+            async with self.db.begin_nested():
+                self.db.add(ClientGroupMember(group_id=group_id, user_id=user_id))
+                await self.db.flush()
         except IntegrityError:
-            await self.db.rollback()
+            # 唯一键冲突 = 已是成员，按幂等成功处理（savepoint 已自动回滚）
             return True
 
         self.db.add(

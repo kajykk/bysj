@@ -383,7 +383,7 @@ async def update_silence(
 
     op_log = OperationLog(
         operator_id=current_user.id,
-        operator_role="admin",
+        operator_role=current_user.role,
         action_type="update_silence",
         target_type="alert_silence",
         target_id=silence_id,
@@ -459,7 +459,7 @@ async def enable_silence(
 
     op_log = OperationLog(
         operator_id=current_user.id,
-        operator_role="admin",
+        operator_role=current_user.role,
         action_type="enable_silence",
         target_type="alert_silence",
         target_id=silence_id,
@@ -493,7 +493,7 @@ async def delete_silence(
 
     op_log = OperationLog(
         operator_id=current_user.id,
-        operator_role="admin",
+        operator_role=current_user.role,
         action_type="delete_silence",
         target_type="alert_silence",
         target_id=silence_id,

@@ -498,6 +498,7 @@ class CrisisEventService:
         note: str | None = None,
         *,
         tenant_id: int,
+        operator_role: str,
     ) -> CrisisEvent:
         """处理危机事件 (status: detected/reviewed/escalated → reviewed)
 
@@ -534,6 +535,7 @@ class CrisisEventService:
                 action_type="crisis_event_handle",
                 event_id=event_id,
                 detail={"action": action, "note": note, "new_status": "reviewed"},
+                operator_role=operator_role,
             )
         await self.db.commit()
         await self.db.refresh(event)
@@ -546,6 +548,7 @@ class CrisisEventService:
         reason: str,
         *,
         tenant_id: int,
+        operator_role: str,
     ) -> CrisisEvent:
         """升级危机事件 (status: detected|reviewed → escalated)
 
@@ -572,6 +575,7 @@ class CrisisEventService:
                 action_type="crisis_event_escalate",
                 event_id=event_id,
                 detail={"reason": reason, "new_status": "escalated"},
+                operator_role=operator_role,
             )
         await self.db.commit()
         await self.db.refresh(event)
@@ -584,6 +588,7 @@ class CrisisEventService:
         note: str | None = None,
         *,
         tenant_id: int,
+        operator_role: str,
     ) -> CrisisEvent:
         """关闭危机事件 (status: detected|reviewed|escalated → resolved)
 
@@ -611,6 +616,7 @@ class CrisisEventService:
                 action_type="crisis_event_close",
                 event_id=event_id,
                 detail={"note": note, "new_status": "resolved"},
+                operator_role=operator_role,
             )
         await self.db.commit()
         await self.db.refresh(event)
@@ -649,6 +655,12 @@ class CrisisEventService:
         action_type: str,
         event_id: int,
         detail: dict,
+        *,
+        # AUDIT-2026-10-13 (P1-21)：操作者角色由调用方如实传入。改前硬编码
+        # "admin"，而危机处置端点对 counselor / admin / super_admin 均放行 ——
+        # 咨询师关闭危机事件在审计里被记成 "admin"，第二人复核时会误判处置人
+        # 身份。无默认值：漏传直接 TypeError。
+        operator_role: str,
     ) -> None:
         """ISS-072 修复：危机事件状态流转审计日志.
 
@@ -657,7 +669,7 @@ class CrisisEventService:
         """
         op_log = OperationLog(
             operator_id=operator_id,
-            operator_role="admin",
+            operator_role=operator_role,
             action_type=action_type,
             target_type="crisis_event",
             target_id=event_id,

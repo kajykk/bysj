@@ -408,7 +408,7 @@ async def acknowledge_alert(
     # 查询历史时通过 JOIN 或子查询获取 ack 状态
     ack_log = OperationLog(
         operator_id=current_user.id,
-        operator_role="admin",
+        operator_role=current_user.role,
         action_type="alert_acknowledged",
         target_type="alert",
         target_id=alert_id,

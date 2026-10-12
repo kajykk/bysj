@@ -201,7 +201,7 @@ class TestUpsertThreshold:
             "action_required": "立即响应",
         }
         threshold_id = await admin_service.upsert_threshold(
-            admin_id=seeded_user_id,
+            admin_id=seeded_user_id, admin_role="admin",
             payload=payload,
             ip_address="127.0.0.1",
             request_id="req-001",
@@ -227,7 +227,7 @@ class TestUpsertThreshold:
             "action_required": "关注并记录",
         }
         threshold_id = await admin_service.upsert_threshold(
-            admin_id=seeded_user_id, payload=payload
+            admin_id=seeded_user_id, admin_role="admin", payload=payload
         )
         # 更新不会改变 id
         assert threshold_id == seeded_thresholds[0]
@@ -256,7 +256,7 @@ class TestUpsertThreshold:
             "action_required": "更新后",
         }
         threshold_id = await admin_service.upsert_threshold(
-            admin_id=seeded_user_id,
+            admin_id=seeded_user_id, admin_role="admin",
             payload=payload,
             ip_address="10.0.0.1",
             request_id="req-update",
@@ -349,7 +349,7 @@ class TestUpsertConfig:
     ):
         """TC-COV-ADMIN-015: 创建新配置."""
         config_id = await admin_service.upsert_config(
-            admin_id=seeded_user_id,
+            admin_id=seeded_user_id, admin_role="admin",
             payload={
                 "config_key": "session_timeout",  # ISS-078: 使用白名单内的 key
                 "config_value": {"v": 1},
@@ -370,13 +370,13 @@ class TestUpsertConfig:
         """TC-COV-ADMIN-016: 更新已有配置."""
         # 先创建
         await admin_service.upsert_config(
-            admin_id=seeded_user_id,
+            admin_id=seeded_user_id, admin_role="admin",
             payload={"config_key": "token_expiry", "config_value": {"v": 1}},
         )
 
         # 再更新
         await admin_service.upsert_config(
-            admin_id=seeded_user_id,
+            admin_id=seeded_user_id, admin_role="admin",
             payload={
                 "config_key": "token_expiry",
                 "config_value": {"v": 2},
@@ -400,7 +400,7 @@ class TestUpsertConfig:
         """
         # 先创建
         await admin_service.upsert_config(
-            admin_id=seeded_user_id,
+            admin_id=seeded_user_id, admin_role="admin",
             payload={
                 "config_key": "max_export_rows",
                 "config_value": {"v": 1},
@@ -410,7 +410,7 @@ class TestUpsertConfig:
 
         # 再更新
         await admin_service.upsert_config(
-            admin_id=seeded_user_id,
+            admin_id=seeded_user_id, admin_role="admin",
             payload={
                 "config_key": "max_export_rows",
                 "config_value": {"v": 99},
@@ -430,7 +430,7 @@ class TestUpsertConfig:
         """ISS-078: 非白名单配置 key 应抛出 ValueError."""
         with pytest.raises(ValueError, match="不支持的配置键"):
             await admin_service.upsert_config(
-                admin_id=seeded_user_id,
+                admin_id=seeded_user_id, admin_role="admin",
                 payload={"config_key": "evil_arbitrary_key", "config_value": {"v": 1}},
             )
 

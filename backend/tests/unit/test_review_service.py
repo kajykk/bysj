@@ -73,10 +73,15 @@ class _ReviewServiceT1(ReviewService):
 
 
 class _CrisisEventServiceT1(CrisisEventService):
-    """测试适配层：绑定 tenant_id=1。"""
+    """测试适配层：绑定 tenant_id=1。
+
+    AUDIT-2026-10-13 (P1-21)：``operator_role`` 是新增的必填关键字参数，适配层
+    必须**允许透传**（默认值仅用于测试便利），否则调用方一传就
+    ``unexpected keyword argument``。
+    """
 
     async def handle_crisis_event(
-        self, event_id, handled_by, action, note=None
+        self, event_id, handled_by, action, note=None, *, operator_role="counselor"
     ):  # type: ignore[override]
         return await super().handle_crisis_event(
             event_id,
@@ -84,20 +89,29 @@ class _CrisisEventServiceT1(CrisisEventService):
             action,
             note,
             tenant_id=_TENANT_ID,
+            operator_role=operator_role,
         )
 
     async def escalate_crisis_event(
-        self, event_id, handled_by, reason
+        self, event_id, handled_by, reason, *, operator_role="counselor"
     ):  # type: ignore[override]
         return await super().escalate_crisis_event(
-            event_id, handled_by, reason, tenant_id=_TENANT_ID
+            event_id,
+            handled_by,
+            reason,
+            tenant_id=_TENANT_ID,
+            operator_role=operator_role,
         )
 
     async def close_crisis_event(
-        self, event_id, handled_by, note=None
+        self, event_id, handled_by, note=None, *, operator_role="counselor"
     ):  # type: ignore[override]
         return await super().close_crisis_event(
-            event_id, handled_by, note, tenant_id=_TENANT_ID
+            event_id,
+            handled_by,
+            note,
+            tenant_id=_TENANT_ID,
+            operator_role=operator_role,
         )
 
 

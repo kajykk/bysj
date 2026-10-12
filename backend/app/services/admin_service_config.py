@@ -72,7 +72,16 @@ class ConfigMixin:
             for r in rows
         ]
 
-    async def upsert_config(self, admin_id: int, payload: dict) -> int:
+    async def upsert_config(
+        self,
+        admin_id: int,
+        payload: dict,
+        *,
+        # AUDIT-2026-10-13 (P1-21)：同 upsert_threshold，操作者角色由调用方
+        # 如实传入，不再硬编码 "admin"（否则 super_admin 的操作会被记成 admin）。
+        # 无默认值：漏传直接 TypeError，避免静默兜底。
+        admin_role: str,
+    ) -> int:
         # ISS-078: 配置 key 白名单校验，防止任意 key 写入
         # 延迟导入主模块的 _ALLOWED_CONFIG_KEYS 常量，规避循环导入
         from app.services.admin_service import _ALLOWED_CONFIG_KEYS
@@ -121,7 +130,7 @@ class ConfigMixin:
         self.db.add(
             OperationLog(
                 operator_id=admin_id,
-                operator_role="admin",
+                operator_role=admin_role,
                 action_type="upsert_system_config",
                 target_type="system_config",
                 target_id=row.id,

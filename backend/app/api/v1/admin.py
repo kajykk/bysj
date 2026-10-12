@@ -200,6 +200,7 @@ async def upsert_threshold(
         payload.model_dump(),
         ip_address=get_real_client_ip(request),
         request_id=request_id,
+        admin_role=current_user.role,
     )
     result = {"threshold_id": threshold_id}
     if idem_key:
@@ -248,7 +249,9 @@ async def upsert_config(
     if replay is not None:
         return ok(replay)
     try:
-        config_id = await service.upsert_config(current_user.id, payload.model_dump())
+        config_id = await service.upsert_config(
+            current_user.id, payload.model_dump(), admin_role=current_user.role
+        )
     except ValueError as exc:
         # ISS-093: 不支持的配置键属业务参数错误 → 400 (原为未捕获 → 500)
         if idem_key:
