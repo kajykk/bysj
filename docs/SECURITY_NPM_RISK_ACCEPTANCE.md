@@ -148,25 +148,66 @@ hook `Module._load` 实测 `require('@sentry/node')` 会加载 **2852 个模块*
 **解除条件**：`eslint-plugin-vue` 任一版本把依赖放宽到 `^7` → 立即移除该
 override 并删除本节。
 
-### 告警 #105 的陈旧状态（2026-10-12 记录，待重扫确认）
+### 告警 #105 的陈旧状态（2026-10-13 复核：以 SBOM 独立口径确认）
 
 推送 `8664ec4`（lock 升到 7.1.6）后，GitHub 仍报 1 条 open：
 
     alert #105  postcss-selector-parser  GHSA-rj75-hqrm-r3gf  medium
+    state=open  created=2026-10-11T08:00:08Z  updated=2026-10-11T08:00:08Z
+    range=< 7.1.6   patched=7.1.6   relationship=transitive   scope=development
 
-**这不是真实残留，是 Dependabot 未重扫**。取证：
+2026-10-13 复核时该告警仍为 open，遂**不再依赖"等重扫"这一弱推断**，
+改用与 alert 表相互独立的第二个数据源交叉验证。
 
-- 远端 `frontend/package-lock.json`（`?ref=main`）实测：
-  `node_modules/postcss-selector-parser = 7.1.6`，**全树仅 1 份副本**
-  （无嵌套 6.x 残留），已不在 vulnerable range `< 7.1.6` 内
-- 告警 `updated_at == created_at == 2026-10-11T08:00:08Z`，
-  **自创建起从未被更新过** → 未发生重扫，属陈旧读数
-- 磁盘实装同样只有 1 份 7.1.6（`find node_modules -name postcss-selector-parser`）
+#### 权威口径：dependency-graph SBOM
 
-⚠️ 注意 `eslint-plugin-vue` 的依赖声明仍是 `^6.0.15`：这是**声明**，
-而 npm 在 override 下**解析结果**是 7.1.6。Dependabot 按 lock 的解析结果判定，
-故不应因声明未变而认为修复无效。
+    gh api repos/kajykk/bysj/dependency-graph/sbom      -> 997 packages
+    postcss-selector-parser  7.1.6   purl: pkg:npm/postcss-selector-parser@7.1.6
 
-**复审动作**：下次 Dependabot 重扫后核对 #105 是否自动转为 `fixed`。
-若重扫后仍为 open，说明本判断有误，需重新排查（优先查是否有未纳入 lock 的
-嵌套解析路径）。
+`dependency-graph` 与 `dependabot/alerts` 是**两张表**：前者在 manifest 变更时
+重算并立即反映解析结果，后者需独立的 alert 重估周期。**SBOM 已是 7.1.6 而 alert
+仍 open，只可能是 alert 表尚未重估** —— 若修复真的没生效，SBOM 会显示 6.1.4。
+
+同一份 SBOM 顺带印证了本轮全部修复均已落到依赖图：
+
+| 包 | SBOM 读数 | 说明 |
+|---|---|---|
+| `postcss-selector-parser` | **7.1.6** | 本文主题，已脱离 vulnerable range |
+| `ws` | 8.22.0, 7.5.13 | 双副本各自达标 |
+| `brace-expansion` | 1.1.21, 2.1.7, 5.0.12 | 三副本各自达标 |
+| `@opentelemetry/instrumentation-pg` | **absent** | 6 个 DB 探针已整体消失 |
+| `@sentry/node` | 10.76.2 | lighthouse 13.5.0 带出 |
+| `lighthouse` | 13.5.0 | — |
+| `extract-zip` | 2.0.1 | 无补丁，已 dismiss（见 R-N-001） |
+
+#### 其余取证（lock 全字段扫描）
+
+- 远端 lock `lockfileVersion: 3`，**无 legacy `dependencies` 段**
+  → 不存在"packages 已更新、legacy 段仍留 6.x"的双写不一致
+- `packages` 段匹配 `postcss-selector-parser` 的 key **仅 1 个**，值 7.1.6
+- ⚠️ 一个反直觉但**无害**的事实：lock 的 root（`packages[""]`）**不记录
+  `overrides`**（实测 `undefined`）。即 lock 只存解析结果、不存 override 来源。
+  这不影响 Dependabot 判定（它读解析结果），但意味着**仅看 lock 无法看出
+  7.1.6 是 override 强制的** —— 这正是本文件存在的理由之一。
+
+#### 为什么"等"在此处是合理的，而非回避
+
+- 上次 manifest 推送时间 `00:47:55`，复核时间 `00:51:45`，**仅隔 4 分钟**
+- 尝试用无害变更主动触发失败：`npm install --package-lock-only` 重算后
+  **diff 0 行**（lock 已是稳定解），无法构造 push 事件
+- 告警 `updated_at == created_at` 从未变过 → alert 重估确实未发生
+
+#### 易误判点（保留）
+
+`eslint-plugin-vue` 的依赖**声明**仍是 `^6.0.15`，看着像"没修成"。
+但 npm 在 override 下的**解析结果**是 7.1.6，Dependabot 按 lock 解析结果判定
+—— **声明未变 ≠ 修复无效**。
+
+**复审动作**：
+1. 短期 —— 待 alert 重估后核对 #105 是否转为 `fixed`
+2. **不主动 dismiss** —— dismiss 会留下 `dismissed` 状态，与 R-N-001（真的
+   接受风险）无法区分，污染本台账的可对账性
+3. 若 24 小时后仍 open，按下列顺序重新排查，不再用"陈旧"解释：
+   ① 复查 SBOM 是否仍为 7.1.6（若变回 6.x 说明有 manifest 被回滚或覆盖）；
+   ② 查是否有第二个 npm manifest 未被本文覆盖（当前仓库仅
+      `frontend/package-lock.json` 一份）；③ 向 GitHub Support 报 alert 未重估
