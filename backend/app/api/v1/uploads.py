@@ -88,6 +88,36 @@ def _safe_join(base: Path, *parts: str) -> Path:
     return candidate
 
 
+def _secure_file_response(path: Path) -> FileResponse:
+    """以统一的加固响应头直出文件（公共与私有两条出口共用）。
+
+    AUDIT-2026-10-13 (P1-20)：为上传文件补安全响应头。
+
+    ⚠️ **这里刻意偏离审查报告的建议**（报告原话「加 ``Content-Disposition:
+    attachment`` + ``nosniff``」）。理由有实测依据，不是保守：
+    本模块头注释（本文档 15-18 行）明确写着 ``<audio src>`` / ``<img src>``
+    等浏览器原生标签无法携带 Authorization header，端点因此额外支持
+    ``?token=`` —— 也就是说**内联渲染是被有意支持的用法**，公共资源
+    ``/uploads/audio/mindfulness_10min.mp3`` 正是靠它播放。若强制
+    ``attachment``，正念音频与头像预览会全部变成下载，属于功能回归。
+
+    改成两条不破坏内联渲染的头：
+    - ``X-Content-Type-Options: nosniff``：禁止浏览器 MIME 嗅探，杜绝
+      「Content-Type 是 image/* 但内容其实是 HTML」被嗅探后执行。
+    - ``Content-Security-Policy: default-src 'none'; sandbox``：即便用户
+      直接导航到该 URL、且上传的是 ``.html``/``.svg``（文件名白名单
+      ``_SAFE_FILENAME_RE`` 允许这两种扩展名），脚本也不会在本源执行。
+      对 ``<img>``/``<audio>`` 内联加载无副作用（CSP 只作用于被导航的文档）。
+    """
+    return FileResponse(
+        str(path),
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+    )
+
+
 async def _optional_resolve_user(
     request: Request,
     token: Annotated[str | None, Depends(oauth2_scheme)] = None,
@@ -193,7 +223,7 @@ async def serve_upload(
 
         if not full_path.is_file():
             raise HTTPException(status_code=404, detail="文件不存在")
-        return FileResponse(str(full_path))
+        return _secure_file_response(full_path)
 
     # 分支 2：用户私有文件
     if not _SAFE_USERID_RE.match(owner):
@@ -297,7 +327,7 @@ async def serve_upload(
     )
     await db.commit()
 
-    return FileResponse(str(full_path))
+    return _secure_file_response(full_path)
 
 
 __all__ = ["router", "PUBLIC_DIRS"]

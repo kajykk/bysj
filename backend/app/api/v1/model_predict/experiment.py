@@ -46,6 +46,10 @@ async def import_dataset(
             payload.val_ratio,
             payload.test_ratio,
         )
+    except FileNotFoundError as exc:
+        # P1-26：数据集缺失不再是「静默造一份合成数据」，而是显式 404，
+        # 让调用方知道要先落盘真实数据集（与 /experiment/train 口径一致）。
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return ok(result)

@@ -22,9 +22,18 @@ class ExperimentService:
         train_ratio: float,
         val_ratio: float,
         test_ratio: float,
+        *,
+        allow_synthetic: bool = False,
     ) -> dict[str, Any]:
+        # P1-26：``allow_synthetic`` 默认 False —— 数据集缺失时 fail-closed，
+        # 由调用方（API 层）决定是否显式放行演示数据。
         result = self.data.import_dataset(
-            dataset_name, source_type, train_ratio, val_ratio, test_ratio
+            dataset_name,
+            source_type,
+            train_ratio,
+            val_ratio,
+            test_ratio,
+            allow_synthetic=allow_synthetic,
         )
         self.data.export_dataset_snapshot(dataset_name)
         return result

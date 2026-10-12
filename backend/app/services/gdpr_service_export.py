@@ -265,6 +265,12 @@ class ExportMixin:
                     await self.db.execute(
                         select(EmergencyContact)
                         .where(EmergencyContact.user_id == user_id)
+                        # AUDIT-2026-10-13 (P1-23)：LIMIT/OFFSET 分页**必须有稳定
+                        # ORDER BY**。SQL 不保证无 ORDER BY 时 LIMIT/OFFSET 的返回
+                        # 顺序，同一行可能在两页都出现或整页被跳过 —— GDPR 导出
+                        # 漏行是**合规实质缺陷**（主体有权拿到全部个人数据）。
+                        # 按主键升序 = 稳定且与物理写入顺序无关。
+                        .order_by(EmergencyContact.id.asc())
                         .offset(offset)
                         .limit(batch_size)
                     )
@@ -290,6 +296,8 @@ class ExportMixin:
                     await self.db.execute(
                         select(UserCounselorBinding)
                         .where(UserCounselorBinding.user_id == user_id)
+                        # P1-23：稳定排序，避免 OFFSET 翻页漏行/重复（同上）
+                        .order_by(UserCounselorBinding.id.asc())
                         .offset(offset)
                         .limit(batch_size)
                     )
@@ -315,6 +323,8 @@ class ExportMixin:
                     await self.db.execute(
                         select(RiskAssessment)
                         .where(RiskAssessment.user_id == user_id)
+                        # P1-23：稳定排序，避免 OFFSET 翻页漏行/重复（同上）
+                        .order_by(RiskAssessment.id.asc())
                         .offset(offset)
                         .limit(batch_size)
                     )
@@ -340,6 +350,8 @@ class ExportMixin:
                     await self.db.execute(
                         select(WarningNotification)
                         .where(WarningNotification.user_id == user_id)
+                        # P1-23：稳定排序，避免 OFFSET 翻页漏行/重复（同上）
+                        .order_by(WarningNotification.id.asc())
                         .offset(offset)
                         .limit(batch_size)
                     )
@@ -365,6 +377,8 @@ class ExportMixin:
                     await self.db.execute(
                         select(CrisisEvent)
                         .where(CrisisEvent.user_id == user_id)
+                        # P1-23：稳定排序，避免 OFFSET 翻页漏行/重复（同上）
+                        .order_by(CrisisEvent.id.asc())
                         .offset(offset)
                         .limit(batch_size)
                     )
@@ -390,6 +404,8 @@ class ExportMixin:
                     await self.db.execute(
                         select(InterventionPlan)
                         .where(InterventionPlan.user_id == user_id)
+                        # P1-23：稳定排序，避免 OFFSET 翻页漏行/重复（同上）
+                        .order_by(InterventionPlan.id.asc())
                         .offset(offset)
                         .limit(batch_size)
                     )
@@ -429,6 +445,8 @@ class ExportMixin:
                     await self.db.execute(
                         select(InterventionTask)
                         .where(InterventionTask.plan_id.in_(plan_ids_result))
+                        # P1-23：稳定排序，避免 OFFSET 翻页漏行/重复（同上）
+                        .order_by(InterventionTask.id.asc())
                         .offset(offset)
                         .limit(batch_size)
                     )
@@ -454,6 +472,10 @@ class ExportMixin:
                     await self.db.execute(
                         select(OperationLog)
                         .where(OperationLog.operator_id == user_id)
+                        # P1-23：稳定排序，避免 OFFSET 翻页漏行/重复（同上）。
+                        # 操作日志是本方法中数据量最大的一张表，翻页最深，漏行
+                        # 风险也最高。
+                        .order_by(OperationLog.id.asc())
                         .offset(offset)
                         .limit(batch_size)
                     )

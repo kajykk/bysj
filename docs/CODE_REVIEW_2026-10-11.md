@@ -737,3 +737,87 @@ experimentSummary.value = { ..., val_accuracy: res.metrics.accuracy, ... } // �
 | F-01 `probability` 未判 null | `views/user/components/TextAssessTab.vue:217-227` | ✅ 确认注释自承「此处是遗漏」，225 行未修而 227 行已修 |
 
 其余条目来自 6 路子审的逐文件 Read/Grep 取证，均附文件与行号，建议按 P0/P1 顺序逐条落地时自行复核。
+
+---
+
+# 附：P1 整改追记（2026-10-13，第二轮）
+
+> 本节为**追加快照**，不修改上文任何既有表格与结论（上文是 2026-10-11 的历史记录）。
+> P0 全部 10 项已于前一轮闭环；本轮处理 P1 中「真实风险 + 小改动 + 可客观断言」的 4 项。
+> 闸门文件：`backend/tests/test_p1_audit_2026_10_13.py`（20 条，每项均做过回退红信号对照实验）。
+
+## P1-18 `fuse()` 拦非有限值 —— 实测比报告写的更严重
+
+报告原文只说「NaN 会静默判为满级高风险」。实测（`_tmp_nan_probe.py`，2026-10-13）确认是**双向**错判：
+
+| 输入 | 改前 `risk_score` | 改前 `risk_level` | 临床含义 |
+|---|---|---|---|
+| `NaN` | 100.0 | 4 | **满级危机**（假阳性） |
+| `+Inf` | 100.0 | 4 | 满级危机 |
+| `-Inf` | 0.0 | 0 | **无风险**（假阴性，更危险） |
+
+成因链（已在闸门里固化为断言）：NaN 比较恒为 False → `raw_fused < 0 or > 100` 不告警 →
+`min(100.0, nan)` 保留 100.0 → `_score_to_level` 里的 `ensure_finite_score` 拿到的是**已裁剪的
+有限值**，永远拦不到原始 NaN。⇒ **「下游拦不住」的典型：守卫位置比守卫存在与否更关键。**
+
+修复：在 `fuse()` 输入校验处提前拦（`app/ml/fusion_engine.py`），复用既有
+`NonFiniteRiskScoreError`，与 AUDIT-2026-10-08 (P0-5)「提前显式拦截、让失效原因如实反映」同口径。
+上游融合端点已有 `except Exception → 422`，故是干净 fail-closed（非 500）。
+
+## P1-23 GDPR 流式导出 7 个 `iter_*` 补 `ORDER BY`
+
+`gdpr_service_export.py` 的 7 个迭代器用 `LIMIT/OFFSET` 分页但**无 ORDER BY**。SQL 不保证此时
+的返回顺序，同一行可能两页都出现、也可能整页被跳过 —— 对「数据主体有权拿到全部个人数据」
+而言是**合规实质缺陷**，不是性能问题。已按主键升序补稳定排序（8 个迭代器，含
+`iter_intervention_tasks` 的分页查询）。
+
+## P1-20 uploads 响应头 —— **刻意偏离报告建议**
+
+报告原话是「加 `Content-Disposition: attachment` + `nosniff`」。**只采纳了后者**，理由有实测依据：
+
+`app/api/v1/uploads.py` 模块头 15-18 行明确写着 `<audio src>` / `<img src>` 等浏览器原生标签
+无法携带 Authorization header，端点因此额外支持 `?token=` —— **内联渲染是被有意支持的用法**，
+公共资源 `/uploads/audio/mindfulness_10min.mp3` 正是靠它播放。强制 `attachment` 会把正念音频与
+头像预览全变成下载，属功能回归。
+
+改为两条不破坏内联渲染的头：`X-Content-Type-Options: nosniff`（禁 MIME 嗅探）+ 
+`Content-Security-Policy: default-src 'none'; sandbox`（即便用户直接导航到 `.html`/`.svg`
+——文件名白名单允许这两种扩展名——脚本也不在本源执行）。
+闸门里除「头存在」外另加一条**反向闸门**：`content-disposition` 不得含 `attachment`，
+防止后人照报告原文改回去。
+
+## P1-26 数据集缺失禁止静默生成合成数据
+
+`experiment_data.py` 改前：数据集文件不存在 → 自动生成 240 行合成样本 → 照常训练/评估。
+调用方拿到的指标看起来完全正常，实际测的是随机数。这是**数据造假路径**，且一旦指标被写进
+报告或用于上线决策无法事后追溯。
+
+改为默认 `FileNotFoundError`（fail-closed），仅 `allow_synthetic=True` 时造数并留 warning。
+`ExperimentService.import_dataset` 透传该开关；API 层补 `except FileNotFoundError → 404`。
+
+⚠️ **连带发现（值得单列）**：`tests/services/test_experiment_service.py` 有两个用例
+（`test_import_dataset_raises_on_invalid_ratios_sum` / `test_import_dataset_raises_on_negative_ratio`）
+**改前根本没建 CSV**，靠「文件不存在就自动造数」才走到比例校验 —— 也就是说**既有测试把静默造数
+当成了前置条件**。这正是「先翻既有测试」的价值：它们不仅固化设计意图，也可能固化缺陷。已改为
+显式落真实数据集。
+
+## P1-25 危机导出时区 —— 经复核为**陈旧条目**
+
+报告指 `crisis_export_service.py:85-86` aware/naive 不一致。实测该处现已是
+`datetime.combine(start_date, time.min, tzinfo=timezone.utc)`（aware UTC），由既有 M-4 修复覆盖。
+**无需改动**，此处记账以免后人重复排查。
+
+## 本轮验证读数
+
+- 新增闸门 20 条全绿；每项都做了回退红信号对照实验：
+  #18 回退 → 4 红；#23 移除 `order_by` → 1 红；#20 移除头 → 1 红、
+  **反向**加回 `attachment` → 1 红；#26 回退 → 1 红。
+- 受影响既有测试：`104 passed, 1 skipped`（fusion ×3 / experiment_service / uploads ×2）+ 
+  `119 passed`（gdpr / model_predict api / uploads api）+ `196 passed`（training / predict_service /
+  non-finite 守卫）。合计 **419 passed, 1 skipped**。
+
+## 未做（如实记账）
+
+- 本轮**未跑 backend 全量**（约 37 分钟），以 CI 全量为准。
+- 前端 P1（#11-14、#27-30）本轮未动，留待下一轮；本轮仅后端。
+- 报告剩余 P1 未处理项：#15、#16、#17、#19、#21、#22、#24。

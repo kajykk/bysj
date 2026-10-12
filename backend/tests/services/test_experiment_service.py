@@ -31,7 +31,10 @@ class TestExperimentService:
         service = ExperimentService()
         result = service.import_dataset("ds1", "csv", 0.7, 0.15, 0.15)
 
-        mock_data.import_dataset.assert_called_once_with("ds1", "csv", 0.7, 0.15, 0.15)
+        # P1-26：服务层显式透传 allow_synthetic（默认 False = 缺数据集即失败）
+        mock_data.import_dataset.assert_called_once_with(
+            "ds1", "csv", 0.7, 0.15, 0.15, allow_synthetic=False
+        )
         mock_data.export_dataset_snapshot.assert_called_once_with("ds1")
         assert result["status"] == "ok"
 
@@ -220,13 +223,21 @@ class TestExperimentDataManager:
                 assert content["dataset_name"] == "ds_snap"
 
     def test_load_physiological_dataset_creates_demo_when_missing(self):
-        """load_physiological_dataset 在文件不存在时自动创建演示数据集。"""
+        """load_physiological_dataset 在显式 allow_synthetic=True 时创建演示数据集。
+
+        AUDIT-2026-10-13 (P1-26)：本用例改前断言「文件不存在即自动造数」。
+        该行为已认定为**静默数据造假路径**，改为需显式放行；此处保留对
+        「显式放行后仍能造数」的覆盖，默认路径的覆盖见
+        ``tests/services/test_p1_26_no_silent_synthetic_data.py``。
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("app.services.experiment_data.DATA_ROOT", Path(tmpdir)), patch(
                 "app.services.experiment_data.EXPERIMENT_ROOT", Path(tmpdir) / "exp"
             ):
                 manager = ExperimentDataManager()
-                df = manager.load_physiological_dataset("demo_phys")
+                df = manager.load_physiological_dataset(
+                    "demo_phys", allow_synthetic=True
+                )
                 assert not df.empty
                 required = {
                     "sleep_hours",
@@ -279,13 +290,19 @@ class TestExperimentDataManager:
                     manager.load_physiological_dataset("bad_phys")
 
     def test_import_dataset_creates_demo_and_splits(self):
-        """import_dataset 在 CSV 不存在时自动创建演示数据集并完成划分。"""
+        """import_dataset 在显式 allow_synthetic=True 时创建演示数据集并完成划分。
+
+        AUDIT-2026-10-13 (P1-26)：同 ``load_physiological_dataset``，默认不再静默
+        造数；这里覆盖「显式放行」分支。
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("app.services.experiment_data.DATA_ROOT", Path(tmpdir)), patch(
                 "app.services.experiment_data.EXPERIMENT_ROOT", Path(tmpdir) / "exp"
             ):
                 manager = ExperimentDataManager()
-                result = manager.import_dataset("demo_ds", "csv", 0.7, 0.15, 0.15)
+                result = manager.import_dataset(
+                    "demo_ds", "csv", 0.7, 0.15, 0.15, allow_synthetic=True
+                )
                 assert result["dataset_name"] == "demo_ds"
                 assert result["total_samples"] == 240
                 assert result["splits"]["train"] > 0
@@ -344,12 +361,20 @@ class TestExperimentDataManager:
                     manager.import_dataset("no_text", "bert", 0.7, 0.15, 0.15)
 
     def test_import_dataset_raises_on_invalid_ratios_sum(self):
-        """import_dataset 比例之和不为 1 时抛 ValueError。"""
+        """import_dataset 比例之和不为 1 时抛 ValueError。
+
+        AUDIT-2026-10-13 (P1-26)：本用例改前**没建 CSV**，靠「文件不存在就自动造
+        240 行合成数据」才走到比例校验 —— 也就是它把静默造数当成了前置条件。
+        现改为显式落一份真实数据集，让校验真的被覆盖。
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("app.services.experiment_data.DATA_ROOT", Path(tmpdir)), patch(
                 "app.services.experiment_data.EXPERIMENT_ROOT", Path(tmpdir) / "exp"
             ):
                 manager = ExperimentDataManager()
+                pd.DataFrame(
+                    {"text": [f"s{i}" for i in range(4)], "label": [0, 1, 0, 1]}
+                ).to_csv(manager.dataset_path("bad_ratio"), index=False)
                 with pytest.raises(ValueError, match="等于 1"):
                     manager.import_dataset("bad_ratio", "csv", 0.5, 0.3, 0.3)
 
@@ -360,6 +385,11 @@ class TestExperimentDataManager:
                 "app.services.experiment_data.EXPERIMENT_ROOT", Path(tmpdir) / "exp"
             ):
                 manager = ExperimentDataManager()
+                # P1-26：同 ``test_import_dataset_raises_on_invalid_ratios_sum``，
+                # 改前依赖静默造数；这里显式落真实数据集。
+                pd.DataFrame(
+                    {"text": [f"s{i}" for i in range(4)], "label": [0, 1, 0, 1]}
+                ).to_csv(manager.dataset_path("neg_ratio"), index=False)
                 # 比例之和为 1.0 但包含负值，触发 min(...) <= 0 检查
                 with pytest.raises(ValueError, match="大于 0"):
                     manager.import_dataset("neg_ratio", "csv", 1.2, -0.1, -0.1)

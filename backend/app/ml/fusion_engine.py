@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Any
 
@@ -167,6 +168,31 @@ class FusionEngine:
             if v is None or not isinstance(v, (int, float)):
                 raise TypeError(
                     f"modality_scores[{k!r}] 必须为数值类型，实际为 {type(v).__name__}"
+                )
+
+        # AUDIT-2026-10-13 (P1-18)：非有限值必须在这里就拦掉，不能等到下游裁剪。
+        # 实测（_tmp_nan_probe.py，2026-10-13）改前行为：
+        #   NaN   → risk_score=100.0 / risk_level=4（**静默判为满级危机**）
+        #   +Inf  → risk_score=100.0 / risk_level=4
+        #   -Inf  → risk_score=0.0   / risk_level=0（**静默判为无风险**）
+        # 两个方向都是「坏数据被静默翻译成一个极端的临床结论」，且首诊医生
+        # 无从分辨。成因是 Python 的 NaN 比较恒为 False：
+        #   ``raw_fused < 0.0 or raw_fused > 100.0`` 对 NaN 全是 False（不告警），
+        #   ``min(100.0, nan)`` 保留 100.0 → ``max(0.0, 100.0)`` = 100.0。
+        # 而 ``_score_to_level`` 里的 ``ensure_finite_score`` 拿到的是**已裁剪后**
+        # 的有限值，永远拦不到原始 NaN —— 这是「下游拦不住」的典型。
+        #
+        # 这里按 AUDIT-2026-10-08 (P0-5) 的既有约定「提前显式拦截，让失效原因
+        # 如实反映」处理：复刻 ``ensure_finite_score`` 的语义并复用其异常类型，
+        # 使上游 ``except Exception`` 能据此降级（融合端点返回 422，非 500）。
+        from app.core.risk_thresholds import NonFiniteRiskScoreError
+
+        for k, v in modality_scores.items():
+            if isinstance(v, bool) or not math.isfinite(v):
+                raise NonFiniteRiskScoreError(
+                    f"modality_scores[{k!r}] 不是有限数值（{v!r}），拒绝参与融合——"
+                    "否则 NaN 会被裁剪成 100.0 判为『危机』、-Inf 会被裁剪成 0.0 "
+                    "判为『无风险』，两种静默错判方向相反且都无法事后追溯。"
                 )
 
         modality_metadata = modality_metadata or {}

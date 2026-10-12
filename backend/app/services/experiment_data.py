@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -8,8 +9,17 @@ import pandas as pd
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 DATA_ROOT = Path(settings.model_dir) / "datasets"
 EXPERIMENT_ROOT = Path(settings.model_dir) / "experiments"
+
+SYNTHETIC_DATASET_WARNING = (
+    "数据集 {name} 不存在，正在生成**合成演示数据**参与训练/评估——"
+    "结果不具备任何临床意义，禁止用于指标上报或上线决策。"
+    "本行为需显式传 allow_synthetic=True 才会发生；若为生产路径，"
+    "请改为先落盘真实数据集。"
+)
 
 
 class ExperimentDataManager:
@@ -33,9 +43,27 @@ class ExperimentDataManager:
         )
         return snapshot
 
-    def load_physiological_dataset(self, dataset_name: str) -> pd.DataFrame:
+    def load_physiological_dataset(
+        self, dataset_name: str, *, allow_synthetic: bool = False
+    ) -> pd.DataFrame:
+        """读取生理数据集。
+
+        AUDIT-2026-10-13 (P1-26)：数据集缺失时**不再静默生成合成数据**。
+        改前只要文件不存在就自动生成 240 行合成样本并照常训练/评估 ——
+        调用方拿到的评估指标看起来完全正常，实际测的是随机数。指标一旦被
+        写进报告或用于上线决策，属于实质性的数据造假路径。
+        现改为：默认抛 ``FileNotFoundError``（fail-closed）；只有显式传
+        ``allow_synthetic=True`` 才生成，并留 warning 日志。
+        """
         path = self.physiological_dataset_path(dataset_name)
         if not path.exists():
+            if not allow_synthetic:
+                raise FileNotFoundError(
+                    f"生理数据集 {dataset_name!r} 不存在：{path}。"
+                    "拒绝静默生成合成数据（评估结果将不具备临床意义）；"
+                    "如确需演示数据，请显式传 allow_synthetic=True。"
+                )
+            logger.warning(SYNTHETIC_DATASET_WARNING.format(name=dataset_name))
             self._create_demo_physiological_dataset(path)
         df = pd.read_csv(path)
         required = {
@@ -75,11 +103,27 @@ class ExperimentDataManager:
         train_ratio: float,
         val_ratio: float,
         test_ratio: float,
+        *,
+        allow_synthetic: bool = False,
     ) -> dict[str, Any]:
+        """导入并划分数据集。
+
+        AUDIT-2026-10-13 (P1-26)：同 ``load_physiological_dataset``，数据集缺失
+        时默认抛 ``FileNotFoundError`` 而非静默生成合成数据。训练任务
+        （``tasks/model_training.py``）因此会在缺数据集时**显式失败**，而不是
+        训练出一个基于合成数据的模型并把它标记为成功。
+        """
         from sklearn.model_selection import train_test_split
 
         csv_path = self.dataset_path(dataset_name)
         if not csv_path.exists():
+            if not allow_synthetic:
+                raise FileNotFoundError(
+                    f"数据集 {dataset_name!r} 不存在：{csv_path}。"
+                    "拒绝静默生成合成数据；如确需演示数据，请显式传 "
+                    "allow_synthetic=True。"
+                )
+            logger.warning(SYNTHETIC_DATASET_WARNING.format(name=dataset_name))
             self._create_demo_dataset(csv_path)
 
         df = pd.read_csv(csv_path)
