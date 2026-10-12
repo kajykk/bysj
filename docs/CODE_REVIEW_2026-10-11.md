@@ -1199,7 +1199,14 @@ null、也覆盖了 `probability` 为 0，**唯独漏了 `probability` 为 null*
 
 - 后端全量测试套件（约 37 分钟）未在本机跑全量，以「受影响既有测试 323
   passed + 闸门 19 passed + 契约 278 passed」覆盖；CI 全量为准。
-- `vite build` 的 146 为规范 outDir（dist/）读数；本机需先移开残留 dist/
+- 本机 `vite build` 的 146 为规范 outDir（dist/）读数；本机需先移开残留 dist/
   才能构建（环境安全垫阈值），CI 全新检出环境不受此限。
 - P2 #31（租户隔离机制化）、#32（SSOT 去重）、仓库 prettier 格式单独一轮，
   仍按既定排期推进。
+
+### CI 结果
+
+第六轮提交 `c61989a` 推送后 **CI 10/10 success**（coverage-summary /
+Check Deployment Window / lighthouse / backend-coverage / frontend-coverage /
+harness / E2E Full Stack / Gitleaks Full History Scan / contract-test /
+Gitleaks Secret Scan）。
