@@ -147,3 +147,26 @@ hook `Module._load` 实测 `require('@sentry/node')` 会加载 **2852 个模块*
 
 **解除条件**：`eslint-plugin-vue` 任一版本把依赖放宽到 `^7` → 立即移除该
 override 并删除本节。
+
+### 告警 #105 的陈旧状态（2026-10-12 记录，待重扫确认）
+
+推送 `8664ec4`（lock 升到 7.1.6）后，GitHub 仍报 1 条 open：
+
+    alert #105  postcss-selector-parser  GHSA-rj75-hqrm-r3gf  medium
+
+**这不是真实残留，是 Dependabot 未重扫**。取证：
+
+- 远端 `frontend/package-lock.json`（`?ref=main`）实测：
+  `node_modules/postcss-selector-parser = 7.1.6`，**全树仅 1 份副本**
+  （无嵌套 6.x 残留），已不在 vulnerable range `< 7.1.6` 内
+- 告警 `updated_at == created_at == 2026-10-11T08:00:08Z`，
+  **自创建起从未被更新过** → 未发生重扫，属陈旧读数
+- 磁盘实装同样只有 1 份 7.1.6（`find node_modules -name postcss-selector-parser`）
+
+⚠️ 注意 `eslint-plugin-vue` 的依赖声明仍是 `^6.0.15`：这是**声明**，
+而 npm 在 override 下**解析结果**是 7.1.6。Dependabot 按 lock 的解析结果判定，
+故不应因声明未变而认为修复无效。
+
+**复审动作**：下次 Dependabot 重扫后核对 #105 是否自动转为 `fixed`。
+若重扫后仍为 open，说明本判断有误，需重新排查（优先查是否有未纳入 lock 的
+嵌套解析路径）。
