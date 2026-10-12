@@ -899,3 +899,64 @@ experimentSummary.value = { ..., val_accuracy: res.metrics.accuracy, ... } // �
 
 - 未跑 backend 全量，以 CI 为准。
 - 剩余 P1：#15、#17、#19（已加闸门，无需改实现）、#22（已降级）、#24；前端 #11-14、#27-30。
+
+---
+
+## P1 整改追记（2026-10-13，第四轮）：推理并发有界 / 异常检测去 N+1
+
+### P1-17 `_run_model_inference` 并发无界 + 失败留孤儿任务
+
+报告只说「加 Semaphore + 分批」。实测发现**两个独立缺陷**，都比报告写的具体：
+
+1. **行数即协程数，无上限。** `asyncio.gather(*tasks)` 一次性为全部特征建协程。
+   实测 300 特征 → 峰值并发 **300**（1:1）。`predict_structured` 每次调用内还要构造
+   DataFrame，10 万行数据集就是 10 万份同时驻留。且 `/validation` 端点的
+   `dataset_path` 由用户指定、**无行数上限**，数据集大小完全不可控。
+2. **首个异常后留下孤儿任务。** `return_exceptions=False` 时 gather 立即传播异常，
+   但**不取消其余任务**（asyncio 文档明示）。实测 200 条中第 20 条抛错 →
+   调用方已 `return None`（job 记 failed），**其余 199 条仍在后台跑完**，
+   继续占用线程池与模型。表现为「任务已报失败，CPU 还在烧」。
+
+修复：分批 gather（`_INFERENCE_BATCH_SIZE=64`）+ 批内 `Semaphore(8)` 限制同时在飞
+协程数；批内改 `return_exceptions=True` 后**统一重抛**，等本批收尾再抛，不留孤儿。
+
+修复后实测：峰值并发 **300 → 8**；孤儿任务 **199 → 0**（失败批之后一个都不启动）；
+tracemalloc 峰值 468 → 136.5 KiB。
+
+并发上限取 8 的依据：`predict_structured` 内部 `asyncio.to_thread` 落到默认线程池
+（`max_workers = min(32, cpu+4)`），8 已足以喂满，同时把「同时构造的 DataFrame 数」
+压到批大小量级。
+
+### P1-24 异常检测三处循环内 N+1
+
+`detect_off_hours` 早在 H-AUDIT-01 就已改用 window 函数修掉同类问题（并留下注释
+「改用 window 函数, 双端兼容」），但**同文件的另外三个检测器没跟上**——又是本仓
+「同一模式复制 N 份后各自漂移」的系统性根因（见报告 P2-32）。
+
+单次扫描 SQL 往返：`1 + N`（high_frequency）+ `1 + 2N`（cross_region）
++ `1 + 2N`（lateral），N ≤ 100，最坏约 **500 次往返/轮**（报告写 ~700，量级一致）。
+其中 lateral 更糟：阈值因角色而异、无法写进 SQL `HAVING`，原实现在**过滤前**就为
+每一行发 2 条查询，未超阈值的行是白发。
+
+修复：新增两个批量 helper（`_batch_latest_ips` / `_batch_distinct_values`），
+沿用同文件 `detect_off_hours` 的 window 函数写法（SQLite/PostgreSQL 双端兼容）。
+三个检测器的详情查询从 N 次压到 1 次；lateral 改为先过滤再批量取详情。
+
+顺带修掉一个隐蔽问题：原 `ORDER BY created_at DESC LIMIT 1` 在**同一秒批量插入**时
+取哪条不确定，两次扫描可能给出不同 IP，违反模块 docstring 自己承诺的「幂等性」。
+新增 `id DESC` 兜底，并加闸门锁死（同输入两次调用结果必须相同）。
+
+### 本轮验证读数
+
+- 新增闸门 `tests/test_p1_audit_2026_10_13_round3.py` **10 条全绿**。
+- 回退红信号对照：#17 恢复无界 `gather` → 4 红；仅去掉批内 `return_exceptions=True`
+  （保留分批）→ **只有孤儿任务闸门红**（1 红），精确隔离两个半修；
+  #24 恢复 high_frequency 逐人查询 → 往返次数闸门 1 红。
+- 受影响既有测试：96（anomaly + validation_engine ×2）+ 144（tasks/ + result_model）
+  + 106（四文件合计）= **106 passed**（末次全量重跑）。
+
+## 未做（如实记账）
+
+- 未跑 backend 全量，以 CI 为准。
+- 剩余 P1：#15（前端 StatsCard → 后端聚合端点，改动面较大）；前端 #11-14、#27-30。
+- P1-22 维持降级判断（API 层已有 25 处 `ge=1`，见第三轮追记）。

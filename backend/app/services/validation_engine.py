@@ -12,6 +12,15 @@ from sklearn.metrics import roc_auc_score
 
 logger = logging.getLogger(__name__)
 
+# P1-17 修复：模型推理的并发上限与批大小。
+# _run_model_inference 原为「一次性为全部特征 gather」，行数即协程数、无上限；
+# 现按批推进，每批内由 Semaphore 限制同时在飞的协程数。
+# 取值依据：predict_structured 内部 asyncio.to_thread 落到默认线程池
+# （max_workers = min(32, cpu+4)），并发上限取 8 已足以喂满线程池，
+# 同时把「同时构造的 DataFrame 数」压到批大小量级。
+_INFERENCE_CONCURRENCY = 8
+_INFERENCE_BATCH_SIZE = 64
+
 
 @dataclass
 class ValidationMetrics:
@@ -367,18 +376,40 @@ class ValidationEngine:
 
             # M22 修复：使用 asyncio.gather 并发推理，替代循环内逐条 await
             # model_engine.predict_structured 内部使用 asyncio.to_thread 释放 GIL，并发安全
-            # P1-F2 修复：原代码 `return_exceptions=True` + `raise r` 自相矛盾——
-            # return_exceptions=True 会把异常包装为返回值，循环内 `raise r` 又重新抛出，
-            # 等同于 fail-fast 但多了包装开销。改为默认行为（return_exceptions=False），
-            # 首个异常直接由 gather 抛出，被外层 except 捕获并记录日志。
-            tasks = [model_engine.predict_structured(feat) for feat in features]
-            results = await asyncio.gather(*tasks)
+            # P1-17 修复：原代码一次性为全部特征建协程（`gather(*tasks)`），
+            #   实测 300 特征 → 峰值并发 300（1:1 无上限）：数据集行数即协程数，
+            #   每个协程内还要构造 DataFrame，10 万行数据集就是 10 万份同时驻留内存。
+            #   且 return_exceptions=False 时首个异常传播后其余任务**不取消**，
+            #   实测 200 条中 199 条成为孤儿任务——调用方已返回 None，后台仍在
+            #   占用线程池跑完。现改为：分批 gather（限制同时在飞的协程数）+
+            #   批内 return_exceptions=True 后统一重抛（不留孤儿）。
+            semaphore = asyncio.Semaphore(_INFERENCE_CONCURRENCY)
+
+            async def _guarded(feat: dict[str, Any]) -> dict[str, Any]:
+                async with semaphore:
+                    return await model_engine.predict_structured(feat)
+
+            async def _run_batch(
+                batch: list[dict[str, Any]],
+            ) -> list[dict[str, Any]]:
+                # return_exceptions=True：等本批全部结束再抛首个异常。
+                # gather 默认行为是异常立即传播且不取消其余任务 → 孤儿任务。
+                results = await asyncio.gather(
+                    *[_guarded(feat) for feat in batch], return_exceptions=True
+                )
+                for r in results:
+                    if isinstance(r, BaseException):
+                        raise r
+                return results
 
             predictions: list[int] = []
             probabilities: list[float] = []
-            for r in results:
-                predictions.append(int(r.get("prediction", 0)))
-                probabilities.append(float(r.get("probability", 0.5)))
+            for start in range(0, len(features), _INFERENCE_BATCH_SIZE):
+                batch = features[start : start + _INFERENCE_BATCH_SIZE]
+                results = await _run_batch(batch)
+                for r in results:
+                    predictions.append(int(r.get("prediction", 0)))
+                    probabilities.append(float(r.get("probability", 0.5)))
             return predictions, probabilities
         except Exception as exc:
             logger.error(

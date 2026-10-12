@@ -98,6 +98,112 @@ def _get_lateral_threshold(role: str) -> int:
     )
 
 
+async def _batch_latest_ips(
+    db: AsyncSession,
+    cutoff: datetime,
+    operator_ids: list[int],
+) -> dict[int, str | None]:
+    """P1-24 修复：一次查询取多个 operator 各自的最新 IP。
+
+    替代原「循环内逐人一条 `SELECT ip ... ORDER BY created_at DESC LIMIT 1`」：
+    MAX_FINDINGS_PER_SCAN=100 时就是 100 次往返，且与上面的聚合查询同模式、
+    同过滤条件，本可合并。写法沿用 detect_off_hours 既有的 window 函数方案
+    （H-AUDIT-01：SQLite / PostgreSQL 双端兼容，不依赖松散 GROUP BY）。
+
+    排序增加 `id DESC` 兜底：同一秒批量插入时 created_at 相同，原实现的
+    `LIMIT 1` 取哪一条不确定，两次扫描可能给出不同 IP（违反幂等性原则）。
+    """
+    if not operator_ids:
+        return {}
+
+    inner = (
+        select(
+            OperationLog.operator_id,
+            OperationLog.ip_address,
+            func.row_number()
+            .over(
+                partition_by=OperationLog.operator_id,
+                order_by=(OperationLog.created_at.desc(), OperationLog.id.desc()),
+            )
+            .label("_rn"),
+        )
+        .where(
+            and_(
+                OperationLog.created_at >= cutoff,
+                OperationLog.operator_id.in_(operator_ids),
+            )
+        )
+        .subquery()
+    )
+    stmt = select(inner.c.operator_id, inner.c.ip_address).where(inner.c._rn == 1)
+    rows = (await db.execute(stmt)).all()
+    return {operator_id: ip for operator_id, ip in rows}
+
+
+async def _batch_distinct_values(
+    db: AsyncSession,
+    cutoff: datetime,
+    operator_ids: list[int],
+    column: Any,
+    per_operator_limit: int,
+) -> dict[int, list[Any]]:
+    """P1-24 修复：一次查询取每个 operator 的去重 `column` 值（每人最多 K 个）。
+
+    替代原「循环内逐人一条 `SELECT ... DISTINCT LIMIT K`」。两层 window：
+    第一层按 (operator, value) 去重，第二层在 operator 内排名取前 K。
+    与原实现一致不过滤 operator 之外的条件，仅把 N 次往返压成 1 次。
+
+    排序按值本身：原 `.distinct()` 无 ORDER BY，取哪些值不确定；
+    改为按值排序后结果确定（幂等），且调用方写入 JSON 前可稳定比对。
+    """
+    if not operator_ids:
+        return {}
+
+    # 第一层：按 (operator, value) 去重
+    dedup = (
+        select(
+            OperationLog.operator_id,
+            column.label("_value"),
+            func.row_number()
+            .over(
+                partition_by=[OperationLog.operator_id, column],
+                order_by=OperationLog.id.desc(),
+            )
+            .label("_dedup_rn"),
+        )
+        .where(
+            and_(
+                OperationLog.created_at >= cutoff,
+                OperationLog.operator_id.in_(operator_ids),
+                column.isnot(None),
+            )
+        )
+        .subquery()
+    )
+    # 第二层：operator 内排名，取前 K
+    ranked = (
+        select(
+            dedup.c.operator_id,
+            dedup.c._value,
+            func.row_number()
+            .over(partition_by=dedup.c.operator_id, order_by=dedup.c._value)
+            .label("_rank"),
+        )
+        .where(dedup.c._dedup_rn == 1)
+        .subquery()
+    )
+    stmt = (
+        select(ranked.c.operator_id, ranked.c._value).where(
+            ranked.c._rank <= per_operator_limit
+        )
+    )
+
+    result: dict[int, list[Any]] = {}
+    for operator_id, value in (await db.execute(stmt)).all():
+        result.setdefault(operator_id, []).append(value)
+    return result
+
+
 async def detect_high_frequency(db: AsyncSession) -> list[AnomalyFinding]:
     """检测高频访问.
 
@@ -130,21 +236,14 @@ async def detect_high_frequency(db: AsyncSession) -> list[AnomalyFinding]:
     )
     rows = (await db.execute(stmt)).all()
 
+    # P1-24 修复：一次性取回全部 operator 的最新 IP，替代循环内逐人查询
+    latest_ips = await _batch_latest_ips(
+        db, cutoff, [row[0] for row in rows]
+    )
+
     findings: list[AnomalyFinding] = []
     for operator_id, operator_role, op_count in rows:
-        # 查询该用户最近一次操作的 IP (取 cutoff 之后的最新一条)
-        latest_stmt = (
-            select(OperationLog.ip_address)
-            .where(
-                and_(
-                    OperationLog.operator_id == operator_id,
-                    OperationLog.created_at >= cutoff,
-                )
-            )
-            .order_by(OperationLog.created_at.desc())
-            .limit(1)
-        )
-        latest_ip = (await db.execute(latest_stmt)).scalar_one_or_none()
+        latest_ip = latest_ips.get(operator_id)
 
         detail = json.dumps(
             {
@@ -314,36 +413,20 @@ async def detect_cross_region(db: AsyncSession) -> list[AnomalyFinding]:
     )
     rows = (await db.execute(stmt)).all()
 
+    # P1-24 修复：IP 清单与最新 IP 各一次批量查询，替代循环内逐人各一条
+    operator_ids = [row[0] for row in rows]
+    ip_lists = await _batch_distinct_values(
+        db, cutoff, operator_ids, OperationLog.ip_address, 10
+    )
+    latest_ips = await _batch_latest_ips(db, cutoff, operator_ids)
+
     findings: list[AnomalyFinding] = []
     for operator_id, operator_role, ip_count in rows:
-        # 查询该用户使用的所有 IP (最多 10 个，供调查)
-        ip_list_stmt = (
-            select(OperationLog.ip_address)
-            .where(
-                and_(
-                    OperationLog.operator_id == operator_id,
-                    OperationLog.created_at >= cutoff,
-                    OperationLog.ip_address.isnot(None),
-                )
-            )
-            .distinct()
-            .limit(10)
-        )
-        ip_list = list((await db.execute(ip_list_stmt)).scalars().all())
+        # 该用户使用的 IP (最多 10 个，供调查)
+        ip_list = ip_lists.get(operator_id, [])
 
-        # 查询最新 IP (取 cutoff 之后的最新一条)
-        latest_stmt = (
-            select(OperationLog.ip_address)
-            .where(
-                and_(
-                    OperationLog.operator_id == operator_id,
-                    OperationLog.created_at >= cutoff,
-                )
-            )
-            .order_by(OperationLog.created_at.desc())
-            .limit(1)
-        )
-        latest_ip = (await db.execute(latest_stmt)).scalar_one_or_none()
+        # 最新 IP (取 cutoff 之后的最新一条)
+        latest_ip = latest_ips.get(operator_id)
 
         detail = json.dumps(
             {
@@ -406,47 +489,36 @@ async def detect_lateral_access(db: AsyncSession) -> list[AnomalyFinding]:
     )
     rows = (await db.execute(stmt)).all()
 
-    findings: list[AnomalyFinding] = []
+    # P1-24 修复：先按角色阈值过滤出真正的 finding，再一次性批量取详情。
+    # 原实现在过滤前就为每一行发 2 条查询，多数是白跑（阈值因角色而异，
+    # 无法在 SQL 的 HAVING 里统一表达，只能 Python 侧过滤）。
+    candidates: list[tuple[int, str, int]] = []
     for operator_id, operator_role, target_type_count in rows:
         role = operator_role or "unknown"
         threshold = _get_lateral_threshold(role)
         if int(target_type_count) <= threshold:
             continue
+        candidates.append((operator_id, role, int(target_type_count)))
 
-        # 查询该用户访问的所有 target_type (供调查)
-        target_types_stmt = (
-            select(OperationLog.target_type)
-            .where(
-                and_(
-                    OperationLog.operator_id == operator_id,
-                    OperationLog.created_at >= cutoff,
-                    OperationLog.target_type.isnot(None),
-                )
-            )
-            .distinct()
-            .limit(20)
-        )
-        target_types = list((await db.execute(target_types_stmt)).scalars().all())
+    operator_ids = [c[0] for c in candidates]
+    target_type_lists = await _batch_distinct_values(
+        db, cutoff, operator_ids, OperationLog.target_type, 20
+    )
+    latest_ips = await _batch_latest_ips(db, cutoff, operator_ids)
 
-        # 查询最新 IP
-        latest_stmt = (
-            select(OperationLog.ip_address)
-            .where(
-                and_(
-                    OperationLog.operator_id == operator_id,
-                    OperationLog.created_at >= cutoff,
-                )
-            )
-            .order_by(OperationLog.created_at.desc())
-            .limit(1)
-        )
-        latest_ip = (await db.execute(latest_stmt)).scalar_one_or_none()
+    findings: list[AnomalyFinding] = []
+    for operator_id, role, target_type_count in candidates:
+        # 该用户访问的所有 target_type (供调查)
+        target_types = target_type_lists.get(operator_id, [])
+
+        # 最新 IP
+        latest_ip = latest_ips.get(operator_id)
 
         detail = json.dumps(
             {
                 "anomaly_type": "lateral",
                 "window_minutes": window_minutes,
-                "target_type_count": int(target_type_count),
+                "target_type_count": target_type_count,
                 "threshold": threshold,
                 "target_types": target_types,
                 "operator_role": role,
@@ -463,7 +535,7 @@ async def detect_lateral_access(db: AsyncSession) -> list[AnomalyFinding]:
                 ip_address=latest_ip,
                 rule_id="AR-306",
                 evidence={
-                    "target_type_count": int(target_type_count),
+                    "target_type_count": target_type_count,
                     "target_types": target_types,
                 },
             )
