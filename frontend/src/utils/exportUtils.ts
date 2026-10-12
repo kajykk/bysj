@@ -30,6 +30,20 @@ export function sanitizeCellForExcel(value: string): string {
   return value
 }
 
+/**
+ * P1-29 修复：CSV 单元格序列化 —— 表头与数据单元格走同一条转义链。
+ *
+ * FE-003 只给**数据单元格**做了公式注入转义，表头 `headers.join(',')` 是裸串：
+ *   1. 公式注入：列名以 `=`/`+`/`-`/`@` 开头时 Excel 同样会当公式执行
+ *      （表头来自 i18n 文案与后端字段标签，后者部分可由管理员配置）。
+ *   2. CSV 结构破坏：列名含逗号/引号/换行时不做引号包裹会整体错列。
+ * 数据行早就做了「先 sanitize 再引号转义」，表头漏了同一件事。
+ */
+function toCsvCell(value: string): string {
+  const sanitized = sanitizeCellForExcel(value)
+  return `"${sanitized.replace(/"/g, '""')}"`
+}
+
 export function exportToCSV<T extends Record<string, unknown>>(
   data: T[],
   columns: ExportColumn<T>[],
@@ -39,15 +53,14 @@ export function exportToCSV<T extends Record<string, unknown>>(
     throw new Error(t('exportUtils.emptyData'))
   }
 
-  const headers = columns.map((col) => col.label)
+  const headers = columns.map((col) => toCsvCell(col.label))
   const rows = data.map((row) =>
     columns
       .map((col) => {
         const rawValue = row[col.key]
         const value = col.formatter ? col.formatter(rawValue, row) : rawValue
         // FE-003 修复：先转义公式注入，再转义 CSV 引号
-        const sanitized = sanitizeCellForExcel(String(value ?? ''))
-        return `"${sanitized.replace(/"/g, '""')}"`
+        return toCsvCell(String(value ?? ''))
       })
       .join(',')
   )
@@ -75,7 +88,12 @@ export function exportToExcel<T extends Record<string, unknown>>(
     throw new Error(t('exportUtils.emptyData'))
   }
 
-  const headers = columns.map((col) => `<th>${escapeXml(col.label)}</th>`).join('')
+  // P1-29 修复：表头与数据单元格同样先过 sanitizeCellForExcel 再 escapeXml。
+  // FE-003 原先只转义数据单元格，表头漏了同一件事（Excel 打开 HTML 表格时
+  // 同样会把 `=`/`+`/`-`/`@` 开头的内容当公式执行）。
+  const headers = columns
+    .map((col) => `<th>${escapeXml(sanitizeCellForExcel(col.label))}</th>`)
+    .join('')
   const rows = data
     .map(
       (row) =>

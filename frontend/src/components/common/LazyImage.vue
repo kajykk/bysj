@@ -232,6 +232,15 @@ const handleRetry = () => {
 const setupObserver = () => {
   if (!containerRef.value) return
 
+  // P1-14 修复：先断开既有 observer 再建新的。
+  // handleRetry（加载失败重试）会再次调用本函数，原实现直接覆盖 `observer`
+  // 变量：旧 observer 若尚未触发过 intersection（图片不在视口内就失败了），
+  // 它仍在校察 container，既不会被 GC 也会持续触发回调 → 每次重试泄漏一个。
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -263,9 +272,13 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (observer && containerRef.value) {
-    observer.unobserve(containerRef.value)
+  // P1-14 修复：去掉 containerRef 判空。
+  // 组件卸载时 containerRef 可能已被置空（v-if 联动销毁），原写法此时
+  // 整个 if 不成立，observer 连 disconnect 都调用不到 → 确定泄漏。
+  // disconnect() 本身就会解除所有观察目标，无需先 unobserve。
+  if (observer) {
     observer.disconnect()
+    observer = null
   }
 })
 

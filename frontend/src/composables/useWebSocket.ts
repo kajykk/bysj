@@ -55,6 +55,54 @@ class WebSocketClient {
   private connectionTimeoutTimer: ReturnType<typeof setTimeout> | null = null
   private static readonly CONNECTION_TIMEOUT_MS = 10_000
 
+  // P1-11 修复：达到最大重连次数后不再"永久放弃"。
+  // 原实现在 _scheduleReconnect 里提示一次就 return，此后再无任何恢复路径：
+  // 笔记本合盖/切网络/服务重启后，即使用户网络已恢复，WS 也一直是死的，
+  // 只能刷新页面。现改为进入"休眠等待"状态，监听网络恢复与页面可见性，
+  // 并以低频兜底重试，任一触发即重置计数重新连接。
+  private dormantRecoveryTimer: ReturnType<typeof setInterval> | null = null
+  private dormantRecoveryBound = false
+  private static readonly DORMANT_RETRY_INTERVAL_MS = 60_000
+
+  private _onDormantRecoveryTrigger = () => {
+    if (!this.shouldReconnect) return
+    this._exitDormantRecovery()
+    this._resetReconnectState()
+    this._connect()
+  }
+
+  private _handleOnline = () => this._onDormantRecoveryTrigger()
+
+  private _handleVisibilityChange = () => {
+    // 仅在被遮挡后重新可见时触发；初始加载时 document.visibilityState 已是 'visible'
+    if (document.visibilityState === 'visible') this._onDormantRecoveryTrigger()
+  }
+
+  private _enterDormantRecovery() {
+    if (this.dormantRecoveryBound) return
+    this.dormantRecoveryBound = true
+    window.addEventListener('online', this._handleOnline)
+    document.addEventListener('visibilitychange', this._handleVisibilityChange)
+    // 兜底：某些环境不派发 online 事件（企业代理、VPN 客户端），靠低频轮询
+    if (!this.dormantRecoveryTimer) {
+      this.dormantRecoveryTimer = setInterval(
+        () => this._onDormantRecoveryTrigger(),
+        WebSocketClient.DORMANT_RETRY_INTERVAL_MS
+      )
+    }
+  }
+
+  private _exitDormantRecovery() {
+    if (!this.dormantRecoveryBound) return
+    this.dormantRecoveryBound = false
+    window.removeEventListener('online', this._handleOnline)
+    document.removeEventListener('visibilitychange', this._handleVisibilityChange)
+    if (this.dormantRecoveryTimer) {
+      clearInterval(this.dormantRecoveryTimer)
+      this.dormantRecoveryTimer = null
+    }
+  }
+
   private _dedupeMessage(msg: WsWarningMessage) {
     const warningId = Number(msg.data.warning_id)
     if (Number.isFinite(warningId) && warningId > 0) {
@@ -139,6 +187,8 @@ class WebSocketClient {
       }
       socket.send(JSON.stringify({ type: 'auth', token: this.authToken }))
       this.reconnectAttempts = 0
+      // P1-11 修复：连接已建立，撤掉休眠恢复监听（幂等，未进入时是 no-op）
+      this._exitDormantRecovery()
       // M-47 修复：连接成功后启动心跳
       this._startHeartbeat()
     }
@@ -234,6 +284,7 @@ class WebSocketClient {
   private _scheduleReconnect() {
     if (!this.shouldReconnect || !this.userId || !this.authToken) return
     // H-FE-3 修复：达到最大重连次数时提示用户并上报 Sentry
+    // P1-11 修复：提示后进入休眠等待，而非永久放弃（详见 _enterDormantRecovery）
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       ElNotification({
         title: t('webSocket.disconnectedTitle'),
@@ -242,6 +293,7 @@ class WebSocketClient {
         duration: 0,
       })
       captureMessage('WebSocket 重连失败：已达最大重连次数，实时连接已断开', 'warning')
+      this._enterDormantRecovery()
       return
     }
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
@@ -261,6 +313,9 @@ class WebSocketClient {
   disconnect() {
     this.shouldReconnect = false
     this._resetReconnectState()
+    // P1-11 修复：登出/主动断开时必须一并撤掉休眠恢复监听与兜底定时器，
+    // 否则即使用户已登出，online 事件仍会触发一次无意义的 _connect()
+    this._exitDormantRecovery()
     // M-47 修复：断开时停止心跳
     this._stopHeartbeat()
     // M-FE-2 修复：断开时清除连接超时定时器

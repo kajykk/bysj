@@ -42,16 +42,23 @@ export const getNetworkErrorMessage = (error: unknown): string | null => {
 }
 
 export const normalizeHttpErrorInfo = (error: unknown, fallback: string): HttpErrorInfo => {
-  const raw = error as { response?: { status?: unknown; data?: { detail?: unknown; message?: unknown; error?: { message?: unknown } } }; message?: unknown } | null | undefined
+  const raw = error as { response?: { status?: unknown; data?: { detail?: unknown; message?: unknown; error?: { message?: unknown } } }; message?: unknown; userMessage?: unknown } | null | undefined
   const response = raw?.response ?? (isAxiosError(error) ? error.response : undefined)
   const status = Number(response?.status ?? 0) || Number(raw?.response?.status ?? 0) || 0
   const detailRaw = response?.data?.detail ?? response?.data?.message ?? response?.data?.error?.message
   const errorMessage = raw?.message ?? (isAxiosError(error) ? error.message : undefined)
+  // P1-30 修复：优先采用请求拦截器挂上的 userMessage（getNetworkErrorMessage
+  // 的中文映射结果，或 P1-12 的"会话已刷新请再次提交"）。网络层错误没有
+  // response，原先只能落到 axios 英文原文，ISS-106 的映射表等于白做。
+  // 位置在 detailRaw 之后、errorMessage 之前：有业务 detail 时仍以服务端为准，
+  // 仅无业务 detail 时用拦截器给出的中文提示兜底。
   const detail = typeof detailRaw === 'string' && detailRaw.trim()
     ? detailRaw
-    : typeof errorMessage === 'string' && errorMessage.trim()
-      ? errorMessage
-      : fallback
+    : typeof raw?.userMessage === 'string' && raw.userMessage.trim()
+      ? raw.userMessage
+      : typeof errorMessage === 'string' && errorMessage.trim()
+        ? errorMessage
+        : fallback
 
   return { status, detail }
 }

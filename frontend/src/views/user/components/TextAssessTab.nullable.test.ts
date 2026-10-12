@@ -167,6 +167,38 @@ describe('TextAssessTab 结果卡可空字段渲染（SEC-FIX-2026-10-05）', ()
     expect(wrapper.text()).toContain('0.00')
   })
 
+  // P1-13 修复：probability 与 sentiment_score 同源同类型（后端
+  // schemas/model_predict.py 均为 Optional[float]），本文件上面几条用例
+  // 覆盖了 sentiment_score/sentiment_label 为 null，也覆盖了 probability 为 0，
+  // **唯独漏了 probability 为 null**——而模板里 `(probability * 100).toFixed(2)`
+  // 正是 SEC-FIX-2026-10-05 注释里写明"此处是遗漏"的那一行。
+  // `null * 100` 抛 TypeError → 整棵子树白屏 → 用户刚提交的结果卡消失。
+  it('probability 为 null 时不抛异常且组件树未被清空', async () => {
+    predictTextMock.mockResolvedValue(makeResult({ probability: null }))
+
+    const wrapper = mount(TextAssessTab, { props: { canUse: true }, ...mountOptions })
+    await runPrediction(wrapper)
+
+    // 白屏时子树会被清空，标题不出现
+    expect(wrapper.text()).toContain('模型概览结果')
+    expect(wrapper.find('textarea').exists()).toBe(true)
+    // null 时显示占位符 '-'，不得出现 NaN / null 字样
+    expect(wrapper.text()).not.toContain('NaN')
+    expect(wrapper.text()).not.toContain('null%')
+  })
+
+  it('probability 为 null 时其余字段仍正常渲染（对照：修复没有误伤旁支）', async () => {
+    predictTextMock.mockResolvedValue(
+      makeResult({ probability: null, sentiment_score: 0.41, sentiment_label: 'negative' })
+    )
+
+    const wrapper = mount(TextAssessTab, { props: { canUse: true }, ...mountOptions })
+    await runPrediction(wrapper)
+
+    expect(wrapper.text()).toContain('0.41')
+    expect(wrapper.text()).toContain('negative')
+  })
+
   it('正常值路径不受影响（对照：确保修复没有把正常渲染改坏）', async () => {
     predictTextMock.mockResolvedValue(makeResult())
 

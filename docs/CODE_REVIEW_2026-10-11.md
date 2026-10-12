@@ -960,3 +960,134 @@ tracemalloc 峰值 468 → 136.5 KiB。
 - 未跑 backend 全量，以 CI 为准。
 - 剩余 P1：#15（前端 StatsCard → 后端聚合端点，改动面较大）；前端 #11-14、#27-30。
 - P1-22 维持降级判断（API 层已有 25 处 `ge=1`，见第三轮追记）。
+
+---
+
+## P1 整改追记（2026-10-13，第五轮）：前端 7 项
+
+### P1-29 CSV 表头公式注入 + 结构破坏
+
+FE-003 给**数据单元格**做了 `sanitizeCellForExcel`，但 `exportToCSV` 的表头是
+`headers.join(',')` 裸串，两个问题同时存在：
+
+1. **公式注入**：列名以 `=`/`+`/`-`/`@` 开头时 Excel 同样当公式执行。表头来自
+   i18n 文案与后端字段标签，后者部分可由管理员配置，不是纯常量。
+2. **CSV 结构破坏**：列名含逗号/引号/换行时不做引号包裹会整体错列。
+
+修复：抽出 `toCsvCell()`，表头与数据单元格走**同一条转义链**（先 sanitize 再引号
+转义）。`exportToExcel` 的表头同样补上 `sanitizeCellForExcel`（HTML 表格形式打开时
+Excel 也会执行 `=` 开头内容）。
+
+连带修复：既有用例 `多行数据应正确生成多行 CSV` 断言 `lines[0] === 'ID,Name'`，
+**固化的是缺陷形态**（裸表头），改为 `'"ID","Name"'`。
+
+### P1-28 localStorage 无保护 → store 初始化即白屏
+
+`stores/layout.ts` 在 Pinia store 创建阶段裸调 `localStorage.getItem`。存储不可用
+（Safari 隐私模式 / 禁用站点数据 / 配额已满 / 企业策略禁止）时该行抛异常，沿应用
+挂载链冒到顶部 → **整站白屏，用户连错误提示都看不到**。
+
+本仓其实已有正确范式（`authStorage.ts` 的 `_safeGetItem/_safeSetItem`，
+ISS-008；`sensitiveStorage.ts` 的 try/catch），但它是模块私有的，于是每个新用到
+localStorage 的地方各自裸调 —— 报告 P2-32「同一模式复制 N 份后各自漂移」的又一实例。
+抽 `utils/safeStorage.ts` 作唯一入口。
+
+报告提到的第二处 `router/index.ts:243-252` 经复核**已是陈旧条目**：该处现有
+try/catch 静默降级（ISS-011），无需改动。
+
+### P1-27 GET 去重清理的悬垂拒绝
+
+`promise.finally(cb)` 会派生出一个新 Promise 并随源码 rejection，而该派生 Promise
+被丢弃 → 真实浏览器里一次 unhandledrejection（Sentry 噪音 + 可能触发全局上报）。
+改为 `then(cleanup, cleanup).catch(() => {})`：清理照旧，派生 Promise 转 resolved，
+原始 rejection 仍由 return 给调用方的那一个承载。
+
+抽成导出函数 `clearInflightOnSettle` 是为了可测（见下面「两个恒绿闸门」）。
+
+### P1-30 `getNetworkErrorMessage` 零生产调用点
+
+ISS-106 建了完整的网络错误中文映射表（ECONNABORTED/ERR_NETWORK/ECONNREFUSED…），
+但 `git grep` 全仓只有**单测和一句注释**提到它，没有任何生产调用点 —— 映射表等于
+白做，用户看到的仍是 axios 英文原文（"timeout of 60000ms exceeded"）。
+
+修复：拦截器在 `status === 0` 分支把映射结果挂到 `error.userMessage`，
+`normalizeHttpErrorInfo` 优先采用它。位置在 `detailRaw` 之后、`errorMessage` 之前：
+有业务 detail 时仍以服务端为准。
+
+### P1-12 401 后对非幂等方法重放 → 重复提交
+
+原实现对所有方法一律「刷新 token 后重放原请求」。POST/PATCH 不幂等
+（RFC 9110 §9.2.2）：若首次请求实际已被服务端处理（响应丢失、超时后才拿到 401），
+重放就是重复提交 —— 重复创建危机事件、重复发送通知。
+
+修复：新增 `IDEMPOTENT_METHODS`（get/head/options/trace/put/delete），仅对这些方法
+自动重放。非幂等方法改为：**后台刷新 token 修复会话 + 不重放**，并挂上准确的
+`userMessage`（"登录状态已自动刷新，请再次提交"）——而不是原来那句误导的
+"登录状态失效，请重新登录"（用户并没有被登出）。
+
+### P1-14 LazyImage observer 泄漏
+
+报告写「observer 永不释放」，实测后修正：`let observer` 在 `<script setup>` 内是
+**每实例**的，`onUnmounted` 也确实断开了它。真正的缺陷有两条：
+
+1. `handleRetry()`（加载失败重试）会再次调用 `setupObserver()`，原实现直接覆盖
+   `observer` 变量而**不断开旧的** —— 旧 observer 若还没触发过 intersection
+   （图片不在视口内就失败了），它仍在校察 container，既不被 GC 也持续触发回调，
+   **每次重试泄漏一个**。
+2. `onUnmounted` 判了 `containerRef.value`，组件随 v-if 联动销毁时它可能已被置空，
+   导致连 `disconnect()` 都调用不到。
+
+### P1-13 `probability` null 白屏
+
+`TextAssessTab.vue` 的 SEC-FIX-2026-10-05 注释详细记录了 `sentiment_score` 的
+null 白屏修复，并写明「此处是遗漏」—— 但漏的正是下一行的 `probability`：
+`(probability * 100).toFixed(2)`，两者同为后端 `Optional[float]`。
+改为与 `sentiment_score` 一致的 `!= null` 防御。
+
+既有 `TextAssessTab.nullable.test.ts` 覆盖了 `sentiment_score/sentiment_label` 为
+null、也覆盖了 `probability` 为 0，**唯独漏了 `probability` 为 null**。
+
+### P1-11 WS 重连达上限后永久放弃
+
+`_scheduleReconnect` 达到 `maxReconnectAttempts` 后提示一次就 `return`，此后再无
+任何恢复路径：笔记本合盖 / 切网络 / 服务重启后，**即使用户网络已恢复，WS 也一直
+是死的，只能刷新页面**。
+
+修复：提示后进入「休眠等待」而非永久放弃 —— 监听 `online` 与 `visibilitychange`，
+并以 60s 低频兜底（某些环境不派发 `online`：企业代理、VPN 客户端）。任一触发即
+重置计数重连。`disconnect()` 与 `onopen` 里幂等撤除监听（否则登出后 online 事件
+仍会触发一次无意义的重连）。
+
+### 本轮验证读数
+
+- 前端全量：**98 files / 1268 passed / 4 skipped**（基线 97 / 1239，净增 29 条）。
+- `vue-tsc`：**42 errors**，与基线一致（`余量=45-42=3`）；本轮改动文件**零错误**。
+- `eslint .`：**138 problems / 3 errors**，与基线一致，本轮零新增。
+- `vite build`：precache **146 entries**，清空 dist 干净重建后仍为 146
+  ⇒ 本轮改动对产物零影响。
+- 回退红信号对照（每项均单独回退）：
+  #12 回退 → POST/PATCH 两条红；#14 回退重建前断开 → 1 红、回退卸载分支 → 2 红；
+  #29 回退表头转义 → 6 红；#30 回退 userMessage 挂载 → 2 红；
+  #28 恢复 layout.ts 裸调 localStorage → 1 红（报 `Error: 存储访问被拒绝`）；
+  #27 helper 改回 `finally` → 1 红。
+
+### 两个恒绿闸门的发现（本轮最重要的方法论收获）
+
+第一版闸门写完后，对照实验发现**两条回退了却全绿**：
+
+1. **#30**：测试自己手构造了带 `userMessage` 的 error，没测 request.ts 里真实的
+   挂载点 → 把挂载逻辑换成 `false ? ... : null` 也照样绿。
+2. **#28**：只测了 `safeStorage.ts` 自身不抛，没测 `layout.ts` 真的用它 →
+   把 layout.ts 改回裸调也照样绿。
+
+⇒ **「测了工具函数」≠「测了使用点」**。第二条更是直接复刻了它所修的那个 bug 形态：
+本仓 ISS-106 的既有测试也只断言「reject 且不弹提示」，从不断言中文消息被挂上，
+所以挂载点可以缺失而 CI 长期全绿。两条都已补成驱动真实实现的断言。
+
+另外 #27 还踩到第三个坑：**jsdom 在此环境下不派发 `unhandledrejection`**
+（实测 `void Promise.reject(new Error('deliberate'))` 故意不处理，监听器也收不到），
+所以「监听 unhandledrejection 断言长度为 0」这类写法**永远为绿**。改用可观测判据：
+行为判据（失败后 inflight 必须被清理，否则后续相同 GET 复用已失败的 Promise）
++ 形状判据（spy `Promise.prototype.finally`，精确作用于清理函数本身）。
+⚠️ 附带教训：`vi.spyOn(...).mockRestore()` 会**清空 `mock.calls`**，
+必须先取计数再 restore——第一版就是因此把红色判据写成了绿色。

@@ -430,7 +430,9 @@ describe('exportUtils - 扩展覆盖', () => {
       const lines = text.split('\n')
       // 1 header + 3 data rows
       expect(lines).toHaveLength(4)
-      expect(lines[0]).toBe('ID,Name')
+      // P1-29 修复后表头与数据单元格同样被引号包裹（原先裸串 `ID,Name`）。
+      // 该旧断言固化的是缺陷形态：表头含逗号时会整体错列。
+      expect(lines[0]).toBe('"ID","Name"')
       expect(lines[1]).toContain('Alice')
       expect(lines[3]).toContain('Charlie')
     })
@@ -664,5 +666,90 @@ describe('exportUtils - 扩展覆盖', () => {
       // 空 && ... → false，不转义
       expect(sanitizeCellForExcel('-')).toBe('-')
     })
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════
+// P1-29：CSV 表头公式注入 / 结构破坏（真实产物断言）
+//
+// 上面所有用例都是「在测试里重新实现一遍同样的拼接逻辑再比对」——断言的是
+// 测试自己的副本，不是 exportToCSV 的真实产物。本组改为拦截 Blob 与
+// URL.createObjectURL，读取**实际生成**的 CSV 文本后再断言。
+// ══════════════════════════════════════════════════════════════════
+describe('exportToCSV - P1-29 表头安全（真实产物断言）', () => {
+  let capturedBlob: Blob | null = null
+
+  beforeEach(() => {
+    capturedBlob = null
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob: any) => {
+      capturedBlob = blob
+      return 'blob:mock'
+    })
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  /** 触发一次真实导出并取回生成的 CSV 文本。 */
+  async function exportAndRead(
+    data: Record<string, unknown>[],
+    columns: ExportColumn[]
+  ): Promise<string> {
+    exportToCSV(data as any, columns, 'probe.csv')
+    expect(capturedBlob, '应生成 Blob').not.toBeNull()
+    return capturedBlob!.text()
+  }
+
+  it('表头以 = 开头时必须被公式转义（数据单元格早就转了，表头原先漏了）', async () => {
+    const csv = await exportAndRead(
+      [{ id: 1 }],
+      [{ key: 'id', label: '=HYPERLINK("http://evil","点我")' }]
+    )
+    // 表头单元格必须带前导单引号，且整体被引号包裹
+    expect(csv).toContain('"\'=HYPERLINK')
+    // 不得出现未转义的裸公式头
+    expect(csv.split('\n')[0]).not.toMatch(/^"=/)
+  })
+
+  it('表头含逗号/引号时必须被引号包裹（否则整表错列）', async () => {
+    const csv = await exportAndRead(
+      [{ id: 1 }],
+      [{ key: 'id', label: '姓名, 年龄' }]
+    )
+    const headerLine = csv.split('\n')[0]
+    expect(headerLine).toBe('"姓名, 年龄"')
+    // 结构没被破坏：仍只有一行表头 + 一行数据
+    expect(csv.split('\n').filter((l) => l.length > 0)).toHaveLength(2)
+  })
+
+  it('表头以 + / @ / - 开头同样必须转义', async () => {
+    for (const label of ['+CMD', '@SUM(1)', '-2+3']) {
+      const csv = await exportAndRead([{ id: 1 }], [{ key: 'id', label }])
+      expect(csv.split('\n')[0], `label=${label}`).toContain('"\'')
+    }
+  })
+
+  it('普通中文表头不受影响（对照：修复没有把正常导出改坏）', async () => {
+    const csv = await exportAndRead(
+      [{ id: 1, name: '张三' }],
+      [
+        { key: 'id', label: 'ID' },
+        { key: 'name', label: '姓名' }
+      ]
+    )
+    expect(csv.split('\n')[0]).toBe('"ID","姓名"')
+    expect(csv).toContain('"1","张三"')
+  })
+
+  it('表头与数据单元格走同一条转义链（一致性断言）', async () => {
+    // 同一个危险值同时出现在表头和单元格里，两者必须得到相同处理
+    const csv = await exportAndRead(
+      [{ danger: '=1+1' }],
+      [{ key: 'danger', label: '=1+1' }]
+    )
+    const [headerLine, dataLine] = csv.split('\n')
+    expect(headerLine).toBe(dataLine)
   })
 })

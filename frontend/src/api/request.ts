@@ -7,7 +7,7 @@ import { ElMessage } from 'element-plus/es/components/message/index'
 import type { ApiResponse } from '@/types/api'
 import { normalizePageResult, type UnifiedPageResult } from '@/types/contracts'
 import { clearStoredAuth, getStoredToken, setStoredAuth } from '@/utils/authStorage'
-import { normalizeHttpErrorInfo } from '@/utils/httpError'
+import { getNetworkErrorMessage, normalizeHttpErrorInfo } from '@/utils/httpError'
 import { logger } from '@/utils/logger'
 import { API_BASE_URL, buildApiUrl } from './base'
 import i18n from '@/i18n'
@@ -21,6 +21,17 @@ export type DedupeableRequestConfig = InternalAxiosRequestConfig & {
 }
 
 const AUTH_SYNC_EVENT = 'auth-sync'
+
+// P1-12 修复：RFC 9110 §9.2.2 定义的幂等方法集合。
+// 401 静默刷新后仅对这些方法自动重放原请求；POST/PATCH 不幂等，重放有重复提交风险。
+const IDEMPOTENT_METHODS: ReadonlySet<string> = new Set([
+  'get',
+  'head',
+  'options',
+  'trace',
+  'put',
+  'delete'
+])
 
 export const DEFAULT_API_TIMEOUT_MS = 60000
 export const LONG_RUNNING_API_TIMEOUT_MS = 420000
@@ -180,6 +191,29 @@ request.interceptors.response.use(
     }
 
     if (status === 401 && originalRequest && !originalRequest._retry) {
+      // P1-12 修复：401 静默刷新后，只对**幂等方法**自动重放原请求。
+      // RFC 9110 §9.2.2 幂等方法：GET/HEAD/OPTIONS/TRACE/PUT/DELETE。
+      // POST/PATCH 不幂等——若首次请求实际已被服务端处理（响应丢失、超时后
+      // 才拿到 401），重放会造成重复提交（重复创建危机事件/重复发送通知）。
+      // 非幂等方法改为：后台刷新 token 修复会话，但不重放，把准确的
+      // "请再次提交"提示交给页面层，由用户决定是否重发。
+      const method = String(originalRequest.method ?? 'get').toLowerCase()
+      if (!IDEMPOTENT_METHODS.has(method)) {
+        originalRequest._retry = true
+        const retryMessage = t('errorPolicy.sessionRefreshedRetrySubmit')
+        // 后台刷新：修复会话供后续请求使用；失败也无妨，下次请求会再走一遍
+        void refreshAccessToken().catch(() => {})
+        if (error && typeof error === 'object' && !('userMessage' in error)) {
+          const target = error as { userMessage?: string }
+          target.userMessage = retryMessage
+        }
+        logger.warn(
+          `[request] 401 non-idempotent ${method.toUpperCase()} ${originalRequest.url ?? ''}: ` +
+            'session refreshed, request not replayed (avoid duplicate submit)'
+        )
+        return Promise.reject(error)
+      }
+
       if (isRefreshing) {
         // 修复：为 pending 请求设置 _retry 标志，防止重试后再次 401 时触发重复刷新循环
         originalRequest._retry = true
@@ -248,9 +282,18 @@ request.interceptors.response.use(
     }
 
     if (status === 0) {
-      // ISS-106 修复：网络层错误（超时/断网/连接拒绝等）由页面层经
-      // getNetworkErrorMessage / normalizeHttpErrorInfo 映射为中文提示后展示
-      logger.warn(`[request] network error: ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
+      // P1-30 修复：ISS-106 引入了 getNetworkErrorMessage（超时/断网/连接拒绝
+      // 的中文映射表），但**全仓没有任何生产调用点**——只有单测和一句注释
+      // 提到它。结果是网络层错误仍把 axios 英文原文（"timeout of 60000ms
+      // exceeded" / "Network Error"）透传给用户。
+      // 此处把映射结果挂到 error.userMessage，由 normalizeHttpErrorInfo
+      // 优先采用，页面层无需逐个调用即可拿到中文提示。
+      const networkMessage = getNetworkErrorMessage(error)
+      if (networkMessage && error && typeof error === 'object' && !('userMessage' in error)) {
+        const target = error as { userMessage?: string }
+        target.userMessage = networkMessage
+      }
+      logger.warn(`[request] network error (${networkMessage ?? 'unmapped'}): ${originalRequest?.method?.toUpperCase() ?? ''} ${url}`)
       return Promise.reject(error)
     }
 
@@ -307,6 +350,28 @@ function getRequestKey(config: InternalAxiosRequestConfig | Record<string, unkno
   return ''
 }
 
+/**
+ * P1-27 修复：GET 去重记录的清理。
+ *
+ * 原实现是 `promise.finally(() => inflightRequests.delete(key))`。
+ * `finally` 会**派生出一个新 Promise** 并随源码 rejection —— 而这个派生
+ * Promise 被丢弃、无人处理，真实浏览器里就是一次 unhandledrejection
+ * （Sentry 噪音，且可能触发全局 onunhandledrejection 上报）。
+ *
+ * 改为 then(onFulfilled, onRejected) 显式接住两侧，再用一个空 catch 兜底：
+ * 清理逻辑照旧执行，派生 Promise 转为 resolved；原始 promise 的 rejection
+ * 仍由 return 给调用方的那一个承载，调用方的 catch 不受影响。
+ *
+ * 抽成独立函数是为了可测：jsdom 不派发 unhandledrejection 事件（实测
+ * 故意不处理的拒绝也收不到），只能对这个函数本身做形状断言。
+ */
+export function clearInflightOnSettle(promise: Promise<unknown>, key: string): void {
+  const cleanup = () => {
+    inflightRequests.delete(key)
+  }
+  promise.then(cleanup, cleanup).catch(() => {})
+}
+
 // 包装 axios 实例的 request 方法以实现 GET 去重
 // 拦截器（token 注入、401 刷新、错误提示）仍由原始 request 方法内部驱动
 const originalRequestMethod = request.request.bind(request)
@@ -326,9 +391,7 @@ const originalRequestMethod = request.request.bind(request)
   if (key) {
     inflightRequests.set(key, promise)
     // 请求完成（成功或失败）后清除 inflight 记录，避免内存泄漏及后续相同请求被错误复用
-    promise.finally(() => {
-      inflightRequests.delete(key)
-    })
+    clearInflightOnSettle(promise, key)
   }
   return promise
 }
