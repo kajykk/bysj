@@ -97,7 +97,7 @@ trivy 的忽略清单是**文件式**的（`.trivyignore`），可提交、可 r
 | `undici` / `ip-address` / `js-yaml` / `fast-uri` / `immutable` / `js-cookie` / `browserslist` / `@babel/*` / `baseline-browser-mapping` | 见提交 `4caaf94` | 46 条 | 提交 `4caaf94` |
 | `brace-expansion` ×7 副本 | 1.1.14→1.1.21 / 2.0.3→2.1.7 / 5.0.5→5.0.12 | 6 条 | 提交 `c87178c`，`overrides` 按 major 分叉 |
 | `ws` ×2 副本 | 7.5.10→7.5.13 / 8.20.0→8.22.0 | 2 条 | 提交 `c87178c`，`overrides` 按 major 分叉 |
-| `postcss-selector-parser` | 6.1.2 → 6.1.4 | low | 提交 `6ced5e1` |
+| `postcss-selector-parser` | 6.1.2 → 6.1.4 → **7.1.6** | low + medium | 提交 `6ced5e1`（6.1.4，消 low）<br>提交 `8664ec4`（7.1.6，跨 major，消 medium） |
 | `@opentelemetry/instrumentation-*` ×6 | **包从依赖树移除** | 6 条 (GHSA-qqmp-wf37-98f9) | 提交 `80ed98f`：升 `lighthouse` 13.1.0→13.5.0，<br>其 `@sentry/node` 从 `^9.28.1` 提到 `^10.0.0`（Sentry 10 不再引入 DB 探针） |
 
 ### 为什么 `@opentelemetry/instrumentation-*` 选「升上游」而非 dismiss
@@ -121,3 +121,29 @@ hook `Module._load` 实测 `require('@sentry/node')` 会加载 **2852 个模块*
 最终走`lighthouse` 同 major 升级（`^13.1.0` → `^13.5.0`），让这 6 个包
 **从依赖树彻底消失**而非被强行升版本。附带确认 `puppeteer-core` 仍是 24.43.1
 （项目自身 `devDependencies.puppeteer ^24.43.1` 钉住，未隐式跳 24→25）。
+
+---
+
+## 残留风险登记（非风险接受，是 override 的固有代价）
+
+`postcss-selector-parser` 7.1.6 是本轮**唯一跨 major override**，且消费方
+`eslint-plugin-vue` 明确声明不兼容（仍要求 `^6.0.15`，实测到 10.11.1 未变）。
+已用三层取证把风险压到最低，但**不为零**，在此登记以便将来复核。
+
+**残留风险**：指纹比对只能证明当前 403 个文件所覆盖的**选择器语法子集**等价。
+若将来引入 7.x 行为有变的罕见选择器形态，可能出现 eslint 规则**静默失效**
+（不报错、只是不检查），这是最难发现的一类回归。
+
+**已做的三层取证**：
+
+1. 解析行为等价性：6.1.4 与 7.1.6 在 22 个选择器形态上
+   （`::v-deep()` / `:deep()` / `>>> ` / `:slotted()` / `::part()` / `:where()` /
+   属性选择器 / `:not()` / `:is()` / `:nth-child()` / 转义类名 / scoped 属性等）
+   输出逐位一致 —— `total 22 diff 0`
+2. 漏洞场景实测：扁平选择器 `.a`×20000（40KB）解析
+   6.1.4 **343.4 ms** vs 7.1.6 **34.4 ms**（快 10 倍），证明修复真实生效
+3. 全仓 eslint 逐文件指纹：`-f json` 采集 403 文件完整消息指纹
+   （每条含 ruleId + line + column），6.1.4 与 7.1.6 两份 **diff 完全一致**
+
+**解除条件**：`eslint-plugin-vue` 任一版本把依赖放宽到 `^7` → 立即移除该
+override 并删除本节。
