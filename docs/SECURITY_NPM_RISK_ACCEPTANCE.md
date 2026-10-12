@@ -148,7 +148,11 @@ hook `Module._load` 实测 `require('@sentry/node')` 会加载 **2852 个模块*
 **解除条件**：`eslint-plugin-vue` 任一版本把依赖放宽到 `^7` → 立即移除该
 override 并删除本节。
 
-### 告警 #105 的陈旧状态（2026-10-13 复核：以 SBOM 独立口径确认）
+### 告警 #105：陈旧状态 → 已自动转 fixed（2026-10-13 复核闭合）
+
+> **结论（2026-10-13 复核）**：该告警已由 Dependabot 自动转为 `fixed`
+> （`fixed_at = 2026-10-12T17:02:57Z`），当前 open 告警数为 **0**。
+> 下方保留完整取证过程，作为「告警表滞后于依赖图」这一现象的处置模板。
 
 推送 `8664ec4`（lock 升到 7.1.6）后，GitHub 仍报 1 条 open：
 
@@ -203,11 +207,92 @@ override 并删除本节。
 但 npm 在 override 下的**解析结果**是 7.1.6，Dependabot 按 lock 解析结果判定
 —— **声明未变 ≠ 修复无效**。
 
-**复审动作**：
-1. 短期 —— 待 alert 重估后核对 #105 是否转为 `fixed`
-2. **不主动 dismiss** —— dismiss 会留下 `dismissed` 状态，与 R-N-001（真的
-   接受风险）无法区分，污染本台账的可对账性
-3. 若 24 小时后仍 open，按下列顺序重新排查，不再用"陈旧"解释：
-   ① 复查 SBOM 是否仍为 7.1.6（若变回 6.x 说明有 manifest 被回滚或覆盖）；
-   ② 查是否有第二个 npm manifest 未被本文覆盖（当前仓库仅
-      `frontend/package-lock.json` 一份）；③ 向 GitHub Support 报 alert 未重估
+**复审结果（2026-10-13）**：
+
+    gh api repos/kajykk/bysj/dependabot/alerts/105
+    -> {"state":"fixed","fixed_at":"2026-10-12T17:02:57Z",
+        "updated":"2026-10-12T17:02:57Z"}
+    gh api repos/kajykk/bysj/dependabot/alerts?state=open  -> 0 条
+
+**当初坚持「不主动 dismiss」是对的**：若当时图省事 dismiss，#105 会永远停在
+`dismissed`，与 R-N-001（extract-zip，**真的接受风险**）在本台账中无法区分 ——
+一条明明已修好的告警会被记成「接受风险」，且**无法自动恢复**。
+等它自然转 `fixed`，平台状态才如实反映「已修复」而非「已接受」。
+
+**方法论沉淀（可复用）**：当 Dependabot 告警与 manifest 实际内容矛盾时，
+按此顺序取证，不要靠"等"来解释：
+
+1. `dependency-graph/sbom` —— 与 alert 表独立的第二数据源，验证解析结果
+2. 告警 `updated_at == created_at` —— 证明从未重估
+3. lock 全字段扫描（含 legacy `dependencies` 段）—— 排除双写不一致
+4. 确认「不 dismiss」—— 保留状态真实性，等自动转 `fixed`
+
+若以上四条全部支持"已修复"，则耐心等待是正确的处置，不是回避。
+
+---
+
+## 附录：Dependabot PR 的 lock 生成缺陷（会反复遇到，留档）
+
+### 现象
+
+2026-10-13 排查时发现 **11 个 Dependabot PR 全部卡在 CI 红**，呈现完全一致
+的 `fail:8 pass:7` —— 失败 job 全是前端（Frontend Unit Tests / Frontend Build /
+frontend-coverage / E2E×2 / harness / lighthouse / Quality Gate），
+后端 7 个 job 全绿。
+
+**识别要点**：不同依赖的 PR 不可能有完全相同的失败模式。一旦出现
+「全部 PR 失败模式一致」，即可判定为**与 PR 内容无关的共同根因**，
+不要逐个 PR 排查依赖兼容性（那是浪费时间）。
+
+### 根因
+
+日志（`gh run view --job <id> --log-failed`）：
+
+    npm error code EUSAGE
+    npm error `npm ci` can only install packages when your package.json and
+    package-lock.json are in sync
+    npm error Missing: proxy-agent@8.0.2 from lock file
+    npm error Missing: pac-proxy-agent@9.1.0 / http-proxy-agent@9.1.0 /
+    https-proxy-agent@9.1.0 / socks-proxy-agent@10.1.0 / pac-resolver@9.0.1 /
+    degenerator@7.0.1 / quickjs-wasi@2.2.0 / get-uri@8.0.1 / agent-base@9.0.0 /
+    data-uri-to-buffer@8.0.0 / lru-cache@7.18.3 / proxy-agent-negotiate@1.1.0
+
+**Dependabot 生成的 lock 漏了嵌套依赖条目。** 对照 main 的 lock（真实 npm
+生成）确认这些条目存在且完整：
+
+    node_modules/lighthouse/node_modules/proxy-agent       => 8.0.2
+    node_modules/lighthouse/node_modules/pac-proxy-agent   => 9.1.0
+    node_modules/lighthouse/node_modules/pac-resolver      => 9.0.1
+    node_modules/lighthouse/node_modules/socks-proxy-agent => 10.1.0
+    node_modules/lighthouse/node_modules/degenerator       => 7.0.1
+
+即：**main 的 lock 完整、PR 的 lock 不完整**。是 Dependabot 的 npm lock
+生成缺陷，不是升级本身有问题。另需注意 `npm ci` 只在部分工作流中使用，
+故 push 到 main 的工作流不受影响（表现为 main 绿、PR 红）。
+
+### 处置
+
+不要合并这些 PR（CI 红 + 部分 `CONFLICTING`），改为**本地用真实 npm 重算
+lock 直接升级**，Dependabot 会在依赖满足后自动关闭对应 PR。
+
+```bash
+# npm update 在本机 npm 10.9.7 稳定报
+#   Cannot read properties of null (reading 'edgesOut')  -> npm 自身 bug
+# 改用精确版本列表重算 lock
+npm install --package-lock-only --ignore-scripts \
+  vue@3.5.43 element-plus@2.14.7 ...   # 逐个精确版本
+npm install --ignore-scripts           # 同步 node_modules
+```
+
+**直接依赖 vs 传递依赖的区别**：这些是**直接依赖**，npm 写入 package.json 的
+caret 范围前移是**期望行为（与 Dependabot 等价）**，不需要回退；
+而处理**传递依赖**时 npm 会把它们误写进 `dependencies`，必须
+`git checkout -- package.json` 回退。
+
+### 两条易误判点
+
+1. **PR 全红 ≠ 升级有回归**。先比对失败模式是否一致，一致即共同根因。
+2. **`vue-tsc` 升级后 baseline 余量变化是改善不是退化**。基线脚本语义为
+   `余量 = BASELINE(45) - errorCount`；此前余量 0 表示错误数恰好顶格，
+   升级后错误数 45 → 42，余量变为 3。看到余量数字变化先确认方向，
+   别默认当成"新增错误"。
