@@ -1210,3 +1210,126 @@ null、也覆盖了 `probability` 为 0，**唯独漏了 `probability` 为 null*
 Check Deployment Window / lighthouse / backend-coverage / frontend-coverage /
 harness / E2E Full Stack / Gitleaks Full History Scan / contract-test /
 Gitleaks Secret Scan）。
+
+---
+
+## 第七轮：P2-31 租户隔离机制化（提交 `f5ce7e8`）
+
+### 交付一：不可绕过的机制 —— 执行层 fail-closed 闸门
+
+报告 #31 原文给的两条路线（repository 封装 / 查询层缺约束直接报错）本轮
+选了后者，并说明选择依据：
+
+- **repository 封装在本仓成本更高**：受保护表只有 `review_tasks` /
+  `crisis_events` 两张，且正确写法是 `JOIN users` 推导（无 tenant_id 列），
+  repository 的"表 → 固定过滤条件"心智模型在此处不成立；而
+  `app/core/tenant_query.py` 早已是既有的查询构造 SSOT（ADR-001），
+  沿其模式扩展（新增 `user_tenant_scoped_query`）比另起一套 repository
+  更贴合本仓既有架构。
+- **报告点名的 `TenantColumnMissingError` 同类设施确实存在**：
+  `app/core/tenant_query.py` 在模型缺 tenant_id 列时抛该错。本轮沿其模式
+  扩展出 `app/core/tenant_guard.py`：
+
+| 机制 | 落点 | 作用 |
+|---|---|---|
+| `before_execute` 事件钩子 | SQLAlchemy `Engine` 级 | 任何**真正到达引擎**的 SELECT，触及 `review_tasks`/`crisis_events` 且无 `users.tenant_id` 谓词 → 抛 `TenantConstraintMissingError`（fail-closed） |
+| `EXEMPTION_REGISTRY` | 登记豁免理由 + 书面依据 | 语句级 `.execution_options(tenant_exempt=…)`；未登记理由直接抛 `TenantExemptionUnregisteredError` —— **豁免本身受管制**，防其退化成免责名单 |
+| `user_tenant_scoped_query()` | `tenant_query.py` | 派生租户模型（无 tenant_id 列）的一等 helper，内部 JOIN users |
+| `scan_unscoped_protected_queries()` | 静态扫描（脚本/测试共用 SSOT） | CI 期把全仓审计变成常驻测试 |
+
+两道关键设计（都是实测逼出来的，不是预先设计）：
+
+1. **闸门必须装在两个引擎**：`app/core/database.py`（生产）与
+   `tests/conftest.py`（测试）。只装生产则「绕过即红」的反向闸门**失去被测
+   对象**——测试环境根本不经过闸门。
+2. **`session.refresh` 必须与全新 `session.get` 区分**：两者都产生按主键的
+   无锚点 SELECT，但 refresh 读的是 identity map 里**已加载**实例（先前加载
+   已过闸、主键不可变）。区分标记是 `_sa_orm_load_options._refresh_state`
+   （refresh 有、全新 get 无）。不区分则 `db.refresh(task)` 全仓报错。
+
+### 交付二：全仓审计清单（`docs/P2_31_TENANT_QUERY_AUDIT.md`）
+
+用机制扫描而非人眼，**23 条查询构造语句，unscoped = 0**：
+
+| 机制 | 条数 | 说明 |
+|---|---|---|
+| helper | 7 | 走 `user_tenant_scoped_query` / `tenant_scoped_filter` |
+| exempt | 13 | 语句级豁免，均在 `EXEMPTION_REGISTRY` 有书面依据 |
+| helper_chain | 1 | 链式写法，约束在同函数上游 |
+| write | 2 | ORM 构造器（INSERT 路径） |
+| **unscoped** | **0** | 无约束查询路径 |
+
+每条带文件 + 行号 + 源码片段；6 类豁免理由（ops_dashboard 7 点、crisis_export
+1 点、gdpr 3 点、幂等检查 1 点、上游同事务校验 1 点、测试夹具 2 点）逐条写明
+为何是"有意的跨租户/按 user_id 取数"。
+
+### 交付三：反向闸门（回退对照实验 10/10 PASS）
+
+日志：`backend/scripts/rollback_p2_31_result.log`（每项含变异轮红 + 恢复轮绿）。
+
+| 实验 | 变异内容 | 变异轮 | 恢复轮 |
+|---|---|---|---|
+| E1a | 卸载测试引擎闸门 | 机制测试红 | 绿 |
+| E1b | 服务层 JOIN 手写回归（闸门在位） | 闸门拦下 → 红 | 绿 |
+| E1c | 复合变异（卸闸门 + JOIN 回归） | 跨租户用例红 | 绿 |
+| E2 | `tenant_id` 必填退化为默认值 | `TypeError` 用例红 | 绿 |
+| E3–E7 | 各类豁免标记移除（5 处） | 对应用例红 | 绿 |
+| **E9** | 受保护表塞进白名单棘轮集合 | **11 passed / 3 failed** | **14 passed / 0 failed** |
+
+### 第五个坑：白名单棘轮**不能**用来管无 tenant_id 列的表
+
+本轮原计划"把 ReviewTask/CrisisEvent 加进 `test_isolation_wiring_gate.py` 的
+`TENANT_SENSITIVE_MODELS` 棘轮"。实测（`scripts/probe_ratchet_extension.py`）
+证明这条路是错的：一旦加入，**立刻误报 3 个正确实现了隔离的服务文件**
+（`review_service.py` / `crisis_export_service.py` /
+`gdpr_service_anonymize.py`）—— 因为这两张表无 tenant_id 列，正确写法是
+`tenant_scoped_filter(User, tenant_id)`，**tenant_id 是位置参数**，语句内
+不存在 `X.tenant_id` 属性节点，棘轮判定条件永远为假。
+
+而那 3 个文件"修棘轮"的唯一出路就是塞进 `UNFILTERED_QUERY_ALLOWLIST`
+—— 白名单当场涨 3 条免责条款，正是根因段点名的退化解法（豁免退化成免责
+名单）。⇒ 正确做法是**分流**：有 tenant_id 列的表走白名单棘轮；无列的受保护
+表走执行层 fail-closed 闸门。已把这条分流本身写成断言（`TestProtectedTables-
+RoutedToMechanismNotAllowlist`，3 条），防止后人图省事走捷径 —— E9 实验就是
+它的反向验证。
+
+### 第六个坑：模型定位不能猜模块路径
+
+写"反射 ORM 模型是否有 tenant_id 列"时按直觉写了
+`app.models.operation_log`，实测 `OperationLog` 实际在 **`app/models/admin.py`**
+→ 反射不到 → 返回"无 tenant_id 列"的**假否定** → 会把正确代码判成违规。
+改为遍历 `app.models` 全部子模块。另：本仓反射判据一律用
+`__table__.columns`，不用源码 grep（注释与 docstring 里的 `tenant_id`
+字样会造成误报，此坑本仓已吃过）。
+
+### 第七个坑：驱动内变异会污染并行的静态审计产物
+
+回退对照驱动持有源码变异时（文件被临时改写）跑审计脚本，产出的清单出现
+两类"分类异常"（复合语句被整体计入、语句错分类）—— 症状看似两个独立 bug，
+实则**同源**：审计脚本读到的是变异中的源码。⇒ 静态审计类产物必须在
+**无变异窗口**内生成。期间还修掉一个真实口径问题：复合语句
+（`stmt = (select(X).join(...))`）含多条子查询，按 `ast.walk` 整节点计数会
+重复计数，口径收窄为"每个查询构造语句只计一次"。
+
+### 未验证 / 记账
+
+- 后端全量（37 分钟/轮，且禁止与其他 backend 测试并发共用 `test_app.db`）
+  未在本机跑；以受影响文件集覆盖（17 文件 399 passed + 最终复跑
+  87 + 223 + 132 = **442 passed**），CI 全量兜底。
+- **写路径（INSERT/UPDATE/DELETE）不过闸**：写路径的租户约束语义与服务层
+  不同（如 `assign_review` 的 `FOR UPDATE` 由同事务前置校验保障），由服务层
+  `tenant_id` 必填关键字参数负责（反向闸门 2 条把守）。已在审计清单
+  「范围外与已知局限」如实记账，未做写路径的变异实验。
+- 静态扫描看不到的形态（动态构造、字符串拼接 SQL）由执行层
+  `before_execute` 兜底，未做针对性变异实验。
+- 审计脚本计入口径为"查询构造语句"（形态 A_select / A_helper / B_table /
+  C_text / E_write）；类型注解、docstring、链式 refine 续行不计入。
+
+### CI 结果
+
+第七轮提交 `f5ce7e8` 推送后 **CI 10/10 success**（coverage-summary /
+backend-coverage / frontend-coverage / contract-test / harness /
+E2E Full Stack / lighthouse / Check Deployment Window /
+Gitleaks Full History Scan / Gitleaks Secret Scan）。
+后端全量实测 **6689 passed / 68 skipped / 0 failed，覆盖率 84.59%**
+（较第六轮 CI 基数 6589 passed 增 100 条：闸门测试 40 + 棘轮 3 + 参数化展开）。
