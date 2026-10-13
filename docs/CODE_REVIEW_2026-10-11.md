@@ -1550,3 +1550,8 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 ### CI 结果
 
 `c29f0cb` 首轮 9/10：`lighthouse` 构建红（`useModelTrainingData.ts` 的 roles import 被 applier 插进多行括号块，同 `37b6e0f` 同型事故；本地 `vue-tsc` 未拦住）→ `7c7756f` 修后 9/10：`backend-coverage` 唯一红（`test_response_time_7d_under_300ms` 458ms>300ms 性能抖动，本轮 9 条新闸门全绿、全仓 6714 passed）→ `gh run rerun --failed` 重跑后 **10/10 success**。
+
+### 第十轮补：独立复核翻出的两件事（28d531b）
+
+- BottomNav.vue 的 roles import 被 applier 插进多行 import 块内部，真语法错误；该组件无 import 方（死组件），构建/测试/CI 全碰不到，故 10/10 全绿。已修复 + 新增 test_no_import_inside_import_block 回归闸（变异验证红）。
+- 根 vue-tsc --noEmit 只查 env.d.ts（files 为空），历轮本地 0 error 系验证命令用错；CI 基线门禁一直用 -p tsconfig.app.json（当前 42/基线 45），不受影响。附带修 csvEscape 签名（string|number，正确配置下报的本轮引入错）。28d531b CI 10/10 success。
