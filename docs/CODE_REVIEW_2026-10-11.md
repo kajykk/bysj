@@ -1546,3 +1546,7 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 - 后端全量未跑（37 分钟），以受影响 63 passed + CI 全量兜底为准。
 - `promtool` 未复查（沿用第九轮 YAML 断言）。
 - #34/#36/#33 余量/#35 余量/prettier 移第十一轮。
+
+### CI 结果
+
+`c29f0cb` 首轮 9/10：`lighthouse` 构建红（`useModelTrainingData.ts` 的 roles import 被 applier 插进多行括号块，同 `37b6e0f` 同型事故；本地 `vue-tsc` 未拦住）→ `7c7756f` 修后 9/10：`backend-coverage` 唯一红（`test_response_time_7d_under_300ms` 458ms>300ms 性能抖动，本轮 9 条新闸门全绿、全仓 6714 passed）→ `gh run rerun --failed` 重跑后 **10/10 success**。
