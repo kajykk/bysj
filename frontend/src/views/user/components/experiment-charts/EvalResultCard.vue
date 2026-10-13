@@ -186,6 +186,7 @@ import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { isStaffRole } from '@/utils/roles'
 
 const props = defineProps<{
   summary: Record<string, unknown> | null
@@ -197,7 +198,7 @@ const props = defineProps<{
 const { t } = useI18n()
 // P1-2 角色简化：admin/counselor 可查看详细 ML 指标，学生仅看摘要
 const authStore = useAuthStore()
-const canViewDetails = computed(() => authStore.role === 'admin' || authStore.role === 'counselor')
+const canViewDetails = computed(() => isStaffRole(authStore.role))
 // 模型是否就绪：status 为 completed 或 val_accuracy > 0.6
 const modelReady = computed(() => {
   if (!props.summary) return false

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
+from app.core.contracts import (USER_ROLE_COUNSELOR)
 from app.models.intervention import InterventionTemplate
 from app.models.risk import RiskAssessment, WarningNotification
 from app.models.user import User
@@ -45,7 +46,7 @@ class StatsMixin:
             .label("total_users"),
             select(func.count())
             .select_from(User)
-            .where(User.role == "counselor")
+            .where(User.role == USER_ROLE_COUNSELOR)
             .scalar_subquery()
             .label("total_counselors"),
             # 今日告警

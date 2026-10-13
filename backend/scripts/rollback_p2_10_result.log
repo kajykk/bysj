@@ -1,0 +1,14 @@
+[F37-helper-bypass] mutated -> exit=1 red=True
+  tail: AssertionError: 仍有裸角色比较: CounselorReviewListPage.vue:286 | 1 failed in 1.23s
+[F37-helper-bypass] restored -> exit=0 green=True（后与全量同跑确认）
+[B32-literal-regress] mutated -> exit=1 red=True
+  tail: AssertionError: services/warning_service.py:156 operator_role="user" | 1 failed in 1.21s
+[B32-literal-regress] restored -> exit=0 green=True（const=3/literal=0 已复核）
+[CSV-inline-regress] mutated -> exit=1 red=True
+  tail: AssertionError: PhysioTab.vue 仍有内联链 | 1 failed in 1.23s
+[CSV-inline-regress] restored -> exit=0 green=True
+[C38-ratchet-plus-one] mutated -> exit=1 red=True
+  tail: AssertionError: BE 全称注释数 96 != 95 | 1 failed in 1.51s
+[C38-ratchet-plus-one] restored -> exit=0 green=True
+ROLLBACK 4/4 PASS
+注：后台驱动（rollback_p2_10_driver.py）在本机第 3 次被挂起无输出，改逐项前台单测过滤完成；驱动脚本已删除。

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 
 from app.core.states import BindingStatus
+from app.core.contracts import (USER_ROLE_COUNSELOR, USER_ROLE_USER)
 from app.models.admin import OperationLog
 from app.models.user import User, UserCounselorBinding
 
@@ -67,7 +68,7 @@ class BindingMixin:
             self.db.add(
                 OperationLog(
                     operator_id=counselor_id,
-                    operator_role="counselor",
+                    operator_role=USER_ROLE_COUNSELOR,
                     action_type="create_bind_code",
                     target_type="user_counselor_binding",
                     target_id=None,
@@ -81,7 +82,7 @@ class BindingMixin:
             self.db.add(
                 OperationLog(
                     operator_id=counselor_id,
-                    operator_role="counselor",
+                    operator_role=USER_ROLE_COUNSELOR,
                     action_type="refresh_bind_code",
                     target_type="user_counselor_binding",
                     target_id=existing.id,
@@ -128,7 +129,7 @@ class BindingMixin:
             self.db.add(
                 OperationLog(
                     operator_id=counselor_id,
-                    operator_role="counselor",
+                    operator_role=USER_ROLE_COUNSELOR,
                     action_type="create_bind_code",
                     target_type="user_counselor_binding",
                     target_id=None,
@@ -144,7 +145,7 @@ class BindingMixin:
             self.db.add(
                 OperationLog(
                     operator_id=counselor_id,
-                    operator_role="counselor",
+                    operator_role=USER_ROLE_COUNSELOR,
                     action_type="refresh_bind_code",
                     target_type="user_counselor_binding",
                     target_id=existing.id,
@@ -208,7 +209,7 @@ class BindingMixin:
         counselor = await self.db.get(User, counselor_id)
         if (
             not counselor
-            or counselor.role != "counselor"
+            or counselor.role != USER_ROLE_COUNSELOR
             or counselor.status != "active"
         ):
             raise ValueError("绑定的咨询师不存在或已停用")
@@ -259,7 +260,7 @@ class BindingMixin:
         self.db.add(
             OperationLog(
                 operator_id=user_id,
-                operator_role="user",
+                operator_role=USER_ROLE_USER,
                 action_type="bind_counselor",
                 target_type="user_counselor_binding",
                 target_id=new_binding.id,
@@ -343,7 +344,7 @@ class BindingMixin:
         self.db.add(
             OperationLog(
                 operator_id=user_id,
-                operator_role="user",
+                operator_role=USER_ROLE_USER,
                 action_type="unbind_counselor",
                 target_type="user_counselor_binding",
                 target_id=binding.id,

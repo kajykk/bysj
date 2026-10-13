@@ -92,6 +92,7 @@ const { groupedMenus, activePath, roleLabel } = useLayoutMenu()
 
 // UI 升级 v3.2: 主题切换 - 循环 light → dark → auto → light
 import { useTheme } from '@/composables/useTheme'
+import { isAdminRole, isCounselorRole } from '@/utils/roles'
 const { theme, setTheme } = useTheme()
 const toggleTheme = () => {
   const order: Array<'light' | 'dark' | 'auto'> = ['light', 'dark', 'auto']
@@ -108,8 +109,8 @@ const toggleTheme = () => {
 
 // UI 升级 v3.2: 跳转个人设置
 const goSettings = () => {
-  const settingsPath = auth.role === 'admin' || auth.role === 'super_admin' ? '/admin/settings'
-    : auth.role === 'counselor' ? '/counselor/settings'
+  const settingsPath = isAdminRole(auth.role) ? '/admin/settings'
+    : isCounselorRole(auth.role) ? '/counselor/settings'
     : '/user/settings'
   router.push(settingsPath)
 }
@@ -124,7 +125,7 @@ const restartOnboarding = () => {
 
 const goWarnings = () => {
   resetUnread()
-  const path = auth.role === 'counselor' ? '/counselor/warnings' : '/user/warnings'
+  const path = isCounselorRole(auth.role) ? '/counselor/warnings' : '/user/warnings'
   router.push(path)
 }
 

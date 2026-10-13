@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/auth'
 // usePerformanceMonitor 内部通过 PerformanceObserver 采集, onMounted 启动, onUnmounted 清理
 // autoReport 每 5 分钟上报一次; 页面卸载/隐藏时通过 sendBeacon 上报
 import { usePerformanceMonitor } from '@/composables/usePerformanceMonitor'
+import { isKnownRole } from '@/utils/roles'
 
 const loadingStore = useLoadingStore()
 const auth = useAuthStore()
@@ -28,7 +29,7 @@ watch(
   () => auth.role,
   (role) => {
     if (typeof document === 'undefined') return
-    if (role && ['user', 'counselor', 'admin', 'super_admin'].includes(role)) {
+    if (role && isKnownRole(role)) {
       document.body.dataset.role = role
     } else {
       delete document.body.dataset.role

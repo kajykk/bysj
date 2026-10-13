@@ -5,11 +5,11 @@
          每行高度由较高卡决定，消除失衡留白 -->
     <div class="settings-grid">
       <AlertSettingsCard />
-      <BindingCard v-if="auth.role === 'user'" />
+      <BindingCard v-if="isUserRole(auth.role)" />
       <RiskThresholdCard />
       <ProfileCard />
       <!-- AUDIT-2026-10-01（决策三 P6）：补齐后端 /user/upload(/batch) 的前端上传入口 -->
-      <FileUploadCard v-if="auth.role === 'user'" />
+      <FileUploadCard v-if="isUserRole(auth.role)" />
       <GdprCard />
       <PasswordCard />
       <AnalyticsCard />
@@ -21,6 +21,7 @@
 <script setup lang="ts">
 defineOptions({ name: 'UserSettingsPage' })
 import { useAuthStore } from '@/stores/auth'
+import { isUserRole } from '@/utils/roles'
 import AlertSettingsCard from './components/user-settings-page/AlertSettingsCard.vue'
 import BindingCard from './components/user-settings-page/BindingCard.vue'
 import ProfileCard from './components/user-settings-page/ProfileCard.vue'

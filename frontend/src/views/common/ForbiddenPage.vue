@@ -26,6 +26,7 @@ import { useI18n } from 'vue-i18n'
 import { HomeFilled, Back } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import ErrorPage from '@/components/common/ErrorPage.vue'
+import { isAdminRole, isCounselorRole } from '@/utils/roles'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -33,9 +34,9 @@ const { t } = useI18n()
 
 const goHome = () => {
   const role = auth.role
-  const homePath = role === 'admin' || role === 'super_admin'
+  const homePath = isAdminRole(role)
     ? '/admin/dashboard'
-    : role === 'counselor'
+    : isCounselorRole(role)
       ? '/counselor/dashboard'
       : '/user/dashboard'
   router.push(homePath)

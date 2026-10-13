@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal
 from app.core.pii_crypto import compute_blind_index
 from app.core.security import get_password_hash
+from app.core.contracts import (USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_USER)
 from app.models import (
     EducationContent,
     InterventionPlan,
@@ -595,14 +596,14 @@ async def _seed_users(db: AsyncSession) -> None:
         {
             "username": "admin",
             "email": "admin@system.com",
-            "role": "admin",
+            "role": USER_ROLE_ADMIN,
             "password_hash": get_password_hash(_E2E_ADMIN_PASSWORD),
         },
         *[
             {
                 "username": item["username"],
                 "email": item["email"],
-                "role": "counselor",
+                "role": USER_ROLE_COUNSELOR,
                 "password_hash": get_password_hash(_E2E_COUNSELOR_PASSWORD),
             }
             for item in _COUNSELOR_SEED_DATA
@@ -611,7 +612,7 @@ async def _seed_users(db: AsyncSession) -> None:
             {
                 "username": item["username"],
                 "email": item["email"],
-                "role": "user",
+                "role": USER_ROLE_USER,
                 "password_hash": get_password_hash(_E2E_USER_PASSWORD),
             }
             for item in _USER_SEED_DATA
@@ -661,7 +662,7 @@ async def _seed_users(db: AsyncSession) -> None:
     for user in user_map.values():
         if user.id not in profile_user_ids:
             nickname = user.username
-            if user.role == "user":
+            if user.role == USER_ROLE_USER:
                 user_seed = next(
                     (
                         item
@@ -801,11 +802,11 @@ async def _seed_contents(db: AsyncSession) -> None:
 
 
 async def _seed_assessments_and_warnings(db: AsyncSession) -> None:
-    users = (await db.execute(select(User).where(User.role == "user"))).scalars().all()
+    users = (await db.execute(select(User).where(User.role == USER_ROLE_USER))).scalars().all()
     user_map = {user.username: user for user in users}
 
     counselors = (
-        (await db.execute(select(User).where(User.role == "counselor"))).scalars().all()
+        (await db.execute(select(User).where(User.role == USER_ROLE_COUNSELOR))).scalars().all()
     )
     counselor_map = {counselor.username: counselor for counselor in counselors}
 

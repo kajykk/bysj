@@ -164,6 +164,7 @@ import { ElMessage } from 'element-plus'
 import { QuestionFilled, Guide, Document, Message, Phone, Clock, EditPen, Link } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAnalytics } from '@/composables/useAnalytics'
+import { isAdminRole, isCounselorRole } from '@/utils/roles'
 
 const { t } = useI18n()
 // P1-3 统一帮助体系：按角色差异化 FAQ
@@ -200,8 +201,8 @@ const faqList = computed(() => {
     { q: t('help.faq.q5'), a: t('help.faq.a5') },
     { q: t('help.faq.q6'), a: t('help.faq.a6') },
   ]
-  const roleKey = authStore.role === 'admin' || authStore.role === 'super_admin' ? 'help.faqAdmin'
-    : authStore.role === 'counselor' ? 'help.faqCounselor'
+  const roleKey = isAdminRole(authStore.role) ? 'help.faqAdmin'
+    : isCounselorRole(authStore.role) ? 'help.faqCounselor'
     : 'help.faqUser'
   const roleFaq = [
     { q: t(`${roleKey}.q1`), a: t(`${roleKey}.a1`) },

@@ -31,6 +31,7 @@ import { useI18n } from 'vue-i18n'
 import { useBreakpoint } from '@/composables/useBreakpoint'
 import { useAuthStore } from '@/stores/auth'
 import {
+import { isAdminRole, isCounselorRole } from '@/utils/roles'
   HomeFilled,
   Document,
   Warning,
@@ -50,7 +51,7 @@ const authStore = useAuthStore()
 // admin 角色补充专属导航项，原仅 user/counselor 共用 5 项
 const navItems = computed(() => {
   const role = authStore.role
-  if (role === 'admin' || role === 'super_admin') {
+  if (isAdminRole(role)) {
     return [
       { path: '/admin/dashboard', icon: DataLine, label: 'nav.admin.home' },
       { path: '/admin/crisis-events', icon: Warning, label: 'nav.admin.crisisEvents' },
@@ -59,7 +60,7 @@ const navItems = computed(() => {
       { path: '/admin/settings', icon: Setting, label: 'nav.admin.settings' }
     ]
   }
-  if (role === 'counselor') {
+  if (isCounselorRole(role)) {
     return [
       { path: '/counselor/dashboard', icon: HomeFilled, label: 'nav.counselor.home' },
       { path: '/counselor/warnings', icon: Warning, label: 'nav.warning' },

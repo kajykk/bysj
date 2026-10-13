@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
+from app.core.contracts import (USER_ROLE_ADMIN)
 from app.models.admin import OperationLog
 from app.models.intervention import InterventionTemplate
 
@@ -53,7 +54,7 @@ class TemplateMixin:
         }
 
     async def upsert_template(
-        self, payload: dict, admin_id: int | None = None, operator_role: str = "admin"
+        self, payload: dict, admin_id: int | None = None, operator_role: str = USER_ROLE_ADMIN
     ) -> int:
         template_id = payload.get("id")
         is_update = bool(template_id)
@@ -106,7 +107,7 @@ class TemplateMixin:
         return template.id
 
     async def delete_template(
-        self, template_id: int, admin_id: int, operator_role: str = "admin"
+        self, template_id: int, admin_id: int, operator_role: str = USER_ROLE_ADMIN
     ) -> None:
         """ISS-075: 硬删除干预模板并写入审计日志."""
         template = await self.db.get(InterventionTemplate, template_id)

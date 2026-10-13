@@ -1520,3 +1520,29 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 
 原写"另三处内联链本轮已统一改调 `csvEscape` 别名"，实际 `7bc85e8` 未改这三个文件
 （无注入面，但去重未落地）→ 已在该文档内联更正并记账，留第十轮收敛。
+
+## 第十轮：P2-37 + #32 角色余量 + CSV 三处 + P2-38
+
+### 改了什么
+
+- **#37 前端**：新建 `frontend/src/utils/roles.ts`（`USER_ROLE_*` 常量 + `isAdminRole/isStaffRole/isUserRole/isCounselorRole/isKnownRole`，常量值与后端 `contracts.USER_ROLE_*` 对齐）；15 个行为判定语句（14 文件）改调 helper。类型声明/路由 path/`meta.role` 数组/模板表单值/CSS/storage key 豁免（语义不同，审计清单登记）。
+- **#32 后端**：服务层 `operator_role=`/`==`/SQL filter/`in_`/`seed` 共 35 hits 改调 `USER_ROLE_*`（14 文件）。`require_role("…")` Depends 参数（50+ 端点）、`target_type`、`.label()`、响应 dict 键豁免登记。
+- **#32 CSV**：`PhysioTab:314`、`useTextPredictionHistory:130`、`usePredictionHistory:74` 改调 `csvEscape`（纯去重，语义等价、无注入面）。
+- **#38**：全称语义注释清单 BE 95（棘轮锁死，增减必须同步审计）；Top-4 死代码断言逐条验证有支撑（severe/AbortError/请求失败/部分唯一索引）。
+
+### 连带发现
+
+- 自写 applier 三次写坏 import（单行追加进多行括号、`from app.` 末行 heuristic 插进多行块、scheduler 函数级 import 误命中）→ 全部手工修复 + 全文件 compile + isort 排序修复。教训：import 改写不用正则启发式，要用 AST 或逐文件手改。
+- 后台驱动第三次被挂起无输出 → 回退实验改逐项前台单测完成。
+- 扫描口径更正：提示词"后端 25 处"机器口径为 35 hits（含第九轮未计的 intervention/warning/scheduler/auth，一并收编）；"前端 13 处"行为判定实为 15 语句。
+
+### 实测读数
+
+- 后端新闸门 9 条 + P2-09 14 条 + P2-31 40 条同跑 **63 passed**；回退对照 **4/4** 红转绿。
+- 前端全量 **102 files / 1291 passed / 4 skipped / 0 failed**（基线 101/1287/4，+1 file/+4 条与 `roles.test.ts` 完全对应）；`vue-tsc --noEmit` **0 error**。
+
+### 未验证如实记账
+
+- 后端全量未跑（37 分钟），以受影响 63 passed + CI 全量兜底为准。
+- `promtool` 未复查（沿用第九轮 YAML 断言）。
+- #34/#36/#33 余量/#35 余量/prettier 移第十一轮。

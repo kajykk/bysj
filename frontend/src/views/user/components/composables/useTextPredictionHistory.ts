@@ -17,7 +17,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import type { TextPredictModelResult } from '@/api/modelApi'
-import { downloadBlob, sanitizeCellForExcel } from '@/utils/exportUtils'
+import { downloadBlob, csvEscape } from '@/utils/exportUtils'
 
 export type TextPredictionHistoryItem = TextPredictModelResult & {
   time: string
@@ -127,7 +127,7 @@ export function useTextPredictionHistory(historyKey: string) {
     const csv = [headers, ...rows]
       .map((line) =>
         line
-          .map((cell) => `"${sanitizeCellForExcel(String(cell)).replace(/"/g, '""')}"`)
+          .map((cell) => csvEscape(String(cell)))
           .join(','),
       )
       .join('\n')

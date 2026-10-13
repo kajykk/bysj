@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import func, select
 
-from app.core.contracts import normalize_risk_level, resolve_warning_status
+from app.core.contracts import normalize_risk_level, resolve_warning_status, USER_ROLE_COUNSELOR
 from app.core.states import BindingStatus
 from app.models.admin import OperationLog
 from app.models.counselor import ConsultationRecord
@@ -58,7 +58,7 @@ class ConsultationMixin:
         self.db.add(
             OperationLog(
                 operator_id=counselor_id,
-                operator_role="counselor",
+                operator_role=USER_ROLE_COUNSELOR,
                 action_type="create_consultation_record",
                 target_type="consultation_record",
                 target_id=record.id,
@@ -102,7 +102,7 @@ class ConsultationMixin:
         self.db.add(
             OperationLog(
                 operator_id=counselor_id,
-                operator_role="counselor",
+                operator_role=USER_ROLE_COUNSELOR,
                 action_type="update_consultation_record",
                 target_type="consultation_record",
                 target_id=record.id,

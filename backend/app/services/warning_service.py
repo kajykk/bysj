@@ -13,6 +13,7 @@ from app.core.contracts import (
     RISK_LEVEL_DISPLAY_ZH,
     normalize_risk_level,
     resolve_warning_status,
+    USER_ROLE_USER,
 )
 from app.models.admin import OperationLog
 from app.models.risk import WarningNotification, WarningSetting
@@ -152,7 +153,7 @@ class WarningService:
             self.db.add(
                 OperationLog(
                     operator_id=user_id,
-                    operator_role="user",
+                    operator_role=USER_ROLE_USER,
                     action_type=ACTION_TYPE_WARNING_READ,
                     target_type="warning_notification",
                     target_id=warning.id,
@@ -177,7 +178,7 @@ class WarningService:
             self.db.add(
                 OperationLog(
                     operator_id=user_id,
-                    operator_role="user",
+                    operator_role=USER_ROLE_USER,
                     action_type=ACTION_TYPE_WARNING_READ_ALL,
                     target_type="warning_notification",
                     target_id=None,
@@ -275,7 +276,7 @@ class WarningService:
                 self.db.add(
                     OperationLog(
                         operator_id=user_id,
-                        operator_role="user",
+                        operator_role=USER_ROLE_USER,
                         action_type="update_warning_setting",
                         target_type="warning_setting",
                         target_id=setting.id,

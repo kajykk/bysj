@@ -1,5 +1,6 @@
 import { hasPermission } from '@/config/permissions'
 import type { PermissionKey } from '@/types/permission'
+import { isAdminRole, isCounselorRole, isUserRole } from '@/utils/roles'
 
 export interface GuardAuthState {
   isLoggedIn: boolean
@@ -15,9 +16,9 @@ export interface GuardRouteMeta {
 
 export const resolveRoleHome = (role: string): string => {
   // 平台管理员 (super_admin) 复用管理端首页
-  if (role === 'admin' || role === 'super_admin') return '/admin/dashboard'
-  if (role === 'counselor') return '/counselor/dashboard'
-  if (role === 'user') return '/user/dashboard'
+  if (isAdminRole(role)) return '/admin/dashboard'
+  if (isCounselorRole(role)) return '/counselor/dashboard'
+  if (isUserRole(role)) return '/user/dashboard'
   // L-FE-6 修复：未知角色不默认跳转用户首页，返回 /403 拒绝访问
   return '/403'
 }

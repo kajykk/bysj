@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
+from app.core.contracts import (USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_SUPER_ADMIN, USER_ROLE_USER)
 from app.models.admin import OperationLog
 from app.models.user import User
 
@@ -132,13 +133,13 @@ class LogMixin:
         """
         stmt = select(
             func.count().label("total"),
-            func.count().filter(OperationLog.operator_role == "user").label("user"),
+            func.count().filter(OperationLog.operator_role == USER_ROLE_USER).label("user"),
             func.count()
-            .filter(OperationLog.operator_role == "counselor")
+            .filter(OperationLog.operator_role == USER_ROLE_COUNSELOR)
             .label("counselor"),
-            func.count().filter(OperationLog.operator_role == "admin").label("admin"),
+            func.count().filter(OperationLog.operator_role == USER_ROLE_ADMIN).label("admin"),
             func.count()
-            .filter(OperationLog.operator_role == "super_admin")
+            .filter(OperationLog.operator_role == USER_ROLE_SUPER_ADMIN)
             .label("super_admin"),
         ).select_from(OperationLog)
         row = (await self.db.execute(stmt)).one()

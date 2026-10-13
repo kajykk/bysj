@@ -14,6 +14,7 @@ from app.core.contracts import (
     WARNING_ACTION_IGNORE,
     normalize_risk_level,
     resolve_warning_status,
+    USER_ROLE_COUNSELOR,
 )
 from app.models.admin import OperationLog
 from app.models.risk import WarningNotification
@@ -167,7 +168,7 @@ class WarningMixin:
         self.db.add(
             OperationLog(
                 operator_id=counselor_id,
-                operator_role="counselor",
+                operator_role=USER_ROLE_COUNSELOR,
                 action_type=action_type,
                 target_type="warning_notification",
                 target_id=warning.id,
@@ -228,7 +229,7 @@ class WarningMixin:
         self.db.add(
             OperationLog(
                 operator_id=counselor_id,
-                operator_role="counselor",
+                operator_role=USER_ROLE_COUNSELOR,
                 action_type=ACTION_TYPE_WARNING_ESCALATE,
                 target_type="warning_notification",
                 target_id=warning.id,

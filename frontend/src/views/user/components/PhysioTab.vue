@@ -209,7 +209,7 @@ import { ElMessage } from 'element-plus'
 import { userApi } from '@/api/userApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
-import { downloadBlob, sanitizeCellForExcel } from '@/utils/exportUtils'
+import { downloadBlob, sanitizeCellForExcel, csvEscape } from '@/utils/exportUtils'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 import { formatDate } from '@/utils/formatUtils'
 import TrendArrow from '@/components/common/TrendArrow.vue'
@@ -311,7 +311,7 @@ const exportPhysioHistoryCsv = () => {
 
   const csv = [headers, ...rows]
     // 对每个单元格调用 sanitizeCellForExcel 防止 CSV 公式注入
-    .map((line) => line.map((cell) => `"${sanitizeCellForExcel(String(cell)).replace(/"/g, '""')}"`).join(','))
+    .map((line) => line.map((cell) => csvEscape(String(cell))).join(','))
     .join('\n')
 
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })

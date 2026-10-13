@@ -43,6 +43,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import _is_sqlite
+from app.core.contracts import (USER_ROLE_ADMIN, USER_ROLE_COUNSELOR)
 from app.models.admin import OperationLog
 
 logger = logging.getLogger(__name__)
@@ -320,7 +321,7 @@ async def detect_off_hours(db: AsyncSession) -> list[AnomalyFinding]:
             and_(
                 OperationLog.created_at >= cutoff,
                 OperationLog.operator_id.isnot(None),
-                OperationLog.operator_role.in_(["admin", "counselor"]),
+                OperationLog.operator_role.in_([USER_ROLE_ADMIN, USER_ROLE_COUNSELOR]),
                 # hour >= 22 OR hour < 6 (字符串比较，零填充)
                 or_(hour_expr >= f"{start_hour:02d}", hour_expr < f"{end_hour:02d}"),
             )

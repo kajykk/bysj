@@ -20,6 +20,7 @@ import {
   Promotion,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_SUPER_ADMIN } from '@/utils/roles'
 
 export interface MenuItem {
   titleKey: string
@@ -133,9 +134,9 @@ export function useLayoutMenu() {
   const activePath = computed(() => route.path)
 
   const roleLabel = computed(() => {
-    if (auth.role === 'super_admin') return t('role.superAdmin')
-    if (auth.role === 'admin') return t('role.admin')
-    if (auth.role === 'counselor') return t('role.counselor')
+    if (auth.role === USER_ROLE_SUPER_ADMIN) return t('role.superAdmin')
+    if (auth.role === USER_ROLE_ADMIN) return t('role.admin')
+    if (auth.role === USER_ROLE_COUNSELOR) return t('role.counselor')
     return t('role.user')
   })
 

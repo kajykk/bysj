@@ -219,6 +219,7 @@ import { getErrorDetail } from '@/utils/errorDetail'
 import { validatePasswordBytes } from '@/utils/passwordValidation'
 import type { UserInfo } from '@/types/auth'
 import AuthBrandPanel, { type BrandSignal } from '@/components/common/AuthBrandPanel.vue'
+import { USER_ROLE_USER } from '@/utils/roles'
 
 const { t } = useI18n()
 const loading = ref(false)
@@ -258,7 +259,7 @@ const registerForm = reactive({
   username: '',
   nickname: '',
   email: '',
-  role: 'user' as const,
+  role: USER_ROLE_USER,
   password: '',
   confirmPassword: ''
 })

@@ -11,6 +11,7 @@ from sqlalchemy import and_, func, insert, literal, not_, select
 from app.core.celery_app import celery_app
 from app.core.celery_async import get_celery_loop
 from app.core.celery_async import run_async as _run_async
+from app.core.contracts import USER_ROLE_USER
 from app.core.database import AsyncSessionLocal
 from app.core.paths import PUBLIC_DIRS, resolve_upload_dir
 from app.models.admin import OperationLog
@@ -181,7 +182,7 @@ async def _daily_risk_scan_impl():
 
         last_user_id: int | None = None
         while True:
-            conditions = [User.role == "user", User.status == "active"]
+            conditions = [User.role == USER_ROLE_USER, User.status == "active"]
             if last_user_id is not None:
                 conditions.append(User.id > last_user_id)
             active_users_stmt = (

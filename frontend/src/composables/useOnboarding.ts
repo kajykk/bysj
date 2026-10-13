@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_USER } from '@/utils/roles'
 
 const ONBOARDING_STORAGE_KEY = 'dws:onboarding:completed'
 const ONBOARDING_VERSION = 'v1'
@@ -89,11 +90,11 @@ export function useOnboarding(role: string) {
 
 function getSteps(role: string, t: (key: string) => string): OnboardingStep[] {
   switch (role) {
-    case 'user':
+    case USER_ROLE_USER:
       return getUserSteps(t)
-    case 'counselor':
+    case USER_ROLE_COUNSELOR:
       return getCounselorSteps(t)
-    case 'admin':
+    case USER_ROLE_ADMIN:
       return getAdminSteps(t)
     default:
       return []

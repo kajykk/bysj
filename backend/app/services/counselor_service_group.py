@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.states import BindingStatus
+from app.core.contracts import (USER_ROLE_COUNSELOR)
 from app.models.admin import OperationLog
 from app.models.counselor import ClientGroup, ClientGroupMember
 from app.models.user import UserCounselorBinding
@@ -38,7 +39,7 @@ class GroupMixin:
         self.db.add(
             OperationLog(
                 operator_id=counselor_id,
-                operator_role="counselor",
+                operator_role=USER_ROLE_COUNSELOR,
                 action_type="create_client_group",
                 target_type="client_group",
                 target_id=group.id,
@@ -141,7 +142,7 @@ class GroupMixin:
         self.db.add(
             OperationLog(
                 operator_id=counselor_id,
-                operator_role="counselor",
+                operator_role=USER_ROLE_COUNSELOR,
                 action_type="add_group_member",
                 target_type="client_group_member",
                 target_id=None,

@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import type { StructuredCollectResult } from '@/api/userRiskApi'
-import { downloadBlob, sanitizeCellForExcel } from '@/utils/exportUtils'
+import { downloadBlob, csvEscape } from '@/utils/exportUtils'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 import { formatDate } from '@/utils/formatUtils'
 import { formatWarningGenerated } from './sharedStepUtils'
@@ -71,7 +71,7 @@ export function usePredictionHistory() {
     ])
 
     const csv = [headers, ...rows]
-      .map((line) => line.map((cell) => `"${sanitizeCellForExcel(String(cell)).replace(/"/g, '""')}"`).join(','))
+      .map((line) => line.map((cell) => csvEscape(String(cell))).join(','))
       .join('\n')
 
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })

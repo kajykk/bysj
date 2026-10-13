@@ -100,6 +100,7 @@ import { useI18n } from 'vue-i18n'
 import { Bell, Menu, ArrowDown, Setting, Brush, QuestionFilled, SwitchButton } from '@element-plus/icons-vue'
 import BreadcrumbNav from '@/components/common/BreadcrumbNav.vue'
 import HelpCenter from '@/components/common/HelpCenter.vue'
+import { USER_ROLE_USER } from '@/utils/roles'
 
 const props = defineProps<{
   roleLabel: string
@@ -133,7 +134,7 @@ const warningCount = computed(() => {
   return props.hasNewWarning ? 1 : 0
 })
 
-const currentRole = computed(() => props.currentRole || 'user')
+const currentRole = computed(() => props.currentRole || USER_ROLE_USER)
 
 // 用户名首字母(取前2字符,用于文字头像) - 零图像依赖,零性能开销
 const userInitials = computed(() => {

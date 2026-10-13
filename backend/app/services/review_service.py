@@ -12,6 +12,7 @@ from app.core.tenant_query import tenant_scoped_filter, user_tenant_scoped_query
 from app.models.admin import OperationLog
 from app.models.review import CrisisEvent, ReviewTask
 from app.models.user import User
+from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_COUNSELOR
 from app.schemas.review import (
     CrisisEventCreate,
     CrisisEventFilter,
@@ -317,7 +318,7 @@ class ReviewService:
         self.db.add(
             OperationLog(
                 operator_id=counselor_id,
-                operator_role="admin" if is_admin else "counselor",
+                operator_role=USER_ROLE_ADMIN if is_admin else USER_ROLE_COUNSELOR,
                 action_type="review.escalated",
                 target_type="review_task",
                 target_id=review_id,

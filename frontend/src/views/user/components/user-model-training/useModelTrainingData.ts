@@ -11,6 +11,7 @@ import { modelApi, type ModelStatusResult } from '@/api/modelApi'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/formatUtils'
 import {
+import { isAdminRole } from '@/utils/roles'
   type TrainingLogRow,
   type ActiveJob,
   type TrainingForm,
@@ -25,7 +26,7 @@ export function useModelTrainingData() {
   const router = useRouter()
   // ISS-041 修复：引入 auth store 判断角色，仅 admin/super_admin 可运行训练流水线
   const authStore = useAuthStore()
-  const canTrain = computed(() => authStore.role === 'admin' || authStore.role === 'super_admin')
+  const canTrain = computed(() => isAdminRole(authStore.role))
   const statusLoading = ref(false)
   const modelStatusLoadedAt = ref(t('userModelTraining.notLoaded'))
   const modelStatus = reactive<ModelStatusResult>({

@@ -275,6 +275,7 @@ import { useAuthStore } from '@/stores/auth'
 import ReviewStatsCard from './components/counselor-reviews/ReviewStatsCard.vue'
 // P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
 import { formatDate } from '@/utils/formatUtils'
+import { isAdminRole } from '@/utils/roles'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -282,7 +283,7 @@ const auth = useAuthStore()
 
 // AUDIT-2026-10-01：管理员与咨询师共用本页，但操作语义不同——
 // 咨询师是「领取」（后端会校验学生绑定关系），管理员是「指定分配」给某位咨询师。
-const isAdmin = computed(() => auth.role === 'admin' || auth.role === 'super_admin')
+const isAdmin = computed(() => isAdminRole(auth.role))
 
 const loading = ref(false)
 const reviews = ref<ReviewItem[]>([])

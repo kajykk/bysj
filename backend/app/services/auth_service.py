@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
 from app.core.config import settings
-from app.core.contracts import DEFAULT_TENANT_ID
+from app.core.contracts import DEFAULT_TENANT_ID, USER_ROLE_USER
 from app.core.pii_crypto import blind_index_candidates, compute_blind_index
 from app.core.security import (
     create_access_token,
@@ -80,7 +80,7 @@ class AuthService:
             email=payload.email,
             email_hash=email_hash,
             password_hash=await get_password_hash_async(payload.password),
-            role="user",  # SEC-001 修复：强制注册用户为 user 角色，咨询师账号需管理员创建
+            role=USER_ROLE_USER,  # SEC-001 修复：强制注册用户为 user 角色，咨询师账号需管理员创建
             status="active",
         )
         self.db.add(user)

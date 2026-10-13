@@ -65,14 +65,15 @@ import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { setStoredAuth } from '@/utils/authStorage'
+import { USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_SUPER_ADMIN } from '@/utils/roles'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 
 const roleLabel = computed(() => {
-  if (auth.role === 'super_admin') return t('userSettings.roles.superAdmin')
-  if (auth.role === 'admin') return t('userSettings.roles.admin')
-  if (auth.role === 'counselor') return t('userSettings.roles.counselor')
+  if (auth.role === USER_ROLE_SUPER_ADMIN) return t('userSettings.roles.superAdmin')
+  if (auth.role === USER_ROLE_ADMIN) return t('userSettings.roles.admin')
+  if (auth.role === USER_ROLE_COUNSELOR) return t('userSettings.roles.counselor')
   return t('userSettings.roles.user')
 })
 

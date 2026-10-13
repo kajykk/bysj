@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.contracts import (USER_ROLE_USER)
 from app.models.admin import OperationLog
 from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
 
@@ -349,7 +350,7 @@ class InterventionService:
         self.db.add(
             OperationLog(
                 operator_id=user_id,
-                operator_role="user",
+                operator_role=USER_ROLE_USER,
                 action_type="complete_intervention_task",
                 target_type="task_execution",
                 target_id=execution.id,
@@ -390,7 +391,7 @@ class InterventionService:
         self.db.add(
             OperationLog(
                 operator_id=user_id,
-                operator_role="user",
+                operator_role=USER_ROLE_USER,
                 action_type="feedback_intervention_task",
                 target_type="task_execution",
                 target_id=execution.id,

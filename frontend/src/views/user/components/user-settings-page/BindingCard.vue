@@ -83,6 +83,7 @@ import type { BindCounselorResult } from '@/api/userBindingApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 // P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
 import { formatDate } from '@/utils/formatUtils'
+import { isUserRole } from '@/utils/roles'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -91,7 +92,7 @@ const bindingLoading = ref(true)
 const currentBinding = ref<UserBindingInfo | null>(null)
 
 const loadBinding = async () => {
-  if (auth.role !== 'user') {
+  if (!isUserRole(auth.role)) {
     bindingLoading.value = false
     return
   }
