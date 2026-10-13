@@ -144,6 +144,7 @@ import { adminApi } from '@/api/adminApi'
 import { buildApiUrl } from '@/api/base'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { getStoredToken } from '@/utils/authStorage' // ISS-008: 从 authStorage 获取 token
+import { downloadBlob } from '@/utils/exportUtils'
 
 const { t } = useI18n()
 
@@ -206,14 +207,7 @@ const handleGdprExport = async () => {
   gdprExporting.value = true
   try {
     const blob = await adminApi.exportUserGdpr(gdprForm.userId)
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `user_${gdprForm.userId}_data.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, `user_${gdprForm.userId}_data.json`)
     ElMessage.success(t('adminSettings.gdpr.exportSuccess'))
   } catch (error) {
     showHttpFeedback(error, t('adminSettings.gdpr.exportFailed'))

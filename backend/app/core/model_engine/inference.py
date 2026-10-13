@@ -134,18 +134,15 @@ class LiteFeatureExtractor:
         ],
     }
 
-    CRISIS_KEYWORDS: list[str] = [
-        "想死",
-        "自杀",
-        "自残",
-        "活不下去",
-        "不想活",
-        "结束生命",
-        "死了算了",
-        "一死了之",
-        "不如死了",
-        "死了一了百了",
-    ]
+    # P2-32：此处原有第二份 CRISIS_KEYWORDS（与 app/core/config.py 的
+    # Settings.crisis_keywords 字面完全相同的 10 词），实测**无任何生产
+    # 消费点**：唯一读危机词表的地方是 model_engine/risk.py:119
+    # ``[kw for kw in settings.crisis_keywords if kw in text]``，它读的是
+    # Settings（BaseSettings，环境可覆盖），不是这个类属性。
+    # 保留这份硬编码副本的风险：Settings 的默认值若调整，这里会静默漂移，
+    # 而两个模块都"看起来有词表"。故删除，SSOT 唯一保留在 config.Settings。
+    # crisis_detector.CRISIS_KEYWORDS 职责不同（6 分类危机分类器，非布尔
+    # 命中词表），有意不合并。
 
     # RES-P1-002: 预编译关键词正则 + 关键词到类别映射, 替代 O(n*k) 嵌套 str.count
     # 一次 re.finditer 扫描替代 60 次独立 count, 时间复杂度 O(n+k) → O(n*m) 改善为 O(n+m)

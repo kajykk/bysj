@@ -1,0 +1,71 @@
+# P2-32 回退对照实验日志（第八轮）
+# 运行时间: 2026-10-13T11:26:54.007817+00:00
+# 前端驱动: vitest（#31 驱动只跑 pytest，本轮反向闸门在前端）
+
+==============================================================================
+E10 前端新增一份手写下载链路
+  说明: 绕过 downloadBlob 的新下载链路 → 静态闸门红
+  文件: frontend/src/views/user/__p2_32_probe.vue
+  [变异轮] passed=5 failed=2
+    原始输出(过滤):
+      × src/ 下无SSOT 之外的 <a> 下载锚点（新增下载链路即红） 9ms
+      × src/ 下无 SSOT 之外的裸 revokeObjectURL 调用 1ms
+      ✓ SSOT 本体确实持有唯一的下载锚点（防止闸门把 SSOT 一起排除掉） 1ms
+      ✓ 必须延迟 revoke 而非同步 revoke（M-29 缺陷的核心） 6ms
+      ✓ revoke 的 URL 必须与 createObjectURL 的返回值一致 1ms
+      ✓ 必须 append 到文档后再remove（Firefox 下脱离文档的 <a>.click 可能不触发下载） 9ms
+      ✓ 设置 download 文件名（缺失会导致浏览器用 URL 兜底成无扩展名文件名） 1ms
+      Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+      ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      FAIL  src/utils/p2_32_ssot.test.ts > P2-32 Blob 下载 SSOT 静态闸门 > src/ 下无SSOT 之外的 <a> 下载锚点（新增下载链路即红）
+      AssertionError: expected [ Array(1) ] to deeply equal []
+    RED: src/utils/p2_32_ssot.test.ts > P2-32 Blob 下载 SSOT 静态闸门 > src/ 下无SSOT 之外的 <a> 下载锚点（新增下载链路即红）
+    RED: src/ 下无SSOT 之外的 <a> 下载锚点（新增下载链路即红）
+  [恢复轮] passed=1 failed=0
+  => PASS
+
+==============================================================================
+E11 downloadBlob 退化为同步 revoke（M-29 缺陷复现）
+  说明: SSOT 自身退化为同步 revoke → 行为闸门红（M-29 修复不可退化）
+  文件: frontend/src/utils/exportUtils.ts
+  [变异轮] passed=6 failed=1
+    原始输出(过滤):
+      ✓ src/ 下无SSOT 之外的 <a> 下载锚点（新增下载链路即红） 2ms
+      ✓ src/ 下无 SSOT 之外的裸 revokeObjectURL 调用 0ms
+      ✓ SSOT 本体确实持有唯一的下载锚点（防止闸门把 SSOT 一起排除掉） 1ms
+      × 必须延迟 revoke 而非同步 revoke（M-29 缺陷的核心） 9ms
+      ✓ revoke 的 URL 必须与 createObjectURL 的返回值一致 2ms
+      ✓ 必须 append 到文档后再remove（Firefox 下脱离文档的 <a>.click 可能不触发下载） 9ms
+      ✓ 设置 download 文件名（缺失会导致浏览器用 URL 兜底成无扩展名文件名） 1ms
+      Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+      ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      FAIL  src/utils/p2_32_ssot.test.ts > downloadBlob - M-29 修复不可退化 > 必须延迟 revoke 而非同步 revoke（M-29 缺陷的核心）
+      AssertionError: expected "setTimeout" to be called 1 times, but got 0 times
+    RED: src/utils/p2_32_ssot.test.ts > downloadBlob - M-29 修复不可退化 > 必须延迟 revoke 而非同步 revoke（M-29 缺陷的核心）
+    RED: 必须延迟 revoke 而非同步 revoke（M-29 缺陷的核心）
+  [恢复轮] passed=1 failed=0
+  => PASS
+
+==============================================================================
+E12 后端新增第二份危机词表
+  说明: 重复定义危机词表 → SSOT 闸门红（并精确指出文件:行号）
+  文件: backend/app/core/_tmp_ssot_probe.py
+  [变异轮] passed=2 failed=1
+    原始输出(过滤):
+      ================================== FAILURES ===================================
+      E       AssertionError: 以下位置重复定义了危机命中词表（SSOT = app/core/config.py 的 Settings.crisis_keywords）：
+      tests\test_p2_32_ssot.py:90: AssertionError
+      FAILED tests/test_p2_32_ssot.py::TestCrisisKeywordWordlistSSTO::test_wordlist_defined_only_in_ssot
+    RED: tests/test_p2_32_ssot.py::TestCrisisKeywordWordlistSSTO::test_wordlist_defined_only_in_ssot
+  [恢复轮] passed=3 failed=0
+  => PASS
+
+==============================================================================
+汇总
+  [PASS] E10 前端新增一份手写下载链路
+  [PASS] E11 downloadBlob 退化为同步 revoke（M-29 缺陷复现）
+  [PASS] E12 后端新增第二份危机词表
+
+结论: 3/3 项通过

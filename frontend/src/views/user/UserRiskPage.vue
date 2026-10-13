@@ -187,6 +187,7 @@ import StructuredAssessTab from './components/StructuredAssessTab.vue'
 import TextAssessTab from './components/TextAssessTab.vue'
 import ExperimentTab from './components/ExperimentTab.vue'
 import PhysioTab from './components/PhysioTab.vue'
+import { downloadBlob } from '@/utils/exportUtils'
 
 const auth = useAuthStore()
 // P1-5 埋点与隐私：评估流程追踪
@@ -237,12 +238,10 @@ const handleExport = async (format: 'json' | 'csv' | 'pdf') => {
     const response = await userApi.exportRiskData(format, 90)
     const mimeType = format === 'pdf' ? 'application/pdf' : format === 'csv' ? 'text/csv' : 'application/json'
     const blob = new Blob([response.data], { type: mimeType })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = format === 'pdf' ? `risk_report_${Date.now()}.pdf` : `risk_export_${Date.now()}.${format}`
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadBlob(
+      blob,
+      format === 'pdf' ? `risk_report_${Date.now()}.pdf` : `risk_export_${Date.now()}.${format}`
+    )
     ElMessage.success(t('userRisk.exportSuccess', { format: format.toUpperCase() }))
   } catch {
     ElMessage.error(t('userRisk.exportFailed', { format: format.toUpperCase() }))

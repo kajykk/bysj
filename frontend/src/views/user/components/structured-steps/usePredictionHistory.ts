@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import type { StructuredCollectResult } from '@/api/userRiskApi'
-import { sanitizeCellForExcel } from '@/utils/exportUtils'
+import { downloadBlob, sanitizeCellForExcel } from '@/utils/exportUtils'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 import { formatDate } from '@/utils/formatUtils'
 import { formatWarningGenerated } from './sharedStepUtils'
@@ -75,12 +75,7 @@ export function usePredictionHistory() {
       .join('\n')
 
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `prediction_history_${Date.now()}.csv`
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadBlob(blob, `prediction_history_${Date.now()}.csv`)
     ElMessage.success(t('structuredAssess.historyCsvExported'))
   }
 

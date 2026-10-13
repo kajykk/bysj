@@ -10,6 +10,7 @@ import { adminApi, type CrisisEventItem } from '@/api/adminApi'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { getDefaultDateRange } from './sharedCrisisEventsUtils'
+import { downloadBlob } from '@/utils/exportUtils'
 
 export function useCrisisEventsData() {
   const { t } = useI18n()
@@ -86,12 +87,10 @@ export function useCrisisEventsData() {
       // 公式注入防护与单元格转义由后端统一处理；文件名仅由日期构成，无注入风险
       const blobData = await adminApi.exportCrisisEvents(filters.dateRange[0], filters.dateRange[1])
       const blob = new Blob([blobData], { type: 'text/csv;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `crisis_events_${filters.dateRange[0].replace(/-/g, '')}_${filters.dateRange[1].replace(/-/g, '')}.csv`
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      downloadBlob(
+        blob,
+        `crisis_events_${filters.dateRange[0].replace(/-/g, '')}_${filters.dateRange[1].replace(/-/g, '')}.csv`
+      )
       ElMessage.success(t('adminCrisisEvents.exportSuccess'))
     } catch (error: unknown) {
       const err = error as { response?: { status?: number } }

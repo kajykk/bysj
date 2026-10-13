@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { reportsApi, type ReportTemplate, type PdfJobItem, type UserRiskReportRequest, type RiskTrendItem } from '@/api/reportsApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { isTerminalStatus, validateBatchExcelInput } from './utils/reportsUtils'
+import { downloadBlob } from '@/utils/exportUtils'
 
 const { t } = useI18n()
 const templates = ref<ReportTemplate[]>([])
@@ -48,13 +49,9 @@ const excelColsText = computed({
   set: (val: string) => { excelCols.value = val.split(',').map((s) => s.trim()).filter(Boolean) },
 })
 
+// P2-32：改调 SSOT（原实现是同步 revoke —— M-29 修复的缺陷在此复现）
 function triggerBlobDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, filename)
 }
 
 async function loadTemplates() {

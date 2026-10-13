@@ -127,6 +127,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { refDebounced } from '@/utils/debounce'
 import type { PredictionSample } from './sharedChartUtils'
+import { downloadBlob } from '@/utils/exportUtils'
 
 const { t } = useI18n()
 
@@ -161,12 +162,7 @@ const toCsv = (rows: PredictionSample[]) => {
 }
 const downloadCsv = (filename: string, csv: string) => {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  downloadBlob(blob, filename)
 }
 
 const getScoreRange = (range: string): [number, number] | null => {

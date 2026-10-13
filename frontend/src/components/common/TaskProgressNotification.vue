@@ -84,6 +84,7 @@ import { useI18n } from 'vue-i18n'
 import { useTaskProgress } from '@/composables/useTaskProgress'
 import { useAnalytics } from '@/composables/useAnalytics'
 import { reportsApi } from '@/api/reportsApi'
+import { downloadBlob } from '@/utils/exportUtils'
 
 const { t } = useI18n()
 const { activeTasks, completedTasks, failedTasks, hasActiveTasks, clearAll, removeTask } =
@@ -160,14 +161,7 @@ async function downloadTask(jobId: string, jobType: string) {
     } else {
       return
     }
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `report_${jobId.slice(0, 8)}.${jobType === 'pdf' ? 'pdf' : 'xlsx'}`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, `report_${jobId.slice(0, 8)}.${jobType === 'pdf' ? 'pdf' : 'xlsx'}`)
   } catch {
     ElMessage.error(t('taskProgress.downloadFailed'))
   }

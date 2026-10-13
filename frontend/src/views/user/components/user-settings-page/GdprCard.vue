@@ -119,6 +119,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/userApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'
+import { downloadBlob } from '@/utils/exportUtils'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -139,12 +140,7 @@ const handleExportData = async () => {
       if (match && match[1]) filename = match[1]
     }
     const blob = new Blob([response.data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadBlob(blob, filename)
     ElMessage.success(t('userSettings.gdpr.exportSuccess'))
   } catch (error) {
     ElMessage.error(normalizeHttpError(error, t('userSettings.gdpr.exportFailed')).detail)

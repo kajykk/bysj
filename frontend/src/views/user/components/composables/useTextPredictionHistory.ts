@@ -17,7 +17,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import type { TextPredictModelResult } from '@/api/modelApi'
-import { sanitizeCellForExcel } from '@/utils/exportUtils'
+import { downloadBlob, sanitizeCellForExcel } from '@/utils/exportUtils'
 
 export type TextPredictionHistoryItem = TextPredictModelResult & {
   time: string
@@ -133,12 +133,7 @@ export function useTextPredictionHistory(historyKey: string) {
       .join('\n')
 
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `text_prediction_history_${Date.now()}.csv`
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadBlob(blob, `text_prediction_history_${Date.now()}.csv`)
     ElMessage.success(t('textAssess.historyCsvExported'))
   }
 

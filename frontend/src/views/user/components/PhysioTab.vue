@@ -209,7 +209,7 @@ import { ElMessage } from 'element-plus'
 import { userApi } from '@/api/userApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
-import { sanitizeCellForExcel } from '@/utils/exportUtils'
+import { downloadBlob, sanitizeCellForExcel } from '@/utils/exportUtils'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 import { formatDate } from '@/utils/formatUtils'
 import TrendArrow from '@/components/common/TrendArrow.vue'
@@ -315,12 +315,7 @@ const exportPhysioHistoryCsv = () => {
     .join('\n')
 
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `physio_history_${Date.now()}.csv`
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  downloadBlob(blob, `physio_history_${Date.now()}.csv`)
   ElMessage.success(t('physioAssess.historyCsvExported'))
 }
 

@@ -11,6 +11,7 @@ import BaseChart from '@/components/charts/BaseChart.vue'
 import { CHART_SERIES_COLORS } from '@/utils/chartPalette'
 import type { EChartsCoreOption } from '@/utils/echarts'
 import type { RiskReport, RiskTrend } from '@/api/userRiskApi'
+import { downloadBlob } from '@/utils/exportUtils'
 
 const { t } = useI18n()
 const report = ref<RiskReport | null>(null)
@@ -56,13 +57,9 @@ function isHighSeverity(severity: string | null | undefined): boolean {
   return severity === 'high' || severity === 'critical'
 }
 
+// P2-32：改调 SSOT（原实现是同步 revoke —— M-29 修复的缺陷在此复现）
 function triggerBlobDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, filename)
 }
 
 const trendOption = computed<EChartsCoreOption>(() => {
