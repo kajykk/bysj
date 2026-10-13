@@ -91,7 +91,7 @@ async def get_review_stats(
     """获取复核统计"""
     service = ReviewService(db)
     # ISS-071 修复：统计口径与 list_reviews 对齐——咨询师仅统计分配给自己的任务
-    assigned_to = current_user.id if current_user.role == "counselor" else None
+    assigned_to = current_user.id if current_user.role == USER_ROLE_COUNSELOR else None
     stats = await service.get_review_stats(
         assigned_to=assigned_to, tenant_id=current_user.tenant_id
     )
@@ -299,7 +299,7 @@ async def list_reviews(
     service = ReviewService(db)
 
     # 权限控制：咨询师只能查看分配给自己的
-    if current_user.role == "counselor":
+    if current_user.role == USER_ROLE_COUNSELOR:
         assigned_to = current_user.id
 
     filter_data = ReviewTaskFilter(
@@ -338,7 +338,7 @@ async def get_review(
         raise HTTPException(status_code=404, detail="复核任务不存在")
 
     # 权限控制：咨询师只能查看分配给自己的
-    if current_user.role == "counselor" and task.assigned_to != current_user.id:
+    if current_user.role == USER_ROLE_COUNSELOR and task.assigned_to != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看此复核任务")
 
     return ok(service.to_response(task).model_dump())
@@ -421,7 +421,7 @@ async def resolve_review(
     )
     if not task:
         raise HTTPException(status_code=404, detail="复核任务不存在")
-    if current_user.role == "counselor" and task.assigned_to != current_user.id:
+    if current_user.role == USER_ROLE_COUNSELOR and task.assigned_to != current_user.id:
         raise HTTPException(status_code=403, detail="无权操作此复核任务")
     try:
         task = await service.resolve_review(
@@ -458,7 +458,7 @@ async def escalate_review(
     )
     if not task:
         raise HTTPException(status_code=404, detail="复核任务不存在")
-    if current_user.role == "counselor" and task.assigned_to != current_user.id:
+    if current_user.role == USER_ROLE_COUNSELOR and task.assigned_to != current_user.id:
         raise HTTPException(status_code=403, detail="无权操作此复核任务")
     try:
         task = await service.escalate_review(

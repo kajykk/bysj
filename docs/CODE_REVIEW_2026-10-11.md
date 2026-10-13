@@ -1454,3 +1454,34 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 （较第七轮 6689 增 3，与本轮新增的 3 条后端闸门完全对应）；
 前端 **100 test files passed**（本地同口径 100 files / 1285 passed /
 4 skipped）；vue-tsc 0 error。
+
+## 第九轮：P2-32 余量 + P2-33 + P2-35 + P2-39 + P2-40
+
+### 改了什么
+
+- **#32 CSV**：`MisclassifiedTable.vue:157` 本地 `csvEscape` 只做引号转义、未调 `sanitizeCellForExcel`（公式注入面）→ 删除本地定义，改调 `exportUtils.csvEscape`（新导出 SSOT 别名 = sanitize + 引号转义）。另两处内联链（PhysioTab/useTextPredictionHistory/usePredictionHistory）已调 sanitize，仅统一改调同一别名。
+- **#32 角色**：`review.py` 5 处 `== "counselor"` → `== USER_ROLE_COUNSELOR`（常量本已 import）。
+- **#32 文件名/风险等级/模型元数据**：只审计不改。`gdpr.py:182/295` 文件名来自 int id + uuid hex 切片，字符集封闭，降级为安全；`mild/moderate` vs `low/medium` 不同语义；145 处 model_version 几乎全是字段传递。
+- **#33**：新建 `app/core/audit.py::record_audit`（写操作同步 add+flush；`tenant_id` 必填关键字 sentinel 漏传 TypeError；`ip_address` 一律从 request 经 `get_real_client_ip` 取）。迁移 `gdpr.admin_export_user_data`（原来完全缺 ip，补上）。
+- **#35**：新增 `silent_degradation_total{location}`（随 `/metrics` 暴露）；`cache._get_redis_url` 静默 except 已接线；`tasks/alerts.py` 双任务已是 raise 范式，闸门锁死。
+- **#39**：删本地 `csvEscape` 重复实现；`bertDisabled=True` 是有意下线 UX（禁用 + 解释文案），保留；`_flushed_buffer` 有 RES-P1-004 书面保留依据，保留。
+- **#40**：`render_exposition` 用 `prometheus_client.parser` 真解析；`render_prometheus_rules` 用 YAML 形状断言。
+
+### 连带发现
+
+- E35 首版闸门只判字符串存在，变异后恒绿（import 行残留）→ 加固为判 `.inc(` 接线行才变红。又是“测了存在≠测了使用”。
+- 后台 Shell 驱动长任务会被挂起无输出 → 回退实验改逐项前台单测过滤（每项 <10s）。
+
+### 实测读数
+
+- 新增闸门 `tests/test_p2_09_round9.py` 14 条 + 前端 `p2CsvSsot.test.ts` 2 条，全绿。
+- 回退对照 3/3（E31/E33/E35 变异红→恢复绿，日志 `backend/scripts/rollback_p2_09_result.log`）。
+- 受影响既有：`test_p2_31_tenant_guard.py` 40 条同跑，合计 **54 passed**；前端 `exportUtils.test.ts` 61 + 新 2 = **63 passed**。
+
+### 未验证如实记账
+
+- 后端全量未跑（37 分钟），以受影响 54 passed + CI 全量兜底为准。
+- 前端全量未跑（基线 100 files / 1285 passed / 4 skipped 待 CI 补测）。
+- `promtool check rules` 未跑（本机无 promtool），规则侧为 YAML 形状断言。
+- 其余 63 处 `OperationLog(` 手写审计、100+ 静默候选点、`seed.py`/服务层 30+ 处 `operator_role` 字面量留待分批（#37/第十轮）。
+- #34/#36/#37/#38 移第十轮。

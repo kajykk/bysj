@@ -291,6 +291,12 @@ def _get_redis_url() -> str | None:
             return url
     except Exception as exc:
         logger.debug("settings.redis_url access failed: %s", exc)
+        try:
+            from app.core.metrics import silent_degradation_total
+
+            silent_degradation_total.inc(location="core.cache._get_redis_url")
+        except Exception:
+            pass
     env_url = os.getenv("REDIS_URL")
     if env_url and env_url.startswith("redis"):
         return env_url

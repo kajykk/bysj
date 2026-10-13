@@ -1,0 +1,11 @@
+[E31-csv-ssot-regress] mutated -> exit=1 red=True
+  tail: AssertionError: 仍有本地 csvEscape 定义（应改调 SSOT） | 1 failed in 1.14s
+[E31-csv-ssot-regress] restored -> exit=0 green=True
+[E33-tenant-optional-regress] mutated -> exit=1 red=True
+  tail: AttributeError: 'NoneType' object has no attribute 'add'（TypeError 守卫消失，调用穿透到 db.add 才崩） | 1 failed in 1.18s
+[E33-tenant-optional-regress] restored -> exit=0 green=True
+[E35-counter-missing-regress] mutated -> exit=1 red=True（注：首版闸门只判字符串存在而恒绿，已加固为判 .inc 接线行；加固后变红）
+  tail: AssertionError: silent_degradation_total.inc(location="core.cache._get_redis_url") | 1 failed in 1.18s
+[E35-counter-missing-regress] restored -> exit=0 green=True
+ROLLBACK 3/3 PASS
+最终全绿：tests/test_p2_09_round9.py(14) + tests/test_p2_31_tenant_guard.py(40) = 54 passed

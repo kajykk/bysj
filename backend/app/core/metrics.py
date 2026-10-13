@@ -745,6 +745,14 @@ kill_switch_degraded_total = Counter(
     labelnames=("op",),
 )
 
+# P2-35: 静默降级统一计数。所有 except -> logger.debug/continue/return 的降级点
+# 必须 inc 本计数（label location=模块.函数），并经 /metrics 暴露。
+silent_degradation_total = Counter(
+    "silent_degradation_total",
+    "Total silent degradations (caught exception, degraded path taken), labeled by location.",
+    labelnames=("location",),
+)
+
 
 def _format_labels(labels: dict[str, str]) -> str:
     """格式化为 {key="value",...}"""

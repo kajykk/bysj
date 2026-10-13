@@ -25,6 +25,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import get_real_client_ip, limiter
+from app.core.audit import record_audit
 from app.core.response import ok
 from app.core.tenant_context import require_platform_admin
 from app.models.admin import OperationLog
@@ -266,19 +267,18 @@ async def admin_export_user_data(
     if target is None:
         raise HTTPException(status_code=404, detail="目标用户不存在")
 
-    # 审计日志：导出操作
-    audit_log = OperationLog(
-        operator_id=current_user.id,
-        operator_role=current_user.role,
-        action_type="admin.gdpr.export_user",
+    # 审计日志：导出操作（P2-33：走统一 helper，补上原来缺的 ip_address）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="admin.gdpr.export_user",
         target_type="user",
         target_id=user_id,
-        detail=json.dumps(
-            {"export_id": export_id, "target_username": target.username},
-            ensure_ascii=False,
-        ),
+        detail={"export_id": export_id, "target_username": target.username},
+        request=request,
+        tenant_id=None,
     )
-    db.add(audit_log)
     await db.commit()
 
     logger.info(

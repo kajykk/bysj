@@ -154,7 +154,7 @@ const misclassifiedTrueLabel = ref<number | null>(null)
 const misclassifiedPredLabel = ref<number | null>(null)
 const misclassifiedScoreRange = ref('')
 
-const csvEscape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`
+import { downloadBlob, csvEscape } from '@/utils/exportUtils'
 const toCsv = (rows: PredictionSample[]) => {
   const header = ['index,true_label,pred_label,score']
   const lines = rows.map(row => [row.index, row.true_label, row.pred_label, row.score].map(csvEscape).join(','))
