@@ -127,7 +127,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { refDebounced } from '@/utils/debounce'
 import type { PredictionSample } from './sharedChartUtils'
-import { downloadBlob } from '@/utils/exportUtils'
+import { downloadBlob, csvEscape } from '@/utils/exportUtils'
 
 const { t } = useI18n()
 
@@ -154,7 +154,6 @@ const misclassifiedTrueLabel = ref<number | null>(null)
 const misclassifiedPredLabel = ref<number | null>(null)
 const misclassifiedScoreRange = ref('')
 
-import { downloadBlob, csvEscape } from '@/utils/exportUtils'
 const toCsv = (rows: PredictionSample[]) => {
   const header = ['index,true_label,pred_label,score']
   const lines = rows.map(row => [row.index, row.true_label, row.pred_label, row.score].map(csvEscape).join(','))
