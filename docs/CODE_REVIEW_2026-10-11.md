@@ -1485,3 +1485,7 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 - `promtool check rules` 未跑（本机无 promtool），规则侧为 YAML 形状断言。
 - 其余 63 处 `OperationLog(` 手写审计、100+ 静默候选点、`seed.py`/服务层 30+ 处 `operator_role` 字面量留待分批（#37/第十轮）。
 - #34/#36/#37/#38 移第十轮。
+
+### CI 结果
+
+`7bc85e8` 首轮 CI 9/10：`backend-coverage` 唯一红（全仓 6705 passed，仅新测试 `test_exposition_parses` 因 CI 无 `prometheus_client` 包而 ModuleNotFoundError）→ `37b6e0f` 修 `.vue` 重复 import（lighthouse/frontend-coverage 转绿）→ `63afdd2` 改双分支断言后 **CI 10/10 success**（含 backend 全量）。
