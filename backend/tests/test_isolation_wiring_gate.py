@@ -128,6 +128,46 @@ class TestSecuritySwitchesAreRead:
 # 必须先加列 + Alembic 迁移 —— 属 schema 决策，另行处理。
 TENANT_SENSITIVE_MODELS = {"User", "OperationLog"}
 
+# P2-31：无 tenant_id 列的受保护表（租户归属沿 user_id JOIN users 推导）。
+# 来源 = 静态扫描器实际使用的同一集合（app/core/tenant_guard.py 里的
+# ``_PROTECTED_MODEL_NAMES``）。重复定义会与扫描器漂移，让闸门 4 失真；
+# 但它是**私有**名，故用 getattr 兜底取用，取不到即视为集合为空并让断言失败，
+# 不静默跳过。
+try:
+    from app.core.tenant_guard import _PROTECTED_MODEL_NAMES as PROTECTED_TENANTLESS_MODELS
+except ImportError:  # pragma: no cover - app 包不可导入时闸门 4 会红
+    PROTECTED_TENANTLESS_MODELS = set()
+
+
+def _model_has_tenant_column(model_name: str) -> bool:
+    """反射 ORM 模型是否真有 tenant_id 列。
+
+    - 用 ``__table__.columns`` 而非源码 grep：grep 会被注释与 docstring 里的
+      "tenant_id" 字样误报（本仓已吃过这个亏，见记忆「源码 grep 被注释旧值误报」）。
+    - 模型定位**遍历 app.models 全部子模块**而非硬编码模块路径：实测
+      OperationLog 实际在 ``app/models/admin.py`` 而非 ``operation_log.py``，
+      猜路径会得到「无 tenant_id 列」的假否定，进而把正确代码判成违规。
+    - 找不到模型时返回 False（宁可误报也不漏报）。
+    """
+    import importlib
+    import pkgutil
+
+    try:
+        models_pkg = importlib.import_module("app.models")
+    except Exception:
+        return False
+
+    for mod_info in pkgutil.iter_modules(models_pkg.__path__):
+        try:
+            module = importlib.import_module(f"app.models.{mod_info.name}")
+        except Exception:
+            continue
+        model = getattr(module, model_name, None)
+        table = getattr(model, "__table__", None)
+        if table is not None:
+            return "tenant_id" in table.columns
+    return False
+
 # 现状快照（由 _unfiltered_tenant_queries 实测得出，20 个文件）。
 # 绝大多数是**合理的**平台/系统作用域。分类如下：
 #
@@ -249,3 +289,55 @@ class TestTenantQueryRatchet:
         """反向验证：真正做了隔离的查询不能被误报成漏网。"""
         text = (APP_DIR / "api/v1/tenant_audit.py").read_text(encoding="utf-8")
         assert "OperationLog.tenant_id ==" in text
+
+
+# ── 闸门 4：受保护表必须走机制化闸门，不得塞进白名单棘轮 ───────────────────
+# P2-31 的实测结论（scripts/probe_ratchet_extension.py）：
+# 若把 ReviewTask/CrisisEvent 直接加进 TENANT_SENSITIVE_MODELS 棘轮集合，
+# 会**立刻误报 3 个正确实现了隔离的服务文件**
+# （services/review_service.py / crisis_export_service.py /
+#   gdpr_service_anonymize.py）——因为这两张表无 tenant_id 列，正确写法是
+# ``tenant_scoped_filter(User, tenant_id)``，tenant_id 是**位置参数**，
+# 语句内不存在 ``X.tenant_id`` 属性节点，棘轮判定条件永远为假。
+#
+# 那 3 个文件一旦"修棘轮"就只能进白名单 —— 白名单会当场涨成 3 条新免责
+# 条款，正是 CODE_REVIEW 根因段点名的退化解法（豁免退化成免责名单）。
+# 故：白名单棘轮只管**有 tenant_id 列**的表；无列的受保护表由
+# app/core/tenant_guard.py 的执行层 fail-closed 闸门 +
+# tests/test_p2_31_tenant_guard.py::TestMechanizedAuditGate 接管。
+# 本闸门把这条分流写成断言，防止后人图省事走白名单捷径。
+class TestProtectedTablesRoutedToMechanismNotAllowlist:
+    def test_protected_models_absent_from_ratchet_set(self) -> None:
+        assert not (TENANT_SENSITIVE_MODELS & PROTECTED_TENANTLESS_MODELS), (
+            f"受保护表（无 tenant_id 列）被加进了白名单棘轮集合："
+            f"{sorted(TENANT_SENSITIVE_MODELS & PROTECTED_TENANTLESS_MODELS)}。"
+            "它们必须由 app/core/tenant_guard.py 的执行层闸门接管 —— "
+            "加进棘轮会让正确实现隔离的服务文件全部误报，"
+            "逼人把它们塞进 UNFILTERED_QUERY_ALLOWLIST（白名单退化成免责名单）。"
+        )
+
+    def test_ratchet_anchor_assumption_still_holds(self) -> None:
+        """棘轮的前提是「集合内模型都有 tenant_id 列」；有列的表一旦失配，
+        同样会让正确实现隔离的代码全量误报。此断言守住该前提。"""
+        mismatched = [
+            name
+            for name in sorted(TENANT_SENSITIVE_MODELS)
+            if not _model_has_tenant_column(name)
+        ]
+        assert not mismatched, (
+            f"棘轮集合中这些模型没有 tenant_id 列：{mismatched}。"
+            "棘轮判定依赖语句内出现 `X.tenant_id` 属性节点，"
+            "无列模型在正确实现隔离时也不会出现该节点 → 全量误报。"
+            "请把它移出棘轮集合，改由 tenant_guard 执行层闸门接管。"
+        )
+
+    def test_mechanism_is_actually_installed_and_scanning(self) -> None:
+        """分流的前提是机制真的在位：静态扫描函数可调用 + 测试引擎装了执行层闸门。
+        否则闸门 4 只是把缺口从一边挪到另一边。"""
+        from app.core.tenant_guard import PROTECTED_TABLES, scan_unscoped_protected_queries
+
+        assert PROTECTED_TABLES, "受保护表集合为空 —— 闸门 4 失去了分流对象"
+        assert scan_unscoped_protected_queries(APP_DIR) == [], (
+            "静态扫描有漏网项，说明受保护表并未真正被机制接管，"
+            "此时禁止把它们挪出棘轮集合（会同时失去两道闸门）。"
+        )

@@ -1,0 +1,123 @@
+
+==============================================================================
+E1a 卸载测试引擎闸门
+  说明: 闸门未安装 → 元断言红；同时所有反向闸门失去对象
+  文件: tests/conftest.py
+  目标: ['tests/test_p2_31_tenant_guard.py::TestGuardMechanism::test_guard_installed_on_test_engine']
+  [变异轮] passed=0 failed=1
+    RED: tests/test_p2_31_tenant_guard.py::TestGuardMechanism::test_guard_installed_on_test_engine
+  [恢复轮] passed=1 failed=0
+
+==============================================================================
+E1b 服务层 JOIN 手写回归（闸门在位）
+  说明: 模拟根因段失效模式：手写裸查询忘 JOIN → 执行层现红
+  文件: app/services/review_service.py
+  目标: ['tests/test_p2_31_tenant_guard.py::TestServiceBehaviorUnderGuard::test_get_review_by_id_cross_tenant_returns_none', 'tests/test_p2_31_tenant_guard.py::TestServiceBehaviorUnderGuard::test_get_review_by_id_same_tenant_returns_task']
+  [变异轮] passed=0 failed=2
+    RED: tests/test_p2_31_tenant_guard.py::TestServiceBehaviorUnderGuard::test_get_review_by_id_cross_tenant_returns_none
+    RED: tests/test_p2_31_tenant_guard.py::TestServiceBehaviorUnderGuard::test_get_review_by_id_same_tenant_returns_task
+  [恢复轮] passed=2 failed=0
+
+==============================================================================
+E2 tenant_id 必填退化为默认值
+  说明: 漏传从 TypeError 变静默租户 1 —— 范式②的闸门必须红
+  文件: app/services/review_service.py
+  目标: ['tests/test_p2_31_tenant_guard.py::TestReverseGates::test_tenant_id_is_required_keyword', 'tests/test_p2_31_tenant_guard.py::TestReverseGates::test_missing_tenant_id_call_raises_typeerror']
+  [变异轮] passed=10 failed=2
+    RED: tests/test_p2_31_tenant_guard.py::TestReverseGates::test_tenant_id_is_required_keyword[ReviewService-get_review_by_id]
+    RED: tests/test_p2_31_tenant_guard.py::TestReverseGates::test_missing_tenant_id_call_raises_typeerror
+  [恢复轮] passed=12 failed=0
+
+==============================================================================
+E3 create_review_task 幂等检查豁免移除
+  说明: 豁免标记删除 → 系统内部写路径被闸门拦下 → 红
+  文件: app/services/review_service.py
+  目标: ['tests/test_p2_31_tenant_guard.py::TestServiceBehaviorUnderGuard::test_get_review_by_id_same_tenant_returns_task']
+  [变异轮] passed=0 failed=1
+    RED: tests/test_p2_31_tenant_guard.py::TestServiceBehaviorUnderGuard::test_get_review_by_id_same_tenant_returns_task
+  [恢复轮] passed=1 failed=0
+
+==============================================================================
+E4 ops_dashboard 一条豁免移除
+  说明: 平台看板 overview 聚合打到该语句 → 文件内至少一红
+  文件: app/api/v1/ops_dashboard.py
+  目标: ['tests/api/test_ops_dashboard_api.py']
+  [变异轮] passed=3 failed=3
+    RED: tests/api/test_ops_dashboard_api.py::TestOpsDashboardApi::test_overview_admin_access
+    RED: tests/api/test_ops_dashboard_api.py::TestOpsDashboardApi::test_review_metrics_admin_access
+    RED: tests/api/test_ops_dashboard_api.py::TestOpsDashboardApi::test_review_metrics_days_clamping
+  [恢复轮] passed=6 failed=0
+
+==============================================================================
+E5 crisis_export 豁免移除
+  说明: tenant_id=None 默认路径（平台管理员全量导出）被拦 → 红
+  文件: app/services/crisis_export_service.py
+  目标: ['tests/services/test_crisis_export_service.py']
+  [变异轮] passed=17 failed=8
+    RED: tests/services/test_crisis_export_service.py::TestExportCrisisEvents::test_empty_result_returns_header_only
+    RED: tests/services/test_crisis_export_service.py::TestExportCrisisEvents::test_export_with_data
+    RED: tests/services/test_crisis_export_service.py::TestExportCrisisEvents::test_export_filters_by_date_range
+    RED: tests/services/test_crisis_export_service.py::TestExportCrisisEvents::test_export_csv_injection_sanitized
+    RED: tests/services/test_crisis_export_service.py::TestExportCrisisEvents::test_export_null_fields_handled
+    RED: tests/services/test_crisis_export_service.py::TestExportCrisisEvents::test_export_filename_uses_input_dates
+    RED: tests/services/test_crisis_export_service.py::TestExportTenantScope::test_default_exports_all_tenants
+    RED: tests/services/test_crisis_export_service.py::TestExportTenantScope::test_backward_compatible_two_arg_call
+  [恢复轮] passed=25 failed=0
+
+==============================================================================
+E6 gdpr 导出豁免移除
+  说明: 数据主体导出被拦 → 红
+  文件: app/services/gdpr_service_export.py
+  目标: ['tests/services/test_gdpr_service.py', 'tests/test_gdpr_pii.py']
+  [变异轮] passed=66 failed=1
+    RED: tests/services/test_gdpr_service.py::TestExportUserData::test_export_returns_full_structure
+  [恢复轮] passed=67 failed=0
+
+==============================================================================
+E7 测试夹具豁免移除
+  说明: _reload 回读被拦 → 红
+  文件: tests/api/test_review_assign_auth.py
+  目标: ['tests/api/test_review_assign_auth.py']
+  [变异轮] passed=6 failed=9
+    RED: tests/api/test_review_assign_auth.py::TestCounselorClaimGuard::test_unbound_counselor_cannot_claim
+    RED: tests/api/test_review_assign_auth.py::TestCounselorClaimGuard::test_inactive_binding_cannot_claim
+    RED: tests/api/test_review_assign_auth.py::TestCounselorClaimGuard::test_bound_counselor_can_claim
+    RED: tests/api/test_review_assign_auth.py::TestCounselorClaimGuard::test_counselor_cannot_assign_to_another
+    RED: tests/api/test_review_assign_auth.py::TestGuardNecessity::test_removing_guard_reproduces_pre_fix_escalation
+    RED: tests/api/test_review_assign_auth.py::TestAdminAssignPath::test_admin_can_claim_without_assignee
+    RED: tests/api/test_review_assign_auth.py::TestAdminAssignPath::test_admin_can_assign_to_specific_counselor
+    RED: tests/api/test_review_assign_auth.py::TestAdminAssignPath::test_super_admin_can_assign
+    RED: tests/api/test_review_assign_auth.py::TestAssignEdgeCases::test_plain_user_forbidden
+  [恢复轮] passed=15 failed=0
+
+==============================================================================
+E9 受保护表被塞进白名单棘轮集合（退化解法）
+  说明: 把无 tenant_id 列的受保护表加进棘轮 → 既有棘轮误报正确隔离的服务文件，新增的两条分流断言同时红（闸门 4 反向验证）
+  文件: tests/test_isolation_wiring_gate.py
+  目标: ['tests/test_isolation_wiring_gate.py']
+  [变异轮] passed=11 failed=3
+    RED: tests/test_isolation_wiring_gate.py::TestTenantQueryRatchet::test_no_new_unfiltered_tenant_queries
+    RED: tests/test_isolation_wiring_gate.py::TestProtectedTablesRoutedToMechanismNotAllowlist::test_protected_models_absent_from_ratchet_set
+    RED: tests/test_isolation_wiring_gate.py::TestProtectedTablesRoutedToMechanismNotAllowlist::test_ratchet_anchor_assumption_still_holds
+  [恢复轮] passed=14 failed=0
+
+==============================================================================
+E1c 复合变异：卸载闸门 + 服务层 JOIN 回归
+  [复合变异轮] passed=0 failed=1
+    RED: tests/test_p2_31_tenant_guard.py::TestServiceBehaviorUnderGuard::test_get_review_by_id_cross_tenant_returns_none
+  [恢复轮] passed=1 failed=0
+
+==============================================================================
+汇总
+  [PASS] E1a 卸载测试引擎闸门
+  [PASS] E1b 服务层 JOIN 手写回归（闸门在位）
+  [PASS] E2 tenant_id 必填退化为默认值
+  [PASS] E3 create_review_task 幂等检查豁免移除
+  [PASS] E4 ops_dashboard 一条豁免移除
+  [PASS] E5 crisis_export 豁免移除
+  [PASS] E6 gdpr 导出豁免移除
+  [PASS] E7 测试夹具豁免移除
+  [PASS] E9 受保护表被塞进白名单棘轮集合（退化解法）
+  [PASS] E1c 复合变异（无闸门+JOIN回归）
+
+结论: 10/10 项通过（无）

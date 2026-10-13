@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import Settings, settings
 from app.core.db_breaker import db_breaker
+from app.core.tenant_guard import install_tenant_guard
 
 
 def _build_engine_kwargs(is_sqlite: bool, settings_obj: Settings) -> dict:
@@ -49,6 +50,9 @@ _is_sqlite = settings.database_url.startswith("sqlite")
 engine_kwargs: dict = _build_engine_kwargs(_is_sqlite, settings)
 
 engine: AsyncEngine = create_async_engine(settings.database_url, **engine_kwargs)
+# P2-31：安装租户隔离执行层闸门。review_tasks / crisis_events 无 tenant_id 列，
+# 裸 select 缺 users.tenant_id 锚点时在此 fail-closed（详见 app/core/tenant_guard.py）。
+install_tenant_guard(engine)
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     expire_on_commit=False,

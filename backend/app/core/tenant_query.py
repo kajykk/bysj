@@ -103,6 +103,42 @@ def tenant_scoped_query(
     return select(model).where(col == tenant_id)
 
 
+def user_tenant_scoped_query(
+    model: type[ModelT],
+    tenant_id: int,
+    *,
+    user_fk_field: str = "user_id",
+) -> Select:
+    """为**无 tenant_id 列**、经 ``user_id`` 关联 ``users.tenant_id`` 推导租户的
+    模型（``ReviewTask`` / ``CrisisEvent``）构造隔离查询。P2-31 SSOT。
+
+    为什么需要它：``tenant_scoped_query`` 遇到无租户列的模型会抛
+    ``TenantColumnMissingError``（那是在阻止用错工具），而正确写法
+    「JOIN User + ``tenant_scoped_filter(User, ...)``」此前没有任何封装 ——
+    每个方法手写一遍，正是审查实锤的「同类方法整段忘记」的温床
+    （见 CODE_REVIEW_2026-10-11.md #31 根因段）。
+
+    与 ``tenant_scoped_filter(User, ...)`` 的关系：本函数是**整条语句**的
+    快捷构造；需要在更复杂语句里内联过滤条件时，仍用后者。
+
+    执行层另有 ``app.core.tenant_guard`` 兜底：绕过本 helper 的裸
+    ``select(ReviewTask)`` 会在引擎 ``before_execute`` 直接报错。
+
+    Examples:
+        >>> stmt = user_tenant_scoped_query(ReviewTask, tenant_id=1)
+        >>> stmt = user_tenant_scoped_query(CrisisEvent, tenant_id=1).where(
+        ...     CrisisEvent.status == "detected"
+        ... )
+    """
+    # 延迟导入：app.models.user 不依赖本模块，但 core → models 的模块级导入
+    # 会收紧 import 顺序约束；函数内导入零循环风险。
+    from app.models.user import User
+
+    user_col = getattr(model, user_fk_field)
+    stmt = select(model).join(User, User.id == user_col)
+    return stmt.where(tenant_scoped_filter(User, tenant_id))
+
+
 def tenant_scoped_filter(
     model: type[DeclarativeBase],
     tenant_id: int,

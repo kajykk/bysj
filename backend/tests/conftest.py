@@ -208,6 +208,11 @@ SQLALCHEMY_DATABASE_URL = _os.environ.get(
     "TEST_DATABASE_URL", "sqlite+aiosqlite:///./test_app.db"
 )
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL, future=True)
+# P2-31：与生产引擎（app/core/database.py）同步安装租户隔离执行层闸门。
+# 测试引擎不装，「绕过机制即红」的反向闸门就没有被测对象。
+from app.core.tenant_guard import install_tenant_guard  # noqa: E402
+
+install_tenant_guard(engine)
 SessionFactory = async_sessionmaker(
     bind=engine, expire_on_commit=False, class_=AsyncSession
 )

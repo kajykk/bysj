@@ -246,8 +246,17 @@ class AnonymizeMixin:
         counts["consultation_records"] = len(consultation_records)
 
         # CrisisEvent（crisis_keywords 默认 "[]"，统一替换为 ANON_TEXT）
+        # P2-31：匿名化按数据主体 user_id 取数（Article 17 履行），显式豁免。
         crisis_events = (
-            (await self.db.execute(select(CrisisEvent).where(CrisisEvent.user_id == user_id))).scalars().all()
+            (
+                await self.db.execute(
+                    select(CrisisEvent)
+                    .where(CrisisEvent.user_id == user_id)
+                    .execution_options(tenant_exempt="data_subject_gdpr")
+                )
+            )
+            .scalars()
+            .all()
         )
         for ev in crisis_events:
             ev.crisis_keywords = ANON_TEXT

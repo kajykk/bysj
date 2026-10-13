@@ -69,9 +69,15 @@ async def _bind_counselor(
 async def _reload(db_session, task_id: int) -> ReviewTask:
     # 端点用的是另一个 session（override 的 get_db）；expire_all 保证读到 DB 现值，
     # 而不是 identity map 里创建时那个陈旧对象。
+    # P2-31：夹具回读整行断言后置状态，非生产数据面 —— 经登记的豁免理由
+    # test_row_verification 过执行层闸门（app/core/tenant_guard）。
     db_session.expire_all()
     return (
-        await db_session.execute(select(ReviewTask).where(ReviewTask.id == task_id))
+        await db_session.execute(
+            select(ReviewTask)
+            .where(ReviewTask.id == task_id)
+            .execution_options(tenant_exempt="test_row_verification")
+        )
     ).scalar_one()
 
 

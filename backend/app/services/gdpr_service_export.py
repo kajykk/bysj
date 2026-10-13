@@ -126,10 +126,14 @@ class ExportMixin:
         )
 
         # 6. 危机事件
+        # P2-31：GDPR 数据主体导出按 user_id 取数（scope 是数据主体本人或平台
+        # 管理员的 Article 15 履行，不按租户切分），显式声明豁免。
         crisis_events = (
             (
                 await self.db.execute(
-                    select(CrisisEvent).where(CrisisEvent.user_id == user_id)
+                    select(CrisisEvent)
+                    .where(CrisisEvent.user_id == user_id)
+                    .execution_options(tenant_exempt="data_subject_gdpr")
                 )
             )
             .scalars()
@@ -381,6 +385,8 @@ class ExportMixin:
                         .order_by(CrisisEvent.id.asc())
                         .offset(offset)
                         .limit(batch_size)
+                        # P2-31：数据主体导出按 user_id 取数，显式豁免（理由同 collect_user_data）
+                        .execution_options(tenant_exempt="data_subject_gdpr")
                     )
                 )
                 .scalars()

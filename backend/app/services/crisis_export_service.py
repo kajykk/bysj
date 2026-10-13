@@ -87,12 +87,19 @@ class CrisisExportService:
 
         # M-Svc-1 修复：使用 yield_per(1000) 流式读取，避免大数据量全量加载到内存
         # H-Cov-1 修复：async session 下 yield_per 需要 stream() 而非 execute()，否则抛 AsyncMethodRequired
+        # P2-31：``tenant_id=None``（默认）即"平台管理员有意全量导出"——该选择由
+        # require_platform_admin 把关并写入审计日志（见方法 docstring）。用语句级
+        # 豁免标记把"有意跨租户"显式化；传了 tenant_id 时下方 JOIN 提供锚点，
+        # 两条路径都过执行层闸门（app/core/tenant_guard）。
         stmt = (
             select(CrisisEvent)
             .where(CrisisEvent.created_at >= start_dt)
             .where(CrisisEvent.created_at <= end_dt)
             .order_by(CrisisEvent.created_at.desc())
-            .execution_options(yield_per=1000)
+            .execution_options(
+                yield_per=1000,
+                tenant_exempt="platform_admin_crisis_export",
+            )
         )
 
         # AUDIT-2026-10-08：按需收窄到单个租户。``crisis_events`` 表本身没有

@@ -8,7 +8,7 @@ from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.event_bus import event_bus
-from app.core.tenant_query import tenant_scoped_filter
+from app.core.tenant_query import tenant_scoped_filter, user_tenant_scoped_query
 from app.models.admin import OperationLog
 from app.models.review import CrisisEvent, ReviewTask
 from app.models.user import User
@@ -61,6 +61,9 @@ class ReviewService:
 
         # 检查是否已存在同一用户的 pending 复核任务
         # 使用 first() 而非 scalar_one_or_none()，避免多条 pending 记录时抛 MultipleResultsFound
+        # P2-31：本查询按 user_id 幂等去重（系统内部写路径前置检查，不向租户用户
+        # 返回数据），不经租户推导 —— 显式声明豁免而非默默裸查，理由已登记在
+        # app/core/tenant_guard.py 的 EXEMPTION_REGISTRY。
         existing = await self.db.execute(
             select(ReviewTask)
             .where(
@@ -68,6 +71,7 @@ class ReviewService:
                 ReviewTask.status == "pending",
             )
             .limit(1)
+            .execution_options(tenant_exempt="system_internal_idempotency_check")
         )
         existing_task = existing.scalars().first()
 
@@ -142,11 +146,10 @@ class ReviewService:
         tenant_id: int,
     ) -> ReviewTaskListResponse:
         """查询复核任务列表（**必须**限定租户范围）"""
-        query = (
-            select(ReviewTask)
-            .join(User, User.id == ReviewTask.user_id)
-            .where(tenant_scoped_filter(User, tenant_id))
-        )
+        # P2-31：review_tasks 无 tenant_id 列，统一走 user_tenant_scoped_query
+        # （JOIN users 推导租户的 SSOT 构造）；裸 select(ReviewTask) 会被
+        # 执行层闸门 app/core/tenant_guard 直接拦下。
+        query = user_tenant_scoped_query(ReviewTask, tenant_id)
 
         if filter_data.status:
             query = query.where(ReviewTask.status == filter_data.status.value)
@@ -185,13 +188,8 @@ class ReviewService:
         P0-FIX-2026-10-11：跨租户返回 None，调用方按 404 处理，
         从而不泄露「该 id 在别的租户存在」这一事实。
         """
-        stmt = (
-            select(ReviewTask)
-            .join(User, User.id == ReviewTask.user_id)
-            .where(
-                ReviewTask.id == review_id,
-                tenant_scoped_filter(User, tenant_id),
-            )
+        stmt = user_tenant_scoped_query(ReviewTask, tenant_id).where(
+            ReviewTask.id == review_id
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
@@ -230,7 +228,16 @@ class ReviewService:
         await self._ensure_review_in_tenant(review_id, tenant_id)
 
         # ISS-061 修复：使用 with_for_update() 行级锁，防止并发分配同一复核任务
-        result = await self.db.execute(select(ReviewTask).where(ReviewTask.id == review_id).with_for_update())
+        # P2-31：本语句按主键加锁取行，租户归属由上方同事务的
+        # _ensure_review_in_tenant 保障（user_id 不可变，归属不随并发变化）——
+        # 不把 JOIN 并进 FOR UPDATE 是为避免 Postgres 连带锁 users 行。
+        # 豁免理由已登记（tenant_checked_upstream_same_transaction）。
+        result = await self.db.execute(
+            select(ReviewTask)
+            .where(ReviewTask.id == review_id)
+            .with_for_update()
+            .execution_options(tenant_exempt="tenant_checked_upstream_same_transaction")
+        )
         task = result.scalar_one_or_none()
         if not task:
             raise ValueError(f"Review task {review_id} not found")
@@ -448,10 +455,12 @@ class CrisisEventService:
         泄露的后果不是「多看到几条记录」，而是直接暴露他校学生的心理危机内容。
 
         为什么必须 JOIN ``User``：``crisis_events`` 表**本身没有 tenant_id 列**
-        （``models/review.py`` 中 ``__mapper_args__ = {"tenant_id": False}``），
-        无法像多数表那样直接 ``tenant_scoped_query(CrisisEvent, ...)`` ——
-        那会抛 ``TenantColumnMissingError``。租户归属只能沿 ``user_id`` 关联到
-        ``users.tenant_id`` 推导，故此处用 ``tenant_scoped_filter(User, ...)``。
+        （``models/review.py`` 中无 tenant_id 映射），无法像多数表那样直接
+        ``tenant_scoped_query(CrisisEvent, ...)`` —— 那会抛
+        ``TenantColumnMissingError``。租户归属只能沿 ``user_id`` 关联到
+        ``users.tenant_id`` 推导，P2-31 起该正确写法封装为 SSOT 函数
+        ``user_tenant_scoped_query``（本方法即经它构造）；执行层另有
+        ``app/core/tenant_guard`` 兜底裸查询。
 
         为什么 ``tenant_id`` 是**必填**而非 ``None`` 时兜底默认租户：
         ``crisis_event.view`` 权限在 ``app/core/deps.py`` 里对 admin/super_admin
@@ -459,9 +468,7 @@ class CrisisEventService:
         传租户」变成静默的全量返回（租户 1），而不是响亮失败。宁可调用方编译不过，
         也不要跨租户危机数据被读出来。
         """
-        query = (
-            select(CrisisEvent).join(User, User.id == CrisisEvent.user_id).where(tenant_scoped_filter(User, tenant_id))
-        )
+        query = user_tenant_scoped_query(CrisisEvent, tenant_id)
 
         if filter_data.status:
             query = query.where(CrisisEvent.status == filter_data.status)
@@ -676,13 +683,8 @@ class CrisisEventService:
         与 ``get_crisis_events`` 同源：``crisis_events`` 无 tenant_id 列，
         只能 JOIN ``User`` 推导。跨租户返回 None（调用方按 404 处理）。
         """
-        stmt = (
-            select(CrisisEvent)
-            .join(User, User.id == CrisisEvent.user_id)
-            .where(
-                CrisisEvent.id == event_id,
-                tenant_scoped_filter(User, tenant_id),
-            )
+        stmt = user_tenant_scoped_query(CrisisEvent, tenant_id).where(
+            CrisisEvent.id == event_id
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 

@@ -37,6 +37,13 @@ from app.schemas.ops_dashboard import OpsDashboardOverview, ReviewMetricsResult
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ops-dashboard", tags=["ops-dashboard"])
 
+# P2-31：本模块所有 review_tasks / crisis_events 聚合查询都是**有意**的跨租户
+# 平台运营视角（入口 require_platform_admin()：角色 + 用户须属 DEFAULT_TENANT_ID，
+# 见 app/core/tenant_context.py）。逐条语句显式声明豁免理由
+# （EXEMPTION_REGISTRY: platform_admin_ops_dashboard），不依赖"整文件白名单"——
+# 执行层闸门对未标记的语句一律 fail-closed。刻意写字面量而非模块级常量：
+# 豁免必须逐条可见、可 grep、可被源码棘轮逐条审计。
+
 
 def _naive_utc_now() -> datetime:
     """生成 naive UTC datetime（与数据库 DateTime 列兼容）."""
@@ -134,22 +141,35 @@ async def ops_review_metrics(
 async def _get_review_stats(db: AsyncSession, last_24h: datetime, last_7d: datetime, now: datetime) -> dict[str, Any]:
     """复核任务统计."""
     # 状态分布
-    status_counts_raw = (await db.execute(select(ReviewTask.status, func.count()).group_by(ReviewTask.status))).all()
+    status_counts_raw = (
+        await db.execute(
+            select(ReviewTask.status, func.count())
+            .group_by(ReviewTask.status)
+            .execution_options(tenant_exempt="platform_admin_ops_dashboard")
+        )
+    ).all()
     status_counts = {row[0]: row[1] for row in status_counts_raw}
 
     # 最近 7 天复核任务数
     recent_count = (
-        await db.execute(select(func.count()).select_from(ReviewTask).where(ReviewTask.created_at >= last_7d))
+        await db.execute(
+            select(func.count())
+            .select_from(ReviewTask)
+            .where(ReviewTask.created_at >= last_7d)
+            .execution_options(tenant_exempt="platform_admin_ops_dashboard")
+        )
     ).scalar_one()
 
     # 已解决任务的平均响应时长（小时）- 在 Python 端计算，兼容 SQLite/PostgreSQL
     resolved_rows = (
         await db.execute(
-            select(ReviewTask.created_at, ReviewTask.resolved_at).where(
+            select(ReviewTask.created_at, ReviewTask.resolved_at)
+            .where(
                 ReviewTask.status == "resolved",
                 ReviewTask.resolved_at.is_not(None),
                 ReviewTask.created_at >= last_7d,
             )
+            .execution_options(tenant_exempt="platform_admin_ops_dashboard")
         )
     ).all()
 
@@ -174,6 +194,7 @@ async def _get_review_stats(db: AsyncSession, last_24h: datetime, last_7d: datet
                 ReviewTask.priority == "crisis_review",
                 ReviewTask.status.in_(["pending", "in_review"]),
             )
+            .execution_options(tenant_exempt="platform_admin_ops_dashboard")
         )
     ).scalar_one()
 
@@ -192,12 +213,22 @@ async def _get_crisis_stats(db: AsyncSession, last_24h: datetime, last_7d: datet
     """危机事件统计."""
     # 最近 24 小时危机事件
     count_24h = (
-        await db.execute(select(func.count()).select_from(CrisisEvent).where(CrisisEvent.created_at >= last_24h))
+        await db.execute(
+            select(func.count())
+            .select_from(CrisisEvent)
+            .where(CrisisEvent.created_at >= last_24h)
+            .execution_options(tenant_exempt="platform_admin_ops_dashboard")
+        )
     ).scalar_one()
 
     # 最近 7 天危机事件
     count_7d = (
-        await db.execute(select(func.count()).select_from(CrisisEvent).where(CrisisEvent.created_at >= last_7d))
+        await db.execute(
+            select(func.count())
+            .select_from(CrisisEvent)
+            .where(CrisisEvent.created_at >= last_7d)
+            .execution_options(tenant_exempt="platform_admin_ops_dashboard")
+        )
     ).scalar_one()
 
     # 按状态分布
@@ -206,6 +237,7 @@ async def _get_crisis_stats(db: AsyncSession, last_24h: datetime, last_7d: datet
             select(CrisisEvent.status, func.count())
             .where(CrisisEvent.created_at >= last_7d)
             .group_by(CrisisEvent.status)
+            .execution_options(tenant_exempt="platform_admin_ops_dashboard")
         )
     ).all()
     status_distribution = {row[0]: row[1] for row in status_raw}
