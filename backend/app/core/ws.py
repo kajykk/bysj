@@ -11,8 +11,8 @@ from jwt import PyJWTError
 from sqlalchemy import select
 
 from app.core.config import settings
-from app.core.degradation import record_silent_degradation
 from app.core.database import AsyncSessionLocal
+from app.core.degradation import record_silent_degradation
 from app.core.security import decode_token
 from app.models.user import User
 

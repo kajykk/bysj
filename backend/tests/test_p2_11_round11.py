@@ -347,3 +347,189 @@ class TestScannerSelfProof:
         used = "import C from '@/components/common/A.vue'\n"
         assert re.search(r"from ['\"].*A\.vue['\"]", used)
         assert not re.search(r"from ['\"].*ZzzOrphan\.vue['\"]", used)
+
+
+class TestModuleLevelNamesDefined:
+    """本轮真事故的回归闸：给已有文件加 `logger.warning` 却没定义 `logger`。
+
+    教训（第十一轮 CI 红，backend-coverage 6 failed / 6730 passed）：
+    `fusion.py` 原本没有 `logger`，我加 `logger.warning(...)` 时只跑了
+    `py_compile`（只查语法、不查名字绑定）→ 模块 import 不报错，运行时才
+    `NameError: name 'logger' is not defined`，把 6 个融合测试打红。
+
+    判据：按作用域收集定义（模块级 + 每个函数/类/推导式内的局部名 +
+    函数参数 + 异常处理器名 + global/nonlocal 声明 + import 绑定 + builtins），
+    再检查每个 `Name(ctx=Load)` 是否在**其所在作用域链**上可解析。
+    解析不到 ⇒ 模块 import 不报错但运行期 NameError，正是本事故的形态。
+    """
+
+    # 本轮改动过、且新增了 logger/record_audit 等调用的文件 —— 逐个核对
+    TARGETS = [
+        "core/model_engine/fusion.py",
+        "core/ws.py",
+        "core/event_bus.py",
+        "core/pii_crypto.py",
+        "core/degradation.py",
+        "core/audit.py",
+        "api/v1/silences.py",
+        "api/v1/content_governance.py",
+        "api/v1/model_kill_switch.py",
+        "api/v1/metrics_helpers.py",
+        "services/observability_service.py",
+    ]
+
+    @staticmethod
+    def _scope_names(node: ast.AST) -> set[str]:
+        """收集 node 直接作用域内的定义名（不进入嵌套函数/类）。"""
+        names: set[str] = set()
+
+        def add_target(t_: ast.AST) -> None:
+            for n in ast.walk(t_):
+                if isinstance(n, ast.Name):
+                    names.add(n.id)
+
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef,
+                             ast.Lambda, ast.ClassDef)):
+            raw = getattr(node, "body", [])
+            if isinstance(raw, list):
+                body = list(raw)
+            elif raw is None:
+                body = []
+            else:
+                body = []  # Lambda.body 是单个表达式，无语句级定义
+            if isinstance(node, ast.Lambda):
+                body = []  # lambda 体是单表达式，参数已单列
+            for stmt in body:
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    names.add(stmt.name)
+                elif isinstance(stmt, ast.Assign):
+                    for t_ in stmt.targets:
+                        add_target(t_)
+                elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
+                    add_target(stmt.target)
+                elif isinstance(stmt, (ast.For, ast.AsyncFor)):
+                    add_target(stmt.target)
+                elif isinstance(stmt, (ast.With, ast.AsyncWith)):
+                    for item in stmt.items:
+                        if item.optional_vars is not None:
+                            add_target(item.optional_vars)
+                elif isinstance(stmt, ast.Import):
+                    for a in stmt.names:
+                        names.add(a.asname or a.name.split(".")[0])
+                elif isinstance(stmt, ast.ImportFrom):
+                    for a in stmt.names:
+                        if a.name != "*":
+                            names.add(a.asname or a.name)
+                elif isinstance(stmt, ast.ExceptHandler) and stmt.name:
+                    names.add(stmt.name)
+                elif isinstance(stmt, (ast.Global, ast.Nonlocal)):
+                    names.update(stmt.names)
+                elif isinstance(stmt, ast.ExceptHandler):
+                    pass  # except ... : 无名绑定不贡献名字
+                # 控制流块继续向下（if/try/for/while 与所在作用域同名）
+                for sub in ast.walk(stmt):
+                    if sub is stmt:
+                        continue
+                    if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+                                        ast.Lambda)):
+                        continue  # 嵌套作用域单独处理
+                    if isinstance(sub, (ast.Global, ast.Nonlocal)):
+                        names.update(sub.names)
+                    elif isinstance(sub, ast.ExceptHandler):
+                        if sub.name:
+                            names.add(sub.name)
+                    elif isinstance(sub, (ast.For, ast.AsyncFor)):
+                        add_target(sub.target)
+                    elif isinstance(sub, (ast.With, ast.AsyncWith)):
+                        for item in sub.items:
+                            if item.optional_vars is not None:
+                                add_target(item.optional_vars)
+                    elif isinstance(sub, (ast.AnnAssign, ast.AugAssign)):
+                        add_target(sub.target)
+                    elif isinstance(sub, ast.Assign):
+                        for t_ in sub.targets:
+                            add_target(t_)
+                    elif isinstance(sub, (ast.AnnAssign, ast.AugAssign)):
+                        add_target(sub.target)
+                    elif isinstance(sub, (ast.For, ast.AsyncFor)):
+                        add_target(sub.target)
+                    elif isinstance(sub, (ast.With, ast.AsyncWith)):
+                        for item in sub.items:
+                            if item.optional_vars is not None:
+                                add_target(item.optional_vars)
+                    elif isinstance(sub, ast.ExceptHandler) and sub.name:
+                        names.add(sub.name)
+
+        # 函数/类/lambda 参数
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            a = node.args
+            for arg in (list(a.posonlyargs) + list(a.args) + list(a.kwonlyargs)
+                        + ([a.vararg] if a.vararg else []) + ([a.kwarg] if a.kwarg else [])):
+                names.add(arg.arg)
+        # 推导式/生成器表达式的循环变量与条件作用域（Python 3 中它们有独立作用域，
+        # 但其绑定对同一推导式内部可见 —— 近似：把本节点子树里所有推导式的 target 收进来）
+        for sub in ast.walk(node):
+            if isinstance(sub, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+                for gen in sub.generators:
+                    for n in ast.walk(gen.target):
+                        if isinstance(n, ast.Name):
+                            names.add(n.id)
+        # 函数体内的 import（本仓大量使用函数内延迟 import）：
+        # 只在**本作用域内**的 import 才算本作用域可见，故按行号范围过滤。
+        if not isinstance(node, ast.Module):
+            lo = getattr(node, "lineno", 0)
+            hi = getattr(node, "end_lineno", 0)
+            for sub in ast.walk(node):
+                if isinstance(sub, (ast.Import, ast.ImportFrom)):
+                    if lo <= getattr(sub, "lineno", 0) <= hi:
+                        if isinstance(sub, ast.Import):
+                            for a in sub.names:
+                                names.add(a.asname or a.name.split(".")[0])
+                        else:
+                            for a in sub.names:
+                                if a.name != "*":
+                                    names.add(a.asname or a.name)
+        return names
+
+    def test_used_names_are_defined_or_imported(self):
+        import builtins as _b
+
+        bad: list[str] = []
+        for rel in self.TARGETS:
+            src = (BE / rel).read_text(encoding="utf-8")
+            tree = ast.parse(src, filename=rel)
+
+            # 建作用域链：每个函数/类/模块节点 -> 定义名集合
+            scopes: list[tuple[ast.AST, set[str]]] = [(tree, self._scope_names(tree))]
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+                    scopes.append((node, self._scope_names(node)))
+            # 按包含关系建父子链（用 col_offset/lineno 近似嵌套深度）
+            def parents(node: ast.AST) -> list[set[str]]:
+                chain: list[set[str]] = []
+                for scope_node, names in scopes:
+                    if scope_node is node:
+                        continue
+                    if isinstance(scope_node, ast.Module):
+                        chain.append(names)
+                        continue
+                    if isinstance(node, ast.AST) and isinstance(scope_node, ast.AST):
+                        # node 的行号 >= scope 起始行 且 < scope 结束行 视为嵌套
+                        if (getattr(node, "lineno", 0) >= getattr(scope_node, "lineno", 0)
+                                and getattr(node, "end_lineno", 0) <= getattr(scope_node, "end_lineno", 0)):
+                            chain.append(names)
+                return chain
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                    if node.id in self._scope_names(tree):
+                        continue
+                    chain = parents(node)
+                    if any(node.id in names for names in chain):
+                        continue
+                    if node.id in dir(_b) or node.id in {"__file__", "__name__", "__path__"}:
+                        continue
+                    bad.append(f"{rel}:{node.lineno} {node.id}")
+        assert not bad, "引用了未定义/未导入的名字（运行期 NameError 形态）:\n" + "\n".join(
+            sorted(set(bad))[:20]
+        )

@@ -256,7 +256,63 @@ ServiceError=0
 
 ---
 
-## 五·补、仓库 Prettier：本轮**不做**（如实记账，非静默跳过）
+## 七、本轮改动文件一览
+
+**后端**：`app/core/degradation.py`（新）、`app/core/audit.py`（未改，SSOT）、
+`app/api/v1/silences.py`、`app/api/v1/content_governance.py`、
+`app/api/v1/model_kill_switch.py`、`app/core/ws.py`、`app/core/event_bus.py`、
+`app/core/pii_crypto.py`、`app/core/model_engine/fusion.py`、
+`app/api/v1/metrics_helpers.py`、`app/services/observability_service.py`。
+
+**前端**：`views/user/components/ExperimentTab.vue`、`components.d.ts`、
+`i18n/locales/{zh-CN,en-US}/user.ts`，删除 `components/common/BottomNav.vue`。
+
+**文档**：`docs/RETENTION_REGISTRY.md`（新）、`docs/P2_11_ROUND11_AUDIT.md`（本文件）、
+`docs/P2_09_ROUND9_AUDIT.md`（两段**追加更正**）、`docs/CODE_REVIEW_2026-10-11.md`
+（追加「第十一轮」小节）。
+
+## 八、CI 事故：`backend-coverage` 红（6 failed / 6730 passed）—— 本轮修复
+
+**现象**：`eba00f8` / `f0cd16b` 推送后 `backend-coverage` failure，
+`gh run view --log-failed` 取证：
+
+    FAILED tests/api/test_fusion_enhanced.py::TestFusionEnhanced::test_fusion_physio_high_risk_boost
+    FAILED tests/api/test_fusion_enhanced.py::TestFusionEnhanced::test_fusion_physio_low_risk
+    FAILED tests/api/test_fusion_enhanced.py::TestFusionEnhanced::test_fusion_missing_text
+    FAILED tests/api/test_fusion_enhanced.py::TestFusionEnhanced::test_fusion_intervention_linked_to_dominant_modality
+    FAILED tests/api/test_model_predict.py::TestModelPredict::test_fusion_with_physiological_high_risk
+    FAILED tests/api/test_model_predict_v116.py::TestFusionPredictionV116::test_fusion_review_triggers
+    6 failed, 6730 passed, 68 skipped, 278 deselected
+
+    根因（日志原文）：
+    NameError: name 'logger' is not defined   ← app/core/model_engine/fusion.py:79
+    ERROR | app.api.v1.model_predict._common | 融合预测失败: name 'logger' is not defined
+
+**根因**：`fusion.py` 原本**没有 `logger`**（该文件从未定义）。本轮 #35 给它加了
+`logger.warning(...)`，我本地只跑了 `py_compile` —— **`py_compile` 只查语法、不查名字绑定**，
+所以模块 import 成功、CI 跑到运行时才 `NameError`。这是"验证工具的失效伪装成修复有效"的
+又一形态：语法通过 ≠ 名字有定义。
+
+**修复**：`fusion.py` 补 `import logging` + `logger = logging.getLogger(__name__)`。
+本地复跑 CI 失败的那 3 个文件 → **34 passed**。
+
+**新闸门（`test_p2_11_round11.py::TestModuleLevelNamesDefined`）**：按作用域链解析每个
+`Name(ctx=Load)` 是否可解析（模块级 + 各函数/类/lambda/推导式作用域 + 函数参数 +
+函数内延迟 import + for/with/except 绑定 + global/nonlocal + builtins）。
+**覆盖本轮改动的 11 个后端文件**，抓的正是"模块 import 不报错、运行期 NameError"这个形态。
+
+**闸门变异验证（2/2 红，恢复绿）**：
+| 变异 | 结果 |
+|---|---|
+| 删掉 `ws.py` 的 `record_silent_degradation` import | 红：报 `core/ws.py:199/223 record_silent_degradation` |
+| `fusion.py` 的 `logger` 定义改名 | 红：报 `core/model_engine/fusion.py:79 logger`（**正是本轮 CI 事故的形态**） |
+
+**教训固化**：给一个**原本没有 logger 的文件**加日志调用时，`py_compile`/esbuild 这类
+"只查语法"的校验一律不够；必须要么 import 该模块跑一次（模块级 import 就会暴露
+NameError 之外的更多问题，但 import 成功仍不保证函数体能跑），要么用本闸门做静态
+作用域检查。已写入 CODE_REVIEW「新坑」节。
+
+---
 
 提示词建议"独立提交做 prettier `--write`"。本轮实测后**决定不做**，理由三条（均可复现）：
 
@@ -277,18 +333,3 @@ ServiceError=0
 已登记为第十二轮候选。
 
 ---
-
-## 七、本轮改动文件一览
-
-**后端**：`app/core/degradation.py`（新）、`app/core/audit.py`（未改，SSOT）、
-`app/api/v1/silences.py`、`app/api/v1/content_governance.py`、
-`app/api/v1/model_kill_switch.py`、`app/core/ws.py`、`app/core/event_bus.py`、
-`app/core/pii_crypto.py`、`app/core/model_engine/fusion.py`、
-`app/api/v1/metrics_helpers.py`、`app/services/observability_service.py`。
-
-**前端**：`views/user/components/ExperimentTab.vue`、`components.d.ts`、
-`i18n/locales/{zh-CN,en-US}/user.ts`，删除 `components/common/BottomNav.vue`。
-
-**文档**：`docs/RETENTION_REGISTRY.md`（新）、`docs/P2_11_ROUND11_AUDIT.md`（本文件）、
-`docs/P2_09_ROUND9_AUDIT.md`（两段**追加更正**）、`docs/CODE_REVIEW_2026-10-11.md`
-（追加「第十一轮」小节）。

@@ -24,7 +24,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # 别名导入：避免与下方局部变量 `modality_quality` 同名遮蔽
 from app.core.confidence import modality_quality as classify_modality_quality
