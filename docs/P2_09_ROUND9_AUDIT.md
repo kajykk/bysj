@@ -27,7 +27,8 @@
 
 ### CSV 转义：1 处真缺陷已修
 
-- `PhysioTab.vue:314`、`useTextPredictionHistory.ts:130`、`usePredictionHistory.ts:74`：内联链但已调 `sanitizeCellForExcel`，只缺引号转义复用 → 本轮统一改调导出的 `csvEscape` SSOT（= sanitize + 引号转义）。
+- `PhysioTab.vue:314`、`useTextPredictionHistory.ts:130`、`usePredictionHistory.ts:74`：内联链但已调 `sanitizeCellForExcel`，与 `csvEscape` **语义等价、无注入面**。
+  ⚠️ **更正（独立复核发现）**：本轮**并未**把这三处改调 `csvEscape` 别名（提交 `7bc85e8` 的 diff 实际只改了 `exportUtils.ts` / `p2CsvSsot.test.ts` / `MisclassifiedTable.vue`）。此处原文"本轮统一改调"属表述失实。安全面无问题，但 #32 的去重目标在这三处**未落地**，仍为内联重复链 —— 留第十轮收敛（记账，非静默）。
 - `MisclassifiedTable.vue:157`：本地 `csvEscape` 只做引号转义、未调 `sanitizeCellForExcel` → 公式注入面。已删本地定义，改调 `exportUtils.csvEscape`（新导出别名）。回退实验 E31 把守。
 
 ### 角色：5 处已收编

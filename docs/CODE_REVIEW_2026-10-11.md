@@ -1489,3 +1489,34 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 ### CI 结果
 
 `7bc85e8` 首轮 CI 9/10：`backend-coverage` 唯一红（全仓 6705 passed，仅新测试 `test_exposition_parses` 因 CI 无 `prometheus_client` 包而 ModuleNotFoundError）→ `37b6e0f` 修 `.vue` 重复 import（lighthouse/frontend-coverage 转绿）→ `63afdd2` 改双分支断言后 **CI 10/10 success**（含 backend 全量）。
+
+> **更正（2026-10-13 独立复核，不修改上文快照，以追加方式更正）**
+> 上文"首轮 `backend-coverage` 唯一红"的归因**串了两个提交**。逐提交查 `check-runs` 实测：
+> - `7bc85e8`：红的是 **lighthouse + frontend-coverage 两个**（`.vue` 重复 import → 构建失败），
+>   `backend-coverage` 为 **cancelled**（非 failure）；
+> - `37b6e0f`：`backend-coverage` **failure**（这才是 `prometheus_client` 缺包那一条），
+>   lighthouse/frontend-coverage 已转绿。
+> ⇒ 判 CI 归因必须**逐提交查 `check-runs`**，只看最终 HEAD 会把两轮因果串成一轮。
+> 最终结论不受影响：`63afdd2` / `a8179d2` 实测 **10/10 success**。
+
+### 第九轮补：E33 假闸门加固（独立复核后追加）
+
+独立复核发现 `test_missing_tenant_id_raises` 是**假闸门**：只断言"抛 TypeError"，
+把 `audit.py` 的显式 `raise TypeError` 改成 `if False` 后**仍 14 passed** ——
+因为 `json.dumps(payload)` 对 `_MISSING = object()` 抛的**也是** TypeError
+（消息 `Object of type object is not JSON serializable`），测试靠巧合变绿。
+
+- **生产行为当时是对的**（显式 raise 先触发，调用方拿到清晰消息），所以不是线上 bug；
+  危险在于**闸门守不住意图**：sentinel 换成可序列化值、或 raise 被挪到序列化之后，
+  保护静默消失而测试不红，且调用方会拿到误导性的 JSON 错误。
+- 加固：`pytest.raises(TypeError, match="tenant_id")` + `test_tenant_id_required`
+  追加"默认值不得为 None"（给 None 默认值 = 把忘记传变成静默的平台级操作，与 P0-1 同口径）。
+- 回退复验（加固有效）：E33a 删显式 raise → **1 红**，失败消息正是那条伪装路径；
+  E33b sentinel 改 None → **2 红**。
+- 与第八轮 E35「测了字符串存在 ≠ 测了使用」同型，通则已并入项目记忆：
+  **断言异常类型 ≠ 断言异常来源，必须 match 消息特征**。
+
+### 第九轮补：`docs/P2_09_ROUND9_AUDIT.md` 表述更正
+
+原写"另三处内联链本轮已统一改调 `csvEscape` 别名"，实际 `7bc85e8` 未改这三个文件
+（无注入面，但去重未落地）→ 已在该文档内联更正并记账，留第十轮收敛。

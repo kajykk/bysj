@@ -41,12 +41,19 @@ class TestP233AuditHelper:
         from app.core.audit import record_audit
 
         sig = inspect.signature(record_audit)
-        assert sig.parameters["tenant_id"].default is not inspect.Parameter.empty
+        param = sig.parameters["tenant_id"]
+        assert param.default is not inspect.Parameter.empty
+        # 加固：默认值不得是 None（给 None 默认值 = 把"忘记传"变成静默的平台级操作，
+        # 与 P0-1 租户隔离范式同口径）。必须是不可序列化的 sentinel。
+        assert param.default is not None
 
     async def test_missing_tenant_id_raises(self):
         from app.core.audit import record_audit
 
-        with pytest.raises(TypeError):
+        # 必须 match 消息特征：只断言异常类型会假绿 —— 即便显式 raise 被删，
+        # json.dumps(object()) 也会抛 TypeError（消息为 "Object of type object is
+        # not JSON serializable"），闸门根本守不住"缺失校验"这个意图。
+        with pytest.raises(TypeError, match="tenant_id"):
             await record_audit(
                 None,  # type: ignore[arg-type]
                 actor_id=1,
