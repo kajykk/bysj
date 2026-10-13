@@ -45,7 +45,7 @@ function toCsvCell(value: string): string {
 }
 
 /** P2-32 余量：CSV 单元格 SSOT 的公开别名，供各列表页内联转义链改调。 */
-export const csvEscape = toCsvCell
+export const csvEscape = (value: string | number): string => toCsvCell(String(value))
 
 /**
  * P2-32 SSOT：Blob 下载的唯一入口。

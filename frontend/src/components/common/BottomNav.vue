@@ -30,8 +30,8 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useBreakpoint } from '@/composables/useBreakpoint'
 import { useAuthStore } from '@/stores/auth'
-import {
 import { isAdminRole, isCounselorRole } from '@/utils/roles'
+import {
   HomeFilled,
   Document,
   Warning,

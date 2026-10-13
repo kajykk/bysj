@@ -93,6 +93,23 @@ class TestP237FERoles:
         t = (FE / "views/counselor/CounselorReviewListPage.vue").read_text(encoding="utf-8")
         assert "isAdminRole(auth.role)" in t
 
+    def test_no_import_inside_import_block(self):
+        # 回归闸：applier 曾把 import 插进多行 import 块内部（BottomNav/useModelTrainingData）。
+        # BottomNav 是死组件（无 import 方），构建/测试/CI 全碰不到，只能靠本断言。
+        for f in [
+            "components/common/BottomNav.vue",
+            "views/user/components/user-model-training/useModelTrainingData.ts",
+        ]:
+            lines = (FE / f).read_text(encoding="utf-8").splitlines()
+            depth = 0
+            for i, l in enumerate(lines, 1):
+                s = l.strip()
+                if s.startswith("import ") and depth > 0:
+                    raise AssertionError(f"{f}:{i} import 落在多行块内部: {s[:80]}")
+                depth += s.count("{") - s.count("}")
+                if depth < 0:
+                    depth = 0
+
     def test_exemptions_documented(self):
         # 类型并集 / 路由 path / meta.role 数组 / 模板表单值豁免仍在
         assert "role: 'user' | 'counselor' | 'admin' | 'super_admin'" in (
