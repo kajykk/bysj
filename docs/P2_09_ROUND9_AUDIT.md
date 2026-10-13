@@ -40,6 +40,31 @@
 
 - 145 处引用中定义处仅：模型列（`monitoring.py`）、schema 字段、指标 label 名、字面版本号传递。无“同一常量两处定义”，不建 SSOT。
 
+> **追加更正（2026-10-14 第十一轮抽验，不修改上文原句）**
+> 上文“无第二定义处”的结论**失实**，成因是扫描关键词只取了 `model_version`
+> （字段传递），没有扫定义处符号名。按审查原文
+> （`CODE_REVIEW_2026-10-11.md:195/651`“模型元数据 3 份”）的字面去 grep，实测
+> **定义处共 4 处，全部仍在**：
+>
+> | 定义处 | 位置 | 语义 |
+> |---|---|---|
+> | `MODEL_PATHS: dict[str, str]` | `app/core/model_registry.py:24` | model_id → 权重/产物路径 |
+> | `MODEL_REGISTRY: dict[str, ModelMetadata]` | `app/core/model_registry.py:86` | model_id → 元信息（含 7 个逐条赋值） |
+> | `MODEL_COMPATIBILITY_REGISTRY: dict[str, ModelCompatibilityInfo]` | `app/core/model_compatibility.py:42` | model_id → 兼容性信息 |
+> | `class ModelRegistryV2`（+ `models/registry/model_registry_v2.json`） | `app/core/model_registry_v2.py:151` | 训练态注册表（v2，JSON 落盘） |
+>
+> ⇒ 审查原文“3 份”也偏保守（漏了 `MODEL_REGISTRY`）。**矛盾裁定**：第九轮
+> “不建 SSOT”的结论**不再作为后续轮次的依据**；是否合并属于**业务决策**
+> （`MODEL_PATHS` 与 `MODEL_REGISTRY` 同文件但语义不同，v2 是运行时可写态，
+> 与前三者的静态配置性质不同，机械合并会改行为），第十一轮**只裁定不合并**，
+> 并用事实锁（`test_p2_11_round11.py::TestP232ModelMetadataContradictionRecorded`）
+> 固定当前状态：任一定义处被合并/删除 → 闸门红 → 强制同步本文档。
+>
+> 同类（已复核属实）：风险等级两套标签仍并存 —— `model_engine/risk.py:97` 返回
+> `"medium"`（契约输出标签），`core/risk_thresholds.py:9-17` 用
+> `mild/moderate/high/critical`（分档阈值键）。与审查原文“low/medium vs
+> mild/moderate”吻合，同为业务决策，不合并。
+
 ## #33 审计 helper
 
 - 全仓 `OperationLog(` 64 处，`ip_address` 57 处：写法分散（有的带 ip 有的不带，`admin_export_user_data` 完全缺 ip）。
@@ -56,6 +81,26 @@
 
 - 删：`MisclassifiedTable` 本地 `csvEscape`（与 SSOT 重复且少一次转义）。
 - 保留（书面理由）：`ExperimentTab.bertDisabled=True`（权重归档后的有意下线 UX：禁用按钮 + 解释文案，删了用户看到的就是坏按钮）；`observability_service._flushed_buffer`（RES-P1-004 文档化保留，供未来 TSDB 消费者）。
+
+> **追加更正（2026-10-14 第十一轮抽验，以追加方式更正，不修改上文原句）**
+> 第十轮末的独立复核曾据「`bertDisabled` / `_flushed_buffer` 代码仍在」把本条判为
+> 「清单失实、整项未做」——**该判断有误**：本条定性是「**保留**」，代码仍在
+> 与该定性完全一致，原文未失实。教训：判完成度必须先读文档定性，再对照代码，
+> 「代码还在」不等于「没做」。
+>
+> 但抽验确证本条留有**两处未闭合张力**，移交第十一轮处置（**不推翻保留决策**）：
+> 1. **保留决策覆盖过宽**：`CODE_REVIEW_2026-10-11.md:612` 的 F-32 指的是
+>    `trainBert`/`evaluateBert` 约 40 行**不可达函数体**（实测仍在
+>    `ExperimentTab.vue:341` / `:362`，入口 `if (bertDisabled) return` 之后永不执行），
+>    建议「真正移除或改为能力探测 computed」。**保留 UX 常量与禁用态 ≠ 必须保留
+>    40 行不可达代码**，本条未把两者分开裁定。另 `:74-104` 导入/对比按钮缺
+>    `:disabled="experimentLoading"` 亦未处置。
+> 2. **`RES-P1-004` 无独立正文**：全仓只能查到**引用**（本文档、`CODE_REVIEW:1467`、
+>    `P2_10:62`、`ROUND_10_PROMPT:115` 与 `config.py:247` 的注释），查不到登记文档
+>    ⇒「书面依据」的可追溯性有缺口。第十一轮补建 `docs/RETENTION_REGISTRY.md`。
+> 3. `_flushed_buffer` 注释自承「在生产中属于死缓冲区」而结论是保留 —— 审查报告
+>    系统性根因④（注释与实现不符）的活标本。保留可以，但注释须改为与保留决策一致，
+>    否则下一轮仍会被当死代码扫出来。
 
 ## #40 契约测试
 

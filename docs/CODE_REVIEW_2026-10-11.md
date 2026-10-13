@@ -1555,3 +1555,74 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 
 - BottomNav.vue 的 roles import 被 applier 插进多行 import 块内部，真语法错误；该组件无 import 方（死组件），构建/测试/CI 全碰不到，故 10/10 全绿。已修复 + 新增 test_no_import_inside_import_block 回归闸（变异验证红）。
 - 根 vue-tsc --noEmit 只查 env.d.ts（files 为空），历轮本地 0 error 系验证命令用错；CI 基线门禁一直用 -p tsconfig.app.json（当前 42/基线 45），不受影响。附带修 csvEscape 签名（string|number，正确配置下报的本轮引入错）。28d531b CI 10/10 success。
+
+---
+
+# 第十一轮：P2 收尾（#39 死代码拆分裁定 + #33/#35 第一批 + #36 首批 + 类型存量清零）
+
+> 本节为追加快照（2026-10-14），不修改上文任何既有表格与结论。
+> 审计清单：`docs/P2_11_ROUND11_AUDIT.md`；保留决议登记册：`docs/RETENTION_REGISTRY.md`。
+
+## 改了什么
+
+- **#39 死代码拆分裁定**（不推翻第九轮保留决策）：保留 UX 常量 `bertDisabled` + 两个 BERT 按钮的禁用态与 `title` 解释（登记 `RES-P2-039-01`）；**移除** `trainBert` / `evaluateBert` 约 40 行永不可达函数体，及连带不可达的 `applyTrainResult` / `applyEvaluateResult`、类型导入、两个 i18n 词条；补上导入/对比按钮缺失的 `:disabled="experimentLoading"`（F-32 另一半）。
+- **`RES-P1-004` 补正文**：全仓此前只能查到"引用"、无登记文档 → 新建 `docs/RETENTION_REGISTRY.md`，登记 RES-P1-004 正文（保留理由/复核触发条件/正文出处），并索引 RES-P1-005/006/007/014。
+- **`_flushed_buffer` 注释与保留决策对齐**：从"自承死缓冲区"改为"有意保留（决议编号 + 登记册落点）"。
+- **`BottomNav.vue` 死组件删除**（处置结论：删，不补引用）+ `components.d.ts` 声明同步删除；其"死组件"职责改由**孤儿组件棘轮**把守（全仓扫描，`ORPHAN_BASELINE = 9`，另有 9 个孤儿组件登记在审计文档、属产品决策不删）。
+- **#33 第一批**：8 处手写 `OperationLog(` 迁 `record_audit`（silences 3 / content_governance 3 / model_kill_switch 2），**全部补上了原先完全缺失的 `ip_address`**；`content_governance` 的 detail 由分号拼接串改为结构化 dict。生产构造点 62 → **54**。
+- **#35 第一批**：新建 SSOT `app/core/degradation.py::record_silent_degradation()`，8 个**真降级**点接线（ws ×2 / event_bus / pii_crypto / fusion ×3 modality / metrics_helpers ×3 —— 计 8 个 location）；`fusion.py` 同时补了原先缺失的 `logger.warning`（原实现只有 `continue`，连日志都没有）。
+- **#36 首批**：新建 `frontend/src/composables/useListQuery.ts`（竞态守卫 + 页码重置 + 三态），迁移 3 页（AdminAuditLogs / AdminOperationLogs / CounselorUsers）。
+- **类型存量清零**：42 → **0**。`utils/tableRow.ts::asRow<T>()` 统一收窄 33 处 DefaultRow；三处 emits 改 Vue 3.3 元组式声明；PageTable / UserRiskPage 各 1 处边界收窄。`vue-tsc-baseline.mjs` 的 `BASELINE` 45 → **0**（棘轮）。
+
+## 连带发现
+
+- **孤儿组件不止 BottomNav**：同判据扫出 9 个无引用方组件（图表 2 / 插画 4 / LanguageSelector / LazyImage / ThemeSwitcher）。判"死组件"**不能用 `components.d.ts`**（unplugin 对目录内所有组件自动生成声明，存在与否都不证明被使用）。
+- **移除不可达函数体的连带状态**：`lossChartData` 等 6 个 ref 变成"只声明不写入"（对应图表恒空）——**与改前运行时行为完全一致**（`bertDisabled=true` 时函数体从未执行），非本轮引入的回归；是否下线这些图表属产品决策，登记为第十二轮候选。
+- **`components.d.ts` 引用不构成使用证据**；**HTML 注释不能放在标签属性之间**（本轮踩到：注释插在 `:data` 属性之间 → 模板语法错 → 类型报 `boolean`）。
+- **自动化插 import 再次命中多行括号块**（`WarningsTable.vue` / `CrisisEventsTable.vue`）—— 与 `37b6e0f` / `7c7756f` / `28d531b` **同型第四次**。本轮靠"逐个 SFC 解析 + esbuild"抓出并修复。
+
+## 实测读数
+
+| 指标 | 本轮起点（实测） | 本轮结束（实测） |
+|---|---|---|
+| 前端单测 | 102 files / 1292 passed / 4 skipped | **103 files / 1302 passed / 4 skipped**（+1 file/+10 条 = `useListQuery.test.ts`，逐位对上） |
+| `npm run typecheck` | 42 错 / 15 文件 | **0 错** |
+| vue-tsc baseline | 42/45（余量 3） | **0/0**（门禁自证：造 1 个错 → exit 1；清掉 → exit 0） |
+| 后端闸门 `test_p2_11_round11.py` | — | **20 passed** |
+| 受影响既有后端测试 | — | silences 26 + content_governance 14 + kill_switch 46 + ws/event_bus/pii/metrics 139 = **225 passed** |
+| 后端全量 | 未跑（37 分钟） | **未跑**，以受影响文件集 + CI 全量兜底 |
+| `OperationLog(` 生产构造点 | 62 | **54** |
+| `record_silent_degradation(` 接线点 | 1（cache.py 内联） | **8** |
+| 回退对照实验 | — | **14 项**，日志 `backend/scripts/rollback_p2_11_result.log` |
+
+## 本地命令 ↔ CI job 对应表
+
+| 本地命令 | CI job（pr-quality-gates.yml / coverage.yml） |
+|---|---|
+| `cd frontend && npm run typecheck` | 无直接 job；仅用于本地看完整错误列表 |
+| `cd frontend && npm run typecheck:baseline` | **Quality Gate**（`pr-quality-gates.yml:111`，**CI 用的正是这个**） |
+| `cd frontend && npm run build` | **Quality Gate**（Build for production）+ lighthouse 的构建输入 |
+| `cd frontend && npm run test`（= `vitest run`） | **Frontend Unit Tests**（`pr-quality-gates.yml:147`） |
+| `cd frontend && npm run test:coverage` | **frontend-coverage**（`coverage.yml:127`） |
+| `cd backend && .venv/Scripts/python.exe -m pytest -o "addopts=--strict-markers --import-mode=importlib --cov=app --cov-report=xml:coverage.xml --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt" -p no:cacheprovider -q` | **backend-coverage**（`coverage.yml:61`） |
+| 契约测试（`tests/contract/`） | **contract-test**（`contract-tests.yml:68`） |
+| lighthouse / E2E Full Stack | **lighthouse**（`lighthouse-ci.yml`）/ **E2E Full Stack**（`e2e-tests.yml`） |
+| gitleaks | **Gitleaks Secret Scan** / **Gitleaks Full History Scan**（`secret-scan.yml`） |
+
+## 新坑（本轮新增，已固化）
+
+1. **回退实验的变异必须"覆盖全部出现位置"**：E5 只替换了第一处"有意保留"，断言仍能命中另一处 → 闸门"看起来红不了"其实是**变异太弱**，不是假闸门。驱动已加 `replace_all` 选项。
+2. **回退实验的变异不能让模块崩在 import 阶段**：E10 把 `MODEL_PATHS` 改名 → 其它模块 `NameError`，测试**崩在收集期**（rc=4，解析不出 FAILED）→ 被记成 INVALID。改为只改类型注解文本即可稳定复现。
+3. **真·假闸门 1 个（E12）**：`useListQuery.search()` 里的 `seq += 1` 首轮测不出差别——因为 `run()` 自己也会 bump 序号，旧响应仍会被丢。补了一条确定性用例（第二次请求**失败**时，在途旧响应不得留在表里），变异后确认能红。
+4. **HTML 注释不能放在标签属性列表里**（`PageTable.vue`），否则模板解析把后续属性吞掉，报出与真实原因无关的类型错（`boolean` not assignable to `DefaultRow[]`）。
+5. **本机 `npm run typecheck:baseline`（spawn 模式）报 `EBUSY`** → 用脚本头部注释的 **stdin 模式**（`vue-tsc … | node scripts/vue-tsc-baseline.mjs --stdin`）跑通，读数一致。CI 是 spawn 模式，不受影响。
+
+## 未验证如实记账
+
+- **后端全量未跑**（37 分钟）：以受影响文件集 225 passed + 新增闸门 20 passed + CI 全量兜底。
+- **prettier `--write` 未做**（仓库格式整理，CI 不检查，本轮未排期，见下）。
+- **#34 只做分类审计**：`ServiceError` 全仓 0 处、疑似 detail 泄漏内部信息 28 处（最典型 `review.py` 三处 `detail=str(e)`）—— 改造面大，按第九轮既定分批原则移第十二轮。
+- **#33 剩余 54 处、#35 剩余 238 处未接线**（真降级口径）—— 均已登记 Top 文件供下轮，不是静默跳过。
+- **#36 剩余 9 页**未迁移（12 页 → 本轮 3 页），含 8 页无独立错误态的，登记在审计矩阵里。
+- `promtool check rules` 仍未跑（本机无 promtool），沿用第九轮 YAML 形状断言。
+- 前端基线**起点实测 1292 passed**，第十轮记录为 1291，差 1 条来源未查清（未发现动态用例生成），本轮一律以 1292 为起点逐位比对。
