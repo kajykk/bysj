@@ -10,8 +10,8 @@ import { useRouter } from 'vue-router'
 import { modelApi, type ModelStatusResult } from '@/api/modelApi'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/formatUtils'
-import {
 import { isAdminRole } from '@/utils/roles'
+import {
   type TrainingLogRow,
   type ActiveJob,
   type TrainingForm,
