@@ -15,7 +15,6 @@ declare module 'vue' {
     AuthBrandPanel: typeof import('./components/common/AuthBrandPanel.vue')['default']
     BaseChart: typeof import('./components/charts/BaseChart.vue')['default']
     BentoCell: typeof import('./components/common/BentoCell.vue')['default']
-    BottomNav: typeof import('./components/common/BottomNav.vue')['default']
     BreadcrumbNav: typeof import('./components/common/BreadcrumbNav.vue')['default']
     CountUp: typeof import('./components/common/CountUp.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']

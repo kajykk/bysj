@@ -87,7 +87,7 @@
             v-if="scope && scope.row"
             class="metrics-text"
           >
-            {{ metricsSummary(scope.row) }}
+            {{ metricsSummary(asRow<ModelRegistryRecord>(scope.row)) }}
           </div>
         </template>
       </el-table-column>
@@ -98,13 +98,13 @@
       >
         <template #default="scope">
           <template v-if="scope && scope.row">
-            <div v-if="shadowTotal(scope.row) > 0">
-              <div>{{ t('userModelTraining.registryShadowSamples', { total: shadowTotal(scope.row) }) }}</div>
+            <div v-if="shadowTotal(asRow<ModelRegistryRecord>(scope.row)) > 0">
+              <div>{{ t('userModelTraining.registryShadowSamples', { total: shadowTotal(asRow<ModelRegistryRecord>(scope.row)) }) }}</div>
               <div
                 class="shadow-rate"
-                :class="{ 'shadow-ok': shadowRate(scope.row) >= 0.75, 'shadow-bad': shadowRate(scope.row) < 0.75 }"
+                :class="{ 'shadow-ok': shadowRate(asRow<ModelRegistryRecord>(scope.row)) >= 0.75, 'shadow-bad': shadowRate(asRow<ModelRegistryRecord>(scope.row)) < 0.75 }"
               >
-                {{ shadowRateText(scope.row) }}
+                {{ shadowRateText(asRow<ModelRegistryRecord>(scope.row)) }}
               </div>
             </div>
             <span
@@ -158,7 +158,7 @@
               type="danger"
               plain
               :loading="actionModelId === scope.row.model_id"
-              @click="confirmRollback(scope.row)"
+              @click="confirmRollback(asRow<ModelRegistryRecord>(scope.row))"
             >
               {{ t('userModelTraining.registryRollback') }}
             </el-button>
@@ -168,7 +168,7 @@
               type="success"
               plain
               :loading="actionModelId === scope.row.model_id"
-              @click="confirmActivate(scope.row)"
+              @click="confirmActivate(asRow<ModelRegistryRecord>(scope.row))"
             >
               {{ t('userModelTraining.registryActivate') }}
             </el-button>
@@ -191,6 +191,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { modelApi, type ModelRegistryRecord } from '@/api/modelApi'
 import { formatDate } from '@/utils/formatUtils'
+import { asRow } from '@/utils/tableRow'
 
 defineProps<{
   canTrain: boolean

@@ -60,7 +60,7 @@
           active-value="active"
           inactive-value="inactive"
           :loading="row.statusLoading"
-          @change="(val: string | number | boolean) => emit('statusChange', row, val as 'active' | 'inactive')"
+          @change="(val: string | number | boolean) => emit('statusChange', asRow<TemplateItem>(row), val as 'active' | 'inactive')"
         />
       </template>
     </el-table-column>
@@ -104,6 +104,7 @@
 import { useI18n } from 'vue-i18n'
 import type { TemplateItem } from '@/api/adminApi'
 import type { TemplateStatus } from './sharedTemplatesUtils'
+import { asRow } from '@/utils/tableRow'
 
 defineProps<{
   data: TemplateItem[]

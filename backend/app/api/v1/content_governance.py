@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
@@ -108,19 +109,23 @@ async def review_content(
 
     await db.flush()
 
-    # 记录审核事件到审计日志
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="content.review",
-            target_type="education_content",
-            target_id=content_id,
-            detail=f"reviewer_note={payload.reviewer_note}; "
-            f"review_cycle_days={payload.review_cycle_days}; "
-            f"previous_status={previous_status}; "
-            f"new_status={content.status}",
-        )
+    # P2-33 第一批：改调统一审计 helper SSOT（补 ip_address，原手写版缺失；
+    # detail 由分号拼接串改为结构化 dict，便于后续检索）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="content.review",
+        target_type="education_content",
+        target_id=content_id,
+        detail={
+            "reviewer_note": payload.reviewer_note,
+            "review_cycle_days": payload.review_cycle_days,
+            "previous_status": previous_status,
+            "new_status": content.status,
+        },
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 
@@ -170,15 +175,17 @@ async def takedown_content(
     content.status = STATUS_TAKEDOWN
     await db.flush()
 
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="content.takedown",
-            target_type="education_content",
-            target_id=content_id,
-            detail=f"reason={payload.reason}; previous_status={previous_status}",
-        )
+    # P2-33 第一批：改调统一审计 helper SSOT（补 ip_address）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="content.takedown",
+        target_type="education_content",
+        target_id=content_id,
+        detail={"reason": payload.reason, "previous_status": previous_status},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 
@@ -226,15 +233,17 @@ async def restore_content(
     content.status = STATUS_ACTIVE
     await db.flush()
 
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="content.restore",
-            target_type="education_content",
-            target_id=content_id,
-            detail=f"reason={payload.reason}",
-        )
+    # P2-33 第一批：改调统一审计 helper SSOT（补 ip_address）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="content.restore",
+        target_type="education_content",
+        target_id=content_id,
+        detail={"reason": payload.reason},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 

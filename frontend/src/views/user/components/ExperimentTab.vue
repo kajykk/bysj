@@ -73,31 +73,31 @@
               <el-space wrap>
                 <el-button
                   :loading="experimentLoading && experimentAction === 'import'"
+                  :disabled="experimentLoading"
                   @click="importDataset"
                 >
                   {{ t('experimentAssess.importBtn') }}
                 </el-button>
+                <!-- F-32 / RES-P2-039-01: BERT 入口永久禁用（无 @click）—— 不可达处理函数已移除，
+                     保留禁用态与 title 解释，避免用户看到「点了必报错的坏按钮」。 -->
                 <el-button
                   type="primary"
-                  :loading="experimentLoading && experimentAction === 'train'"
                   :disabled="bertDisabled"
                   :title="bertDisabled ? t('experimentAssess.bertDisabled') : undefined"
-                  @click="trainBert"
                 >
                   {{ t('experimentAssess.trainBtn') }}
                 </el-button>
                 <el-button
                   type="success"
-                  :loading="experimentLoading && experimentAction === 'evaluate'"
                   :disabled="bertDisabled"
                   :title="bertDisabled ? t('experimentAssess.bertDisabled') : undefined"
-                  @click="evaluateBert"
                 >
                   {{ t('experimentAssess.evaluateBtn') }}
                 </el-button>
                 <el-button
                   type="warning"
                   :loading="experimentLoading && experimentAction === 'compare'"
+                  :disabled="experimentLoading"
                   @click="compareModels"
                 >
                   {{ t('experimentAssess.compareBtn') }}
@@ -219,7 +219,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { modelApi, type CompareResult, type EvaluateResult, type TrainResult } from '@/api/modelApi'
+import { modelApi, type CompareResult } from '@/api/modelApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import LossChart from './experiment-charts/LossChart.vue'
 import AccuracyChart from './experiment-charts/AccuracyChart.vue'
@@ -239,7 +239,7 @@ const experimentForm = reactive({
   test_ratio: 0.15
 })
 const experimentLoading = ref(false)
-const experimentAction = ref<'import' | 'train' | 'evaluate' | 'compare'>('train')
+const experimentAction = ref<'import' | 'compare'>('import')
 const experimentProgress = ref(0)
 const experimentRawResult = ref<string>('')
 const experimentSummary = ref<Record<string, unknown> | null>(null)
@@ -256,54 +256,12 @@ const confusionChartData = ref<number[][]>([])
 const experimentActionLabel = computed(() => {
   const map: Record<string, string> = {
     import: t('experimentAssess.actionImport'),
-    train: t('experimentAssess.actionTrain'),
-    evaluate: t('experimentAssess.actionEvaluate'),
     compare: t('experimentAssess.actionCompare')
   }
   return map[experimentAction.value] || t('experimentAssess.actionDefault')
 })
 
-type TrainExperimentResult = TrainResult
-type EvaluateExperimentResult = EvaluateResult
 type CompareExperimentResult = CompareResult
-
-const applyTrainResult = (res: TrainExperimentResult) => {
-  const trainLoss = Array.isArray(res.train_loss) ? res.train_loss.map((n: number) => Number(n)) : []
-  const valLoss = Array.isArray(res.val_loss) ? res.val_loss.map((n: number) => Number(n)) : []
-  const valAccuracy = Array.isArray(res.val_accuracy) ? res.val_accuracy.map((n: number) => Number(n)) : []
-  if (trainLoss.length) lossChartData.value = trainLoss
-  else if (valLoss.length) lossChartData.value = valLoss
-  if (valAccuracy.length) accuracyChartData.value = valAccuracy
-  if (res.trainer_log_history) trainLogRows.value = res.trainer_log_history
-  if (res.eval_history) evalLogRows.value = res.eval_history
-  experimentSummary.value = {
-    train_loss: Array.isArray(res.train_loss) ? res.train_loss.join(' / ') : (res.train_loss ?? '-'),
-    val_loss: Array.isArray(res.val_loss) ? res.val_loss.join(' / ') : (res.val_loss ?? '-'),
-    val_accuracy: Array.isArray(res.val_accuracy) ? res.val_accuracy.join(' / ') : (res.val_accuracy ?? '-'),
-    status: res.status
-  }
-  experimentRawResult.value = JSON.stringify(res, null, 2)
-}
-
-const applyEvaluateResult = (res: EvaluateExperimentResult) => {
-  const cm = res.confusion_matrix
-  confusionMatrix.value = {
-    tn: cm.tn,
-    fp: cm.fp,
-    fn: cm.fn,
-    tp: cm.tp,
-  }
-  confusionChartData.value = [[cm.tn, cm.fp], [cm.fn, cm.tp]]
-  sampleRows.value = res.prediction_samples
-  experimentSummary.value = {
-    train_loss: experimentSummary.value?.train_loss ?? '-',
-    val_loss: experimentSummary.value?.val_loss ?? '-',
-    val_accuracy: res.metrics.accuracy,
-    status: 'evaluated'
-  }
-  if (res.eval_history) evalLogRows.value = res.eval_history
-  experimentRawResult.value = JSON.stringify(res, null, 2)
-}
 
 const applyCompareResult = (res: CompareExperimentResult) => {
   compareChartData.value = res.results
@@ -333,58 +291,15 @@ const importDataset = async () => {
   }
 }
 
-// AUDIT-2026-10-04 (P0-1 衍生): BERT 权重已归档到 models/_archive/、注册条目已从
-// MODEL_PATHS 移除 —— 训练/评估 BERT 必然失败（加载时以「未注册」拒绝）。入口显式禁用，
-// 而不是让用户点了才收到报错。恢复能力需同时恢复权重与注册条目（或走句向量路线）。
+// AUDIT-2026-10-04 (P0-1 衍生) / RES-P2-039-01（保留决议，见 docs/RETENTION_REGISTRY.md）：
+// BERT 权重已归档到 models/_archive/、注册条目已从 MODEL_PATHS 移除 —— 训练/评估 BERT
+// 必然失败（加载时以「未注册」拒绝）。入口显式禁用，而不是让用户点了才收到报错。
+// 恢复能力需同时恢复权重与注册条目（或走句向量路线）。
+//
+// F-32 拆分裁定（第十一轮）：原先 `trainBert` / `evaluateBert` 两个处理函数在
+// `if (bertDisabled) return` 之后有约 40 行**永不可达**的函数体，已移除。
+// 保留常量 + 禁用态 + 解释文案（UX），不保留不可达代码 —— 二者不是一回事。
 const bertDisabled = true
-
-const trainBert = async () => {
-  if (bertDisabled) {
-    ElMessage.warning(t('experimentAssess.bertDisabled'))
-    return
-  }
-  experimentLoading.value = true
-  experimentAction.value = 'train'
-  experimentProgress.value = 10
-  try {
-    const res = await modelApi.trainModel({ dataset_name: experimentForm.dataset_name, model_name: 'text_bert_classifier', epochs: 3, batch_size: 16, learning_rate: 2e-5 })
-    experimentProgress.value = 100
-    applyTrainResult(res)
-    ElMessage.success(t('experimentAssess.trainSuccess'))
-  } catch (error) {
-    ElMessage.error(normalizeHttpError(error, t('experimentAssess.trainFailed')).detail)
-  } finally {
-    experimentLoading.value = false
-    experimentProgress.value = 0
-  }
-}
-
-const evaluateBert = async () => {
-  if (bertDisabled) {
-    ElMessage.warning(t('experimentAssess.bertDisabled'))
-    return
-  }
-  experimentLoading.value = true
-  experimentAction.value = 'evaluate'
-  experimentProgress.value = 20
-  try {
-    const res = await modelApi.evaluateModel({ dataset_name: experimentForm.dataset_name, model_name: 'text_bert_classifier', split: 'validation' })
-    experimentProgress.value = 100
-    applyEvaluateResult(res)
-    experimentSummary.value = {
-      train_loss: experimentSummary.value?.train_loss ?? '-',
-      val_loss: experimentSummary.value?.val_loss ?? '-',
-      val_accuracy: res.metrics?.accuracy ?? '-',
-      status: 'evaluated'
-    }
-    ElMessage.success(t('experimentAssess.evaluateSuccess'))
-  } catch (error) {
-    ElMessage.error(normalizeHttpError(error, t('experimentAssess.evaluateFailed')).detail)
-  } finally {
-    experimentLoading.value = false
-    experimentProgress.value = 0
-  }
-}
 
 const compareModels = async () => {
   experimentLoading.value = true

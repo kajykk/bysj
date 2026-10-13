@@ -1,0 +1,102 @@
+
+> depression-warning-system-frontend@3.1.0 typecheck
+> vue-tsc --noEmit -p tsconfig.app.json --pretty false
+
+src/components/common/PageTable.vue(8,8): error TS2322: Type 'unknown[]' is not assignable to type 'DefaultRow[]'.
+  Type 'unknown' is not assignable to type 'DefaultRow'.
+src/views/admin/AdminAlertsPage.vue(203,34): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'AlertHistoryItem'.
+  Type 'DefaultRow' is missing the following properties from type 'AlertHistoryItem': id, rule, severity, status, and 5 more.
+src/views/admin/AdminCanaryPage.vue(155,39): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'CanaryDeployment'.
+  Type 'DefaultRow' is missing the following properties from type 'CanaryDeployment': id, version, traffic_percent, status, and 2 more.
+src/views/admin/AdminCanaryPage.vue(163,37): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'CanaryDeployment'.
+  Type 'DefaultRow' is missing the following properties from type 'CanaryDeployment': id, version, traffic_percent, status, and 2 more.
+src/views/admin/AdminCanaryPage.vue(171,38): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'CanaryDeployment'.
+  Type 'DefaultRow' is missing the following properties from type 'CanaryDeployment': id, version, traffic_percent, status, and 2 more.
+src/views/admin/AdminCanaryPage.vue(180,40): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'CanaryDeployment'.
+  Type 'DefaultRow' is missing the following properties from type 'CanaryDeployment': id, version, traffic_percent, status, and 2 more.
+src/views/admin/AdminCanaryPage.vue(189,40): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'CanaryDeployment'.
+  Type 'DefaultRow' is missing the following properties from type 'CanaryDeployment': id, version, traffic_percent, status, and 2 more.
+src/views/admin/components/admin-crisis-events/CrisisEventsTable.vue(158,24): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"handle"' is not assignable to parameter of type '"close"'.
+src/views/admin/components/admin-crisis-events/CrisisEventsTable.vue(167,24): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"escalate"' is not assignable to parameter of type '"close"'.
+src/views/admin/components/admin-crisis-events/CrisisEventsTable.vue(176,33): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'DefaultRow' is not assignable to parameter of type 'CrisisEventItem'.
+      Type 'DefaultRow' is missing the following properties from type 'CrisisEventItem': id, user_id, report_id, trigger_source, and 9 more.
+src/views/admin/components/admin-settings-page/ConfigsTab.vue(61,38): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ConfigItem'.
+  Type 'DefaultRow' is missing the following properties from type 'ConfigItem': id, config_key, config_value, description, updated_by
+src/views/admin/components/admin-settings-page/ThresholdsTab.vue(72,41): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ThresholdItem'.
+  Type 'DefaultRow' is missing the following properties from type 'ThresholdItem': id, level, level_name, min_score, and 3 more.
+src/views/admin/components/admin-silences/SilencesTable.vue(74,35): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'SilenceItem'.
+  Type 'DefaultRow' is missing the following properties from type 'SilenceItem': id, name, matcher, starts_at, and 5 more.
+src/views/admin/components/admin-silences/SilencesTable.vue(77,31): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'SilenceItem'.
+  Type 'DefaultRow' is missing the following properties from type 'SilenceItem': id, name, matcher, starts_at, and 5 more.
+src/views/admin/components/admin-silences/SilencesTable.vue(112,27): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"edit"' is not assignable to parameter of type '"delete"'.
+src/views/admin/components/admin-silences/SilencesTable.vue(123,27): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"enable"' is not assignable to parameter of type '"delete"'.
+src/views/admin/components/admin-silences/SilencesTable.vue(135,37): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'DefaultRow' is not assignable to parameter of type 'SilenceItem'.
+      Type 'DefaultRow' is missing the following properties from type 'SilenceItem': id, name, matcher, starts_at, and 5 more.
+src/views/admin/components/admin-templates/TemplatesTable.vue(63,77): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'TemplateItem & { statusLoading?: boolean | undefined; }'.
+  Type 'DefaultRow' is missing the following properties from type 'TemplateItem': id, template_name, applicable_levels, task_list, and 2 more.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(31,24): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"open-detail"' is not assignable to parameter of type '"escalate"'.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(138,39): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'WarningItem'.
+  Type 'DefaultRow' is missing the following properties from type 'WarningItem': id, risk_level, title, content, and 2 more.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(139,47): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'WarningItem'.
+  Type 'DefaultRow' is missing the following properties from type 'WarningItem': id, risk_level, title, content, and 2 more.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(141,25): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"handle"' is not assignable to parameter of type '"escalate"'.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(148,39): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'WarningItem'.
+  Type 'DefaultRow' is missing the following properties from type 'WarningItem': id, risk_level, title, content, and 2 more.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(149,47): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'WarningItem'.
+  Type 'DefaultRow' is missing the following properties from type 'WarningItem': id, risk_level, title, content, and 2 more.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(151,25): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"ignore"' is not assignable to parameter of type '"escalate"'.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(159,39): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'WarningItem'.
+  Type 'DefaultRow' is missing the following properties from type 'WarningItem': id, risk_level, title, content, and 2 more.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(160,47): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'WarningItem'.
+  Type 'DefaultRow' is missing the following properties from type 'WarningItem': id, risk_level, title, content, and 2 more.
+src/views/counselor/components/counselor-warnings/WarningsTable.vue(162,37): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'DefaultRow' is not assignable to parameter of type 'WarningItem'.
+      Type 'DefaultRow' is missing the following properties from type 'WarningItem': id, risk_level, title, content, and 2 more.
+src/views/counselor/CounselorUserDetailPage.vue(101,35): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ConsultationItem'.
+  Type 'DefaultRow' is missing the following properties from type 'ConsultationItem': id, created_at
+src/views/counselor/CounselorUserDetailPage.vue(156,48): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ConsultationGroupItem'.
+  Type 'DefaultRow' is missing the following properties from type 'ConsultationGroupItem': id, group_name
+src/views/counselor/CounselorUsersPage.vue(116,35): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'UserManageItem'.
+  Type 'DefaultRow' is missing the following properties from type 'UserManageItem': id, username
+src/views/user/components/user-model-training/TrainingRegistryCard.vue(90,31): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ModelRegistryRecord'.
+  Type 'DefaultRow' is missing the following properties from type 'ModelRegistryRecord': model_id, name, version, model_type, and 8 more.
+src/views/user/components/user-model-training/TrainingRegistryCard.vue(101,36): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ModelRegistryRecord'.
+  Type 'DefaultRow' is missing the following properties from type 'ModelRegistryRecord': model_id, name, version, model_type, and 8 more.
+src/views/user/components/user-model-training/TrainingRegistryCard.vue(102,89): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ModelRegistryRecord'.
+  Type 'DefaultRow' is missing the following properties from type 'ModelRegistryRecord': model_id, name, version, model_type, and 8 more.
+src/views/user/components/user-model-training/TrainingRegistryCard.vue(105,51): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ModelRegistryRecord'.
+  Type 'DefaultRow' is missing the following properties from type 'ModelRegistryRecord': model_id, name, version, model_type, and 8 more.
+src/views/user/components/user-model-training/TrainingRegistryCard.vue(105,96): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ModelRegistryRecord'.
+  Type 'DefaultRow' is missing the following properties from type 'ModelRegistryRecord': model_id, name, version, model_type, and 8 more.
+src/views/user/components/user-model-training/TrainingRegistryCard.vue(107,35): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ModelRegistryRecord'.
+  Type 'DefaultRow' is missing the following properties from type 'ModelRegistryRecord': model_id, name, version, model_type, and 8 more.
+src/views/user/components/user-model-training/TrainingRegistryCard.vue(161,39): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ModelRegistryRecord'.
+  Type 'DefaultRow' is missing the following properties from type 'ModelRegistryRecord': model_id, name, version, model_type, and 8 more.
+src/views/user/components/user-model-training/TrainingRegistryCard.vue(171,39): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'ModelRegistryRecord'.
+  Type 'DefaultRow' is missing the following properties from type 'ModelRegistryRecord': model_id, name, version, model_type, and 8 more.
+src/views/user/UserAssessmentsPage.vue(115,35): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'AssessmentHistoryRow'.
+  Type 'DefaultRow' is missing the following properties from type 'AssessmentHistoryRow': id, type, score, riskLevel, and 2 more.
+src/views/user/UserRiskPage.vue(326,62): error TS2322: Type 'Record<string, unknown>' is not assignable to type 'Record<string, string | number | boolean>'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type 'string | number | boolean'.
+src/views/user/UserWarningsPage.vue(179,40): error TS2345: Argument of type 'DefaultRow' is not assignable to parameter of type 'WarningItem'.
+  Type 'DefaultRow' is missing the following properties from type 'WarningItem': id, risk_level, title, content, and 2 more.

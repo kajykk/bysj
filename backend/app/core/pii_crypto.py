@@ -32,6 +32,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 
 logger = logging.getLogger(__name__)
 
@@ -409,6 +410,8 @@ class EncryptedString(TypeDecorator):
             logger.error(
                 "PII decryption failed for field: %s", self.field, exc_info=exc
             )
+            # P2-35 第一批：返回占位串 = 数据实际丢失，必须计数（原实现只在日志里）
+            record_silent_degradation("core.pii_crypto.process_result_value")
             return "[DECRYPTION_FAILED]"
 
 

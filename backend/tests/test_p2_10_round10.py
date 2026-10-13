@@ -61,8 +61,11 @@ class TestP237FERoles:
     BEHAVIORAL = re.compile(r"(===|!==|includes\()")
 
     def test_no_bare_behavioral_checks(self):
+        # 第十一轮：`components/common/BottomNav.vue` 已按 #39 处置结论删除
+        # （死组件，无 import 方，见 docs/RETENTION_REGISTRY.md 与 P2_11 审计），
+        # 故从点名清单移除。该清单是第十轮 #37 的收编目标文件，删文件不等于免检：
+        # 全仓裸角色判定改由 scan_p2_11_audit.py 的口径复核（本轮已重扫，见审计文档）。
         targets = [
-            "components/common/BottomNav.vue",
             "components/common/HelpCenter.vue",
             "layouts/components/main-layout/useLayoutMenu.ts",
             "layouts/MainLayout.vue",
@@ -96,8 +99,11 @@ class TestP237FERoles:
     def test_no_import_inside_import_block(self):
         # 回归闸：applier 曾把 import 插进多行 import 块内部（BottomNav/useModelTrainingData）。
         # BottomNav 是死组件（无 import 方），构建/测试/CI 全碰不到，只能靠本断言。
+        # 第十一轮：BottomNav.vue 已按 #39 处置结论删除（见 docs/RETENTION_REGISTRY.md
+        # 与 P2_11 审计），此处同步移除该路径；其"死组件"职责改由
+        # test_p2_11_round11.py::test_orphan_component_ratchet 用棘轮把守（全组件扫描，
+        # 不再逐个点名）。
         for f in [
-            "components/common/BottomNav.vue",
             "views/user/components/user-model-training/useModelTrainingData.ts",
         ]:
             lines = (FE / f).read_text(encoding="utf-8").splitlines()

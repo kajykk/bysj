@@ -2,10 +2,12 @@
   <div>
     <!-- ISS-083 TODO：小屏下表格列过多时可考虑横向滚动优化或列优先级隐藏策略 -->
     <!-- ISS-088 TODO：批量操作时建议补充进度条/Toast 反馈（如"已处理 X/Y 条"），增强长时间任务的可感知性 -->
+    <!-- P2 类型存量收敛：el-table 的 data 静态类型是 Element Plus 内部 DefaultRow；
+         本组件对外只承诺 unknown[]，故在 :data 处显式收窄一次（纯类型，无运行时行为） -->
     <el-table
       ref="tableRef"
       v-loading="loading"
-      :data="data"
+      :data="data as Record<string, unknown>[]"
       border
       style="width: 100%"
       :row-class-name="combinedRowClassName"

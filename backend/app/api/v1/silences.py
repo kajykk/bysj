@@ -11,16 +11,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.response import ok
@@ -323,6 +323,7 @@ async def list_active_silences(
 async def update_silence(
     silence_id: int,
     payload: SilenceUpdate,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
@@ -406,21 +407,19 @@ async def update_silence(
         logger.error("[silence] AM push (on update) exception: %s", exc)
 
     # ADR-012 (R-D): OperationLog 与业务写入同事务，单端点 ≤1 commit
-    from app.models.admin import OperationLog
-
-    op_log = OperationLog(
-        operator_id=current_user.id,
-        operator_role=current_user.role,
-        action_type="update_silence",
+    # P2-33 第一批：改调统一审计 helper SSOT（ip_address 由 helper 从 request 取，
+    # 原手写版完全没有 ip；tenant_id 必填关键字，显式传 None 表示平台级操作）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="update_silence",
         target_type="alert_silence",
         target_id=silence_id,
-        detail=json.dumps(
-            {"before": before_snapshot, "after": _serialize_silence(row)},
-            ensure_ascii=False,
-            default=str,
-        ),
+        detail={"before": before_snapshot, "after": _serialize_silence(row)},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
-    db.add(op_log)
     await db.commit()
     await db.refresh(row)
 
@@ -436,6 +435,7 @@ async def update_silence(
 @router.post("/{silence_id}/enable", response_model=dict, responses=COMMON_ERROR_RESPONSES)
 async def enable_silence(
     silence_id: int,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
@@ -482,20 +482,18 @@ async def enable_silence(
         logger.error("[silence] AM push (on enable) exception: %s", exc)
 
     # ADR-012 (R-D): OperationLog 与业务写入同事务，单端点 ≤1 commit
-    from app.models.admin import OperationLog
-
-    op_log = OperationLog(
-        operator_id=current_user.id,
-        operator_role=current_user.role,
-        action_type="enable_silence",
+    # P2-33 第一批：改调统一审计 helper SSOT（补 ip_address，原手写版缺失）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="enable_silence",
         target_type="alert_silence",
         target_id=silence_id,
-        detail=json.dumps(
-            {"name": row.name, "matcher": row.matcher},
-            ensure_ascii=False,
-        ),
+        detail={"name": row.name, "matcher": row.matcher},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
-    db.add(op_log)
     await db.commit()
     await db.refresh(row)
 
@@ -506,6 +504,7 @@ async def enable_silence(
 @router.delete("/{silence_id}", response_model=dict, responses=COMMON_ERROR_RESPONSES)
 async def delete_silence(
     silence_id: int,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_platform_admin())],
 ) -> dict:
@@ -515,19 +514,19 @@ async def delete_silence(
     if row is None or not row.is_active:
         raise HTTPException(status_code=404, detail="silence not found")
     row.is_active = False
-    # 记录到 OperationLog
-    from app.models.admin import OperationLog
-
-    op_log = OperationLog(
-        operator_id=current_user.id,
-        operator_role=current_user.role,
-        action_type="delete_silence",
+    # P2-33 第一批：改调统一审计 helper SSOT（补 ip_address，原手写版缺失）
+    # L-API-3：detail 保持小字段（name/matcher），不超 DB 字段限制
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="delete_silence",
         target_type="alert_silence",
         target_id=silence_id,
-        # L-API-3 修复：截断 detail 至 5000 字符，与 alerts.py 保持一致，避免超 DB 字段限制
-        detail=json.dumps({"name": row.name, "matcher": row.matcher}, ensure_ascii=False),
+        detail={"name": row.name, "matcher": row.matcher},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
-    db.add(op_log)
     await db.commit()
     # M-5 修复：删除静默规则时同步取消 AlertManager 侧的静默，避免 AM 静默残留导致告警被持续抑制
     if row.am_silence_id:

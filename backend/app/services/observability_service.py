@@ -65,15 +65,19 @@ class ObservabilityCollector:
     - Input anomaly detection and counting
     - Async batch flush every 30s
 
-    RES-P1-004 文档化说明 (死缓冲区):
+    RES-P1-004 有意保留说明 (请勿当**有意保留**删除):
         生产环境实际运行中, ``start()`` / ``stop()`` / ``_flush_loop`` 均未被调用
         (main.py 启动的是 ``ObservabilityExporter``, 不是本类). ``flush_to_db()``
         直接从 ``_pending_logs`` 取数据, 绕过 ``_flushed_buffer``. 而
         ``consume_flushed_logs()`` 虽然接口保留, 但生产代码中无任何消费者调用,
         仅有测试用例覆盖. 故 ``_flushed_buffer`` (上限 ``observability_max_buffer_size``)
         在当前生产配置下属于死缓冲区, 仅在测试场景中触发 ``_flush`` 路径时写入.
-        保留接口供未来接入消费者 (如导出到外部 TSDB), 上限已从 10000 降至 1000
-        以避免内存浪费.
+
+        **这是有意保留, 不是遗漏的死代码**: 决议正文登记于
+        ``docs/RETENTION_REGISTRY.md`` 的 RES-P1-004 条目 (含保留理由、
+        复核触发条件、正文出处). 保留接口供未来接入消费者 (如导出到外部 TSDB),
+        上限已从 10000 降至 1000 以避免内存浪费. 静态扫描 / 代码复核发现此处时
+        请先查该登记册, 未登记不得保留, 已登记不得删除.
     """
 
     _FLUSH_INTERVAL_SECONDS = 30
@@ -152,10 +156,15 @@ class ObservabilityCollector:
         """M-23 修复：供外部消费者取出并清空已 flush 的 logs.
 
         .. warning::
-            RES-P1-004: 当前生产代码中无任何消费者调用此方法, 仅测试用例覆盖.
-            ``flush_to_db()`` 直接从 ``_pending_logs`` 取数据, 绕过
-            ``_flushed_buffer``. 故 ``_flushed_buffer`` 在生产中属于死缓冲区,
-            保留本接口供未来接入外部消费者 (如 TSDB 导出器).
+            RES-P1-004 (死代码, 非缺陷残留): 当前生产代码中无任何消费者
+            调用此方法, 仅测试用例覆盖. ``flush_to_db()`` 直接从 ``_pending_logs``
+            取数据, 绕过 ``_flushed_buffer``. 故 ``_flushed_buffer`` 在生产中属于
+            死缓冲区, **有意保留**本接口供未来接入外部消费者 (如 TSDB 导出器).
+
+            决议正文: ``docs/RETENTION_REGISTRY.md`` -> RES-P1-004
+            (保留理由 / 复核触发条件 / 正文出处). 删除前必须先在该册撤销登记,
+            否则属于违规删除 —— 删掉它等于同时删除 M-23 (累积式缓冲) 与
+            H-Svc-10 (锁内消费) 两处修复的唯一回归覆盖.
 
         Returns:
             所有已 flush 但尚未被消费的 MonitoringLog 列表。

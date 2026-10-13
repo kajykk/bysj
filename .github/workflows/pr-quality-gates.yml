@@ -104,10 +104,12 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
-      - name: "vue-tsc baseline gate (决策四: 45 存量错误增量门禁)"
+      - name: "vue-tsc baseline gate (BASELINE=0, 禁止新增)"
         working-directory: frontend
-        # 45 个存量错误集中在 10 个 admin/counselor 表格组件的
-        # Element Plus DefaultRow 泛型 (§六 第9条); 门禁只阻断新增
+        # 决策四 originally: 45 个存量错误集中在 admin/counselor 表格组件的
+        # Element Plus DefaultRow 泛型 (§六 第9条), 只阻断新增.
+        # 第十一轮: 存量已清零 (utils/tableRow.asRow 边界收窄 + Vue 3.3 元组式 emits),
+        # BASELINE 由 45 棘轮收紧至 0 —— 此后任何 1 个 vue-tsc 错误都会阻断。
         run: npm run typecheck:baseline
       - name: npm audit (SEC-P3-003)
         working-directory: frontend

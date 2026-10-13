@@ -98,7 +98,7 @@
                 v-if="canConsult"
                 :label="t('counselorUserDetail.btnEdit')"
                 show-audit
-                @action="openEdit(row)"
+                @action="openEdit(asRow<ConsultationItem>(row))"
               />
             </template>
           </el-table-column>
@@ -153,7 +153,7 @@
                 :label="t('counselorUserDetail.btnAddCurrentUser')"
                 type="primary"
                 show-audit
-                @action="addCurrentUserToGroup(row)"
+                @action="addCurrentUserToGroup(asRow<ConsultationGroupItem>(row))"
               />
             </template>
           </el-table-column>
@@ -277,6 +277,7 @@ import { useAuthStore } from '@/stores/auth'
 // ISS-082 修复：引入 useBreakpoint 实现 el-descriptions 列数响应式
 import { useBreakpoint } from '@/composables/useBreakpoint'
 import UserDetailInfoTabs from './components/UserDetailInfoTabs.vue'
+import { asRow } from '@/utils/tableRow'
 
 const { t } = useI18n()
 // ISS-082 修复：移动端 el-descriptions 列数降为 1，避免字段挤压

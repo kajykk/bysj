@@ -247,6 +247,7 @@ import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
+import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 
@@ -254,10 +255,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const queryState = useListQueryState('aal')
 
-const loading = ref(false)
-const rows = ref<OperationLogItem[]>([])
-const total = ref(0)
-const pageError = ref('')
+// P2-36 首批：三态 + 竞态守卫 + 页码重置改由 useListQuery 统一提供
 const compliance = ref<AuditCompliance | null>(null)
 
 const page = computed(() => queryState.page.value)
@@ -309,35 +307,34 @@ const getRoleLabel = (role: string): string => {
   return key ? t(key) : role
 }
 
-const fetchData = async () => {
-  loading.value = true
-  pageError.value = ''
-  try {
-    // AUDIT-2026-10-01（决策三 P2）：响应含 compliance 统计块，取完整结构而非仅分页
-    const data = await adminApi.listAuditLogs({
-      page: page.value,
-      page_size: pageSize.value,
-      action_types: filters.actionTypes.length > 0 ? filters.actionTypes : undefined,
-      operator_role: filters.operatorRole || undefined,
-      target_type: filters.targetType || undefined,
-      start_time: filters.range?.[0],
-      end_time: filters.range?.[1]
-    })
-    rows.value = data.items
-    total.value = data.total
-    compliance.value = data.compliance
-  } catch (error) {
-    pageError.value = showHttpFeedback(error, t('adminAuditLogs.loadFailed')).detail
-  } finally {
-    loading.value = false
-  }
-}
+// AUDIT-2026-10-01（决策三 P2）：响应含 compliance 统计块，取完整结构而非仅分页
+const { rows, total, loading, error: pageError, run: fetchData, search } =
+  useListQuery<OperationLogItem, { items: OperationLogItem[]; total: number; compliance: AuditCompliance | null }>({
+    fetcher: () =>
+      adminApi.listAuditLogs({
+        page: page.value,
+        page_size: pageSize.value,
+        action_types: filters.actionTypes.length > 0 ? filters.actionTypes : undefined,
+        operator_role: filters.operatorRole || undefined,
+        target_type: filters.targetType || undefined,
+        start_time: filters.range?.[0],
+        end_time: filters.range?.[1]
+      }),
+    // 只在响应未被竞态作废时才写统计块（写在 fetcher 里会被过期响应污染）
+    onSuccess: (res) => {
+      compliance.value = res.compliance ?? null
+    },
+    setPage: (value) => queryState.setQuery({ page: value }),
+    immediate: false, // 与原来一致：由 onMounted 触发首次加载
+    onError: (error) => showHttpFeedback(error, t('adminAuditLogs.loadFailed')).detail
+  })
 
 const onPageChange = async (value: number) => { await queryState.setQuery({ page: value }); fetchData() }
 const onPageSizeChange = async (value: number) => { await queryState.setQuery({ page_size: value, page: 1 }); fetchData() }
 const handleSearch = async () => {
   await queryState.setQuery({ page: 1, operator_role: filters.operatorRole, target_type: filters.targetType, start_time: filters.range?.[0], end_time: filters.range?.[1] })
-  fetchData()
+  // 走 useListQuery.search：先作废在途请求，避免旧页响应晚到覆盖第 1 页
+  await search()
 }
 const handleReset = async () => {
   filters.actionTypes = []

@@ -28,7 +28,7 @@
       <template #default="{ row }">
         <el-link
           type="primary"
-          @click="emit('open-detail', row)"
+          @click="emit('open-detail', asRow<WarningItem>(row))"
         >
           {{ row.title }}
         </el-link>
@@ -135,20 +135,20 @@
           :label="t('counselorWarnings.actionHandle')"
           type="primary"
           :loading="isRowActionPending(row.id, 'handle')"
-          :disabled="isActionDisabled(row, 'handle')"
-          :disabled-reason="getDisabledReason(row, 'handle')"
+          :disabled="isActionDisabled(asRow<WarningItem>(row), 'handle')"
+          :disabled-reason="getDisabledReason(asRow<WarningItem>(row), 'handle')"
           show-audit
-          @action="emit('handle', row)"
+          @action="emit('handle', asRow<WarningItem>(row))"
         />
         <ActionColumn
           v-if="canIgnorePermission"
           :label="t('counselorWarnings.actionIgnore')"
           type="info"
           :loading="isRowActionPending(row.id, 'ignore')"
-          :disabled="isActionDisabled(row, 'ignore')"
-          :disabled-reason="getDisabledReason(row, 'ignore')"
+          :disabled="isActionDisabled(asRow<WarningItem>(row), 'ignore')"
+          :disabled-reason="getDisabledReason(asRow<WarningItem>(row), 'ignore')"
           show-audit
-          @action="emit('ignore', row)"
+          @action="emit('ignore', asRow<WarningItem>(row))"
         />
         <!-- ISS-058: 升级按钮 -->
         <ActionColumn
@@ -156,10 +156,10 @@
           :label="t('counselorWarnings.actionEscalate')"
           type="warning"
           :loading="isRowActionPending(row.id, 'escalate')"
-          :disabled="isActionDisabled(row, 'escalate')"
-          :disabled-reason="getDisabledReason(row, 'escalate')"
+          :disabled="isActionDisabled(asRow<WarningItem>(row), 'escalate')"
+          :disabled-reason="getDisabledReason(asRow<WarningItem>(row), 'escalate')"
           show-audit
-          @action="emit('escalate', row)"
+          @action="emit('escalate', asRow<WarningItem>(row))"
         />
       </template>
     </el-table-column>
@@ -173,6 +173,7 @@ import ActionColumn from '@/components/common/ActionColumn.vue'
 import ErrorCell from '@/components/common/ErrorCell.vue'
 import type { WarningItem } from '@/api/userTypes'
 import { formatWarningDateTime, formatHandledBy, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
+import { asRow } from '@/utils/tableRow'
 import {
   isRowActionDisabled,
   getRowDisabledReason,
@@ -196,14 +197,17 @@ const props = defineProps<{
   batchOperating: boolean
 }>()
 
+// P2 类型存量收敛：Vue 3.3+ 元组式 emits 声明。旧的多重载调用签名语法在
+// vue-tsc 3.x 下只会匹配到最后一个重载（`emit('open-detail', row)` 报
+// "not assignable to 'escalate'"），元组式才是官方推荐写法。纯类型改动，无运行时行为变化。
 const emit = defineEmits<{
-  (e: 'update:page', value: number): void
-  (e: 'update:page-size', value: number): void
-  (e: 'selection-change', rows: WarningItem[]): void
-  (e: 'open-detail', row: WarningItem): void
-  (e: 'handle', row: WarningItem): void
-  (e: 'ignore', row: WarningItem): void
-  (e: 'escalate', row: WarningItem): void
+  'update:page': [value: number]
+  'update:page-size': [value: number]
+  'selection-change': [rows: WarningItem[]]
+  'open-detail': [row: WarningItem]
+  handle: [row: WarningItem]
+  ignore: [row: WarningItem]
+  escalate: [row: WarningItem]
 }>()
 
 const { t } = useI18n()

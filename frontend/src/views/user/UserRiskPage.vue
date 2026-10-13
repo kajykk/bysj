@@ -306,16 +306,18 @@ const submitFusion = async (auto = false, refreshReport = true) => {
   }
 
   // OPT: 提交前本地校验 JSON，格式错误直接提示字段级原因，避免后端 422 往返
-  let features: Record<string, unknown>
-  let physiological: Record<string, unknown>
+  let features: Record<string, string | number | boolean>
+  // P2 类型存量收敛：predictFusionModel 的生理参数契约是标量 map；
+  // 这里按契约收窄，JSON.parse 的结果若含嵌套对象/数组则由后端校验拒绝（不在前端静默放过）
+  let physiological: Record<string, string | number | boolean>
   try {
-    features = JSON.parse(fusionForm.featuresJson || '{}')
+    features = JSON.parse(fusionForm.featuresJson || '{}') as Record<string, string | number | boolean>
   } catch {
     ElMessage.error(t('userRisk.fusionInvalidFeaturesJson'))
     return
   }
   try {
-    physiological = JSON.parse(fusionForm.physiologicalJson || '{}')
+    physiological = JSON.parse(fusionForm.physiologicalJson || '{}') as Record<string, string | number | boolean>
   } catch {
     ElMessage.error(t('userRisk.fusionInvalidPhysioJson'))
     return

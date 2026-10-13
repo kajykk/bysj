@@ -7,6 +7,7 @@ import { canaryApi, type CanaryDeployment, type CanaryCreateRequest } from '@/ap
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { availableActions } from './utils/canaryUtils'
 import CanaryStatsCard from './components/admin-canary/CanaryStatsCard.vue'
+import { asRow } from '@/utils/tableRow'
 
 const { t } = useI18n()
 const deployments = ref<CanaryDeployment[]>([])
@@ -152,7 +153,7 @@ onMounted(loadAll)
           <el-button
             v-if="availableActions(row.status).includes('adjust')"
             size="small"
-            @click="openTrafficDialog(row)"
+            @click="openTrafficDialog(asRow<CanaryDeployment>(row))"
           >
             {{ t('canary.adjustTraffic') }}
           </el-button>
@@ -160,7 +161,7 @@ onMounted(loadAll)
             v-if="availableActions(row.status).includes('pause')"
             size="small"
             :loading="actionLoading[`pause-${row.id}`]"
-            @click="pauseDeployment(row)"
+            @click="pauseDeployment(asRow<CanaryDeployment>(row))"
           >
             {{ t('canary.pause') }}
           </el-button>
@@ -168,7 +169,7 @@ onMounted(loadAll)
             v-if="availableActions(row.status).includes('resume')"
             size="small"
             :loading="actionLoading[`resume-${row.id}`]"
-            @click="resumeDeployment(row)"
+            @click="resumeDeployment(asRow<CanaryDeployment>(row))"
           >
             {{ t('canary.resume') }}
           </el-button>
@@ -177,7 +178,7 @@ onMounted(loadAll)
             size="small"
             type="success"
             :loading="actionLoading[`complete-${row.id}`]"
-            @click="completeDeployment(row)"
+            @click="completeDeployment(asRow<CanaryDeployment>(row))"
           >
             {{ t('canary.complete') }}
           </el-button>
@@ -186,7 +187,7 @@ onMounted(loadAll)
             size="small"
             type="danger"
             :loading="actionLoading[`rollback-${row.id}`]"
-            @click="rollbackDeployment(row)"
+            @click="rollbackDeployment(asRow<CanaryDeployment>(row))"
           >
             {{ t('canary.rollback') }}
           </el-button>

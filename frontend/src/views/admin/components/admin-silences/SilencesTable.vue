@@ -71,10 +71,10 @@
     >
       <template #default="{ row }">
         <el-tag
-          :type="getSilenceStatus(row, t).type"
+          :type="getSilenceStatus(asRow<SilenceItem>(row), t).type"
           size="small"
         >
-          {{ getSilenceStatus(row, t).label }}
+          {{ getSilenceStatus(asRow<SilenceItem>(row), t).label }}
         </el-tag>
       </template>
     </el-table-column>
@@ -109,7 +109,7 @@
             type="primary"
             link
             :loading="editLoadingId === row.id"
-            @action="emit('edit', row)"
+            @action="emit('edit', asRow<SilenceItem>(row))"
           />
           <ActionColumn
             v-if="!row.is_active"
@@ -120,7 +120,7 @@
             :confirm-text="t('adminSilences.enableConfirmText')"
             :confirm-title="t('adminSilences.enableConfirmTitle')"
             show-audit
-            @action="emit('enable', row)"
+            @action="emit('enable', asRow<SilenceItem>(row))"
           />
           <ActionColumn
             :label="t('common.delete')"
@@ -132,7 +132,7 @@
             :confirm-text="t('adminSilences.deleteConfirmText')"
             :confirm-title="t('adminSilences.deleteConfirmTitle')"
             show-audit
-            @action="emit('delete', row)"
+            @action="emit('delete', asRow<SilenceItem>(row))"
           />
         </div>
       </template>
@@ -147,6 +147,7 @@ import ActionColumn from '@/components/common/ActionColumn.vue'
 import { formatDate } from '@/utils/formatUtils'
 import type { SilenceItem } from '@/api/alertsApi'
 import { getSilenceStatus } from './sharedSilencesUtils'
+import { asRow } from '@/utils/tableRow'
 
 defineProps<{
   loading: boolean
@@ -159,12 +160,13 @@ defineProps<{
   deleteLoadingId: number | null
 }>()
 
+// P2 类型存量收敛：改为 Vue 3.3+ 元组式 emits（旧重载语法在 vue-tsc 3.x 只匹配最后一个）
 const emit = defineEmits<{
-  (e: 'update:page', value: number): void
-  (e: 'update:pageSize', value: number): void
-  (e: 'edit', row: SilenceItem): void
-  (e: 'enable', row: SilenceItem): void
-  (e: 'delete', row: SilenceItem): void
+  'update:page': [value: number]
+  'update:pageSize': [value: number]
+  edit: [row: SilenceItem]
+  enable: [row: SilenceItem]
+  delete: [row: SilenceItem]
 }>()
 
 const { t } = useI18n()

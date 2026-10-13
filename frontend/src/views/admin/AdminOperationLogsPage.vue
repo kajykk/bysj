@@ -196,6 +196,7 @@ import OperationLogStatsCard from './components/admin-operation-logs/OperationLo
 import type { ActionType } from '@/types/contracts'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
+import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 // ISS-052 修复：复用 exportToCSV 统一公式注入防护与单元格转义，消除手动拼接
@@ -205,10 +206,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const queryState = useListQueryState('aol')
 
-const loading = ref(false)
-const rows = ref<OperationLogItem[]>([])
-const total = ref(0)
-const pageError = ref('')
+// P2-36 首批：三态 + 竞态守卫 + 页码重置改由 useListQuery 统一提供
 
 const page = computed(() => queryState.page.value)
 const pageSize = computed(() => queryState.pageSize.value)
@@ -254,31 +252,26 @@ const getRoleLabel = (role: string): string => {
 // ISS-060 备注：safeJson 在 copyDetail 中使用（非模板），保留不删除
 const safeJson = (value: Record<string, unknown> | null) => JSON.stringify(value ?? {}, null, 2)
 
-const fetchData = async () => {
-  loading.value = true
-  pageError.value = ''
-  try {
-    const data = await adminApi.listAdminOperationLogs({
-      page: page.value,
-      page_size: pageSize.value,
-      action_type: filters.actionType,
-      operator_role: filters.operatorRole || undefined,
-      operator_name: filters.operatorName || undefined,
-      start_time: filters.range?.[0],
-      end_time: filters.range?.[1]
-    })
-    rows.value = data.items
-    total.value = data.total
-  } catch (error) {
-    pageError.value = showHttpFeedback(error, t('adminOperationLogs.loadFailed')).detail
-  } finally {
-    loading.value = false
-  }
-}
+const { rows, total, loading, error: pageError, run: fetchData, search } =
+  useListQuery<OperationLogItem>({
+    fetcher: () =>
+      adminApi.listAdminOperationLogs({
+        page: page.value,
+        page_size: pageSize.value,
+        action_type: filters.actionType,
+        operator_role: filters.operatorRole || undefined,
+        operator_name: filters.operatorName || undefined,
+        start_time: filters.range?.[0],
+        end_time: filters.range?.[1]
+      }),
+    setPage: (value) => queryState.setQuery({ page: value }),
+    immediate: false, // 与原来一致：由 onMounted 触发首次加载
+    onError: (error) => showHttpFeedback(error, t('adminOperationLogs.loadFailed')).detail
+  })
 
 const onPageChange = async (value: number) => { await queryState.setQuery({ page: value }); fetchData() }
 const onPageSizeChange = async (value: number) => { await queryState.setQuery({ page_size: value, page: 1 }); fetchData() }
-const handleSearch = async () => { await queryState.setQuery({ page: 1, action_type: filters.actionType, operator_role: filters.operatorRole, operator_name: filters.operatorName, start_time: filters.range?.[0], end_time: filters.range?.[1] }); fetchData() }
+const handleSearch = async () => { await queryState.setQuery({ page: 1, action_type: filters.actionType, operator_role: filters.operatorRole, operator_name: filters.operatorName, start_time: filters.range?.[0], end_time: filters.range?.[1] }); await search() }
 const handleReset = async () => { filters.actionType = undefined; filters.operatorRole = ''; filters.operatorName = ''; filters.range = []; await queryState.setQuery({ page: 1, action_type: undefined, operator_role: undefined, operator_name: undefined, start_time: undefined, end_time: undefined }); fetchData() }
 
 const exportLogs = async () => {

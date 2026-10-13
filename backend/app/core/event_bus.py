@@ -24,6 +24,8 @@ import logging
 from collections import defaultdict
 from typing import Any, Callable, Coroutine
 
+from app.core.degradation import record_silent_degradation
+
 logger = logging.getLogger(__name__)
 
 # 事件处理器类型: async def handler(event_data: dict) -> None
@@ -118,6 +120,8 @@ class EventBus:
                 self._queue.maxsize,
                 event_type,
             )
+            # P2-35 第一批：队列满丢事件 —— 事件已永久消失，必须可观测
+            record_silent_degradation("core.event_bus.publish")
 
     async def start(self) -> None:
         """启动事件消费循环."""

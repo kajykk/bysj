@@ -155,7 +155,7 @@
           link
           type="primary"
           size="small"
-          @click="emit('handle', row)"
+          @click="emit('handle', asRow<CrisisEventItem>(row))"
         >
           {{ t('adminCrisisEvents.actionHandle') }}
         </el-button>
@@ -164,7 +164,7 @@
           link
           type="warning"
           size="small"
-          @click="emit('escalate', row)"
+          @click="emit('escalate', asRow<CrisisEventItem>(row))"
         >
           {{ t('adminCrisisEvents.actionEscalate') }}
         </el-button>
@@ -173,7 +173,7 @@
           link
           type="success"
           size="small"
-          @click="emit('close', row)"
+          @click="emit('close', asRow<CrisisEventItem>(row))"
         >
           {{ t('adminCrisisEvents.actionClose') }}
         </el-button>
@@ -192,6 +192,7 @@ import PageTable from '@/components/common/PageTable.vue'
 // P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
 import { formatDate } from '@/utils/formatUtils'
 import type { CrisisEventItem } from '@/api/adminApi'
+import { asRow } from '@/utils/tableRow'
 import {
   TRIGGER_SOURCE_TAG_MAP,
   TRIGGER_SOURCE_LABEL_KEYS,
@@ -213,12 +214,13 @@ defineProps<{
   pageSize: number
 }>()
 
+// P2 类型存量收敛：改为 Vue 3.3+ 元组式 emits（旧重载语法在 vue-tsc 3.x 只匹配最后一个）
 const emit = defineEmits<{
-  (e: 'update:page', value: number): void
-  (e: 'update:pageSize', value: number): void
-  (e: 'handle', row: CrisisEventItem): void
-  (e: 'escalate', row: CrisisEventItem): void
-  (e: 'close', row: CrisisEventItem): void
+  'update:page': [value: number]
+  'update:pageSize': [value: number]
+  handle: [row: CrisisEventItem]
+  escalate: [row: CrisisEventItem]
+  close: [row: CrisisEventItem]
 }>()
 
 const { t } = useI18n()

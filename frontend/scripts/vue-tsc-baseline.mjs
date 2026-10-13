@@ -27,7 +27,11 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 
-const BASELINE = 45;
+// 棘轮收紧记录（存量修复后必须同步调低，否则门禁形同虚设）：
+//   45 → 第十一轮：DefaultRow 家族 33 处 + emits 重载 7 处 + PageTable/UserRiskPage 2 处
+//        全部收敛（`utils/tableRow.asRow` 边界收窄 + Vue 3.3 元组式 emits），实测 42 → 0。
+//        存量清零 ⇒ BASELINE 直接置 0，此后任何新增 vue-tsc 错误立即阻断。
+const BASELINE = 0;
 const TSC_ARGS = ["--noEmit", "-p", "tsconfig.app.json", "--pretty", "false"];
 
 const arg = process.argv[2] ?? "";

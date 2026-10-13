@@ -200,7 +200,7 @@
               :confirm-text="t('adminAlerts.ackConfirmText')"
               :confirm-title="t('adminAlerts.ackConfirmTitle')"
               show-audit
-              @action="handleAck(row)"
+              @action="handleAck(asRow<AlertHistoryItem>(row))"
             />
           </template>
         </el-table-column>
@@ -222,6 +222,7 @@ import AlertStatsCard from './components/admin-alerts/AlertStatsCard.vue'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { formatDate } from '@/utils/formatUtils'
+import { asRow } from '@/utils/tableRow'
 
 const { t } = useI18n()
 

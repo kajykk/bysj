@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.kill_switch import (
     KillSwitchUnavailableError,
@@ -28,7 +29,6 @@ from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.core.tenant_context import require_platform_admin
-from app.models.admin import OperationLog
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -78,16 +78,17 @@ async def activate_kill_switch(
             ),
         ) from exc
 
-    # 写入审计日志
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="model.kill_switch.activate",
-            target_type="kill_switch",
-            target_id=None,
-            detail=payload.reason,
-        )
+    # P2-33 第一批：改调统一审计 helper SSOT（补 ip_address，原手写版缺失）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="model.kill_switch.activate",
+        target_type="kill_switch",
+        target_id=None,
+        detail={"reason": payload.reason},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 
@@ -133,15 +134,17 @@ async def deactivate_kill_switch(
         ) from exc
 
     # 写入审计日志
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="model.kill_switch.deactivate",
-            target_type="kill_switch",
-            target_id=None,
-            detail=payload.reason,
-        )
+    # P2-33 第一批：改调统一审计 helper SSOT（补 ip_address）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="model.kill_switch.deactivate",
+        target_type="kill_switch",
+        target_id=None,
+        detail={"reason": payload.reason},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 

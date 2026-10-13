@@ -176,7 +176,7 @@
                 type="primary"
                 :loading="isRowPending(row.id)"
                 :disabled="row.is_read || isRowPending(row.id)"
-                @click="handleMarkRead(row)"
+                @click="handleMarkRead(asRow<WarningItem>(row))"
               >
                 {{ t('userWarnings.btnMarkRead') }}
               </el-button>
@@ -213,6 +213,7 @@ import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { formatWarningDateTime, formatHandledBy, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
+import { asRow } from '@/utils/tableRow'
 
 const { t } = useI18n()
 const auth = useAuthStore()

@@ -1,0 +1,2841 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90mE:/code/bysj/frontend[39m
+
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - index.ts 集成测试[2m > [22m[2monError 错误处理[2m > [22m[2mChunkLoadError 应触发 window.location.assign 刷新
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-chunk-error__"
+
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - index.ts 集成测试[2m > [22m[2monError 错误处理[2m > [22m[2m非 chunk 错误不应触发刷新
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-other-error__"
+
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - index.ts 集成测试[2m > [22m[2monError 错误处理[2m > [22m[2mISS-108: 导航出错时 onError 应复位 isUnauthorizedRedirecting 标志
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-iss108-reset__"
+
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - index.ts 集成测试[2m > [22m[2monError 错误处理[2m > [22m[2mISS-011: ChunkLoadError 5 秒内第二次不应刷新（时间窗口防循环）
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-same-path__"
+
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - index.ts 集成测试[2m > [22m[2monError 错误处理[2m > [22m[2mR-001: 纯 SyntaxError 不应被识别为 chunk 加载失败（避免吞掉真实语法错误）
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-syntax-error__"
+
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - index.ts 集成测试[2m > [22m[2monError 错误处理[2m > [22m[2mR-001: SyntaxError 含 chunk 失败特征时应触发刷新
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-syntax-chunk__"
+
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - index.ts 集成测试[2m > [22m[2monError 错误处理[2m > [22m[2m错误消息匹配 Loading chunk 失败也应触发刷新
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-loading-chunk__"
+
+ [32m✓[39m src/router/lazyLoad.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 4027[2mms[22m[39m
+     [33m[2m✓[22m[39m should use dynamic import for all main routes [33m 4017[2mms[22m[39m
+ [32m✓[39m src/views/user/UserAssessmentDetailPage.local.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 5595[2mms[22m[39m
+     [33m[2m✓[22m[39m structured：渲染 data 载荷的量表/得分/严重度（改前请求后端 → 404 错误态） [33m 5306[2mms[22m[39m
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2m挂载后应显示实验评估面板标题与动作选项
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+ [32m✓[39m src/views/user/components/user-settings-page/FileUploadCard.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 3837[2mms[22m[39m
+     [33m[2m✓[22m[39m 渲染标题、分类选择与拖拽上传区 [33m 1071[2mms[22m[39m
+     [33m[2m✓[22m[39m 未选文件时上传按钮禁用 [33m 348[2mms[22m[39m
+     [33m[2m✓[22m[39m 单个文件走 POST /user/upload，默认不携带 category [33m 566[2mms[22m[39m
+     [33m[2m✓[22m[39m 多个文件走批量接口，失败项带 error 展示为失败行 [33m 552[2mms[22m[39m
+     [33m[2m✓[22m[39m 超过 20MB 的文件前端直接标记跳过，不发请求 [33m 847[2mms[22m[39m
+     [33m[2m✓[22m[39m 批量接口整体失败（如超 10 个 400）→ 每个文件都有失败归属行 [33m 448[2mms[22m[39m
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2m应包含数据集名称表单项
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+ [32m✓[39m src/views/user/UserReportsPage.nullable.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 10557[2mms[22m[39m
+     [33m[2m✓[22m[39m risk_score 为 null 时不抛渲染异常，摘要卡不被清空 [33m 9715[2mms[22m[39m
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2m挂载时无实验数据不应初始化图表
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2mBERT 入口禁用: 训练/评估按钮不可点且不发起请求
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2m对比动作仍可用且会初始化图表, 卸载时释放
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+ [32m✓[39m src/views/user/components/PhysioTab.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 6328[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载后应显示生理概览表单与数据来源选项 [33m 1230[2mms[22m[39m
+     [33m[2m✓[22m[39m 应展示各字段合理性提示 [33m 784[2mms[22m[39m
+     [33m[2m✓[22m[39m canUse 为 true 时提交按钮不应禁用 [33m 771[2mms[22m[39m
+     [33m[2m✓[22m[39m canUse 为 false 时提交按钮应禁用 [33m 915[2mms[22m[39m
+     [33m[2m✓[22m[39m 应展示生理概览历史区域及清空、导出按钮 [33m 461[2mms[22m[39m
+     [33m[2m✓[22m[39m 无历史记录时应显示空状态占位 [33m 535[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载时读取 localStorage 历史不报错 [33m 363[2mms[22m[39m
+     [33m[2m✓[22m[39m 点击清空按钮应清空历史并显示空状态 [33m 307[2mms[22m[39m
+     [33m[2m✓[22m[39m 提交生理数据应调用 recordPhysiological 接口并触发 submitted 事件 [33m 402[2mms[22m[39m
+     [33m[2m✓[22m[39m 提交失败应不触发 submitted 事件 [33m 553[2mms[22m[39m
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2m对比动作仍可用且会初始化图表, 卸载时释放
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: HTMLDivElement {},
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLFormElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2m对比动作仍可用且会初始化图表, 卸载时释放
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: HTMLDivElement {},
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLFormElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [36m[HTMLDivElement][39m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+ [32m✓[39m src/views/user/UserAssessmentsPage.contract.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 8165[2mms[22m[39m
+     [33m[2m✓[22m[39m 得分列渲染 structured 的 data.score（改前取顶层 score → 恒空） [33m 3275[2mms[22m[39m
+     [33m[2m✓[22m[39m 风险等级列渲染 structured 的 data.severity（改前取 risk_level → 恒空） [33m 1450[2mms[22m[39m
+     [33m[2m✓[22m[39m 摘要列三类记录都有内容（改前取 summary → 恒空） [33m 1118[2mms[22m[39m
+     [33m[2m✓[22m[39m 类型列三类都有标签（改前取 assessment_type → 恒空） [33m 720[2mms[22m[39m
+     [33m[2m✓[22m[39m 时间列渲染 created_at，不是空 [33m 677[2mms[22m[39m
+     [33m[2m✓[22m[39m 点「查看详情」时把原始 item 放进 router state（否则详情页无数据可渲染） [33m 921[2mms[22m[39m
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - 进度条定时器回调[2m > [22m[2mstartProgress 的 setInterval 回调应更新进度条宽度
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-progress-timer__"
+
+[90mstderr[2m | src/router/index.test.ts[2m > [22m[2mRouter - 进度条定时器回调[2m > [22m[2mstopProgress 的 setTimeout 回调应将进度条 opacity 设为 0
+[22m[39m[Vue Router warn]: Cannot remove non-existent route "/__test-stop-timer__"
+
+ [32m✓[39m src/router/index.test.ts [2m([22m[2m57 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[33m 13027[2mms[22m[39m
+     [33m[2m✓[22m[39m 所有路由的 component 函数应可加载并返回 default export [33m 12589[2mms[22m[39m
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2m未执行实验时应显示空状态或占位
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+ [32m✓[39m src/views/user/components/TextAssessTab.nullable.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 7848[2mms[22m[39m
+     [33m[2m✓[22m[39m sentiment_score 为 null 时不抛异常且组件树未被清空 [33m 2158[2mms[22m[39m
+     [33m[2m✓[22m[39m sentiment_label 为 null 时不抛异常 [33m 1050[2mms[22m[39m
+     [33m[2m✓[22m[39m sentiment_score 与 sentiment_label 同时为 null（模型回退路径）也不崩 [33m 1054[2mms[22m[39m
+     [33m[2m✓[22m[39m 概率为 0（边界值）时正常显示 0.00% 而非被误判为空 [33m 1138[2mms[22m[39m
+     [33m[2m✓[22m[39m probability 为 null 时不抛异常且组件树未被清空 [33m 877[2mms[22m[39m
+     [33m[2m✓[22m[39m probability 为 null 时其余字段仍正常渲染（对照：修复没有误伤旁支） [33m 815[2mms[22m[39m
+     [33m[2m✓[22m[39m 正常值路径不受影响（对照：确保修复没有把正常渲染改坏） [33m 750[2mms[22m[39m
+[90mstderr[2m | src/views/user/components/ExperimentTab.test.ts[2m > [22m[2mExperimentTab[2m > [22m[2mBERT 入口禁用时不再调用 trainModel（权重已归档）
+[22m[39mProperty "trainBert" was accessed during render but is not defined on instance. {
+  direction: [36m[Getter/Setter][39m,
+  class: [36m[Getter/Setter][39m,
+  style: [36m[Getter/Setter][39m,
+  alignment: [36m[Getter/Setter][39m,
+  prefixCls: [36m[Getter/Setter][39m,
+  spacer: [36m[Getter/Setter][39m,
+  wrap: [36m[Getter/Setter][39m,
+  fill: [36m[Getter/Setter][39m,
+  fillRatio: [36m[Getter/Setter][39m,
+  size: [36m[Getter/Setter][39m
+} at <ElSpace>
+at <ElFormItem>
+at <ElForm>
+at <ElCol>
+at <ElRow>
+at <ElCard>
+at <ExperimentTab>
+at <VTUROOT> [
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m8[39m,
+      dynamicProps: [36m[Array][39m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [32m'data-v-7ba5c7fa'[39m,
+      slotScopeIds: [1mnull[22m,
+      children: [36m[Object][39m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m36[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [36m[Object][39m,
+      key: [1mnull[22m,
+      ref: [36m[Object][39m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [1mnull[22m,
+      ctx: [36m[Object][39m
+    },
+    recurseCount: [33m0[39m
+  },
+  {
+    vnode: {
+      __v_isVNode: [33mtrue[39m,
+      __v_skip: [33mtrue[39m,
+      type: [36m[Object][39m,
+      props: [1mnull[22m,
+      key: [1mnull[22m,
+      ref: [1mnull[22m,
+      scopeId: [1mnull[22m,
+      slotScopeIds: [1mnull[22m,
+      children: [1mnull[22m,
+      component: [36m[Object][39m,
+      suspense: [1mnull[22m,
+      ssContent: [1mnull[22m,
+      ssFallback: [1mnull[22m,
+      dirs: [1mnull[22m,
+      transition: [1mnull[22m,
+      el: [1mnull[22m,
+      anchor: [1mnull[22m,
+      target: [1mnull[22m,
+      targetStart: [1mnull[22m,
+      targetAnchor: [1mnull[22m,
+      staticCount: [33m0[39m,
+      shapeFlag: [33m4[39m,
+      patchFlag: [33m0[39m,
+      dynamicProps: [1mnull[22m,
+      dynamicChildren: [1mnull[22m,
+      appContext: [36m[Object][39m,
+      ctx: [1mnull[22m
+    },
+    recurseCount: [33m0[39m
+  }
+]
+
+ [32m✓[39m src/views/user/components/TextAssessTab.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 8248[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载后应显示文本评估表单与情绪标签选项 [33m 1510[2mms[22m[39m
+     [33m[2m✓[22m[39m 应包含最大字符数 500 的文本输入框 [33m 701[2mms[22m[39m
+     [33m[2m✓[22m[39m canUse 为 true 时不应禁用提交按钮 [33m 611[2mms[22m[39m
+     [33m[2m✓[22m[39m canUse 为 false 时提交相关按钮应禁用 [33m 988[2mms[22m[39m
+     [33m[2m✓[22m[39m 应展示文本概览历史区域 [33m 871[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载时读取 localStorage 历史不报错 [33m 656[2mms[22m[39m
+     [33m[2m✓[22m[39m 保存草稿按钮存在且内容为空时禁用 [33m 402[2mms[22m[39m
+     [33m[2m✓[22m[39m 填入内容点击保存草稿 → 以 text_assessment 类型调用 saveDraft [33m 530[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载时发现草稿且用户确认 → 表单恢复草稿内容 [33m 994[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载时发现草稿但用户放弃 → 不恢复且用空内容覆盖后端草稿 [33m 409[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载时无草稿（404→null）→ 不弹恢复确认 [33m 559[2mms[22m[39m
+ [32m✓[39m src/views/user/components/ExperimentTab.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 7639[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载后应显示实验评估面板标题与动作选项 [33m 2455[2mms[22m[39m
+     [33m[2m✓[22m[39m 应包含数据集名称表单项 [33m 936[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载时无实验数据不应初始化图表 [33m 1047[2mms[22m[39m
+     [33m[2m✓[22m[39m BERT 入口禁用: 训练/评估按钮不可点且不发起请求 [33m 593[2mms[22m[39m
+     [33m[2m✓[22m[39m 对比动作仍可用且会初始化图表, 卸载时释放 [33m 943[2mms[22m[39m
+     [33m[2m✓[22m[39m 未执行实验时应显示空状态或占位 [33m 833[2mms[22m[39m
+     [33m[2m✓[22m[39m BERT 入口禁用时不再调用 trainModel（权重已归档） [33m 825[2mms[22m[39m
+[90mstderr[2m | src/utils/p1FrontendAudit.test.ts[2m > [22m[2mP1-12 401 非幂等方法不重放原请求（真实实现）[2m > [22m[2mPOST 401：刷新 token 但不重放原请求，且挂上"请再次提交"提示
+[22m[39m[request] 401 non-idempotent POST /api/v1/crisis-events: session refreshed, request not replayed (avoid duplicate submit)
+
+[90mstderr[2m | src/utils/p1FrontendAudit.test.ts[2m > [22m[2mP1-12 401 非幂等方法不重放原请求（真实实现）[2m > [22m[2mPATCH 401：同样不重放
+[22m[39m[request] 401 non-idempotent PATCH /api/v1/intervention/plans/7: session refreshed, request not replayed (avoid duplicate submit)
+
+[90mstderr[2m | src/utils/p1FrontendAudit.test.ts[2m > [22m[2mP1-30 网络错误中文映射真实挂载（驱动真实处理器）[2m > [22m[2mECONNABORTED 超时：error.userMessage 必须是中文映射
+[22m[39m[request] network error (请求超时，请重试): GET /api/v1/probe
+
+[90mstderr[2m | src/utils/p1FrontendAudit.test.ts[2m > [22m[2mP1-30 网络错误中文映射真实挂载（驱动真实处理器）[2m > [22m[2mERR_NETWORK 断网：error.userMessage 必须是中文映射
+[22m[39m[request] network error (网络连接失败，请检查网络设置): GET /api/v1/probe
+
+[90mstderr[2m | src/utils/p1FrontendAudit.test.ts[2m > [22m[2mP1-30 网络错误中文映射真实挂载（驱动真实处理器）[2m > [22m[2m已有业务 detail 的错误不得被覆盖 userMessage（对照）
+[22m[39m[request] request failed: POST /api/v1/probe
+
+[90mstderr[2m | src/utils/p1FrontendAudit.test.ts[2m > [22m[2mP1-27 GET 去重清理（可观测判据，非恒绿）[2m > [22m[2mA. 请求失败后 inflight 记录被清理，且调用方仍拿到 rejection
+[22m[39m[request] 500 server error: GET /api/v1/p1-27-probe
+
+ [32m✓[39m src/utils/p1FrontendAudit.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 429[2mms[22m[39m
+ [32m✓[39m src/composables/useECharts.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 512[2mms[22m[39m
+       [33m[2m✓[22m[39m 应正确格式化大数字 [33m 395[2mms[22m[39m
+ [32m✓[39m src/utils/sharedResize.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 230[2mms[22m[39m
+ [32m✓[39m src/views/user/components/user-model-training/TrainingRegistryCard.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 1703[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载后加载注册表记录并展示状态与指标 [33m 697[2mms[22m[39m
+ [32m✓[39m src/styles/styles.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 238[2mms[22m[39m
+ [32m✓[39m src/views/user/components/RiskReportTab.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 1687[2mms[22m[39m
+     [33m[2m✓[22m[39m canExport 为 true 时应显示导出按钮 [33m 748[2mms[22m[39m
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m403 reject 且不弹全局提示
+[22m[39m[request] 403 forbidden:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m403 detail 缺失同样 reject 且不弹提示
+[22m[39m[request] 403 forbidden:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m404 reject 且不弹全局提示
+[22m[39m[request] 404 not found:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m404 detail 缺失同样 reject 且不弹提示
+[22m[39m[request] 404 not found:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m422 reject 且不弹全局提示
+[22m[39m[request] 422 validation failed:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m422 detail 缺失同样 reject 且不弹提示
+[22m[39m[request] 422 validation failed:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m500 reject 且不弹全局提示
+[22m[39m[request] 500 server error:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m502 detail 缺失同样 reject 且不弹提示
+[22m[39m[request] 502 server error:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m503 reject 且不弹全局提示
+[22m[39m[request] 503 server error:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m其他状态码（如 400）reject 且不弹提示
+[22m[39m[request] request failed:  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2m无 response 字段的网络异常 reject 且不弹提示
+[22m[39m[request] network error (unmapped):  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2mISS-106: 请求超时 reject (提示由页面层展示)
+[22m[39m[request] network error (请求超时，请重试):  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 非 401 状态码[2m > [22m[2mISS-106: ERR_NETWORK 断网 reject (提示由页面层展示)
+[22m[39m[request] network error (网络连接失败，请检查网络设置):  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 401 场景[2m > [22m[2m401 refresh 失败时清除 auth 并 reject
+[22m[39m[request] network error (unmapped):  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresponse 错误处理器 - 401 场景[2m > [22m[2m401 refresh 失败时清除 auth 并 reject
+[22m[39m[refreshAccessToken] token refresh failed: Error: refresh failed
+    at __vi_import_0__.default.defaults.adapter (E:/code/bysj/frontend/src/api/request.interceptors.test.ts:280:15)
+    at Axios.dispatchRequest [90m(file:///E:/code/bysj/frontend/[39mnode_modules/[4maxios[24m/lib/core/dispatchRequest.js:54:10[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at Axios.request [90m(file:///E:/code/bysj/frontend/[39mnode_modules/[4maxios[24m/lib/core/Axios.js:42:14[90m)[39m
+    at refreshAccessToken (E:/code/bysj/frontend/src/api/request.ts:92:22)
+    at E:/code/bysj/frontend/src/api/request.ts:235:26
+    at E:/code/bysj/frontend/src/api/request.interceptors.test.ts:290:7
+    at [90mfile:///E:/code/bysj/frontend/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-artifact.js:1903:20
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresetUnauthorizedRedirecting[2m > [22m[2m复位后允许下一次 401 再次触发跳转
+[22m[39m[request] network error (unmapped):  
+
+[90mstderr[2m | src/api/request.interceptors.test.ts[2m > [22m[2mrequest module - 响应拦截器与辅助函数[2m > [22m[2mresetUnauthorizedRedirecting[2m > [22m[2m复位后允许下一次 401 再次触发跳转
+[22m[39m[refreshAccessToken] token refresh failed: Error: refresh failed
+    at __vi_import_0__.default.defaults.adapter (E:/code/bysj/frontend/src/api/request.interceptors.test.ts:755:15)
+    at Axios.dispatchRequest [90m(file:///E:/code/bysj/frontend/[39mnode_modules/[4maxios[24m/lib/core/dispatchRequest.js:54:10[90m)[39m
+    at Axios.request [90m(file:///E:/code/bysj/frontend/[39mnode_modules/[4maxios[24m/lib/core/Axios.js:42:14[90m)[39m
+    at refreshAccessToken (E:/code/bysj/frontend/src/api/request.ts:92:22)
+    at E:/code/bysj/frontend/src/api/request.ts:235:26
+    at E:/code/bysj/frontend/src/api/request.interceptors.test.ts:765:7
+    at [90mfile:///E:/code/bysj/frontend/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-artifact.js:1903:20
+
+ [32m✓[39m src/api/request.interceptors.test.ts [2m([22m[2m52 tests[22m[2m)[22m[32m 242[2mms[22m[39m
+ [32m✓[39m src/views/user/components/StructuredAssessTab.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 13588[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载后应显示结构化概览表单卡片标题 [33m 3624[2mms[22m[39m
+     [33m[2m✓[22m[39m 应提供单页模式与分步向导切换 [33m 2564[2mms[22m[39m
+     [33m[2m✓[22m[39m canUse 为 false 时表单仍可渲染 [33m 2051[2mms[22m[39m
+     [33m[2m✓[22m[39m 点击"查看概览报告"应触发 view-report 事件（结果卡片可见时） [33m 2006[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载时应从 localStorage 读取概览历史（空时不报错） [33m 1738[2mms[22m[39m
+     [33m[2m✓[22m[39m 概览历史区域应展示清空与导出按钮 [33m 1599[2mms[22m[39m
+ [32m✓[39m src/stores/auth.test.ts [2m([22m[2m39 tests[22m[2m)[22m[32m 262[2mms[22m[39m
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+ [32m✓[39m src/utils/exportUtils.test.ts [2m([22m[2m61 tests[22m[2m)[22m[32m 197[2mms[22m[39m
+ [32m✓[39m src/components/charts/BaseChart.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32m✓[39m src/utils/p2_32_ssot.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32m✓[39m src/composables/useWebSocket.test.ts [2m([22m[2m60 tests[22m[2m)[22m[32m 205[2mms[22m[39m
+ [32m✓[39m src/views/p1-15-stats-cards.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 242[2mms[22m[39m
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2m应默认使用 auto 主题
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2m应从 localStorage 读取主题
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2m设置 dark 主题应添加 dark 类
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2m设置 light 主题应移除 dark 类
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2misDark 应反映当前主题
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2mauto 主题在 prefers-color-scheme: dark 时应启用 dark
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2mauto 主题在 prefers-color-scheme: light 时应禁用 dark
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2msetTheme 应将主题持久化到 localStorage
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2mapplyTheme 应根据当前主题重新计算 isDark
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2mlocalStorage 读取异常时应回退到 auto 主题
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2mlocalStorage 写入异常时不应抛错（静默失败）
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2m多次切换主题应正确更新 dark 类
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+[90mstderr[2m | src/composables/useTheme.test.ts[2m > [22m[2museTheme[2m > [22m[2m主题切换后 theme ref 应反映新值
+[22m[39m[Vue warn] onScopeDispose() is called when there is no active effect scope to be associated with.
+
+ [32m✓[39m src/composables/useTheme.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+ [32m✓[39m src/plugins/sentry.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m src/views/admin/AdminAuditLogsPage.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 6510[2mms[22m[39m
+     [33m[2m✓[22m[39m 挂载即加载审计日志（默认 page_size=50）并渲染合规统计条 [33m 2808[2mms[22m[39m
+     [33m[2m✓[22m[39m 分布超过 8 类时截断并提示剩余数量 [33m 1441[2mms[22m[39m
+     [33m[2m✓[22m[39m 加载失败时展示错误态并可重试 [33m 1259[2mms[22m[39m
+     [33m[2m✓[22m[39m compliance 为后端响应中的统计块（非分页字段） [33m 996[2mms[22m[39m
+ [32m✓[39m src/api/userFileApi.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 48[2mms[22m[39m
+ [32m✓[39m src/i18n/locales/i18n.test.ts [2m([22m[2m37 tests[22m[2m)[22m[32m 151[2mms[22m[39m
+ [32m✓[39m src/config/perf-p2-bundle.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/api/counselorApi.test.ts [2m([22m[2m47 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32m✓[39m src/components/common/ActionColumn.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 156[2mms[22m[39m
+ [32m✓[39m src/api/adminApi.test.ts [2m([22m[2m35 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m src/api/userRiskApi.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/composables/usePerformanceMonitor.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/views/user/utils/assessmentHistory.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+[90mstderr[2m | src/utils/riskFormatters.test.ts[2m > [22m[2mriskFormatters[2m > [22m[2mfeatureLabel[2m > [22m[2m未知 key 回退原文
+[22m[39m[intlify] Not found 'riskFormatter.features.weirdNewFeature' key in 'zh' locale messages.
+
+[90mstderr[2m | src/utils/riskFormatters.test.ts[2m > [22m[2mriskFormatters[2m > [22m[2mrouteReasonLabel[2m > [22m[2m未知 reason 回退原文
+[22m[39m[intlify] Not found 'riskFormatter.routeReason.someFutureReason' key in 'zh' locale messages.
+
+ [32m✓[39m src/utils/riskFormatters.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/utils/httpFeedback.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/harness/flows.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/api/domainApis.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/api/userWarningsApi.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/api/userContentApi.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/api/auth.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m src/api/userInterventionApi.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/api/reportsApi.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m src/utils/authStorage.test.ts [2m([22m[2m36 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/stores/loading.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/components/charts/charts.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/layouts/components/main-layout/useLayoutMenu.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/utils/warning.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/api/observabilityApi.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/views/user/components/structured-steps/sharedStepUtils.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/api/userBindingApi.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/api/canaryApi.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/api/gdprApi.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m src/config/permissions.alignment.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/utils/logger.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/api/monitoringApi.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/utils/formatUtils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/components/common/LazyImage.test.ts [2m([22m[2m31 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/composables/useListQueryState.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/composables/useListQuery.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m src/views/user/utils/assessmentDetailCache.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/api/killSwitchApi.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/components/common/ErrorPage.test.ts [2m([22m[2m31 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/composables/useBreakpoint.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/router/guard.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/views/user/components/composables/useTextPredictionHistory.storage.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/views/user/UserDashboard.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/composables/useAnalytics.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/utils/httpError.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/views/user/UserRiskPage.structured.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/views/admin/AdminDashboard.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/utils/sensitiveStorage.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/views/admin/AdminReportsPage.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/views/user/UserRiskPage.experiment.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/components/common/SkeletonScreen.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/views/counselor/CounselorWarningsPage.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/views/admin/AdminTemplatesPage.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/api/request.harness.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/components/common/PageTable.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/views/counselor/CounselorDashboard.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/api/request.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/views/user/UserRiskPage.report.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/views/user/UserRiskPage.text.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/views/admin/AdminCanaryPage.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/views/admin/AdminObservabilityPage.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/views/user/UserDashboard.loading.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/views/user/UserRiskPage.physio.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/csp.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/components/common/BreadcrumbNav.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/api/base.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/config/routeAccess.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/components/common/EmptyState.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/utils/security.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/views/admin/AdminMonitoringPage.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/utils/roles.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/components/common/CountUp.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/views/counselor/CounselorUsersPage.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/views/admin/AdminOperationLogsPage.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/views/user/UserReportsPage.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/utils/p2CsvSsot.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/utils/errorPolicy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m103 passed[39m[22m[90m (103)[39m
+[2m      Tests [22m [1m[32m1302 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (1306)[39m
+[2m   Start at [22m 04:19:41
+[2m   Duration [22m 72.45s[2m (transform 42.10s, setup 5.97s, import 123.09s, tests 103.22s, environment 437.62s)[22m
+

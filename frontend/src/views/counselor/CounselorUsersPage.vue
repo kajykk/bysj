@@ -113,7 +113,7 @@
               :disabled="!canViewConsultation"
               :disabled-reason="t('counselorUsers.noPermission')"
               show-audit
-              @action="openDetail(row)"
+              @action="openDetail(asRow<UserManageItem>(row))"
             />
           </template>
         </el-table-column>
@@ -181,7 +181,9 @@ import { normalizeHttpError } from '@/utils/errorPolicy'
 import { EXTENDED_SERIES_COLORS } from '@/utils/chartPalette'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
+import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
+import { asRow } from '@/utils/tableRow'
 
 const { t } = useI18n()
 
@@ -203,10 +205,7 @@ const normalizeUserRow = (row: UserManageItem): UserRow => ({
 const auth = useAuthStore()
 const queryState = useListQueryState('cu')
 
-const loading = ref(false)
-const rows = ref<UserRow[]>([])
-const total = ref(0)
-const pageError = ref('')
+// P2-36 首批：三态 + 竞态守卫 + 页码重置改由 useListQuery 统一提供
 const detailVisible = ref(false)
 const detailRow = ref<UserRow | null>(null)
 
@@ -244,26 +243,24 @@ const getRiskLabel = (level: number | undefined) => {
   return key ? t(`counselorUsers.${key}`) : t('counselorUsers.riskLabelUnknown')
 }
 
-const fetchData = async () => {
-  loading.value = true
-  pageError.value = ''
-  try {
-    const data = await withMockFallback(
-      () => counselorApi.getCounselorUsers({ page: page.value, page_size: pageSize.value, risk_level: filters.riskLevel ?? undefined }),
-      () => mockUsers(page.value, pageSize.value)
-    )
-    rows.value = data.items.map(normalizeUserRow)
-    total.value = data.total
-  } catch (error) {
-    pageError.value = normalizeHttpError(error, t('counselorUsers.loadFailed')).detail
-  } finally {
-    loading.value = false
-  }
-}
+const { rows, total, loading, error: pageError, run: fetchData, search } =
+  useListQuery<UserRow>({
+    fetcher: async () => {
+      const data = await withMockFallback(
+        () => counselorApi.getCounselorUsers({ page: page.value, page_size: pageSize.value, risk_level: filters.riskLevel ?? undefined }),
+        () => mockUsers(page.value, pageSize.value)
+      )
+      return { items: data.items.map(normalizeUserRow), total: data.total }
+    },
+    setPage: (value) => queryState.setQuery({ page: value }),
+    immediate: false, // 与原来一致：由 onMounted 触发首次加载
+    onError: (error) => normalizeHttpError(error, t('counselorUsers.loadFailed')).detail
+  })
 
 const onRiskLevelChange = async () => {
   await queryState.setQuery({ page: 1 })
-  fetchData()
+  // 筛选变化走 search：先作废在途请求，避免旧页响应晚到覆盖第 1 页
+  await search()
 }
 
 const onPageChange = async (value: number) => {

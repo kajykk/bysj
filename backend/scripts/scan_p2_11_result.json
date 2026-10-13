@@ -1,0 +1,5055 @@
+{
+  "operation_log": {
+    "total_hits": 121,
+    "model_definition": [],
+    "helper_body": [
+      {
+        "file": "app/core/audit.py",
+        "line": 57
+      }
+    ],
+    "tests": 66,
+    "prod_construct_sites": 54,
+    "by_file": {
+      "app/api/v1/admin.py": 2,
+      "app/api/v1/alerts/__init__.py": 2,
+      "app/api/v1/alerts/_helpers.py": 1,
+      "app/api/v1/analytics_events.py": 1,
+      "app/api/v1/auth.py": 1,
+      "app/api/v1/counselor.py": 3,
+      "app/api/v1/gdpr.py": 2,
+      "app/api/v1/reports.py": 1,
+      "app/api/v1/tenant_admin.py": 4,
+      "app/api/v1/tenant_branding.py": 1,
+      "app/api/v1/tenant_export.py": 1,
+      "app/api/v1/uploads.py": 1,
+      "app/api/v1/user_intervention.py": 1,
+      "app/api/v1/user_risk.py": 1,
+      "app/api/v1/user_upload.py": 2,
+      "app/monitoring/am_sync.py": 1,
+      "app/monitoring/dedup_lock.py": 1,
+      "app/monitoring/escalation.py": 1,
+      "app/monitoring/notifier.py": 1,
+      "app/services/admin_service_config.py": 1,
+      "app/services/admin_service_template.py": 2,
+      "app/services/admin_service_threshold.py": 1,
+      "app/services/counselor_service_binding.py": 6,
+      "app/services/counselor_service_consultation.py": 2,
+      "app/services/counselor_service_group.py": 2,
+      "app/services/counselor_service_warning.py": 2,
+      "app/services/gdpr_service_anonymize.py": 1,
+      "app/services/intervention_service.py": 2,
+      "app/services/review_service.py": 2,
+      "app/services/warning_service.py": 3,
+      "app/tasks/anomaly_detection.py": 1,
+      "app/tasks/scheduler.py": 1
+    },
+    "prod": [
+      {
+        "file": "app/api/v1/admin.py",
+        "line": 428
+      },
+      {
+        "file": "app/api/v1/admin.py",
+        "line": 544
+      },
+      {
+        "file": "app/api/v1/alerts/__init__.py",
+        "line": 468
+      },
+      {
+        "file": "app/api/v1/alerts/__init__.py",
+        "line": 139
+      },
+      {
+        "file": "app/api/v1/alerts/_helpers.py",
+        "line": 129
+      },
+      {
+        "file": "app/api/v1/analytics_events.py",
+        "line": 243
+      },
+      {
+        "file": "app/api/v1/auth.py",
+        "line": 109
+      },
+      {
+        "file": "app/api/v1/counselor.py",
+        "line": 151
+      },
+      {
+        "file": "app/api/v1/counselor.py",
+        "line": 219
+      },
+      {
+        "file": "app/api/v1/counselor.py",
+        "line": 286
+      },
+      {
+        "file": "app/api/v1/gdpr.py",
+        "line": 343
+      },
+      {
+        "file": "app/api/v1/gdpr.py",
+        "line": 167
+      },
+      {
+        "file": "app/api/v1/reports.py",
+        "line": 196
+      },
+      {
+        "file": "app/api/v1/tenant_admin.py",
+        "line": 143
+      },
+      {
+        "file": "app/api/v1/tenant_admin.py",
+        "line": 251
+      },
+      {
+        "file": "app/api/v1/tenant_admin.py",
+        "line": 296
+      },
+      {
+        "file": "app/api/v1/tenant_admin.py",
+        "line": 347
+      },
+      {
+        "file": "app/api/v1/tenant_branding.py",
+        "line": 159
+      },
+      {
+        "file": "app/api/v1/tenant_export.py",
+        "line": 132
+      },
+      {
+        "file": "app/api/v1/uploads.py",
+        "line": 310
+      },
+      {
+        "file": "app/api/v1/user_intervention.py",
+        "line": 33
+      },
+      {
+        "file": "app/api/v1/user_risk.py",
+        "line": 74
+      },
+      {
+        "file": "app/api/v1/user_upload.py",
+        "line": 268
+      },
+      {
+        "file": "app/api/v1/user_upload.py",
+        "line": 342
+      },
+      {
+        "file": "app/monitoring/am_sync.py",
+        "line": 93
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 222
+      },
+      {
+        "file": "app/monitoring/escalation.py",
+        "line": 237
+      },
+      {
+        "file": "app/monitoring/notifier.py",
+        "line": 443
+      },
+      {
+        "file": "app/services/admin_service_config.py",
+        "line": 131
+      },
+      {
+        "file": "app/services/admin_service_template.py",
+        "line": 119
+      },
+      {
+        "file": "app/services/admin_service_template.py",
+        "line": 88
+      },
+      {
+        "file": "app/services/admin_service_threshold.py",
+        "line": 116
+      },
+      {
+        "file": "app/services/counselor_service_binding.py",
+        "line": 261
+      },
+      {
+        "file": "app/services/counselor_service_binding.py",
+        "line": 345
+      },
+      {
+        "file": "app/services/counselor_service_binding.py",
+        "line": 69
+      },
+      {
+        "file": "app/services/counselor_service_binding.py",
+        "line": 83
+      },
+      {
+        "file": "app/services/counselor_service_binding.py",
+        "line": 130
+      },
+      {
+        "file": "app/services/counselor_service_binding.py",
+        "line": 146
+      },
+      {
+        "file": "app/services/counselor_service_consultation.py",
+        "line": 59
+      },
+      {
+        "file": "app/services/counselor_service_consultation.py",
+        "line": 103
+      },
+      {
+        "file": "app/services/counselor_service_group.py",
+        "line": 40
+      },
+      {
+        "file": "app/services/counselor_service_group.py",
+        "line": 143
+      },
+      {
+        "file": "app/services/counselor_service_warning.py",
+        "line": 169
+      },
+      {
+        "file": "app/services/counselor_service_warning.py",
+        "line": 230
+      },
+      {
+        "file": "app/services/gdpr_service_anonymize.py",
+        "line": 124
+      },
+      {
+        "file": "app/services/intervention_service.py",
+        "line": 351
+      },
+      {
+        "file": "app/services/intervention_service.py",
+        "line": 392
+      },
+      {
+        "file": "app/services/review_service.py",
+        "line": 719
+      },
+      {
+        "file": "app/services/review_service.py",
+        "line": 319
+      },
+      {
+        "file": "app/services/warning_service.py",
+        "line": 154
+      },
+      {
+        "file": "app/services/warning_service.py",
+        "line": 179
+      },
+      {
+        "file": "app/services/warning_service.py",
+        "line": 277
+      },
+      {
+        "file": "app/tasks/anomaly_detection.py",
+        "line": 111
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 464
+      }
+    ]
+  },
+  "raise_sites": {
+    "counts": {
+      "HTTPException": 248,
+      "builtin_ValueError": 228,
+      "custom_or_other": 69,
+      "bare_re_raise": 48,
+      "builtin_RuntimeError": 26,
+      "builtin_AttributeError": 6,
+      "raise_name_only": 6,
+      "builtin_TypeError": 4,
+      "builtin_KeyError": 1
+    },
+    "detail_leak_candidates": [
+      {
+        "file": "app/api/v1/alerts/__init__.py",
+        "line": 104,
+        "detail": "'Unauthorized: missing bearer token'"
+      },
+      {
+        "file": "app/api/v1/alerts/__init__.py",
+        "line": 108,
+        "detail": "'Forbidden: invalid webhook secret'"
+      },
+      {
+        "file": "app/api/v1/alerts/__init__.py",
+        "line": 93,
+        "detail": "'Webhook disabled: ALERTMANAGER_WEBHOOK_SECRET not configured'"
+      },
+      {
+        "file": "app/api/v1/auth.py",
+        "line": 216,
+        "detail": "'未提供Refresh Token'"
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 64,
+        "detail": "'Unauthorized: missing bearer token'"
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 67,
+        "detail": "'Forbidden: invalid metrics token'"
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 58,
+        "detail": "'Metrics disabled: METRICS_ACCESS_TOKEN not configured'"
+      },
+      {
+        "file": "app/api/v1/review.py",
+        "line": 226,
+        "detail": "str(e)"
+      },
+      {
+        "file": "app/api/v1/review.py",
+        "line": 254,
+        "detail": "str(e)"
+      },
+      {
+        "file": "app/api/v1/review.py",
+        "line": 282,
+        "detail": "str(e)"
+      },
+      {
+        "file": "app/api/v1/review.py",
+        "line": 399,
+        "detail": "str(e)"
+      },
+      {
+        "file": "app/api/v1/review.py",
+        "line": 436,
+        "detail": "str(e)"
+      },
+      {
+        "file": "app/api/v1/review.py",
+        "line": 473,
+        "detail": "str(e)"
+      },
+      {
+        "file": "app/api/v1/uploads.py",
+        "line": 237,
+        "detail": "'未提供认证Token'"
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 289,
+        "detail": "'dataset_path is required'"
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 295,
+        "detail": "'Invalid path: null byte is not allowed'"
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 304,
+        "detail": "'Absolute paths are not allowed. Use a relative path within the validation data directory.'"
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 313,
+        "detail": "\"Path traversal detected: '..' is not allowed in dataset_path.\""
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 320,
+        "detail": "f\"Invalid path: Windows reserved name '{stem}' is not allowed.\""
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 332,
+        "detail": "'Path traversal detected. The dataset path must stay within the validation data directory.'"
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 96,
+        "detail": "'未提供认证Token'"
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 148,
+        "detail": "'Token租户与当前用户租户不匹配'"
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 156,
+        "detail": "'Token角色与当前用户角色不匹配'"
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 308,
+        "detail": "'未提供认证Token'"
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 102,
+        "detail": "'无效的Token类型'"
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 105,
+        "detail": "'Token缺少主体信息'"
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 110,
+        "detail": "'无效或已过期的Token'"
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 129,
+        "detail": "'Token已被撤销'"
+      }
+    ],
+    "samples": {
+      "HTTPException": [
+        "app/api/csp_report.py:96",
+        "app/api/csp_report.py:121",
+        "app/api/csp_report.py:113",
+        "app/api/csp_report.py:132",
+        "app/api/csp_report.py:108",
+        "app/api/v1/admin.py:77",
+        "app/api/v1/admin.py:513",
+        "app/api/v1/admin.py:529"
+      ],
+      "custom_or_other": [
+        "app/api/v1/admin.py:143:_map_value_error",
+        "app/api/v1/admin.py:167:_map_value_error",
+        "app/api/v1/admin.py:259:_map_value_error",
+        "app/api/v1/admin.py:425:_map_value_error",
+        "app/api/v1/admin.py:459:_map_value_error",
+        "app/core/cache.py:336:CacheUnavailableError",
+        "app/core/cache.py:343:CacheUnavailableError",
+        "app/core/cache.py:410:CacheUnavailableError"
+      ],
+      "builtin_ValueError": [
+        "app/api/v1/alerts/_schemas.py:48",
+        "app/api/v1/alerts/_schemas.py:106",
+        "app/api/v1/alerts/_schemas.py:110",
+        "app/api/v1/alerts/_schemas.py:115",
+        "app/api/v1/alerts/_schemas.py:119",
+        "app/api/v1/analytics_events.py:90",
+        "app/api/v1/model_validation.py:76",
+        "app/api/v1/model_validation.py:78"
+      ],
+      "bare_re_raise": [
+        "app/api/v1/alerts/_schemas.py:67",
+        "app/api/v1/model_predict/predict.py:112",
+        "app/api/v1/model_predict/predict.py:162",
+        "app/api/v1/model_predict/predict.py:232",
+        "app/api/v1/model_predict/predict.py:285",
+        "app/api/v1/observability/__init__.py:256",
+        "app/api/v1/silences.py:232",
+        "app/api/v1/uploads.py:290"
+      ],
+      "builtin_AttributeError": [
+        "app/api/v1/observability/aggregate.py:61",
+        "app/api/v1/observability/query.py:33",
+        "app/core/config.py:696",
+        "app/ml/model_loader.py:71",
+        "app/ml/scaler.py:42",
+        "app/ml/unified_model_interface.py:262"
+      ],
+      "builtin_RuntimeError": [
+        "app/api/v1/user_upload.py:16",
+        "app/core/pii_crypto.py:90",
+        "app/core/pii_crypto.py:165",
+        "app/core/pii_crypto.py:485",
+        "app/core/pii_crypto.py:301",
+        "app/core/pii_crypto.py:542",
+        "app/core/pii_crypto.py:585",
+        "app/core/pii_crypto.py:598"
+      ],
+      "builtin_TypeError": [
+        "app/core/audit.py:45",
+        "app/core/fallback_hierarchy.py:127",
+        "app/ml/fusion_engine.py:169",
+        "app/ml/hyperparameter_tuning.py:36"
+      ],
+      "builtin_KeyError": [
+        "app/ml/unified_model_interface.py:362"
+      ],
+      "raise_name_only": [
+        "app/services/email_service.py:183",
+        "app/services/validation_engine.py:402",
+        "app/tasks/alerts.py:69",
+        "app/tasks/alerts.py:124",
+        "app/tasks/anomaly_detection.py:74",
+        "app/tasks/observability.py:59"
+      ]
+    }
+  },
+  "silent_except": {
+    "real_candidates": 242,
+    "import_probe": 16,
+    "real_wired_metric": 3,
+    "real_unwired": [
+      {
+        "file": "app/api/v1/alerts/__init__.py",
+        "line": 342,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/alerts/_schemas.py",
+        "line": 68,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/alerts/_schemas.py",
+        "line": 63,
+        "handled": [
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 96,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 117,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 136,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 152,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 84,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics_helpers.py",
+        "line": 223,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics_helpers.py",
+        "line": 249,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics_helpers.py",
+        "line": 275,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics_helpers.py",
+        "line": 116,
+        "handled": [
+          "OSError",
+          "JSONDecodeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 254,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 310,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 326,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 342,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 358,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/status.py",
+        "line": 43,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/observability/__init__.py",
+        "line": 228,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/reports.py",
+        "line": 164,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/reports.py",
+        "line": 513,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/reports.py",
+        "line": 355,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/user_upload.py",
+        "line": 162,
+        "handled": [
+          "MagicException",
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 87,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 108,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 126,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 145,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 162,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 188,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 203,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 223,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 146,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 186,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 231,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 237,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 298,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/celery_app.py",
+        "line": 254,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/celery_app.py",
+        "line": 348,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/celery_app.py",
+        "line": 369,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/celery_app.py",
+        "line": 380,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/config.py",
+        "line": 359,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/config.py",
+        "line": 372,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/degradation.py",
+        "line": 33,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 184,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/event_bus.py",
+        "line": 116,
+        "handled": [
+          "QueueFull"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/event_bus.py",
+        "line": 141,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/fire_forget_metrics.py",
+        "line": 41,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/fire_forget_metrics.py",
+        "line": 77,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 56,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 84,
+        "handled": [
+          "TimeoutError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 88,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 129,
+        "handled": [
+          "TimeoutError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 135,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 172,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 370,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 325,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/idempotency.py",
+        "line": 75,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/idempotency.py",
+        "line": 93,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/idempotency.py",
+        "line": 104,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/instance.py",
+        "line": 25,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/kill_switch.py",
+        "line": 109,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/kill_switch.py",
+        "line": 119,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/log_sanitizer.py",
+        "line": 449,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/logging_config.py",
+        "line": 235,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/metrics.py",
+        "line": 861,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/middlewares.py",
+        "line": 114,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 81,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 171,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 199,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 233,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 297,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/inference.py",
+        "line": 348,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/inference.py",
+        "line": 326,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/inference.py",
+        "line": 362,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 239,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 81,
+        "handled": [
+          "OSError",
+          "UnicodeDecodeError",
+          "IndexError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 187,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 418,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 269,
+        "handled": [
+          "FileNotFoundError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 293,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 391,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 549,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 697,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 483,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 525,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 622,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 645,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 727,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 742,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 943,
+        "handled": [
+          "FileNotFoundError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 951,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 415,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 862,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 990,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 1089,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 1117,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 166,
+        "handled": [
+          "FileNotFoundError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 177,
+        "handled": [
+          "FileNotFoundError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 384,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 652,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_registry.py",
+        "line": 351,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 133,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 205,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 228,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 228,
+        "handled": [
+          "InvalidTag"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 344,
+        "handled": [
+          "InvalidToken"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 133,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 191,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 242,
+        "handled": [
+          "InvalidTag"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 358,
+        "handled": [
+          "InvalidToken"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/rate_limit.py",
+        "line": 142,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/rate_limit.py",
+        "line": 198,
+        "handled": [
+          "RateLimitExceeded"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/safe_pickle.py",
+        "line": 397,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/safe_pickle.py",
+        "line": 498,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 103,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 148,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 163,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 27,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 36,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 47,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/startup_status.py",
+        "line": 100,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/tenant_guard.py",
+        "line": 319,
+        "handled": [
+          "OSError",
+          "SyntaxError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/text_m2_bert_predictor.py",
+        "line": 160,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/text_tokenizer.py",
+        "line": 37,
+        "handled": [
+          "AttributeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 32,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 196,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 221,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 244,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 246,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 310,
+        "handled": [
+          "JSONDecodeError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 84,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 130,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 169,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 332,
+        "handled": [
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 294,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/main.py",
+        "line": 364,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/main.py",
+        "line": 188,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/main.py",
+        "line": 319,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/main.py",
+        "line": 297,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/ml/canary_controller.py",
+        "line": 235,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/hyperparameter_tuning.py",
+        "line": 38,
+        "handled": [
+          "JSONDecodeError",
+          "OSError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/hyperparameter_tuning.py",
+        "line": 51,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/model_loader.py",
+        "line": 46,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/model_validation.py",
+        "line": 122,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/ml/scaler.py",
+        "line": 47,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/unified_model_interface.py",
+        "line": 231,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/unified_model_interface.py",
+        "line": 239,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/unified_model_interface.py",
+        "line": 270,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/am_sync.py",
+        "line": 163,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/am_sync.py",
+        "line": 213,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/am_sync.py",
+        "line": 262,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup.py",
+        "line": 103,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 53,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 151,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 184,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 130,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 174,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/escalation.py",
+        "line": 57,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/escalation.py",
+        "line": 109,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/auth_service.py",
+        "line": 277,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/auth_service.py",
+        "line": 436,
+        "handled": [
+          "PyJWTError",
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/auto_rollback_service.py",
+        "line": 68,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/auto_rollback_service.py",
+        "line": 173,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/canary_fallback_monitor.py",
+        "line": 67,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/canary_fallback_monitor.py",
+        "line": 213,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/canary_fallback_monitor.py",
+        "line": 215,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/drift_monitoring_service.py",
+        "line": 459,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/email_service.py",
+        "line": 39,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/email_service.py",
+        "line": 164,
+        "handled": [
+          "SMTPException",
+          "OSError",
+          "ConnectionError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/excel_job_store.py",
+        "line": 131,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/experiment_metrics.py",
+        "line": 43,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/file_security_service.py",
+        "line": 118,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/file_security_service.py",
+        "line": 197,
+        "handled": [
+          "ConnectionError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/file_security_service.py",
+        "line": 211,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/fusion.py",
+        "line": 222,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/fusion.py",
+        "line": 81,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/fusion.py",
+        "line": 157,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/inference.py",
+        "line": 115,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/inference.py",
+        "line": 143,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 42,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 55,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 241,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 275,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 299,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability/aggregate.py",
+        "line": 37,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability/aggregate.py",
+        "line": 473,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability_exporter.py",
+        "line": 206,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability_exporter.py",
+        "line": 136,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/observability_exporter.py",
+        "line": 150,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability_exporter.py",
+        "line": 168,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/observability_service.py",
+        "line": 121,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/pdf_job_store.py",
+        "line": 129,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/registry_auto_rollback.py",
+        "line": 131,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/registry_auto_rollback.py",
+        "line": 133,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/review_service.py",
+        "line": 124,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/risk_service_warning.py",
+        "line": 136,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 74,
+        "handled": [
+          "RuntimeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 116,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 220,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 247,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 275,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_mode_service.py",
+        "line": 59,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_mode_service.py",
+        "line": 128,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/user_data_service.py",
+        "line": 165,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/user_data_service.py",
+        "line": 180,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/user_data_service.py",
+        "line": 197,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/user_data_service.py",
+        "line": 212,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/validation_engine.py",
+        "line": 235,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/validation_engine.py",
+        "line": 263,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/validation_engine.py",
+        "line": 145,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/validation_engine.py",
+        "line": 205,
+        "handled": [
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/anomaly_detection.py",
+        "line": 126,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 78,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 93,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 111,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 165,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 194,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 107,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 121,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 165,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 249,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 262,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 271,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 281,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 106,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 127,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 900,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 79,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 508,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 993,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1046,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1162,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 399,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 986,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1126,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1094,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1142,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/utils/checksum.py",
+        "line": 72,
+        "handled": [
+          "OSError",
+          "UnicodeDecodeError",
+          "IndexError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/utils/checksum.py",
+        "line": 155,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      }
+    ],
+    "probe_list": [
+      {
+        "file": "app/core/celery_breaker.py",
+        "line": 89,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/celery_breaker.py",
+        "line": 97,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/celery_breaker.py",
+        "line": 107,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/celery_breaker.py",
+        "line": 153,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/db_breaker.py",
+        "line": 100,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/db_breaker.py",
+        "line": 109,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/ml_breaker.py",
+        "line": 107,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 275,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 947,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 151,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 166,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 180,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 203,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/smtp_breaker.py",
+        "line": 113,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/ml/drift_detector.py",
+        "line": 128,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/file_security_service.py",
+        "line": 155,
+        "handled": [
+          "ImportError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      }
+    ],
+    "real_list": [
+      {
+        "file": "app/api/v1/alerts/__init__.py",
+        "line": 342,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/alerts/_schemas.py",
+        "line": 68,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/alerts/_schemas.py",
+        "line": 63,
+        "handled": [
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 96,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 117,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 136,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 152,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics.py",
+        "line": 84,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics_helpers.py",
+        "line": 223,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics_helpers.py",
+        "line": 249,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics_helpers.py",
+        "line": 275,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/metrics_helpers.py",
+        "line": 116,
+        "handled": [
+          "OSError",
+          "JSONDecodeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 254,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 310,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 326,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 342,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/_common.py",
+        "line": 358,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/model_predict/status.py",
+        "line": 43,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/observability/__init__.py",
+        "line": 228,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/reports.py",
+        "line": 164,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/reports.py",
+        "line": 513,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/reports.py",
+        "line": 355,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/user_upload.py",
+        "line": 162,
+        "handled": [
+          "MagicException",
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 87,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 108,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 126,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 145,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 162,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 188,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 203,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/api/v1/validation.py",
+        "line": 223,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 292,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": true,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 146,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 186,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 231,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 237,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/cache.py",
+        "line": 298,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/celery_app.py",
+        "line": 254,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/celery_app.py",
+        "line": 348,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/celery_app.py",
+        "line": 369,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/celery_app.py",
+        "line": 380,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/config.py",
+        "line": 359,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/config.py",
+        "line": 372,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/degradation.py",
+        "line": 33,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/deps.py",
+        "line": 184,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/event_bus.py",
+        "line": 116,
+        "handled": [
+          "QueueFull"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/event_bus.py",
+        "line": 141,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/fire_forget_metrics.py",
+        "line": 41,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/fire_forget_metrics.py",
+        "line": 77,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 56,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 84,
+        "handled": [
+          "TimeoutError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 88,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 129,
+        "handled": [
+          "TimeoutError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 135,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 172,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 370,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/health.py",
+        "line": 325,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/idempotency.py",
+        "line": 75,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/idempotency.py",
+        "line": 93,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/idempotency.py",
+        "line": 104,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/instance.py",
+        "line": 25,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/kill_switch.py",
+        "line": 109,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/kill_switch.py",
+        "line": 119,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/log_sanitizer.py",
+        "line": 449,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/logging_config.py",
+        "line": 235,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/metrics.py",
+        "line": 861,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/middlewares.py",
+        "line": 114,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 81,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 171,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 199,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 233,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/fallback.py",
+        "line": 297,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/inference.py",
+        "line": 348,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/inference.py",
+        "line": 326,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/inference.py",
+        "line": 362,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 239,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 81,
+        "handled": [
+          "OSError",
+          "UnicodeDecodeError",
+          "IndexError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 187,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 418,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 269,
+        "handled": [
+          "FileNotFoundError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 293,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 391,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 549,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/loading.py",
+        "line": 697,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 483,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 525,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 622,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 645,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 727,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 742,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 943,
+        "handled": [
+          "FileNotFoundError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 951,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 415,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 862,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 990,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 1089,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 1117,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 166,
+        "handled": [
+          "FileNotFoundError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 177,
+        "handled": [
+          "FileNotFoundError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 384,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_engine/predict.py",
+        "line": 652,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/model_registry.py",
+        "line": 351,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 133,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 205,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/otel.py",
+        "line": 228,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 228,
+        "handled": [
+          "InvalidTag"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 344,
+        "handled": [
+          "InvalidToken"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 133,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 191,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 242,
+        "handled": [
+          "InvalidTag"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/pii_crypto.py",
+        "line": 358,
+        "handled": [
+          "InvalidToken"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/rate_limit.py",
+        "line": 142,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/rate_limit.py",
+        "line": 198,
+        "handled": [
+          "RateLimitExceeded"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/safe_pickle.py",
+        "line": 397,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/safe_pickle.py",
+        "line": 498,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 103,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 148,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 163,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 27,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 36,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/sentry.py",
+        "line": 47,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/startup_status.py",
+        "line": 100,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/tenant_guard.py",
+        "line": 319,
+        "handled": [
+          "OSError",
+          "SyntaxError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/text_m2_bert_predictor.py",
+        "line": 160,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/text_tokenizer.py",
+        "line": 37,
+        "handled": [
+          "AttributeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 32,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 196,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 221,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 244,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 246,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 310,
+        "handled": [
+          "JSONDecodeError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 84,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 130,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 169,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 332,
+        "handled": [
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/ws.py",
+        "line": 294,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/main.py",
+        "line": 364,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/main.py",
+        "line": 188,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/main.py",
+        "line": 319,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/main.py",
+        "line": 297,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/ml/canary_controller.py",
+        "line": 235,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/hyperparameter_tuning.py",
+        "line": 38,
+        "handled": [
+          "JSONDecodeError",
+          "OSError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/hyperparameter_tuning.py",
+        "line": 51,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/model_loader.py",
+        "line": 46,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/model_validation.py",
+        "line": 122,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/ml/scaler.py",
+        "line": 47,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/unified_model_interface.py",
+        "line": 231,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/unified_model_interface.py",
+        "line": 239,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/ml/unified_model_interface.py",
+        "line": 270,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/am_sync.py",
+        "line": 163,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/am_sync.py",
+        "line": 213,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/am_sync.py",
+        "line": 262,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup.py",
+        "line": 95,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": true,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup.py",
+        "line": 103,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 53,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 151,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 184,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 130,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/dedup_lock.py",
+        "line": 174,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/escalation.py",
+        "line": 57,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/escalation.py",
+        "line": 100,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": true,
+        "logs_debug": true
+      },
+      {
+        "file": "app/monitoring/escalation.py",
+        "line": 109,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/auth_service.py",
+        "line": 277,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/auth_service.py",
+        "line": 436,
+        "handled": [
+          "PyJWTError",
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/auto_rollback_service.py",
+        "line": 68,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/auto_rollback_service.py",
+        "line": 173,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/canary_fallback_monitor.py",
+        "line": 67,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/canary_fallback_monitor.py",
+        "line": 213,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/canary_fallback_monitor.py",
+        "line": 215,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/drift_monitoring_service.py",
+        "line": 459,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/email_service.py",
+        "line": 39,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/email_service.py",
+        "line": 164,
+        "handled": [
+          "SMTPException",
+          "OSError",
+          "ConnectionError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/excel_job_store.py",
+        "line": 131,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/experiment_metrics.py",
+        "line": 43,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/file_security_service.py",
+        "line": 118,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/file_security_service.py",
+        "line": 197,
+        "handled": [
+          "ConnectionError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/file_security_service.py",
+        "line": 211,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/fusion.py",
+        "line": 222,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/fusion.py",
+        "line": 81,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/fusion.py",
+        "line": 157,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/inference.py",
+        "line": 115,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/inference.py",
+        "line": 143,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 42,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 55,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 241,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 275,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/model_predict/training_jobs.py",
+        "line": 299,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability/aggregate.py",
+        "line": 37,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability/aggregate.py",
+        "line": 473,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability_exporter.py",
+        "line": 206,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability_exporter.py",
+        "line": 136,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/observability_exporter.py",
+        "line": 150,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/observability_exporter.py",
+        "line": 168,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/observability_service.py",
+        "line": 121,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/pdf_job_store.py",
+        "line": 129,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/registry_auto_rollback.py",
+        "line": 131,
+        "handled": [
+          "CancelledError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/registry_auto_rollback.py",
+        "line": 133,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/review_service.py",
+        "line": 124,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/risk_service_warning.py",
+        "line": 136,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 74,
+        "handled": [
+          "RuntimeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 116,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 220,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 247,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_comparison_service.py",
+        "line": 275,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_mode_service.py",
+        "line": 59,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/shadow_mode_service.py",
+        "line": 128,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/user_data_service.py",
+        "line": 165,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/user_data_service.py",
+        "line": 180,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/user_data_service.py",
+        "line": 197,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/user_data_service.py",
+        "line": 212,
+        "handled": [
+          "TypeError",
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/validation_engine.py",
+        "line": 235,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/validation_engine.py",
+        "line": 263,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/services/validation_engine.py",
+        "line": 145,
+        "handled": [
+          "ValueError",
+          "TypeError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/services/validation_engine.py",
+        "line": 205,
+        "handled": [
+          "ValueError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/anomaly_detection.py",
+        "line": 126,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 78,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 93,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 111,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 165,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/model_training.py",
+        "line": 194,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 107,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 121,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 165,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 249,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 262,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 271,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/pdf_report.py",
+        "line": 281,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 106,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 127,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 900,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 79,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 508,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 993,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1046,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1162,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 399,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 986,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1126,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1094,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1142,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/utils/checksum.py",
+        "line": 72,
+        "handled": [
+          "OSError",
+          "UnicodeDecodeError",
+          "IndexError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/utils/checksum.py",
+        "line": 155,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      }
+    ]
+  },
+  "silent_degradation_total_refs": {
+    "app/core/cache.py": 2,
+    "app/core/degradation.py": 3,
+    "app/core/metrics.py": 2
+  }
+}

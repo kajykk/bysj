@@ -11,6 +11,8 @@ from typing import Any
 
 from sqlalchemy import desc, select
 
+from app.core.degradation import record_silent_degradation
+
 from app.core.metrics import (
     canary_traffic_percent,
     model_auc,
@@ -220,6 +222,7 @@ async def collect_ml_quality_metrics() -> None:
             )
     except Exception as exc:
         logger.warning("ml_quality metric collection failed: %s", exc)
+        record_silent_degradation("api.metrics_helpers.collect_ml_quality")
 
 
 async def collect_drift_metrics() -> None:
@@ -245,6 +248,7 @@ async def collect_drift_metrics() -> None:
                     model_drift_kl.set(0.0, modality=modality, feature="overall")
     except Exception as exc:
         logger.warning("drift metric collection failed: %s", exc)
+        record_silent_degradation("api.metrics_helpers.collect_drift")
 
 
 async def collect_canary_metrics() -> None:
@@ -270,6 +274,7 @@ async def collect_canary_metrics() -> None:
                 canary_rollback_triggered.inc(0, canary_id="none", reason="none")
     except Exception as exc:
         logger.warning("canary metric collection failed: %s", exc)
+        record_silent_degradation("api.metrics_helpers.collect_canary")
 
 
 async def collect_prometheus_metrics() -> None:

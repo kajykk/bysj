@@ -69,7 +69,7 @@
               link
               type="primary"
               size="small"
-              @click="openThresholdEdit(row)"
+              @click="openThresholdEdit(asRow<ThresholdItem>(row))"
             >
               {{ t('adminSettings.common.edit') }}
             </el-button>
@@ -171,6 +171,7 @@ import { ElMessage } from 'element-plus'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import { adminApi, type ThresholdItem } from '@/api/adminApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'
+import { asRow } from '@/utils/tableRow'
 
 const { t } = useI18n()
 

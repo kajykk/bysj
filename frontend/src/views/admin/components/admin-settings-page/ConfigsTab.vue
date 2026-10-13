@@ -58,7 +58,7 @@
               link
               type="primary"
               size="small"
-              @click="openConfigEdit(row)"
+              @click="openConfigEdit(asRow<ConfigItem>(row))"
             >
               {{ t('adminSettings.common.edit') }}
             </el-button>
@@ -125,6 +125,7 @@ import { ElMessage } from 'element-plus'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import { adminApi, type ConfigItem } from '@/api/adminApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'
+import { asRow } from '@/utils/tableRow'
 
 defineProps<{
   configs: ConfigItem[]

@@ -28,6 +28,7 @@ from typing import Any
 
 # 别名导入：避免与下方局部变量 `modality_quality` 同名遮蔽
 from app.core.confidence import modality_quality as classify_modality_quality
+from app.core.degradation import record_silent_degradation
 
 
 class FusionMixin:
@@ -69,7 +70,13 @@ class FusionMixin:
 
             results = await asyncio.gather(*(task for _, task in tasks), return_exceptions=True)
             for (name, _), value in zip(tasks, results):
-                if isinstance(value, Exception):
+                if isinstance(value, BaseException):
+                    # P2-35 第一批：模态推理失败被吞 = 该模态分数缺席 → 融合分会系统性偏低
+                    # （漏预警方向）。原实现只 continue，无任何可观测痕迹。
+                    logger.warning(
+                        "fusion modality %s failed, excluded from fusion: %r", name, value
+                    )
+                    record_silent_degradation(f"core.model_engine.fusion.{name}")
                     continue
                 if name == "structured":
                     structured_result = value

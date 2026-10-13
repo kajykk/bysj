@@ -112,7 +112,7 @@
               :disabled="!canViewAssessment"
               :disabled-reason="t('userAssessments.noPermission')"
               show-audit
-              @action="openDetail(row)"
+              @action="openDetail(asRow<AssessmentHistoryRow>(row))"
             />
           </template>
         </el-table-column>
@@ -146,6 +146,7 @@ import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { exportToCSV } from '@/utils/exportUtils'
 import { useListQueryState } from '@/composables/useListQueryState'
+import { asRow } from '@/utils/tableRow'
 
 const { t } = useI18n()
 const auth = useAuthStore()

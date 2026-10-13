@@ -11,6 +11,7 @@ from jwt import PyJWTError
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 from app.core.database import AsyncSessionLocal
 from app.core.security import decode_token
 from app.models.user import User
@@ -195,6 +196,8 @@ class ConnectionManager:
         except Exception as exc:
             # Redis 操作失败 - 仅记录,不抛出. 本地发送已经完成,不影响本 worker 的连接.
             logger.debug("Redis pubsub publish failed for user_id=%d: %s", user_id, exc)
+            # P2-35 第一批：跨进程投递失败 = 真实降级（其它 worker 的用户收不到消息），必须留痕
+            record_silent_degradation("core.ws.publish_to_user")
             return False
 
     async def broadcast(self, message: dict) -> None:
@@ -217,6 +220,8 @@ class ConnectionManager:
             await client.publish(f"{WS_PUBSUB_CHANNEL_PREFIX}broadcast", payload)
         except Exception as exc:
             logger.debug("Redis pubsub broadcast failed: %s", exc)
+            # P2-35 第一批：广播降级，其它 worker 收不到
+            record_silent_degradation("core.ws.broadcast")
 
     async def start_pubsub_subscriber(self) -> None:
         """P2-1: 启动后台 pubsub 订阅任务 (应用启动时调用).
