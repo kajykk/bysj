@@ -58,7 +58,7 @@
 
 ## #40 契约测试
 
-- `render_exposition()`：`prometheus_client.parser.text_string_to_metric_families` 真实解析，非空即过。`promtool` 本机不在 PATH（如实记账），规则侧改用 `yaml.safe_load` 形状断言（groups[0].rules 数量 == ALERT_RULES，每条含 alert/expr 且 expr 三段式）。
+- `render_exposition()`：优先 `prometheus_client.parser` 真解析；该包非项目依赖（CI 无）时降级为严格自解析（HELP/TYPE 成对、样本行正则）。双分支均有实测（自解析分支用桩包遮蔽验证，`FALLBACK-OK help=78`）。
 
 ## 已知局限（如实记账）
 

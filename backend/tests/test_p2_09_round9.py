@@ -121,12 +121,36 @@ class TestP239DeadCode:
 
 class TestP240Contract:
     def test_exposition_parses(self):
-        from prometheus_client.parser import text_string_to_metric_families
+        from app.core.metrics import render_exposition, silent_degradation_total
 
-        from app.core.metrics import render_exposition
+        silent_degradation_total.inc(location="test.p2_40_probe")
+        silent_degradation_total.inc(location="test.p2_40_probe_b")
+        text = render_exposition()
+        try:
+            from prometheus_client.parser import text_string_to_metric_families
 
-        fams = list(text_string_to_metric_families(render_exposition()))
-        assert len(fams) > 0
+            fams = list(text_string_to_metric_families(text))
+            assert len(fams) > 0
+        except ImportError:
+            # prometheus_client 非项目依赖（CI 无此包）：用严格自解析器
+            # 断言 exposition 良构（HELP/TYPE 成对、样本行 name{labels} value）。
+            seen_help: set[str] = set()
+            seen_type: set[str] = set()
+            samples = 0
+            for line in text.splitlines():
+                if line.startswith("# HELP "):
+                    _, _, rest = line.partition("# HELP ")
+                    name = rest.split(" ", 1)[0]
+                    seen_help.add(name)
+                elif line.startswith("# TYPE "):
+                    _, _, rest = line.partition("# TYPE ")
+                    name, _, typ = rest.partition(" ")
+                    assert typ in {"counter", "gauge", "histogram"}
+                    seen_type.add(name)
+                elif line and not line.startswith("#"):
+                    assert re.match(r"^[a-zA-Z_:][a-zA-Z0-9_:]*(\{.*\})? (-?\S+)$", line), line
+                    samples += 1
+            assert seen_help and seen_help == seen_type and samples >= 2
 
     def test_rules_yaml_shape(self):
         from app.core.alert_rules import ALERT_RULES, render_prometheus_rules
