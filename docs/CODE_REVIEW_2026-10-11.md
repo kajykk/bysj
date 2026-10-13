@@ -1333,3 +1333,124 @@ E2E Full Stack / lighthouse / Check Deployment Window /
 Gitleaks Full History Scan / Gitleaks Secret Scan）。
 后端全量实测 **6689 passed / 68 skipped / 0 failed，覆盖率 84.59%**
 （较第六轮 CI 基数 6589 passed 增 100 条：闸门测试 40 + 棘轮 3 + 参数化展开）。
+
+---
+
+## 第八轮：P2-32 SSOT 去重（第一类，提交 `61b01f9`）
+
+#32 原文列了 7 类（危机词表、风险等级标签、模型元数据、角色定义、文件名
+清洗、CSV 转义、Blob 下载）。本轮**先机制扫描全部 7 类，再只改已实锤造成
+行为分叉的 2 类**，其余 5 类只审计不改并写明理由 —— 审计与整改分开，
+避免"扫一遍就顺手改"的越界。
+
+### 机制扫描先行：`docs/P2_32_SSOT_DEDUP_AUDIT.md`
+
+判定「真重复」的标准是**内容集合完全相同**（可 re-export），仅「有重叠词」
+不算重复 —— 这条标准直接决定了 `crisis_detector` 的 6 分类危机分类器
+**不与** `Settings.crisis_keywords` 合并（职责不同，合并会丢失分类语义）。
+
+### 整改一：Blob 下载链路 14 处 → 1 处
+
+改前 **11 处手写下载链路**（blob → createObjectURL → 建 `<a>` → click →
+revokeObjectURL），分两种 revoke 变体。**其中 4 处仍是同步 revoke**
+（`TaskProgressNotification.vue:164`、`AdminReportsPage.vue:53`、
+`GdprTab.vue:210`、`UserReportsPage.vue:61`）—— M-29 修复过的缺陷
+（ObjectURL 在浏览器开始下载前被回收 → 下载静默失败）在这些调用点上
+**从未被修复**。这就是根因段「同模式复制 N 份后各自漂移」的直接实锤，
+且分叉方向是"安全修复只修了 SSOT 自己"。
+
+处置：新建 `exportUtils.downloadBlob()` 作为唯一入口（同时收敛
+appendChild/removeChild 细节 —— 部分旧调用点漏了，Firefox 下脱离文档的
+`<a>.click()` 可能不触发下载）；11 处调用点全部改调；exportUtils 自身
+3 处也收敛（内部最终只剩 1 处锚点）。
+
+### 整改二：危机词表死副本
+
+`inference.CRISIS_KEYWORDS` 与 `Settings.crisis_keywords` **字面完全相同**
+（10 词），但实测**无任何生产消费点** —— 唯一读词表处是
+`model_engine/risk.py:119` 读 `settings.crisis_keywords`。
+
+**关键判断**：Settings 是 `BaseSettings`（该字段**环境可覆盖**），所以不能
+"re-export 到 contracts.py" —— 那会改变可配置性，属于行为变更而非去重。
+正确处置是**删除无消费点的副本**。
+
+### 只审计未改的 5 类（理由）
+
+- **风险等级标签**：实测 4 种词表并存，`contracts.py` 用
+  `none/low/medium/high/critical`，`risk_thresholds.py` 用
+  `mild/moderate/high/critical`（即 B-34 所指）。但二者是**不同语义体系**
+  （契约输出标签 vs 分档阈值键），是否合并属业务决策，机械合并会改行为。
+- **文件名清洗**（12 处）/ **CSV 转义**（33 处引用 / 4 处绕过 SSOT）/
+  **角色定义**（57 处）/ **模型元数据**（145 处引用）：均已定位到具体
+  位置，但"有重叠"不等于"可合并"，需先逐项确认语义等价再动手。
+
+### 回退对照实验 3/3 PASS
+
+日志：`backend/scripts/rollback_p2_32_result.log`
+
+| 实验 | 变异 | 闸门反应 |
+|---|---|---|
+| E10 | 新增一份手写下载链路（前端） | 静态闸门红，精确指出 `__p2_32_probe.vue:5` |
+| E11 | `downloadBlob` 退化为同步 revoke | 行为闸门红：`expected "setTimeout" to be called 1 times, but got 0 times` |
+| E12 | 新增第二份危机词表（后端） | SSOT 闸门红，精确指出文件:行号 |
+
+### 第八个坑：驱动 `write_text(mut.new)` 把整个文件覆盖成变异片段
+
+E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
+`write_text(mut.new)`（整文件覆盖）而非 `read → replace(old, new, 1) → write`，
+导致 `exportUtils.ts` 只剩一行 `URL.revokeObjectURL(url)`，模块内
+`url`/`blob`/`link` 全部未定义 → 测试在 **import 阶段**就崩
+（`ReferenceError: url is not defined` + `Tests no tests`）→ 闸门压根没跑到
+断言，却被驱动记成"实验无效"。
+
+**自检手段**：变异轮 failed 时把原始输出留档。`no tests` /
+`ReferenceError` 就是「崩在 import 而非断言红」的信号。
+这与第七轮「静态审计产物必须在无变异窗口内生成」是同型问题：
+**验证工具自身的失效会伪装成"实验无效"或"修复有效"**。
+
+### 第九个坑：判据的语法形态覆盖不全 = 假否定
+
+本轮四个判据缺陷全部由"扫描报 0 或噪声"暴露，逐个修正：
+
+| 判据缺陷 | 后果 |
+|---|---|
+| 危机词表只认 `ast.Assign` | 漏掉 Pydantic 字段的 `AnnAssign`（Settings 那份），报 0 处实际 5 处 |
+| 风险等级要求"≥2 个字符串字面量" | 漏掉 `RISK_LEVEL_MAP: dict[int, str]`（键是 int），报 0 |
+| 角色只认 `RoleStr`/`RoleEnum`/`class Role` | 漏掉 `contracts.py` 的 `USER_ROLE_*` 模块常量（唯一 SSOT） |
+| blob_download 用固定 20 行窗口判 revoke | 跨到邻近函数，把别人的 revoke 策略算到自己头上（两处分类异常）→ 改为按所在函数块边界判定 |
+
+另：`ast.Dict` 节点没有 `targets` 属性（那是 `Assign` 的），写
+`isinstance(node, ast.Dict) and node.targets` 会 `AttributeError`。
+
+### 第十个坑：Windows 下用 subprocess 跑前端测试
+
+- `npx` 在 `subprocess.run` 里 `FileNotFoundError`（WinError 2）——
+  必须用 `node_modules/.bin/vitest.cmd` 绝对路径。
+- `FRONTEND` 必须 `.resolve()`：未解析的相对路径在 `.cmd` 里会被再解析
+  一次，导致 vitest 找不到配置文件。
+- **vitest 失败名的三种格式都要认**：`FAILED <path>`（pytest）/
+  ` FAIL  <file> > suite > name`（vitest 非 TTY，**必须捕获整行**，用
+  `(\S+)` 只会拿到文件路径）/ `× name` 逐用例行（行尾带 `12ms`）。
+  只认 `^FAILED` 会把明明红了的闸门判成"实验无效"。
+- 驱动必须做 **anchor 校验**：变异 `old` 不在文件里时会被静默跳过，
+  测试当然不红，应当场抛错而不是记成 INVALID。
+
+### 未验证 / 记账
+
+- 后端全量未在本机跑（37 分钟/轮 + 禁止并发共用 `test_app.db`），
+  以受影响文件集覆盖（177 passed），CI 全量兜底。
+- 11 处调用点改调 `downloadBlob` 后**未做真实浏览器端到端点击验证**
+  （jsdom 无法验证实际下载行为）；行为闸门覆盖的是四条不变量：
+  revoke 延迟、URL 一致性、append/remove、文件名设置。
+- 其余 5 类 SSOT（风险等级 / 文件名清洗 / CSV 转义 / 角色 / 模型元数据）
+  只审计未改，理由见上，已记入审计清单，非静默跳过。
+- `imageOptimizer.ts` 的 2 处 `revokeObjectURL` 有意保留 —— 它释放的是
+  图片对象 URL，不是下载链路，闸门里登记了豁免。
+
+### CI 结果
+
+第八轮提交 `61b01f9` 推送后 **CI 10/10 success**。实测读数：
+后端全量 **6692 passed / 68 skipped / 0 failed，覆盖率 84.60%**
+（较第七轮 6689 增 3，与本轮新增的 3 条后端闸门完全对应）；
+前端 **100 test files passed**（本地同口径 100 files / 1285 passed /
+4 skipped）；vue-tsc 0 error。
