@@ -343,7 +343,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 254,
+        "line": 261,
         "handled": [
           "TypeError",
           "ValueError"
@@ -353,7 +353,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 310,
+        "line": 317,
         "handled": [
           "TypeError",
           "ValueError"
@@ -363,7 +363,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 326,
+        "line": 333,
         "handled": [
           "TypeError",
           "ValueError"
@@ -373,7 +373,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 342,
+        "line": 349,
         "handled": [
           "TypeError",
           "ValueError"
@@ -383,7 +383,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 358,
+        "line": 365,
         "handled": [
           "TypeError",
           "ValueError"
@@ -1001,7 +1001,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 483,
+        "line": 484,
         "handled": [
           "Exception"
         ],
@@ -1010,7 +1010,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 525,
+        "line": 526,
         "handled": [
           "Exception"
         ],
@@ -1019,7 +1019,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 622,
+        "line": 623,
         "handled": [
           "Exception"
         ],
@@ -1028,7 +1028,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 645,
+        "line": 646,
         "handled": [
           "Exception"
         ],
@@ -1037,7 +1037,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 727,
+        "line": 734,
         "handled": [
           "Exception"
         ],
@@ -1046,7 +1046,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 742,
+        "line": 749,
         "handled": [
           "Exception"
         ],
@@ -1055,7 +1055,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 943,
+        "line": 950,
         "handled": [
           "FileNotFoundError"
         ],
@@ -1064,7 +1064,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 951,
+        "line": 962,
         "handled": [
           "Exception"
         ],
@@ -1073,7 +1073,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 415,
+        "line": 416,
         "handled": [
           "Exception"
         ],
@@ -1082,7 +1082,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 862,
+        "line": 869,
         "handled": [
           "Exception"
         ],
@@ -1091,7 +1091,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 990,
+        "line": 1005,
         "handled": [
           "Exception"
         ],
@@ -1100,7 +1100,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 1089,
+        "line": 1104,
         "handled": [
           "Exception"
         ],
@@ -1109,7 +1109,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 1117,
+        "line": 1132,
         "handled": [
           "Exception"
         ],
@@ -1118,7 +1118,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 166,
+        "line": 167,
         "handled": [
           "FileNotFoundError",
           "ValueError"
@@ -1128,7 +1128,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 177,
+        "line": 178,
         "handled": [
           "FileNotFoundError",
           "ValueError"
@@ -1138,7 +1138,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 384,
+        "line": 385,
         "handled": [
           "Exception"
         ],
@@ -1147,7 +1147,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 652,
+        "line": 653,
         "handled": [
           "Exception"
         ],
@@ -1595,7 +1595,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 167,
+        "line": 166,
         "handled": [
           "Exception"
         ],
@@ -1604,7 +1604,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 217,
+        "line": 216,
         "handled": [
           "Exception"
         ],
@@ -1613,7 +1613,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 266,
+        "line": 265,
         "handled": [
           "Exception"
         ],
@@ -2228,7 +2228,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 107,
+        "line": 108,
         "handled": [
           "Exception"
         ],
@@ -2237,7 +2237,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 121,
+        "line": 122,
         "handled": [
           "Exception"
         ],
@@ -2246,7 +2246,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 165,
+        "line": 166,
         "handled": [
           "Exception"
         ],
@@ -2255,7 +2255,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 249,
+        "line": 250,
         "handled": [
           "Exception"
         ],
@@ -2264,7 +2264,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 262,
+        "line": 263,
         "handled": [
           "Exception"
         ],
@@ -2273,7 +2273,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 271,
+        "line": 276,
         "handled": [
           "Exception"
         ],
@@ -2282,7 +2282,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 281,
+        "line": 286,
         "handled": [
           "Exception"
         ],
@@ -2291,7 +2291,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 107,
+        "line": 108,
         "handled": [
           "Exception"
         ],
@@ -2300,7 +2300,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 128,
+        "line": 129,
         "handled": [
           "Exception"
         ],
@@ -2309,7 +2309,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 901,
+        "line": 902,
         "handled": [
           "Exception"
         ],
@@ -2318,7 +2318,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 80,
+        "line": 81,
         "handled": [
           "Exception"
         ],
@@ -2327,7 +2327,43 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 509,
+        "line": 510,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1001,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1054,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1170,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 401,
         "handled": [
           "Exception"
         ],
@@ -2341,29 +2377,11 @@
           "OSError"
         ],
         "has_metric": false,
-        "logs_debug": false
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 1047,
-        "handled": [
-          "OSError"
-        ],
-        "has_metric": false,
-        "logs_debug": false
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 1163,
-        "handled": [
-          "OSError"
-        ],
-        "has_metric": false,
         "logs_debug": true
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 400,
+        "line": 1134,
         "handled": [
           "Exception"
         ],
@@ -2372,16 +2390,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 987,
-        "handled": [
-          "OSError"
-        ],
-        "has_metric": false,
-        "logs_debug": true
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 1127,
+        "line": 1102,
         "handled": [
           "Exception"
         ],
@@ -2390,16 +2399,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1095,
-        "handled": [
-          "Exception"
-        ],
-        "has_metric": false,
-        "logs_debug": true
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 1143,
+        "line": 1150,
         "handled": [
           "Exception"
         ],
@@ -2502,7 +2502,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 947,
+        "line": 958,
         "handled": [
           "ImportError"
         ],
@@ -2685,7 +2685,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 254,
+        "line": 261,
         "handled": [
           "TypeError",
           "ValueError"
@@ -2695,7 +2695,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 310,
+        "line": 317,
         "handled": [
           "TypeError",
           "ValueError"
@@ -2705,7 +2705,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 326,
+        "line": 333,
         "handled": [
           "TypeError",
           "ValueError"
@@ -2715,7 +2715,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 342,
+        "line": 349,
         "handled": [
           "TypeError",
           "ValueError"
@@ -2725,7 +2725,7 @@
       },
       {
         "file": "app/api/v1/model_predict/_common.py",
-        "line": 358,
+        "line": 365,
         "handled": [
           "TypeError",
           "ValueError"
@@ -3352,7 +3352,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 483,
+        "line": 484,
         "handled": [
           "Exception"
         ],
@@ -3361,7 +3361,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 525,
+        "line": 526,
         "handled": [
           "Exception"
         ],
@@ -3370,7 +3370,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 622,
+        "line": 623,
         "handled": [
           "Exception"
         ],
@@ -3379,7 +3379,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 645,
+        "line": 646,
         "handled": [
           "Exception"
         ],
@@ -3388,7 +3388,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 727,
+        "line": 734,
         "handled": [
           "Exception"
         ],
@@ -3397,7 +3397,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 742,
+        "line": 749,
         "handled": [
           "Exception"
         ],
@@ -3406,7 +3406,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 943,
+        "line": 950,
         "handled": [
           "FileNotFoundError"
         ],
@@ -3415,7 +3415,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 951,
+        "line": 962,
         "handled": [
           "Exception"
         ],
@@ -3424,7 +3424,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 415,
+        "line": 416,
         "handled": [
           "Exception"
         ],
@@ -3433,7 +3433,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 862,
+        "line": 869,
         "handled": [
           "Exception"
         ],
@@ -3442,7 +3442,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 990,
+        "line": 1005,
         "handled": [
           "Exception"
         ],
@@ -3451,7 +3451,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 1089,
+        "line": 1104,
         "handled": [
           "Exception"
         ],
@@ -3460,7 +3460,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 1117,
+        "line": 1132,
         "handled": [
           "Exception"
         ],
@@ -3469,7 +3469,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 166,
+        "line": 167,
         "handled": [
           "FileNotFoundError",
           "ValueError"
@@ -3479,7 +3479,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 177,
+        "line": 178,
         "handled": [
           "FileNotFoundError",
           "ValueError"
@@ -3489,7 +3489,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 384,
+        "line": 385,
         "handled": [
           "Exception"
         ],
@@ -3498,7 +3498,7 @@
       },
       {
         "file": "app/core/model_engine/predict.py",
-        "line": 652,
+        "line": 653,
         "handled": [
           "Exception"
         ],
@@ -3946,7 +3946,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 167,
+        "line": 166,
         "handled": [
           "Exception"
         ],
@@ -3955,7 +3955,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 217,
+        "line": 216,
         "handled": [
           "Exception"
         ],
@@ -3964,7 +3964,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 266,
+        "line": 265,
         "handled": [
           "Exception"
         ],
@@ -4597,7 +4597,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 107,
+        "line": 108,
         "handled": [
           "Exception"
         ],
@@ -4606,7 +4606,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 121,
+        "line": 122,
         "handled": [
           "Exception"
         ],
@@ -4615,7 +4615,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 165,
+        "line": 166,
         "handled": [
           "Exception"
         ],
@@ -4624,7 +4624,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 249,
+        "line": 250,
         "handled": [
           "Exception"
         ],
@@ -4633,7 +4633,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 262,
+        "line": 263,
         "handled": [
           "Exception"
         ],
@@ -4642,7 +4642,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 271,
+        "line": 276,
         "handled": [
           "Exception"
         ],
@@ -4651,7 +4651,7 @@
       },
       {
         "file": "app/tasks/pdf_report.py",
-        "line": 281,
+        "line": 286,
         "handled": [
           "Exception"
         ],
@@ -4660,7 +4660,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 107,
+        "line": 108,
         "handled": [
           "Exception"
         ],
@@ -4669,7 +4669,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 128,
+        "line": 129,
         "handled": [
           "Exception"
         ],
@@ -4678,7 +4678,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 901,
+        "line": 902,
         "handled": [
           "Exception"
         ],
@@ -4687,7 +4687,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 80,
+        "line": 81,
         "handled": [
           "Exception"
         ],
@@ -4696,7 +4696,43 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 509,
+        "line": 510,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1001,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1054,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": false
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 1170,
+        "handled": [
+          "OSError"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/tasks/scheduler.py",
+        "line": 401,
         "handled": [
           "Exception"
         ],
@@ -4710,29 +4746,11 @@
           "OSError"
         ],
         "has_metric": false,
-        "logs_debug": false
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 1047,
-        "handled": [
-          "OSError"
-        ],
-        "has_metric": false,
-        "logs_debug": false
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 1163,
-        "handled": [
-          "OSError"
-        ],
-        "has_metric": false,
         "logs_debug": true
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 400,
+        "line": 1134,
         "handled": [
           "Exception"
         ],
@@ -4741,16 +4759,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 987,
-        "handled": [
-          "OSError"
-        ],
-        "has_metric": false,
-        "logs_debug": true
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 1127,
+        "line": 1102,
         "handled": [
           "Exception"
         ],
@@ -4759,16 +4768,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1095,
-        "handled": [
-          "Exception"
-        ],
-        "has_metric": false,
-        "logs_debug": true
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 1143,
+        "line": 1150,
         "handled": [
           "Exception"
         ],
@@ -4800,6 +4800,9 @@
   "silent_degradation_total_refs": {
     "app/core/cache.py": 2,
     "app/core/degradation.py": 3,
-    "app/core/metrics.py": 2
+    "app/core/metrics.py": 2,
+    "app/core/model_engine/predict.py": 1,
+    "app/tasks/pdf_report.py": 1,
+    "app/tasks/scheduler.py": 1
   }
 }

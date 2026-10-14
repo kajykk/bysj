@@ -128,9 +128,57 @@
 
 ---
 
+## RES-P2-032-01 —— 模型元数据 4 处定义不合并（业务决策保留）
+
+- **对象**（实测 4 处，均在生产代码内）：
+  - `backend/app/core/model_registry.py`：`MODEL_PATHS: dict[str, str]`、
+    `MODEL_REGISTRY: dict[str, ModelMetadata]`
+  - `backend/app/core/model_compatibility.py`：`MODEL_COMPATIBILITY_REGISTRY: dict[str, ModelCompatibilityInfo]`
+  - `backend/app/core/model_registry_v2.py`：`class ModelRegistryV2`（+ 同文件 JSON 元数据）
+- **类别**：业务决策待定（审查原文「3 份」偏保守，第九轮审计「无第二定义处」失实）
+- **保留理由**：合并 SSOT 是业务决策（各注册表服务不同调用方与生命周期），
+  本轮不代做；强行合并会改变模型解析优先级，属生产影响最大操作之一。
+- **复核触发条件**：任一注册表新增/删除定义处、或 `ModelRegistryV2` 接入新消费者时，
+  必须重新裁定并更新审计文档（`docs/P2_11_ROUND11_AUDIT.md` 第六节）。
+- **正文出处**：事实锁 `tests/test_p2_11_round11.py::TestP232ModelMetadataContradictionRecorded::
+  test_four_definition_sites_still_exist`；裁定原文见 `docs/P2_09_ROUND9_AUDIT.md` 追加更正段。
+
+## RES-P2-032-02 —— 风险等级两套标签并存（业务决策保留）
+
+- **对象**：
+  - `backend/app/core/model_engine/risk.py:97`：契约输出标签 `"medium"`（low/medium/high/critical）
+  - `backend/app/core/risk_thresholds.py`：分档阈值键 `mild/moderate/high/critical`
+    （`RISK_LEVEL_THRESHOLDS` + `MODALITY_RISK_THRESHOLDS`）
+- **类别**：业务决策待定
+- **保留理由**：两套语义服务不同层（契约输出 vs 分档阈值），合并会同时改动
+  API 契约与阈值查表；与审查原文吻合，非缺陷。
+- **复核触发条件**：契约输出标签集或阈值键集任一变化时，重新裁定。
+- **正文出处**：事实锁 `tests/test_p2_11_round11.py::TestP232ModelMetadataContradictionRecorded::
+  test_risk_label_duality_still_exists`；裁定原文见 `docs/P2_11_ROUND11_AUDIT.md` 第六节。
+
+## RES-P2-032-03 —— 文件名清洗 3 实现语义不等价、不合并（审计豁免）
+
+- **对象**（3 处，实测语义差异如下）：
+  - `backend/app/api/v1/admin.py::_sanitize_filename`：正则 `[^A-Za-z0-9_\-.]` → `_`，
+    保留下划线/连字符/点号，**无长度限制**
+  - `backend/app/api/v1/user_risk.py::_sanitize_filename`：同上（同正则）
+  - `backend/app/api/v1/reports.py::_safe_export_filename`：仅 ASCII 字母数字
+    （`_-.` 同样被替换），**有长度截断** `_MAX_SAFE_NAME_LEN` + 空值兜底 `"export"`
+- **类别**：已知缺陷豁免（重复实现，但语义不等价）
+- **保留理由**：三处服务不同导出场景（后台管理/用户风险报告/PDF 报告），
+  合并为单一实现必然改变至少一方的文件名契约（点号保留与否、长度上限、
+  兜底名）—— 属业务决策；且三处均有各自的安全修复编号
+  （M-API-14 / L-API-5 / P1-SEC-030），合并会丢失修复上下文。
+- **复核触发条件**：任一实现的正则/长度限制/兜底名变化，或新增第四处导出文件名
+  清洗点时，必须重新裁定（并评估是否真可统一）。
+- **正文出处**：事实锁 `tests/test_p2_11_round11.py::TestP232ModelMetadataContradictionRecorded::
+  test_filename_sanitizers_exemption_still_exists`；措辞由第九轮「3 实现语义不等价、
+  不合并」的豁免更正为「审计豁免」（见 `docs/P2_11_ROUND11_AUDIT.md` 第六节）。
+
 ## 变更记录
 
 | 日期 | 轮次 | 变更 |
 |---|---|---|
 | 2026-10-14 | P2 第十一轮 | 建册；登记 RES-P1-004 正文；索引 RES-P1-005/006/007/014；新增 RES-P2-039-01（#39 拆分裁定） |
 | 2026-10-14 | P2 第十二轮 | 新增 RES-P2-034-01（服务层业务消息明文豁免 + 边界）、RES-P2-034-02（末道脱敏特征清单） |
+| 2026-10-15 | P2 第十二轮 | 新增 RES-P2-032-01/02/03（#32 三项裁定书面保留：模型元数据 4 处、风险等级两套标签、文件名清洗 3 实现） |

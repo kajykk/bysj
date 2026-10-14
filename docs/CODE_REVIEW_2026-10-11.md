@@ -1626,3 +1626,79 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 - **#36 剩余 9 页**未迁移（12 页 → 本轮 3 页），含 8 页无独立错误态的，登记在审计矩阵里。
 - `promtool check rules` 仍未跑（本机无 promtool），沿用第九轮 YAML 形状断言。
 - 前端基线**起点实测 1292 passed**，第十轮记录为 1291，差 1 条来源未查清（未发现动态用例生成），本轮一律以 1292 为起点逐位比对。
+
+# 第十二轮：P2 收尾（#34 全量收敛 + #33/#35/#36 余量清零 + #32 关闭）
+
+> 本节为追加，不改历史快照。完整审计见 `docs/P2_12_ROUND12_AUDIT.md`
+> （分七批：① #34 全量 ② #34 漏网 3 处 ③ #33 第一批+#34 gdpr ④ #33 第二批
+> ⑤ #33 服务层打样+#35 4 处+#36 最后 3 页 ⑥ CI 红修复 ⑦ #33 归零+#35 清单裁定+#32 收尾）。
+> 最终提交 `8358f33`，CI `total_count=10` 全 success。
+
+## 改了什么
+
+| # | 起点 | 落地 | 终态 |
+|---|---|---|---|
+| 34 全量 | `ServiceError` 0 处；精确判据（AST：`HTTPException.detail` 实参含异常文本）实测 **33 处真泄漏**（第十一轮启发式报的 28 处既漏报又过报，口径差异已记账） | 建 `ServiceError(client_message, internal_detail)`（`to_dict()` 绝不出 internal_detail；tenant_id 必填 sentinel）+ 末道脱敏中间件（13 条确定性特征正则，非启发式）+ 33 处按 A/B/C 三族收敛（A 26 业务文案明文 / B 5 / C 2 真堵泄漏） | 精确判据复扫 **0 处**；`ServiceError` **37 处**；`HTTPException` 248→**211** |
+| 33 余量 | 62 处手写 `OperationLog(` | 七批全迁 `record_audit`（服务层加 `request`/`tenant_id` 可选关键字打样；目标租户簇先写「归属从列 X 搬到列 Y」对应关系再迁） | 构造点 **0**（`AFTER_BATCH6=0`）；调用点 63；ip 一律从 request 取或显式 `no_request` |
+| 35 余量 | 238 处未接线（第十一轮口径） | 334 候选（口径扩到全日志级）逐条裁定分 13 桶；新接线 26 处（全部原本无任何计数的漏预警/误删/用户不可见方向） | **清单归零**：每个候选有去处；X 桶 187 条真降级留档（JSON 全量清单 + 桶计数闸门） |
+| 36 余量 | 9 页 | 分四批迁完（fetcher 闭包 / onSuccess 写附属块 / setPage 写 URL query / immediate:false + onMounted 保留 / 对外名零改动） | **12/12** |
+| 32 收尾 | 矛盾已裁定、事实锁 pin 模型元数据与风险等级 | 补文件名清洗事实锁（第三项裁定此前无 pin）+ 三条书面保留登记 `RETENTION_REGISTRY.md`（RES-P2-032-01/02/03）+ 登记存在性闸门 | **#32 关闭**（合并仍是业务决策，不代做） |
+| prettier | 第十一轮决定不做 | 未议 | 维持记账 |
+
+## 连带发现
+
+1. **闸门是跨文件源码文本断言**：改 `services/*`/`api/v1/*` 即使只换审计 helper，
+   也可能让 pin 旧形参名的闸门恒假（`operator_role=`→`actor_role=` 实锤，
+   CI backend-coverage 红 1 条）。⇒ 默认全跑 `tests/test_p2_*.py`，不按调用图取 affected。
+2. **迁移 helper 先查原签名有没有 `*`**：`admin_service_config/threshold` 原签名已有
+   关键字-only `*`，再追加 `*,` 直接 SyntaxError。
+3. **`record_audit` 的 `json.dumps` 必须带 `default=str`**：scheduler 滞留提醒原注释
+   显式依赖该容忍（「序列化失败会让本条以外的滞留预警全部丢失」），不加则测试
+   MagicMock 值 TypeError（3 failed 实锤）。
+4. **测试 mock 欠规格会随「同步→异步」迁移暴露**：escalation 测试的 MagicMock db
+   没给 `flush` 配 AsyncMock，审计改走 `record_audit`（内部 `await db.flush()`）后
+   必炸（CI 红 1 条，其余 6764 passed）。生产代码对真 AsyncSession 正确。
+5. **import 烟测不查名字绑定**（第六次实锤）：4 个文件加了 helper 调用但漏 import，
+   `import app.xxx` 全绿而运行时 NameError。⇒ 改 helper 调用点后必须 AST 全仓复查
+   「调用点⊆导入绑定」。
+6. **变异先审强度**：把登记编号 `RES-P2-032-02` 改成 `RES-P2-032-02X` 想验证闸门，
+   因子串逃逸闸门仍绿——加强为整节删除才真红。与第十一轮「只换第一处」同型。
+
+## 实测读数
+
+- CI：`total_count=10`，**10 success**（最终提交 `8358f33`；两次 CI 红均为上述
+  连带发现 1/4，修复后复绿）。
+- 后端本地：`tests/api`+`tests/services`+`tests/unit` **1795 passed / 10 skipped /
+  0 failed**；全部 P2 闸门（`test_p2_09`~`test_p2_12`+`test_p2_31/32`+upload）
+  **134 passed**；两个主闸门文件 `test_p2_12_round12.py`（25）+ `test_p2_11_round11.py`
+  （26）= **51 passed**。其中第十二轮新增闸门 28 条（`test_p2_12_round12.py` 25 条
+  全部为本轮新建 + `test_p2_11_round11.py` 新增 3 条）：ServiceError 契约 5 +
+  末道脱敏 6 + 泄漏收敛 4 + 作用域 1 + record_audit tenant 列 2 +
+  detail-JSON 下游 5 + 目标租户归属 2 + #35 桶计数 1 + #32 事实锁与登记 2。
+- 前端：**112 files / 1326 passed / 4 skipped / 0 failed**；`vue-tsc` 0 错（基线 0）。
+- #33 迁移真实变异 4 次、#35 闸门变异 3 次、#32 闸门变异 2 次（含 1 次变异太弱作废），
+  均红→恢复绿；回退日志 `backend/scripts/rollback_p2_12_result.log`。
+
+## 本地命令 ↔ CI job 对应表
+
+| 本地命令 | CI job |
+|---|---|
+| `cd backend && .venv/Scripts/python.exe -m pytest -o "addopts=--strict-markers --import-mode=importlib --cov=app --cov-report=xml:coverage.xml --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt" -p no:cacheprovider -q` | **backend-coverage**（`coverage.yml:61`） |
+| `cd backend && .venv/Scripts/python.exe -m pytest tests/test_p2_*.py …`（本地只跑闸门子集） | 同上（CI 是全量，含 tests/ 根目录） |
+| `cd frontend && npm run typecheck:baseline`（stdin 模式） | **Quality Gate**（`pr-quality-gates.yml:111`） |
+| `cd frontend && npx vitest run` | **Frontend Unit Tests** / **frontend-coverage** |
+| `cd backend && .venv/Scripts/ruff.exe check app/` | **Lint**（`pr-quality-gates.yml:55`，CI 钉 ruff 0.6.9；本机 0.16.1 的 I001 多为版本噪音） |
+| 契约测试 / gitleaks / lighthouse / E2E | **contract-test** / **Gitleaks \*** / **lighthouse** / **E2E Full Stack** |
+
+## 未验证如实记账
+
+- **后端全量本地未跑**（约 37 分钟，历轮同例）：本地跑三大目录 + 全部闸门 +
+  affected 既有测试（合计约 1900 条），根目录其余文件由 CI 全量兜底
+  （CI 实跑 6764+ passed / 68 skipped，仅上述 2 条红均已修复）。
+- **#35 X 桶 187 条真降级未接**（留档待后续批）：Top 簇 `model_engine/loading.py` 9、
+  `auto_rollback_service.py` 9、`api/v1/validation.py` 读路径 7、
+  `api/v1/silences.py` AM 同步 6、`api/v1/alerts/__init__.py` 6。
+  全量清单（file:line:function）在 `backend/tests/tools/classify_p2_35_batch6_result.json`。
+- `tests/test_iss02_validation_engine.py` 本机需 `--basetemp`（pytest tmpdir GC 触发
+  环境 bulk-delete guard，与产品代码无关；CI 无此 guard）。
+- prettier 维持第十一轮决定不做（437 文件不一致 + 3 个 `.vue` 存量 SyntaxError）。

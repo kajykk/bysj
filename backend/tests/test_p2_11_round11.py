@@ -508,6 +508,41 @@ class TestP232ModelMetadataContradictionRecorded:
         assert '"medium"' in risk, "risk.py 仍应返回 medium 标签（契约输出）"
         assert "mild" in thr and "moderate" in thr, "risk_thresholds 仍用 mild/moderate"
 
+    def test_filename_sanitizers_exemption_still_exists(self):
+        """#32 文件名清洗：3 实现语义不等价、不合并（审计豁免）。
+
+        三个实现的语义差异（实测，勿凭印象）：
+        - `admin.py::_sanitize_filename` / `user_risk.py::_sanitize_filename`：
+          正则 `[^A-Za-z0-9_\\-.]` → 保留下划线/连字符/点号，**无长度限制**；
+        - `reports.py::_safe_export_filename`：仅 ASCII 字母数字（`_-.` 也替换），
+          **有长度截断**（`_MAX_SAFE_NAME_LEN`）+ 空值兜底 "export"。
+
+        合并会改变至少一个调用方的文件名契约 → 业务决策，不合并；
+        书面依据见 `docs/RETENTION_REGISTRY.md` 的 RES-P2-032-03。
+        任一处被删/被合并，本测试红 → 强制同步登记册与审计文档。
+        """
+        admin = (BE / "api/v1/admin.py").read_text(encoding="utf-8")
+        user_risk = (BE / "api/v1/user_risk.py").read_text(encoding="utf-8")
+        reports = (BE / "api/v1/reports.py").read_text(encoding="utf-8")
+        assert r're.sub(r"[^A-Za-z0-9_\-.]", "_", name)' in admin, (
+            "admin.py 的 _sanitize_filename 正则应仍在（豁免对象）"
+        )
+        assert r're.sub(r"[^A-Za-z0-9_\-.]", "_", name)' in user_risk, (
+            "user_risk.py 的 _sanitize_filename 正则应仍在（豁免对象）"
+        )
+        assert "_MAX_SAFE_NAME_LEN" in reports, (
+            "reports.py 的长度限制应仍在（与另两处语义不同的证据）"
+        )
+
+    def test_exemptions_registered_in_retention_registry(self):
+        """#32 三项裁定的书面保留必须登记进 RETENTION_REGISTRY.md。
+
+        只写在审计文档里 = 口头依据（建册动因同型）；登记册是机器可追溯的落点。
+        """
+        reg = (DOCS / "RETENTION_REGISTRY.md").read_text(encoding="utf-8")
+        for entry in ("RES-P2-032-01", "RES-P2-032-02", "RES-P2-032-03"):
+            assert entry in reg, f"{entry} 未登记进保留登记册（#32 收尾要求书面保留）"
+
     def test_contradiction_ruling_appended(self):
         # 裁定必须以"追加"方式落到 P2_09 审计文档，不得删改原文
         t = (DOCS / "P2_09_ROUND9_AUDIT.md").read_text(encoding="utf-8")
