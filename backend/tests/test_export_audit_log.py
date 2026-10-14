@@ -450,7 +450,7 @@ class TestSourceStructure:
         from app.api.v1 import gdpr
 
         src = inspect.getsource(gdpr.export_my_data)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "user.gdpr.export_self" in src
         assert "await db.commit()" in src
 
@@ -460,7 +460,7 @@ class TestSourceStructure:
         from app.api.v1 import user_risk
 
         src = inspect.getsource(user_risk.export_risk)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "user.risk.export" in src
         assert "await db.commit()" in src
 
@@ -472,7 +472,7 @@ class TestSourceStructure:
         # OPT-R5 重构后审计写入收敛到模块级 _record_excel_export_audit，
         # 改为检查 reports 模块整体源码（行为由 test_batch_export_writes_audit_log 覆盖）
         src = inspect.getsource(reports)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "admin.report.batch_export_excel" in src
         assert "await db.commit()" in src
 
@@ -482,7 +482,7 @@ class TestSourceStructure:
         from app.api.v1 import admin
 
         src = inspect.getsource(admin.export_crisis_events)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "admin.crisis.export" in src
         assert "await db.commit()" in src
 
