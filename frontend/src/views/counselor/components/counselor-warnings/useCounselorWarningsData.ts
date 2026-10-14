@@ -13,6 +13,7 @@ import { withMockFallback } from '@/utils/mockFallback'
 import { getErrorDetail } from '@/utils/errorDetail'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
+import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { useAnalytics } from '@/composables/useAnalytics'
 import { showHttpFeedback } from '@/utils/httpFeedback'
@@ -29,11 +30,6 @@ export function useCounselorWarningsData(refreshStats?: () => void) {
   // P1-5 埋点与隐私：预警处理追踪（不采集预警内容）
   const { track } = useAnalytics()
   const queryState = useListQueryState('cw')
-
-  const loading = ref(false)
-  const rows = ref<WarningItem[]>([])
-  const total = ref(0)
-  const pageError = ref('')
 
   const page = computed(() => queryState.page.value)
   const pageSize = computed(() => queryState.pageSize.value)
@@ -95,25 +91,32 @@ export function useCounselorWarningsData(refreshStats?: () => void) {
 
   const onSelectionChange = (tableRows: unknown[]) => { selectedRows.value = tableRows as WarningItem[] }
 
-  const fetchData = async () => {
-    loading.value = true
-    pageError.value = ''
-    clearTransientRowState()
-    try {
+  // P2-36 第四批：列表三态 + 竞态守卫改由 useListQuery 统一提供。
+  // 副作用搬迁：取前清瞬态行状态保留在 fetchData 包裹层；取后清（selectedRows
+  // 重置 + 再清瞬态）走 onSuccess，只在 fresh 响应时执行。对外名不变。
+  const {
+    rows, total, loading, error: pageError, run,
+  } = useListQuery<WarningItem>({
+    fetcher: async () => {
       await queryState.setQuery({ page: page.value, page_size: pageSize.value, only_unhandled: filters.onlyUnhandled ? '1' : '0', policy: batchPolicy.value })
       const data = await withMockFallback(
         () => counselorApi.getCounselorWarnings({ page: page.value, page_size: pageSize.value, only_unhandled: filters.onlyUnhandled }),
         () => mockWarnings(page.value, pageSize.value)
       )
-      rows.value = data.items
-      total.value = data.total
+      return { items: data.items, total: data.total }
+    },
+    onSuccess: () => {
       selectedRows.value = []
       clearTransientRowState()
-    } catch (error) {
-      pageError.value = showHttpFeedback(error, t('counselorWarnings.loadFailed')).detail
-    } finally {
-      loading.value = false
-    }
+    },
+    setPage: (value) => queryState.setQuery({ page: value }),
+    immediate: false, // 与原来一致：由 onMounted 触发首次加载
+    onError: (error) => showHttpFeedback(error, t('counselorWarnings.loadFailed')).detail,
+  })
+
+  const fetchData = async () => {
+    clearTransientRowState()
+    await run()
   }
 
   const handleWarning = async (row: WarningItem, action: 'handle' | 'ignore') => {

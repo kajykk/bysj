@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, time
 
+from fastapi import Request
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.contracts import (
     ACTION_TYPE_WARNING_READ,
     ACTION_TYPE_WARNING_READ_ALL,
@@ -15,7 +17,6 @@ from app.core.contracts import (
     resolve_warning_status,
     USER_ROLE_USER,
 )
-from app.models.admin import OperationLog
 from app.models.risk import WarningNotification, WarningSetting
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,16 @@ class WarningService:
             "unread": int(row.unread or 0),
         }
 
-    async def mark_read(self, user_id: int, warning_id: int) -> bool:
+    async def mark_read(
+        self,
+        user_id: int,
+        warning_id: int,
+        *,
+        request: Request | None = None,
+        tenant_id: int | None = None,
+    ) -> bool:
+        """P2-33 第五批：审计上下文由调用方穿入（API 端点传 request/tenant，
+        任务与旧测试不传则记 None/平台默认）。"""
         stmt = select(WarningNotification).where(
             WarningNotification.id == warning_id,
             WarningNotification.user_id == user_id,
@@ -150,20 +160,27 @@ class WarningService:
         if not warning.is_read:
             warning.is_read = True
             warning.read_at = datetime.now(UTC).replace(tzinfo=None)
-            self.db.add(
-                OperationLog(
-                    operator_id=user_id,
-                    operator_role=USER_ROLE_USER,
-                    action_type=ACTION_TYPE_WARNING_READ,
-                    target_type="warning_notification",
-                    target_id=warning.id,
-                    detail=f"warning_id={warning.id}",
-                )
+            await record_audit(
+                self.db,
+                actor_id=user_id,
+                actor_role=USER_ROLE_USER,
+                action=ACTION_TYPE_WARNING_READ,
+                target_type="warning_notification",
+                target_id=warning.id,
+                detail={"warning_id": warning.id},
+                request=request,
+                tenant_id=tenant_id,
             )
             await self.db.commit()
         return True
 
-    async def mark_all_read(self, user_id: int) -> int:
+    async def mark_all_read(
+        self,
+        user_id: int,
+        *,
+        request: Request | None = None,
+        tenant_id: int | None = None,
+    ) -> int:
         stmt = (
             update(WarningNotification)
             .where(
@@ -175,15 +192,16 @@ class WarningService:
         result = await self.db.execute(stmt)
         changed = result.rowcount or 0
         if changed > 0:
-            self.db.add(
-                OperationLog(
-                    operator_id=user_id,
-                    operator_role=USER_ROLE_USER,
-                    action_type=ACTION_TYPE_WARNING_READ_ALL,
-                    target_type="warning_notification",
-                    target_id=None,
-                    detail=f"count={changed}",
-                )
+            await record_audit(
+                self.db,
+                actor_id=user_id,
+                actor_role=USER_ROLE_USER,
+                action=ACTION_TYPE_WARNING_READ_ALL,
+                target_type="warning_notification",
+                target_id=None,
+                detail={"count": changed},
+                request=request,
+                tenant_id=tenant_id,
             )
             await self.db.commit()
         return changed
@@ -220,7 +238,14 @@ class WarningService:
             await self.db.flush()
         return setting
 
-    async def update_setting(self, user_id: int, payload: dict) -> WarningSetting:
+    async def update_setting(
+        self,
+        user_id: int,
+        payload: dict,
+        *,
+        request: Request | None = None,
+        tenant_id: int | None = None,
+    ) -> WarningSetting:
         setting = await self.get_setting(user_id)
         changed_keys: list[str] = []
         if "notify_channels" in payload and payload["notify_channels"] is not None:
@@ -273,15 +298,16 @@ class WarningService:
 
         if changed_keys:
             try:
-                self.db.add(
-                    OperationLog(
-                        operator_id=user_id,
-                        operator_role=USER_ROLE_USER,
-                        action_type="update_warning_setting",
-                        target_type="warning_setting",
-                        target_id=setting.id,
-                        detail=f"changed={','.join(changed_keys)}",
-                    )
+                await record_audit(
+                    self.db,
+                    actor_id=user_id,
+                    actor_role=USER_ROLE_USER,
+                    action="update_warning_setting",
+                    target_type="warning_setting",
+                    target_id=setting.id,
+                    detail={"changed": changed_keys},
+                    request=request,
+                    tenant_id=tenant_id,
                 )
                 # P1-D5 修复：原代码在 try/except 外调用 commit()，导致：
                 # 1. 若 add() 抛异常（Python 层），except 捕获后仍执行 commit()，

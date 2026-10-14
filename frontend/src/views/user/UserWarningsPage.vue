@@ -211,6 +211,7 @@ import { getErrorDetail } from '@/utils/errorDetail'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
+import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { formatWarningDateTime, formatHandledBy, getWarningRiskLevelLabel, getWarningRiskLevelTagType, getWarningStatusLabel, getWarningStatusTagType } from '@/utils/warning'
 import { asRow } from '@/utils/tableRow'
@@ -219,10 +220,6 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const queryState = useListQueryState('uw')
 
-const loading = ref(false)
-const rows = ref<WarningItem[]>([])
-const total = ref(0)
-const pageError = ref('')
 const bulkLoading = ref(false)
 // M3: 统计卡片为 mount-only；读操作(mark read)后需主动刷新未读计数
 const statsCardRef = ref<{ loadStats: () => Promise<void> } | null>(null)
@@ -289,6 +286,27 @@ const rowClassName = ({ row }: { row: unknown; rowIndex: number }) => {
   return ''
 }
 
+// P2-36 第四批：列表三态 + 竞态守卫改由 useListQuery 统一提供。
+// 无权限短路保留在 fetchData 包裹层（与原来一致：不清 loading，直接写错误槽返回）。
+const {
+  rows, total, loading, error: pageError, run,
+} = useListQuery<WarningItem>({
+  fetcher: async () => {
+    await queryState.setQuery({ page: page.value, page_size: pageSize.value })
+    const data = await withMockFallback(
+      () => userApi.getUserWarnings({ page: page.value, page_size: pageSize.value, is_read: filters.isRead }),
+      () => mockWarnings(page.value, pageSize.value)
+    )
+    return { items: data.items, total: data.total }
+  },
+  onSuccess: () => {
+    clearTransientRowState()
+  },
+  setPage: (value) => queryState.setQuery({ page: value }),
+  immediate: false, // 与原来一致：由 onMounted 触发首次加载
+  onError: (error) => normalizeHttpError(error, t('userWarnings.loadFailed')).detail,
+})
+
 const fetchData = async () => {
   if (!canReadWarning()) {
     rows.value = []
@@ -297,22 +315,7 @@ const fetchData = async () => {
     return
   }
 
-  loading.value = true
-  pageError.value = ''
-  try {
-    await queryState.setQuery({ page: page.value, page_size: pageSize.value })
-    const data = await withMockFallback(
-      () => userApi.getUserWarnings({ page: page.value, page_size: pageSize.value, is_read: filters.isRead }),
-      () => mockWarnings(page.value, pageSize.value)
-    )
-    rows.value = data.items
-    total.value = data.total
-    clearTransientRowState()
-  } catch (error) {
-    pageError.value = normalizeHttpError(error, t('userWarnings.loadFailed')).detail
-  } finally {
-    loading.value = false
-  }
+  await run()
 }
 
 // SEC-FIX (M2): 翻页事件先 await setQuery 再取数——原实现不 await 导致

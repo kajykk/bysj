@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.db_breaker import CircuitBreakerOpenError
+from app.core.degradation import record_silent_degradation
 from app.core.deps import require_permission
 from app.core.exceptions import ModelException
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
@@ -85,6 +86,8 @@ def _create_review_task_sync(result: dict, user_id: int) -> None:
         register_task(task, "review_task_create")
     except Exception as exc:
         logger.error("Failed to schedule review task creation: %s", exc)
+        # P2-35 第三批：后台复核任务调度失败 = 复核链路静默丢失（预测照常返回）
+        record_silent_degradation("api.model_predict.predict.review_task_schedule_failed")
 
 
 @router.post(
@@ -200,6 +203,9 @@ async def predict_text(
         except Exception as exc:
             logger.error("Failed to record crisis event: %s", exc)
             # 不影响预测结果返回
+            # P2-35 第三批：危机事件落库失败 = 最高危的静默丢失（预测返回正常，
+            # 调用方无从知道危机事件没记下来），必须可观测
+            record_silent_degradation("api.model_predict.predict.crisis_record_failed")
 
     _save_assessment_sync(result, current_user.id, "text", {"text": payload.text})
     return ok(result)

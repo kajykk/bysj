@@ -171,3 +171,11 @@
 - 门禁配套：正文 ip 表改 AST 提取（正则嵌套括号截断曾致 admin 导出漏检假红）；新增 test_system_paths_use_explicit_none（webhook 三 None 锁死）；helpers 的 role 以签名默认 system 为准（调用处透传形参，不锁字面量）。另修测试内 docstring 转义 SyntaxWarning。
 - 实测：10 文件 affected+gates 195 passed；4 迁移钉 11 passed；vue-tsc 0 错。
 - 注：useSilencesData / useCrisisEventsData 的 #36 迁移及配套钉由并行工作完成，本节仅记录与其合并验证的结果，归属以各自提交为准。
+
+### 2.8 第六批（#33：+3 处→34，服务层穿参打样；#35：+4；#36：+2→9/12；#32 确认）
+
+- #33：warning_service 3 处（mark_read/mark_all_read/update_setting）改 record_audit，服务方法新增 `request/tenant_id` 可选关键字（API 端点传入 request + current_user.tenant_id；任务与旧测试不传则记 None/平台默认，28 个既有单测零改动全绿）。user_warning.py 3 端点加 Request 穿入。构造点 37→34，AFTER_BATCH5=34。
+- #35：reports 2（pdf-job redis→local 显式回退 / job 合并失败少数据）+ predict 2（复核任务调度丢失 / 危机事件落库失败，最高危静默丢失）。棘轮为 >= 式，新位置登记于此。
+- #36：useCounselorWarningsData（副作用搬迁：取前清留包裹层，取后清走 onSuccess）+ UserWarningsPage（无权限短路留包裹层）。迁移钉 2 文件 4 用例全绿，counselor 钉做过真实变异（绕过 run 裸调 → 双红 → 恢复绿）。剩余 3 页（AdminAlerts/CounselorReviewList/UserAssessments，均已有 STATE 做 URL 持久化，只差竞态守卫）记账留后续。
+- #32：事实锁（4 定义处 + 双标签）本批 affected 全绿，无变化；维持只裁定不合并。
+- 教训：同套件并发双跑会卡死（sqlite 争用，~5 分钟无输出；kill 后单跑 8s 过）。以后本地只单跑，落盘看结果。

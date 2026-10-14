@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -57,11 +57,15 @@ async def get_warning_stats(
 )
 async def mark_warning_read(
     warning_id: int,
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = WarningService(db)
-    success = await service.mark_read(current_user.id, warning_id)
+    # P2-33 第五批：审计上下文穿入服务层（request 取 ip，tenant 做列归属）
+    success = await service.mark_read(
+        current_user.id, warning_id, request=request, tenant_id=current_user.tenant_id
+    )
     if not success:
         raise HTTPException(status_code=404, detail="预警不存在")
     return ok({"message": "已标记为已读"})
@@ -71,11 +75,14 @@ async def mark_warning_read(
     "/warnings/read-all", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES
 )
 async def mark_all_warning_read(
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = WarningService(db)
-    count = await service.mark_all_read(current_user.id)
+    count = await service.mark_all_read(
+        current_user.id, request=request, tenant_id=current_user.tenant_id
+    )
     return ok({"message": "全部标记为已读", "count": count})
 
 
@@ -109,10 +116,13 @@ async def get_warning_setting(
 )
 async def update_warning_setting(
     payload: WarningSettingsUpdateRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = WarningService(db)
     data = payload.model_dump()
-    await service.update_setting(current_user.id, data)
+    await service.update_setting(
+        current_user.id, data, request=request, tenant_id=current_user.tenant_id
+    )
     return ok({"message": "设置已更新"})

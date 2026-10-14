@@ -202,13 +202,14 @@ class TestP233AuditHelperRatchet:
     AFTER_BATCH2 = 51  # 第十二轮第二批：counselor.py 3 处（查看类审计日志）
     AFTER_BATCH3 = 44  # 第十二轮第三批：gdpr 2 + auth 助手 1 + uploads 1 + user_upload 2 + user_risk 1
     AFTER_BATCH4 = 37  # 第十二轮第四批：admin 2 + alerts 2 + helpers 1 + analytics 1 + reports 1（helpers 助手计入；扫描器口径不含 helper 本体）
+    AFTER_BATCH5 = 34  # 第十二轮第五批：warning_service 3（服务层穿参打样：request/tenant 可选关键字，API 端点传入）
 
     def test_operation_log_construct_sites_decreased(self):
         got = _scan_operation_log_calls()
-        assert got == self.AFTER_BATCH4, (
-            f"OperationLog( 生产构造点应为 {self.AFTER_BATCH4}，实际 {got}"
+        assert got == self.AFTER_BATCH5, (
+            f"OperationLog( 生产构造点应为 {self.AFTER_BATCH5}，实际 {got}"
         )
-        assert got < self.AFTER_BATCH3 < self.AFTER_BATCH2 < self.AFTER_BATCH1 < self.BASELINE_BEFORE
+        assert got < self.AFTER_BATCH4 < self.AFTER_BATCH3 < self.AFTER_BATCH2 < self.AFTER_BATCH1 < self.BASELINE_BEFORE
 
     def test_migrated_files_no_longer_construct_operation_log(self):
         for rel in (
@@ -225,6 +226,7 @@ class TestP233AuditHelperRatchet:
             "api/v1/alerts/_helpers.py",
             "api/v1/analytics_events.py",
             "api/v1/reports.py",
+            "services/warning_service.py",
         ):
             t = (BE / rel).read_text(encoding="utf-8")
             assert "OperationLog(" not in t, f"{rel} 仍有手写 OperationLog 构造"
@@ -257,7 +259,7 @@ class TestP233AuditHelperRatchet:
         # 迁移前这些点完全没有 ip_address；迁移后必须把 request 传进 helper。
         # webhook 系统路径（alerts 二处）无 request 可传，显式 request=None，
         # 由 test_system_paths_use_explicit_none 把守，不在此表。
-        for rel in ("api/v1/silences.py", "api/v1/content_governance.py", "api/v1/model_kill_switch.py", "api/v1/counselor.py", "api/v1/gdpr.py", "api/v1/auth.py", "api/v1/uploads.py", "api/v1/user_upload.py", "api/v1/user_risk.py", "api/v1/admin.py", "api/v1/analytics_events.py", "api/v1/reports.py"):
+        for rel in ("api/v1/silences.py", "api/v1/content_governance.py", "api/v1/model_kill_switch.py", "api/v1/counselor.py", "api/v1/gdpr.py", "api/v1/auth.py", "api/v1/uploads.py", "api/v1/user_upload.py", "api/v1/user_risk.py", "api/v1/admin.py", "api/v1/analytics_events.py", "api/v1/reports.py", "services/warning_service.py"):
             calls = self._record_audit_calls(rel)
             assert calls, f"{rel} 未找到 record_audit 调用"
             for c in calls:

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.database import get_db
+from app.core.degradation import record_silent_degradation
 from app.core.deps import get_current_user
 from app.core.openapi_responses import (
     COMMON_ERROR_RESPONSES,
@@ -162,6 +163,8 @@ async def _resolve_pdf_job(job_id: str) -> tuple[dict | Any | None, str]:
             return redis_job, "redis"
     except Exception as exc:  # pragma: no cover - Redis 异常降级为内存兜底
         logger.warning("[pdf-job] redis lookup failed, falling back to local: %s", exc)
+        # P2-35 第三批：显式 fallback 也是降级（来源从 redis 变成进程内存，跨实例不可见）
+        record_silent_degradation("api.reports.pdf_job.redis_fallback")
     return pdf_job_store.get(job_id), "local"
 
 
@@ -509,6 +512,8 @@ async def list_pdf_jobs(
         jobs.extend(j for j in celery_jobs if j["id"] not in known_ids)
     except Exception as exc:  # pragma: no cover - redis 异常已在内层降级为空列表
         logger.warning("[pdf-jobs] merge celery job list failed: %s", exc)
+        # P2-35 第三批：合并失败 = 列表不完整（静默少数据），计一次降级
+        record_silent_degradation("api.reports.pdf_jobs.merge_failed")
 
     # 统一按创建时间倒序（created_at 已规范化为 ISO 字符串，可直接排序）
     jobs.sort(key=lambda j: j.get("created_at") or "", reverse=True)
