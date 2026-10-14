@@ -402,7 +402,12 @@ async def get_bind_code(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = CounselorService(db)
-    code = await service.get_or_create_bind_code(current_user.id)
+    code = await service.get_or_create_bind_code(
+        current_user.id,
+        # P2-33 第六批：审计上下文（ip / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
+    )
     return ok({"bind_code": code})
 
 
@@ -417,5 +422,10 @@ async def refresh_bind_code(
 ) -> dict:
     service = CounselorService(db)
     # M7 修复：调用 refresh_bind_code 而非 get_or_create_bind_code，真正刷新绑定码
-    code = await service.refresh_bind_code(current_user.id)
+    code = await service.refresh_bind_code(
+        current_user.id,
+        # P2-33 第六批：审计上下文（ip / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
+    )
     return ok({"bind_code": code})

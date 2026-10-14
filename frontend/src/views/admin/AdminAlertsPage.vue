@@ -219,6 +219,7 @@ import FilterBar from '@/components/common/FilterBar.vue'
 import ListPageScaffold from '@/components/common/ListPageScaffold.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
 import AlertStatsCard from './components/admin-alerts/AlertStatsCard.vue'
+import { useListQuery, type ListResult } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { formatDate } from '@/utils/formatUtils'
@@ -230,11 +231,8 @@ type TabKey = 'history' | 'archive'
 
 const queryState = useListQueryState('aa')
 
-const loading = ref(false)
-const rows = ref<(AlertHistoryItem | AlertArchiveItem)[]>([])
-const total = ref(0)
-const pageError = ref('')
 const ackLoadingId = ref<number | null>(null)
+type AlertRow = AlertHistoryItem | AlertArchiveItem
 
 const activeTab = ref<TabKey>((queryState.getString('tab') as TabKey) || 'history')
 
@@ -284,10 +282,14 @@ const getStatusLabel = (status: string): string => {
   return key ? t(key) : status
 }
 
-const fetchData = async () => {
-  loading.value = true
-  pageError.value = ''
-  try {
+// P2-36 第六批：列表三态 + 竞态守卫改由 useListQuery 统一提供。
+// - fetcher 闭包按 tab 选数据源（history / archive 是两个不同端点，参数也不同）；
+// - setPage 把「筛选/切 tab 后回到第 1 页」写回 URL query，与 useListQueryState 联动；
+// - immediate:false —— 首次加载仍由本页的 onMounted 触发，与原行为一致。
+const {
+  rows, total, loading, error: pageError, run, search,
+} = useListQuery<AlertRow>({
+  fetcher: async (): Promise<ListResult<AlertRow>> => {
     const commonParams = {
       page: page.value,
       page_size: pageSize.value,
@@ -298,19 +300,18 @@ const fetchData = async () => {
     }
     if (activeTab.value === 'history') {
       const data = await alertsApi.listAlertHistory(commonParams)
-      rows.value = data.items
-      total.value = data.total
-    } else {
-      const data = await alertsApi.listAlertArchive({ ...commonParams, rule: filters.rule || undefined })
-      rows.value = data.items
-      total.value = data.total
+      return { items: data.items, total: data.total }
     }
-  } catch (error) {
-    pageError.value = showHttpFeedback(error, t('adminAlerts.loadFailed')).detail
-  } finally {
-    loading.value = false
-  }
-}
+    const data = await alertsApi.listAlertArchive({ ...commonParams, rule: filters.rule || undefined })
+    return { items: data.items, total: data.total }
+  },
+  setPage: (value) => queryState.setQuery({ page: value }),
+  immediate: false,
+  onError: (error) => showHttpFeedback(error, t('adminAlerts.loadFailed')).detail,
+})
+
+/** 模板 @retry 与操作后刷新都沿用此名（对外名零改动）。 */
+const fetchData = run
 
 const handleAck = async (row: AlertHistoryItem) => {
   ackLoadingId.value = row.id
@@ -325,19 +326,26 @@ const handleAck = async (row: AlertHistoryItem) => {
   }
 }
 
-const onPageChange = async (value: number) => { await queryState.setQuery({ page: value }); fetchData() }
-const onPageSizeChange = async (value: number) => { await queryState.setQuery({ page_size: value, page: 1 }); fetchData() }
+// SEC-FIX (M2 同型)：翻页先 await setQuery 再取数——原实现不 await 导致读取到旧 page
+const onPageChange = async (value: number) => {
+  await queryState.setQuery({ page: value })
+  await fetchData()
+}
+const onPageSizeChange = async (value: number) => {
+  await queryState.setQuery({ page_size: value, page: 1 })
+  await fetchData()
+}
 
+// 筛选/切 tab 都走 search()：先作废在途请求，再回到第 1 页，避免旧页响应晚到覆盖。
 const handleSearch = async () => {
   await queryState.setQuery({
-    page: 1,
     severity: filters.severity || undefined,
     status: filters.status || undefined,
     rule: filters.rule || undefined,
     start_time: filters.range?.[0],
     end_time: filters.range?.[1]
   })
-  fetchData()
+  await search()
 }
 
 const handleReset = async () => {
@@ -346,20 +354,19 @@ const handleReset = async () => {
   filters.rule = ''
   filters.range = []
   await queryState.setQuery({
-    page: 1,
     severity: undefined,
     status: undefined,
     rule: undefined,
     start_time: undefined,
     end_time: undefined
   })
-  fetchData()
+  await search()
 }
 
 const handleTabChange = async (value: string | number | boolean | undefined) => {
   activeTab.value = (value ?? 'history') as TabKey
-  await queryState.setQuery({ page: 1, tab: activeTab.value })
-  fetchData()
+  await queryState.setQuery({ tab: activeTab.value })
+  await search()
 }
 
 onMounted(fetchData)

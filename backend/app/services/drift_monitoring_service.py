@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.degradation import record_silent_degradation
 from app.models.monitoring import CanaryRecord, CanaryStatus, DriftAlert, DriftSeverity
 from app.models.risk import RiskAssessment
 from app.services.drift_detector import PsiKlCalculator
@@ -234,6 +235,10 @@ class DriftMonitoringService:
             ).scalars().first()
         except Exception:
             logger.exception("查询运行中金丝雀版本失败, 告警将不参与自动回滚")
+            # P2-35：版本解析失败 → 该漂移告警静默退出自动回滚闭环（部分数据丢失）
+            record_silent_degradation(
+                "services.drift_monitoring_service.resolve_canary_version_failed"
+            )
             return None
 
     async def _create_drift_alert(

@@ -4,15 +4,16 @@ import json
 import logging
 from datetime import datetime, timezone
 
+from fastapi import Request
 from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
+from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_COUNSELOR
 from app.core.event_bus import event_bus
 from app.core.tenant_query import tenant_scoped_filter, user_tenant_scoped_query
-from app.models.admin import OperationLog
 from app.models.review import CrisisEvent, ReviewTask
 from app.models.user import User
-from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_COUNSELOR
 from app.schemas.review import (
     CrisisEventCreate,
     CrisisEventFilter,
@@ -293,6 +294,9 @@ class ReviewService:
         *,
         is_admin: bool = False,
         tenant_id: int,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户；
+        # 任务/旧测试不传则记 None/平台默认）。
+        request: Request | None = None,
     ) -> ReviewTask:
         """升级复核任务（**必须**限定租户范围）"""
         task = await self.get_review_by_id(review_id, tenant_id=tenant_id)
@@ -315,22 +319,22 @@ class ReviewService:
         # ISS-041 修复：统一 naive UTC
         task.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         # 记录升级审计日志，detail 中明确 escalate_by（避免与 resolved_by 混淆）
-        self.db.add(
-            OperationLog(
-                operator_id=counselor_id,
-                operator_role=USER_ROLE_ADMIN if is_admin else USER_ROLE_COUNSELOR,
-                action_type="review.escalated",
-                target_type="review_task",
-                target_id=review_id,
-                detail=json.dumps(
-                    {
-                        "escalated_by": counselor_id,
-                        "reason": reason,
-                        "previous_status": previous_status,
-                    },
-                    ensure_ascii=False,
-                ),
-            )
+        # P2-33 第六批：改走 record_audit（SSOT）——ip 从 request 取、tenant_id 落列，
+        # 不再手写 json.dumps + db.add。
+        await record_audit(
+            self.db,
+            actor_id=counselor_id,
+            actor_role=USER_ROLE_ADMIN if is_admin else USER_ROLE_COUNSELOR,
+            action="review.escalated",
+            target_type="review_task",
+            target_id=review_id,
+            detail={
+                "escalated_by": counselor_id,
+                "reason": reason,
+                "previous_status": previous_status,
+            },
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         await self.db.refresh(task)
@@ -553,6 +557,8 @@ class CrisisEventService:
         *,
         tenant_id: int,
         operator_role: str,
+        # P2-33 第六批：审计上下文（透传给 _write_crisis_audit_log）
+        request: Request | None = None,
     ) -> CrisisEvent:
         """处理危机事件 (status: detected/reviewed/escalated → reviewed)
 
@@ -590,6 +596,8 @@ class CrisisEventService:
                 event_id=event_id,
                 detail={"action": action, "note": note, "new_status": "reviewed"},
                 operator_role=operator_role,
+                request=request,
+                tenant_id=tenant_id,
             )
         await self.db.commit()
         await self.db.refresh(event)
@@ -603,6 +611,8 @@ class CrisisEventService:
         *,
         tenant_id: int,
         operator_role: str,
+        # P2-33 第六批：审计上下文（透传给 _write_crisis_audit_log）
+        request: Request | None = None,
     ) -> CrisisEvent:
         """升级危机事件 (status: detected|reviewed → escalated)
 
@@ -630,6 +640,8 @@ class CrisisEventService:
                 event_id=event_id,
                 detail={"reason": reason, "new_status": "escalated"},
                 operator_role=operator_role,
+                request=request,
+                tenant_id=tenant_id,
             )
         await self.db.commit()
         await self.db.refresh(event)
@@ -643,6 +655,8 @@ class CrisisEventService:
         *,
         tenant_id: int,
         operator_role: str,
+        # P2-33 第六批：审计上下文（透传给 _write_crisis_audit_log）
+        request: Request | None = None,
     ) -> CrisisEvent:
         """关闭危机事件 (status: detected|reviewed|escalated → resolved)
 
@@ -671,6 +685,8 @@ class CrisisEventService:
                 event_id=event_id,
                 detail={"note": note, "new_status": "resolved"},
                 operator_role=operator_role,
+                request=request,
+                tenant_id=tenant_id,
             )
         await self.db.commit()
         await self.db.refresh(event)
@@ -710,23 +726,29 @@ class CrisisEventService:
         # 咨询师关闭危机事件在审计里被记成 "admin"，第二人复核时会误判处置人
         # 身份。无默认值：漏传直接 TypeError。
         operator_role: str,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户；
+        # 任务/旧调用不传则记 None/平台默认）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> None:
         """ISS-072 修复：危机事件状态流转审计日志.
 
         权限/安全/数据一致性场景，写入 OperationLog 供第二人复核。
         ISS-005 修复：仅 flush 不 commit, 由调用方在 savepoint 内统一 commit.
         """
-        op_log = OperationLog(
-            operator_id=operator_id,
-            operator_role=operator_role,
-            action_type=action_type,
+        # P2-33 第六批：改走 record_audit（SSOT）——ip 从 request 取、tenant_id 落列。
+        await record_audit(
+            self.db,
+            actor_id=operator_id,
+            actor_role=operator_role,
+            action=action_type,
             target_type="crisis_event",
             target_id=event_id,
             # L-API-3 修复：截断 detail 至 5000 字符，避免超 DB 字段限制
-            detail=json.dumps(detail, ensure_ascii=False),
+            detail=detail,
+            request=request,
+            tenant_id=tenant_id,
         )
-        self.db.add(op_log)
-        await self.db.flush()
 
     def _to_response(self, event: CrisisEvent) -> dict:
         """转换为响应"""

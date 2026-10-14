@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import BACKEND_DIR
 from app.core.database import get_db
+from app.core.degradation import record_silent_degradation
 from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.core.tenant_context import require_platform_permission
@@ -108,6 +109,11 @@ class ValidationJobStore:
             except Exception as exc:
                 logger.warning(
                     "[validation_store] Redis create failed, using memory: %s", exc
+                )
+                # P2-35：写路径降级 —— 任务只存在本进程内存，多实例下轮询会打到别的
+                # 实例而查不到（fire-and-forget 式的静默丢失），必须计数。
+                record_silent_degradation(
+                    "api.validation.job_store.create.redis_fallback"
                 )
 
         # 内存降级

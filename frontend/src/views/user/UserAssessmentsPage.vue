@@ -145,6 +145,7 @@ import { hasPermission } from '@/config/permissions'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { exportToCSV } from '@/utils/exportUtils'
+import { useListQuery, type ListResult } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { asRow } from '@/utils/tableRow'
 
@@ -159,15 +160,13 @@ const queryState = useListQueryState('ua')
  * `assessment_type` / `score` / `risk_level` / `summary`。表格列因此必须走
  * `toAssessmentHistoryRows` 映射，直接用后端原字段会让三列恒为空白。
  */
-const loading = ref(false)
-const rows = ref<AssessmentHistoryRow[]>([])
 /**
  * 原始列表项，详情页要用它做本地渲染（FIX-2026-10-08）。
  * 表格行 `AssessmentHistoryRow` 是为展示裁剪过的，不含 `data` 载荷。
+ * P2-36 第六批：改由 useListQuery 的 onSuccess 写入——直接写在 fetcher 里会
+ * 被过期响应污染（旧响应晚到会把旧页的原始项留下来）。
  */
 const rawItems = ref<DataHistoryItem[]>([])
-const total = ref(0)
-const pageError = ref('')
 
 const TYPE_LABEL_KEYS: Record<string, string> = {
   structured: 'typeStructured',
@@ -201,17 +200,19 @@ const syncQuery = async () => {
   })
 }
 
-const fetchData = async () => {
-  // 无权限时直接清空本地列表，避免界面短暂闪现上一位用户或上一次会话的数据。
-  if (!canViewAssessment) {
-    rows.value = []
-    total.value = 0
-    return
-  }
+// P2-36 第六批：列表三态 + 竞态守卫改由 useListQuery 统一提供。
+// - fetcher 闭包组装筛选参数，并把「原始项」随结果带回，由 onSuccess 写附属块；
+// - setPage 把「筛选后回到第 1 页」写回 URL query，与 useListQueryState 联动；
+// - immediate:false —— 首次加载仍由本页的 onMounted 触发，与原行为一致。
+const {
+  rows, total, loading, error: pageError, run, search,
+} = useListQuery<AssessmentHistoryRow, ListResult<AssessmentHistoryRow> & { raw: DataHistoryItem[] }>({
+  fetcher: async () => {
+    // 无权限时直接清空本地列表，避免界面短暂闪现上一位用户或上一次会话的数据。
+    if (!canViewAssessment) {
+      return { items: [], total: 0, raw: [] }
+    }
 
-  loading.value = true
-  pageError.value = ''
-  try {
     await syncQuery()
     const data = await withMockFallback<UnifiedPageResult<DataHistoryItem>>(
       () =>
@@ -232,27 +233,31 @@ const fetchData = async () => {
         }
       }
     )
-    rows.value = toAssessmentHistoryRows(data.items)
-    rawItems.value = data.items
-    total.value = data.total
+    return { items: toAssessmentHistoryRows(data.items), total: data.total, raw: data.items }
+  },
+  onSuccess: (res) => {
+    rawItems.value = res.raw
     // 详情页改为本地渲染（ID 空间错配修复）：把本页原始项留一份快照，
     // 供详情页在新标签页/收藏后打开时兜底取用。
-    writeAssessmentDetailCache(data.items)
-  } catch (error) {
-    pageError.value = normalizeHttpError(error, t('userAssessments.loadFailed')).detail
-  } finally {
-    loading.value = false
-  }
-}
+    writeAssessmentDetailCache(res.raw)
+  },
+  setPage: (value) => queryState.setQuery({ page: value }),
+  immediate: false,
+  onError: (error) => normalizeHttpError(error, t('userAssessments.loadFailed')).detail,
+})
 
+/** 模板 @retry 沿用此名（对外名零改动）。 */
+const fetchData = run
+
+// SEC-FIX (M2 同型)：翻页先 await setQuery 再取数——原实现不 await 会读到旧 page
 const onPageChange = async (value: number) => {
   await queryState.setQuery({ page: value })
-  fetchData()
+  await fetchData()
 }
 
 const onPageSizeChange = async (value: number) => {
   await queryState.setQuery({ page_size: value, page: 1 })
-  fetchData()
+  await fetchData()
 }
 
 /**
@@ -272,16 +277,16 @@ const openDetail = (row: AssessmentHistoryRow) => {
   })
 }
 
+// 筛选走 search()：先作废在途请求，再回到第 1 页，避免旧页响应晚到覆盖。
 const handleReset = async () => {
   filters.type = undefined
   filters.range = []
-  await queryState.setQuery({ page: 1, type: undefined, start_date: undefined, end_date: undefined })
-  fetchData()
+  await queryState.setQuery({ type: undefined, start_date: undefined, end_date: undefined })
+  await search()
 }
 
 const handleSearch = async () => {
-  await queryState.setQuery({ page: 1 })
-  fetchData()
+  await search()
 }
 
 const handleExport = async () => {

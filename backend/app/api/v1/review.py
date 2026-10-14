@@ -221,6 +221,8 @@ async def handle_crisis_event(
             tenant_id=current_user.tenant_id,
             # P1-21：审计日志如实记录操作者角色（不再硬编码 "admin"）
             operator_role=current_user.role,
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
         )
         return ok(service._to_response(event))
     except ValueError as e:
@@ -252,6 +254,8 @@ async def escalate_crisis_event(
             reason=payload.reason,
             tenant_id=current_user.tenant_id,
             operator_role=current_user.role,
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
         )
         return ok(service._to_response(event))
     except ValueError as e:
@@ -283,6 +287,8 @@ async def close_crisis_event(
             note=payload.note,
             tenant_id=current_user.tenant_id,
             operator_role=current_user.role,
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
         )
         return ok(service._to_response(event))
     except ValueError as e:
@@ -479,6 +485,8 @@ async def escalate_review(
             payload.reason,
             is_admin=current_user.role in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN),
             tenant_id=current_user.tenant_id,
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
         )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:

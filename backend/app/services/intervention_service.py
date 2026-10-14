@@ -3,12 +3,13 @@ from __future__ import annotations
 import math
 from datetime import UTC, date, datetime
 
+from fastapi import Request
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.contracts import (USER_ROLE_USER)
-from app.models.admin import OperationLog
+from app.core.audit import record_audit
+from app.core.contracts import USER_ROLE_USER
 from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
 
 
@@ -330,7 +331,15 @@ class InterventionService:
         }
 
     async def complete_task(
-        self, user_id: int, task_id: int, scheduled_date: date | None
+        self,
+        user_id: int,
+        task_id: int,
+        scheduled_date: date | None,
+        *,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户；
+        # 任务/旧测试不传则记 None/平台默认）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> tuple[bool, str | None]:
         task, execution = await self._load_task_execution_readonly(
             task_id, user_id, scheduled_date
@@ -347,15 +356,18 @@ class InterventionService:
 
         execution.status = "completed"
         execution.completed_at = datetime.now(UTC).replace(tzinfo=None)
-        self.db.add(
-            OperationLog(
-                operator_id=user_id,
-                operator_role=USER_ROLE_USER,
-                action_type="complete_intervention_task",
-                target_type="task_execution",
-                target_id=execution.id,
-                detail=f"task_id={task_id}, scheduled_date={scheduled_date}",
-            )
+        # P2-33 第六批：改走 record_audit（SSOT）。detail 原为裸字符串
+        # （`task_id=1, scheduled_date=...`），现统一为 JSON 对象，便于按字段检索。
+        await record_audit(
+            self.db,
+            actor_id=user_id,
+            actor_role=USER_ROLE_USER,
+            action="complete_intervention_task",
+            target_type="task_execution",
+            target_id=execution.id,
+            detail={"task_id": task_id, "scheduled_date": str(scheduled_date)},
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         return True, None
@@ -367,6 +379,10 @@ class InterventionService:
         scheduled_date: date | None,
         feedback_score: int | None,
         feedback_note: str | None,
+        *,
+        # P2-33 第六批：审计上下文（同上）
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> tuple[bool, str | None]:
         task, execution = await self._load_task_execution(
             task_id, user_id, scheduled_date
@@ -388,15 +404,22 @@ class InterventionService:
             execution.completed_at = datetime.now(UTC).replace(tzinfo=None)
             status_changed = True
 
-        self.db.add(
-            OperationLog(
-                operator_id=user_id,
-                operator_role=USER_ROLE_USER,
-                action_type="feedback_intervention_task",
-                target_type="task_execution",
-                target_id=execution.id,
-                detail=f"task_id={task_id}, scheduled_date={scheduled_date}, status_changed={status_changed}",
-            )
+        # P2-33 第六批：改走 record_audit（SSOT），detail 统一为 JSON 对象。
+        await record_audit(
+            self.db,
+            actor_id=user_id,
+            actor_role=USER_ROLE_USER,
+            action="feedback_intervention_task",
+            target_type="task_execution",
+            target_id=execution.id,
+            detail={
+                "task_id": task_id,
+                "scheduled_date": str(scheduled_date),
+                "status_changed": status_changed,
+                "feedback_score": feedback_score,
+            },
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         return True, None

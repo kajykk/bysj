@@ -1,7 +1,7 @@
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -92,12 +92,18 @@ async def get_intervention_stats(
 async def complete_task(
     task_id: int,
     payload: TaskCompleteRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = InterventionService(db)
     success, reason = await service.complete_task(
-        current_user.id, task_id, payload.scheduled_date
+        current_user.id,
+        task_id,
+        payload.scheduled_date,
+        # P2-33 第六批：审计上下文（ip / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     if not success and reason is None:
         raise HTTPException(status_code=404, detail="任务不存在")
@@ -117,6 +123,7 @@ async def complete_task(
 async def feedback_task(
     task_id: int,
     payload: TaskFeedbackRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
@@ -127,6 +134,9 @@ async def feedback_task(
         scheduled_date=payload.scheduled_date,
         feedback_score=payload.feedback_score,
         feedback_note=payload.feedback_note,
+        # P2-33 第六批：审计上下文（ip / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     if not success and reason is None:
         raise HTTPException(status_code=404, detail="任务不存在")

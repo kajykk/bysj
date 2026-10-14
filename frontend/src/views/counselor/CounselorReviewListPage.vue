@@ -276,6 +276,7 @@ import ReviewStatsCard from './components/counselor-reviews/ReviewStatsCard.vue'
 // P2-A 修复：复用 formatUtils 的 formatDate，避免本地重复定义
 import { formatDate } from '@/utils/formatUtils'
 import { isAdminRole } from '@/utils/roles'
+import { useListQuery } from '@/composables/useListQuery'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -285,9 +286,7 @@ const auth = useAuthStore()
 // 咨询师是「领取」（后端会校验学生绑定关系），管理员是「指定分配」给某位咨询师。
 const isAdmin = computed(() => isAdminRole(auth.role))
 
-const loading = ref(false)
-const reviews = ref<ReviewItem[]>([])
-const total = ref(0)
+// page / pageSize 是本地状态（本页不写 URL query），仍由 el-pagination 双向绑定。
 const page = ref(1)
 const pageSize = ref(20)
 const filterStatus = ref('')
@@ -303,9 +302,14 @@ const stats = ref<ReviewStats>({
   high_risk_count: 0,
 })
 
-const loadReviews = async () => {
-  loading.value = true
-  try {
+// P2-36 第六批：列表三态 + 竞态守卫改由 useListQuery 统一提供。
+// - fetcher 闭包组装分页与筛选参数（本页不写 URL query，故 setPage 直接写本地 ref）；
+// - 失败提示仍走 ElMessage（与原实现一致），error 文案同步回流到状态里；
+// - immediate:false —— 首次加载仍由本页的 onMounted 触发，与原行为一致。
+const {
+  rows: reviews, total, loading, run, search,
+} = useListQuery<ReviewItem>({
+  fetcher: async () => {
     const query: { page: number; page_size: number; status?: string; priority?: string } = {
       page: page.value,
       page_size: pageSize.value,
@@ -314,14 +318,20 @@ const loadReviews = async () => {
     if (filterPriority.value) query.priority = filterPriority.value
 
     const data = await counselorApi.getReviews(query)
-    reviews.value = data.items
-    total.value = data.total
-  } catch (error) {
+    return { items: data.items, total: data.total }
+  },
+  setPage: (value) => {
+    page.value = value
+  },
+  immediate: false,
+  onError: () => {
     ElMessage.error(t('counselorReviews.loadListFailed'))
-  } finally {
-    loading.value = false
-  }
-}
+    return t('counselorReviews.loadListFailed')
+  },
+})
+
+/** 模板「刷新 / 查询 / 翻页」与操作后刷新都沿用此名（对外名零改动）。 */
+const loadReviews = run
 
 const loadStats = async () => {
   try {
@@ -331,11 +341,11 @@ const loadStats = async () => {
   }
 }
 
-const resetFilter = () => {
+// 重置筛选走 search()：先作废在途请求，再回到第 1 页，避免旧页响应晚到覆盖。
+const resetFilter = async () => {
   filterStatus.value = ''
   filterPriority.value = ''
-  page.value = 1
-  loadReviews()
+  await search()
 }
 
 // P1-E 修复：移除 any 类型，使用明确的 ReviewItem 类型

@@ -203,13 +203,22 @@ class TestP233AuditHelperRatchet:
     AFTER_BATCH3 = 44  # 第十二轮第三批：gdpr 2 + auth 助手 1 + uploads 1 + user_upload 2 + user_risk 1
     AFTER_BATCH4 = 37  # 第十二轮第四批：admin 2 + alerts 2 + helpers 1 + analytics 1 + reports 1（helpers 助手计入；扫描器口径不含 helper 本体）
     AFTER_BATCH5 = 34  # 第十二轮第五批：warning_service 3（服务层穿参打样：request/tenant 可选关键字，API 端点传入）
+    AFTER_BATCH6 = 24  # 第十二轮第六批：review_service 2 + intervention_service 2 + counselor_service_binding 6
 
     def test_operation_log_construct_sites_decreased(self):
         got = _scan_operation_log_calls()
-        assert got == self.AFTER_BATCH5, (
-            f"OperationLog( 生产构造点应为 {self.AFTER_BATCH5}，实际 {got}"
+        assert got == self.AFTER_BATCH6, (
+            f"OperationLog( 生产构造点应为 {self.AFTER_BATCH6}，实际 {got}"
         )
-        assert got < self.AFTER_BATCH4 < self.AFTER_BATCH3 < self.AFTER_BATCH2 < self.AFTER_BATCH1 < self.BASELINE_BEFORE
+        assert (
+            got
+            < self.AFTER_BATCH5
+            < self.AFTER_BATCH4
+            < self.AFTER_BATCH3
+            < self.AFTER_BATCH2
+            < self.AFTER_BATCH1
+            < self.BASELINE_BEFORE
+        )
 
     def test_migrated_files_no_longer_construct_operation_log(self):
         for rel in (
@@ -227,6 +236,9 @@ class TestP233AuditHelperRatchet:
             "api/v1/analytics_events.py",
             "api/v1/reports.py",
             "services/warning_service.py",
+            "services/review_service.py",
+            "services/intervention_service.py",
+            "services/counselor_service_binding.py",
         ):
             t = (BE / rel).read_text(encoding="utf-8")
             assert "OperationLog(" not in t, f"{rel} 仍有手写 OperationLog 构造"
@@ -317,6 +329,35 @@ class TestP235SilentDegradationRatchet:
             "api.metrics_helpers.collect_drift",
             "api.metrics_helpers.collect_canary",
         ):
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    def test_batch6_locations_wired_in_code_and_doc(self):
+        """第十二轮第六批 4 个新接线点：源码与审计文档**双向**核对。
+
+        只查文档会漏"登记了但没接线"，只查源码会漏"接了但没登记"，故两侧都要。
+        """
+        pairs = (
+            (
+                "services.risk_service_assessment.structured_predict_fallback",
+                "services/risk_service_assessment.py",
+            ),
+            (
+                "services.drift_monitoring_service.resolve_canary_version_failed",
+                "services/drift_monitoring_service.py",
+            ),
+            (
+                "services.shadow_comparison_service.commit_shadow_stats_failed",
+                "services/shadow_comparison_service.py",
+            ),
+            (
+                "api.validation.job_store.create.redis_fallback",
+                "api/v1/validation.py",
+            ),
+        )
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in pairs:
+            src = (BE / rel).read_text(encoding="utf-8")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
             assert loc in doc, f"接线点 {loc} 未登记进审计文档"
 
 

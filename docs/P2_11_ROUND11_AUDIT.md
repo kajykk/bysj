@@ -141,6 +141,22 @@
 `tasks/scheduler.py` 13、`core/ws.py` 11、`model_engine/loading.py` 9、
 `api/v1/validation.py` 8。→ 分批移第十二轮。
 
+### 后续批次追加登记（棘轮为 `>=` 式，只补表不改数）
+
+| location | 文件 | 降级语义 | 批次 |
+|---|---|---|---|
+| `api.model_predict.predict.review_task_schedule_failed` | `api/v1/model_predict/predict.py` | 复核任务 fire-and-forget 创建失败 | 第十二轮第三批 |
+| `api.model_predict.predict.crisis_record_failed` | 同上 | 危机事件落库失败（最高危静默丢失） | 第十二轮第三批 |
+| `api.reports.pdf_job.redis_fallback` | `api/v1/reports.py` | 任务存储从 Redis 降级进程内存（跨实例不可见） | 第十二轮第三批 |
+| `api.reports.pdf_jobs.merge_failed` | 同上 | 列表合并失败 = 静默少数据 | 第十二轮第三批 |
+| `services.risk_service_assessment.structured_predict_fallback` | `services/risk_service_assessment.py` | 模型不可用 → 启发式打分（风险分是干预触发依据） | 第十二轮第六批 |
+| `services.drift_monitoring_service.resolve_canary_version_failed` | `services/drift_monitoring_service.py` | 版本解析失败 → 该漂移告警退出自动回滚闭环 | 第十二轮第六批 |
+| `services.shadow_comparison_service.commit_shadow_stats_failed` | `services/shadow_comparison_service.py` | 对拍统计落盘失败 → 激活校验缺依据 | 第十二轮第六批 |
+| `api.validation.job_store.create.redis_fallback` | `api/v1/validation.py` | 写路径降级到内存 → 多实例下任务查不到 | 第十二轮第六批 |
+
+> 第十二轮第六批实测接线总数 **20**（`record_silent_degradation(` 调用点，含
+> `fusion.py` 的动态 location 一处），棘轮 `BASELINE = 8` 为下限，无需改数。
+
 ---
 
 ## 四·二、#36 `useListQuery()` 首批（3/12 页）

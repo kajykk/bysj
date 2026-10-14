@@ -3,11 +3,12 @@ from __future__ import annotations
 import secrets
 from datetime import UTC, datetime
 
+from fastapi import Request
 from sqlalchemy import select
 
+from app.core.audit import record_audit
+from app.core.contracts import USER_ROLE_COUNSELOR, USER_ROLE_USER
 from app.core.states import BindingStatus
-from app.core.contracts import (USER_ROLE_COUNSELOR, USER_ROLE_USER)
-from app.models.admin import OperationLog
 from app.models.user import User, UserCounselorBinding
 
 
@@ -37,7 +38,20 @@ class BindingMixin:
             code = self._generate_bind_code()
         raise ValueError("绑定码生成失败，请稍后重试")
 
-    async def get_or_create_bind_code(self, counselor_id: int) -> str:
+    @staticmethod
+    def _status_value(status) -> str:
+        """绑定状态枚举 → 可 JSON 序列化的文本（审计 detail 用）。"""
+        return status.value if hasattr(status, "value") else str(status)
+
+    async def get_or_create_bind_code(
+        self,
+        counselor_id: int,
+        *,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户；
+        # 任务/旧测试不传则记 None/平台默认）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
+    ) -> str:
         stmt = (
             select(UserCounselorBinding)
             .where(
@@ -65,34 +79,48 @@ class BindingMixin:
             if hasattr(binding, "unbound_at"):
                 binding.unbound_at = None
             self.db.add(binding)
-            self.db.add(
-                OperationLog(
-                    operator_id=counselor_id,
-                    operator_role=USER_ROLE_COUNSELOR,
-                    action_type="create_bind_code",
-                    target_type="user_counselor_binding",
-                    target_id=None,
-                    detail=f"status=placeholder;bind_code={code}",
-                )
+            # P2-33 第六批：改走 record_audit（SSOT）。detail 原为裸字符串
+            # （`status=...;bind_code=...`），现统一为 JSON 对象，便于按字段检索。
+            await record_audit(
+                self.db,
+                actor_id=counselor_id,
+                actor_role=USER_ROLE_COUNSELOR,
+                action="create_bind_code",
+                target_type="user_counselor_binding",
+                target_id=None,
+                detail={"status": "placeholder", "bind_code": code},
+                request=request,
+                tenant_id=tenant_id,
             )
         else:
             existing.bind_code = code
             if existing.status not in {BindingStatus.ACTIVE, BindingStatus.PLACEHOLDER}:
                 existing.status = BindingStatus.PLACEHOLDER
-            self.db.add(
-                OperationLog(
-                    operator_id=counselor_id,
-                    operator_role=USER_ROLE_COUNSELOR,
-                    action_type="refresh_bind_code",
-                    target_type="user_counselor_binding",
-                    target_id=existing.id,
-                    detail=f"status={existing.status};bind_code={code}",
-                )
+            await record_audit(
+                self.db,
+                actor_id=counselor_id,
+                actor_role=USER_ROLE_COUNSELOR,
+                action="refresh_bind_code",
+                target_type="user_counselor_binding",
+                target_id=existing.id,
+                detail={
+                    "status": self._status_value(existing.status),
+                    "bind_code": code,
+                },
+                request=request,
+                tenant_id=tenant_id,
             )
         await self.db.commit()
         return code
 
-    async def refresh_bind_code(self, counselor_id: int) -> str:
+    async def refresh_bind_code(
+        self,
+        counselor_id: int,
+        *,
+        # P2-33 第六批：审计上下文（同上）
+        request: Request | None = None,
+        tenant_id: int | None = None,
+    ) -> str:
         """M7 修复：真正刷新绑定码 - 作废当前 bind_code 并生成新码.
 
         与 get_or_create_bind_code 的区别:
@@ -126,15 +154,20 @@ class BindingMixin:
             if hasattr(binding, "unbound_at"):
                 binding.unbound_at = None
             self.db.add(binding)
-            self.db.add(
-                OperationLog(
-                    operator_id=counselor_id,
-                    operator_role=USER_ROLE_COUNSELOR,
-                    action_type="create_bind_code",
-                    target_type="user_counselor_binding",
-                    target_id=None,
-                    detail=f"status=placeholder;bind_code={new_code};trigger=refresh",
-                )
+            await record_audit(
+                self.db,
+                actor_id=counselor_id,
+                actor_role=USER_ROLE_COUNSELOR,
+                action="create_bind_code",
+                target_type="user_counselor_binding",
+                target_id=None,
+                detail={
+                    "status": "placeholder",
+                    "bind_code": new_code,
+                    "trigger": "refresh",
+                },
+                request=request,
+                tenant_id=tenant_id,
             )
         else:
             # 作废旧码：将旧 bind_code 标记为失效（设为 None 防止重复使用）
@@ -142,15 +175,20 @@ class BindingMixin:
             existing.bind_code = new_code
             if existing.status not in {BindingStatus.ACTIVE, BindingStatus.PLACEHOLDER}:
                 existing.status = BindingStatus.PLACEHOLDER
-            self.db.add(
-                OperationLog(
-                    operator_id=counselor_id,
-                    operator_role=USER_ROLE_COUNSELOR,
-                    action_type="refresh_bind_code",
-                    target_type="user_counselor_binding",
-                    target_id=existing.id,
-                    detail=f"old_bind_code={old_code};new_bind_code={new_code};status={existing.status}",
-                )
+            await record_audit(
+                self.db,
+                actor_id=counselor_id,
+                actor_role=USER_ROLE_COUNSELOR,
+                action="refresh_bind_code",
+                target_type="user_counselor_binding",
+                target_id=existing.id,
+                detail={
+                    "old_bind_code": old_code,
+                    "new_bind_code": new_code,
+                    "status": self._status_value(existing.status),
+                },
+                request=request,
+                tenant_id=tenant_id,
             )
         await self.db.commit()
         return new_code
@@ -161,7 +199,15 @@ class BindingMixin:
         # 增加输入字节数与输出长度至 bind_code CHECK 约束上限（10 字符），提升熵。
         return secrets.token_urlsafe(10)[:10].upper()
 
-    async def bind_by_code(self, user_id: int, bind_code: str) -> dict:
+    async def bind_by_code(
+        self,
+        user_id: int,
+        bind_code: str,
+        *,
+        # P2-33 第六批：审计上下文（同上）
+        request: Request | None = None,
+        tenant_id: int | None = None,
+    ) -> dict:
         # C-Svc-3 修复：bind_code SELECT 加 with_for_update()，避免 TOCTOU 竞态。
         # 原实现仅锁定 user 行，未锁定 binding 行；当 bind_code 被并发使用时
         # （如同一咨询师给多个用户发放相同绑定码、或绑定码泄露后被并发消费），
@@ -257,15 +303,21 @@ class BindingMixin:
             self.db.add(new_binding)
             await self.db.flush()
 
-        self.db.add(
-            OperationLog(
-                operator_id=user_id,
-                operator_role=USER_ROLE_USER,
-                action_type="bind_counselor",
-                target_type="user_counselor_binding",
-                target_id=new_binding.id,
-                detail=f"counselor_id={counselor_id};bind_code={bind_code};from_status={previous_status};to_status=active",
-            )
+        await record_audit(
+            self.db,
+            actor_id=user_id,
+            actor_role=USER_ROLE_USER,
+            action="bind_counselor",
+            target_type="user_counselor_binding",
+            target_id=new_binding.id,
+            detail={
+                "counselor_id": counselor_id,
+                "bind_code": bind_code,
+                "from_status": self._status_value(previous_status),
+                "to_status": "active",
+            },
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         await self.db.refresh(new_binding)
@@ -324,7 +376,14 @@ class BindingMixin:
             "bind_code_status": status_value,
         }
 
-    async def unbind(self, user_id: int) -> bool:
+    async def unbind(
+        self,
+        user_id: int,
+        *,
+        # P2-33 第六批：审计上下文（同上）
+        request: Request | None = None,
+        tenant_id: int | None = None,
+    ) -> bool:
         stmt = (
             select(UserCounselorBinding)
             .where(
@@ -341,15 +400,16 @@ class BindingMixin:
 
         binding.status = BindingStatus.INACTIVE
         binding.unbound_at = datetime.now(UTC).replace(tzinfo=None)
-        self.db.add(
-            OperationLog(
-                operator_id=user_id,
-                operator_role=USER_ROLE_USER,
-                action_type="unbind_counselor",
-                target_type="user_counselor_binding",
-                target_id=binding.id,
-                detail=f"counselor_id={binding.counselor_id};to_status=inactive",
-            )
+        await record_audit(
+            self.db,
+            actor_id=user_id,
+            actor_role=USER_ROLE_USER,
+            action="unbind_counselor",
+            target_type="user_counselor_binding",
+            target_id=binding.id,
+            detail={"counselor_id": binding.counselor_id, "to_status": "inactive"},
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         return True

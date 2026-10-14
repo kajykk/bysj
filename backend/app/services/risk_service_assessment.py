@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import update
 
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 from app.core.model_engine import model_engine
 from app.core.risk_thresholds import ensure_finite_score, get_threshold_by_modality
 from app.models.assessment import StructuredAssessment
@@ -180,6 +181,11 @@ class AssessmentMixin:
             logger.exception(
                 "risk.model.predict_failed user_id=%s, fallback_heuristic_enabled",
                 user_id,
+            )
+            # P2-35：模型不可用静默降级为启发式打分——风险分是干预触发依据，
+            # 降级后没人能从 /metrics 看出来，故必须计数（fallback 是主流程的一部分）。
+            record_silent_degradation(
+                "services.risk_service_assessment.structured_predict_fallback"
             )
             risk_score = self._calculate_heuristic_score(model_features)
             risk_level = self._score_to_level(risk_score)

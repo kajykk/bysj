@@ -19,6 +19,7 @@ import random
 from typing import Any
 
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,10 @@ class ShadowComparisonService:
             return stats
         except Exception as exc:
             logger.warning("commit_shadow_stats failed for %s: %s", model_id, exc)
+            # P2-35：对拍统计落盘失败 → 激活前校验依据的样本数/一致率缺失（部分数据）
+            record_silent_degradation(
+                "services.shadow_comparison_service.commit_shadow_stats_failed"
+            )
             return None
 
     def is_shadow_acceptable(self, model_id: str, force: bool = False) -> tuple[bool, str]:

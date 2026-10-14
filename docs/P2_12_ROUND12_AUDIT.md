@@ -179,3 +179,75 @@
 - #36：useCounselorWarningsData（副作用搬迁：取前清留包裹层，取后清走 onSuccess）+ UserWarningsPage（无权限短路留包裹层）。迁移钉 2 文件 4 用例全绿，counselor 钉做过真实变异（绕过 run 裸调 → 双红 → 恢复绿）。剩余 3 页（AdminAlerts/CounselorReviewList/UserAssessments，均已有 STATE 做 URL 持久化，只差竞态守卫）记账留后续。
 - #32：事实锁（4 定义处 + 双标签）本批 affected 全绿，无变化；维持只裁定不合并。
 - 教训：同套件并发双跑会卡死（sqlite 争用，~5 分钟无输出；kill 后单跑 8s 过）。以后本地只单跑，落盘看结果。
+
+### 2.9 本批（#33 服务层穿参 34→24；#35 +4；#36 最后 3 页 → 12/12）
+
+> 批次编号说明：本节接续 2.8（提示词口径称其为第四批），提交后由 CI `total_count` 实数佐证。
+
+- **#33 第六批（服务层穿参）10 处，构造点 34 → 24**，棘轮 `AFTER_BATCH6 = 24` 同步，
+  4 个文件进入已迁移表：
+  - `review_service` 2：`escalate_review`（tenant 已有，新增 `request` 可选关键字）、
+    `_write_crisis_audit_log`（新增 `request`/`tenant_id`，三个危机处置方法透传）；
+    `review.py` 4 个端点加 `request=request`。
+  - `intervention_service` 2：`complete_task` / `feedback_task`。
+    ⚠️ **detail 口径变化（记账）**：原为裸字符串（`task_id=1, scheduled_date=...`），
+    改走 `record_audit` 后统一为 JSON 对象（新增 `feedback_score` 字段）。
+  - `counselor_service_binding` 6：`get_or_create_bind_code` / `refresh_bind_code` /
+    `bind_by_code` / `unbind`（后者在 `counselor.py` 2 端点 + `user_data.py` 2 端点穿参，
+    `unbind_counselor` 端点新增 `Request` 形参）。detail 同样由裸字符串转 JSON 对象，
+    枚举状态走新增的 `_status_value()` 静态助手（避免 `str(枚举)` 出 `BindingStatus.ACTIVE`）。
+  - `tenant_admin` 4 处**不动**（目标租户归属语义，record_audit 落列后需逐点确认归属再迁），
+    本批只记账，与 2.8 节口径一致。
+- **#35：4 处真降级接线**（跳过 ImportError 探测 / `Sentry capture_*` 自身失败 / 指标上报失败）：
+  `risk_service_assessment`（模型失败→启发式打分，**风险分是干预触发依据**）、
+  `drift_monitoring_service`（版本解析失败→告警退出自动回滚闭环）、
+  `shadow_comparison_service`（对拍统计落盘失败→激活校验缺依据）、
+  `validation.py` 任务存储**写路径**降级内存（多实例下轮询打到别的实例查不到）。
+  实测 `record_silent_degradation(` 调用点 16 → **20**；棘轮为 `>=` 式（`BASELINE=8`）未改数，
+  新位置登记进 `P2_11_ROUND11_AUDIT.md` 四·节追加表，并新增
+  `test_batch6_locations_wired_in_code_and_doc` 做**源码 + 文档双向**核对
+  （只查文档会漏"登记了没接线"，只查源码会漏"接了没登记"）。
+- **#36：最后 3 页完成（12/12）**：`AdminAlertsPage`（tab 双数据源 history/archive，
+  fetcher 内分支选端点）、`UserAssessmentsPage`（`rawItems` + sessionStorage 快照改由
+  `onSuccess` 写，过期响应不再污染详情页）、`CounselorReviewListPage`（本地 page ref，
+  `setPage` 写本地状态；`loadReviews` 保留为 `run` 别名）。三页均 `immediate:false`
+  + 原 `onMounted` 保留，对外名零改动；筛选/重置/切 tab 改走 `search()`
+  （先作废在途请求再回第 1 页），翻页路径按 M2 同型修法补 `await`。
+
+#### 2.9.1 实测读数
+
+| 项 | 读数 |
+|---|---|
+| 前端全量 | **112 files / 1326 passed / 4 skipped / 0 failed** |
+| vue-tsc（`typecheck:baseline` stdin 模式） | **0 错**（基线 0） |
+| 迁移钉（本批 3 文件） | **9 passed** |
+| #33 受影响既有 9 文件（api/test_review_assign_auth 等 + services + unit） | **241 passed** |
+| #35 受影响（risk/shadow/validation/drift 等 9 文件） | **35 + 18 + 106 passed** |
+| `test_p2_11_round11.py` | **23 passed**（含新增双向断言） |
+| `test_p2_12_round12.py` | 含在上述 35 内，全绿 |
+
+#### 2.9.2 本批三次真实变异（均红 → 恢复绿）
+
+1. `useListQuery.ts` 摘掉竞态守卫（`if false return`）→ AdminAlerts + UserWarnings 两个
+   竞态用例红（旧页 `[20]` 覆盖新页 `[30]`）→ 恢复绿。
+2. `UserAssessmentsPage.vue` 把 `writeAssessmentDetailCache` 搬回 fetcher 内 → 第三个用例红
+   （过期响应把旧页写进 sessionStorage，`CACHE_KEY` 命中旧 id）→ 恢复绿。
+3. `CounselorReviewListPage.vue` 摘掉 `setPage` 里的 `page.value = value` → 重置筛选后
+   请求仍带 `page=3`（应为 1）→ 恢复绿。
+4. 后端两处：`counselor_service_binding` 回退为手写 `OperationLog` 构造 → 棘轮红
+   （24 → 实际 25，且"已迁移文件不得再手写"断言同红）；`drift_monitoring_service` 的
+   location 字面量改掉 → 双向核对断言红。
+
+#### 2.9.3 未验证 / 待办（如实记账）
+
+- 后端**全量本地未跑**（约 37 分钟，历轮同例），由 CI 兜底；本地只跑 affected + 闸门。
+- #33 余 **24** 处：服务层剩余簇（`counselor_service_group/consultation/warning` 各 2）+
+  任务层（`tasks/scheduler.py`、`anomaly_detection.py`）+ `monitoring/*`
+  （notifier/dedup_lock/escalation/am_sync）+ `admin_service_*` 3 + `tenant_admin` 4
+  （目标租户归属语义，需逐点确认）+ `gdpr_service_anonymize` 1 + `user_intervention.py` 1。
+- #35 余量未重扫（本批只做 4 处真降级）；`api/v1/validation.py` 的读路径降级（get/update）
+  同型但未接线，留后续（写路径丢失后果最重，先做写）。
+- #34 / #32 本批未动（#32 维持只裁定不合并）。
+- `tests/test_iss02_validation_engine.py` 在本机沙箱下需 `--basetemp` 才能跑：
+  默认 tmpdir 的 GC（`pytest.pathlib.rm_rf`）会触发环境侧的 bulk-delete guard 直接
+  `SystemExit`，与产品代码无关；CI 环境无此 guard。

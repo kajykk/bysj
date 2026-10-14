@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_role
+from app.core.exceptions import ServiceError
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
@@ -22,7 +23,6 @@ from app.schemas.counselor import BindCodeRequest
 from app.services.counselor_service import CounselorService
 from app.services.risk_service import RiskService
 from app.services.user_data_service import UserDataService
-from app.core.exceptions import ServiceError
 
 router = APIRouter(prefix="/user/data", tags=["user-data"])
 logger = logging.getLogger(__name__)
@@ -204,7 +204,13 @@ async def bind_counselor(
 ) -> dict:
     service = CounselorService(db)
     try:
-        result = await service.bind_by_code(current_user.id, payload.bind_code)
+        result = await service.bind_by_code(
+            current_user.id,
+            payload.bind_code,
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
+            tenant_id=current_user.tenant_id,
+        )
         return ok(result)
     except ValueError as exc:
         raise ServiceError(
@@ -216,11 +222,17 @@ async def bind_counselor(
 
 @router.delete("/binding", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
 async def unbind_counselor(
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = CounselorService(db)
-    success = await service.unbind(current_user.id)
+    success = await service.unbind(
+        current_user.id,
+        # P2-33 第六批：审计上下文（ip / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
+    )
     if not success:
         raise HTTPException(status_code=404, detail="当前无有效绑定")
     return ok({"message": "已解绑咨询师"})
