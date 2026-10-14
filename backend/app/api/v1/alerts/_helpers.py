@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -20,7 +19,7 @@ from app.api.v1.alerts._schemas import (
     _ALERT_MAX_MSG_LEN,
     AlertManagerPayload,
 )
-from app.models.admin import OperationLog
+from app.core.audit import record_audit
 from app.monitoring.notifier import AlertPayload
 
 logger = logging.getLogger(__name__)
@@ -113,28 +112,25 @@ async def _persist_alert_log(
 ) -> int:
     """持久化告警到 OperationLog. 返回新行 ID."""
     action_type = "alert_fired" if alert.status == "firing" else "alert_resolved"
-    detail = json.dumps(
-        {
+    # P2-33 第四批：改调统一审计 helper SSOT。webhook 系统路径：无 user/request/tenant，
+    # 一律显式 None。原 5000 字符截断保留在 message 字段上（列是 Text 无界，
+    # 但告警 message 可能极长，截断意图不变）；helper flush 后 id 已回填，无需 refresh。
+    row = await record_audit(
+        db,
+        actor_id=operator_id,
+        actor_role=operator_role,
+        action=action_type,
+        target_type="alert",
+        target_id=None,
+        detail={
             "rule": alert.rule,
             "severity": alert.severity,
             "fingerprint": alert.fingerprint,
             "labels": alert.labels,
             "annotations": alert.annotations,
-            "message": alert.message,
+            "message": (alert.message or "")[:4000],
         },
-        ensure_ascii=False,
-    )[
-        :5000
-    ]  # 限制 detail 长度
-    row = OperationLog(
-        operator_id=operator_id,
-        operator_role=operator_role,
-        action_type=action_type,
-        target_type="alert",
-        target_id=None,
-        detail=detail,
+        request=None,
+        tenant_id=None,
     )
-    db.add(row)
-    await db.flush()
-    await db.refresh(row)
     return row.id

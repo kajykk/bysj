@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Annotated, Any
@@ -10,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.openapi_responses import (
@@ -17,10 +17,9 @@ from app.core.openapi_responses import (
     EXCEL_EXPORT_RESPONSE,
     PDF_SUCCESS_RESPONSE,
 )
-from app.core.rate_limit import get_real_client_ip, limiter
+from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.core.tenant_context import require_platform_permission
-from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.reports import BatchExportRequest, UserRiskReportRequest
@@ -191,27 +190,25 @@ async def _record_excel_export_audit(
     """SEC-P1-003 修复：记录批量 Excel 导出审计日志并提交。
 
     （流式响应前先提交, 避免事务在流式生成期间关闭）
+    P2-33 第四批：改调统一审计 helper SSOT（ip 由 helper 从 request 取）。
     """
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="admin.report.batch_export_excel",
-            target_type="report",
-            target_id=None,
-            detail=json.dumps(
-                {
-                    "filename": safe_name,
-                    "row_count": row_count,
-                    "columns": list(columns) if columns else [],
-                    "filters": filters if filters else {},
-                    "file_size": file_size,
-                    "stream_mode": stream_mode,
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="admin.report.batch_export_excel",
+        target_type="report",
+        target_id=None,
+        detail={
+            "filename": safe_name,
+            "row_count": row_count,
+            "columns": list(columns) if columns else [],
+            "filters": filters if filters else {},
+            "file_size": file_size,
+            "stream_mode": stream_mode,
+        },
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 

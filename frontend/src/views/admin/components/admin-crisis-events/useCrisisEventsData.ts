@@ -7,6 +7,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { adminApi, type CrisisEventItem } from '@/api/adminApi'
+import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { getDefaultDateRange } from './sharedCrisisEventsUtils'
@@ -17,10 +18,6 @@ export function useCrisisEventsData() {
 
   const queryState = useListQueryState('ce')
 
-  const loading = ref(false)
-  const rows = ref<CrisisEventItem[]>([])
-  const total = ref(0)
-  const pageError = ref('')
   const exporting = ref(false)
 
   const page = computed(() => queryState.page.value)
@@ -31,10 +28,11 @@ export function useCrisisEventsData() {
     dateRange: getDefaultDateRange() as string[]
   })
 
-  const fetchData = async () => {
-    loading.value = true
-    pageError.value = ''
-    try {
+  // P2-36 第三批：列表三态 + 竞态守卫改由 useListQuery 统一提供。
+  const {
+    rows, total, loading, error: pageError, run: fetchData, search,
+  } = useListQuery<CrisisEventItem>({
+    fetcher: async () => {
       const query: { page: number; page_size: number; status?: string; start_date?: string; end_date?: string } = {
         page: page.value,
         page_size: pageSize.value
@@ -45,14 +43,12 @@ export function useCrisisEventsData() {
         query.end_date = filters.dateRange[1]
       }
       const data = await adminApi.getCrisisEvents(query)
-      rows.value = data.items
-      total.value = data.total
-    } catch (error) {
-      pageError.value = showHttpFeedback(error, t('adminCrisisEvents.loadFailed')).detail
-    } finally {
-      loading.value = false
-    }
-  }
+      return { items: data.items, total: data.total }
+    },
+    onError: (error) => showHttpFeedback(error, t('adminCrisisEvents.loadFailed')).detail,
+    immediate: false, // 与原来一致：由 onMounted 触发首次加载
+    setPage: (value) => queryState.setQuery({ page: value }),
+  })
 
   const onPageChange = async (value: number) => {
     await queryState.setQuery({ page: value })
@@ -65,15 +61,14 @@ export function useCrisisEventsData() {
   }
 
   const handleSearch = async () => {
-    await queryState.setQuery({ page: 1 })
-    fetchData()
+    // 筛选变化走 search：先作废在途请求再重置到第 1 页拉取
+    await search()
   }
 
   const handleReset = async () => {
     filters.status = ''
     filters.dateRange = getDefaultDateRange()
-    await queryState.setQuery({ page: 1 })
-    fetchData()
+    await search()
   }
 
   const handleExport = async () => {

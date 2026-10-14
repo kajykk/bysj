@@ -163,3 +163,11 @@
 - 前端全量第一次：105 files / 1306 passed / 1 failed / 4 skipped，红仍是 UserReportsPage.nullable 同一位置（collect 期 STACK_TRACE_ERROR，无应用栈）。按红线当真问题查：该文件 94 行自述 element-plus 首挂编译慢近 30s 超时阈值；隔离重跑 8/8；与本批 2 个新文件无共享导入。结论：worker 负载下收集期资源耗尽，非产品回归（与第十一轮同签名事件为同一机制）。
 - 前端全量第二次：105 files / 1307 passed / 0 failed / 4 skipped。两次 JSON 均落盘（vitest12b2.json），以第二次为准，第一次如实保留在此。
 - 后端：affected+gates 94 passed；test_p2_12 19 passed；回退驱动重跑 9/9；vue-tsc 0 错，BASELINE 0 保持。
+
+### 2.7 第五批（#33：+7 处→37；SSOT 根因修复：tenant 落列）
+
+- #33：admin 2（update_model 平台 None / crisis 导出透传 tenant 范围）、alerts 2（ack 平台 None / silenced 系统三 None）、helpers 1（系统三 None，message 截断保留）、analytics 1、reports 1。构造点 44→37，AFTER_BATCH4=37。
+- **SSOT 根因修复（本批最重要）**：record_audit 文档声称“该表无租户列”，但 Phase 5 已加 tenant_id 非空列。修前所有已迁移行列恒为默认租户 1，detail 与列各说各话（tenant_admin 的 SEC-FIX 归属要求被静默丢弃）。修复：tenant 落列，None→DEFAULT_TENANT_ID（与列默认值同值，None 调用方零行为变化）。变异验证：stash 修复后新闸门红（assert 1 == 7，正是 bug 本体）→ 恢复绿。
+- 门禁配套：正文 ip 表改 AST 提取（正则嵌套括号截断曾致 admin 导出漏检假红）；新增 test_system_paths_use_explicit_none（webhook 三 None 锁死）；helpers 的 role 以签名默认 system 为准（调用处透传形参，不锁字面量）。另修测试内 docstring 转义 SyntaxWarning。
+- 实测：10 文件 affected+gates 195 passed；4 迁移钉 11 passed；vue-tsc 0 错。
+- 注：useSilencesData / useCrisisEventsData 的 #36 迁移及配套钉由并行工作完成，本节仅记录与其合并验证的结果，归属以各自提交为准。

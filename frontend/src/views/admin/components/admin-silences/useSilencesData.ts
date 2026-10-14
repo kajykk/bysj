@@ -7,6 +7,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { alertsApi, type SilenceCreatePayload, type SilenceItem } from '@/api/alertsApi'
+import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 
@@ -15,10 +16,6 @@ export function useSilencesData() {
 
   const queryState = useListQueryState('as')
 
-  const loading = ref(false)
-  const rows = ref<SilenceItem[]>([])
-  const total = ref(0)
-  const pageError = ref('')
   const deleteLoadingId = ref<number | null>(null)
   const editLoadingId = ref<number | null>(null)
   const enableLoadingId = ref<number | null>(null)
@@ -38,24 +35,27 @@ export function useSilencesData() {
   const isEditMode = ref(false)
   const editingRow = ref<SilenceItem | null>(null)
 
-  const fetchData = async () => {
-    loading.value = true
-    pageError.value = ''
-    try {
+  // P2-36 第三批：列表三态 + 竞态守卫改由 useListQuery 统一提供。
+  // activeSilences 附属块必须走 onSuccess（只在响应 fresh 时写），直接写在 fetcher 里
+  // 会被过期响应污染 —— 这是 onSuccess 参数存在的理由。
+  const {
+    rows, total, loading, error: pageError, run: fetchData, search,
+  } = useListQuery<SilenceItem>({
+    fetcher: async () => {
       const data = await alertsApi.listSilences({
         page: page.value,
         page_size: pageSize.value,
         is_active: filters.isActive === '' ? undefined : filters.isActive
       })
-      rows.value = data.items
-      total.value = data.total
-      await fetchActiveSilences()
-    } catch (error) {
-      pageError.value = showHttpFeedback(error, t('adminSilences.loadFailed')).detail
-    } finally {
-      loading.value = false
-    }
-  }
+      return { items: data.items, total: data.total }
+    },
+    onSuccess: () => {
+      void fetchActiveSilences()
+    },
+    onError: (error) => showHttpFeedback(error, t('adminSilences.loadFailed')).detail,
+    immediate: false, // 与原来一致：由 onMounted 触发首次加载
+    setPage: (value) => queryState.setQuery({ page: value }),
+  })
 
   const fetchActiveSilences = async () => {
     try {
@@ -141,16 +141,16 @@ export function useSilencesData() {
 
   const handleSearch = async () => {
     await queryState.setQuery({
-      page: 1,
       is_active: filters.isActive === '' ? undefined : String(filters.isActive)
     })
-    fetchData()
+    // 筛选变化走 search：先作废在途请求再重置到第 1 页拉取
+    await search()
   }
 
   const handleReset = async () => {
     filters.isActive = ''
-    await queryState.setQuery({ page: 1, is_active: undefined })
-    fetchData()
+    await queryState.setQuery({ is_active: undefined })
+    await search()
   }
 
   onMounted(fetchData)

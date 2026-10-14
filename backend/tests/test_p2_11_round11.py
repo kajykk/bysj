@@ -201,13 +201,14 @@ class TestP233AuditHelperRatchet:
     AFTER_BATCH1 = 54
     AFTER_BATCH2 = 51  # 第十二轮第二批：counselor.py 3 处（查看类审计日志）
     AFTER_BATCH3 = 44  # 第十二轮第三批：gdpr 2 + auth 助手 1 + uploads 1 + user_upload 2 + user_risk 1
+    AFTER_BATCH4 = 37  # 第十二轮第四批：admin 2 + alerts 2 + helpers 1 + analytics 1 + reports 1（helpers 助手计入；扫描器口径不含 helper 本体）
 
     def test_operation_log_construct_sites_decreased(self):
         got = _scan_operation_log_calls()
-        assert got == self.AFTER_BATCH3, (
-            f"OperationLog( 生产构造点应为 {self.AFTER_BATCH3}，实际 {got}"
+        assert got == self.AFTER_BATCH4, (
+            f"OperationLog( 生产构造点应为 {self.AFTER_BATCH4}，实际 {got}"
         )
-        assert got < self.AFTER_BATCH2 < self.AFTER_BATCH1 < self.BASELINE_BEFORE
+        assert got < self.AFTER_BATCH3 < self.AFTER_BATCH2 < self.AFTER_BATCH1 < self.BASELINE_BEFORE
 
     def test_migrated_files_no_longer_construct_operation_log(self):
         for rel in (
@@ -219,20 +220,69 @@ class TestP233AuditHelperRatchet:
             "api/v1/uploads.py",
             "api/v1/user_upload.py",
             "api/v1/user_risk.py",
+            "api/v1/admin.py",
+            "api/v1/alerts/__init__.py",
+            "api/v1/alerts/_helpers.py",
+            "api/v1/analytics_events.py",
+            "api/v1/reports.py",
         ):
             t = (BE / rel).read_text(encoding="utf-8")
             assert "OperationLog(" not in t, f"{rel} 仍有手写 OperationLog 构造"
             assert "record_audit(" in t, f"{rel} 应改调 record_audit"
 
+    @staticmethod
+    def _record_audit_calls(rel: str) -> list[dict[str, str]]:
+        """AST 提取文件内全部 record_audit 调用（解决正则无法处理嵌套括号截断）。
+
+        背景：admin 导出调用的 detail 里含三元表达式括号，非贪婪正则
+        会在内层右括号处提前截断，把 request=request 漏在匹配区之外 → 假红。
+        AST 按关键字取，天然完整。返回每处调用的 {kwarg: 源码}。
+        """
+        import ast as _ast
+
+        t = (BE / rel).read_text(encoding="utf-8")
+        tree = _ast.parse(t)
+        out: list[dict[str, str]] = []
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.Call):
+                continue
+            fn = node.func
+            nm = getattr(fn, "id", None) or getattr(fn, "attr", None)
+            if nm != "record_audit":
+                continue
+            out.append({kw.arg or "*": _ast.unparse(kw.value) for kw in node.keywords})
+        return out
+
     def test_migration_records_ip_from_request(self):
-        # 迁移前这些点完全没有 ip_address；迁移后必须把 request 传进 helper
-        for rel in ("api/v1/silences.py", "api/v1/content_governance.py", "api/v1/model_kill_switch.py", "api/v1/counselor.py", "api/v1/gdpr.py", "api/v1/auth.py", "api/v1/uploads.py", "api/v1/user_upload.py", "api/v1/user_risk.py"):
-            t = (BE / rel).read_text(encoding="utf-8")
-            calls = re.findall(r"await record_audit\((.*?)\n    \)", t, re.S)
+        # 迁移前这些点完全没有 ip_address；迁移后必须把 request 传进 helper。
+        # webhook 系统路径（alerts 二处）无 request 可传，显式 request=None，
+        # 由 test_system_paths_use_explicit_none 把守，不在此表。
+        for rel in ("api/v1/silences.py", "api/v1/content_governance.py", "api/v1/model_kill_switch.py", "api/v1/counselor.py", "api/v1/gdpr.py", "api/v1/auth.py", "api/v1/uploads.py", "api/v1/user_upload.py", "api/v1/user_risk.py", "api/v1/admin.py", "api/v1/analytics_events.py", "api/v1/reports.py"):
+            calls = self._record_audit_calls(rel)
             assert calls, f"{rel} 未找到 record_audit 调用"
             for c in calls:
-                assert "request=request" in c, f"{rel} 的 record_audit 调用缺 request=request"
-                assert "tenant_id=" in c, f"{rel} 的 record_audit 调用缺 tenant_id（必填关键字）"
+                assert c.get("request") == "request", f"{rel} 的 record_audit 调用缺 request=request"
+                assert "tenant_id" in c, f"{rel} 的 record_audit 调用缺 tenant_id（必填关键字）"
+
+    def test_system_paths_use_explicit_none(self):
+        # webhook 系统路径：无 user、无 request、无 tenant，必须显式三 None，
+        # 禁止"忘记传"被 sentinel 误判为漏传 TypeError，也禁止手填 ip。
+        # alerts/__init__.py 含 ack（有 request，走正常表）+ silenced（系统，走此表），
+        # 故只断言"至少一处系统调用"，不断言全部。
+        silenced = self._record_audit_calls("api/v1/alerts/__init__.py")
+        sys_calls = [c for c in silenced if c.get("request") == "None"]
+        assert sys_calls, "alerts silenced 路径必须有显式 request=None 的系统调用"
+        for c in sys_calls:
+            assert c.get("tenant_id") == "None"
+        t = (BE / "api/v1/alerts/_helpers.py").read_text(encoding="utf-8")
+        calls = self._record_audit_calls("api/v1/alerts/_helpers.py")
+        assert calls, "alerts/_helpers.py 未找到 record_audit 调用"
+        # helper 签名自带 operator_role="system" 默认，调用处透传形参，
+        # 故此处只锁 request/tenant 双 None，不锁字面 role。
+        assert 'operator_role: str = "system"' in t, "alerts/_helpers.py 系统角色默认值被改动"
+        for c in calls:
+            assert c.get("request") == "None", "alerts/_helpers.py 系统路径必须显式 request=None"
+            assert c.get("tenant_id") == "None", "alerts/_helpers.py 系统路径必须显式 tenant_id=None"
 
 
 class TestP235SilentDegradationRatchet:

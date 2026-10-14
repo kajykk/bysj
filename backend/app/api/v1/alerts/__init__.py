@@ -46,6 +46,7 @@ from app.api.v1.alerts._schemas import (  # noqa: F401
     AlertManagerPayload,
     _validate_url_safety,
 )
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
@@ -123,8 +124,17 @@ async def _handle_silenced_alert(
         # H-2 修复：使用 savepoint 隔离每条告警的持久化，flush 失败时仅回滚该 savepoint，
         # 避免会话进入 PendingRollbackError 状态导致后续所有操作持续失败。
         async with db.begin_nested():
-            detail = json.dumps(
-                {
+            # P2-33 第四批：改调统一审计 helper SSOT。webhook 系统路径：无 user、
+            # 无 request、无 tenant，一律显式 None（原手写版同样无 ip）。
+            # helper 内 add+flush 落在 savepoint 里，语义与原 db.add 一致。
+            await record_audit(
+                db,
+                actor_id=None,
+                actor_role="system",
+                action="alert_silenced",
+                target_type="alert",
+                target_id=None,
+                detail={
                     "rule": alert.rule,
                     "severity": alert.severity,
                     "fingerprint": alert.fingerprint,
@@ -134,17 +144,9 @@ async def _handle_silenced_alert(
                     "silenced_by": silence_rule.id if silence_rule else None,
                     "silence_name": silence_rule.name if silence_rule else None,
                 },
-                ensure_ascii=False,
+                request=None,
+                tenant_id=None,
             )
-            sil_log = OperationLog(
-                operator_id=None,
-                operator_role="system",
-                action_type="alert_silenced",
-                target_type="alert",
-                target_id=None,
-                detail=detail,
-            )
-            db.add(sil_log)
         return True
     except Exception as exc:
         logger.error("[alerts/webhook] persist silenced failed: %s", exc)
@@ -465,22 +467,23 @@ async def acknowledge_alert(
     # H-06 修复：审计日志不可变 - 不修改原始 alert_fired 行的 detail
     # 改为只插入新的 alert_acknowledged 行，通过 target_id 关联原始告警
     # 查询历史时通过 JOIN 或子查询获取 ack 状态
-    ack_log = OperationLog(
-        operator_id=current_user.id,
-        operator_role=current_user.role,
-        action_type="alert_acknowledged",
+    # P2-33 第四批：改调统一审计 helper SSOT（平台管理员确认，tenant 显式 None；
+    # ip 由 helper 从 request 取）。H-06 不可变语义保持：只插新行，不改原行。
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="alert_acknowledged",
         target_type="alert",
         target_id=alert_id,
-        detail=json.dumps(
-            {
-                "acknowledged": True,
-                "acknowledged_by": current_user.id,
-                "acknowledged_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            },
-            ensure_ascii=False,
-        ),
+        detail={
+            "acknowledged": True,
+            "acknowledged_by": current_user.id,
+            "acknowledged_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        },
+        request=request,
+        tenant_id=None,
     )
-    db.add(ack_log)
     await db.commit()
     return ok({"alert_id": alert_id, "acknowledged": True})
 

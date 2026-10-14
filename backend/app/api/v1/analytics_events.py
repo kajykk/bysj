@@ -8,7 +8,6 @@
 """
 
 import asyncio
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
@@ -18,13 +17,13 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import get_real_client_ip
 from app.core.response import ok
-from app.models.admin import OperationLog
 from app.models.user import User, UserProfile
 
 # T5-B2：补充具体 response_model，OpenAPI data 字段可导航
@@ -237,21 +236,18 @@ async def update_consent(
 
     profile.analytics_consent = body.consent
 
-    # 写入审计日志
+    # P2-33 第四批：改调统一审计 helper SSOT（ip 由 helper 从 request 取）。
     action = "analytics.consent.grant" if body.consent else "analytics.consent.withdraw"
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type=action,
-            target_type="user",
-            target_id=current_user.id,
-            detail=json.dumps(
-                {"old": old_consent, "new": body.consent},
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action=action,
+        target_type="user",
+        target_id=current_user.id,
+        detail={"old": old_consent, "new": body.consent},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 

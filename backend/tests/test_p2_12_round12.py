@@ -488,3 +488,48 @@ class TestScopeResolution:
                         continue
                     bad.append(f"{rel}:{node.lineno} {node.id}")
         assert not bad, "引用了未定义/未导入的名字:\n" + "\n".join(sorted(set(bad))[:20])
+
+
+class TestRecordAuditTenantColumn:
+    """P2-33 第四批修复：record_audit 的 tenant_id 必须落列，不能只进 detail。
+
+    根因：helper 文档声称"该表无租户列"，但 Phase 5 已加 `tenant_id` 非空列。
+    修前所有迁移行的列恒为模型默认，detail 与列各说各话（SEC-FIX 归属被静默丢弃）。
+    行为断言（不用存在性断言）：真写一行再读列。
+    """
+
+    async def test_tenant_id_written_to_column(self, db_session):
+        from app.core.audit import record_audit
+        from app.models.admin import OperationLog
+
+        log = await record_audit(
+            db_session,
+            actor_id=1,
+            actor_role="admin",
+            action="test.tenant.col",
+            target_type="user",
+            target_id=2,
+            detail={},
+            request=None,
+            tenant_id=7,
+        )
+        assert log.tenant_id == 7, "tenant_id 未落列（只进了 detail）"
+        got = await db_session.get(OperationLog, log.id)
+        assert got is not None and got.tenant_id == 7
+
+    async def test_none_tenant_maps_to_platform_default(self, db_session):
+        from app.core.audit import record_audit
+        from app.core.contracts import DEFAULT_TENANT_ID
+
+        log = await record_audit(
+            db_session,
+            actor_id=None,
+            actor_role="system",
+            action="test.tenant.platform",
+            target_type="alert",
+            target_id=None,
+            detail={},
+            request=None,
+            tenant_id=None,
+        )
+        assert log.tenant_id == DEFAULT_TENANT_ID, "None 应记平台默认租户（列非空）"

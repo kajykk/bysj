@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.exceptions import ServiceError
 from app.core.idempotency import (
@@ -22,7 +23,6 @@ from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.request_id import get_or_create_request_id
 from app.core.response import ok
 from app.core.tenant_context import require_platform_admin
-from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.admin import (
     ConfigUpsertRequest,
@@ -424,18 +424,18 @@ async def update_model(
         await service.update_model(model_id_int, payload.model_dump(exclude_unset=True))
     except ValueError as exc:
         raise _map_value_error(exc) from exc
-    # L-API-6 修复：记录 OperationLog 审计日志，与其他模型操作（register/activate）保持一致
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="update_model",
-            target_type="model",
-            target_id=model_id_int,
-            detail=json.dumps(
-                payload.model_dump(exclude_unset=True), ensure_ascii=False
-            ),
-        )
+    # P2-33 第四批：改调统一审计 helper SSOT。模型注册表是平台级资源，
+    # tenant 显式记 None（平台级标记）；ip 由 helper 从 request 取。
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="update_model",
+        target_type="model",
+        target_id=model_id_int,
+        detail=payload.model_dump(exclude_unset=True),
+        request=request,
+        tenant_id=None,
     )
     await db.commit()
     return ok({"message": "模型更新成功"})
@@ -542,32 +542,34 @@ async def export_crisis_events(
         # SEC-FIX (P2): 流开始前先写入审计日志——客户端中途断开时生成器收到
         # GeneratorExit, 原"流式完成后写入"的分支永远不执行, 导出已部分发生
         # 却无任何审计记录。content_size 改为流结束后 UPDATE 回填。
-        audit_log = OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="admin.crisis.export",
+        # P2-33 第四批：改调统一审计 helper SSOT（ip 由 helper 从 request 取；
+        # tenant 取导出范围参数，None = 全租户导出，平台级标记）。
+        # 注意：此构造在流生成器闭包内，record_audit 的 add+flush 语义与原 db.add 一致，
+        # 后续 content_size 回填 UPDATE 不受影响。
+        audit_log = await record_audit(
+            db,
+            actor_id=current_user.id,
+            actor_role=current_user.role,
+            action="admin.crisis.export",
             target_type="crisis_event",
             target_id=None,
-            detail=json.dumps(
-                {
-                    "start_date": start_date.isoformat(),
-                    "end_date": end_date.isoformat(),
-                    "filename": safe_filename,
-                    "content_size": 0,
-                    "completed": False,
-                    # AUDIT-2026-10-08：记录本次导出覆盖的租户范围。
-                    # 危机数据批量导出是高敏操作，事后必须能回答「当时导了哪些
-                    # 租户」—— CSV 里的 user_id 已脱敏，无法从产物反推。
-                    "tenant_scope": (
-                        "all_tenants" if tenant_id is None else f"tenant:{tenant_id}"
-                    ),
-                    "tenant_id": tenant_id,
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
+            detail={
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "filename": safe_filename,
+                "content_size": 0,
+                "completed": False,
+                # AUDIT-2026-10-08：记录本次导出覆盖的租户范围。
+                # 危机数据批量导出是高敏操作，事后必须能回答「当时导了哪些
+                # 租户」—— CSV 里的 user_id 已脱敏，无法从产物反推。
+                "tenant_scope": (
+                    "all_tenants" if tenant_id is None else f"tenant:{tenant_id}"
+                ),
+                "tenant_id": tenant_id,
+            },
+            request=request,
+            tenant_id=tenant_id,
         )
-        db.add(audit_log)
         await db.commit()
 
         content_size = 0
