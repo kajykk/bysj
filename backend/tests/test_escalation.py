@@ -405,6 +405,10 @@ async def test_apply_escalation_skips_when_no_new_severity() -> None:
         )
     )
     db.commit = AsyncMock()
+    # P2-33 第六批：升级审计改走 record_audit（内部 await db.flush()）。
+    # 原手写路径只调 db.add()（同步），MagicMock 下不暴露；flush 必须显式配
+    # AsyncMock 才能正确建模 AsyncSession。
+    db.flush = AsyncMock()
 
     decision = EscalationDecision(
         alert_id=1,

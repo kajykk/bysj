@@ -447,3 +447,22 @@ X 桶 187 条不是「没处置」：它是显式的「真降级，留待后续�
 6. `tests/test_iss02_validation_engine.py` 本机仍需 `--basetemp`
    （pytest tmpdir GC 触发环境 bulk-delete guard，与产品代码无关）。
 7. #34 / #32 本批未动（#32 维持只裁定不合并）。
+
+### 6.6 CI 红后修复（escalation 测试 mock 欠规格）
+
+- 现象：push `a9926a1` 后 CI `total_count=10`，`backend-coverage` 失败 1 条 ——
+  `tests/test_escalation.py::test_apply_escalation_skips_when_no_new_severity`：
+  `TypeError: object MagicMock can't be used in 'await' expression`。
+  其余 **6764 passed / 68 skipped**。
+- 根因：`escalation.py` 的升级审计本批从 `db.add(OperationLog(...))`（同步）
+  改走 `record_audit`（内部 `await db.flush()`）。该测试的 db 是手搓
+  `MagicMock()`，只给 `execute`/`commit` 配了 AsyncMock，**没给 `flush` 配** ——
+  原同步路径不 await 所以不暴露，改异步后必炸。生产代码对真 AsyncSession 正确。
+- 修法：测试补 `db.flush = AsyncMock()`（把 mock 补成能正确建模 AsyncSession），
+  并注释说明为什么必须显式配。非产品代码问题。
+- **本地为何漏跑（教训，记账）**：本批早前跑 `tests/test_escalation.py` 时输出
+  用了 `tail -3`，把「3 failed」里的第 3 条（就是本用例）截断了，只看到 2 条
+  scheduler 失败 —— 违反了自己「失败清单不得截断」的记忆规则。
+  **以后跑多文件测试必须看完整 FAILED 清单（`grep FAILED` 或不用 tail）**。
+- 复跑读数：`tests/test_escalation.py` + `test_escalation_state_machine_fix.py`
+  **50 passed**。
