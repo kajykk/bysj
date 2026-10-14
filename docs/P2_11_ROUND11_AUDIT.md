@@ -344,3 +344,17 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 
 - 变化解释：HTTPException 248→215（-33 = 第一批 30 + 第二批 admin/counselor 3 处改 ServiceError）；ServiceError 0→33；other_raise 334→335（+1 来自 ServiceError.__init__ 内的 sentinel TypeError，即必填 tenant_id 漏传检测本身）。
 - 上文“五、#34 分类”节的 248/334/0 是第十一轮快照，保持不动；TestP234RaiseClassificationSynced 按本附录新 token 同步。
+
+- 2026-10-14（第二批补遗）：gdpr.py 4 处 msg 中转泄漏改 ServiceError 后重扫：
+
+    HTTPException=211
+    other_raise=335
+    ServiceError=37
+
+  变化解释：HTTPException 215→211（-4）、ServiceError 33→37（+4），other_raise 不变（本次只换构造名，未增删 raise 语句）。
+
+- 2026-10-14（第二批补遗）：#35 新增接线 3 处：
+
+    core.model_engine.loading.preload.missing_file
+    core.model_engine.loading.preload.failed
+    core.model_engine.loading.adapter.pkl_fallback

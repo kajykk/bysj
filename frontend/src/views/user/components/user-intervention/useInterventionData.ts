@@ -10,6 +10,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { userApi } from '@/api/userApi'
 import type { ActiveIntervention, InterventionHistoryItem } from '@/api/userTypes'
 import type { InterventionTaskItem } from '@/api/userInterventionApi'
+import { useListQuery } from '@/composables/useListQuery'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { getTodayDate } from './sharedInterventionUtils'
 
@@ -207,37 +208,35 @@ export function useInterventionData() {
   }
 
   // 历史记录
-  const historyRows = ref<InterventionHistoryItem[]>([])
-  const historyTotal = ref(0)
+  // P2-36 第二批：列表三态 + 竞态守卫改由 useListQuery 统一提供。
+  // lazy 语义保持：只在首次激活 history tab 时拉取（historyLoaded 一次性门闩）。
   const historyPage = ref(1)
   const historyPageSize = ref(10)
-  const historyLoading = ref(false)
-  const historyError = ref('')
+  const {
+    rows: historyRows, total: historyTotal, loading: historyLoading,
+    error: historyError, run: loadHistory,
+  } = useListQuery<InterventionHistoryItem>({
+    fetcher: async () => {
+      const data = await userApi.getInterventionHistory({ page: historyPage.value, page_size: historyPageSize.value })
+      return {
+        items: data.items.map((item) => ({
+          plan_id: item.plan_id,
+          plan_name: item.plan_name,
+          status: item.status,
+          start_date: item.start_date,
+          end_date: item.end_date,
+          completion_rate: item.completion_rate,
+          risk_change: item.risk_change,
+          dominant_modality: item.dominant_modality ?? null,
+        })),
+        total: data.total,
+      }
+    },
+    onError: (error) => normalizeHttpError(error, t('userIntervention.historyLoadFailed')).detail,
+    immediate: false, // 与原来一致：只在首次激活 tab 时拉取
+  })
   // ISS-054/061 修复：history tab 改为 lazy 加载，仅在首次激活时拉取，避免 onMounted 并行请求浪费带宽
   const historyLoaded = ref(false)
-
-  const loadHistory = async () => {
-    historyLoading.value = true
-    historyError.value = ''
-    try {
-      const data = await userApi.getInterventionHistory({ page: historyPage.value, page_size: historyPageSize.value })
-      historyRows.value = data.items.map((item) => ({
-        plan_id: item.plan_id,
-        plan_name: item.plan_name,
-        status: item.status,
-        start_date: item.start_date,
-        end_date: item.end_date,
-        completion_rate: item.completion_rate,
-        risk_change: item.risk_change,
-        dominant_modality: item.dominant_modality ?? null,
-      }))
-      historyTotal.value = data.total
-    } catch (error) {
-      historyError.value = normalizeHttpError(error, t('userIntervention.historyLoadFailed')).detail
-    } finally {
-      historyLoading.value = false
-    }
-  }
 
   const handleTabChange = (name: string | number) => {
     // ISS-054/061：切换到 history tab 时首次加载历史数据

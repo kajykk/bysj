@@ -1,6 +1,5 @@
 import asyncio
 import html
-import json
 import logging
 import uuid
 from pathlib import Path
@@ -19,12 +18,12 @@ except ImportError as exc:  # pragma: no cover - dependency requirement enforcem
 # 原 Path("uploads") 在非 backend 目录启动时写入与下载/清理任务不同的目录,
 # 导致文件 404 且 30 天清理任务无法触及。
 from app.api.v1.uploads import _resolve_upload_dir
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
-from app.core.rate_limit import get_real_client_ip, limiter
+from app.core.rate_limit import limiter
 from app.core.response import ok
-from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.upload import UploadBatchResult, UploadResult
@@ -262,28 +261,25 @@ async def upload_file(
 
     logger.info("User %s uploaded %s (%d bytes)", current_user.id, save_name, size)
 
-    # SEC-P1-004 修复：记录单文件上传审计日志
+    # P2-33 第二批：改调统一审计 helper SSOT（ip 由 helper 从 request 取）
     url = f"/uploads/{current_user.id}/{save_name}"
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="user_file_upload",
-            target_type="user_upload",
-            target_id=current_user.id,
-            detail=json.dumps(
-                {
-                    "filename": save_name,
-                    "original_name": file.filename,
-                    "size": size,
-                    "category": category,
-                    "content_type": file.content_type,
-                    "url": url,
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="user_file_upload",
+        target_type="user_upload",
+        target_id=current_user.id,
+        detail={
+            "filename": save_name,
+            "original_name": file.filename,
+            "size": size,
+            "category": category,
+            "content_type": file.content_type,
+            "url": url,
+        },
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 
@@ -335,30 +331,27 @@ async def upload_batch(
         if not r.pop("skipped", False)
     ]
 
-    # SEC-P1-004 修复：记录批量上传审计日志
+    # P2-33 第二批：改调统一审计 helper SSOT（同上）
     success_count = sum(1 for r in results if "error" not in r)
     failed_count = len(results) - success_count
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="user_file_upload_batch",
-            target_type="user_upload",
-            target_id=current_user.id,
-            detail=json.dumps(
-                {
-                    "total_count": len(results),
-                    "success_count": success_count,
-                    "failed_count": failed_count,
-                    "category": category,
-                    "items": [
-                        {"filename": r.get("filename"), "size": r.get("size")} for r in results if "error" not in r
-                    ][:20],
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="user_file_upload_batch",
+        target_type="user_upload",
+        target_id=current_user.id,
+        detail={
+            "total_count": len(results),
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "category": category,
+            "items": [
+                {"filename": r.get("filename"), "size": r.get("size")} for r in results if "error" not in r
+            ][:20],
+        },
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 

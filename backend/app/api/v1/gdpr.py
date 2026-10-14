@@ -23,12 +23,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.exceptions import ServiceError
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.audit import record_audit
 from app.core.response import ok
 from app.core.tenant_context import require_platform_admin
-from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.gdpr import GdprDeleteResult
@@ -162,17 +162,18 @@ async def export_my_data(
         export_id,
     )
 
-    # SEC-P1-003 修复：记录 GDPR 自助导出审计日志 (流式响应前先提交, 避免事务在流式生成期间关闭)
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="user.gdpr.export_self",
-            target_type="user",
-            target_id=current_user.id,
-            detail=json.dumps({"export_id": export_id}, ensure_ascii=False),
-            ip_address=get_real_client_ip(request),
-        )
+    # P2-33 第二批：改调统一审计 helper SSOT（ip 由 helper 从 request 取，
+    # 原手写版用 get_real_client_ip 手填）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="user.gdpr.export_self",
+        target_type="user",
+        target_id=current_user.id,
+        detail={"export_id": export_id},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 
@@ -220,8 +221,8 @@ async def delete_my_account(
         # 密码错误或用户不存在
         msg = str(exc)
         if "密码错误" in msg:
-            raise HTTPException(status_code=401, detail=msg) from exc
-        raise HTTPException(status_code=404, detail=msg) from exc
+            raise ServiceError(msg, status_code=401, tenant_id=current_user.tenant_id) from exc
+        raise ServiceError(msg, status_code=404, tenant_id=current_user.tenant_id) from exc
 
     logger.warning(
         "GDPR account deleted: user_id=%s original_email=%s",
@@ -336,27 +337,26 @@ async def admin_delete_user_account(
     except ValueError as exc:
         msg = str(exc)
         if "不存在" in msg or "已被删除" in msg:
-            raise HTTPException(status_code=404, detail=msg) from exc
-        raise HTTPException(status_code=400, detail=msg) from exc
+            raise ServiceError(msg, status_code=404, tenant_id=current_user.tenant_id) from exc
+        raise ServiceError(msg, status_code=400, tenant_id=current_user.tenant_id) from exc
 
-    # 额外审计日志：记录管理员越权操作（与用户自删的 gdpr.account.deleted 区分）
-    admin_audit_log = OperationLog(
-        operator_id=current_user.id,
-        operator_role=current_user.role,
-        action_type="admin.gdpr.delete_user",
+    # P2-33 第二批：改调统一审计 helper SSOT（同上；anonymized_at 显式 str，
+    # 原手写版靠 json.dumps(default=str)，helper 内 dumps 无 default，必须先转字符串）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="admin.gdpr.delete_user",
         target_type="user",
         target_id=user_id,
-        detail=json.dumps(
-            {
-                "reason": body.reason,
-                "anonymized_at": result.get("anonymized_at"),
-                "original_email_masked": result.get("original_email_masked"),
-            },
-            ensure_ascii=False,
-            default=str,
-        ),
+        detail={
+            "reason": body.reason,
+            "anonymized_at": str(result.get("anonymized_at")),
+            "original_email_masked": result.get("original_email_masked"),
+        },
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
-    db.add(admin_audit_log)
     await db.commit()
 
     logger.warning(

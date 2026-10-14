@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from sklearn.pipeline import Pipeline
 
 from app.core.config import BACKEND_DIR, settings
+from app.core.degradation import record_silent_degradation
 from app.core.model_registry import MODEL_PATHS, is_model_enabled, resolve_model_path
 
 logger = logging.getLogger(__name__)
@@ -272,6 +273,8 @@ class LoadingMixin:
                     model_id,
                     exc,
                 )
+                # P2-35 第二批：权重缺失走 fallback = 静默降级（预热时无任何外部信号）
+                record_silent_degradation("core.model_engine.loading.preload.missing_file")
             except ImportError as exc:
                 logger.warning(
                     "Optional dependency missing for %s (recoverable): %s",
@@ -292,6 +295,8 @@ class LoadingMixin:
                 )
             except Exception as exc:
                 logger.warning("Failed to preload model %s (recoverable): %s", model_id, exc)
+                # P2-35 第二批：同上（未知异常同样落到 fallback）
+                record_silent_degradation("core.model_engine.loading.preload.failed")
 
     def _abs_path(self, rel_path: str) -> Path:
         raw = Path(rel_path)
@@ -394,6 +399,8 @@ class LoadingMixin:
                         "v1.24 adapter pkl load failed, falling back to config.json: %s",
                         pkl_exc,
                     )
+                    # P2-35 第二批：pkl→config.json 回退 = 静默降级（行为等价但来源不同）
+                    record_silent_degradation("core.model_engine.loading.adapter.pkl_fallback")
 
             if adapter_config.exists():
                 # S-02: 从 config.json 动态构建 ScoreAdapter

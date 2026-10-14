@@ -7,18 +7,39 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, type TemplateItem } from '@/api/adminApi'
+import { useListQuery } from '@/composables/useListQuery'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import type { TemplateStatus, TemplateUpsertPayload } from './sharedTemplatesUtils'
 
 export function useTemplatesData() {
   const { t } = useI18n()
 
-  const rows = ref<TemplateItem[]>([])
-  const total = ref(0)
   const page = ref(1)
   const pageSize = ref(10)
-  const loading = ref(false)
-  const pageError = ref('')
+
+  // P2-36 第二批：列表三态 + 竞态守卫 + 页码重置改由 useListQuery 统一提供。
+  // 对外暴露名保持不变（loadData/pageError/handlePageChange），调用页零改动。
+  const {
+    rows, total, loading, error: pageError, run: loadData,
+  } = useListQuery<TemplateItem>({
+    fetcher: async () => {
+      const data = await adminApi.listAdminTemplates({ page: page.value, page_size: pageSize.value })
+      return {
+        items: data.items.map((item) => ({
+          ...item,
+          task_list: (item.task_list ?? []) as TemplateItem['task_list'],
+        })),
+        total: data.total,
+      }
+    },
+    onError: (error) => showHttpFeedback(error, t('adminTemplates.loadFailed')).detail,
+    immediate: false, // 与原来一致：由 onMounted 触发首次加载，避免 setup 期与挂载期各拉一次
+  })
+
+  const handlePageChange = (value: number) => {
+    page.value = value
+    loadData()
+  }
 
   // 表单对话框状态
   const formVisible = ref(false)
@@ -29,28 +50,6 @@ export function useTemplatesData() {
   // 预览对话框状态
   const previewVisible = ref(false)
   const previewRow = ref<TemplateItem | null>(null)
-
-  const loadData = async () => {
-    loading.value = true
-    pageError.value = ''
-    try {
-      const data = await adminApi.listAdminTemplates({ page: page.value, page_size: pageSize.value })
-      rows.value = data.items.map((item) => ({
-        ...item,
-        task_list: (item.task_list ?? []) as TemplateItem['task_list'],
-      }))
-      total.value = data.total
-    } catch (error) {
-      pageError.value = showHttpFeedback(error, t('adminTemplates.loadFailed')).detail
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const handlePageChange = (value: number) => {
-    page.value = value
-    loadData()
-  }
 
   const openCreate = () => {
     isEditMode.value = false

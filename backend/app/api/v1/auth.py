@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import timedelta
 from typing import Annotated
@@ -6,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -14,7 +14,6 @@ from app.core.pii_crypto import mask_pii
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.response import ok
 from app.core.tenant_context import get_request_tenant_id
-from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -99,24 +98,29 @@ def _get_refresh_token_from_cookie(request: Request) -> str | None:
     return request.cookies.get(settings.refresh_cookie_name)
 
 
-def _log_auth_operation(
+async def _log_auth_operation(
     db: AsyncSession,
     user: User | None,
     action_type: str,
     request: Request,
     detail: dict | None = None,
 ) -> None:
-    """M-API-8 修复：为密码修改/重置/资料更新等敏感操作记录 OperationLog 审计日志."""
-    log = OperationLog(
-        operator_id=user.id if user else None,
-        operator_role=user.role if user else None,
-        action_type=action_type,
+    """M-API-8 修复：为密码修改/重置/资料更新等敏感操作记录 OperationLog 审计日志.
+
+    P2-33 第二批：改调统一审计 helper SSOT。user 为 None（reset_password 未登录态）
+    时 tenant 显式记 None（平台级标记）+ request 照常进 helper 取 ip。
+    """
+    await record_audit(
+        db,
+        actor_id=user.id if user else None,
+        actor_role=user.role if user else None,
+        action=action_type,
         target_type="user",
         target_id=user.id if user else None,
-        detail=json.dumps(detail or {}, ensure_ascii=False),
-        ip_address=get_real_client_ip(request),
+        detail=detail or {},
+        request=request,
+        tenant_id=user.tenant_id if user else None,
     )
-    db.add(log)
 
 
 @router.post(
@@ -265,7 +269,7 @@ async def change_password(
                 tenant_id=current_user.tenant_id,
             ) from exc
     # M-API-8 修复：记录审计日志
-    _log_auth_operation(db, current_user, "change_password", request)
+    await _log_auth_operation(db, current_user, "change_password", request)
     await db.commit()
     return ok({"message": "密码修改成功"})
 
@@ -302,7 +306,7 @@ async def reset_password(request: Request, payload: ResetPasswordRequest, db: As
                 tenant_id=None,  # 密码重置端点无登录态，属平台级操作
             ) from exc
     # M-API-8 修复：记录审计日志（密码重置无登录态，operator_id 为 None）
-    _log_auth_operation(db, None, "reset_password", request)
+    await _log_auth_operation(db, None, "reset_password", request)
     await db.commit()
     return ok({"message": "密码重置成功"})
 
@@ -369,6 +373,6 @@ async def update_profile(
                 tenant_id=current_user.tenant_id,
             ) from exc
     # M-API-8 修复：记录审计日志
-    _log_auth_operation(db, current_user, "update_profile", request)
+    await _log_auth_operation(db, current_user, "update_profile", request)
     await db.commit()
     return ok(data)

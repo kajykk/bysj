@@ -1,4 +1,3 @@
-import json
 import re
 from typing import Annotated
 
@@ -7,12 +6,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES, FILE_EXPORT_RESPONSE
-from app.core.rate_limit import get_real_client_ip
 from app.core.response import ok
-from app.models.admin import OperationLog
 from app.models.risk import RiskAssessment
 from app.models.user import User
 from app.schemas.common import ApiResponse
@@ -69,20 +67,17 @@ async def export_risk(
     service = RiskService(db)
     data = await service.export_risk(current_user.id, days, format)
 
-    # SEC-P1-003 修复：记录风险数据导出审计日志
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="user.risk.export",
-            target_type="user",
-            target_id=current_user.id,
-            detail=json.dumps(
-                {"format": format, "days": days, "filename": data.get("filename")},
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    # P2-33 第二批：改调统一审计 helper SSOT（ip 由 helper 从 request 取）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="user.risk.export",
+        target_type="user",
+        target_id=current_user.id,
+        detail={"format": format, "days": days, "filename": data.get("filename")},
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 

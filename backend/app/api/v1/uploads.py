@@ -20,7 +20,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from pathlib import Path
@@ -32,6 +31,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.contracts import (
     USER_ROLE_ADMIN,
     USER_ROLE_COUNSELOR,
@@ -41,9 +41,7 @@ from app.core.contracts import (
 from app.core.database import get_db
 from app.core.deps import get_current_user, oauth2_scheme
 from app.core.paths import PUBLIC_DIRS, resolve_upload_dir
-from app.core.rate_limit import get_real_client_ip
 from app.core.states import BindingStatus
-from app.models.admin import OperationLog
 from app.models.user import User, UserCounselorBinding
 
 logger = logging.getLogger(__name__)
@@ -305,25 +303,23 @@ async def serve_upload(
     if expected_dir not in full_path.parents:
         raise HTTPException(status_code=400, detail="非法的文件路径")
 
-    # SEC-P1-004 修复：记录私有文件下载审计日志（公共资源不记录）
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="user_file_download",
-            target_type="user_upload",
-            target_id=user_id,
-            detail=json.dumps(
-                {
-                    "owner": owner,
-                    "filename": filename_last,
-                    "accessor_role": current_user.role,
-                    "self_access": current_user.id == user_id,
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    # P2-33 第二批：改调统一审计 helper SSOT（ip 由 helper 从 request 取）。
+    # 到此处 current_user 必非空（上游已直接取 current_user.role 做绑定校验）。
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="user_file_download",
+        target_type="user_upload",
+        target_id=user_id,
+        detail={
+            "owner": owner,
+            "filename": filename_last,
+            "accessor_role": current_user.role,
+            "self_access": current_user.id == user_id,
+        },
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     await db.commit()
 

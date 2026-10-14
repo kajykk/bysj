@@ -222,8 +222,37 @@ class TestLastDitchSanitizer:
 class TestP234LeakConvergence:
     """#34 全量：泄漏类清零 + 正当明文登记。"""
 
+    @staticmethod
+    def _exc_tainted_names(funcnode: ast.AST) -> set[str]:
+        """同函数内被异常文本污染的变量名：`x = str(exc)` / `x = f"...{exc}..."`。
+
+        口径补强（第十二轮第二批）：gdpr.py 曾用 `msg = str(exc)` 再 `detail=msg`
+        绕过直接形态判据。只认 str()/异常名插值两种来源，不搞通用数据流。
+        """
+        tainted: set[str] = set()
+        for node in ast.walk(funcnode):
+            if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+                continue
+            tgt = node.targets[0]
+            if not isinstance(tgt, ast.Name):
+                continue
+            v = node.value
+            if isinstance(v, ast.Call) and getattr(v.func, "id", None) == "str":
+                tainted.add(tgt.id)
+            elif isinstance(v, ast.JoinedStr):
+                for val in v.values:
+                    if isinstance(val, ast.FormattedValue):
+                        fv = val.value
+                        if getattr(getattr(fv, "func", None), "id", None) == "str":
+                            tainted.add(tgt.id)
+                        elif isinstance(fv, ast.Name) and re.match(
+                            r"^(e|exc|err|error|ex|msg)$", fv.id
+                        ):
+                            tainted.add(tgt.id)
+        return tainted
+
     def _leak_sites(self) -> list[tuple[str, int]]:
-        """精确判据：HTTPException 的 detail 里出现异常对象被格式化。"""
+        """精确判据：HTTPException 的 detail 里出现异常对象被格式化（含同函数变量中转）。"""
         rows: list[tuple[str, int]] = []
         for p in BE.rglob("*.py"):
             if "__pycache__" in p.parts:
@@ -232,33 +261,42 @@ class TestP234LeakConvergence:
                 tree = ast.parse(p.read_text(encoding="utf-8"), filename=str(p))
             except Exception:
                 continue
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Raise) or not isinstance(node.exc, ast.Call):
-                    continue
-                fn = node.exc.func
-                nm = getattr(fn, "id", None) or getattr(fn, "attr", None)
-                if nm != "HTTPException":
-                    continue
-                for kw in node.exc.keywords:
-                    if kw.arg != "detail":
+            scopes: list[ast.AST] = [
+                n
+                for n in ast.walk(tree)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            ] or [tree]
+            for scope in scopes:
+                tainted = self._exc_tainted_names(scope)
+                for node in ast.walk(scope):
+                    if not isinstance(node, ast.Raise) or not isinstance(node.exc, ast.Call):
                         continue
-                    v = kw.value
-                    hit = False
-                    if isinstance(v, ast.Call) and getattr(v.func, "id", None) == "str":
-                        hit = True
-                    elif isinstance(v, ast.JoinedStr):
-                        for val in v.values:
-                            if isinstance(val, ast.FormattedValue):
-                                fv = val.value
-                                if getattr(getattr(fv, "func", None), "id", None) == "str":
-                                    hit = True
-                                elif isinstance(fv, ast.Name) and re.match(
-                                    r"^(e|exc|err|error|ex)$", fv.id
-                                ):
-                                    hit = True
-                    if hit:
-                        rows.append((p.relative_to(BE.parent).as_posix(), node.lineno))
-        return rows
+                    fn = node.exc.func
+                    nm = getattr(fn, "id", None) or getattr(fn, "attr", None)
+                    if nm != "HTTPException":
+                        continue
+                    for kw in node.exc.keywords:
+                        if kw.arg != "detail":
+                            continue
+                        v = kw.value
+                        hit = False
+                        if isinstance(v, ast.Call) and getattr(v.func, "id", None) == "str":
+                            hit = True
+                        elif isinstance(v, ast.Name) and v.id in tainted:
+                            hit = True
+                        elif isinstance(v, ast.JoinedStr):
+                            for val in v.values:
+                                if isinstance(val, ast.FormattedValue):
+                                    fv = val.value
+                                    if getattr(getattr(fv, "func", None), "id", None) == "str":
+                                        hit = True
+                                    elif isinstance(fv, ast.Name) and re.match(
+                                        r"^(e|exc|err|error|ex)$", fv.id
+                                    ):
+                                        hit = True
+                        if hit:
+                            rows.append((p.relative_to(BE.parent).as_posix(), node.lineno))
+        return sorted(set(rows))
 
     def test_no_exception_text_in_http_exception_detail(self):
         got = self._leak_sites()

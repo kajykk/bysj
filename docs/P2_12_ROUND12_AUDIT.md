@@ -143,3 +143,23 @@
 - test_p2_12_round12.py：16 passed（修前 15+1 红）。
 - upload_counselor_audit_log + p2_11 + p2_12 同跑：55 passed。
 - import app.api.v1.admin/counselor 烟测通过。
+
+### 2.4 第三批（#33：gdpr/auth/uploads/user_upload/user_risk，共 7 处；#34：gdpr 4 处）
+
+- #34：判据补强覆盖同函数变量中转（`msg = str(exc)` 再 `detail=msg`），先红后绿：gdpr.py 223/224（自删路径 401/404）+ 339/340（管理删除 404/400）改 ServiceError，总量 36→38，复扫 0。P2_11 同步块追加 211/335/37。
+- #33：gdpr 2（export/admin 删除；后者 anonymized_at 显式 str，helper 内 dumps 无 default=str）、auth 助手 1（改 async，3 调用点加 await；reset 未登录态 tenant 显式 None）、uploads 1、user_upload 2、user_risk 1。构造点 51→44，AFTER_BATCH3=44 同步。
+- 删 import 清理：5 文件去 OperationLog/json/get_real_client_ip 不用导入（均逐个计数确认零残留引用）。auth.py 的 get_real_client_ip 保留（168/197 另有调用）。
+
+### 2.5 第四批（#33：+7 处→44；#35：loading 3 处；#36：2 页；判据补强）
+
+- #33：gdpr 2（export/admin 删除；anonymized_at 显式 str）、auth 助手 1（改 async，3 调用点加 await）、uploads 1、user_upload 2、user_risk 1。构造点 51→44，AFTER_BATCH3=44；8 文件进入已迁移表 + ip 硬约束表。
+- #34 判据补强：同函数变量中转（msg = str(exc) 再 detail=msg）纳入，结果先红（gdpr 4 处：自删 401/404 + 管理删除 404/400）后绿。总量 36→38，复扫 0；P2_11 同步块追加 211/335/37。
+- #35：core/model_engine/loading.py 3 处真降级接线（preload.missing_file / preload.failed / adapter.pkl_fallback）；ImportError 探测点（preload:275）按规则跳过。棘轮为 >= 式，保持 8 不动，新位置登记于此。
+- #36：useTemplatesData + useInterventionData-history 改由 useListQuery；对外名零改动（loadData/pageError/handlePageChange；historyRows/historyError/loadHistory 等）；lazy 语义保持（immediate:false + 原 once 门闩/onMounted）。迁移钉 2 文件 5 用例全绿，其中竞态用例做过真实变异（绕过 run 裸调 → 红 [20] 覆盖 [30] → 恢复绿）。
+- 实测：后端三套件 55 passed（第一批）/ 本批 affected+gates 94 passed；前端迁移钉 5 passed + useListQuery 15（含）；vue-tsc 0 错；BASELINE 0 保持。
+
+### 2.6 终轮读数与偶发红线复查
+
+- 前端全量第一次：105 files / 1306 passed / 1 failed / 4 skipped，红仍是 UserReportsPage.nullable 同一位置（collect 期 STACK_TRACE_ERROR，无应用栈）。按红线当真问题查：该文件 94 行自述 element-plus 首挂编译慢近 30s 超时阈值；隔离重跑 8/8；与本批 2 个新文件无共享导入。结论：worker 负载下收集期资源耗尽，非产品回归（与第十一轮同签名事件为同一机制）。
+- 前端全量第二次：105 files / 1307 passed / 0 failed / 4 skipped。两次 JSON 均落盘（vitest12b2.json），以第二次为准，第一次如实保留在此。
+- 后端：affected+gates 94 passed；test_p2_12 19 passed；回退驱动重跑 9/9；vue-tsc 0 错，BASELINE 0 保持。
