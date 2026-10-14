@@ -14,6 +14,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger(__name__)
 
 
+# sentinel：与 app/core/audit.py 的 _MISSING 同模式（必填关键字的漏传检测）
+class _MissingTenant:
+    def __repr__(self) -> str:  # pragma: no cover - 仅用于调试输出
+        return "<MISSING tenant_id>"
+
+
+_MISSING_TENANT: Any = _MissingTenant()
+
+
 class AppException(Exception):
     """Base application exception with structured error info.
 
@@ -106,6 +115,83 @@ class ServiceException(AppException):
         )
 
 
+class ServiceError(AppException):
+    """P2-34: 统一错误方言 —— 客户端消息与内部细节显式分离。
+
+    背景（审查报告 P2-34）：全仓 33 处 `raise HTTPException(detail=str(exc))`
+    把服务层异常原文直接出网。异常文本可能含 SQL、文件路径、堆栈、依赖库消息，
+    在心理健康场景等同于把内部实现细节送给调用方（含潜在攻击者）。
+
+    契约（两条硬约束，均有测试把守）：
+    1. **`client_message` 是唯一能出网的字段**。`to_dict()` 绝不携带
+       `internal_detail` —— 这是"末道脱敏"的第一道，且不可被调用方绕过。
+    2. **`internal_detail` 只进日志**，由 `_service_error_handler` 以
+       `logger.exception` 落盘，格式与 `record_audit` 对齐：
+       `detail={"tenant_id": ..., "no_request": ...}`（见 `app/core/audit.py`），
+       不自创字段。
+
+    `tenant_id` 为**必填关键字参数**（sentinel 模式，与 `record_audit` 同口径）：
+    显式传 `None` 表示平台级操作；漏传 TypeError。给 `None` 默认值会把
+    "忘记传"变成静默的全量操作，是 P0-1 就已确立的反模式。
+    """
+
+    def __init__(
+        self,
+        client_message: str,
+        internal_detail: str | dict[str, Any] | None = None,
+        *,
+        code: str = "SERVICE_ERROR",
+        status_code: int = 400,
+        tenant_id: int | None | Any = _MISSING_TENANT,
+    ):
+        if tenant_id is _MISSING_TENANT:
+            raise TypeError(
+                "ServiceError() 缺少必填关键字参数 tenant_id（显式传 None 表示平台级操作）"
+            )
+        self.client_message = client_message
+        self.internal_detail = internal_detail
+        self.tenant_id = tenant_id
+        super().__init__(
+            code=code,
+            message=client_message,
+            status_code=status_code,
+            layer="SERVICE",
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        # 硬约束 1：只出 client_message。internal_detail 不进入任何响应字段。
+        return {
+            "code": self.status_code,
+            "message": self.client_message,
+            "data": None,
+            "error": {
+                "code": self.code,
+                "message": self.client_message,
+                "status_code": self.status_code,
+                "layer": self.layer,
+                "fallback_to": self.fallback_to,
+                "timestamp": self.timestamp,
+                "request_id": self.request_id,
+                # details 只放**调用方显式声明**的可对外结构化信息；
+                # internal_detail 由 handler 单独记日志，二者不混。
+                "details": self.details,
+            },
+        }
+
+    def log_payload(self, *, has_request: bool) -> dict[str, Any]:
+        """日志落盘载荷（与 record_audit 的 detail 格式对齐）。"""
+        payload: dict[str, Any] = {}
+        if self.tenant_id is not None:
+            payload["tenant_id"] = self.tenant_id
+        if not has_request:
+            payload["no_request"] = True
+        if isinstance(self.internal_detail, dict):
+            payload.update(self.internal_detail)
+        elif self.internal_detail is not None:
+            payload["internal_detail"] = self.internal_detail
+        return payload
+
+
 def install_exception_handlers(app: FastAPI) -> None:
     """Install unified exception handlers for FastAPI app."""
 
@@ -121,6 +207,30 @@ def install_exception_handlers(app: FastAPI) -> None:
             req_id,
             exc.layer,
             exc.fallback_to,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.to_dict(),
+        )
+
+    # P2-34: ServiceError 专用 handler —— internal_detail 只进日志，绝不出网。
+    # 落盘格式与 app/core/audit.py::record_audit 对齐（tenant_id / no_request），
+    # 不自创字段。这是"末道脱敏"的第一道（第二道是 error_sanitizer_middleware）。
+    @app.exception_handler(ServiceError)
+    async def _service_error_handler(
+        request: Request, exc: ServiceError
+    ) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", None) or exc.request_id
+        has_request = True  # 异常处理器必然有 request 上下文
+        payload = exc.log_payload(has_request=has_request)
+        # 用 exception 级别 + exc_info，确保 internal_detail 全量落盘可追溯
+        logger.error(
+            "ServiceError: code=%s status=%s request_id=%s | %s",
+            exc.code,
+            exc.status_code,
+            req_id,
+            payload,
+            exc_info=exc.__cause__ or exc,
         )
         return JSONResponse(
             status_code=exc.status_code,

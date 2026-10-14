@@ -24,6 +24,7 @@ from app.services.model_predict_service import (
     ModelPredictService,
 )
 
+from app.core.exceptions import ServiceError
 router = APIRouter()
 
 
@@ -49,9 +50,17 @@ async def import_dataset(
     except FileNotFoundError as exc:
         # P1-26：数据集缺失不再是「静默造一份合成数据」，而是显式 404，
         # 让调用方知道要先落盘真实数据集（与 /experiment/train 口径一致）。
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=404,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文
+            ) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=422,
+                tenant_id=None,  # 该端点无登录态用户对象，属平台级操作
+            ) from exc
     return ok(result)
 
 
@@ -74,9 +83,17 @@ async def train_model(
             payload.learning_rate,
         )
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=404,
+                tenant_id=None,  # 该端点无登录态用户对象，属平台级操作
+            ) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=422,
+                tenant_id=None,  # 该端点无登录态用户对象，属平台级操作
+            ) from exc
     return ok(result)
 
 
@@ -100,9 +117,17 @@ async def evaluate_model(
             payload.dataset_name, payload.model_name, payload.split
         )
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=404,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文
+            ) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=422,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文
+            ) from exc
     return ok(result)
 
 
@@ -124,7 +149,15 @@ async def compare_models(
     try:
         result = service.start_compare_job(payload.dataset_name, payload.model_names)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=404,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文
+            ) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=422,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文
+            ) from exc
     return ok(result)

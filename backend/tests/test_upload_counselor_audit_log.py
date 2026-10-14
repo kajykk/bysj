@@ -464,7 +464,7 @@ class TestSourceStructure:
         from app.api.v1 import user_upload
 
         src = inspect.getsource(user_upload.upload_file)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "user_file_upload" in src
         assert "await db.commit()" in src
 
@@ -474,7 +474,7 @@ class TestSourceStructure:
         from app.api.v1 import user_upload
 
         src = inspect.getsource(user_upload.upload_batch)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "user_file_upload_batch" in src
         assert "await db.commit()" in src
 
@@ -484,7 +484,7 @@ class TestSourceStructure:
         from app.api.v1 import uploads
 
         src = inspect.getsource(uploads.serve_upload)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "user_file_download" in src
         assert "await db.commit()" in src
 
@@ -494,7 +494,7 @@ class TestSourceStructure:
         from app.api.v1 import counselor
 
         src = inspect.getsource(counselor.list_users)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "counselor_view_user_list" in src
         assert "await db.commit()" in src
 
@@ -504,7 +504,7 @@ class TestSourceStructure:
         from app.api.v1 import counselor
 
         src = inspect.getsource(counselor.get_user_detail)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "counselor_view_user_detail" in src
         assert "await db.commit()" in src
 
@@ -514,7 +514,7 @@ class TestSourceStructure:
         from app.api.v1 import counselor
 
         src = inspect.getsource(counselor.list_consultation_records)
-        assert "OperationLog" in src
+        assert ("OperationLog" in src or "record_audit" in src), "审计写入缺失（手写 OperationLog 或统一 record_audit 至少其一）"
         assert "counselor_view_consultation_records" in src
         assert "await db.commit()" in src
 

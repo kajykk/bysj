@@ -1,19 +1,19 @@
-import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.deps import require_role
+from app.core.exceptions import ServiceError
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import get_real_client_ip, limiter
 from app.core.request_id import get_or_create_request_id
 from app.core.response import ok
 from app.core.states import BindingStatus
 from app.core.tenant_context import get_request_tenant_id
-from app.models.admin import OperationLog
 from app.models.counselor import ClientGroup
 from app.models.user import User, UserCounselorBinding
 from app.schemas.common import ApiResponse
@@ -146,27 +146,23 @@ async def list_users(
         # AUDIT-2026-10-06 (P0-1): 传入请求租户，服务层据此做数据层租户隔离
         tenant_id=get_request_tenant_id(request),
     )
-    # SEC-P1-004 修复：记录咨询师查看用户列表审计日志
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="counselor_view_user_list",
-            target_type="user",
-            target_id=None,
-            detail=json.dumps(
-                {
-                    "page": page,
-                    "page_size": page_size,
-                    "risk_level": risk_level,
-                    "result_count": (
-                        data.get("total") if isinstance(data, dict) else None
-                    ),
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    # P2-33 第二批：改调统一审计 helper SSOT（ip 由 helper 从 request 取，
+    # 原手写版用 get_real_client_ip 手填；tenant 与邻近服务调用同口径取请求租户）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="counselor_view_user_list",
+        target_type="user",
+        target_id=None,
+        detail={
+            "page": page,
+            "page_size": page_size,
+            "risk_level": risk_level,
+            "result_count": (data.get("total") if isinstance(data, dict) else None),
+        },
+        request=request,
+        tenant_id=get_request_tenant_id(request),
     )
     await db.commit()
     return ok(data)
@@ -214,25 +210,20 @@ async def get_user_detail(
     data = await service.get_user_detail(current_user.id, user_id)
     if data is None:
         raise HTTPException(status_code=404, detail="用户不存在或未绑定")
-    # SEC-P1-004 修复：记录咨询师查看用户详情审计日志
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="counselor_view_user_detail",
-            target_type="user",
-            target_id=user_id,
-            detail=json.dumps(
-                {
-                    "user_id": user_id,
-                    "risk_level": (
-                        data.get("risk_level") if isinstance(data, dict) else None
-                    ),
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    # P2-33 第二批：改调统一审计 helper SSOT（同上）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="counselor_view_user_detail",
+        target_type="user",
+        target_id=user_id,
+        detail={
+            "user_id": user_id,
+            "risk_level": (data.get("risk_level") if isinstance(data, dict) else None),
+        },
+        request=request,
+        tenant_id=get_request_tenant_id(request),
     )
     await db.commit()
     return ok(data)
@@ -259,7 +250,7 @@ async def create_consultation_record(
             current_user.id, user_id, payload.model_dump()
         )
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise ServiceError(str(exc), status_code=422, tenant_id=current_user.tenant_id) from exc
     return ok({"record_id": record_id})
 
 
@@ -281,27 +272,22 @@ async def list_consultation_records(
     data = await service.list_consultation_records(
         current_user.id, user_id, page, page_size
     )
-    # SEC-P1-004 修复：记录咨询师查看咨询记录审计日志
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="counselor_view_consultation_records",
-            target_type="consultation_record",
-            target_id=user_id,
-            detail=json.dumps(
-                {
-                    "user_id": user_id,
-                    "page": page,
-                    "page_size": page_size,
-                    "result_count": (
-                        data.get("total") if isinstance(data, dict) else None
-                    ),
-                },
-                ensure_ascii=False,
-            ),
-            ip_address=get_real_client_ip(request),
-        )
+    # P2-33 第二批：改调统一审计 helper SSOT（同上）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="counselor_view_consultation_records",
+        target_type="consultation_record",
+        target_id=user_id,
+        detail={
+            "user_id": user_id,
+            "page": page,
+            "page_size": page_size,
+            "result_count": (data.get("total") if isinstance(data, dict) else None),
+        },
+        request=request,
+        tenant_id=get_request_tenant_id(request),
     )
     await db.commit()
     return ok(data)
@@ -338,7 +324,7 @@ async def update_consultation_record(
             current_user.id, user_id, record_id, payload.model_dump()
         )
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise ServiceError(str(exc), status_code=422, tenant_id=current_user.tenant_id) from exc
     if not success:
         raise HTTPException(status_code=404, detail="咨询记录不存在")
     return ok({"message": "咨询记录已更新"})

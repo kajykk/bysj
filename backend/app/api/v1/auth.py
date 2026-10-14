@@ -33,6 +33,7 @@ from app.schemas.auth import (
 )
 from app.schemas.common import ApiResponse, ErrorResponse
 from app.services.auth_service import AuthService
+from app.core.exceptions import ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,11 @@ async def register(request: Request, payload: RegisterRequest, db: AsyncSession 
         # 不返回 role 等信息，避免泄露用户对象敏感字段
         return ok({"id": data.get("id"), "username": data.get("username")})
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=None,  # 注册/刷新端点无登录态，属平台级操作
+            ) from exc
 
 
 @router.post("/login", response_model=ApiResponse[LoginResponse], responses=COMMON_ERROR_RESPONSES)
@@ -222,7 +227,11 @@ async def refresh_token(
     try:
         tokens = await service.refresh(refresh_token_value)
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=401,
+                tenant_id=None,  # 注册/刷新端点无登录态，属平台级操作
+            ) from exc
 
     # SEC-002/003 修复：阶段1 双轨模式 - 同时更新 Cookie
     _set_refresh_cookie(response, tokens["refresh_token"])
@@ -250,7 +259,11 @@ async def change_password(
             access_token_exp=access_payload.get("exp"),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=current_user.tenant_id,
+            ) from exc
     # M-API-8 修复：记录审计日志
     _log_auth_operation(db, current_user, "change_password", request)
     await db.commit()
@@ -269,7 +282,11 @@ async def request_password_reset(
         await service.request_password_reset(payload.email)
         return ok({"message": "如果邮箱已注册，重置邮件将尽快发送"})
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=None,  # 密码重置端点无登录态，属平台级操作
+            ) from exc
 
 
 @router.post("/reset-password", response_model=ApiResponse[MessageResponse], responses=COMMON_ERROR_RESPONSES)
@@ -279,7 +296,11 @@ async def reset_password(request: Request, payload: ResetPasswordRequest, db: As
     try:
         await service.reset_password(payload)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=None,  # 密码重置端点无登录态，属平台级操作
+            ) from exc
     # M-API-8 修复：记录审计日志（密码重置无登录态，operator_id 为 None）
     _log_auth_operation(db, None, "reset_password", request)
     await db.commit()
@@ -314,7 +335,11 @@ async def logout(
             access_token_exp=access_exp,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=current_user.tenant_id,
+            ) from exc
     # 清除 refresh_token Cookie
     _clear_refresh_cookie(response)
     logger.info(
@@ -338,7 +363,11 @@ async def update_profile(
     try:
         data = await service.update_profile(current_user.id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=current_user.tenant_id,
+            ) from exc
     # M-API-8 修复：记录审计日志
     _log_auth_operation(db, current_user, "update_profile", request)
     await db.commit()

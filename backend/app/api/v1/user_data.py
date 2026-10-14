@@ -22,6 +22,7 @@ from app.schemas.counselor import BindCodeRequest
 from app.services.counselor_service import CounselorService
 from app.services.risk_service import RiskService
 from app.services.user_data_service import UserDataService
+from app.core.exceptions import ServiceError
 
 router = APIRouter(prefix="/user/data", tags=["user-data"])
 logger = logging.getLogger(__name__)
@@ -206,7 +207,11 @@ async def bind_counselor(
         result = await service.bind_by_code(current_user.id, payload.bind_code)
         return ok(result)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=current_user.tenant_id,
+            ) from exc
 
 
 @router.delete("/binding", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)

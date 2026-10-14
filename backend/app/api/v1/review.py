@@ -15,6 +15,7 @@ from app.core.contracts import (
 )
 from app.core.database import get_db
 from app.core.deps import require_permission
+from app.core.exceptions import ServiceError
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
@@ -223,7 +224,10 @@ async def handle_crisis_event(
         )
         return ok(service._to_response(event))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        # P2-34 统一错误方言：client_message 仍是服务层业务原文（保持既有契约），
+        # 但改走 ServiceError —— internal_detail/tenant_id 落盘与 record_audit 对齐，
+        # 且 to_dict() 硬约束只出 client_message。
+        raise ServiceError(str(e), tenant_id=current_user.tenant_id) from e
 
 
 @router.post(
@@ -251,7 +255,10 @@ async def escalate_crisis_event(
         )
         return ok(service._to_response(event))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        # P2-34 统一错误方言：client_message 仍是服务层业务原文（保持既有契约），
+        # 但改走 ServiceError —— internal_detail/tenant_id 落盘与 record_audit 对齐，
+        # 且 to_dict() 硬约束只出 client_message。
+        raise ServiceError(str(e), tenant_id=current_user.tenant_id) from e
 
 
 @router.post(
@@ -279,7 +286,10 @@ async def close_crisis_event(
         )
         return ok(service._to_response(event))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        # P2-34 统一错误方言：client_message 仍是服务层业务原文（保持既有契约），
+        # 但改走 ServiceError —— internal_detail/tenant_id 落盘与 record_audit 对齐，
+        # 且 to_dict() 硬约束只出 client_message。
+        raise ServiceError(str(e), tenant_id=current_user.tenant_id) from e
 
 
 @router.get("", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)
@@ -396,7 +406,8 @@ async def assign_review(
         )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # P2-34 统一错误方言（同上）：client_message 保持服务层业务原文。
+        raise ServiceError(str(e), tenant_id=current_user.tenant_id) from e
 
 
 @router.post(
@@ -433,7 +444,8 @@ async def resolve_review(
         )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # P2-34 统一错误方言（同上）：client_message 保持服务层业务原文。
+        raise ServiceError(str(e), tenant_id=current_user.tenant_id) from e
 
 
 @router.post(
@@ -470,4 +482,5 @@ async def escalate_review(
         )
         return ok(service.to_response(task).model_dump())
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # P2-34 统一错误方言（同上）：client_message 保持服务层业务原文。
+        raise ServiceError(str(e), tenant_id=current_user.tenant_id) from e

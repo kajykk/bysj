@@ -745,6 +745,13 @@ kill_switch_degraded_total = Counter(
     labelnames=("op",),
 )
 
+# P2-34: 末道脱敏命中计数。非零说明**有错误响应在绕过统一错误方言**
+# （有人在 HTTPException 里直接塞了异常原文），是 #34 收敛进度的直接读数。
+error_sanitized_total = Counter(
+    "error_sanitized_total",
+    "Total error responses scrubbed by the last-ditch sanitizer (dialect bypass attempts).",
+)
+
 # P2-35: 静默降级统一计数。所有 except -> logger.debug/continue/return 的降级点
 # 必须 inc 本计数（label location=模块.函数），并经 /metrics 暴露。
 silent_degradation_total = Counter(

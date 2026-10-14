@@ -21,6 +21,7 @@ from app.schemas.canary import (
 from app.schemas.common import ApiResponse
 from app.services.canary_manager import canary_manager
 
+from app.core.exceptions import ServiceError
 router = APIRouter(prefix="/canary", tags=["canary"])
 
 
@@ -57,7 +58,11 @@ async def create_canary(
             ).model_dump()
         )
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=409,
+                tenant_id=current_user.tenant_id,
+            ) from exc
 
 
 @router.get(
@@ -185,7 +190,11 @@ async def update_canary_traffic(
             }
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文,
+            ) from exc
 
 
 @router.post(
@@ -212,7 +221,11 @@ async def pause_canary(
             }
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文,
+            ) from exc
 
 
 @router.post(
@@ -239,7 +252,11 @@ async def resume_canary(
             }
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文,
+            ) from exc
 
 
 @router.post(
@@ -273,7 +290,11 @@ async def rollback_canary(
             }
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=current_user.tenant_id,
+            ) from exc
 
 
 @router.post(
@@ -301,7 +322,11 @@ async def complete_canary(
             }
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise ServiceError(
+                str(exc),
+                status_code=400,
+                tenant_id=None,  # 平台管理员端点，无用户级租户上下文,
+            ) from exc
 
 
 @router.get(

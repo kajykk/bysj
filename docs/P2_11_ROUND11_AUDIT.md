@@ -333,3 +333,14 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 已登记为第十二轮候选。
 
 ---
+
+## 附：第十二轮同步（追加，不改上文历史快照）
+
+- 2026-10-14，第十二轮 #34 全量收敛后重扫（同口径 ast.Raise + Call）：
+
+    HTTPException=215
+    other_raise=335
+    ServiceError=33
+
+- 变化解释：HTTPException 248→215（-33 = 第一批 30 + 第二批 admin/counselor 3 处改 ServiceError）；ServiceError 0→33；other_raise 334→335（+1 来自 ServiceError.__init__ 内的 sentinel TypeError，即必填 tenant_id 漏传检测本身）。
+- 上文“五、#34 分类”节的 248/334/0 是第十一轮快照，保持不动；TestP234RaiseClassificationSynced 按本附录新 token 同步。

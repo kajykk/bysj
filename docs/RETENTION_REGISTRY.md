@@ -93,6 +93,39 @@
   `docs/CODE_REVIEW_2026-10-11.md:612`）。移除后按钮无 `@click` 处理函数，
   这符合「能力已下线」的语义，不是缺陷。
 
+## RES-P2-034-01 —— 服务层业务校验消息以明文出网（`ServiceError(client_message=str(exc))`）
+
+- **登记时间**：2026-10-14（第十二轮，#34 全量收敛）
+- **对象**：全仓 26 处 `except ValueError as exc: raise ServiceError(str(exc), tenant_id=…)`
+  （`review.py` 6 / `auth.py` 7 / `canary.py` 6 / `counselor.py` 2 / `admin.py` 1 /
+  `user_data.py` 1 / `model_predict/experiment.py` 8 中属业务校验的部分）
+- **类别**：已知明文 detail 豁免（业务决策）
+- **保留理由**：这些 `ValueError` 由服务层**主动抛出**，消息是写給调用方的业务提示
+  （如 `无效的 action: xxx，允许值: ...`、`用户名已存在`）。它们不泄漏内部实现，
+  且**既有测试与前端契约依赖这些文案**（如
+  `tests/api/test_crisis_event_state_machine.py:139` 断言 `"无效的 action" in
+  res.json()["error"]["message"]`）。改成通用文案会直接破坏 API 契约。
+- **边界（防滥用）**：本决议只覆盖**服务层主动抛出的 `ValueError`**。若异常来自
+  `except Exception` / `FileNotFoundError` 等**非业务校验**路径，禁止套用本豁免，
+  必须走 `ServiceError(固定文案, internal_detail=str(exc))`。此边界由闸门
+  `test_p2_12_round12.py::TestP234LeakConvergence::test_no_exception_text_in_http_exception_detail`
+  把守（判据：`HTTPException` 的 `detail` 里**不得**再出现异常对象被格式化）。
+- **复核触发条件**：服务层消息开始包含路径/SQL/第三方库文本时，本豁免对相应条目失效，
+  必须改回 `internal_detail` 形态。
+- **正文出处**：`docs/P2_12_ROUND12_AUDIT.md` #34 节分类表。
+
+## RES-P2-034-02 —— 末道脱敏的确定性特征清单
+
+- **登记时间**：2026-10-14（第十二轮）
+- **对象**：`app/core/middlewares.py::_SENSITIVE_PATTERNS`（13 条正则）
+- **类别**：安全闸门判据登记
+- **保留理由**：清单是**确定性**的（Traceback / Python 源码行 / SQL 语句 /
+  psycopg·sqlalchemy·asyncpg / Errno / 连接类异常 / 绝对路径 / 约束违反文案），
+  刻意不用"看起来像内部信息"的启发式 —— 启发式会把正当的用户可读文案误伤
+  （`RES-P2-034-01` 的业务消息、路径校验类安全提示）。
+- **复核触发条件**：新增依赖或错误形态时同步补特征；每次补特征必须加
+  "正当文案不被误伤"的反向用例（见 `test_scrub_leaves_legitimate_client_messages_alone`）。
+
 ---
 
 ## 变更记录
@@ -100,3 +133,4 @@
 | 日期 | 轮次 | 变更 |
 |---|---|---|
 | 2026-10-14 | P2 第十一轮 | 建册；登记 RES-P1-004 正文；索引 RES-P1-005/006/007/014；新增 RES-P2-039-01（#39 拆分裁定） |
+| 2026-10-14 | P2 第十二轮 | 新增 RES-P2-034-01（服务层业务消息明文豁免 + 边界）、RES-P2-034-02（末道脱敏特征清单） |

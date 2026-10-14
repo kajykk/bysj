@@ -1,6 +1,6 @@
 {
   "operation_log": {
-    "total_hits": 121,
+    "total_hits": 104,
     "model_definition": [],
     "helper_body": [
       {
@@ -9,23 +9,13 @@
       }
     ],
     "tests": 66,
-    "prod_construct_sites": 54,
+    "prod_construct_sites": 37,
     "by_file": {
       "app/api/v1/admin.py": 2,
       "app/api/v1/alerts/__init__.py": 2,
       "app/api/v1/alerts/_helpers.py": 1,
-      "app/api/v1/analytics_events.py": 1,
       "app/api/v1/auth.py": 1,
-      "app/api/v1/counselor.py": 3,
-      "app/api/v1/gdpr.py": 2,
-      "app/api/v1/reports.py": 1,
-      "app/api/v1/tenant_admin.py": 4,
-      "app/api/v1/tenant_branding.py": 1,
-      "app/api/v1/tenant_export.py": 1,
-      "app/api/v1/uploads.py": 1,
       "app/api/v1/user_intervention.py": 1,
-      "app/api/v1/user_risk.py": 1,
-      "app/api/v1/user_upload.py": 2,
       "app/monitoring/am_sync.py": 1,
       "app/monitoring/dedup_lock.py": 1,
       "app/monitoring/escalation.py": 1,
@@ -66,80 +56,12 @@
         "line": 129
       },
       {
-        "file": "app/api/v1/analytics_events.py",
-        "line": 243
-      },
-      {
         "file": "app/api/v1/auth.py",
-        "line": 109
-      },
-      {
-        "file": "app/api/v1/counselor.py",
-        "line": 151
-      },
-      {
-        "file": "app/api/v1/counselor.py",
-        "line": 219
-      },
-      {
-        "file": "app/api/v1/counselor.py",
-        "line": 286
-      },
-      {
-        "file": "app/api/v1/gdpr.py",
-        "line": 343
-      },
-      {
-        "file": "app/api/v1/gdpr.py",
-        "line": 167
-      },
-      {
-        "file": "app/api/v1/reports.py",
-        "line": 196
-      },
-      {
-        "file": "app/api/v1/tenant_admin.py",
-        "line": 143
-      },
-      {
-        "file": "app/api/v1/tenant_admin.py",
-        "line": 251
-      },
-      {
-        "file": "app/api/v1/tenant_admin.py",
-        "line": 296
-      },
-      {
-        "file": "app/api/v1/tenant_admin.py",
-        "line": 347
-      },
-      {
-        "file": "app/api/v1/tenant_branding.py",
-        "line": 159
-      },
-      {
-        "file": "app/api/v1/tenant_export.py",
-        "line": 132
-      },
-      {
-        "file": "app/api/v1/uploads.py",
-        "line": 310
+        "line": 110
       },
       {
         "file": "app/api/v1/user_intervention.py",
         "line": 33
-      },
-      {
-        "file": "app/api/v1/user_risk.py",
-        "line": 74
-      },
-      {
-        "file": "app/api/v1/user_upload.py",
-        "line": 268
-      },
-      {
-        "file": "app/api/v1/user_upload.py",
-        "line": 342
       },
       {
         "file": "app/monitoring/am_sync.py",
@@ -265,14 +187,15 @@
   },
   "raise_sites": {
     "counts": {
-      "HTTPException": 248,
       "builtin_ValueError": 228,
+      "HTTPException": 210,
       "custom_or_other": 69,
       "bare_re_raise": 48,
+      "ServiceError": 30,
       "builtin_RuntimeError": 26,
       "builtin_AttributeError": 6,
       "raise_name_only": 6,
-      "builtin_TypeError": 4,
+      "builtin_TypeError": 5,
       "builtin_KeyError": 1
     },
     "detail_leak_candidates": [
@@ -293,7 +216,7 @@
       },
       {
         "file": "app/api/v1/auth.py",
-        "line": 216,
+        "line": 221,
         "detail": "'未提供Refresh Token'"
       },
       {
@@ -312,38 +235,8 @@
         "detail": "'Metrics disabled: METRICS_ACCESS_TOKEN not configured'"
       },
       {
-        "file": "app/api/v1/review.py",
-        "line": 226,
-        "detail": "str(e)"
-      },
-      {
-        "file": "app/api/v1/review.py",
-        "line": 254,
-        "detail": "str(e)"
-      },
-      {
-        "file": "app/api/v1/review.py",
-        "line": 282,
-        "detail": "str(e)"
-      },
-      {
-        "file": "app/api/v1/review.py",
-        "line": 399,
-        "detail": "str(e)"
-      },
-      {
-        "file": "app/api/v1/review.py",
-        "line": 436,
-        "detail": "str(e)"
-      },
-      {
-        "file": "app/api/v1/review.py",
-        "line": 473,
-        "detail": "str(e)"
-      },
-      {
         "file": "app/api/v1/uploads.py",
-        "line": 237,
+        "line": 238,
         "detail": "'未提供认证Token'"
       },
       {
@@ -444,7 +337,7 @@
         "app/api/v1/alerts/_schemas.py:110",
         "app/api/v1/alerts/_schemas.py:115",
         "app/api/v1/alerts/_schemas.py:119",
-        "app/api/v1/analytics_events.py:90",
+        "app/api/v1/analytics_events.py:91",
         "app/api/v1/model_validation.py:76",
         "app/api/v1/model_validation.py:78"
       ],
@@ -456,7 +349,17 @@
         "app/api/v1/model_predict/predict.py:285",
         "app/api/v1/observability/__init__.py:256",
         "app/api/v1/silences.py:232",
-        "app/api/v1/uploads.py:290"
+        "app/api/v1/uploads.py:291"
+      ],
+      "ServiceError": [
+        "app/api/v1/auth.py:141",
+        "app/api/v1/auth.py:230",
+        "app/api/v1/auth.py:262",
+        "app/api/v1/auth.py:285",
+        "app/api/v1/auth.py:299",
+        "app/api/v1/auth.py:338",
+        "app/api/v1/auth.py:366",
+        "app/api/v1/canary.py:61"
       ],
       "builtin_AttributeError": [
         "app/api/v1/observability/aggregate.py:61",
@@ -478,6 +381,7 @@
       ],
       "builtin_TypeError": [
         "app/core/audit.py:45",
+        "app/core/exceptions.py:148",
         "app/core/fallback_hierarchy.py:127",
         "app/ml/fusion_engine.py:169",
         "app/ml/hyperparameter_tuning.py:36"
@@ -496,7 +400,7 @@
     }
   },
   "silent_except": {
-    "real_candidates": 242,
+    "real_candidates": 243,
     "import_probe": 16,
     "real_wired_metric": 3,
     "real_unwired": [
@@ -679,7 +583,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 164,
+        "line": 165,
         "handled": [
           "Exception"
         ],
@@ -688,7 +592,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 513,
+        "line": 506,
         "handled": [
           "Exception"
         ],
@@ -697,7 +601,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 355,
+        "line": 348,
         "handled": [
           "Exception"
         ],
@@ -706,7 +610,7 @@
       },
       {
         "file": "app/api/v1/user_upload.py",
-        "line": 162,
+        "line": 163,
         "handled": [
           "MagicException",
           "OSError"
@@ -1086,7 +990,7 @@
       },
       {
         "file": "app/core/metrics.py",
-        "line": 861,
+        "line": 868,
         "handled": [
           "Exception"
         ],
@@ -1095,7 +999,16 @@
       },
       {
         "file": "app/core/middlewares.py",
-        "line": 114,
+        "line": 277,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/middlewares.py",
+        "line": 115,
         "handled": [
           "Exception"
         ],
@@ -1735,7 +1648,7 @@
       },
       {
         "file": "app/main.py",
-        "line": 364,
+        "line": 365,
         "handled": [
           "OSError"
         ],
@@ -1744,7 +1657,7 @@
       },
       {
         "file": "app/main.py",
-        "line": 188,
+        "line": 189,
         "handled": [
           "Exception"
         ],
@@ -1753,7 +1666,7 @@
       },
       {
         "file": "app/main.py",
-        "line": 319,
+        "line": 320,
         "handled": [
           "Exception"
         ],
@@ -1762,7 +1675,7 @@
       },
       {
         "file": "app/main.py",
-        "line": 297,
+        "line": 298,
         "handled": [
           "CancelledError"
         ],
@@ -3012,7 +2925,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 164,
+        "line": 165,
         "handled": [
           "Exception"
         ],
@@ -3021,7 +2934,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 513,
+        "line": 506,
         "handled": [
           "Exception"
         ],
@@ -3030,7 +2943,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 355,
+        "line": 348,
         "handled": [
           "Exception"
         ],
@@ -3039,7 +2952,7 @@
       },
       {
         "file": "app/api/v1/user_upload.py",
-        "line": 162,
+        "line": 163,
         "handled": [
           "MagicException",
           "OSError"
@@ -3428,7 +3341,7 @@
       },
       {
         "file": "app/core/metrics.py",
-        "line": 861,
+        "line": 868,
         "handled": [
           "Exception"
         ],
@@ -3437,7 +3350,16 @@
       },
       {
         "file": "app/core/middlewares.py",
-        "line": 114,
+        "line": 277,
+        "handled": [
+          "Exception"
+        ],
+        "has_metric": false,
+        "logs_debug": true
+      },
+      {
+        "file": "app/core/middlewares.py",
+        "line": 115,
         "handled": [
           "Exception"
         ],
@@ -4077,7 +3999,7 @@
       },
       {
         "file": "app/main.py",
-        "line": 364,
+        "line": 365,
         "handled": [
           "OSError"
         ],
@@ -4086,7 +4008,7 @@
       },
       {
         "file": "app/main.py",
-        "line": 188,
+        "line": 189,
         "handled": [
           "Exception"
         ],
@@ -4095,7 +4017,7 @@
       },
       {
         "file": "app/main.py",
-        "line": 319,
+        "line": 320,
         "handled": [
           "Exception"
         ],
@@ -4104,7 +4026,7 @@
       },
       {
         "file": "app/main.py",
-        "line": 297,
+        "line": 298,
         "handled": [
           "CancelledError"
         ],

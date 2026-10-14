@@ -13,6 +13,7 @@ from app.core.tenant_context import require_platform_permission
 from app.models.user import User
 from app.schemas.common import ApiResponse
 
+from app.core.exceptions import ServiceError
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -31,7 +32,13 @@ async def list_model_registry(
         return ok({"models": get_registry().list_models()})
     except Exception as exc:
         logger.exception("list_model_registry failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"注册表读取失败: {exc}") from exc
+        raise ServiceError(
+                "注册表读取失败",
+                internal_detail=str(exc),
+                status_code=500,
+                code="MODEL_REGISTRY_READ_FAILED",
+                tenant_id=None,  # 该端点无登录态用户对象，属平台级操作
+            ) from exc
 
 
 @router.get(
@@ -116,7 +123,13 @@ async def run_auto_rollback_check(
         results = check_auto_rollback()
     except Exception as exc:
         logger.exception("auto-rollback check failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"回退检查失败: {exc}") from exc
+        raise ServiceError(
+                "回退检查失败",
+                internal_detail=str(exc),
+                status_code=500,
+                code="AUTO_ROLLBACK_CHECK_FAILED",
+                tenant_id=None,
+            ) from exc
     return ok({"results": results})
 
 

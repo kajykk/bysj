@@ -23,6 +23,7 @@ from app.core.health import (
 )
 from app.core.logging_config import configure_logging
 from app.core.middlewares import (
+    error_sanitizer_middleware,
     metrics_middleware,
     request_id_middleware,
     security_headers_middleware,
@@ -373,6 +374,10 @@ app.add_middleware(
     allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+# P2-34 末道脱敏：必须在 request_id **之内**（脱敏日志要带 request_id）、
+# 又必须在路由/异常处理器**之外**（否则覆盖不到未捕获异常与限流 429 的响应体）。
+# Starlette 规则：后注册者在最外层，故此处注册后位于 metrics 内层、CORS 外层。
+app.middleware("http")(error_sanitizer_middleware)
 app.middleware("http")(metrics_middleware)
 app.middleware("http")(security_headers_middleware)
 app.middleware("http")(request_id_middleware)  # 最外层

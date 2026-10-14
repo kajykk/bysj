@@ -199,18 +199,20 @@ class TestP233AuditHelperRatchet:
 
     BASELINE_BEFORE = 62  # 第十一轮开工实测（AST 口径，见审计文档）
     AFTER_BATCH1 = 54
+    AFTER_BATCH2 = 51  # 第十二轮第二批：counselor.py 3 处（查看类审计日志）
 
     def test_operation_log_construct_sites_decreased(self):
         got = _scan_operation_log_calls()
-        assert got == self.AFTER_BATCH1, (
-            f"OperationLog( 生产构造点应为 {self.AFTER_BATCH1}，实际 {got}"
+        assert got == self.AFTER_BATCH2, (
+            f"OperationLog( 生产构造点应为 {self.AFTER_BATCH2}，实际 {got}"
         )
-        assert got < self.BASELINE_BEFORE
+        assert got < self.AFTER_BATCH1 < self.BASELINE_BEFORE
 
     def test_migrated_files_no_longer_construct_operation_log(self):
         for rel in (
             "api/v1/silences.py",
             "api/v1/model_kill_switch.py",
+            "api/v1/counselor.py",
         ):
             t = (BE / rel).read_text(encoding="utf-8")
             assert "OperationLog(" not in t, f"{rel} 仍有手写 OperationLog 构造"
@@ -218,7 +220,7 @@ class TestP233AuditHelperRatchet:
 
     def test_migration_records_ip_from_request(self):
         # 迁移前这些点完全没有 ip_address；迁移后必须把 request 传进 helper
-        for rel in ("api/v1/silences.py", "api/v1/content_governance.py", "api/v1/model_kill_switch.py"):
+        for rel in ("api/v1/silences.py", "api/v1/content_governance.py", "api/v1/model_kill_switch.py", "api/v1/counselor.py"):
             t = (BE / rel).read_text(encoding="utf-8")
             calls = re.findall(r"await record_audit\((.*?)\n    \)", t, re.S)
             assert calls, f"{rel} 未找到 record_audit 调用"

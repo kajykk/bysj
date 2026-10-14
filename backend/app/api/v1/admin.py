@@ -10,6 +10,7 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.exceptions import ServiceError
 from app.core.idempotency import (
     begin_idempotent_call,
     dismiss_idempotent_call,
@@ -401,7 +402,7 @@ async def register_model(
         model_id = await service.register_model(payload.model_dump())
     except ValueError as exc:
         # model_id 重复 → 409 (业务冲突), 避免未处理异常返回 500
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise ServiceError(str(exc), status_code=409, tenant_id=current_user.tenant_id) from exc
     return ok({"model_id": model_id})
 
 
