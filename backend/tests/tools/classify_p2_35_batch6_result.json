@@ -1,9 +1,9 @@
 {
   "counts": {
-    "X": 187,
+    "X": 180,
     "G": 8,
     "S": 36,
-    "W": 27,
+    "W": 34,
     "D": 22,
     "V": 2,
     "C": 7,
@@ -375,7 +375,7 @@
     },
     {
       "file": "app/api/v1/validation.py",
-      "line": 453,
+      "line": 478,
       "func": "_execute_validation",
       "handled": [
         "Exception"
@@ -407,47 +407,47 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/validation.py",
-      "line": 151,
+      "line": 156,
       "func": "update",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/validation.py",
-      "line": 168,
+      "line": 178,
       "func": "delete",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/api/v1/validation.py",
-      "line": 194,
-      "func": "list_jobs",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/validation.py",
       "line": 209,
-      "func": "count",
+      "func": "list_jobs",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/validation.py",
       "line": 229,
+      "func": "count",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 254,
       "func": "_cleanup_memory_expired",
       "handled": [
         "ValueError",
@@ -457,7 +457,7 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 292,
+      "line": 302,
       "func": "_get_redis_url",
       "handled": [
         "Exception"
@@ -466,25 +466,25 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 146,
+      "line": 148,
       "func": "_get_redis_client",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/cache.py",
-      "line": 186,
+      "line": 192,
       "func": "get_redis_pubsub_client",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/cache.py",
-      "line": 231,
+      "line": 241,
       "func": "close_redis_client",
       "handled": [
         "Exception"
@@ -493,7 +493,7 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 237,
+      "line": 247,
       "func": "close_redis_client",
       "handled": [
         "Exception"
@@ -502,7 +502,7 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 298,
+      "line": 308,
       "func": "_get_redis_url",
       "handled": [
         "Exception"
@@ -1734,7 +1734,7 @@
     },
     {
       "file": "app/monitoring/am_sync.py",
-      "line": 107,
+      "line": 106,
       "func": "_write_sync_log",
       "handled": [
         "Exception"
@@ -1743,7 +1743,7 @@
     },
     {
       "file": "app/monitoring/am_sync.py",
-      "line": 167,
+      "line": 166,
       "func": "push_silence",
       "handled": [
         "Exception"
@@ -1752,7 +1752,7 @@
     },
     {
       "file": "app/monitoring/am_sync.py",
-      "line": 217,
+      "line": 216,
       "func": "delete_silence",
       "handled": [
         "Exception"
@@ -1761,7 +1761,7 @@
     },
     {
       "file": "app/monitoring/am_sync.py",
-      "line": 266,
+      "line": 265,
       "func": "pull_silences",
       "handled": [
         "Exception"

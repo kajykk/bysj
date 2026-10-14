@@ -18,6 +18,8 @@ import redis.asyncio as aioredis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
+from app.core.degradation import record_silent_degradation
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_CACHE_TTL = 300  # 5min
@@ -145,6 +147,10 @@ async def _get_redis_client() -> aioredis.Redis | None:
             )
         except Exception as exc:
             logger.warning("[cache] redis client init failed: %s", exc)
+            # P2-35：共享客户端初始化失败是**根因性**降级 —— 全仓缓存消费者
+            # （观测缓存/告警去重/任务存储等）随后全部静默退回内存层，
+            # 各消费点只会看到"没有客户端"而不知根因，必须在此计数。
+            record_silent_degradation("core.cache.redis_client_init_failed")
             _redis_client = None
             return None
         return _redis_client
@@ -185,6 +191,10 @@ async def get_redis_pubsub_client() -> "aioredis.Redis | None":
             )
         except Exception as exc:
             logger.warning("[cache] redis pubsub client init failed: %s", exc)
+            # P2-35：pubsub 客户端初始化失败 → ws.py 订阅回路无法建立，
+            # 跨实例 WebSocket 推送静默失效（本实例用户收不到别的实例
+            # 发布的消息），必须计数。
+            record_silent_degradation("core.cache.redis_pubsub_client_init_failed")
             _redis_pubsub_client = None
             return None
         return _redis_pubsub_client

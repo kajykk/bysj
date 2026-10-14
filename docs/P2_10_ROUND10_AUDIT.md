@@ -92,3 +92,17 @@
     `tests/test_p2_12_round12.py::TestAuditDetailJsonDownstream::
     test_record_audit_detail_is_never_a_string` 作证。
 - 闸门 `test_inventory_ratchet_be` 同步 96→97。
+
+## 附录：全称注释清单同步（97→98，第十三轮第一批）
+
+- 新增 1 条：`backend/app/core/cache.py:152`
+  `# 各消费点只会看到"没有客户端"而不知根因，必须在此计数。`
+  （`_get_redis_client` 初始化失败 handler 内，含全称词"只会"）。
+- 两侧账：新增 +1，无删除，净 +1（97→98）。
+- 语义与作证（非空断言）：该注释陈述"客户端初始化失败时，各消费点
+  （观测缓存/告警去重/任务存储/ws 推送）只能看到 `get_redis_client()`
+  返回 None，拿不到根因"，因此根因信号必须在 cache 层计数。行为闸门：
+  `tests/test_p2_11_round11.py::TestP235Round13Batch1Wiring::
+  test_cache_client_init_failure_increments_counter`（`from_url` 抛异常 →
+  `core.cache.redis_client_init_failed` 计数器 +1，真实变异红过）。
+- 闸门 `test_inventory_ratchet_be` 同步 97→98。

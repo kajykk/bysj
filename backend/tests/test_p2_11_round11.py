@@ -407,7 +407,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 27,   # 已接线（含第十一轮直调风格 2 处）
+            "W": 34,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮第一批 7）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -419,7 +419,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 187,  # 真降级留档（后续批待接，全量清单见 JSON 产物）
+            "X": 180,  # 真降级留档（第十三轮第一批已接 7 处：validation 读路径 5 + cache 客户端初始化 2）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -480,6 +480,99 @@ class TestP235SilentDegradationRatchet:
             src = (BE / rel).read_text(encoding="utf-8")
             assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
             assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+
+class TestP235Round13Batch1Wiring:
+    """第十三轮第一批：#35 X 桶 7 处真降级接线。
+
+    接线对象（X 桶 187 → 180，W 27 → 34，扫描器复跑实测）：
+    - `api/v1/validation.py` 读路径 5 处：get/update/delete/list_jobs/count 的
+      Redis→内存降级。写路径（create）已在第十二轮第五批接线；读路径同型但
+      后果不同——任务"不存在/状态冻结/计数偏小"的假象直接呈现给用户，
+      审计文档 6.5 节明确留待后续批。
+    - `core/cache.py` 客户端初始化 2 处：共享客户端/pubsub 客户端创建失败
+      是**根因性**降级——全仓缓存消费者（观测缓存/告警去重/任务存储/ws 推送）
+      随后全部静默退回内存层，各消费点只看到"没有客户端"而不知根因。
+
+    存在性→行为双断言：
+    - 存在性：location 字面量在源码里 + 登记进审计文档（P2_11 附录第十三轮
+      同步块，只查一侧会漏"登记了没接线"/"接了没登记"）；
+    - 行为：真触发一次降级分支，`silent_degradation_total{location}` 必须 +1
+      （接线了但计数器不动 = 假接线，与 #35 根因「失败不留痕」同罪）。
+    """
+
+    PAIRS = (
+        ("api.validation.job_store.get.redis_fallback", "api/v1/validation.py"),
+        ("api.validation.job_store.update.redis_fallback", "api/v1/validation.py"),
+        ("api.validation.job_store.delete.redis_fallback", "api/v1/validation.py"),
+        ("api.validation.job_store.list_jobs.redis_fallback", "api/v1/validation.py"),
+        ("api.validation.job_store.count.redis_fallback", "api/v1/validation.py"),
+        ("core.cache.redis_client_init_failed", "core/cache.py"),
+        ("core.cache.redis_pubsub_client_init_failed", "core/cache.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_read_path_fallback_increments_counter(self):
+        """行为：Redis 读操作抛异常 → get 走内存降级 → 计数器 +1。"""
+        from app.api.v1.validation import ValidationJobStore
+        from tests.conftest import run
+
+        class _BrokenRedis:
+            async def hgetall(self, key):
+                raise ConnectionError("probe: redis down")
+
+        store = ValidationJobStore()
+        loc = "api.validation.job_store.get.redis_fallback"
+        before = self._counter_value(loc)
+
+        async def _broken_redis():
+            return _BrokenRedis()
+
+        # 直接给定一个必炸的客户端：绕过 _get_redis 的探测逻辑，精确打击
+        # get 的 except 分支（生产路径是 Redis 连接在操作中途断开）
+        store._get_redis = _broken_redis
+        run(store.get("probe-job"))
+        assert self._counter_value(loc) == before + 1, "读路径降级未计数（假接线）"
+
+    def test_cache_client_init_failure_increments_counter(self, monkeypatch):
+        """行为：from_url 抛异常 → 共享/pubsub 客户端初始化失败 → 两个 location 各 +1。"""
+        import asyncio
+
+        import app.core.cache as cache_mod
+        from tests.conftest import run
+
+        def _boom(*args, **kwargs):
+            raise ValueError("probe: malformed redis url")
+
+        # 隔离：全新锁（避免跨事件循环绑定）、无既有单例、URL 探测必返真值
+        monkeypatch.setattr(cache_mod, "_redis_client_lock", asyncio.Lock())
+        monkeypatch.setattr(cache_mod, "_redis_client", None)
+        monkeypatch.setattr(cache_mod, "_redis_pubsub_client", None)
+        monkeypatch.setattr(cache_mod, "_get_redis_url", lambda: "redis://probe")
+        monkeypatch.setattr(cache_mod.aioredis, "from_url", _boom)
+
+        loc1 = "core.cache.redis_client_init_failed"
+        loc2 = "core.cache.redis_pubsub_client_init_failed"
+        before1, before2 = self._counter_value(loc1), self._counter_value(loc2)
+        run(cache_mod._get_redis_client())
+        run(cache_mod.get_redis_pubsub_client())
+        assert self._counter_value(loc1) == before1 + 1, "共享客户端初始化失败未计数（假接线）"
+        assert self._counter_value(loc2) == before2 + 1, "pubsub 客户端初始化失败未计数（假接线）"
 
 
 class TestP232ModelMetadataContradictionRecorded:

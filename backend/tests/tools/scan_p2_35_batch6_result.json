@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 26,
+  "real_wired": 33,
   "import_probe": 16,
   "real_list": [
     {
@@ -402,7 +402,7 @@
     },
     {
       "file": "app/api/v1/validation.py",
-      "line": 453,
+      "line": 478,
       "handled": [
         "Exception"
       ],
@@ -436,37 +436,27 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/validation.py",
-      "line": 151,
+      "line": 156,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/validation.py",
-      "line": 168,
+      "line": 178,
       "handled": [
         "Exception"
       ],
-      "wired": false,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/api/v1/validation.py",
-      "line": 194,
-      "handled": [
-        "Exception"
-      ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -476,13 +466,23 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/validation.py",
       "line": 229,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 254,
       "handled": [
         "ValueError",
         "TypeError"
@@ -493,7 +493,7 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 292,
+      "line": 302,
       "handled": [
         "Exception"
       ],
@@ -503,27 +503,27 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 146,
+      "line": 148,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "None"
     },
     {
       "file": "app/core/cache.py",
-      "line": 186,
+      "line": 192,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "None"
     },
     {
       "file": "app/core/cache.py",
-      "line": 231,
+      "line": 241,
       "handled": [
         "Exception"
       ],
@@ -533,7 +533,7 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 237,
+      "line": 247,
       "handled": [
         "Exception"
       ],
@@ -543,7 +543,7 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 298,
+      "line": 308,
       "handled": [
         "Exception"
       ],

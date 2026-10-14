@@ -133,6 +133,11 @@ class ValidationJobStore:
                 logger.warning(
                     "[validation_store] Redis get failed, using memory: %s", exc
                 )
+                # P2-35：读路径降级 —— 任务可能创建在其它实例/Redis，回退本进程
+                # 内存后查不到即返回 None，用户侧呈现"任务不存在"假象，必须计数。
+                record_silent_degradation(
+                    "api.validation.job_store.get.redis_fallback"
+                )
 
         # 内存降级
         return self._memory_store.get(job_id)
@@ -152,6 +157,11 @@ class ValidationJobStore:
                 logger.warning(
                     "[validation_store] Redis update failed, using memory: %s", exc
                 )
+                # P2-35：更新降级 —— 状态只落本进程内存，其它实例的轮询仍读到
+                # Redis 旧值，任务进度看似冻结，必须计数。
+                record_silent_degradation(
+                    "api.validation.job_store.update.redis_fallback"
+                )
 
         # 内存降级
         if job_id in self._memory_store:
@@ -168,6 +178,11 @@ class ValidationJobStore:
             except Exception as exc:
                 logger.warning(
                     "[validation_store] Redis delete failed, using memory: %s", exc
+                )
+                # P2-35：删除降级 —— Redis 删除失败后仅弹本进程内存（通常并无此
+                # job），Redis 中的任务仍在，列表继续呈现已"删除"的任务，必须计数。
+                record_silent_degradation(
+                    "api.validation.job_store.delete.redis_fallback"
                 )
 
         self._memory_store.pop(job_id, None)
@@ -195,6 +210,11 @@ class ValidationJobStore:
                 logger.warning(
                     "[validation_store] Redis list failed, using memory: %s", exc
                 )
+                # P2-35：列表降级 —— 只列本进程内存的任务，其它实例创建的任务
+                # 整体不可见（管理端看到的任务数凭空变少），必须计数。
+                record_silent_degradation(
+                    "api.validation.job_store.list_jobs.redis_fallback"
+                )
 
         # 内存降级：手动清理过期任务
         self._cleanup_memory_expired()
@@ -209,6 +229,11 @@ class ValidationJobStore:
             except Exception as exc:
                 logger.warning(
                     "[validation_store] Redis count failed, using memory: %s", exc
+                )
+                # P2-35：计数降级 —— 只数本进程内存的任务，统计口径偏小，
+                # 与列表接口互相矛盾时无任何告警，必须计数。
+                record_silent_degradation(
+                    "api.validation.job_store.count.redis_fallback"
                 )
 
         self._cleanup_memory_expired()

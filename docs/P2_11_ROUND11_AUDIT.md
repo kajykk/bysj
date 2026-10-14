@@ -398,3 +398,36 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   X 桶 187 条为「真降级留档」（后续批待接），全量清单见 JSON 产物。
   #35 收尾口径变化：扫描器日志级由 debug/warning 扩至全级，故候选总数
   318 > 第十一轮 243（差异已记账，判据不同不矛盾）。
+
+- 2026-10-15（第十三轮第一批）：#35 X 桶接线 7 处（X 187→180，W 27→34，
+  调用点 26→33，扫描器+分类器复跑实测，总数 334 不变）：
+
+    api.validation.job_store.get.redis_fallback
+    api.validation.job_store.update.redis_fallback
+    api.validation.job_store.delete.redis_fallback
+    api.validation.job_store.list_jobs.redis_fallback
+    api.validation.job_store.count.redis_fallback
+    core.cache.redis_client_init_failed
+    core.cache.redis_pubsub_client_init_failed
+
+  裁定说明：读路径 5 处为 Redis→内存降级（任务不存在/状态冻结/计数偏小的
+  假象直接呈现给用户，写路径 create 已在第十二轮第五批接线，同型补全）；
+  cache 2 处为客户端初始化失败（根因性降级，全仓缓存消费者随后静默退回
+  内存层，各消费点只看到"没有客户端"而不知根因）。
+  本批跳过 2 条并记账（仍留 X 桶，机器不裁、由文档裁）：
+  `api.validation.job_store._get_redis`（line 88，生产不可达——共享
+  `get_redis_client` 内部已吞 `from_url` 失败返回 None，接线即死代码）、
+  `core.cache._get_redis_url` 内层 except（metrics 自报失败的兜底，
+  外层 handler 已直调 inc 完成接线，属提示词规定的跳过类目）。
+  桶计数由 `TestP235SilentDegradationRatchet::test_batch6_bucket_counts_pinned`
+  同步改钉（W=34/X=180）；新增 `TestP235Round13Batch1Wiring`
+  （存在性 location 双向核对 + 运行时计数器 +1 行为断言）。
+  详见 `P2_13_ROUND13_AUDIT.md`。
+
+- 2026-10-15（第十三轮结案）：`tenant_admin` 4 处**迁移已在第十二轮第六批
+  `a9926a1` 完成**（第十三轮提示词该项为 stale，实测结账不改码）：
+  4 处 `record_audit` 的 `tenant_id` 实参为 `tenant.id`/`tenant_id`（目标租户，
+  非 `current_user.tenant_id`），归属对应关系见 `P2_12_ROUND12_AUDIT.md` §6.3，
+  闸门 `test_p2_12_round12.py::TestTargetTenantAttribution`（源码+运行时双钉）
+  本轮 121 passed 全绿。第十一轮正文「剩余 54 处分布」中的 `tenant_admin` 4
+  为历史快照，按「只追加不改」原则在此结案，不回改上文。

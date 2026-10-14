@@ -1643,7 +1643,7 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 | 35 余量 | 238 处未接线（第十一轮口径） | 334 候选（口径扩到全日志级）逐条裁定分 13 桶；新接线 26 处（全部原本无任何计数的漏预警/误删/用户不可见方向） | **清单归零**：每个候选有去处；X 桶 187 条真降级留档（JSON 全量清单 + 桶计数闸门） |
 | 36 余量 | 9 页 | 分四批迁完（fetcher 闭包 / onSuccess 写附属块 / setPage 写 URL query / immediate:false + onMounted 保留 / 对外名零改动） | **12/12** |
 | 32 收尾 | 矛盾已裁定、事实锁 pin 模型元数据与风险等级 | 补文件名清洗事实锁（第三项裁定此前无 pin）+ 三条书面保留登记 `RETENTION_REGISTRY.md`（RES-P2-032-01/02/03）+ 登记存在性闸门 | **#32 关闭**（合并仍是业务决策，不代做） |
-| prettier | 第十一轮决定不做 | 未议 | 维持记账 |
+| prettier | 第十一轮决定不做 | 未议 | 维持记账（第十三轮已终局决议，见下） |
 
 ## 连带发现
 
@@ -1702,3 +1702,43 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 - `tests/test_iss02_validation_engine.py` 本机需 `--basetemp`（pytest tmpdir GC 触发
   环境 bulk-delete guard，与产品代码无关；CI 无此 guard）。
 - prettier 维持第十一轮决定不做（437 文件不一致 + 3 个 `.vue` 存量 SyntaxError）。
+
+---
+
+## 第十三轮：#35 X 桶第一批接线 7 处 + tenant_admin 结案 + prettier 终局决议
+
+### 改了什么
+
+| 项 | 内容 |
+|---|---|
+| #35 X 桶第一批 | 接线 7 处：`api/v1/validation.py` 读路径 5（get/update/delete/list_jobs/count 的 Redis→内存降级）+ `core/cache.py` 客户端初始化 2（共享/pubsub，根因性降级）。X 187→**180**，W 27→**34**，调用点 26→**33**（扫描器+分类器复跑，总数 334 不变） |
+| tenant_admin 4 处 | 提示词该项 stale：第十二轮第六批 `a9926a1` 已迁完（目标租户归属 + `TestTargetTenantAttribution` 双钉），本轮实测结账不改码 |
+| prettier | **终局决议**（非第三次原样记账）：实测 370 文件不一致（437→370）+ 3 个 `.vue` parser 存量错仍在 + CI 0 命中 ⇒ 书面确认继续不做，但写入三条触发条件（CI 加格式门 / 不一致数有机降至 <50 / 答辩后归档期显式指令），满足任一即按限定方式执行 |
+| 跳过记账 | X 桶 2 条：`validation.job_store._get_redis`（生产不可达，共享客户端内部已吞失败）、`cache._get_redis_url` 内层 except（指标自报失败兜底，外层已直调 inc）——仍留 X 桶，文档裁 |
+
+### 连带发现
+
+1. **alerts 簇不能整簇照接**（预裁定，下一批必读）：`api/v1/alerts/__init__.py` 6 条中
+   persist/notify 失败已被 H-API-11 计数进 webhook 响应（显式失败上报）；真候选只有
+   final commit 失败（丢整批但响应仍 200）与 detail 解析退化两条。
+2. **X 桶读路径降级的信号盲区**：`ValidationJobStore._get_redis` 的 60s 冷却窗口内
+   所有操作静默走内存（无异常无日志）；本批按操作级 handler 接线（与写路径同型），
+   盲区本身记账留后续（接在冷却入口会改变计数语义，不在本批做）。
+3. **`get_redis_client()` 的失败面比看起来小**：`from_url` 失败在共享模块内被吞并
+   返回 None，消费点（如 validation）的探测 except 生产不可达——根因信号必须接在
+   cache 层，这也解释了本批为何把 cache 2 处与 validation 5 处并批。
+
+### 实测读数
+
+- `test_p2_11_round11.py` 29 passed（+3 新闸门：location 双向核对 + 两个运行时计数器断言）；
+  全部 P2 闸门六套件 **121 passed**；affected 227 passed（validation/cache 42 +
+  cache 消费者 127 + 模型缓存/校验引擎 58）；BE 全称注释 97→98（两侧账已写 P2_10 附录）。
+- 变异 3/3 RED-OK/GREEN-OK（强度均为语义级：整句删/换 location 字面量/整行删文档登记），
+  日志 `backend/tests/tools/mutate_p2_35_round13_batch1_result.log`。
+
+### 未验证如实记账
+
+- 后端全量本地未跑（约 37 分钟）：本地 affected+闸门 348 passed，其余由 CI 兜底。
+- X 桶余 173 条待接（跳过 2 条仍留桶）；前端本批零改动未跑全量，收尾轮补。
+- 分类器精化（内层指标 except 自动归 S）为后续批可选项，本轮不改。
+
