@@ -251,3 +251,27 @@
 - `tests/test_iss02_validation_engine.py` 在本机沙箱下需 `--basetemp` 才能跑：
   默认 tmpdir 的 GC（`pytest.pathlib.rm_rf`）会触发环境侧的 bulk-delete guard 直接
   `SystemExit`，与产品代码无关；CI 环境无此 guard。
+
+### 2.10 CI 红后修复（跨文件闸门 pin 了旧形参名）
+
+- 现象：push `1c21a99` 后 CI `total_count=10`，其中 **backend-coverage 失败 1 条** ——
+  `tests/test_p2_10_round10.py::TestP232BERoles::test_constants_actually_used`，
+  断言 `operator_role=USER_ROLE_COUNSELOR` 存在于 `counselor_service_binding.py`
+  与 `operator_role=USER_ROLE_ADMIN if is_admin else USER_ROLE_COUNSELOR` 存在于
+  `review_service.py`。
+- 根因（正是提示词铁律预告的那一类）：本批把这两处审计改为调 `record_audit`，
+  helper 的形参名是 `actor_role`，**旧断言 pin 的是实现形参名而非行为**，
+  迁移后恒假。其他 6756 条全绿，说明不是产品回归。
+- 修法：断言改为 pin「角色取自 `USER_ROLE_*` 常量」这一行为，
+  用正则同时兼容 `actor_role=` / `operator_role=` 两种形态，并保留失败时的
+  可定位文案。
+- 变异验证：把 binding 的 `actor_role=USER_ROLE_COUNSELOR` 临时改回裸字面量
+  `"counselor"` → 该闸门与 `test_no_bare_role_literals_in_scope` 同时红
+  → 恢复后 10 passed，证明放宽后仍敏感。
+- 教训（记账）：**affected 集合不能只按调用图取**——本项目里闸门是
+  **跨文件源码文本断言**，凡改动被闸门点名的文件（即使只是审计调用换 helper），
+  都要把 `tests/test_p2_0*.py` / `test_p2_1*.py` 全列入 affected。
+  本批漏了 `test_p2_10_round10.py`，以后默认全跑 `tests/test_p2_*.py`。
+- 复跑读数：全部 P2 闸门 `test_p2_09`~`test_p2_12` + `test_p2_31`/`test_p2_32`
+  **126 passed**；`tests/api`+`tests/services`+`tests/unit` **1795 passed /
+  10 skipped / 0 failed**。

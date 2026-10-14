@@ -45,10 +45,19 @@ class TestP232BERoles:
         assert bad == [], "收编文件仍有裸角色字面量:\n" + "\n".join(bad)
 
     def test_constants_actually_used(self):
+        # P2-33 第六批：迁移到 record_audit 后，角色形参语义由 `operator_role=`
+        # 变为 `actor_role=`（helper 侧口径）。断言改为 pin「角色取自 USER_ROLE_*
+        # 常量」这一行为，不再 pin 具体形参名 —— 否则迁移后断言恒假。
         t = (BE / "services/counselor_service_binding.py").read_text(encoding="utf-8")
-        assert "USER_ROLE_COUNSELOR" in t and "operator_role=USER_ROLE_COUNSELOR" in t
+        assert "USER_ROLE_COUNSELOR" in t
+        assert re.search(r"actor_role\s*=\s*USER_ROLE_COUNSELOR", t), (
+            "binding 审计角色必须来自 USER_ROLE_* 常量"
+        )
         t = (BE / "services/review_service.py").read_text(encoding="utf-8")
-        assert "operator_role=USER_ROLE_ADMIN if is_admin else USER_ROLE_COUNSELOR" in t
+        assert re.search(
+            r"actor_role\s*=\s*USER_ROLE_ADMIN if is_admin else USER_ROLE_COUNSELOR",
+            t,
+        ), "review 审计角色必须来自 USER_ROLE_* 常量"
 
     def test_require_role_args_exempt_with_reason(self):
         # require_role("…") 是 Depends 工厂参数语义，50+ 端点签名，移治理轮——
