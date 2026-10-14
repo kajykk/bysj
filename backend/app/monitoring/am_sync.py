@@ -19,7 +19,6 @@ RES-P1-008/010 修复: async 函数内的同步 requests 调用改用 asyncio.to
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import time
@@ -27,6 +26,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import requests
+
+from app.core.audit import record_audit
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,8 +78,6 @@ async def _write_sync_log(
     if db is None:
         return
     try:
-        from app.models.admin import OperationLog
-
         action_type = "am_sync_success" if success else "am_sync_failed"
         detail_dict: dict[str, Any] = {
             "operation": operation,
@@ -90,16 +89,20 @@ async def _write_sync_log(
             detail_dict["error"] = error_msg
         if extra:
             detail_dict.update(extra)
-        log = OperationLog(
-            operator_id=None,
-            operator_role="system",
-            action_type=action_type,
+        # P2-33 第六批：改走统一审计 helper。AM 同步是系统内部流程
+        # （Celery/启动钩子触发），无 HTTP 上下文 → request=None；
+        # 平台级系统操作 → tenant_id=None（helper 内记平台默认租户）。
+        await record_audit(
+            db,
+            actor_id=None,
+            actor_role="system",
+            action=action_type,
             target_type="alert_silence",
             target_id=None,
-            detail=json.dumps(detail_dict, ensure_ascii=False),
+            detail=detail_dict,
+            request=None,
+            tenant_id=None,
         )
-        db.add(log)
-        await db.flush()
     except Exception as exc:
         # 写日志失败不影响主流程
         logger.error(

@@ -3,20 +3,21 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from fastapi import Request
 from sqlalchemy import func, select
 
+from app.core.audit import record_audit
 from app.core.contracts import (
     ACTION_TYPE_WARNING_ESCALATE,
     ACTION_TYPE_WARNING_HANDLE,
     ACTION_TYPE_WARNING_IGNORE,
+    USER_ROLE_COUNSELOR,
     WARNING_ACTION_ESCALATE,
     WARNING_ACTION_HANDLE,
     WARNING_ACTION_IGNORE,
     normalize_risk_level,
     resolve_warning_status,
-    USER_ROLE_COUNSELOR,
 )
-from app.models.admin import OperationLog
 from app.models.risk import WarningNotification
 
 logger = logging.getLogger(__name__)
@@ -136,7 +137,17 @@ class WarningMixin:
         note: str | None,
         ip_address: str | None = None,
         request_id: str | None = None,
+        *,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户；
+        # 任务/旧测试不传则记 None/平台默认）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> bool:
+        """处理预警（HANDLE/IGNORE）。
+
+        `ip_address` 仅在 `request` 缺失时生效（record_audit 一律从 request 取 ip），
+        保留它是为了让"服务层直接调用且调用方已有 ip"的历史路径不丢审计信息。
+        """
         warning = await self.db.get(WarningNotification, warning_id)
         if warning is None or warning.counselor_id != counselor_id:
             return False
@@ -165,16 +176,17 @@ class WarningMixin:
             if action == WARNING_ACTION_IGNORE
             else ACTION_TYPE_WARNING_HANDLE
         )
-        self.db.add(
-            OperationLog(
-                operator_id=counselor_id,
-                operator_role=USER_ROLE_COUNSELOR,
-                action_type=action_type,
-                target_type="warning_notification",
-                target_id=warning.id,
-                detail=f"action={action};request_id={request_id or '-'}",
-                ip_address=ip_address,
-            )
+        await record_audit(
+            self.db,
+            actor_id=counselor_id,
+            actor_role=USER_ROLE_COUNSELOR,
+            action=action_type,
+            target_type="warning_notification",
+            target_id=warning.id,
+            detail={"action": action, "request_id": request_id or "-"},
+            request=request,
+            tenant_id=tenant_id,
+            ip_address=ip_address,
         )
         await self.db.commit()
         return True
@@ -217,6 +229,10 @@ class WarningMixin:
         reason: str,
         ip_address: str | None = None,
         request_id: str | None = None,
+        *,
+        # P2-33 第六批：同上，审计上下文由调用方穿入。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> bool:
         # ISS-058: 升级预警 - 更新状态为 escalated，记录升级原因到 handled_note，写入审计日志
         warning = await self.db.get(WarningNotification, warning_id)
@@ -226,16 +242,21 @@ class WarningMixin:
         warning.handled_at = datetime.now(UTC).replace(tzinfo=None)
         warning.handle_action = WARNING_ACTION_ESCALATE
         warning.handle_note = reason
-        self.db.add(
-            OperationLog(
-                operator_id=counselor_id,
-                operator_role=USER_ROLE_COUNSELOR,
-                action_type=ACTION_TYPE_WARNING_ESCALATE,
-                target_type="warning_notification",
-                target_id=warning.id,
-                detail=f"action=escalated;reason={reason};request_id={request_id or '-'}",
-                ip_address=ip_address,
-            )
+        await record_audit(
+            self.db,
+            actor_id=counselor_id,
+            actor_role=USER_ROLE_COUNSELOR,
+            action=ACTION_TYPE_WARNING_ESCALATE,
+            target_type="warning_notification",
+            target_id=warning.id,
+            detail={
+                "action": "escalated",
+                "reason": reason,
+                "request_id": request_id or "-",
+            },
+            request=request,
+            tenant_id=tenant_id,
+            ip_address=ip_address,
         )
         await self.db.commit()
         return True

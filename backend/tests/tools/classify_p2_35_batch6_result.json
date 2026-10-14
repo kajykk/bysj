@@ -1,0 +1,3066 @@
+{
+  "counts": {
+    "X": 187,
+    "G": 8,
+    "S": 36,
+    "W": 27,
+    "D": 22,
+    "V": 2,
+    "C": 7,
+    "K": 11,
+    "H": 6,
+    "M": 6,
+    "R": 4,
+    "F": 2,
+    "P": 16
+  },
+  "rows": [
+    {
+      "file": "app/api/v1/admin.py",
+      "line": 619,
+      "func": "_stream_csv",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 151,
+      "func": "_handle_silenced_alert",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 172,
+      "func": "_handle_active_alert",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 189,
+      "func": "_handle_active_alert",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 204,
+      "func": "_handle_active_alert",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 267,
+      "func": "alertmanager_webhook",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 344,
+      "func": "list_alert_history",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/alerts/_schemas.py",
+      "line": 68,
+      "func": "_validate_url_safety",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "G"
+    },
+    {
+      "file": "app/api/v1/alerts/_schemas.py",
+      "line": 63,
+      "func": "_validate_url_safety",
+      "handled": [
+        "ValueError"
+      ],
+      "bucket": "G"
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 96,
+      "func": "_set_db_pool_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 117,
+      "func": "_set_model_fallback_metric",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 136,
+      "func": "_set_mttr_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 152,
+      "func": "_set_slo_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 84,
+      "func": "_set_breaker_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 223,
+      "func": "collect_ml_quality_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 249,
+      "func": "collect_drift_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 275,
+      "func": "collect_canary_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 116,
+      "func": "_load_json",
+      "handled": [
+        "OSError",
+        "JSONDecodeError"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 184,
+      "func": "_save_assessment_sync",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 261,
+      "func": "_generate_structured_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 317,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 333,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 349,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 365,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/predict.py",
+      "line": 87,
+      "func": "_create_review_task_sync",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/model_predict/predict.py",
+      "line": 203,
+      "func": "predict_text",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/model_predict/status.py",
+      "line": 43,
+      "func": "_get_cached_model_status",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/observability/__init__.py",
+      "line": 228,
+      "func": "cached_or_compute",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 164,
+      "func": "_resolve_pdf_job",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 403,
+      "func": "_execute_pdf_generation",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "V"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 513,
+      "func": "list_pdf_jobs",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 355,
+      "func": "_notify",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 406,
+      "func": "update_silence",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 481,
+      "func": "enable_silence",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 376,
+      "func": "update_silence",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 537,
+      "func": "delete_silence",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 214,
+      "func": "create_silence",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 227,
+      "func": "create_silence",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/user_upload.py",
+      "line": 161,
+      "func": "_validate_mime_type",
+      "handled": [
+        "MagicException",
+        "OSError"
+      ],
+      "bucket": "G"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 453,
+      "func": "_execute_validation",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "V"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 88,
+      "func": "_get_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 109,
+      "func": "create",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 132,
+      "func": "get",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 151,
+      "func": "update",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 168,
+      "func": "delete",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 194,
+      "func": "list_jobs",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 209,
+      "func": "count",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 229,
+      "func": "_cleanup_memory_expired",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 292,
+      "func": "_get_redis_url",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 146,
+      "func": "_get_redis_client",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 186,
+      "func": "get_redis_pubsub_client",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 231,
+      "func": "close_redis_client",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "C"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 237,
+      "func": "close_redis_client",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "C"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 298,
+      "func": "_get_redis_url",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 254,
+      "func": "on_task_failure",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 348,
+      "func": "_propagate_request_id",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 369,
+      "func": "_bind_request_id",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 380,
+      "func": "_unbind_request_id",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/config.py",
+      "line": 359,
+      "func": "apply_env_defaults",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/config.py",
+      "line": 372,
+      "func": "apply_env_defaults",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/degradation.py",
+      "line": 33,
+      "func": "record_silent_degradation",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/deps.py",
+      "line": 184,
+      "func": "_role_for_request",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "G"
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 116,
+      "func": "publish",
+      "handled": [
+        "QueueFull"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 141,
+      "func": "stop",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 174,
+      "func": "_consume_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 164,
+      "func": "_consume_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/fire_forget_metrics.py",
+      "line": 41,
+      "func": "record_scheduled",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/fire_forget_metrics.py",
+      "line": 77,
+      "func": "_callback",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 56,
+      "func": "check_database",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "H"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 84,
+      "func": "check_redis",
+      "handled": [
+        "TimeoutError"
+      ],
+      "bucket": "H"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 88,
+      "func": "check_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "H"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 129,
+      "func": "check_celery_worker",
+      "handled": [
+        "TimeoutError"
+      ],
+      "bucket": "H"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 135,
+      "func": "check_celery_worker",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "H"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 172,
+      "func": "check_models",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "H"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 370,
+      "func": "stop_health_monitor",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 325,
+      "func": "_health_monitor_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 75,
+      "func": "begin_idempotent_call",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 93,
+      "func": "settle_idempotent_call",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 104,
+      "func": "dismiss_idempotent_call",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/instance.py",
+      "line": 25,
+      "func": "get_instance_id",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/kill_switch.py",
+      "line": 109,
+      "func": "_record_degraded",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/kill_switch.py",
+      "line": 119,
+      "func": "_get_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/log_sanitizer.py",
+      "line": 449,
+      "func": "filter",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/logging_config.py",
+      "line": 235,
+      "func": "configure_logging",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/metrics.py",
+      "line": 868,
+      "func": "track_model_inference",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/middlewares.py",
+      "line": 277,
+      "func": "error_sanitizer_middleware",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/middlewares.py",
+      "line": 115,
+      "func": "metrics_middleware",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 81,
+      "func": "_finite",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 171,
+      "func": "_structured_heuristic_fallback",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 199,
+      "func": "_text_heuristic_fallback",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 233,
+      "func": "_anxiety_only_fallback",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 297,
+      "func": "_physiological_heuristic_fallback",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 348,
+      "func": "_publish_to_prometheus",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 323,
+      "func": "_persist_loop",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 326,
+      "func": "_persist_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 362,
+      "func": "stop_persist",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 240,
+      "func": "_incr_model_fallback",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 82,
+      "func": "_get_expected_hash",
+      "handled": [
+        "OSError",
+        "UnicodeDecodeError",
+        "IndexError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 188,
+      "func": "audit_model_integrity_anchors",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 425,
+      "func": "_load_adapter",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 270,
+      "func": "preload",
+      "handled": [
+        "FileNotFoundError"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 284,
+      "func": "preload",
+      "handled": [
+        "PermissionError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 290,
+      "func": "preload",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 296,
+      "func": "preload",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 396,
+      "func": "_load_adapter",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 556,
+      "func": "_load_model",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 588,
+      "func": "_load_model",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 704,
+      "func": "_patch_simple_imputer",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 484,
+      "func": "_run_experimental_v123",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 526,
+      "func": "_run_adapter",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 623,
+      "func": "_maybe_fire_shadow_predict",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 646,
+      "func": "_predict_text_ml",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 734,
+      "func": "_apply_lite_calibration",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 749,
+      "func": "_apply_lite_calibration",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 950,
+      "func": "_predict_physiological",
+      "handled": [
+        "FileNotFoundError"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 962,
+      "func": "_predict_physiological",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 416,
+      "func": "_run_experimental_v121",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 859,
+      "func": "predict_lite",
+      "handled": [
+        "NonFiniteLiteProbabilityError"
+      ],
+      "bucket": "M"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 869,
+      "func": "predict_lite",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "M"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1005,
+      "func": "_predict_physiological_sync",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1104,
+      "func": "explain_prediction",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1132,
+      "func": "explain_prediction",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 167,
+      "func": "predict_structured",
+      "handled": [
+        "FileNotFoundError",
+        "ValueError"
+      ],
+      "bucket": "M"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 178,
+      "func": "predict_structured",
+      "handled": [
+        "FileNotFoundError",
+        "ValueError"
+      ],
+      "bucket": "M"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 385,
+      "func": "_run_experimental_v121",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 653,
+      "func": "_predict_text_ml",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_registry.py",
+      "line": 351,
+      "func": "resolve_model_path",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 216,
+      "func": "_quarantine_corrupt_file",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 454,
+      "func": "_promote_model_locked",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 169,
+      "func": "_load_registry",
+      "handled": [
+        "JSONDecodeError",
+        "KeyError",
+        "OSError",
+        "ValueError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 191,
+      "func": "_load_registry",
+      "handled": [
+        "KeyError",
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 133,
+      "func": "init_otel",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 205,
+      "func": "instrument_app",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 228,
+      "func": "shutdown_otel",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 228,
+      "func": "_decrypt_aes_gcm",
+      "handled": [
+        "InvalidTag"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 344,
+      "func": "decrypt_field",
+      "handled": [
+        "InvalidToken"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 133,
+      "func": "_get_previous_fernets",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 191,
+      "func": "_get_previous_aes_gcms",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 242,
+      "func": "_decrypt_aes_gcm",
+      "handled": [
+        "InvalidTag"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 358,
+      "func": "decrypt_field",
+      "handled": [
+        "InvalidToken"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 408,
+      "func": "process_result_value",
+      "handled": [
+        "ValueError"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/rate_limit.py",
+      "line": 142,
+      "func": "decorator",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/rate_limit.py",
+      "line": 198,
+      "func": "__call__",
+      "handled": [
+        "RateLimitExceeded"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/safe_pickle.py",
+      "line": 286,
+      "func": "_restricted_unpickler_class",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/safe_pickle.py",
+      "line": 397,
+      "func": "safe_joblib_load",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/safe_pickle.py",
+      "line": 498,
+      "func": "safe_torch_load",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 103,
+      "func": "init_sentry",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 148,
+      "func": "capture_exception",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 163,
+      "func": "capture_message",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 27,
+      "func": "_extract_status_code",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 36,
+      "func": "_extract_status_code",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 47,
+      "func": "_extract_status_code",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/startup_status.py",
+      "line": 100,
+      "func": "record",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/tenant_guard.py",
+      "line": 319,
+      "func": "scan_unscoped_protected_queries",
+      "handled": [
+        "OSError",
+        "SyntaxError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/text_m2_bert_predictor.py",
+      "line": 160,
+      "func": "predict",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/text_tokenizer.py",
+      "line": 37,
+      "func": "_get_jieba",
+      "handled": [
+        "AttributeError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/token_blocklist.py",
+      "line": 75,
+      "func": "revoke_token",
+      "handled": [
+        "CacheUnavailableError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 32,
+      "func": "_inc_ws_auth_failure",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 424,
+      "func": "websocket_endpoint",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "G"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 449,
+      "func": "websocket_endpoint",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "G"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 503,
+      "func": "websocket_endpoint",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "G"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 196,
+      "func": "_publish_to_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 221,
+      "func": "broadcast",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 244,
+      "func": "stop_pubsub_subscriber",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 246,
+      "func": "stop_pubsub_subscriber",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "C"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 310,
+      "func": "_handle_pubsub_message",
+      "handled": [
+        "JSONDecodeError",
+        "TypeError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 84,
+      "func": "connect",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 130,
+      "func": "disconnect",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 169,
+      "func": "_local_send_to_user",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 284,
+      "func": "_pubsub_loop",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 287,
+      "func": "_pubsub_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "R"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 332,
+      "func": "_handle_pubsub_message",
+      "handled": [
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 282,
+      "func": "_pubsub_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 294,
+      "func": "_pubsub_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "C"
+    },
+    {
+      "file": "app/main.py",
+      "line": 365,
+      "func": "",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/main.py",
+      "line": 189,
+      "func": "lifespan",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/main.py",
+      "line": 216,
+      "func": "_preload_models_background",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/main.py",
+      "line": 320,
+      "func": "lifespan",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "C"
+    },
+    {
+      "file": "app/main.py",
+      "line": 298,
+      "func": "lifespan",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/ml/canary_controller.py",
+      "line": 235,
+      "func": "_log_comparison",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/hyperparameter_tuning.py",
+      "line": 38,
+      "func": "_load_tuning_cache",
+      "handled": [
+        "JSONDecodeError",
+        "OSError",
+        "TypeError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/hyperparameter_tuning.py",
+      "line": 51,
+      "func": "_append_tuning_cache",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/model_loader.py",
+      "line": 46,
+      "func": "_resolve_artifacts_dir",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/model_validation.py",
+      "line": 122,
+      "func": "_bootstrap_auc_ci_with_count",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/scaler.py",
+      "line": 47,
+      "func": "__getattr__",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 231,
+      "func": "predict",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 239,
+      "func": "predict",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 270,
+      "func": "predict_proba",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 107,
+      "func": "_write_sync_log",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 167,
+      "func": "push_silence",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 217,
+      "func": "delete_silence",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 266,
+      "func": "pull_silences",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup.py",
+      "line": 95,
+      "func": "should_send",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup.py",
+      "line": 103,
+      "func": "should_send",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 54,
+      "func": "_get_redis_url",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 152,
+      "func": "try_acquire_lock",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 185,
+      "func": "release_lock",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 245,
+      "func": "flush_lock_stats",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 131,
+      "func": "try_acquire_lock",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 175,
+      "func": "release_lock",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 58,
+      "func": "_observe_escalation_latency",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 101,
+      "func": "compute_escalation",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 110,
+      "func": "compute_escalation",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 272,
+      "func": "apply_escalation",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 198,
+      "func": "send",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 287,
+      "func": "send",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 342,
+      "func": "send",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 413,
+      "func": "_dispatch",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 455,
+      "func": "_write_channel_log",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 572,
+      "func": "detect_all",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 583,
+      "func": "detect_all",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 592,
+      "func": "detect_all",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 601,
+      "func": "detect_all",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/auth_service.py",
+      "line": 277,
+      "func": "change_password",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/auth_service.py",
+      "line": 436,
+      "func": "logout",
+      "handled": [
+        "PyJWTError",
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "G"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 57,
+      "func": "_redis_client_or_none",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 68,
+      "func": "_bump_lock_counter",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 90,
+      "func": "try_acquire_check_lock",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 123,
+      "func": "publish_check_heartbeat",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 152,
+      "func": "get_check_heartbeat_age",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 161,
+      "func": "get_check_heartbeat_age",
+      "handled": [
+        "TypeError",
+        "ValueError",
+        "KeyError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 173,
+      "func": "get_check_heartbeat_age",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 434,
+      "func": "check_all_canaries",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 430,
+      "func": "check_all_canaries",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 67,
+      "func": "_bump_takeover_counter",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 213,
+      "func": "stop_canary_fallback_monitor",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 215,
+      "func": "stop_canary_fallback_monitor",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "C"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 165,
+      "func": "_canary_fallback_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 88,
+      "func": "_canary_fallback_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 155,
+      "func": "_canary_fallback_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 236,
+      "func": "_resolve_canary_version",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 464,
+      "func": "_push_to_gauge",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 104,
+      "func": "check_all_modalities",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/email_service.py",
+      "line": 39,
+      "func": "_close_thread_smtp",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/email_service.py",
+      "line": 164,
+      "func": "_send_smtp",
+      "handled": [
+        "SMTPException",
+        "OSError",
+        "ConnectionError"
+      ],
+      "bucket": "R"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 164,
+      "func": "export",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 246,
+      "func": "export_to_stream",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 400,
+      "func": "export_large_dataset",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/excel_job_store.py",
+      "line": 131,
+      "func": "_cleanup_expired",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/experiment_evaluator.py",
+      "line": 126,
+      "func": "compare",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/experiment_metrics.py",
+      "line": 43,
+      "func": "metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 118,
+      "func": "strip_image_exif",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 197,
+      "func": "scan_with_clamav",
+      "handled": [
+        "ConnectionError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 211,
+      "func": "scan_with_clamav",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/fusion.py",
+      "line": 222,
+      "func": "_log_canary_event",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/fusion.py",
+      "line": 81,
+      "func": "predict_fusion",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/fusion.py",
+      "line": 157,
+      "func": "predict_fusion",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/inference.py",
+      "line": 115,
+      "func": "_model_fingerprint",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/inference.py",
+      "line": 143,
+      "func": "_fire_shadow_check",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 42,
+      "func": "_load_training_jobs",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 55,
+      "func": "_save_training_jobs",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 241,
+      "func": "get_training_job",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 275,
+      "func": "list_training_jobs",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 299,
+      "func": "update_job",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/observability/aggregate.py",
+      "line": 37,
+      "func": "_parse_detail_json",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/observability/aggregate.py",
+      "line": 473,
+      "func": "_fetch_lock_memory_stats",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/observability_exporter.py",
+      "line": 206,
+      "func": "_record_export_failure",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/services/observability_exporter.py",
+      "line": 136,
+      "func": "stop",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/services/observability_exporter.py",
+      "line": 150,
+      "func": "_wait_for_db_ready",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "R"
+    },
+    {
+      "file": "app/services/observability_exporter.py",
+      "line": 168,
+      "func": "_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "R"
+    },
+    {
+      "file": "app/services/observability_service.py",
+      "line": 121,
+      "func": "stop",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/services/observability_service.py",
+      "line": 135,
+      "func": "_flush_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/pdf_job_store.py",
+      "line": 129,
+      "func": "_cleanup_expired",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/pdf_report_service.py",
+      "line": 295,
+      "func": "generate_pdf",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/pdf_report_service.py",
+      "line": 450,
+      "func": "generate_pdf_stream",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/registry_auto_rollback.py",
+      "line": 131,
+      "func": "stop_auto_rollback_monitor",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/services/registry_auto_rollback.py",
+      "line": 133,
+      "func": "stop_auto_rollback_monitor",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "C"
+    },
+    {
+      "file": "app/services/registry_auto_rollback.py",
+      "line": 102,
+      "func": "_rollback_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/review_service.py",
+      "line": 125,
+      "func": "create_review_task",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/risk_service.py",
+      "line": 138,
+      "func": "_schedule_warning_and_intervention",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/risk_service_assessment.py",
+      "line": 180,
+      "func": "assess_structured",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/risk_service_warning.py",
+      "line": 136,
+      "func": "_check_warning_trigger",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 75,
+      "func": "fire_shadow_check",
+      "handled": [
+        "RuntimeError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 117,
+      "func": "commit_shadow_stats",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 225,
+      "func": "_shadow_check",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 252,
+      "func": "_load_candidate",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 280,
+      "func": "_candidate_predict",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/shadow_mode_service.py",
+      "line": 59,
+      "func": "_ensure_predictor",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/shadow_mode_service.py",
+      "line": 128,
+      "func": "_shadow_predict",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 165,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 180,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 197,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 212,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 235,
+      "func": "calculate_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 414,
+      "func": "_run_model_inference",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 504,
+      "func": "_compute_baseline_metrics",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 263,
+      "func": "_calculate_small_classification_metrics",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 145,
+      "func": "_load_csv_dataset",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 205,
+      "func": "calculate_metrics",
+      "handled": [
+        "ValueError"
+      ],
+      "bucket": "D"
+    },
+    {
+      "file": "app/tasks/anomaly_detection.py",
+      "line": 140,
+      "func": "_detect_impl",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 78,
+      "func": "save_job_to_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 93,
+      "func": "get_job_from_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 111,
+      "func": "list_jobs_from_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 165,
+      "func": "_register_training_artifact",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 194,
+      "func": "update_job_in_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/observability.py",
+      "line": 79,
+      "func": "_flush_lock_stats_impl",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 108,
+      "func": "save_job_to_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 122,
+      "func": "get_job_from_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 166,
+      "func": "list_jobs_from_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 250,
+      "func": "_notify_progress",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 263,
+      "func": "save_pdf_bytes_to_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 276,
+      "func": "get_pdf_bytes_from_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 286,
+      "func": "delete_pdf_bytes_from_redis",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 108,
+      "func": "_notify_warning",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "S"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 129,
+      "func": "_notify_warning",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "M"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 902,
+      "func": "_load_referenced_upload_paths",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 81,
+      "func": "_notify_warning",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "M"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 510,
+      "func": "_stale_warning_reminder_impl",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1001,
+      "func": "_cleanup_uploads_dir_impl",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1054,
+      "func": "_cleanup_experiment_artifacts_impl",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1170,
+      "func": "_cleanup_experiment_artifacts_impl",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 401,
+      "func": "_daily_risk_scan_impl",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 994,
+      "func": "_cleanup_uploads_dir_impl",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1134,
+      "func": "_cleanup_experiment_artifacts_impl",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "F"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1102,
+      "func": "_cleanup_experiment_artifacts_impl",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1150,
+      "func": "_cleanup_experiment_artifacts_impl",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "F"
+    },
+    {
+      "file": "app/utils/checksum.py",
+      "line": 72,
+      "func": "_read_recorded_hash",
+      "handled": [
+        "OSError",
+        "UnicodeDecodeError",
+        "IndexError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/utils/checksum.py",
+      "line": 155,
+      "func": "cleanup_stale_sidecars",
+      "handled": [
+        "OSError"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 89,
+      "func": "_collect_infra_exceptions",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 97,
+      "func": "_collect_infra_exceptions",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 107,
+      "func": "_collect_infra_exceptions",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 153,
+      "func": "_is_celery_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/db_breaker.py",
+      "line": 100,
+      "func": "_check_exception_is_connection_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/db_breaker.py",
+      "line": 109,
+      "func": "_check_exception_is_connection_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/ml_breaker.py",
+      "line": 107,
+      "func": "_is_ml_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 278,
+      "func": "preload",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 958,
+      "func": "_predict_physiological",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 151,
+      "func": "_instrument_fastapi",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 166,
+      "func": "_instrument_sqlalchemy",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 180,
+      "func": "_instrument_redis",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 203,
+      "func": "instrument_app",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/smtp_breaker.py",
+      "line": 113,
+      "func": "_is_smtp_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/ml/drift_detector.py",
+      "line": 128,
+      "func": "compute_ks_test",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 155,
+      "func": "scan_with_clamav",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "P"
+    }
+  ]
+}

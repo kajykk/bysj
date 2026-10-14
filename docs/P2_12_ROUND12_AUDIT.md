@@ -275,3 +275,175 @@
 - 复跑读数：全部 P2 闸门 `test_p2_09`~`test_p2_12` + `test_p2_31`/`test_p2_32`
   **126 passed**；`tests/api`+`tests/services`+`tests/unit` **1795 passed /
   10 skipped / 0 failed**。
+
+---
+
+## 六、第六批（提示词 `docs/ROUND_12_BATCH6_PROMPT.md`）
+
+> 三项任务：① detail-JSON 下游重验（最高优先级）；② #33 余 24 收敛；
+> ③ #35 收尾（候选清单逐条裁定归零）。
+
+### 6.1 detail-JSON 下游重验（第五批口径变化的影响面）
+
+第五批把 intervention / binding 的审计 detail 由裸字符串改为 JSON 对象。
+本批用 AST 枚举 `app/` 下**全部** `OperationLog.detail` 消费点（14 个模块），
+逐点确认按 JSON 对象重验通过：
+
+| 模块 | 读取数 | 消费形态 | 重验结论 |
+|---|---|---|---|
+| `api/v1/alerts/__init__.py` | 6 | parse（含 SQL contains 兜底） | ✅ JSON 对象；裸串历史行走 contains 分支 |
+| `monitoring/dedup.py` | 1 | parse | ✅ |
+| `monitoring/escalation.py` | 10 | parse（alert_fired 行） | ✅ 迁移后写入侧即 JSON 对象 |
+| `services/mttr_service.py` | 2 | parse | ✅ |
+| `services/observability/aggregate.py` | 8 | parse（`_parse_detail_json`） | ✅ 带 except 兜底 |
+| `services/observability/query.py` | 8 | sql | ✅ 只进 SQL 表达式 |
+| `tasks/alerts.py` | 1 | parse | ✅ |
+| `tasks/scheduler.py` | 2 | parse（`user_file_upload` 的 url） | ✅ 早就是 JSON 串 |
+| `api/v1/tenant_audit.py` / `content_governance.py` / `ops_dashboard.py` / `admin_service_log.py` | 2/1/2/1 | passthrough / slice 预览 | ✅ 原样透出，无解析假设 |
+| `tasks/anomaly_detection.py` | 3 | 写入侧（`AnomalyFinding.detail` JSON 串→dict） | ✅ 非 OperationLog 消费点（见 6.5.2 记账） |
+
+新增闸门 `TestAuditDetailJsonDownstream`（5 条断言，含 2 个运行时用例）：
+1. **写入侧**：`record_audit` 的 detail 实参禁止字符串/f-string（扫描器自检 ≥30 个点）；
+2. **消费侧清单**：14 模块读取数钉死，变化即红 → 强制重新核对；
+3. **解析侧兜底**：7 个 parse 模块的 `json.loads` 必须在 try 内（历史裸串行不会炸链路）；
+4. **运行时**：真跑 `complete_task` / 绑定码 / 解绑，按 JSON 对象读回。
+
+**发现并修复的问题**：`record_audit` 原实现 `json.dumps(payload)` 无 `default=str`，
+而 scheduler 滞留提醒迁移前显式依赖该容忍（注释：「序列化失败会让本条以外的
+滞留预警全部丢失」）。不加回则测试用 MagicMock 值触发 TypeError（`tests/tasks/
+test_scheduler.py` 3 failed 实锤）。已在 helper 内补 `default=str` 并在文档字符串
+说明理由（审计写永不因序列化失败拖垮业务流）。
+
+### 6.2 #33 余 24 收敛：`OperationLog(` 手写构造点 **24 → 0**
+
+| 簇 | 处数 | 文件 | 备注 |
+|---|---|---|---|
+| counselor 服务 | 6 | `counselor_service_warning` 2 / `_consultation` 2 / `_group` 2 | 方法加 `request`/`tenant_id` 可选关键字；`counselor.py` 6 端点穿参 |
+| admin_service | 4 | `admin_service_config` / `_threshold` / `_template`（4 处） | `admin.py` 4 端点穿参；⚠️ 两处签名原有 `*,` 与新加 `*,` 相邻 → 合并（见 6.5.3） |
+| monitoring | 4 | `am_sync` / `dedup_lock` / `notifier` / `escalation` | 系统内部写，`request=None` + 注释 |
+| 任务层 | 2 | `scheduler` / `anomaly_detection` | `request=None`；anomaly 的 detail 先 `json.loads` 还原 dict（失败退 `{"raw": …}`） |
+| gdpr | 1 | `gdpr_service_anonymize` | 归属语义：审计行主体是**被匿名化用户** → tenant 默认取 `user.tenant_id`（不随发起删除的管理员） |
+| user_intervention | 1 | `_log_intervention_op` helper | 改 async；5 个调用点补 `await` + 穿 request；3 个端点新增 `Request` 形参 |
+| **目标租户簇** | 6 | `tenant_admin` 4 + `tenant_branding` 1 + `tenant_export` 1 | 见 6.3 |
+
+棘轮 `AFTER_BATCH6 = 0`（`test_p2_11_round11.py`），17 个文件进入「已迁移不得再手写」清单。
+`record_audit` 调用点总数 **63**（AST 实测，不含 helper 本体）。
+
+**⚠️ 本批两次踩到「import 烟测不查名字绑定」**（记忆中已记账的坑，仍复发）：
+`tenant_admin.py` 与 `scheduler.py`/`pdf_report.py`/`_common.py` 加了调用但漏加导入，
+`import app.xxx` 全绿而运行时报 `NameError`。已在收工前用 AST 全仓复查
+（`record_audit` / `record_silent_degradation` 两个 helper 的调用点 vs 导入绑定），
+全部 OK。**教训**：改完必须跑「调用点⊆导入绑定」的 AST 核查，不能只做 import 烟测。
+
+### 6.3 目标租户归属语义（SEC-FIX 回归闸门）
+
+`tenant_admin` 4 处 + `tenant_branding` / `tenant_export` 共 6 处的归属对应关系
+（提示词要求「迁之前先写清归属从列 X 搬到列 Y」）：
+
+- **列 tenant_id**：迁移前手写 `tenant_id=<目标租户 id>`（create 用 `tenant.id`，
+  其余用路径参数 `tenant_id`）；迁移后同样显式传目标租户 id。helper 仅在 None 时
+  落 `DEFAULT_TENANT_ID`，而目标租户主键恒非 None → **落列值与迁移前完全一致**。
+- **绝不许改传 `current_user.tenant_id`**：这些端点的操作者是平台管理员（自己的
+  租户是平台默认租户 1），传操作者租户会把归属从目标租户搬回操作者租户，
+  目标租户管理员的 tenant-audit 可见性直接断裂，且**没有任何既有测试会红**
+（它们只断言 200/结构）。
+- `tenant_branding` 迁移前传 `current_user.tenant_id`，但该端点经
+  `require_role_tenant_scoped("admin") + _assert_tenant_owned_by` 双重校验，
+  操作者租户恒等于目标租户，两者同值；迁移后统一传目标租户，语义不变且不再依赖
+  「操作者恰好拥有该租户」这一前提。
+- **detail 口径变化**：6 处均由裸字符串改 JSON 对象
+  （`f"name=x; code=y"` → `{"name": …, "code": …}`）。前端审计页
+  （`AdminOperationLogsPage` / `AdminAuditLogsPage`）用 `JSON.stringify(row)` 整体
+  渲染 detail 字符串，展示形态从分号串变为 JSON 串——与第五批以来所有已迁 action
+  一致，非新问题。全仓检索无测试断言这些 action 的 detail 字面量。
+
+新增闸门 `TestTargetTenantAttribution`（源码侧 + 运行时侧双钉）：
+- 源码侧：6 文件的 record_audit 调用的 `tenant_id` 实参必须是目标租户表达式
+  （`tenant.id` / `tenant_id`），不得是 `current_user.tenant_id`；
+- 运行时侧：平台管理员创建租户后，落库行 `tenant_id == 新租户 id` 且 `!= 1`，
+  `operator_id == 1`（操作者信息保留），detail 可按 JSON 对象读回。
+  测试先种平台租户 id=1 占位（不种则新租户直接拿 id=1，目标与操作者数值相同，
+  断言失效——这个坑在首跑时实锤）。
+
+### 6.4 #35 收尾：候选清单逐条裁定（清单归零）
+
+口径与第十一轮 `scan_silent_except` 一致（except 无 raise 且体内有
+logger.*/pass/continue；本批扫描器把日志级从 debug/warning 扩到全级，
+故总数 318 > 第十一轮 243，差异已记账）。新增两个工具
+（`tests/tools/scan_p2_35_batch6.py` + `classify_p2_35_batch6.py`，
+产物 JSON 落盘同目录）：
+
+- **扣除已接线改为认 `record_silent_degradation(`**：第十一轮的 `has_metric`
+  只认 `inc/labels` 直调，看不到本仓 SSOT helper 的间接接线，导致「已接线 3」
+  严重低报（实际 25+2 直调）。
+- **ImportError 特性探测 16 处分桶**（沿用第十一轮裁定：不计降级债）。
+
+**逐条裁定桶计数（334 = 318 真降级候选 + 16 探测）**：
+
+| 桶 | 计数 | 裁定理由 |
+|---|---|---|
+| W 已接线 | 27 | handler 内有 record_silent_degradation（25）或直调 inc（2，第十一轮 cache.py 风格） |
+| P 特性探测 | 16 | ImportError/ModuleNotFoundError，不计降级债 |
+| S 自报失败 | 36 | metrics/sentry/otel/gauge 上报自身失败（第五批裁定的推广：`inc failed`/`指标不可用` 等文本特征） |
+| D 脏数据探测 | 22 | JSONDecodeError/InvalidTag/ValueError/TypeError 单条解析跳过，数据本来就是坏的 |
+| C 清理路径 | 7 | aclose/close/stop 失败，不影响业务语义 |
+| H 检查型 | 6 | health check 返回 False——不健康**就是**返回值，信号即数据 |
+| K 任务取消 | 11 | CancelledError，预期控制流 |
+| R 自恢复 | 4 | handler 内 sleep+continue/restart，瞬时降级会自愈 |
+| M 已有专用计数器 | 6 | 同函数已有 `warning_notify_failed_total` / `model_fallback_count` gauge，不重复接通用计数器 |
+| G fail-closed 安全 | 8 | token 解码/URL 安全/MIME 校验失败→拒绝，安全方向不是降级 |
+| V 显式失败上报 | 2 | handler 把状态写成 `status="failed"`，调用方可见，非静默 |
+| F 保守 fail-safe | 2 | 宁可少清理/不发（AUDIT-P0-3 同型） |
+| **X 真降级留档** | **187** | 确属真降级但本批未接，全量清单见 JSON 产物，后续批待接 |
+
+**本批新接线 6 处**（都挑「漏预警/误删/用户不可见」方向，且**原本无任何计数**）：
+
+| location | 文件 | 降级语义 |
+|---|---|---|
+| `core.model_engine.predict.text_ml_all_unavailable` | `core/model_engine/predict.py` | 文本 ML 全挂→启发式分（**无 `_incr_fallback` 计数**，与 structured/lite 不同） |
+| `core.model_engine.predict.physiological_model_not_found` | 同上 | 生理模型缺失→启发式分（无计数） |
+| `core.model_engine.predict.physiological_prediction_failed` | 同上 | 生理推理失败→启发式分（无计数） |
+| `tasks.scheduler.upload_reference_query_failed` | `tasks/scheduler.py` | 引用查询失败→仅按过期时间清理，**仍被引用的文件可能被误删** |
+| `tasks.pdf_report.save_pdf_bytes_failed` | `tasks/pdf_report.py` | PDF 字节存 Redis 失败=用户拿不到报告（`reports.py` 同型点的任务侧孪生） |
+| `api.model_predict._common.assessment_save_schedule_failed` | `api/v1/model_predict/_common.py` | fire-and-forget 调度失败=评估结果永久丢失（第三批已接两处的同型） |
+
+`record_silent_degradation(` 调用点 **16 → 26**（18 个文件）；棘轮为 `>=` 式（BASELINE=8）未改数。
+新增闸门 `test_batch6_bucket_counts_pinned` 把上表 13 个桶计数钉死——
+清单再变化（新增/接线/误分类）即红，强制重跑工具并更新本文档。
+X 桶 187 条不是「没处置」：它是显式的「真降级，留待后续批」记账，
+全量清单（file:line:function:handled）在 `classify_p2_35_batch6_result.json`。
+
+#### 6.4.1 本批四次真实变异（均红 → 恢复绿）
+
+1. `tenant_admin.py` 的 `tenant_id=tenant.id` 临时改 `current_user.tenant_id`
+   → 归属闸门源码侧 + 运行时侧**同时红** → 恢复绿。
+2. `intervention_service.py` 的 detail 临时改回裸字符串 f-string
+   → 写入侧断言 + 运行时应同时红 → 恢复绿。
+3. `admin_service_log.py` 临时新增一个 `row.detail` 读取点
+   → 消费侧清单闸门红（1 → 2）→ 恢复绿。
+4. `observability/aggregate.py` 临时摘掉 `_parse_detail_json` 的 try 兜底
+   → 解析侧兜底断言红 → 恢复绿。
+
+### 6.5 未验证 / 待办（如实记账）
+
+1. **后端全量本地未跑**（约 37 分钟，历轮同例）：本地跑了 `tests/api` +
+   `tests/services` + `tests/unit` **1795 passed / 10 skipped / 0 failed**、
+   全部 P2 闸门、affected 既有测试（#33 九文件 241 + admin/counselor/gdpr/
+   monitoring/scheduler/pdf 等约 900 条）；根目录其余文件由 CI 兜底。
+2. **#33 已归零**（构造点 0），但 `record_audit` 调用点 62 处中，
+   「服务层方法加 request/tenant_id 可选关键字」的打样只覆盖到本批 17 文件；
+   后续如新增审计写点，按同打样接入。
+3. **#35 X 桶 187 条待接**（真降级留档），Top 簇：`model_engine/loading.py` 9、
+   `auto_rollback_service.py` 9、`api/v1/validation.py` 读路径 7、
+   `api/v1/silences.py` AM 同步 6、`api/v1/alerts/__init__.py` 6、
+   `monitoring/dedup_lock.py` Redis→SQL 降级 4、`core/cache.py` 4。
+4. **`anomaly_detection.py` 清单数 1 → 3 的口径说明**：迁移后该函数内
+   `finding.detail`（AnomalyFinding dataclass 字段）读取从 1 处变 3 处
+   （try/except/回退各一），函数 docstring 含 "OperationLog" 字样故被扫描器计入；
+   已复核确认这三处**不是** OperationLog.detail 消费点，清单注释写明。
+5. **`default=str` 加进 `record_audit`**：这让所有审计写获得序列化容忍，
+   与 scheduler 原注释的意图一致；副作用是异常值会静默退化成字符串
+   （如 `"<MagicMock ...>"`）——可接受（审计详情本就允许降级可读性），已记账。
+6. `tests/test_iss02_validation_engine.py` 本机仍需 `--basetemp`
+   （pytest tmpdir GC 触发环境 bulk-delete guard，与产品代码无关）。
+7. #34 / #32 本批未动（#32 维持只裁定不合并）。

@@ -27,17 +27,17 @@ OPT-A7（重构）：原 ``anonymize_user`` 为单个约 352 行的巨型函数�
 
 from __future__ import annotations
 
-import json
 import secrets
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from fastapi import Request
 from sqlalchemy import select
 
+from app.core.audit import record_audit
 from app.core.pii_crypto import mask_pii
 from app.core.security import verify_password
-from app.models.admin import OperationLog
 from app.models.assessment import (
     DataDraft,
     PhysiologicalRecord,
@@ -72,6 +72,12 @@ class AnonymizeMixin:
         *,
         password_confirm: str | None = None,
         keep_legal_records: bool = True,
+        # P2-33 第六批：审计上下文由调用方穿入。本审计行的主体是**被匿名化的
+        # 目标用户**（operator_id=user_id），因此 tenant_id 不传时默认取目标
+        # 用户自己的租户（user.tenant_id）——归属跟着被记录的人走，而不是跟着
+        # 发起删除的管理员走；管理员视角另有一条 API 层 admin.gdpr.delete_user。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> dict[str, Any]:
         """匿名化用户数据 (软删除).
 
@@ -120,26 +126,29 @@ class AnonymizeMixin:
         )
 
         # 写 OperationLog (合规审计 - 必须保留)
-        self.db.add(
-            OperationLog(
-                operator_id=user_id,
-                operator_role=user.role,
-                action_type="gdpr.account.deleted",
-                target_type="user",
-                target_id=user_id,
-                detail=json.dumps(
-                    {
-                        "anonymized_at": anonymized_at.isoformat(),
-                        "original_email_masked": mask_pii(original_email, keep_last=0),
-                        "keep_legal_records": keep_legal_records,
-                        "contacts_anonymized": contacts_anonymized,
-                        "sessions_revoked": sessions_revoked,
-                        "risk_assessments_deleted": risk_assessments_deleted,
-                        # C-Svc-8 修复：记录各 PII 表匿名化行数，便于合规审计追溯
-                        "pii_text_anonymized": pii_text_counts,
-                    }
-                ),
-            )
+        # P2-33 第六批：改走统一审计 helper。detail 由 dict 传入，helper 内统一
+        # json.dumps（含 default=str 容错）；下行值本就行 JSON 安全原语，
+        # datetime 显式 isoformat 保持可读格式。
+        await record_audit(
+            self.db,
+            actor_id=user_id,
+            actor_role=user.role,
+            action="gdpr.account.deleted",
+            target_type="user",
+            target_id=user_id,
+            detail={
+                "anonymized_at": anonymized_at.isoformat(),
+                "original_email_masked": mask_pii(original_email, keep_last=0),
+                "keep_legal_records": keep_legal_records,
+                "contacts_anonymized": contacts_anonymized,
+                "sessions_revoked": sessions_revoked,
+                "risk_assessments_deleted": risk_assessments_deleted,
+                # C-Svc-8 修复：记录各 PII 表匿名化行数，便于合规审计追溯
+                "pii_text_anonymized": pii_text_counts,
+            },
+            request=request,
+            # 归属语义见方法签名注释：None → 目标用户自己的租户
+            tenant_id=tenant_id if tenant_id is not None else user.tenant_id,
         )
 
         await self.db.commit()

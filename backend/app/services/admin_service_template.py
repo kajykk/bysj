@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
+from fastapi import Request
 from sqlalchemy import func, select
 
-from app.core.contracts import (USER_ROLE_ADMIN)
-from app.models.admin import OperationLog
+from app.core.audit import record_audit
+from app.core.contracts import USER_ROLE_ADMIN
 from app.models.intervention import InterventionTemplate
 
 if TYPE_CHECKING:
@@ -54,7 +54,14 @@ class TemplateMixin:
         }
 
     async def upsert_template(
-        self, payload: dict, admin_id: int | None = None, operator_role: str = USER_ROLE_ADMIN
+        self,
+        payload: dict,
+        admin_id: int | None = None,
+        operator_role: str = USER_ROLE_ADMIN,
+        *,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> int:
         template_id = payload.get("id")
         is_update = bool(template_id)
@@ -84,30 +91,35 @@ class TemplateMixin:
             await self.db.flush()
         # ISS-076: 写入 OperationLog 审计日志
         if admin_id is not None:
-            self.db.add(
-                OperationLog(
-                    operator_id=admin_id,
-                    operator_role=operator_role,
-                    action_type="admin.template.upsert",
-                    target_type="template",
-                    target_id=template.id,
-                    detail=json.dumps(
-                        {
-                            "operator_id": admin_id,
-                            "action": "update" if is_update else "create",
-                            "template_name": template.template_name,
-                            "status": template.status,
-                        },
-                        ensure_ascii=False,
-                    ),
-                )
+            await record_audit(
+                self.db,
+                actor_id=admin_id,
+                actor_role=operator_role,
+                action="admin.template.upsert",
+                target_type="template",
+                target_id=template.id,
+                detail={
+                    "operator_id": admin_id,
+                    "action": "update" if is_update else "create",
+                    "template_name": template.template_name,
+                    "status": template.status,
+                },
+                request=request,
+                tenant_id=tenant_id,
             )
         await self.db.commit()
         await self.db.refresh(template)
         return template.id
 
     async def delete_template(
-        self, template_id: int, admin_id: int, operator_role: str = USER_ROLE_ADMIN
+        self,
+        template_id: int,
+        admin_id: int,
+        operator_role: str = USER_ROLE_ADMIN,
+        *,
+        # P2-33 第六批：同上，审计上下文由调用方穿入。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> None:
         """ISS-075: 硬删除干预模板并写入审计日志."""
         template = await self.db.get(InterventionTemplate, template_id)
@@ -115,17 +127,15 @@ class TemplateMixin:
             raise ValueError("模板不存在")
         template_name = template.template_name
         await self.db.delete(template)
-        self.db.add(
-            OperationLog(
-                operator_id=admin_id,
-                operator_role=operator_role,
-                action_type="admin.template.delete",
-                target_type="template",
-                target_id=template_id,
-                detail=json.dumps(
-                    {"operator_id": admin_id, "template_name": template_name},
-                    ensure_ascii=False,
-                ),
-            )
+        await record_audit(
+            self.db,
+            actor_id=admin_id,
+            actor_role=operator_role,
+            action="admin.template.delete",
+            target_type="template",
+            target_id=template_id,
+            detail={"operator_id": admin_id, "template_name": template_name},
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()

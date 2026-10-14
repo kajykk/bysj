@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 import requests
 
+from app.core.audit import record_audit
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -425,9 +427,6 @@ class CompositeNotifier:
         error_msg: str | None,
     ) -> None:
         """v1.36: 写入通道发送结果 OperationLog. 失败不影响主流程."""
-        # 延迟导入避免循环依赖
-        from app.models.admin import OperationLog
-
         try:
             action_type = "alert_channel_sent" if success else "alert_channel_failed"
             detail_dict: dict[str, Any] = {
@@ -440,16 +439,19 @@ class CompositeNotifier:
             }
             if error_msg:
                 detail_dict["error"] = error_msg
-            log = OperationLog(
-                operator_id=None,
-                operator_role="system",
-                action_type=action_type,
+            # P2-33 第六批：改走统一审计 helper。通道发送由告警链路触发，
+            # 无 HTTP 上下文 → request=None；平台级系统操作 → tenant_id=None。
+            await record_audit(
+                db,
+                actor_id=None,
+                actor_role="system",
+                action=action_type,
                 target_type="alert_channel",
                 target_id=None,
-                detail=json.dumps(detail_dict, ensure_ascii=False),
+                detail=detail_dict,
+                request=None,
+                tenant_id=None,
             )
-            db.add(log)
-            await db.flush()
         except Exception as exc:
             # 写日志失败不影响通知返回
             logger.error(

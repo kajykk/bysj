@@ -23,6 +23,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
@@ -139,18 +140,22 @@ async def create_tenant(
         await db.rollback()
         raise HTTPException(status_code=409, detail=f"租户编码已存在: {payload.code}")
 
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="tenant.create",
-            target_type="tenant",
-            target_id=tenant.id,
-            detail=f"name={payload.name}; code={payload.code}",
-            # SEC-FIX (租户审计归属): 归属目标租户, 目标租户管理员可在
-            # tenant-audit 中看到本操作; 操作者信息保留在 operator_id
-            tenant_id=tenant.id,
-        )
+    # P2-33 第六批：改走统一审计 helper。
+    # 归属对应关系（SEC-FIX 语义不变）：迁移前手写 tenant_id=tenant.id（目标
+    # 租户），迁移后同样显式传 tenant.id；helper 仅在 None 时落平台默认租户，
+    # 目标租户主键恒非 None → 落列值与迁移前完全一致。**不能**改传
+    # current_user.tenant_id（平台管理员自己的租户）——那会把归属从目标租户
+    # 搬到操作者租户，目标租户管理员的 tenant-audit 可见性直接断掉。
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="tenant.create",
+        target_type="tenant",
+        target_id=tenant.id,
+        detail={"name": payload.name, "code": payload.code},
+        request=request,
+        tenant_id=tenant.id,
     )
     await db.commit()
 
@@ -247,17 +252,19 @@ async def update_tenant(
     result = _serialize_tenant(tenant)
 
     await db.flush()
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="tenant.update",
-            target_type="tenant",
-            target_id=tenant_id,
-            detail="; ".join(changes),
-            # SEC-FIX (租户审计归属): 归属目标租户
-            tenant_id=tenant_id,
-        )
+    # P2-33 第六批：改走统一审计 helper（detail 由 "; ".join(changes) 改为
+    # {"changes": [...]} JSON 对象，内容不丢失）。归属语义同 create_tenant：
+    # 显式传目标租户 id，不随操作者。
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="tenant.update",
+        target_type="tenant",
+        target_id=tenant_id,
+        detail={"changes": changes},
+        request=request,
+        tenant_id=tenant_id,
     )
     await db.commit()
 
@@ -292,17 +299,17 @@ async def suspend_tenant(
     tenant.status = "suspended"
     await db.flush()
 
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="tenant.suspend",
-            target_type="tenant",
-            target_id=tenant_id,
-            detail=f"reason={payload.reason}; previous_status={previous_status}",
-            # SEC-FIX (租户审计归属): 归属目标租户
-            tenant_id=tenant_id,
-        )
+    # P2-33 第六批：改走统一审计 helper（归属语义同 create_tenant：目标租户）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="tenant.suspend",
+        target_type="tenant",
+        target_id=tenant_id,
+        detail={"reason": payload.reason, "previous_status": previous_status},
+        request=request,
+        tenant_id=tenant_id,
     )
     await db.commit()
 
@@ -343,17 +350,17 @@ async def activate_tenant(
     tenant.status = "active"
     await db.flush()
 
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="tenant.activate",
-            target_type="tenant",
-            target_id=tenant_id,
-            detail=f"reason={payload.reason}; previous_status={previous_status}",
-            # SEC-FIX (租户审计归属): 归属目标租户
-            tenant_id=tenant_id,
-        )
+    # P2-33 第六批：改走统一审计 helper（归属语义同 create_tenant：目标租户）
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="tenant.activate",
+        target_type="tenant",
+        target_id=tenant_id,
+        detail={"reason": payload.reason, "previous_status": previous_status},
+        request=request,
+        tenant_id=tenant_id,
     )
     await db.commit()
 

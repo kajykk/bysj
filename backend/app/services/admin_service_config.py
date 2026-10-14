@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from fastapi import Request
 from sqlalchemy import func, select
 
-from app.models.admin import ModelFeedback, OperationLog, SystemConfig
+from app.core.audit import record_audit
+from app.models.admin import ModelFeedback, SystemConfig
 
 if TYPE_CHECKING:
     pass
@@ -81,6 +83,10 @@ class ConfigMixin:
         # 如实传入，不再硬编码 "admin"（否则 super_admin 的操作会被记成 admin）。
         # 无默认值：漏传直接 TypeError，避免静默兜底。
         admin_role: str,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户；
+        # 平台级端点 current_user.tenant_id 可能为 None → 记平台默认租户）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> int:
         # ISS-078: 配置 key 白名单校验，防止任意 key 写入
         # 延迟导入主模块的 _ALLOWED_CONFIG_KEYS 常量，规避循环导入
@@ -127,15 +133,16 @@ class ConfigMixin:
             row.description = payload.get("description")
             row.updated_by = admin_id
             await self.db.flush()
-        self.db.add(
-            OperationLog(
-                operator_id=admin_id,
-                operator_role=admin_role,
-                action_type="upsert_system_config",
-                target_type="system_config",
-                target_id=row.id,
-                detail=f"config_key={row.config_key}",
-            )
+        await record_audit(
+            self.db,
+            actor_id=admin_id,
+            actor_role=admin_role,
+            action="upsert_system_config",
+            target_type="system_config",
+            target_id=row.id,
+            detail={"config_key": row.config_key},
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         await self.db.refresh(row)

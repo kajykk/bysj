@@ -374,3 +374,27 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
     core.model_engine.loading.preload.missing_file
     core.model_engine.loading.preload.failed
     core.model_engine.loading.adapter.pkl_fallback
+
+- 2026-10-15（第十二轮第五批补遗）：#35 新增接线 4 处（此前漏登记，本批收口）：
+
+    services.risk_service_assessment.structured_predict_fallback
+    services.drift_monitoring_service.resolve_canary_version_failed
+    services.shadow_comparison_service.commit_shadow_stats_failed
+    api.validation.job_store.create.redis_fallback
+
+- 2026-10-15（第十二轮第六批）：#35 新增接线 6 处 + **候选清单逐条裁定归零**：
+
+    core.model_engine.predict.text_ml_all_unavailable
+    core.model_engine.predict.physiological_model_not_found
+    core.model_engine.predict.physiological_prediction_failed
+    tasks.scheduler.upload_reference_query_failed
+    tasks.pdf_report.save_pdf_bytes_failed
+    api.model_predict._common.assessment_save_schedule_failed
+
+  裁定工具与桶计数（W27/P16/S36/D22/C7/H6/K11/R4/M6/G8/V2/F2/X187，共 334）
+  见 `tests/tools/scan_p2_35_batch6.py` + `classify_p2_35_batch6.py`
+  （产物 JSON 同目录）；桶计数由 `test_p2_11_round11.py::
+  TestP235SilentDegradationRatchet::test_batch6_bucket_counts_pinned` 钉死。
+  X 桶 187 条为「真降级留档」（后续批待接），全量清单见 JSON 产物。
+  #35 收尾口径变化：扫描器日志级由 debug/warning 扩至全级，故候选总数
+  318 > 第十一轮 243（差异已记账，判据不同不矛盾）。

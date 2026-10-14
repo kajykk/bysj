@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.tenant_admin import _get_tenant_or_404, _serialize_tenant
+from app.core.audit import record_audit
 from app.core.contracts import DEFAULT_TENANT_ID
 from app.core.database import get_db
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
@@ -128,16 +129,19 @@ async def export_tenant_data(
     # SEC-FIX (租户审计归属): 审计日志归属目标租户 (tenant_id), 使目标租户的
     # 管理员能在 tenant-audit 中看到针对本租户的导出操作; 操作者信息在
     # operator_id/operator_role 中保留。
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="tenant.export",
-            target_type="tenant",
-            target_id=tenant_id,
-            detail=f"format={format}",
-            tenant_id=tenant_id,
-        )
+    # P2-33 第六批：改走统一审计 helper。SEC-FIX（租户审计归属）语义不变：
+    # 归属**目标租户**（tenant_id），使目标租户管理员能在 tenant-audit 中
+    # 看到针对本租户的导出操作；操作者信息保留在 actor_id/actor_role。
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="tenant.export",
+        target_type="tenant",
+        target_id=tenant_id,
+        detail={"format": format},
+        request=request,
+        tenant_id=tenant_id,
     )
     await db.commit()
 

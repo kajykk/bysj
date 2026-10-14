@@ -136,6 +136,10 @@ async def upsert_template(
             payload.model_dump(),
             admin_id=current_user.id,
             operator_role=current_user.role,
+            # P2-33 第六批：审计上下文（ip 由 helper 从 request 取；平台级端点
+            # tenant_id 可能为 None → 记平台默认）
+            request=request,
+            tenant_id=current_user.tenant_id,
         )
     except ValueError as exc:
         # ISS-093: 模板不存在 → 404, 业务参数问题 → 400
@@ -163,7 +167,14 @@ async def delete_template(
     """ISS-075: 删除干预模板."""
     service = AdminService(db)
     try:
-        await service.delete_template(template_id, current_user.id, current_user.role)
+        await service.delete_template(
+            template_id,
+            current_user.id,
+            current_user.role,
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
+            tenant_id=current_user.tenant_id,
+        )
     except ValueError as exc:
         raise _map_value_error(exc) from exc
     return ok({"message": "模板已删除"})
@@ -202,6 +213,10 @@ async def upsert_threshold(
         ip_address=get_real_client_ip(request),
         request_id=request_id,
         admin_role=current_user.role,
+        # P2-33 第六批：审计上下文（有 request 时 ip 以 request 为准，
+        # ip_address 参数仅在服务层无 request 时兜底）
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     result = {"threshold_id": threshold_id}
     if idem_key:
@@ -251,7 +266,12 @@ async def upsert_config(
         return ok(replay)
     try:
         config_id = await service.upsert_config(
-            current_user.id, payload.model_dump(), admin_role=current_user.role
+            current_user.id,
+            payload.model_dump(),
+            admin_role=current_user.role,
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
+            tenant_id=current_user.tenant_id,
         )
     except ValueError as exc:
         # ISS-093: 不支持的配置键属业务参数错误 → 400 (原为未捕获 → 500)

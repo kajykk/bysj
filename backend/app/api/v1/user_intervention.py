@@ -1,14 +1,13 @@
-import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.deps import require_role
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.response import ok
-from app.models.admin import OperationLog
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.intervention import (
@@ -21,23 +20,33 @@ from app.services.intervention_service import InterventionService
 router = APIRouter(prefix="/user/intervention", tags=["user-intervention"])
 
 
-def _log_intervention_op(
+async def _log_intervention_op(
     db: AsyncSession,
     user: User,
     action_type: str,
     task_id: int,
     detail: dict | None = None,
+    *,
+    # P2-33 第六批：审计上下文由调用方（API 端点）穿入；request 缺失时
+    # helper 记 no_request，ip 为 None（用户自助操作，ip 有助于追溯共享设备）。
+    request: Request | None = None,
 ) -> None:
-    """M-API-17 修复：为干预任务状态变更记录 OperationLog 审计日志."""
-    db.add(
-        OperationLog(
-            operator_id=user.id,
-            operator_role=user.role,
-            action_type=action_type,
-            target_type="intervention_task",
-            target_id=task_id,
-            detail=json.dumps(detail or {}, ensure_ascii=False),
-        )
+    """M-API-17 修复：为干预任务状态变更记录 OperationLog 审计日志.
+
+    P2-33 第六批：改走统一审计 helper（detail 统一 JSON 对象、tenant 落列）。
+    本端点的操作者即资源 owner（require_role("user") + 服务层校验归属），
+    tenant_id 取操作者自己的租户。
+    """
+    await record_audit(
+        db,
+        actor_id=user.id,
+        actor_role=user.role,
+        action=action_type,
+        target_type="intervention_task",
+        target_id=task_id,
+        detail=detail or {},
+        request=request,
+        tenant_id=user.tenant_id,
     )
 
 
@@ -110,7 +119,9 @@ async def complete_task(
     if not success:
         raise HTTPException(status_code=409, detail=reason)
     # M-API-17 修复：记录状态变更审计日志
-    _log_intervention_op(db, current_user, "intervention_task_complete", task_id)
+    await _log_intervention_op(
+        db, current_user, "intervention_task_complete", task_id, request=request
+    )
     await db.commit()
     return ok({"message": "任务已完成"})
 
@@ -143,12 +154,13 @@ async def feedback_task(
     if not success:
         raise HTTPException(status_code=409, detail=reason)
     # M-API-17 修复：记录状态变更审计日志
-    _log_intervention_op(
+    await _log_intervention_op(
         db,
         current_user,
         "intervention_task_feedback",
         task_id,
         {"feedback_score": payload.feedback_score},
+        request=request,
     )
     await db.commit()
     return ok({"message": "反馈已提交"})
@@ -162,6 +174,7 @@ async def feedback_task(
 async def mark_task_missed(
     task_id: int,
     payload: TaskStatusUpdateRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
@@ -174,7 +187,9 @@ async def mark_task_missed(
     if not success:
         raise HTTPException(status_code=409, detail=reason)
     # L-API-11 修复：补全 mark_task_missed 缺失的 OperationLog 审计日志
-    _log_intervention_op(db, current_user, "intervention_task_missed", task_id)
+    await _log_intervention_op(
+        db, current_user, "intervention_task_missed", task_id, request=request
+    )
     await db.commit()
     return ok({"message": "任务已标记为未完成"})
 
@@ -187,6 +202,7 @@ async def mark_task_missed(
 async def skip_task(
     task_id: int,
     payload: TaskStatusUpdateRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
@@ -199,7 +215,9 @@ async def skip_task(
     if not success:
         raise HTTPException(status_code=409, detail=reason)
     # M-API-17 修复：记录状态变更审计日志
-    _log_intervention_op(db, current_user, "intervention_task_skip", task_id)
+    await _log_intervention_op(
+        db, current_user, "intervention_task_skip", task_id, request=request
+    )
     await db.commit()
     return ok({"message": "任务已跳过"})
 
@@ -212,6 +230,7 @@ async def skip_task(
 async def postpone_task(
     task_id: int,
     payload: TaskStatusUpdateRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_role("user"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
@@ -231,12 +250,13 @@ async def postpone_task(
     if not success:
         raise HTTPException(status_code=409, detail=reason)
     # M-API-17 修复：记录状态变更审计日志
-    _log_intervention_op(
+    await _log_intervention_op(
         db,
         current_user,
         "intervention_task_postpone",
         task_id,
         {"postpone_to": str(payload.postpone_to)},
+        request=request,
     )
     await db.commit()
     return ok({"message": "任务已延期"})

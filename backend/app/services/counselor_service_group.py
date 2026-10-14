@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from fastapi import Request
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.audit import record_audit
+from app.core.contracts import USER_ROLE_COUNSELOR
 from app.core.states import BindingStatus
-from app.core.contracts import (USER_ROLE_COUNSELOR)
-from app.models.admin import OperationLog
 from app.models.counselor import ClientGroup, ClientGroupMember
 from app.models.user import UserCounselorBinding
 
@@ -27,6 +28,11 @@ class GroupMixin:
         group_name: str,
         description: str | None,
         color_tag: str,
+        *,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户；
+        # 任务/旧测试不传则记 None/平台默认）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> int:
         group = ClientGroup(
             counselor_id=counselor_id,
@@ -36,15 +42,16 @@ class GroupMixin:
         )
         self.db.add(group)
         await self.db.flush()
-        self.db.add(
-            OperationLog(
-                operator_id=counselor_id,
-                operator_role=USER_ROLE_COUNSELOR,
-                action_type="create_client_group",
-                target_type="client_group",
-                target_id=group.id,
-                detail=f"group_name={group_name}",
-            )
+        await record_audit(
+            self.db,
+            actor_id=counselor_id,
+            actor_role=USER_ROLE_COUNSELOR,
+            action="create_client_group",
+            target_type="client_group",
+            target_id=group.id,
+            detail={"group_name": group_name},
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         await self.db.refresh(group)
@@ -98,7 +105,14 @@ class GroupMixin:
         }
 
     async def add_group_member(
-        self, counselor_id: int, group_id: int, user_id: int
+        self,
+        counselor_id: int,
+        group_id: int,
+        user_id: int,
+        *,
+        # P2-33 第六批：同上，审计上下文由调用方穿入。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> bool:
         group = await self.db.get(ClientGroup, group_id)
         if group is None or group.counselor_id != counselor_id:
@@ -139,15 +153,20 @@ class GroupMixin:
             # 唯一键冲突 = 已是成员，按幂等成功处理（savepoint 已自动回滚）
             return True
 
-        self.db.add(
-            OperationLog(
-                operator_id=counselor_id,
-                operator_role=USER_ROLE_COUNSELOR,
-                action_type="add_group_member",
-                target_type="client_group_member",
-                target_id=None,
-                detail=f"group_id={group_id},user_id={user_id};status=added",
-            )
+        await record_audit(
+            self.db,
+            actor_id=counselor_id,
+            actor_role=USER_ROLE_COUNSELOR,
+            action="add_group_member",
+            target_type="client_group_member",
+            target_id=None,
+            detail={
+                "group_id": group_id,
+                "user_id": user_id,
+                "status": "added",
+            },
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         return True

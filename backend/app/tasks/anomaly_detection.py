@@ -83,12 +83,12 @@ async def _detect_impl() -> dict:
     """
     import json
 
+    from app.core.audit import record_audit
     from app.core.config import settings
     from app.core.metrics import (
         anomaly_access_detected_total,
         anomaly_access_last_detected_at,
     )
-    from app.models.admin import OperationLog
     from app.services.anomaly_detection_service import detect_all
 
     if not settings.anomaly_detection_enabled:
@@ -107,17 +107,31 @@ async def _detect_impl() -> dict:
             written_count = 0
             for finding in findings:
                 # 写入 OperationLog (action_type=anomaly_detected)
-                # 与 admin.py / gdpr.py 现有模式一致: 直接构造对象
-                log_entry = OperationLog(
-                    operator_id=finding.operator_id,
-                    operator_role=finding.operator_role,
-                    action_type="anomaly_detected",
+                # P2-33 第六批：改走统一审计 helper（detail 统一为 JSON 对象）。
+                # AnomalyFinding.detail 历史上是 JSON 字符串，这里先还原成 dict；
+                # 还原失败也不许拖垮整批（与 scheduler 的 default=str 同型考虑），
+                # 退化成 {"raw": ...} 保住「有这条审计」。
+                try:
+                    detail_obj = json.loads(finding.detail)
+                    if not isinstance(detail_obj, dict):
+                        detail_obj = {"raw": finding.detail}
+                except Exception:
+                    detail_obj = {"raw": finding.detail}
+                # 异常扫描由 Celery 触发，无 HTTP 上下文 → request=None；
+                # ip 走 helper 的 ip_address 兜底参数（保留"调用方显式传 ip"路径，
+                # 迁移前 ip 来自 finding.ip_address，不许静默丢失）。
+                await record_audit(
+                    db,
+                    actor_id=finding.operator_id,
+                    actor_role=finding.operator_role,
+                    action="anomaly_detected",
                     target_type="anomaly_finding",
                     target_id=finding.operator_id,  # 异常主体即操作者自身
-                    detail=finding.detail,
+                    detail=detail_obj,
+                    request=None,
+                    tenant_id=None,
                     ip_address=finding.ip_address,
                 )
-                db.add(log_entry)
                 written_count += 1
 
                 # 递增 Prometheus 指标 (按 anomaly_type 分标签)

@@ -8,11 +8,13 @@ from pathlib import Path
 
 from sqlalchemy import and_, func, insert, literal, not_, select
 
+from app.core.audit import record_audit
 from app.core.celery_app import celery_app
 from app.core.celery_async import get_celery_loop
 from app.core.celery_async import run_async as _run_async
 from app.core.contracts import USER_ROLE_USER
 from app.core.database import AsyncSessionLocal
+from app.core.degradation import record_silent_degradation
 from app.core.paths import PUBLIC_DIRS, resolve_upload_dir
 from app.models.admin import OperationLog
 from app.models.counselor import CounselorProfile
@@ -460,33 +462,33 @@ async def _stale_warning_reminder_impl() -> dict[str, int]:
                     warning.user_id,
                     warning.counselor_id,
                 )
-            db.add(
-                OperationLog(
-                    operator_id=None,
-                    operator_role="system",
-                    action_type="warning.stale_reminder",
-                    target_type="warning_notification",
-                    target_id=warning.id,
-                    detail=json.dumps(
-                        {
-                            "user_id": warning.user_id,
-                            "counselor_id": warning.counselor_id,
-                            "current_level": warning.current_level,
-                            "created_at": (
-                                warning.created_at.isoformat()
-                                if warning.created_at
-                                else None
-                            ),
-                            "cutoff": cutoff.isoformat(),
-                        },
-                        ensure_ascii=False,
-                        # 审计字段不应因为某个值类型异常就拖垮**整批**提醒：
-                        # 序列化失败会让本条以外的滞留预警全部丢失。
-                        # default=str 只会让异常值退化成其字符串形式，
-                        # 详情仍可人工复盘，不影响「是否滞留」的判定。
-                        default=str,
+            # P2-33 第六批：改走统一审计 helper（detail 统一为 JSON 对象）。
+            # 原 json.dumps(..., default=str) 的容错语义由 helper 内的
+            # default=str 承接（见 app/core/audit.py）：异常值退化成字符串，
+            # 不让单条字段类型异常拖垮整批提醒。datetime 仍显式 isoformat，
+            # 保持可读格式（不依赖 str(datetime) 的 "2026-10-15 04:25:00" 形态）。
+            # 滞留提醒由 Celery beat 触发，无 HTTP 上下文 → request=None；
+            # 平台级系统操作 → tenant_id=None。
+            await record_audit(
+                db,
+                actor_id=None,
+                actor_role="system",
+                action="warning.stale_reminder",
+                target_type="warning_notification",
+                target_id=warning.id,
+                detail={
+                    "user_id": warning.user_id,
+                    "counselor_id": warning.counselor_id,
+                    "current_level": warning.current_level,
+                    "created_at": (
+                        warning.created_at.isoformat()
+                        if warning.created_at
+                        else None
                     ),
-                )
+                    "cutoff": cutoff.isoformat(),
+                },
+                request=None,
+                tenant_id=None,
             )
             reminded += 1
 
@@ -901,6 +903,12 @@ async def _load_referenced_upload_paths() -> set[str]:
         logger.warning(
             "upload 引用查询失败, 降级为无引用清理 (仅按过期时间): %s", exc,
             exc_info=True,
+        )
+        # P2-35 第六批：降级后清理只按过期时间判据，**仍被引用的上传文件
+        # 可能被误删**（引用集合退化为空 = 一切都"无引用"）—— 属真降级，
+        # 接 silent_degradation_total 使其在 /metrics 可见。
+        record_silent_degradation(
+            "tasks.scheduler.upload_reference_query_failed"
         )
     return referenced
 

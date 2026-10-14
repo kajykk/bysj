@@ -23,6 +23,7 @@ from typing import Any
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.metrics import alert_detail_parse_failed_total
 from app.models.admin import OperationLog
@@ -234,23 +235,24 @@ async def apply_escalation(
             detail_to_persist = {**detail_to_persist, "severity": d.new_severity}
         row.detail = json.dumps(detail_to_persist, ensure_ascii=False)
         # 记录升级事件
-        escalation_log = OperationLog(
-            operator_id=None,
-            operator_role="system",
-            action_type="alert_escalated",
+        # P2-33 第六批：改走统一审计 helper。升级扫描由 Celery beat 触发，
+        # 无 HTTP 上下文 → request=None；平台级系统操作 → tenant_id=None。
+        await record_audit(
+            db,
+            actor_id=None,
+            actor_role="system",
+            action="alert_escalated",
             target_type="alert",
             target_id=d.alert_id,
-            detail=json.dumps(
-                {
-                    "alert_id": d.alert_id,
-                    "new_severity": d.new_severity,
-                    "reason": d.reason,
-                    "escalation_level": d.detail.get("escalation_level"),
-                },
-                ensure_ascii=False,
-            ),
+            detail={
+                "alert_id": d.alert_id,
+                "new_severity": d.new_severity,
+                "reason": d.reason,
+                "escalation_level": d.detail.get("escalation_level"),
+            },
+            request=None,
+            tenant_id=None,
         )
-        db.add(escalation_log)
 
         # 触发通知
         if d.new_severity:

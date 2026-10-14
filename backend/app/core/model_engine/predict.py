@@ -42,6 +42,7 @@ import math
 from typing import Any
 
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 from app.core.exceptions import ModelException
 from app.core.feature_maps import (
     DEFAULTS as _DEFAULTS,
@@ -655,6 +656,12 @@ class PredictMixin:
                     "All text ML models unavailable, using heuristic fallback: %s",
                     primary_exc,
                 )
+                # P2-35 第六批：本路径**没有** _incr_fallback 计数（与
+                # structured/lite 回退不同），模型分静默变启发式分在 /metrics
+                # 里完全不可见 → 接 silent_degradation_total。
+                record_silent_degradation(
+                    "core.model_engine.predict.text_ml_all_unavailable"
+                )
                 return self._text_heuristic_fallback(text)
 
         vector = await asyncio.to_thread(tfidf.transform, [text])
@@ -944,6 +951,10 @@ class PredictMixin:
             if fallback_reason is None:
                 fallback_reason = "model_not_found"
             logger.warning("MLP model not found, falling back to heuristic: %s", exc)
+            # P2-35 第六批：生理模型缺失 → 启发式分，无 _incr_fallback 计数
+            record_silent_degradation(
+                "core.model_engine.predict.physiological_model_not_found"
+            )
         except ImportError as exc:
             # L-Core-5：依赖缺失（如 numpy/pandas/sklearn），不再特指 PyTorch
             fallback_reason = "dependency_not_installed"
@@ -951,6 +962,10 @@ class PredictMixin:
         except Exception as exc:
             fallback_reason = "prediction_error"
             logger.warning("MLP prediction failed, falling back to heuristic: %s", exc)
+            # P2-35 第六批：生理推理失败 → 启发式分，无 _incr_fallback 计数
+            record_silent_degradation(
+                "core.model_engine.predict.physiological_prediction_failed"
+            )
 
         # Fallback to heuristic
         return self._physiological_heuristic_fallback(data, fallback_reason)

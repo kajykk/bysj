@@ -15,7 +15,6 @@ v1.36: 增加内存统计 + flush 机制
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
@@ -25,6 +24,8 @@ import redis.asyncio as aioredis
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.audit import record_audit
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +211,6 @@ async def flush_lock_stats(
 
     try:
         from app.core.instance import get_instance_id
-        from app.models.admin import OperationLog
 
         detail_dict = {
             "instance_id": get_instance_id(),
@@ -219,16 +219,19 @@ async def flush_lock_stats(
             "fallback": snapshot["fallback"],
             "errors": snapshot["errors"],
         }
-        log = OperationLog(
-            operator_id=None,
-            operator_role="system",
-            action_type="dedup_lock_stats",
+        # P2-33 第六批：改走统一审计 helper。锁统计 flush 由定时任务触发，
+        # 无 HTTP 上下文 → request=None；平台级系统操作 → tenant_id=None。
+        await record_audit(
+            db,
+            actor_id=None,
+            actor_role="system",
+            action="dedup_lock_stats",
             target_type="dedup_lock",
             target_id=None,
-            detail=json.dumps(detail_dict, ensure_ascii=False),
+            detail=detail_dict,
+            request=None,
+            tenant_id=None,
         )
-        db.add(log)
-        await db.flush()
 
         # flush 成功 -> 清零 (仅清零已写入的计数, 保留 flush 期间新增的)
         for k in snapshot:

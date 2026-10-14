@@ -1,197 +1,25 @@
 {
   "operation_log": {
-    "total_hits": 104,
+    "total_hits": 67,
     "model_definition": [],
     "helper_body": [
       {
         "file": "app/core/audit.py",
-        "line": 57
+        "line": 65
       }
     ],
     "tests": 66,
-    "prod_construct_sites": 37,
-    "by_file": {
-      "app/api/v1/admin.py": 2,
-      "app/api/v1/alerts/__init__.py": 2,
-      "app/api/v1/alerts/_helpers.py": 1,
-      "app/api/v1/auth.py": 1,
-      "app/api/v1/user_intervention.py": 1,
-      "app/monitoring/am_sync.py": 1,
-      "app/monitoring/dedup_lock.py": 1,
-      "app/monitoring/escalation.py": 1,
-      "app/monitoring/notifier.py": 1,
-      "app/services/admin_service_config.py": 1,
-      "app/services/admin_service_template.py": 2,
-      "app/services/admin_service_threshold.py": 1,
-      "app/services/counselor_service_binding.py": 6,
-      "app/services/counselor_service_consultation.py": 2,
-      "app/services/counselor_service_group.py": 2,
-      "app/services/counselor_service_warning.py": 2,
-      "app/services/gdpr_service_anonymize.py": 1,
-      "app/services/intervention_service.py": 2,
-      "app/services/review_service.py": 2,
-      "app/services/warning_service.py": 3,
-      "app/tasks/anomaly_detection.py": 1,
-      "app/tasks/scheduler.py": 1
-    },
-    "prod": [
-      {
-        "file": "app/api/v1/admin.py",
-        "line": 428
-      },
-      {
-        "file": "app/api/v1/admin.py",
-        "line": 544
-      },
-      {
-        "file": "app/api/v1/alerts/__init__.py",
-        "line": 468
-      },
-      {
-        "file": "app/api/v1/alerts/__init__.py",
-        "line": 139
-      },
-      {
-        "file": "app/api/v1/alerts/_helpers.py",
-        "line": 129
-      },
-      {
-        "file": "app/api/v1/auth.py",
-        "line": 110
-      },
-      {
-        "file": "app/api/v1/user_intervention.py",
-        "line": 33
-      },
-      {
-        "file": "app/monitoring/am_sync.py",
-        "line": 93
-      },
-      {
-        "file": "app/monitoring/dedup_lock.py",
-        "line": 222
-      },
-      {
-        "file": "app/monitoring/escalation.py",
-        "line": 237
-      },
-      {
-        "file": "app/monitoring/notifier.py",
-        "line": 443
-      },
-      {
-        "file": "app/services/admin_service_config.py",
-        "line": 131
-      },
-      {
-        "file": "app/services/admin_service_template.py",
-        "line": 119
-      },
-      {
-        "file": "app/services/admin_service_template.py",
-        "line": 88
-      },
-      {
-        "file": "app/services/admin_service_threshold.py",
-        "line": 116
-      },
-      {
-        "file": "app/services/counselor_service_binding.py",
-        "line": 261
-      },
-      {
-        "file": "app/services/counselor_service_binding.py",
-        "line": 345
-      },
-      {
-        "file": "app/services/counselor_service_binding.py",
-        "line": 69
-      },
-      {
-        "file": "app/services/counselor_service_binding.py",
-        "line": 83
-      },
-      {
-        "file": "app/services/counselor_service_binding.py",
-        "line": 130
-      },
-      {
-        "file": "app/services/counselor_service_binding.py",
-        "line": 146
-      },
-      {
-        "file": "app/services/counselor_service_consultation.py",
-        "line": 59
-      },
-      {
-        "file": "app/services/counselor_service_consultation.py",
-        "line": 103
-      },
-      {
-        "file": "app/services/counselor_service_group.py",
-        "line": 40
-      },
-      {
-        "file": "app/services/counselor_service_group.py",
-        "line": 143
-      },
-      {
-        "file": "app/services/counselor_service_warning.py",
-        "line": 169
-      },
-      {
-        "file": "app/services/counselor_service_warning.py",
-        "line": 230
-      },
-      {
-        "file": "app/services/gdpr_service_anonymize.py",
-        "line": 124
-      },
-      {
-        "file": "app/services/intervention_service.py",
-        "line": 351
-      },
-      {
-        "file": "app/services/intervention_service.py",
-        "line": 392
-      },
-      {
-        "file": "app/services/review_service.py",
-        "line": 719
-      },
-      {
-        "file": "app/services/review_service.py",
-        "line": 319
-      },
-      {
-        "file": "app/services/warning_service.py",
-        "line": 154
-      },
-      {
-        "file": "app/services/warning_service.py",
-        "line": 179
-      },
-      {
-        "file": "app/services/warning_service.py",
-        "line": 277
-      },
-      {
-        "file": "app/tasks/anomaly_detection.py",
-        "line": 111
-      },
-      {
-        "file": "app/tasks/scheduler.py",
-        "line": 464
-      }
-    ]
+    "prod_construct_sites": 0,
+    "by_file": {},
+    "prod": []
   },
   "raise_sites": {
     "counts": {
       "builtin_ValueError": 228,
-      "HTTPException": 210,
+      "HTTPException": 211,
       "custom_or_other": 69,
       "bare_re_raise": 48,
-      "ServiceError": 30,
+      "ServiceError": 37,
       "builtin_RuntimeError": 26,
       "builtin_AttributeError": 6,
       "raise_name_only": 6,
@@ -201,22 +29,22 @@
     "detail_leak_candidates": [
       {
         "file": "app/api/v1/alerts/__init__.py",
-        "line": 104,
+        "line": 105,
         "detail": "'Unauthorized: missing bearer token'"
       },
       {
         "file": "app/api/v1/alerts/__init__.py",
-        "line": 108,
+        "line": 109,
         "detail": "'Forbidden: invalid webhook secret'"
       },
       {
         "file": "app/api/v1/alerts/__init__.py",
-        "line": 93,
+        "line": 94,
         "detail": "'Webhook disabled: ALERTMANAGER_WEBHOOK_SECRET not configured'"
       },
       {
         "file": "app/api/v1/auth.py",
-        "line": 221,
+        "line": 225,
         "detail": "'未提供Refresh Token'"
       },
       {
@@ -236,37 +64,37 @@
       },
       {
         "file": "app/api/v1/uploads.py",
-        "line": 238,
+        "line": 235,
         "detail": "'未提供认证Token'"
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 289,
+        "line": 295,
         "detail": "'dataset_path is required'"
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 295,
+        "line": 301,
         "detail": "'Invalid path: null byte is not allowed'"
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 304,
+        "line": 310,
         "detail": "'Absolute paths are not allowed. Use a relative path within the validation data directory.'"
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 313,
+        "line": 319,
         "detail": "\"Path traversal detected: '..' is not allowed in dataset_path.\""
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 320,
+        "line": 326,
         "detail": "f\"Invalid path: Windows reserved name '{stem}' is not allowed.\""
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 332,
+        "line": 338,
         "detail": "'Path traversal detected. The dataset path must stay within the validation data directory.'"
       },
       {
@@ -317,19 +145,29 @@
         "app/api/csp_report.py:113",
         "app/api/csp_report.py:132",
         "app/api/csp_report.py:108",
-        "app/api/v1/admin.py:77",
-        "app/api/v1/admin.py:513",
-        "app/api/v1/admin.py:529"
+        "app/api/v1/admin.py:78",
+        "app/api/v1/admin.py:534",
+        "app/api/v1/admin.py:550"
       ],
       "custom_or_other": [
-        "app/api/v1/admin.py:143:_map_value_error",
-        "app/api/v1/admin.py:167:_map_value_error",
-        "app/api/v1/admin.py:259:_map_value_error",
-        "app/api/v1/admin.py:425:_map_value_error",
-        "app/api/v1/admin.py:459:_map_value_error",
+        "app/api/v1/admin.py:148:_map_value_error",
+        "app/api/v1/admin.py:179:_map_value_error",
+        "app/api/v1/admin.py:280:_map_value_error",
+        "app/api/v1/admin.py:446:_map_value_error",
+        "app/api/v1/admin.py:480:_map_value_error",
         "app/core/cache.py:336:CacheUnavailableError",
         "app/core/cache.py:343:CacheUnavailableError",
         "app/core/cache.py:410:CacheUnavailableError"
+      ],
+      "ServiceError": [
+        "app/api/v1/admin.py:425",
+        "app/api/v1/auth.py:145",
+        "app/api/v1/auth.py:234",
+        "app/api/v1/auth.py:266",
+        "app/api/v1/auth.py:289",
+        "app/api/v1/auth.py:303",
+        "app/api/v1/auth.py:342",
+        "app/api/v1/auth.py:370"
       ],
       "builtin_ValueError": [
         "app/api/v1/alerts/_schemas.py:48",
@@ -337,29 +175,19 @@
         "app/api/v1/alerts/_schemas.py:110",
         "app/api/v1/alerts/_schemas.py:115",
         "app/api/v1/alerts/_schemas.py:119",
-        "app/api/v1/analytics_events.py:91",
+        "app/api/v1/analytics_events.py:89",
         "app/api/v1/model_validation.py:76",
         "app/api/v1/model_validation.py:78"
       ],
       "bare_re_raise": [
         "app/api/v1/alerts/_schemas.py:67",
-        "app/api/v1/model_predict/predict.py:112",
-        "app/api/v1/model_predict/predict.py:162",
-        "app/api/v1/model_predict/predict.py:232",
-        "app/api/v1/model_predict/predict.py:285",
+        "app/api/v1/model_predict/predict.py:115",
+        "app/api/v1/model_predict/predict.py:165",
+        "app/api/v1/model_predict/predict.py:238",
+        "app/api/v1/model_predict/predict.py:291",
         "app/api/v1/observability/__init__.py:256",
         "app/api/v1/silences.py:232",
-        "app/api/v1/uploads.py:291"
-      ],
-      "ServiceError": [
-        "app/api/v1/auth.py:141",
-        "app/api/v1/auth.py:230",
-        "app/api/v1/auth.py:262",
-        "app/api/v1/auth.py:285",
-        "app/api/v1/auth.py:299",
-        "app/api/v1/auth.py:338",
-        "app/api/v1/auth.py:366",
-        "app/api/v1/canary.py:61"
+        "app/api/v1/uploads.py:288"
       ],
       "builtin_AttributeError": [
         "app/api/v1/observability/aggregate.py:61",
@@ -370,7 +198,7 @@
         "app/ml/unified_model_interface.py:262"
       ],
       "builtin_RuntimeError": [
-        "app/api/v1/user_upload.py:16",
+        "app/api/v1/user_upload.py:15",
         "app/core/pii_crypto.py:90",
         "app/core/pii_crypto.py:165",
         "app/core/pii_crypto.py:485",
@@ -380,7 +208,7 @@
         "app/core/pii_crypto.py:598"
       ],
       "builtin_TypeError": [
-        "app/core/audit.py:45",
+        "app/core/audit.py:51",
         "app/core/exceptions.py:148",
         "app/core/fallback_hierarchy.py:127",
         "app/ml/fusion_engine.py:169",
@@ -406,7 +234,7 @@
     "real_unwired": [
       {
         "file": "app/api/v1/alerts/__init__.py",
-        "line": 342,
+        "line": 344,
         "handled": [
           "Exception"
         ],
@@ -583,7 +411,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 165,
+        "line": 164,
         "handled": [
           "Exception"
         ],
@@ -592,7 +420,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 506,
+        "line": 513,
         "handled": [
           "Exception"
         ],
@@ -601,7 +429,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 348,
+        "line": 355,
         "handled": [
           "Exception"
         ],
@@ -610,7 +438,7 @@
       },
       {
         "file": "app/api/v1/user_upload.py",
-        "line": 163,
+        "line": 161,
         "handled": [
           "MagicException",
           "OSError"
@@ -620,7 +448,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 87,
+        "line": 88,
         "handled": [
           "Exception"
         ],
@@ -629,7 +457,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 108,
+        "line": 109,
         "handled": [
           "Exception"
         ],
@@ -638,7 +466,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 126,
+        "line": 132,
         "handled": [
           "Exception"
         ],
@@ -647,7 +475,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 145,
+        "line": 151,
         "handled": [
           "Exception"
         ],
@@ -656,7 +484,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 162,
+        "line": 168,
         "handled": [
           "Exception"
         ],
@@ -665,7 +493,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 188,
+        "line": 194,
         "handled": [
           "Exception"
         ],
@@ -674,7 +502,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 203,
+        "line": 209,
         "handled": [
           "Exception"
         ],
@@ -683,7 +511,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 223,
+        "line": 229,
         "handled": [
           "ValueError",
           "TypeError"
@@ -1090,7 +918,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 239,
+        "line": 240,
         "handled": [
           "Exception"
         ],
@@ -1099,7 +927,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 81,
+        "line": 82,
         "handled": [
           "OSError",
           "UnicodeDecodeError",
@@ -1110,7 +938,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 187,
+        "line": 188,
         "handled": [
           "Exception"
         ],
@@ -1119,7 +947,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 418,
+        "line": 425,
         "handled": [
           "Exception"
         ],
@@ -1128,7 +956,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 269,
+        "line": 270,
         "handled": [
           "FileNotFoundError"
         ],
@@ -1137,7 +965,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 293,
+        "line": 296,
         "handled": [
           "Exception"
         ],
@@ -1146,7 +974,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 391,
+        "line": 396,
         "handled": [
           "Exception"
         ],
@@ -1155,7 +983,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 549,
+        "line": 556,
         "handled": [
           "Exception"
         ],
@@ -1164,7 +992,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 697,
+        "line": 704,
         "handled": [
           "Exception"
         ],
@@ -1767,7 +1595,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 163,
+        "line": 167,
         "handled": [
           "Exception"
         ],
@@ -1776,7 +1604,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 213,
+        "line": 217,
         "handled": [
           "Exception"
         ],
@@ -1785,7 +1613,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 262,
+        "line": 266,
         "handled": [
           "Exception"
         ],
@@ -1803,7 +1631,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 53,
+        "line": 54,
         "handled": [
           "Exception"
         ],
@@ -1812,7 +1640,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 151,
+        "line": 152,
         "handled": [
           "Exception"
         ],
@@ -1821,7 +1649,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 184,
+        "line": 185,
         "handled": [
           "Exception"
         ],
@@ -1830,7 +1658,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 130,
+        "line": 131,
         "handled": [
           "Exception"
         ],
@@ -1839,7 +1667,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 174,
+        "line": 175,
         "handled": [
           "Exception"
         ],
@@ -1848,7 +1676,7 @@
       },
       {
         "file": "app/monitoring/escalation.py",
-        "line": 57,
+        "line": 58,
         "handled": [
           "Exception"
         ],
@@ -1857,7 +1685,7 @@
       },
       {
         "file": "app/monitoring/escalation.py",
-        "line": 109,
+        "line": 110,
         "handled": [
           "Exception"
         ],
@@ -1931,7 +1759,7 @@
       },
       {
         "file": "app/services/drift_monitoring_service.py",
-        "line": 459,
+        "line": 464,
         "handled": [
           "Exception"
         ],
@@ -2187,7 +2015,7 @@
       },
       {
         "file": "app/services/review_service.py",
-        "line": 124,
+        "line": 125,
         "handled": [
           "Exception"
         ],
@@ -2205,7 +2033,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 74,
+        "line": 75,
         "handled": [
           "RuntimeError"
         ],
@@ -2214,7 +2042,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 116,
+        "line": 117,
         "handled": [
           "Exception"
         ],
@@ -2223,7 +2051,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 220,
+        "line": 225,
         "handled": [
           "Exception"
         ],
@@ -2232,7 +2060,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 247,
+        "line": 252,
         "handled": [
           "Exception"
         ],
@@ -2241,7 +2069,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 275,
+        "line": 280,
         "handled": [
           "Exception"
         ],
@@ -2346,7 +2174,7 @@
       },
       {
         "file": "app/tasks/anomaly_detection.py",
-        "line": 126,
+        "line": 140,
         "handled": [
           "Exception"
         ],
@@ -2463,7 +2291,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 106,
+        "line": 107,
         "handled": [
           "Exception"
         ],
@@ -2472,7 +2300,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 127,
+        "line": 128,
         "handled": [
           "Exception"
         ],
@@ -2481,7 +2309,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 900,
+        "line": 901,
         "handled": [
           "Exception"
         ],
@@ -2490,7 +2318,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 79,
+        "line": 80,
         "handled": [
           "Exception"
         ],
@@ -2499,7 +2327,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 508,
+        "line": 509,
         "handled": [
           "Exception"
         ],
@@ -2508,7 +2336,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 993,
+        "line": 994,
         "handled": [
           "OSError"
         ],
@@ -2517,7 +2345,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1046,
+        "line": 1047,
         "handled": [
           "OSError"
         ],
@@ -2526,7 +2354,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1162,
+        "line": 1163,
         "handled": [
           "OSError"
         ],
@@ -2535,7 +2363,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 399,
+        "line": 400,
         "handled": [
           "Exception"
         ],
@@ -2544,7 +2372,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 986,
+        "line": 987,
         "handled": [
           "OSError"
         ],
@@ -2553,7 +2381,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1126,
+        "line": 1127,
         "handled": [
           "Exception"
         ],
@@ -2562,7 +2390,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1094,
+        "line": 1095,
         "handled": [
           "Exception"
         ],
@@ -2571,7 +2399,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1142,
+        "line": 1143,
         "handled": [
           "Exception"
         ],
@@ -2665,7 +2493,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 275,
+        "line": 278,
         "handled": [
           "ImportError"
         ],
@@ -2748,7 +2576,7 @@
     "real_list": [
       {
         "file": "app/api/v1/alerts/__init__.py",
-        "line": 342,
+        "line": 344,
         "handled": [
           "Exception"
         ],
@@ -2925,7 +2753,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 165,
+        "line": 164,
         "handled": [
           "Exception"
         ],
@@ -2934,7 +2762,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 506,
+        "line": 513,
         "handled": [
           "Exception"
         ],
@@ -2943,7 +2771,7 @@
       },
       {
         "file": "app/api/v1/reports.py",
-        "line": 348,
+        "line": 355,
         "handled": [
           "Exception"
         ],
@@ -2952,7 +2780,7 @@
       },
       {
         "file": "app/api/v1/user_upload.py",
-        "line": 163,
+        "line": 161,
         "handled": [
           "MagicException",
           "OSError"
@@ -2962,7 +2790,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 87,
+        "line": 88,
         "handled": [
           "Exception"
         ],
@@ -2971,7 +2799,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 108,
+        "line": 109,
         "handled": [
           "Exception"
         ],
@@ -2980,7 +2808,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 126,
+        "line": 132,
         "handled": [
           "Exception"
         ],
@@ -2989,7 +2817,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 145,
+        "line": 151,
         "handled": [
           "Exception"
         ],
@@ -2998,7 +2826,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 162,
+        "line": 168,
         "handled": [
           "Exception"
         ],
@@ -3007,7 +2835,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 188,
+        "line": 194,
         "handled": [
           "Exception"
         ],
@@ -3016,7 +2844,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 203,
+        "line": 209,
         "handled": [
           "Exception"
         ],
@@ -3025,7 +2853,7 @@
       },
       {
         "file": "app/api/v1/validation.py",
-        "line": 223,
+        "line": 229,
         "handled": [
           "ValueError",
           "TypeError"
@@ -3441,7 +3269,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 239,
+        "line": 240,
         "handled": [
           "Exception"
         ],
@@ -3450,7 +3278,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 81,
+        "line": 82,
         "handled": [
           "OSError",
           "UnicodeDecodeError",
@@ -3461,7 +3289,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 187,
+        "line": 188,
         "handled": [
           "Exception"
         ],
@@ -3470,7 +3298,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 418,
+        "line": 425,
         "handled": [
           "Exception"
         ],
@@ -3479,7 +3307,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 269,
+        "line": 270,
         "handled": [
           "FileNotFoundError"
         ],
@@ -3488,7 +3316,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 293,
+        "line": 296,
         "handled": [
           "Exception"
         ],
@@ -3497,7 +3325,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 391,
+        "line": 396,
         "handled": [
           "Exception"
         ],
@@ -3506,7 +3334,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 549,
+        "line": 556,
         "handled": [
           "Exception"
         ],
@@ -3515,7 +3343,7 @@
       },
       {
         "file": "app/core/model_engine/loading.py",
-        "line": 697,
+        "line": 704,
         "handled": [
           "Exception"
         ],
@@ -4118,7 +3946,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 163,
+        "line": 167,
         "handled": [
           "Exception"
         ],
@@ -4127,7 +3955,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 213,
+        "line": 217,
         "handled": [
           "Exception"
         ],
@@ -4136,7 +3964,7 @@
       },
       {
         "file": "app/monitoring/am_sync.py",
-        "line": 262,
+        "line": 266,
         "handled": [
           "Exception"
         ],
@@ -4163,7 +3991,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 53,
+        "line": 54,
         "handled": [
           "Exception"
         ],
@@ -4172,7 +4000,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 151,
+        "line": 152,
         "handled": [
           "Exception"
         ],
@@ -4181,7 +4009,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 184,
+        "line": 185,
         "handled": [
           "Exception"
         ],
@@ -4190,7 +4018,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 130,
+        "line": 131,
         "handled": [
           "Exception"
         ],
@@ -4199,7 +4027,7 @@
       },
       {
         "file": "app/monitoring/dedup_lock.py",
-        "line": 174,
+        "line": 175,
         "handled": [
           "Exception"
         ],
@@ -4208,7 +4036,7 @@
       },
       {
         "file": "app/monitoring/escalation.py",
-        "line": 57,
+        "line": 58,
         "handled": [
           "Exception"
         ],
@@ -4217,7 +4045,7 @@
       },
       {
         "file": "app/monitoring/escalation.py",
-        "line": 100,
+        "line": 101,
         "handled": [
           "Exception"
         ],
@@ -4226,7 +4054,7 @@
       },
       {
         "file": "app/monitoring/escalation.py",
-        "line": 109,
+        "line": 110,
         "handled": [
           "Exception"
         ],
@@ -4300,7 +4128,7 @@
       },
       {
         "file": "app/services/drift_monitoring_service.py",
-        "line": 459,
+        "line": 464,
         "handled": [
           "Exception"
         ],
@@ -4556,7 +4384,7 @@
       },
       {
         "file": "app/services/review_service.py",
-        "line": 124,
+        "line": 125,
         "handled": [
           "Exception"
         ],
@@ -4574,7 +4402,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 74,
+        "line": 75,
         "handled": [
           "RuntimeError"
         ],
@@ -4583,7 +4411,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 116,
+        "line": 117,
         "handled": [
           "Exception"
         ],
@@ -4592,7 +4420,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 220,
+        "line": 225,
         "handled": [
           "Exception"
         ],
@@ -4601,7 +4429,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 247,
+        "line": 252,
         "handled": [
           "Exception"
         ],
@@ -4610,7 +4438,7 @@
       },
       {
         "file": "app/services/shadow_comparison_service.py",
-        "line": 275,
+        "line": 280,
         "handled": [
           "Exception"
         ],
@@ -4715,7 +4543,7 @@
       },
       {
         "file": "app/tasks/anomaly_detection.py",
-        "line": 126,
+        "line": 140,
         "handled": [
           "Exception"
         ],
@@ -4832,7 +4660,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 106,
+        "line": 107,
         "handled": [
           "Exception"
         ],
@@ -4841,7 +4669,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 127,
+        "line": 128,
         "handled": [
           "Exception"
         ],
@@ -4850,7 +4678,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 900,
+        "line": 901,
         "handled": [
           "Exception"
         ],
@@ -4859,7 +4687,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 79,
+        "line": 80,
         "handled": [
           "Exception"
         ],
@@ -4868,7 +4696,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 508,
+        "line": 509,
         "handled": [
           "Exception"
         ],
@@ -4877,7 +4705,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 993,
+        "line": 994,
         "handled": [
           "OSError"
         ],
@@ -4886,7 +4714,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1046,
+        "line": 1047,
         "handled": [
           "OSError"
         ],
@@ -4895,7 +4723,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1162,
+        "line": 1163,
         "handled": [
           "OSError"
         ],
@@ -4904,7 +4732,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 399,
+        "line": 400,
         "handled": [
           "Exception"
         ],
@@ -4913,7 +4741,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 986,
+        "line": 987,
         "handled": [
           "OSError"
         ],
@@ -4922,7 +4750,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1126,
+        "line": 1127,
         "handled": [
           "Exception"
         ],
@@ -4931,7 +4759,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1094,
+        "line": 1095,
         "handled": [
           "Exception"
         ],
@@ -4940,7 +4768,7 @@
       },
       {
         "file": "app/tasks/scheduler.py",
-        "line": 1142,
+        "line": 1143,
         "handled": [
           "Exception"
         ],

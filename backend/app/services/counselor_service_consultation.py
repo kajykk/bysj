@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from fastapi import Request
 from sqlalchemy import func, select
 
-from app.core.contracts import normalize_risk_level, resolve_warning_status, USER_ROLE_COUNSELOR
+from app.core.audit import record_audit
+from app.core.contracts import USER_ROLE_COUNSELOR, normalize_risk_level, resolve_warning_status
 from app.core.states import BindingStatus
-from app.models.admin import OperationLog
 from app.models.counselor import ConsultationRecord
 from app.models.risk import WarningNotification
 from app.models.user import UserCounselorBinding
@@ -22,7 +23,15 @@ class ConsultationMixin:
     """
 
     async def create_consultation_record(
-        self, counselor_id: int, user_id: int, payload: dict
+        self,
+        counselor_id: int,
+        user_id: int,
+        payload: dict,
+        *,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户；
+        # 任务/旧测试不传则记 None/平台默认）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> int:
         binding_stmt = select(UserCounselorBinding).where(
             UserCounselorBinding.counselor_id == counselor_id,
@@ -55,22 +64,31 @@ class ConsultationMixin:
         )
         self.db.add(record)
         await self.db.flush()
-        self.db.add(
-            OperationLog(
-                operator_id=counselor_id,
-                operator_role=USER_ROLE_COUNSELOR,
-                action_type="create_consultation_record",
-                target_type="consultation_record",
-                target_id=record.id,
-                detail=f"user_id={user_id};warning_id={warning_id or '-'}",
-            )
+        await record_audit(
+            self.db,
+            actor_id=counselor_id,
+            actor_role=USER_ROLE_COUNSELOR,
+            action="create_consultation_record",
+            target_type="consultation_record",
+            target_id=record.id,
+            detail={"user_id": user_id, "warning_id": warning_id or "-"},
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         await self.db.refresh(record)
         return record.id
 
     async def update_consultation_record(
-        self, counselor_id: int, user_id: int, record_id: int, payload: dict
+        self,
+        counselor_id: int,
+        user_id: int,
+        record_id: int,
+        payload: dict,
+        *,
+        # P2-33 第六批：同上，审计上下文由调用方穿入。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> bool:
         record = await self.db.get(ConsultationRecord, record_id)
         if (
@@ -99,15 +117,16 @@ class ConsultationMixin:
         ):
             if field in payload:
                 setattr(record, field, payload[field])
-        self.db.add(
-            OperationLog(
-                operator_id=counselor_id,
-                operator_role=USER_ROLE_COUNSELOR,
-                action_type="update_consultation_record",
-                target_type="consultation_record",
-                target_id=record.id,
-                detail=f"user_id={record.user_id}",
-            )
+        await record_audit(
+            self.db,
+            actor_id=counselor_id,
+            actor_role=USER_ROLE_COUNSELOR,
+            action="update_consultation_record",
+            target_type="consultation_record",
+            target_id=record.id,
+            detail={"user_id": record.user_id},
+            request=request,
+            tenant_id=tenant_id,
         )
         await self.db.commit()
         return True

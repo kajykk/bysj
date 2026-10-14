@@ -203,7 +203,7 @@ class TestP233AuditHelperRatchet:
     AFTER_BATCH3 = 44  # 第十二轮第三批：gdpr 2 + auth 助手 1 + uploads 1 + user_upload 2 + user_risk 1
     AFTER_BATCH4 = 37  # 第十二轮第四批：admin 2 + alerts 2 + helpers 1 + analytics 1 + reports 1（helpers 助手计入；扫描器口径不含 helper 本体）
     AFTER_BATCH5 = 34  # 第十二轮第五批：warning_service 3（服务层穿参打样：request/tenant 可选关键字，API 端点传入）
-    AFTER_BATCH6 = 24  # 第十二轮第六批：review_service 2 + intervention_service 2 + counselor_service_binding 6
+    AFTER_BATCH6 = 0  # 第十二轮第六批：余 24 全部收敛（counselor 3 服务 6 + admin_service 4 + monitoring 4 + 任务层 2 + gdpr 1 + user_intervention 1 + tenant_admin 4 + branding/export 2），app/ 下手写构造归零
 
     def test_operation_log_construct_sites_decreased(self):
         got = _scan_operation_log_calls()
@@ -239,6 +239,24 @@ class TestP233AuditHelperRatchet:
             "services/review_service.py",
             "services/intervention_service.py",
             "services/counselor_service_binding.py",
+            # ── 第十二轮第六批（余 24 收敛，构造点 24 → 0）──
+            "services/counselor_service_warning.py",
+            "services/counselor_service_consultation.py",
+            "services/counselor_service_group.py",
+            "services/admin_service_config.py",
+            "services/admin_service_threshold.py",
+            "services/admin_service_template.py",
+            "services/gdpr_service_anonymize.py",
+            "monitoring/am_sync.py",
+            "monitoring/dedup_lock.py",
+            "monitoring/notifier.py",
+            "monitoring/escalation.py",
+            "tasks/anomaly_detection.py",
+            "tasks/scheduler.py",
+            "api/v1/user_intervention.py",
+            "api/v1/tenant_admin.py",
+            "api/v1/tenant_branding.py",
+            "api/v1/tenant_export.py",
         ):
             t = (BE / rel).read_text(encoding="utf-8")
             assert "OperationLog(" not in t, f"{rel} 仍有手写 OperationLog 构造"
@@ -331,6 +349,84 @@ class TestP235SilentDegradationRatchet:
         ):
             assert loc in doc, f"接线点 {loc} 未登记进审计文档"
 
+    def test_batch6_bucket_counts_pinned(self):
+        """第十二轮第六批 #35 收尾：候选清单**逐条裁定**后的桶计数棘轮。
+
+        口径见 `tests/tools/classify_p2_35_batch6.py` 文档字符串（规则本身是
+        交付物的一部分）。计数一变即红 → 强制重新跑扫描器+分类器并更新
+        审计文档，防止「新增了一个静默降级却被静默放过」。
+
+        桶含义（与分类器文档一致）：
+          W 已接线 / P ImportError 特性探测 / S 自报失败 / D 脏数据探测 /
+          C 清理路径 / H 检查型 / K 任务取消 / R 自恢复 / M 已有专用计数器 /
+          G fail-closed 安全 / V 显式失败上报 / X 真降级留档（后续批待接）
+        """
+        import importlib.util
+
+        tools = pathlib.Path(__file__).resolve().parent / "tools"
+        spec = importlib.util.spec_from_file_location(
+            "classify_p2_35_batch6", tools / "classify_p2_35_batch6.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[attr-defined]
+        # 分类器读 scan 产物；先重跑 scan 保证不是陈旧快照
+        scan_spec = importlib.util.spec_from_file_location(
+            "scan_p2_35_batch6", tools / "scan_p2_35_batch6.py"
+        )
+        scan_mod = importlib.util.module_from_spec(scan_spec)
+        scan_spec.loader.exec_module(scan_mod)  # type: ignore[attr-defined]
+        scan_mod.main()  # 重新落盘 scan 产物
+        import json as _json
+
+        result = _json.loads(
+            (tools / "scan_p2_35_batch6_result.json").read_text(encoding="utf-8")
+        )
+        counts: dict[str, int] = {}
+        for rec in result["real_list"] + result["probe_list"]:
+            p_ = BEPKG / rec["file"]
+            try:
+                src = p_.read_text(encoding="utf-8")
+                tree = ast.parse(src)
+            except Exception:
+                continue
+            target = None
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ExceptHandler) and node.lineno == rec["line"]:
+                    target = node
+                    break
+            if target is None:
+                continue
+            fn_name = mod.enclosing(target, tree)
+            body_src = mod.unparse(target)
+            func_src = ""
+            for fn in ast.walk(tree):
+                if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and fn.name == fn_name:
+                    if fn.lineno <= target.lineno <= (fn.end_lineno or fn.lineno):
+                        func_src = mod.unparse(fn)
+            bucket = mod.classify(rec, body_src, func_src)
+            counts[bucket] = counts.get(bucket, 0) + 1
+
+        expected = {
+            "W": 27,   # 已接线（含第十一轮直调风格 2 处）
+            "P": 16,   # ImportError 特性探测
+            "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
+            "D": 22,   # 脏数据探测
+            "C": 7,    # 清理路径
+            "H": 6,    # 检查型
+            "K": 11,   # 任务取消
+            "R": 4,    # 自恢复
+            "M": 6,    # 已有专用计数器
+            "G": 8,    # fail-closed 安全
+            "V": 2,    # 显式失败上报
+            "F": 2,    # 保守 fail-safe（宁可少清理/不发）
+            "X": 187,  # 真降级留档（后续批待接，全量清单见 JSON 产物）
+        }
+        assert counts == expected, (
+            "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
+            "+ classify_p2_35_batch6.py 并更新审计文档：\n"
+            f"  got={dict(sorted(counts.items()))}\n  exp={dict(sorted(expected.items()))}"
+        )
+
     def test_batch6_locations_wired_in_code_and_doc(self):
         """第十二轮第六批 4 个新接线点：源码与审计文档**双向**核对。
 
@@ -352,6 +448,31 @@ class TestP235SilentDegradationRatchet:
             (
                 "api.validation.job_store.create.redis_fallback",
                 "api/v1/validation.py",
+            ),
+            # ── 第十二轮第六批新增 5 个（含第五批漏登记的 4 个，一并收口）──
+            (
+                "core.model_engine.predict.text_ml_all_unavailable",
+                "core/model_engine/predict.py",
+            ),
+            (
+                "core.model_engine.predict.physiological_model_not_found",
+                "core/model_engine/predict.py",
+            ),
+            (
+                "core.model_engine.predict.physiological_prediction_failed",
+                "core/model_engine/predict.py",
+            ),
+            (
+                "tasks.scheduler.upload_reference_query_failed",
+                "tasks/scheduler.py",
+            ),
+            (
+                "tasks.pdf_report.save_pdf_bytes_failed",
+                "tasks/pdf_report.py",
+            ),
+            (
+                "api.model_predict._common.assessment_save_schedule_failed",
+                "api/v1/model_predict/_common.py",
             ),
         )
         doc = AUDIT.read_text(encoding="utf-8")

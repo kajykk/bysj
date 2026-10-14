@@ -14,6 +14,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
+from app.core.degradation import record_silent_degradation
 from app.models.risk import RiskAssessment
 from app.services.risk_service import RiskService
 
@@ -182,6 +183,12 @@ def _save_assessment_sync(
         register_task(task, "assessment_save")
     except Exception as exc:
         logger.error("Failed to schedule assessment save: %s", exc)
+        # P2-35 第六批：与 predict.py 已接线的 review_task_schedule_failed /
+        # crisis_record_failed 完全同型 —— fire-and-forget 调度失败即评估
+        # 结果永久丢失（调用方早已返回 200，用户侧无感）。
+        record_silent_degradation(
+            "api.model_predict._common.assessment_save_schedule_failed"
+        )
 
 
 STRUCTURED_FEATURE_LABELS: dict[str, str] = {

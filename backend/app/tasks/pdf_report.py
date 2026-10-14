@@ -25,6 +25,7 @@ from typing import Any
 from app.core.celery_app import celery_app
 from app.core.celery_async import run_async as _run_async
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 
 logger = logging.getLogger(__name__)
 
@@ -261,6 +262,10 @@ def save_pdf_bytes_to_redis(job_id: str, pdf_bytes: bytes) -> None:
         r.setex(_bytes_key(job_id), _PDF_BYTES_TTL_SECONDS, pdf_bytes)
     except Exception as exc:
         logger.warning("[pdf_task] failed to save pdf bytes %s to Redis: %s", job_id, exc)
+        # P2-35 第六批：PDF 字节丢失 = 用户最终拿不到报告（任务状态显示成功）。
+        # 与 reports.py 已接线的 api.reports.pdf_job.redis_fallback 同型
+        # （任务侧孪生点），接 silent_degradation_total。
+        record_silent_degradation("tasks.pdf_report.save_pdf_bytes_failed")
 
 
 def get_pdf_bytes_from_redis(job_id: str) -> bytes | None:

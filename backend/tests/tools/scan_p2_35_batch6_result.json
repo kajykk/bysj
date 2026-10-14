@@ -1,0 +1,3390 @@
+{
+  "real_total": 318,
+  "real_wired": 26,
+  "import_probe": 16,
+  "real_list": [
+    {
+      "file": "app/api/v1/admin.py",
+      "line": 619,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 151,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 172,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 189,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(0, 1, 0)"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 204,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(1, 0, 1)"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 267,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 344,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/alerts/_schemas.py",
+      "line": 68,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/api/v1/alerts/_schemas.py",
+      "line": 63,
+      "handled": [
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 96,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 117,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 136,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 152,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics.py",
+      "line": 84,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 223,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 249,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 275,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 116,
+      "handled": [
+        "OSError",
+        "JSONDecodeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 184,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 261,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 317,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 333,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 349,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 365,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/predict.py",
+      "line": 87,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/predict.py",
+      "line": 203,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/status.py",
+      "line": 43,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/observability/__init__.py",
+      "line": 228,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "({}, False)"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 164,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 403,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 513,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 355,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 406,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 481,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 376,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 537,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 214,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 227,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/user_upload.py",
+      "line": 161,
+      "handled": [
+        "MagicException",
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 453,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 88,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 109,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 132,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 151,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 168,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 194,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 209,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 229,
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 292,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 146,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 186,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 231,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 237,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 298,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 254,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 348,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 369,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 380,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/config.py",
+      "line": 359,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/config.py",
+      "line": 372,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/degradation.py",
+      "line": 33,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/deps.py",
+      "line": 184,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 116,
+      "handled": [
+        "QueueFull"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 141,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 174,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 164,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/fire_forget_metrics.py",
+      "line": 41,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/fire_forget_metrics.py",
+      "line": 77,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 56,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 84,
+      "handled": [
+        "TimeoutError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 88,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 129,
+      "handled": [
+        "TimeoutError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 135,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 172,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 370,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 325,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 75,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(True, None)"
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 93,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 104,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/instance.py",
+      "line": 25,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/kill_switch.py",
+      "line": 109,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/kill_switch.py",
+      "line": 119,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/log_sanitizer.py",
+      "line": 449,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/logging_config.py",
+      "line": 235,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/metrics.py",
+      "line": 868,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/middlewares.py",
+      "line": 277,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/middlewares.py",
+      "line": 115,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 81,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "default"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 171,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 199,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 233,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 297,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 348,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 323,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 326,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 362,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 240,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 82,
+      "handled": [
+        "OSError",
+        "UnicodeDecodeError",
+        "IndexError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(None, f'unreadable_sidecar:{sidecar.name}')"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 188,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 425,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 270,
+      "handled": [
+        "FileNotFoundError"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 284,
+      "handled": [
+        "PermissionError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 290,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 296,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 396,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 556,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 588,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 704,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 484,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 526,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 623,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 646,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "self._text_heuristic_fallback(text)"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 734,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(probability, False)"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 749,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(probability, False)"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 950,
+      "handled": [
+        "FileNotFoundError"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 962,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 416,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 859,
+      "handled": [
+        "NonFiniteLiteProbabilityError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "result"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 869,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "result"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1005,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1104,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "fallback"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1132,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "fallback"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 167,
+      "handled": [
+        "FileNotFoundError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 178,
+      "handled": [
+        "FileNotFoundError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 385,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 653,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "self._text_heuristic_fallback(text)"
+    },
+    {
+      "file": "app/core/model_registry.py",
+      "line": 351,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 216,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 454,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 169,
+      "handled": [
+        "JSONDecodeError",
+        "KeyError",
+        "OSError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 191,
+      "handled": [
+        "KeyError",
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 133,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 205,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 228,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 228,
+      "handled": [
+        "InvalidTag"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 344,
+      "handled": [
+        "InvalidToken"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 133,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 191,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 242,
+      "handled": [
+        "InvalidTag"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 358,
+      "handled": [
+        "InvalidToken"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 408,
+      "handled": [
+        "ValueError"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "'[DECRYPTION_FAILED]'"
+    },
+    {
+      "file": "app/core/rate_limit.py",
+      "line": 142,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/rate_limit.py",
+      "line": 198,
+      "handled": [
+        "RateLimitExceeded"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/safe_pickle.py",
+      "line": 286,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/safe_pickle.py",
+      "line": 397,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/safe_pickle.py",
+      "line": 498,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 103,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 148,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 163,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 27,
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 36,
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 47,
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/startup_status.py",
+      "line": 100,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/tenant_guard.py",
+      "line": 319,
+      "handled": [
+        "OSError",
+        "SyntaxError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/text_m2_bert_predictor.py",
+      "line": 160,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/core/text_tokenizer.py",
+      "line": 37,
+      "handled": [
+        "AttributeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/token_blocklist.py",
+      "line": 75,
+      "handled": [
+        "CacheUnavailableError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 32,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 424,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 449,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 503,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 196,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 221,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 244,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 246,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 310,
+      "handled": [
+        "JSONDecodeError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 84,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 130,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 169,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 284,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 287,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 332,
+      "handled": [
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 282,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 294,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/main.py",
+      "line": 365,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/main.py",
+      "line": 189,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/main.py",
+      "line": 216,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/main.py",
+      "line": 320,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/main.py",
+      "line": 298,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/canary_controller.py",
+      "line": 235,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/hyperparameter_tuning.py",
+      "line": 38,
+      "handled": [
+        "JSONDecodeError",
+        "OSError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "[]"
+    },
+    {
+      "file": "app/ml/hyperparameter_tuning.py",
+      "line": 51,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/model_loader.py",
+      "line": 46,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/model_validation.py",
+      "line": 122,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/scaler.py",
+      "line": 47,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 231,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 239,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 270,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 106,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 166,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 216,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 265,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/dedup.py",
+      "line": 95,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/dedup.py",
+      "line": 103,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 54,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 152,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "True"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 185,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 245,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 131,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "True"
+    },
+    {
+      "file": "app/monitoring/dedup_lock.py",
+      "line": 175,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 58,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 101,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 110,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 272,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 198,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 287,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 342,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 413,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/notifier.py",
+      "line": 455,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 572,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 583,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 592,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 601,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/auth_service.py",
+      "line": 277,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/auth_service.py",
+      "line": 436,
+      "handled": [
+        "PyJWTError",
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 57,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 68,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 90,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "True"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 123,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 152,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 161,
+      "handled": [
+        "TypeError",
+        "ValueError",
+        "KeyError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 173,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 434,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 430,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 67,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 213,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 215,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 165,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 88,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 155,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 236,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 464,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 104,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/email_service.py",
+      "line": 39,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/email_service.py",
+      "line": 164,
+      "handled": [
+        "SMTPException",
+        "OSError",
+        "ConnectionError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 164,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "ExcelExportResult(success=False, error_message=str(exc))"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 246,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "ExcelStreamResult(success=False, error_message=str(exc))"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 400,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "ExcelExportResult(success=False, error_message=str(exc))"
+    },
+    {
+      "file": "app/services/excel_job_store.py",
+      "line": 131,
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/experiment_evaluator.py",
+      "line": 126,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/experiment_metrics.py",
+      "line": 43,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 118,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(False, f'EXIF strip failed: {exc}')"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 197,
+      "handled": [
+        "ConnectionError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(False, f'Virus scan unavailable: ClamAV daemon not reachabl"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 211,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(False, f'Virus scan failed: {exc}')"
+    },
+    {
+      "file": "app/services/model_predict/fusion.py",
+      "line": 222,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/fusion.py",
+      "line": 81,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/fusion.py",
+      "line": 157,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/inference.py",
+      "line": 115,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "'unknown'"
+    },
+    {
+      "file": "app/services/model_predict/inference.py",
+      "line": 143,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 42,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 55,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 241,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 275,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 299,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/observability/aggregate.py",
+      "line": 37,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "{}"
+    },
+    {
+      "file": "app/services/observability/aggregate.py",
+      "line": 473,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/observability_exporter.py",
+      "line": 206,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/observability_exporter.py",
+      "line": 136,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/observability_exporter.py",
+      "line": 150,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/observability_exporter.py",
+      "line": 168,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/observability_service.py",
+      "line": 121,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/observability_service.py",
+      "line": 135,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/pdf_job_store.py",
+      "line": 129,
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/pdf_report_service.py",
+      "line": 295,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "PDFReportResult(success=False, error_message=str(exc), gener"
+    },
+    {
+      "file": "app/services/pdf_report_service.py",
+      "line": 450,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "PDFStreamResult(success=False, error_message=str(exc), gener"
+    },
+    {
+      "file": "app/services/registry_auto_rollback.py",
+      "line": 131,
+      "handled": [
+        "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/registry_auto_rollback.py",
+      "line": 133,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/registry_auto_rollback.py",
+      "line": 102,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/review_service.py",
+      "line": 125,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/risk_service.py",
+      "line": 138,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/risk_service_assessment.py",
+      "line": 180,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/risk_service_warning.py",
+      "line": 136,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 75,
+      "handled": [
+        "RuntimeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 117,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 225,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 252,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 280,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(None, None)"
+    },
+    {
+      "file": "app/services/shadow_mode_service.py",
+      "line": 59,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/services/shadow_mode_service.py",
+      "line": 128,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 165,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 180,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 197,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 212,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 235,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 414,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 504,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 263,
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 145,
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/validation_engine.py",
+      "line": 205,
+      "handled": [
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/anomaly_detection.py",
+      "line": 140,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 78,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 93,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 111,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "[]"
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 165,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/model_training.py",
+      "line": 194,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/observability.py",
+      "line": 79,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 108,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 122,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 166,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "[]"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 250,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 263,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 276,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 286,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 108,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 129,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 902,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 81,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 510,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1001,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1054,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1170,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 401,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 994,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1134,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1102,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1150,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/utils/checksum.py",
+      "line": 72,
+      "handled": [
+        "OSError",
+        "UnicodeDecodeError",
+        "IndexError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/utils/checksum.py",
+      "line": 155,
+      "handled": [
+        "OSError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    }
+  ],
+  "probe_list": [
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 89,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 97,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 107,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 153,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/db_breaker.py",
+      "line": 100,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/db_breaker.py",
+      "line": 109,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ml_breaker.py",
+      "line": 107,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/loading.py",
+      "line": 278,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 958,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 151,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 166,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 180,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 203,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/smtp_breaker.py",
+      "line": 113,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/ml/drift_detector.py",
+      "line": 128,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "self._approximate_ks_test(reference, current)"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 155,
+      "handled": [
+        "ImportError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "(False, 'Virus scan unavailable: pyclamd not installed')"
+    }
+  ]
+}

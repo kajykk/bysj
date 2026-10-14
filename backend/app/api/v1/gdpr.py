@@ -21,12 +21,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.exceptions import ServiceError
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
-from app.core.rate_limit import get_real_client_ip, limiter
-from app.core.audit import record_audit
+from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.core.tenant_context import require_platform_admin
 from app.models.user import User
@@ -216,6 +216,9 @@ async def delete_my_account(
         result = await service.anonymize_user(
             current_user.id,
             password_confirm=body.password,
+            # P2-33 第六批：审计上下文（ip 由 helper 从 request 取；
+            # tenant_id 不传 → 服务层默认取目标用户自己的租户）
+            request=request,
         )
     except ValueError as exc:
         # 密码错误或用户不存在
@@ -333,7 +336,12 @@ async def admin_delete_user_account(
     service = GDPRService(db)
     try:
         # password_confirm=None 触发管理员越权路径，跳过密码校验
-        result = await service.anonymize_user(user_id, password_confirm=None)
+        result = await service.anonymize_user(
+            user_id,
+            password_confirm=None,
+            # P2-33 第六批：审计上下文（同上；管理员视角另有 API 层审计行）
+            request=request,
+        )
     except ValueError as exc:
         msg = str(exc)
         if "不存在" in msg or "已被删除" in msg:

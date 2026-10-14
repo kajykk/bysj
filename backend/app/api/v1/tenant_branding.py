@@ -17,13 +17,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.tenant_admin import _get_tenant_or_404
+from app.core.audit import record_audit
 from app.core.contracts import DEFAULT_TENANT_ID
 from app.core.database import get_db
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.core.tenant_context import require_role_tenant_scoped
-from app.models.admin import OperationLog
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -155,16 +155,21 @@ async def update_tenant_branding(
     }
 
     await db.flush()
-    db.add(
-        OperationLog(
-            operator_id=current_user.id,
-            operator_role=current_user.role,
-            action_type="tenant.branding.update",
-            target_type="tenant",
-            target_id=tenant_id,
-            detail=f"fields={list(new_branding.keys())}",
-            tenant_id=current_user.tenant_id,
-        )
+    # P2-33 第六批：改走统一审计 helper。本端点经
+    # require_role_tenant_scoped("admin") + _assert_tenant_owned_by 双重校验，
+    # 操作者租户恒等于目标租户；迁移前 tenant_id=current_user.tenant_id，
+    # 迁移后显式传 tenant_id（目标租户）——两者同值，归属语义不变
+    # （被操作的租户），且不再依赖"操作者恰好拥有该租户"这一前提。
+    await record_audit(
+        db,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        action="tenant.branding.update",
+        target_type="tenant",
+        target_id=tenant_id,
+        detail={"fields": list(new_branding.keys())},
+        request=request,
+        tenant_id=tenant_id,
     )
     await db.commit()
 

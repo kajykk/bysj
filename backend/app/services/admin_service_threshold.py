@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from fastapi import Request
 from sqlalchemy import select
 
-from app.models.admin import OperationLog, WarningThreshold
+from app.core.audit import record_audit
+from app.models.admin import WarningThreshold
 
 if TYPE_CHECKING:
     pass
@@ -56,6 +58,10 @@ class ThresholdMixin:
         # "admin"，事后无法区分「谁做的」。关键字参数且无默认值：漏传直接
         # TypeError，不给「忘记传」留静默兜底。
         admin_role: str,
+        # P2-33 第六批：审计上下文由调用方穿入（API 端点传 request + 操作者租户）。
+        # ip_address 仅在 request 缺失时生效（保留历史"调用方显式传 ip"路径不丢审计）。
+        request: Request | None = None,
+        tenant_id: int | None = None,
     ) -> int:
         row = (
             await self.db.execute(
@@ -112,16 +118,17 @@ class ThresholdMixin:
                 if key in payload:
                     setattr(row, key, payload[key])
             await self.db.flush()
-        self.db.add(
-            OperationLog(
-                operator_id=admin_id,
-                operator_role=admin_role,
-                action_type="upsert_warning_threshold",
-                target_type="warning_threshold",
-                target_id=row.id,
-                detail=f"level={row.level};request_id={request_id or '-'}",
-                ip_address=ip_address,
-            )
+        await record_audit(
+            self.db,
+            actor_id=admin_id,
+            actor_role=admin_role,
+            action="upsert_warning_threshold",
+            target_type="warning_threshold",
+            target_id=row.id,
+            detail={"level": row.level, "request_id": request_id or "-"},
+            request=request,
+            tenant_id=tenant_id,
+            ip_address=ip_address,
         )
         await self.db.commit()
         await self.db.refresh(row)

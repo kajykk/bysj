@@ -533,3 +533,363 @@ class TestRecordAuditTenantColumn:
             tenant_id=None,
         )
         assert log.tenant_id == DEFAULT_TENANT_ID, "None 应记平台默认租户（列非空）"
+
+
+# ---------------------------------------------------------------------------
+# P2-12 第六批：detail-JSON 下游重验（第五批口径变化的影响面）
+# ---------------------------------------------------------------------------
+
+
+def _scan_record_audit_detail_kwargs() -> list[tuple[str, int, ast.AST]]:
+    """AST 扫描：所有 ``record_audit(...)`` 调用点的 ``detail=`` 实参节点。
+
+    用 AST 而非正则（第十一轮教训：嵌套括号会被正则截断，造成假红/假绿）。
+    """
+    out: list[tuple[str, int, ast.AST]] = []
+    for path in sorted(BE.rglob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+            if name != "record_audit":
+                continue
+            for kw in node.keywords:
+                if kw.arg == "detail":
+                    out.append(
+                        (
+                            str(path.relative_to(BE)).replace("\\", "/"),
+                            node.lineno,
+                            kw.value,
+                        )
+                    )
+    return out
+
+
+def _scan_operation_log_detail_readers() -> dict[str, int]:
+    """AST 扫描：``app/`` 下「函数体内引用了 OperationLog 且读了 ``.detail``」的模块 → 命中数。
+
+    扫描口径固定在此处：清单一旦变化（新增消费点 / 删掉 / 移动）闸门即红，
+    强制重跑一遍本节的下游核对，避免"新增了一个按裸字符串解析的消费者"却被静默放过。
+    """
+    result: dict[str, int] = {}
+    for path in sorted(BE.rglob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if "OperationLog" not in ast.unparse(fn):
+                continue
+            hits = [
+                n
+                for n in ast.walk(fn)
+                if isinstance(n, ast.Attribute) and n.attr == "detail"
+            ]
+            if hits:
+                rel = str(path.relative_to(BE)).replace("\\", "/")
+                result[rel] = result.get(rel, 0) + len(hits)
+    return result
+
+
+_JSON_LOAD_NAMES = frozenset({"json.loads", "_json_loads", "json_loads", "loads"})
+
+
+def _is_json_loads_call(node: ast.AST) -> bool:
+    """识别 ``json.loads`` 及其别名（observability 用 ``_json_loads``）。"""
+    if not isinstance(node, ast.Call):
+        return False
+    return ast.unparse(node.func).split(".")[-1] in _JSON_LOAD_NAMES
+
+
+def _json_loads_is_guarded(tree: ast.AST) -> bool:
+    """模块内是否存在「位于 try 块内」的 json.loads 调用（裸字符串兜底）。"""
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Try):
+            continue
+        for sub in ast.walk(node):
+            if _is_json_loads_call(sub):
+                return True
+    return False
+
+
+class TestAuditDetailJsonDownstream:
+    """第五批把 intervention / binding 的审计 detail 由裸字符串改为 JSON 对象后的下游重验。
+
+    三道闸：
+    1. **写入侧**：``record_audit`` 的 detail 只能是 dict/None，禁止字符串 ——
+       从源头保证"落库的 detail 一定是 JSON 对象"这一前提不再漂移。
+    2. **消费侧清单**：把所有读 ``OperationLog.detail`` 的模块钉成清单，
+       变化即红 → 强制重新核对（清单不静默漂移）。
+    3. **解析侧兜底**：凡在 Python 侧 ``json.loads`` 的消费点，必须带 except 兜底，
+       否则一条历史裸字符串行就会让整个告警/清理链路崩掉。
+    4. **运行时**：真跑一遍第五批改过的服务方法，按 JSON 对象读回（不靠类型注解）。
+    """
+
+    # 消费侧清单（口径见 _scan_operation_log_detail_readers）
+    # kind: parse=Python 侧解析 / sql=只在 SQL 表达式里用 / passthrough=原样进响应 / slice=截断预览
+    EXPECTED_READERS: dict[str, int] = {
+        "api/v1/alerts/__init__.py": 6,          # parse（含 SQL contains 兜底）
+        "api/v1/content_governance.py": 1,       # passthrough
+        "api/v1/ops_dashboard.py": 2,            # slice（[:200] 预览，无下游解析器）
+        "api/v1/tenant_audit.py": 2,             # passthrough
+        "monitoring/dedup.py": 1,                # parse
+        "monitoring/escalation.py": 10,          # parse（alert_fired 行）
+        "services/admin_service_log.py": 1,      # passthrough
+        "services/mttr_service.py": 2,           # parse
+        "services/observability/aggregate.py": 8,  # parse（_parse_detail_json）
+        "services/observability/query.py": 8,    # sql
+        "tasks/alerts.py": 1,                    # parse
+        # 第六批复核（2026-10-15）：该处 3 个 .detail 读的是 AnomalyFinding.detail
+        # （dataclass 字段，JSON 字符串，迁 record_audit 时先 json.loads 还原成
+        # dict），**不是** OperationLog.detail 消费点；函数 docstring 里出现
+        # OperationLog 字样故被扫描器计入。读数为 3：try 内 loads / isinstance
+        # 回退 / except 回退各一处。
+        "tasks/anomaly_detection.py": 3,
+        "tasks/scheduler.py": 2,                 # parse（user_file_upload 的 url）
+    }
+
+    PARSE_READERS = (
+        "api/v1/alerts/__init__.py",
+        "monitoring/dedup.py",
+        "monitoring/escalation.py",
+        "services/mttr_service.py",
+        "services/observability/aggregate.py",
+        "tasks/alerts.py",
+        "tasks/scheduler.py",
+    )
+
+    def test_record_audit_detail_is_never_a_string(self):
+        args = _scan_record_audit_detail_kwargs()
+        # 扫描器自检：扫不到足够多的点说明扫描器本身失效（假绿的最大来源）
+        assert len(args) >= 30, f"扫描器疑似失效：只找到 {len(args)} 个 detail= 实参"
+        bad: list[str] = []
+        for rel, lineno, node in args:
+            if isinstance(node, ast.JoinedStr):
+                bad.append(f"{rel}:{lineno} f-string -> {ast.unparse(node)[:60]}")
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                bad.append(f"{rel}:{lineno} str -> {ast.unparse(node)[:60]}")
+        assert not bad, (
+            "record_audit 的 detail 必须是 JSON 对象（dict）或 None，"
+            "禁止裸字符串/f-string（下游一律按 JSON 对象解析）：\n" + "\n".join(bad)
+        )
+
+    def test_operation_log_detail_reader_inventory_unchanged(self):
+        got = _scan_operation_log_detail_readers()
+        assert got == self.EXPECTED_READERS, (
+            "OperationLog.detail 读取点清单发生变化（新增/删除/移动），"
+            "必须重跑 detail-JSON 下游核对后再更新本清单：\n"
+            f"  got={got}\n  exp={self.EXPECTED_READERS}"
+        )
+
+    def test_parse_readers_are_tolerant(self):
+        """Python 侧解析 detail 的模块必须带 except 兜底。
+
+        裸字符串的历史行（迁移前落库）一旦进入这些链路，没有兜底就是
+        整条告警升级/去重/清理链路崩掉，而不是"少一条日志"。
+        """
+        bad: list[str] = []
+        for rel in self.PARSE_READERS:
+            src = (BE / rel).read_text(encoding="utf-8")
+            tree = ast.parse(src, filename=rel)
+            has_loads = any(_is_json_loads_call(n) for n in ast.walk(tree))
+            if not has_loads:
+                bad.append(f"{rel}: 标注为 parse 但模块内没有 json.loads")
+            elif not _json_loads_is_guarded(tree):
+                bad.append(f"{rel}: json.loads 不在 try 块内（裸字符串会炸链路）")
+        assert not bad, "解析侧兜底缺失：\n" + "\n".join(bad)
+
+    async def test_intervention_audit_detail_reads_back_as_json_object(self, db_session):
+        """运行时重验：complete_task 落库的 detail 必须是 JSON 对象（不是裸字符串）。"""
+        import json
+        from datetime import date
+
+        from sqlalchemy import select
+
+        from app.models.admin import OperationLog
+        from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
+        from app.services.intervention_service import InterventionService
+
+        plan = InterventionPlan(
+            user_id=1, plan_name="P2-12 plan", risk_level=2,
+            status="active", start_date=date.today(),
+        )
+        db_session.add(plan)
+        await db_session.flush()
+        task = InterventionTask(
+            plan_id=plan.id, task_name="P2-12 task", task_type="relaxation",
+            schedule="daily", duration_minutes=15, sort_order=0,
+        )
+        db_session.add(task)
+        await db_session.flush()
+        db_session.add(
+            TaskExecution(
+                task_id=task.id, user_id=1,
+                scheduled_date=date.today(), status="pending",
+            )
+        )
+        await db_session.commit()
+
+        ok_, _reason = await InterventionService(db_session).complete_task(1, task.id, None)
+        assert ok_ is True, "前置条件失效：complete_task 未成功，后续断言无意义"
+
+        log = (
+            await db_session.execute(
+                select(OperationLog).where(
+                    OperationLog.action_type == "complete_intervention_task"
+                )
+            )
+        ).scalars().first()
+        assert log is not None, "审计日志未写入"
+        parsed = json.loads(log.detail)
+        # 断言「是 JSON 对象且字段可读」，不断言整串相等（避免把实现钉死）
+        assert isinstance(parsed, dict), f"detail 不是 JSON 对象：{log.detail!r}"
+        assert parsed["task_id"] == task.id
+
+    async def test_binding_audit_detail_reads_back_as_json_object(
+        self, db_session, seeded_user_id
+    ):
+        """运行时重验：绑定码/解绑落库的 detail 必须是 JSON 对象。"""
+        import json
+
+        from sqlalchemy import select
+
+        from app.models.admin import OperationLog
+        from app.services.counselor_service import CounselorService
+
+        service = CounselorService(db_session)
+        code = await service.get_or_create_bind_code(2)
+        await service.bind_by_code(1, code)
+        await service.unbind(1)
+
+        for action in ("bind_counselor", "unbind_counselor"):
+            log = (
+                await db_session.execute(
+                    select(OperationLog).where(OperationLog.action_type == action)
+                )
+            ).scalars().first()
+            assert log is not None, f"{action} 审计日志未写入"
+            parsed = json.loads(log.detail)
+            assert isinstance(parsed, dict), f"{action} detail 不是 JSON 对象：{log.detail!r}"
+        bind_log = (
+            await db_session.execute(
+                select(OperationLog).where(OperationLog.action_type == "bind_counselor")
+            )
+        ).scalars().first()
+        # 枚举状态必须是裸值（active），不能是 "BindingStatus.ACTIVE"
+        assert json.loads(bind_log.detail)["to_status"] == "active"
+
+
+# ---------------------------------------------------------------------------
+# P2-12 第六批：目标租户归属语义（SEC-FIX 回归闸门）
+# ---------------------------------------------------------------------------
+
+
+class TestTargetTenantAttribution:
+    """tenant_admin / branding / export 的审计归属必须跟着**目标租户**走。
+
+    背景（SEC-FIX，迁移前就有）：这些端点的操作者是平台管理员（自己的租户是
+    平台默认租户 1），但审计行归属**被操作的目标租户**，目标租户的管理员才能
+    在 tenant-audit 里看到针对自己租户的操作。迁到 `record_audit` 时若图省事
+    传 `current_user.tenant_id`，归属就静默搬回操作者租户 —— tenant-audit
+    可见性断裂，且**没有任何既有测试会红**（它们只断言 200/结构）。
+
+    因此这里同时钉两侧：
+    1. **源码侧**：这 6 个文件的 record_audit 调用，tenant_id 实参不得是
+       `current_user.tenant_id`（必须是目标租户表达式）。
+    2. **运行时侧**：真调一次创建租户，落库行的 tenant_id 列必须等于新租户 id，
+       且**不等于**操作者（平台管理员，tenant 1）的租户。
+    """
+
+    # (文件, 期望的 tenant_id 实参形态) —— 形态用 AST unparse 后精确比对，
+    # 既允许 tenant.id 也允许 tenant_id（两种目标表达），排除 current_user.*。
+    ATTRIBUTION_SITES = (
+        ("api/v1/tenant_admin.py", ("tenant.id", "tenant_id")),
+        ("api/v1/tenant_export.py", ("tenant_id",)),
+        ("api/v1/tenant_branding.py", ("tenant_id",)),
+    )
+
+    def test_audit_calls_do_not_follow_operator_tenant(self):
+        import ast as _ast
+
+        for rel, allowed in self.ATTRIBUTION_SITES:
+            src = (BE / rel).read_text(encoding="utf-8")
+            tree = _ast.parse(src, filename=rel)
+            calls = [
+                n
+                for n in _ast.walk(tree)
+                if isinstance(n, _ast.Call)
+                and (getattr(n.func, "id", None) or getattr(n.func, "attr", None))
+                == "record_audit"
+            ]
+            assert calls, f"{rel} 未找到 record_audit 调用（迁移丢了？）"
+            for call in calls:
+                kwargs = {kw.arg: kw.value for kw in call.keywords if kw.arg}
+                assert "tenant_id" in kwargs, f"{rel}:{call.lineno} 缺 tenant_id 必填关键字"
+                expr = _ast.unparse(kwargs["tenant_id"])
+                assert expr in allowed, (
+                    f"{rel}:{call.lineno} 的 tenant_id={expr} —— 归属必须跟着**目标租户**"
+                    f"（允许 {allowed}），不得跟操作者租户；否则 tenant-audit 可见性断裂"
+                )
+
+    def test_create_tenant_audit_row_belongs_to_new_tenant(self, client, as_role, db_session):
+        """运行时：平台管理员创建租户后，审计行归属新租户而非操作者租户。"""
+        import json
+
+        from sqlalchemy import select
+
+        from app.models.admin import OperationLog
+        from app.models.tenant import Tenant
+        from tests.conftest import run
+
+        # 先种平台默认租户（id=1）占位，保证新租户拿到的 id 与平台租户不同
+        # （不种的话新租户会直接拿 id=1，目标租户与操作者租户数值相同，断言失效）
+        from tests.conftest import run as _run
+
+        async def _seed_platform_tenant():
+            existing = (
+                await db_session.execute(select(Tenant).where(Tenant.id == 1))
+            ).scalar_one_or_none()
+            if existing is None:
+                db_session.add(
+                    Tenant(id=1, name="平台", code="platform_gate", status="active")
+                )
+                await db_session.flush()
+
+        _run(_seed_platform_tenant())
+
+        # 平台管理员：tenant 1（DEFAULT_TENANT_ID），与被创建租户不同
+        as_role("admin", 1, tenant_id=1)
+        res = client.post(
+            "/api/v1/tenants",
+            json={"name": "归属回归", "code": "attribution_gate"},
+        )
+        assert res.status_code == 200, res.text
+        new_tenant_id = res.json()["data"]["id"]
+        assert new_tenant_id != 1, "前置条件失效：新租户 id 不应是平台默认租户"
+
+        async def _fetch_log():
+            result = await db_session.execute(
+                select(OperationLog).where(
+                    OperationLog.action_type == "tenant.create",
+                    OperationLog.target_id == new_tenant_id,
+                )
+            )
+            return result.scalar_one_or_none()
+
+        log = run(_fetch_log())
+        assert log is not None, "tenant.create 审计行未写入"
+        assert log.tenant_id == new_tenant_id, (
+            f"审计行 tenant_id={log.tenant_id}，应归属目标租户 {new_tenant_id}"
+            "（SEC-FIX：目标租户管理员的 tenant-audit 可见性依赖此列）"
+        )
+        assert log.tenant_id != 1, "审计行不得归属操作者（平台管理员）租户"
+        assert log.operator_id == 1, "操作者信息仍应保留在 operator_id"
+        # detail 须为 JSON 对象（第六批口径统一）
+        parsed = json.loads(log.detail)
+        assert isinstance(parsed, dict) and parsed["code"] == "attribution_gate"

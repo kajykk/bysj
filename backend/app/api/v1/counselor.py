@@ -80,6 +80,9 @@ async def handle_warning(
         payload.note,
         ip_address=get_real_client_ip(request),
         request_id=request_id,
+        # P2-33 第六批：审计上下文（ip 由 helper 从 request 取 / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     if not success:
         # ISS-070: 区分"不存在"与"已处理但 action 不一致"两类失败语义,
@@ -121,6 +124,9 @@ async def escalate_warning(
         payload.reason,
         ip_address=get_real_client_ip(request),
         request_id=request_id,
+        # P2-33 第六批：审计上下文（ip 由 helper 从 request 取 / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     if not success:
         raise HTTPException(status_code=404, detail="预警不存在")
@@ -247,7 +253,12 @@ async def create_consultation_record(
     service = CounselorService(db)
     try:
         record_id = await service.create_consultation_record(
-            current_user.id, user_id, payload.model_dump()
+            current_user.id,
+            user_id,
+            payload.model_dump(),
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
+            tenant_id=current_user.tenant_id,
         )
     except ValueError as exc:
         raise ServiceError(str(exc), status_code=422, tenant_id=current_user.tenant_id) from exc
@@ -321,7 +332,13 @@ async def update_consultation_record(
     service = CounselorService(db)
     try:
         success = await service.update_consultation_record(
-            current_user.id, user_id, record_id, payload.model_dump()
+            current_user.id,
+            user_id,
+            record_id,
+            payload.model_dump(),
+            # P2-33 第六批：审计上下文（ip / 租户落列）
+            request=request,
+            tenant_id=current_user.tenant_id,
         )
     except ValueError as exc:
         raise ServiceError(str(exc), status_code=422, tenant_id=current_user.tenant_id) from exc
@@ -344,6 +361,9 @@ async def create_group(
         payload.group_name,
         payload.description,
         payload.color_tag,
+        # P2-33 第六批：审计上下文（ip / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
     )
     return ok({"group_id": group_id})
 
@@ -384,7 +404,14 @@ async def add_group_member(
             status_code=403, detail="无权操作：分组不存在或不属于当前咨询师"
         )
     service = CounselorService(db)
-    success = await service.add_group_member(current_user.id, group_id, payload.user_id)
+    success = await service.add_group_member(
+        current_user.id,
+        group_id,
+        payload.user_id,
+        # P2-33 第六批：审计上下文（ip / 租户落列）
+        request=request,
+        tenant_id=current_user.tenant_id,
+    )
     if not success:
         # M9 修复：区分"分组不存在"和"用户未绑定"两种情况
         # 为安全起见，对外返回模糊错误信息避免信息泄露

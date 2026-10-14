@@ -73,3 +73,22 @@
   `# P2-33 第四批修复：tenant_id 必须落列。修前只进 detail，列恒为模型默认，…`。
 - 含全称词“恒为”，其语义为陈述修复前后的确定性行为差异（列恒为默认 vs 落列），有行为闸门 `TestRecordAuditTenantColumn` 作证，非空断言。
 - 闸门 `test_inventory_ratchet_be` 同步 95→96。
+
+## 附录：全称注释清单同步（96→97，第十二轮第六批）
+
+- 新增 2 条（均在 `backend/app/core/audit.py`，因给 `record_audit` 补
+  `default=str` 容错而引入）；同时 `backend/app/tasks/scheduler.py` 少 1 条
+  （原「default=str 只会让异常值退化成其字符串形式」注释被改写），净 +1：
+  - `backend/app/core/audit.py:73`
+    `# default=str 只会让异常值退化成其字符串形式，详情仍可人工复盘」）；`
+    （引用 scheduler 原注释，陈述 `default=str` 的降级语义）
+  - `backend/app/core/audit.py:75`
+    `# TypeError 冒泡到调用方。detail 仍是 JSON 对象（调用侧闸门保证）。`
+- 行为闸门作证（非空断言）：
+  - `:73` 的「只会让异常值退化成字符串」由
+    `tests/tasks/test_scheduler.py::TestStaleWarningReminderImpl` 三个用例作证
+    （它们传 MagicMock 值，无 `default=str` 会直接 TypeError——本批实锤 3 failed）；
+  - `:75` 的「detail 仍是 JSON 对象」由
+    `tests/test_p2_12_round12.py::TestAuditDetailJsonDownstream::
+    test_record_audit_detail_is_never_a_string` 作证。
+- 闸门 `test_inventory_ratchet_be` 同步 96→97。
