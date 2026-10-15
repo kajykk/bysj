@@ -1,9 +1,9 @@
 {
   "counts": {
-    "X": 163,
+    "X": 159,
+    "W": 55,
     "G": 8,
     "S": 36,
-    "W": 51,
     "D": 22,
     "V": 2,
     "C": 7,
@@ -26,7 +26,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 151,
+      "line": 152,
       "func": "_handle_silenced_alert",
       "handled": [
         "Exception"
@@ -35,7 +35,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 172,
+      "line": 173,
       "func": "_handle_active_alert",
       "handled": [
         "Exception"
@@ -44,7 +44,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 189,
+      "line": 190,
       "func": "_handle_active_alert",
       "handled": [
         "Exception"
@@ -53,7 +53,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 204,
+      "line": 205,
       "func": "_handle_active_alert",
       "handled": [
         "Exception"
@@ -62,16 +62,16 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 267,
+      "line": 268,
       "func": "alertmanager_webhook",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 344,
+      "line": 349,
       "func": "list_alert_history",
       "handled": [
         "Exception"
@@ -2290,25 +2290,25 @@
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 42,
+      "line": 43,
       "func": "_load_training_jobs",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 55,
+      "line": 59,
       "func": "_save_training_jobs",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 241,
+      "line": 248,
       "func": "get_training_job",
       "handled": [
         "Exception"
@@ -2317,7 +2317,7 @@
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 275,
+      "line": 282,
       "func": "list_training_jobs",
       "handled": [
         "Exception"
@@ -2326,7 +2326,7 @@
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 299,
+      "line": 306,
       "func": "update_job",
       "handled": [
         "Exception"
@@ -2335,7 +2335,7 @@
     },
     {
       "file": "app/services/observability/aggregate.py",
-      "line": 37,
+      "line": 38,
       "func": "_parse_detail_json",
       "handled": [
         "Exception"
@@ -2344,12 +2344,12 @@
     },
     {
       "file": "app/services/observability/aggregate.py",
-      "line": 473,
+      "line": 474,
       "func": "_fetch_lock_memory_stats",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/observability_exporter.py",

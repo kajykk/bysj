@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 50,
+  "real_wired": 54,
   "import_probe": 16,
   "real_list": [
     {
@@ -15,7 +15,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 151,
+      "line": 152,
       "handled": [
         "Exception"
       ],
@@ -25,7 +25,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 172,
+      "line": 173,
       "handled": [
         "Exception"
       ],
@@ -35,7 +35,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 189,
+      "line": 190,
       "handled": [
         "Exception"
       ],
@@ -45,7 +45,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 204,
+      "line": 205,
       "handled": [
         "Exception"
       ],
@@ -55,17 +55,17 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 267,
+      "line": 268,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 344,
+      "line": 349,
       "handled": [
         "Exception"
       ],
@@ -2527,7 +2527,27 @@
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 42,
+      "line": 43,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 59,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 248,
       "handled": [
         "Exception"
       ],
@@ -2537,7 +2557,7 @@
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 55,
+      "line": 282,
       "handled": [
         "Exception"
       ],
@@ -2547,27 +2567,7 @@
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 241,
-      "handled": [
-        "Exception"
-      ],
-      "wired": false,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/services/model_predict/training_jobs.py",
-      "line": 275,
-      "handled": [
-        "Exception"
-      ],
-      "wired": false,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/services/model_predict/training_jobs.py",
-      "line": 299,
+      "line": 306,
       "handled": [
         "Exception"
       ],
@@ -2577,7 +2577,7 @@
     },
     {
       "file": "app/services/observability/aggregate.py",
-      "line": 37,
+      "line": 38,
       "handled": [
         "Exception"
       ],
@@ -2587,11 +2587,11 @@
     },
     {
       "file": "app/services/observability/aggregate.py",
-      "line": 473,
+      "line": 474,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

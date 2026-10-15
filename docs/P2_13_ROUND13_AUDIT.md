@@ -327,6 +327,47 @@ list_jobs 的计数器也没涨。⇒ 又一条「门禁全绿不等于接线有
 
 ---
 
+## 一之六、#35 X 桶第六批：4 处接线（X 163 → 159，跨三文件）
+
+### 1.18 接线清单
+
+三文件跨层（任务侧快照 + 请求侧 webhook + 观测侧统计），**调用链已按第四批教训逐个追过**：
+
+| location | 所属文件 | 语义 |
+|---|---|---|
+| `services.model_predict.training_jobs.load_failed` | `services/model_predict/training_jobs.py` | 启动快照读失败 → `TRAINING_JOBS` 为空，重启后所有训练任务在管理端"不存在"（用户以为任务从没跑过）|
+| `services.model_predict.training_jobs.save_failed` | 同上 | 快照写失败 → 任务状态只在进程内存，重启即丢（用户可见的任务历史凭空清空）|
+| `api.alerts.webhook.final_commit_failed` | `api/v1/alerts/__init__.py` | webhook 末尾 commit 失败 → 本请求逐条 savepoint 落库的告警随这次 commit 一起回滚，但响应仍 200 且 `failed=0`（逐条计数统计不到 commit）——**响应与数据结构双双说谎**，告警审计整批丢失 |
+| `services.observability.aggregate.lock_stats_unavailable` | `services/observability/aggregate.py` | `dedup_lock` 统计读失败回填四个 0，观测页当作真实数据展示——**假数据比缺数据更危险**（运维据此判断去重是否正常）|
+
+### 1.19 跳过 8 条（书面记账，仍留 X 桶，机器不裁、文档裁）
+
+`training_jobs` 的 get/list/update 三处失败其实落在第五批刚接线的被调方
+（`tasks.model_training.*`）或已有 `storage_degraded` 可见标志；`alerts` 的
+detail 解析退化是脏数据且有 warning；`model_registry_v2` 的 promote 失败以 None
+上抛（调用方可见）、quarantine 失败属嵌套清理；`model_engine/inference` 的
+persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自报失败）。
+
+### 1.20 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch6Wiring`（3 条）：4 对 location 双向核对（源码+文档）+
+  三处运行时覆盖（`training_jobs` 两处用其可注入的 loader/dumper 触发、`aggregate`
+  patch `dedup_lock.get_stats` 触发并验证回填的是全 0 假数据）。`alerts` 的 commit
+  失败**未做运行时断言**——它在 FastAPI 端点内，测试环境 `get_db` override 把
+  `session.commit` 绑成实例属性（第十二轮第四批同类），无法在不伪造整套依赖注入的
+  前提下触发，故只由存在性断言守住并记账（同族陷阱见 §1.14「验证工具自身失效会
+  伪装成修复有效」）。
+- 桶计数改钉：**W=55 / X=159**（总数 334 不变）。
+- 三次真实变异：M1 删 `training_jobs` 一处接线 → 双向断言 + 运行时断言双红；
+  M2 删 `aggregate` 接线 → 红；M3 删 P2_11 附录登记行 →
+  `test_locations_wired_in_code_and_doc` 红。均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch6_result.log`。
+- 配套工具：`tests/tools/watch_ci.py` 增 `cancelled` 识别（本仓 workflow 带
+  concurrency cancel-in-progress，被后续 push 取代的 job 是 cancelled 而非
+  failure，不再误判为 CI 失败）。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -362,18 +403,10 @@ list_jobs 的计数器也没涨。⇒ 又一条「门禁全绿不等于接线有
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（四批 + 一次修正后）：X 桶 **168** 条 = 待接 155 + 已裁定跳过 27
-   （第一批 2 + 第二批 11 + 第三批 1 + 第四批 13〔其中 5 处经复核由接线改判〕）；
-   已接 **19 处**（7+6+5+1），调用点 26→**45**；W=46。
-   下一批候选续：`core/model_engine/loading.py` 8（真候选集中在「侧车哈希不可读
-   →完整性锚点缺失」与「审计路径解析失败静默跳过」，其余已有
-   `_incr_model_fallback` 计数或 critical 日志）、`api/v1/alerts/__init__.py` 6
-   （预裁定后仅 2 条真候选：final commit 失败、detail 解析退化）、
-   `training_jobs` 5 ×2、`model_registry_v2` 4、`am_sync` 4、
-   `anomaly_detection_service` 4、`canary_fallback_monitor` 4、
-   `observability/aggregate` 3、`model_engine/inference` 2 等。
-   ⚠️ 取新簇时的前置动作（第四批教训）：**先追调用链确认失败到底落在哪一层**
-   ——被调方自己 `except` 并写审计/指标时，接线只会造出恒为 0 的假指标。
+0. **本轮累计状态**（六批 + 一次修正后）：X 桶 **159** 条 = 待接 **124** + 已裁定跳过
+   **35**（第一批 2 + 第二批 11 + 第三批 1 + 第四批 13 + 第六批 8，其中第四批 5 处经复核
+   由接线改判、第六批 8 处经追链改判）；已接 **28 处**（7+6+5+6-5+5+4）；调用点
+   26→**54**；W=**55**。逐批明细见各「一之X」节；本节为结账口径，历史快照不回改。
 1. **桶计数改钉（W 27→34→40 / X 187→180→174）**：只影响 `test_batch6_bucket_counts_pinned`
    的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 13 的
    去向全部可逐条指认（1.1/1.6 表），无静默蒸发。

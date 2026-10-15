@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 51,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前五批净 24）
+            "W": 55,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前六批净 28）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 163,  # 真降级留档（第十三轮前五批净接 24 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
+            "X": 159,  # 真降级留档（第十三轮前六批净接 28 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -882,6 +882,94 @@ class TestP235Round13Batch5Wiring:
 
         for loc in locs:
             assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
+
+
+class TestP235Round13Batch6Wiring:
+    """第十三轮第六批：#35 X 桶 4 处接线（三文件，按第四批纪律先追过调用链）。
+
+    - `services.model_predict.training_jobs.load_failed`：启动快照读失败 →
+      TRAINING_JOBS 为空，重启后所有训练任务在管理端"不存在"；
+    - `...training_jobs.save_failed`：快照写失败 → 任务状态只在进程内存，重启即丢；
+    - `api.alerts.webhook.final_commit_failed`：webhook 末尾 commit 失败 → 本请求
+      逐条 savepoint 落库的告警一起回滚，但响应仍 200 且 `failed=0`（逐条计数统计
+      不到 commit），**响应与数据结构双双说谎**，告警审计整批丢失；
+    - `services.observability.aggregate.lock_stats_unavailable`：dedup_lock 统计读
+      失败时回填四个 0，观测页把它当真实数据展示——**假数据比缺数据更危险**。
+
+    同簇的 8 条已记账跳过（理由见 P2_11 附录）：training_jobs 的 get/list/update
+    三处失败其实落在第五批刚接线的被调方（`tasks.model_training.*`）或已有
+    `storage_degraded` 可见标志；`alerts` 的 detail 解析退化是脏数据且有 warning；
+    registry 的 promote 失败以 None 上抛（调用方可见）、quarantine 失败属嵌套清理；
+    inference 的 persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型。
+
+    运行时覆盖三处（training_jobs 两处用其可注入的 loader/dumper 触发、aggregate
+    patch `dedup_lock.get_stats`）；alerts 的 commit 失败**未做运行时断言**——
+    它在FastAPI 端点内，测试环境的 `get_db` override 把 `session.commit` 绑成实例
+    属性，无法在不伪造整套依赖注入的前提下触发，故只由存在性断言守住并记账。
+    """
+
+    PAIRS = (
+        ("services.model_predict.training_jobs.load_failed", "services/model_predict/training_jobs.py"),
+        ("services.model_predict.training_jobs.save_failed", "services/model_predict/training_jobs.py"),
+        ("api.alerts.webhook.final_commit_failed", "api/v1/alerts/__init__.py"),
+        ("services.observability.aggregate.lock_stats_unavailable", "services/observability/aggregate.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_training_jobs_snapshot_failures_increment(self, monkeypatch, tmp_path):
+        """行为：快照读/写失败 → 两个计数器各 +1（用模块自带的可注入 loader/dumper）。"""
+        import app.services.model_predict.training_jobs as tj
+
+        snapshot = tmp_path / "training_jobs.json"
+        snapshot.write_text("{}", encoding="utf-8")
+        monkeypatch.setattr(tj, "_TRAINING_JOBS_FILE", snapshot)
+
+        def _loader_boom(*args, **kwargs):
+            raise OSError("probe: snapshot unreadable")
+
+        def _dumper_boom(*args, **kwargs):
+            raise OSError("probe: snapshot unwritable")
+
+        locs = (
+            "services.model_predict.training_jobs.load_failed",
+            "services.model_predict.training_jobs.save_failed",
+        )
+        before = {loc: self._counter_value(loc) for loc in locs}
+        tj._load_training_jobs(load_json=_loader_boom)
+        tj._save_training_jobs(dump_json=_dumper_boom)
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
+
+    def test_lock_stats_unavailable_increments(self, monkeypatch):
+        """行为：dedup_lock 统计读失败 → 计数器 +1（同时验证返回的是全 0 假数据）。"""
+        import app.monitoring.dedup_lock as dl
+        import app.services.observability.aggregate as agg
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("probe: lock stats unavailable")
+
+        monkeypatch.setattr(dl, "get_stats", _boom)
+        loc = "services.observability.aggregate.lock_stats_unavailable"
+        before = self._counter_value(loc)
+        stats, last_flush = agg._fetch_lock_memory_stats()
+        assert stats == {"acquired": 0, "skipped": 0, "fallback": 0, "errors": 0}
+        assert last_flush is None
+        assert self._counter_value(loc) == before + 1, "锁统计降级未计数（假接线）"
 
 
 class TestP235Round13Batch4Wiring:

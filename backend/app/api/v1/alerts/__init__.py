@@ -48,6 +48,7 @@ from app.api.v1.alerts._schemas import (  # noqa: F401
 )
 from app.core.audit import record_audit
 from app.core.database import get_db
+from app.core.degradation import record_silent_degradation
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
 from app.core.response import ok
@@ -266,6 +267,10 @@ async def alertmanager_webhook(
         await db.commit()
     except Exception as exc:
         logger.error("[alerts/webhook] final commit failed: %s", exc)
+        # P2-35 第六批：本请求里逐条 savepoint 落库的告警随这次 commit 失败一起
+        # 回滚，但响应仍是 200 且 failed=0（逐条计数没统计到 commit）——数据结构与
+        # 响应双双说谎，告警审计整批丢失，必须计数。
+        record_silent_degradation("api.alerts.webhook.final_commit_failed")
     return {
         "status": "ok",
         "processed": processed,

@@ -13,6 +13,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,9 @@ def _load_training_jobs(load_json: Any = None) -> None:
         logger.info("Loaded %d training jobs from disk", len(TRAINING_JOBS))
     except Exception as exc:
         logger.warning("Failed to load training jobs from disk: %s", exc)
+        # P2-35 第六批：启动时快照读失败 → TRAINING_JOBS 为空，重启后所有训练任务
+        # 在管理端"不存在"（用户以为任务从没跑过），必须计数。
+        record_silent_degradation("services.model_predict.training_jobs.load_failed")
 
 
 def _save_training_jobs(dump_json: Any = None) -> None:
@@ -54,6 +58,9 @@ def _save_training_jobs(dump_json: Any = None) -> None:
             json_dumper(data, f, ensure_ascii=False, indent=2)
     except Exception as exc:
         logger.warning("Failed to save training jobs to disk: %s", exc)
+        # P2-35 第六批：快照写失败 → 任务状态只在进程内存，重启即丢（用户可见的
+        # 任务历史凭空清空），必须计数。
+        record_silent_degradation("services.model_predict.training_jobs.save_failed")
 
 
 def cleanup_old_training_jobs(max_size: int = TRAINING_JOBS_MAX_SIZE) -> int:

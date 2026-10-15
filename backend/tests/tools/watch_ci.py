@@ -60,8 +60,14 @@ def main() -> int:
         bad = [
             r["name"]
             for r in runs
-            if r.get("conclusion") in ("failure", "cancelled", "timed_out")
+            if r.get("conclusion") in ("failure", "timed_out")
         ]
+        cancelled = [r["name"] for r in runs if r.get("conclusion") == "cancelled"]
+        if cancelled:
+            # cancelled 不是失败：本仓 workflow 带 concurrency cancel-in-progress，
+            # 后续 push 会把本次未完成的 job 取消掉（第十三轮实锤：前一批 9 success
+            # + backend-coverage cancelled，是"被新提交取代"而非回归）。
+            print(f"NOTE: cancelled（非失败，通常是被后续 push 取代）: {cancelled}")
         if bad:
             print(f"CI_FAILURE_DETECTED: {bad}")
             return 1

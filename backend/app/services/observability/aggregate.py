@@ -19,6 +19,7 @@ from typing import Any
 from sqlalchemy import Float, and_, cast, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.degradation import record_silent_degradation
 from app.models.admin import OperationLog
 from app.services.observability._common import (
     _json_loads,
@@ -472,6 +473,12 @@ def _fetch_lock_memory_stats() -> tuple[dict[str, int], Any]:
         last_flush_at = get_last_flush_at()
     except Exception as exc:
         logger.warning("[observability] 读 dedup_lock 内存统计失败: %s", exc)
+        # P2-35 第六批：读失败时下面回填的四个 0 会被观测页当作"本进程一把锁都没
+        # 拿到过"的真实数据展示——**假数据比缺数据更危险**（运维据此判断去重是否
+        # 正常），必须计数。
+        record_silent_degradation(
+            "services.observability.aggregate.lock_stats_unavailable"
+        )
         mem_stats = {"acquired": 0, "skipped": 0, "fallback": 0, "errors": 0}
         last_flush_at = None
     return mem_stats, last_flush_at

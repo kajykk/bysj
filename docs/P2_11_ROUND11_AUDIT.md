@@ -570,3 +570,42 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   闸门 `test_p2_12_round12.py::TestTargetTenantAttribution`（源码+运行时双钉）
   本轮 121 passed 全绿。第十一轮正文「剩余 54 处分布」中的 `tenant_admin` 4
   为历史快照，按「只追加不改」原则在此结案，不回改上文。
+
+- 2026-10-15（第十三轮第六批）：#35 X 桶接线 4 处（X 163→159，W 51→55，
+  调用点 50→54，扫描器+分类器复跑实测，总数 334 不变），**三文件跨层**
+  （任务侧快照 + 请求侧 webhook + 观测侧统计）：
+
+    services.model_predict.training_jobs.load_failed
+    services.model_predict.training_jobs.save_failed
+    api.alerts.webhook.final_commit_failed
+    services.observability.aggregate.lock_stats_unavailable
+
+  裁定说明：`training_jobs` 两处——启动快照读失败→`TRAINING_JOBS` 为空，重启后
+  所有训练任务在管理端"不存在"（用户以为任务从没跑过）；快照写失败→任务状态只在
+  进程内存，重启即丢（用户可见的任务历史凭空清空）。`alerts.webhook` 末尾 commit
+  失败→本请求逐条 savepoint 落库的告警随这次 commit 一起回滚，但响应仍是 200 且
+  `failed=0`（逐条计数统计不到 commit）——**响应与数据结构双双说谎**，告警审计整批
+  丢失。`observability.aggregate` 读 `dedup_lock` 统计失败时回填四个 0，观测页当作
+  真实数据展示——**假数据比缺数据更危险**（运维据此判断去重是否正常）。
+
+  同簇 **8 条书面记账跳过**（仍留 X 桶，文档裁）：`training_jobs` 的 get/list/update
+  三处失败其实落在第五批刚接线的被调方（`tasks.model_training.*`）或已有
+  `storage_degraded` 可见标志；`alerts` 的 detail 解析退化是脏数据且有 warning；
+  `model_registry_v2` 的 promote 失败以 None 上抛（调用方可见）、quarantine 失败属
+  嵌套清理；`model_engine/inference` 的 persist 失败下轮自愈（R 型）、Prometheus
+  上报失败属 S 型（自报失败）。
+
+  闸门 `TestP235Round13Batch6Wiring`（3 条）：4 对 location 双向核对（源码+文档）+
+  三处运行时覆盖（`training_jobs` 两处用其可注入的 loader/dumper 触发、`aggregate`
+  patch `dedup_lock.get_stats` 触发并验证回填的是全 0 假数据）。`alerts` 的 commit
+  失败**未做运行时断言**——它在 FastAPI 端点内，测试环境 `get_db` override 把
+  `session.commit` 绑成实例属性（第十二轮第四批同类），无法在不伪造整套依赖注入的
+  前提下触发，故只由存在性断言守住并在此记账。
+
+  桶计数改钉：**W=55 / X=159**（总数 334 不变）。变异 M1 删 `training_jobs` 一处
+  接线→双向断言 + 运行时断言双红；M2 删 `aggregate` 接线→红；M3 删本附录登记行→
+  `test_locations_wired_in_code_and_doc` 红。均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch6_result.log`。
+  配套工具：`tests/tools/watch_ci.py` 增 `cancelled` 识别（本仓 workflow 带
+  concurrency cancel-in-progress，被后续 push 取代的 job 是 cancelled 而非 failure，
+  不再误判为 CI 失败）。
