@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 50,
+  "real_wired": 45,
   "import_probe": 16,
   "real_list": [
     {
@@ -331,21 +331,21 @@
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 417,
+      "line": 415,
       "handled": [
         "Exception"
       ],
-      "wired": true,
+      "wired": false,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 495,
+      "line": 492,
       "handled": [
         "Exception"
       ],
-      "wired": true,
+      "wired": false,
       "fire_and_forget": false,
       "returns": null
     },
@@ -355,17 +355,17 @@
       "handled": [
         "Exception"
       ],
-      "wired": true,
+      "wired": false,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 554,
+      "line": 550,
       "handled": [
         "Exception"
       ],
-      "wired": true,
+      "wired": false,
       "fire_and_forget": false,
       "returns": null
     },
@@ -375,7 +375,7 @@
       "handled": [
         "Exception"
       ],
-      "wired": true,
+      "wired": false,
       "fire_and_forget": false,
       "returns": null
     },

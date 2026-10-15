@@ -214,9 +214,9 @@ async def create_silence(
                     )
             except Exception as exc:
                 logger.error("[silence] AM sync exception: %s", exc)
-                # P2-35 第四批：本地已提交、AM 侧没有这条静默——接口照样返回
-                # 200，管理员以为静默生效，实际告警照常推送/通知，必须计数。
-                record_silent_degradation("api.silences.create.am_sync_failed")
+                # P2-35 第四批修正：AM 推送失败由 am_sync 内部捕获并写 am_sync_failed
+                #   OperationLog（本调用点传了 db=db），此处不重复计数（避免计数器长期为 0
+                #   误导运维）；真正无 OperationLog 落点的是回滚补偿那条，见 am_rollback_failed。
 
         await db.commit()
         await db.refresh(silence)
@@ -382,10 +382,8 @@ async def update_silence(
             await am_delete_silence(old_am_silence_id, db=db)
         except Exception as exc:
             logger.error("[silence] AM delete (on update) exception: %s", exc)
-            # P2-35 第四批：旧 AM 静默没取消掉，且下面照样把 am_silence_id 清空
-            # （后续再也无法补偿删除）——旧窗口内该 matcher 的告警被继续抑制
-            # = 漏预警，必须计数。
-            record_silent_degradation("api.silences.update.am_delete_failed")
+            # P2-35 第四批修正：AM 删除失败由 am_sync 写 am_sync_failed OperationLog
+            #   （db=db 已传），不重复计数。
         # 删除已尝试 (无论成功失败), 清空本地 am_silence_id 防止重复删除
         row.am_silence_id = None
 
@@ -416,9 +414,8 @@ async def update_silence(
             )
     except Exception as exc:
         logger.error("[silence] AM push (on update) exception: %s", exc)
-        # P2-35 第四批：更新后的静默没推到 AM——接口 200，管理员以为新窗口
-        # 生效，实际告警照常通知，必须计数。
-        record_silent_degradation("api.silences.update.am_push_failed")
+        # P2-35 第四批修正：AM 推送失败由 am_sync 写 am_sync_failed OperationLog
+        #   （db=db 已传），不重复计数。
 
     # ADR-012 (R-D): OperationLog 与业务写入同事务，单端点 ≤1 commit
     # P2-33 第一批：改调统一审计 helper SSOT（ip_address 由 helper 从 request 取，
@@ -494,9 +491,8 @@ async def enable_silence(
             )
     except Exception as exc:
         logger.error("[silence] AM push (on enable) exception: %s", exc)
-        # P2-35 第四批：重新启用没同步到 AM——本地 is_active=True 而 AM 侧
-        # 仍按已停用处理，静默不生效，必须计数。
-        record_silent_degradation("api.silences.enable.am_push_failed")
+        # P2-35 第四批修正：AM 推送失败由 am_sync 写 am_sync_failed OperationLog
+        #   （db=db 已传），不重复计数。
 
     # ADR-012 (R-D): OperationLog 与业务写入同事务，单端点 ≤1 commit
     # P2-33 第一批：改调统一审计 helper SSOT（补 ip_address，原手写版缺失）
@@ -553,8 +549,7 @@ async def delete_silence(
             await am_delete_silence(row.am_silence_id, db=db)
         except Exception as exc:
             logger.error("[silence] AM delete sync exception: %s", exc)
-            # P2-35 第四批：本地已删、AM 侧静默仍在——规则不再存在而告警被继续
-            # 抑制到窗口结束 = 漏预警，必须计数。
-            record_silent_degradation("api.silences.delete.am_sync_failed")
+            # P2-35 第四批修正：AM 删除失败由 am_sync 写 am_sync_failed OperationLog
+            #   （db=db 已传），不重复计数。
     logger.info("[silence] deleted by user=%d id=%d", current_user.id, silence_id)
     return ok({"id": silence_id, "is_active": False})

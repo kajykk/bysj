@@ -242,6 +242,38 @@
   该文件后按各 except 的真实缩进（12/12/8/4/4/8）逐处重做，**每次改完立刻
   `py_compile`**（本批就是靠它当场发现，而不是等到跑测试）。
 
+### 1.14 第四批自我修正：6 处接线 → 1 处（自查发现，随 CI 期间补做）
+
+第四批提交（`0cd4dd4`）后、下一批开工前复核调用链，发现**原判断有 5 处站不住**：
+
+| 项 | 事实 |
+|---|---|
+| 复核对象 | `app/monitoring/am_sync.py` 的 `push_silence` / `delete_silence` |
+| 关键事实 | 两者各自 `except Exception` 捕获 HTTP/连接异常 → 转成返回值（None/False）→ 随后 `_write_sync_log(db=db, ...)` 写 **`am_sync_failed` OperationLog**（含 error 全文） |
+| 调用点 | silences 5 个调用点传了 `db=db`（create/update/enable/delete），**真实 AM 失败有审计落点** |
+| 结论 | silences 侧那 5 处 `except` 只在「am_sync 调用本身抛异常」的罕见边缘路径触发 → 计数器恒为 0，**指标本身成了误导** |
+| 处置 | 移除 5 处接线 + 留改判注释；改记 M/V 型，X 桶回调（**W 46 / X 168**） |
+
+唯一保留 `api.silences.create.am_rollback_failed`：补偿删除用 `db=None` 调用
+（`_write_sync_log` 在 db=None 时直接 return ⇒ **无审计落点**），失败后 AM 侧留下
+孤儿静默而本地规则已回滚 = 漏预警，这是唯一没有落点的真实降级。
+
+**为什么第一版的门禁没抓到**：端到端测试 patch 的是 `am_sync.push_silence`
+**本身**（让它抛异常），恰好绕过了 am_sync 内部的异常捕获——测的是"接线可被
+调用"，不是"真实失败会经过这里"。这与本项目此前记录的「验证工具自身失效会伪装
+成修复有效」同族。⇒ 教训：**行为断言必须让失败走生产代码的真实路径**，而不是
+把被测函数的内部实现替换掉。
+
+**闸门随之改造**（防复发）：
+- `test_reclassified_five_have_no_counter`：**反向钉**，这 5 处不得再出现通用计数器
+  接线（后人"顺手补个计数"会红）；
+- 端到端断言改为**直接调端点函数 + 假 session**（测试环境 `get_db` override 把
+  `session.commit` 绑成实例属性 `= session.flush`，类级 patch 拦不住，走 HTTP 也
+  无法让 commit 失败——首版就是这么写成"假绿"的：响应仍是 200、计数器没动）；
+- 修正变异 3/3 RED-OK/GREEN-OK（N1 删保留接线 → 红 3/3；**N2 把改判掉的一处
+  加回来 → 反向钉红**；N3 删文档登记行 → 红 1/1），日志
+  `mutate_p2_35_round13_batch4_fix_result.log`。
+
 ---
 
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
@@ -279,9 +311,9 @@
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（四批后）：X 桶 **163** 条 = 待接 150 + 已裁定跳过 27
-   （第一批 2 + 第二批 11 + 第三批 1 + 第四批 13〔silences 外的 scheduler 7 +
-   dedup_lock 6〕）；已接 24 处（7+6+5+6），调用点 26→**50**；W=51。
+0. **本轮累计状态**（四批 + 一次修正后）：X 桶 **168** 条 = 待接 155 + 已裁定跳过 27
+   （第一批 2 + 第二批 11 + 第三批 1 + 第四批 13〔其中 5 处经复核由接线改判〕）；
+   已接 **19 处**（7+6+5+1），调用点 26→**45**；W=46。
    下一批候选续：`core/model_engine/loading.py` 8（真候选集中在「侧车哈希不可读
    →完整性锚点缺失」与「审计路径解析失败静默跳过」，其余已有
    `_incr_model_fallback` 计数或 critical 日志）、`api/v1/alerts/__init__.py` 6
@@ -289,6 +321,8 @@
    `training_jobs` 5 ×2、`model_registry_v2` 4、`am_sync` 4、
    `anomaly_detection_service` 4、`canary_fallback_monitor` 4、
    `observability/aggregate` 3、`model_engine/inference` 2 等。
+   ⚠️ 取新簇时的前置动作（第四批教训）：**先追调用链确认失败到底落在哪一层**
+   ——被调方自己 `except` 并写审计/指标时，接线只会造出恒为 0 的假指标。
 1. **桶计数改钉（W 27→34→40 / X 187→180→174）**：只影响 `test_batch6_bucket_counts_pinned`
    的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 13 的
    去向全部可逐条指认（1.1/1.6 表），无静默蒸发。

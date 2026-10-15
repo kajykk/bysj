@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 51,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前四批 24）
+            "W": 46,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前四批净 19）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 163,  # 真降级留档（第十三轮前四批已接 24 处：validation 读路径 5 + cache 初始化 2 + predict 5 + auto_rollback 1 + pdf_report 5 + silences 6）
+            "X": 168,  # 真降级留档（第十三轮前四批净接 19 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -767,31 +767,28 @@ class TestP235Round13Batch3Wiring:
 
 
 class TestP235Round13Batch4Wiring:
-    """第十三轮第四批：#35 X 桶 6 处真降级接线（api/v1/silences.py 的 AM 同步）。
+    """第十三轮第四批：**复核后只保留 1 处**接线（silences 回滚补偿失败）。
 
-    这一簇的共性：**向 AlertManager 的 fire-and-forget 调用失败只记 error 日志，
-    本地事务照常提交、接口照样 200**，于是「静默规则生效/删除/启停」在告警链路上
-    与管理员的认知分叉：
+    这一批最初的判断错了，记账如下（第四批提交 `0cd4dd4` 之后自查发现）：
 
-    - `create.am_sync_failed`：本地有、AM 没有 → 静默不生效，告警照常推送；
-    - `create.am_rollback_failed`：commit 失败后的补偿删除也失败 → AM 留下孤儿
-      静默，规则不存在而告警被继续抑制（漏预警）；
-    - `update.am_delete_failed`：旧 AM 静默没删且 am_silence_id 照样清空 → 旧窗口
-      继续抑制（漏预警，且**再也无法补偿**）；
-    - `update.am_push_failed` / `enable.am_push_failed`：新窗口没推上去 → 静默不生效；
-    - `delete.am_sync_failed`：本地已删、AM 仍在抑制到窗口结束（漏预警）。
+    最初按「向 AlertManager 的 fire-and-forget 失败只记日志、接口照样 200」接了 6 处。
+    复核调用链后发现**真实 AM 失败路径根本到不了那 5 处**：
+    `app/monitoring/am_sync.py` 的 `push_silence` / `delete_silence` 各自
+    `except Exception` 捕获 HTTP/连接异常并转成返回值，随后 `_write_sync_log`
+    在**调用点传了 db** 的情况下写 `am_sync_failed` OperationLog（含 error 全文）。
+    ⇒ 那 5 处 except 只在「am_sync 调用本身抛异常」的罕见边缘路径触发，计数器会
+    长期为 0，**反而误导运维以为同步健康** → 改判移除，改记 M/V 型
+    （`test_reclassified_five_have_no_counter` 反向钉死，防止后人顺手补回）。
 
-    行为侧取 create 端点做端到端断言（真调 HTTP 接口 + patch AM 推送抛异常），
-    断言「接口返回 200 且计数器 +1」——正是这条簇的隐蔽性所在。
+    唯一没有 OperationLog 落点的是 **commit 失败后的补偿删除**：它用 `db=None`
+    调用 am_sync（`_write_sync_log` 在 db=None 时直接 return），失败后 AM 侧留下
+    孤儿静默——本地规则已回滚（不存在）而 AM 仍按它抑制告警 = 漏预警。保留接线。
+
+    行为侧：patch commit 抛异常 + patch AM 删除抛异常 → 补偿分支必达 → 计数器 +1。
     """
 
     PAIRS = (
-        ("api.silences.create.am_sync_failed", "api/v1/silences.py"),
         ("api.silences.create.am_rollback_failed", "api/v1/silences.py"),
-        ("api.silences.update.am_delete_failed", "api/v1/silences.py"),
-        ("api.silences.update.am_push_failed", "api/v1/silences.py"),
-        ("api.silences.enable.am_push_failed", "api/v1/silences.py"),
-        ("api.silences.delete.am_sync_failed", "api/v1/silences.py"),
     )
 
     def test_locations_wired_in_code_and_doc(self):
@@ -800,6 +797,25 @@ class TestP235Round13Batch4Wiring:
             src = (BE / rel).read_text(encoding="utf-8")
             assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
             assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    def test_reclassified_five_have_no_counter(self):
+        """反向钉：改判移除的 5 处不得再出现通用计数器接线。
+
+        它们有 `am_sync_failed` OperationLog 落点，计数器恒为 0 会误导运维；
+        若将来有人"顺手补个计数"，必须先推翻本裁定。
+        """
+        src = (BE / "api/v1/silences.py").read_text(encoding="utf-8")
+        for loc in (
+            "api.silences.create.am_sync_failed",
+            "api.silences.update.am_delete_failed",
+            "api.silences.update.am_push_failed",
+            "api.silences.enable.am_push_failed",
+            "api.silences.delete.am_sync_failed",
+        ):
+            assert f'"{loc}"' not in src, (
+                f"{loc} 已改判为 M/V 型（am_sync 内部写 am_sync_failed OperationLog），"
+                f"不得再接通用计数器——否则计数器恒为 0 误导运维"
+            )
 
     @staticmethod
     def _counter_value(location: str) -> float:
@@ -810,30 +826,72 @@ class TestP235Round13Batch4Wiring:
                 return value
         return 0.0
 
-    def test_create_am_sync_failure_increments_counter(self, client, as_role, monkeypatch):
-        """行为：AM 推送抛异常 → 本地提交成功且接口 200（静默失效）→ 计数器 +1。"""
+    def test_rollback_compensation_failure_increments_counter(self, monkeypatch):
+        """行为：commit 失败 → 补偿删除再失败（db=None 无 OperationLog）→ 计数器 +1。
+
+        直接调端点函数 + 假 session，不走 HTTP：测试环境的 `get_db` override 把
+        `session.commit` **绑成实例属性**（`= session.flush`，见 conftest
+        `override_db_dependency`），类级 patch 拦不住，走 HTTP 也无法让 commit 失败
+        ——本批首版就是这么写成"假绿"的（响应仍是 200，计数器没动）。
+        """
+        import asyncio
+
+        import pytest
+
         import app.monitoring.am_sync as am_sync
+        from app.api.v1.silences import SilenceCreate, create_silence
 
-        async def _boom(*args, **kwargs):
-            raise RuntimeError("probe: AM unreachable")
+        class _FakeSession:
+            def add(self, obj):
+                return None
 
-        monkeypatch.setattr(am_sync, "push_silence", _boom)
-        as_role("admin", 1, tenant_id=1)
-        loc = "api.silences.create.am_sync_failed"
+            def begin_nested(self):
+                class _CM:
+                    async def __aenter__(self):
+                        return None
+
+                    async def __aexit__(self, *exc):
+                        return False
+
+                return _CM()
+
+            async def commit(self):
+                raise RuntimeError("probe: commit failed")
+
+            async def flush(self):
+                return None
+
+            async def rollback(self):
+                return None
+
+        class _FakeUser:
+            id = 1
+            role = "admin"
+
+        async def _push_ok(*args, **kwargs):
+            return {"silenceID": "probe-am-id"}
+
+        async def _delete_boom(*args, **kwargs):
+            raise RuntimeError("probe: AM delete unavailable during rollback")
+
+        monkeypatch.setattr(am_sync, "push_silence", _push_ok)
+        monkeypatch.setattr(am_sync, "delete_silence", _delete_boom)
+
+        loc = "api.silences.create.am_rollback_failed"
         before = self._counter_value(loc)
-        # 校验器要求 starts_at 不早于当前时间 5 分钟以前 → 必须动态取时间
         now = datetime.now(timezone.utc)
-        res = client.post(
-            "/api/v1/alerts/silences",
-            json={
-                "name": "probe-am-sync",
-                "matcher": {"alertname": "ProbeAlert"},
-                "starts_at": (now - timedelta(minutes=1)).isoformat(),
-                "ends_at": (now + timedelta(hours=2)).isoformat(),
-            },
+        payload = SilenceCreate(
+            name="probe-rollback",
+            matcher={"alertname": "ProbeAlert"},
+            starts_at=now - timedelta(minutes=1),
+            ends_at=now + timedelta(hours=2),
         )
-        assert res.status_code == 200, res.text
-        assert self._counter_value(loc) == before + 1, "AM 同步失败未计数（假接线）"
+        # commit 失败 → 端点按契约把异常抛给调用方；补偿分支已在抛错前执行
+        with pytest.raises(RuntimeError, match="probe: commit failed"):
+            asyncio.run(
+                create_silence(payload, db=_FakeSession(), current_user=_FakeUser())
+            )
+        assert self._counter_value(loc) == before + 1, "补偿删除失败未计数（假接线）"
 
 
 class TestP232ModelMetadataContradictionRecorded:

@@ -503,6 +503,38 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   （6 对存在性双向核对 + create 端点端到端：patch AM 推送抛异常后接口
   仍返回 200 且计数器 +1）。
 
+- 2026-10-15（第十三轮第四批**修正**）：上条 6 处接线经调用链复核后**只保留 1 处**，
+  另 5 处改判 M/V 型移回 X 桶（桶计数回调为 **W=46/X=168**）。复核结论：
+
+  `app/monitoring/am_sync.py` 的 `push_silence` / `delete_silence` 各自
+  `except Exception` 捕获 HTTP/连接异常并转成返回值，随后 `_write_sync_log`
+  在调用点传了 `db` 的情况下写 `am_sync_failed` OperationLog（含 error 全文）。
+  ⇒ silences 侧那 5 处 except 只在「am_sync 调用本身抛异常」的罕见边缘路径才会
+  触发，计数器长期为 0，**反而误导运维以为同步健康**。改判移除并留注释说明，防
+  后人顺手补回。改判的 5 处：
+
+    api.silences.create.am_sync_failed
+    api.silences.update.am_delete_failed
+    api.silences.update.am_push_failed
+    api.silences.enable.am_push_failed
+    api.silences.delete.am_sync_failed
+
+  保留接线 1 处（唯一无 OperationLog 落点者）：
+
+    api.silences.create.am_rollback_failed
+
+  （commit 失败后的补偿删除用 `db=None` 调用 am_sync，`_write_sync_log` 在
+  db=None 时直接 return ⇒ 无审计落点；失败后 AM 侧留下孤儿静默，本地规则已回滚
+  而 AM 仍按它抑制告警 = 漏预警。）
+
+  闸门改造：`TestP235Round13Batch4Wiring` 的 PAIRS 收为 1 对，新增
+  `test_reclassified_five_have_no_counter` **反向钉**（这 5 处不得再出现通用计数器
+  接线）；端到端行为断言改为**直接调端点函数 + 假 session**（测试环境
+  `get_db` override 把 `session.commit` 绑成实例属性 `= flush`，类级 patch 拦不住，
+  走 HTTP 无法让 commit 失败——首版就是这么写成"假绿"的）。变异 3/3
+  RED-OK/GREEN-OK（N1 删接线 / N2 把改判处加回来 / N3 删文档登记行），
+  日志 `mutate_p2_35_round13_batch4_fix_result.log`。
+
 - 2026-10-15（第十三轮结案）：`tenant_admin` 4 处**迁移已在第十二轮第六批
   `a9926a1` 完成**（第十三轮提示词该项为 stale，实测结账不改码）：
   4 处 `record_audit` 的 `tenant_id` 实参为 `tenant.id`/`tenant_id`（目标租户，

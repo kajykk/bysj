@@ -1,9 +1,9 @@
 {
   "counts": {
-    "X": 163,
+    "X": 168,
     "G": 8,
     "S": 36,
-    "W": 51,
+    "W": 46,
     "D": 22,
     "V": 2,
     "C": 7,
@@ -311,21 +311,21 @@
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 417,
+      "line": 415,
       "func": "update_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "W"
+      "bucket": "X"
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 495,
+      "line": 492,
       "func": "enable_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "W"
+      "bucket": "X"
     },
     {
       "file": "app/api/v1/silences.py",
@@ -334,16 +334,16 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "W"
+      "bucket": "X"
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 554,
+      "line": 550,
       "func": "delete_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "W"
+      "bucket": "X"
     },
     {
       "file": "app/api/v1/silences.py",
@@ -352,7 +352,7 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "W"
+      "bucket": "X"
     },
     {
       "file": "app/api/v1/silences.py",
