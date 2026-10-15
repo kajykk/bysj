@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 40,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮第一/二批 13）
+            "W": 45,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前三批 18）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 174,  # 真降级留档（第十三轮第一/二批已接 13 处：validation 读路径 5 + cache 初始化 2 + predict 5 + auto_rollback 1）
+            "X": 169,  # 真降级留档（第十三轮前三批已接 18 处：validation 读路径 5 + cache 初始化 2 + predict 5 + auto_rollback 1 + pdf_report 5）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -694,6 +694,76 @@ class TestP235Round13Batch2Wiring:
         assert len(results) == 1
         assert results[0].should_rollback is True, "前置条件失效：结果应仍标记 should_rollback"
         assert self._counter_value(loc) == before + 1, "回滚 savepoint 失败未计数（假接线）"
+
+
+class TestP235Round13Batch3Wiring:
+    """第十三轮第三批：#35 X 桶 5 处真降级接线（tasks/pdf_report.py）。
+
+    接线对象（X 169 / W 45，扫描器复跑实测）——第六批已接 `save_pdf_bytes_failed`
+    （写入侧），本批补齐**任务侧其余四个 Redis 存取点 + 进度推送**，
+    它们与写入侧同族（Redis 不可用时全部退化为「看不见」）：
+    - `save_job_to_redis_failed`：任务状态写失败 → 用户轮询查不到任务；
+    - `get_job_from_redis_failed`：读失败返回 None → 与「任务不存在」不可区分（假阴性）；
+    - `list_jobs_from_redis_failed`：列表读失败返回 [] → 报告列表页凭空变空（部分数据）；
+    - `get_pdf_bytes_failed`：字节读失败 → 下载接口拿不到报告；
+    - `websocket_progress_notify_failed`：进度推送 fire-and-forget 丢失 → 进度条永远卡住。
+
+    行为侧一次覆盖四个同步存取点（把 `_get_sync_redis` 换成必炸替身，
+    真调四个公开函数），第五个（进度推送，需 ws 会话与 db 查询）
+    由存在性断言守住并在此记账。
+    """
+
+    PAIRS = (
+        ("tasks.pdf_report.save_job_to_redis_failed", "tasks/pdf_report.py"),
+        ("tasks.pdf_report.get_job_from_redis_failed", "tasks/pdf_report.py"),
+        ("tasks.pdf_report.list_jobs_from_redis_failed", "tasks/pdf_report.py"),
+        ("tasks.pdf_report.get_pdf_bytes_failed", "tasks/pdf_report.py"),
+        ("tasks.pdf_report.websocket_progress_notify_failed", "tasks/pdf_report.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_redis_access_failures_increment_counters(self, monkeypatch):
+        """行为：Redis 不可用 → 四个存取点各走降级分支 → 对应计数器各 +1。"""
+        import importlib
+
+        pdf = importlib.import_module("app.tasks.pdf_report")
+
+        def _boom():
+            raise ConnectionError("probe: redis down")
+
+        monkeypatch.setattr(pdf, "_get_sync_redis", _boom)
+
+        locs = (
+            "tasks.pdf_report.save_job_to_redis_failed",
+            "tasks.pdf_report.get_job_from_redis_failed",
+            "tasks.pdf_report.list_jobs_from_redis_failed",
+            "tasks.pdf_report.get_pdf_bytes_failed",
+        )
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # 前置条件：降级分支的返回值本身就是「看不见」的形态
+        assert pdf.get_job_from_redis("probe-job") is None
+        assert pdf.list_jobs_from_redis() == []
+        assert pdf.get_pdf_bytes_from_redis("probe-job") is None
+        pdf.save_job_to_redis("probe-job", {"status": "running"})
+
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
 
 
 class TestP232ModelMetadataContradictionRecorded:

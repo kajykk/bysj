@@ -451,6 +451,25 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   桶计数同步改钉（W=40/X=174）；新增 `TestP235Round13Batch2Wiring`
   （存在性双向核对 + 影子触发/回滚 savepoint 两个运行时计数器断言）。
 
+- 2026-10-15（第十三轮第三批）：#35 X 桶接线 5 处（X 174→169，W 40→45，
+  调用点 39→44，扫描器+分类器复跑实测，总数 334 不变）——`tasks/pdf_report.py`
+  任务侧 Redis 存取点（第六批只接了写入侧 `save_pdf_bytes_failed`）：
+
+    tasks.pdf_report.save_job_to_redis_failed
+    tasks.pdf_report.get_job_from_redis_failed
+    tasks.pdf_report.list_jobs_from_redis_failed
+    tasks.pdf_report.get_pdf_bytes_failed
+    tasks.pdf_report.websocket_progress_notify_failed
+
+  裁定说明：任务状态写失败→用户轮询查不到任务；读失败返回 None 与「任务不存在」
+  不可区分（假阴性）；列表读失败返回 []→报告列表页凭空变空（部分数据）；
+  字节读失败→下载接口拿不到报告；进度推送 fire-and-forget 丢失→进度条永远卡住
+  （保持 debug 日志级别不变，靠计数提供可观测性）。
+  本批跳过 1 条并记账：`delete_pdf_bytes_from_redis`（C 型清理路径，删失败
+  只留残留字节由 TTL 兜底，不影响业务语义）。
+  桶计数同步改钉（W=45/X=169）；新增 `TestP235Round13Batch3Wiring`
+  （存在性双向核对 + 一次运行时覆盖四个同步存取点的计数器 +1）。
+
 - 2026-10-15（第十三轮结案）：`tenant_admin` 4 处**迁移已在第十二轮第六批
   `a9926a1` 完成**（第十三轮提示词该项为 stale，实测结账不改码）：
   4 处 `record_audit` 的 `tenant_id` 实参为 `tenant.id`/`tenant_id`（目标租户，

@@ -107,6 +107,10 @@ def save_job_to_redis(job_id: str, job_data: dict[str, Any]) -> None:
         r.sadd(_PDF_JOB_INDEX_KEY, job_id)
     except Exception as exc:
         logger.warning("[pdf_task] failed to save job %s to Redis: %s", job_id, exc)
+        # P2-35 第三批：任务状态丢失 = 用户轮询查不到这个任务（与已接线的
+        # save_pdf_bytes_failed 同族的「任务侧状态写入」点，报告仍会生成，
+        # 但状态查询在本次 TTL 窗口内拿不到结果），必须计数。
+        record_silent_degradation("tasks.pdf_report.save_job_to_redis_failed")
 
 
 def get_job_from_redis(job_id: str) -> dict[str, Any] | None:
@@ -121,6 +125,9 @@ def get_job_from_redis(job_id: str) -> dict[str, Any] | None:
         return None
     except Exception as exc:
         logger.warning("[pdf_task] failed to get job %s from Redis: %s", job_id, exc)
+        # P2-35 第三批：读失败返回 None 与「任务不存在」不可区分——用户看到
+        # 「报告不存在」而任务其实还在跑（假阴性），必须计数。
+        record_silent_degradation("tasks.pdf_report.get_job_from_redis_failed")
         return None
 
 
@@ -165,6 +172,9 @@ def list_jobs_from_redis(created_by: int | None = None) -> list[dict[str, Any]]:
         job_ids = r.smembers(_PDF_JOB_INDEX_KEY)
     except Exception as exc:
         logger.warning("[pdf_task] failed to list jobs from Redis: %s", exc)
+        # P2-35 第三批：列表读失败返回 [] 与「一个任务都没有」不可区分——报告
+        # 列表页凭空变空，用户以为报告全丢（部分数据），必须计数。
+        record_silent_degradation("tasks.pdf_report.list_jobs_from_redis_failed")
         return []
 
     items: list[dict[str, Any]] = []
@@ -253,6 +263,10 @@ def _notify_progress(
             job_id,
             exc_info=True,
         )
+        # P2-35 第三批：进度推送是 fire-and-forget——丢失后用户侧进度停在最后
+        # 一次推送的数值（任务其实已跑完），必须计数；保持 debug 日志级别不变
+        # （高频路径不打 error），靠计数提供可观测性。
+        record_silent_degradation("tasks.pdf_report.websocket_progress_notify_failed")
 
 
 def save_pdf_bytes_to_redis(job_id: str, pdf_bytes: bytes) -> None:
@@ -275,6 +289,9 @@ def get_pdf_bytes_from_redis(job_id: str) -> bytes | None:
         return r.get(_bytes_key(job_id))
     except Exception as exc:
         logger.warning("[pdf_task] failed to get pdf bytes %s from Redis: %s", job_id, exc)
+        # P2-35 第三批：PDF 字节读失败 = 下载接口拿不到报告（写入侧孪生点
+        # save_pdf_bytes_failed 已在第六批接线），必须计数。
+        record_silent_degradation("tasks.pdf_report.get_pdf_bytes_failed")
         return None
 
 

@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 39,
+  "real_wired": 44,
   "import_probe": 16,
   "real_list": [
     {
@@ -3008,43 +3008,33 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 122,
+      "line": 126,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "None"
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 166,
+      "line": 173,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "[]"
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 250,
-      "handled": [
-        "Exception"
-      ],
-      "wired": false,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/tasks/pdf_report.py",
-      "line": 263,
+      "line": 260,
       "handled": [
         "Exception"
       ],
@@ -3054,17 +3044,27 @@
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 276,
+      "line": 277,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 290,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
       "fire_and_forget": false,
       "returns": "None"
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 286,
+      "line": 303,
       "handled": [
         "Exception"
       ],

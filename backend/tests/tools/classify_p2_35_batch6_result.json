@@ -1,9 +1,9 @@
 {
   "counts": {
-    "X": 174,
+    "X": 169,
     "G": 8,
     "S": 36,
-    "W": 40,
+    "W": 45,
     "D": 22,
     "V": 2,
     "C": 7,
@@ -2725,38 +2725,38 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 122,
+      "line": 126,
       "func": "get_job_from_redis",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 166,
+      "line": 173,
       "func": "list_jobs_from_redis",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 250,
+      "line": 260,
       "func": "_notify_progress",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 263,
+      "line": 277,
       "func": "save_pdf_bytes_to_redis",
       "handled": [
         "Exception"
@@ -2765,16 +2765,16 @@
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 276,
+      "line": 290,
       "func": "get_pdf_bytes_from_redis",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/pdf_report.py",
-      "line": 286,
+      "line": 303,
       "func": "delete_pdf_bytes_from_redis",
       "handled": [
         "Exception"

@@ -164,6 +164,43 @@
 
 ---
 
+## 一之三、#35 X 桶第三批：5 处接线（X 174 → 169）
+
+### 1.9 接线清单（`tasks/pdf_report.py`，第六批 `save_pdf_bytes_failed` 的同族补全）
+
+| location | 降级语义 |
+|---|---|
+| `tasks.pdf_report.save_job_to_redis_failed` | 任务状态写失败 → 用户轮询查不到任务（报告仍会生成，状态查询在本次 TTL 窗口内拿不到） |
+| `tasks.pdf_report.get_job_from_redis_failed` | 读失败返回 None → 与「任务不存在」不可区分（假阴性） |
+| `tasks.pdf_report.list_jobs_from_redis_failed` | 列表读失败返回 [] → 报告列表页凭空变空（部分数据） |
+| `tasks.pdf_report.get_pdf_bytes_failed` | 字节读失败 → 下载接口拿不到报告（写入侧孪生点第六批已接） |
+| `tasks.pdf_report.websocket_progress_notify_failed` | 进度推送 fire-and-forget 丢失 → 进度停在最后推送值（保持 debug 日志级别，靠计数可观测） |
+
+跳过 1 条：`delete_pdf_bytes_from_redis`（C 型清理路径——删失败只留残留字节，
+由 `_PDF_BYTES_TTL_SECONDS` 兜底，不影响业务语义）。
+
+### 1.10 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch3Wiring`（2 条）：5 对 location 双向核对 + 一次运行时
+  覆盖四个同步存取点（`_get_sync_redis` 换必炸替身后真调四个公开函数，同时断言
+  降级返回值形态 = "看不见"：None/None/[]/None）。第五个（进度推送，需 ws 会话
+  与 db 查询）由存在性断言守住并记账。
+- 桶计数改钉：**W=45 / X=169**。
+- 三次真实变异：M1 删 save_job_to_redis 接线 → 红 3/3（locations/运行时/桶计数）；
+  M2 换 get_pdf_bytes location 字面量 → 红 2/2；M3 删文档登记行 → 红 1/1。
+  日志 `mutate_p2_35_round13_batch3_result.log`。
+- 实测：全部 P2 闸门六套件 **126 passed**；affected **93 passed / 10 skipped**
+  （tasks/test_pdf_report + test_iss02_tasks_pdf_report + test_pdf_celery +
+  test_csp_report_smoke + api/test_reports_api_extended）。
+- **全称注释净值处置（0，两侧账不需写）**：本批两条新注释初稿写了「永远等不到
+  结果」「进度条永远卡住」，触发 `test_inventory_ratchet_be`（97→98→100）。
+  按 #38 纪律复核发现这两个断言本身**过度**——TTL 到期后任务本来就会消失、
+  刷新页面会拿到终态，故不是"永远"。**处置：改写注释为精确表述**（"在本次 TTL
+  窗口内拿不到""进度停在最后推送值"），棘轮维持 98，不做账也不动闸门。
+  ⇒ 推论：**遇到全称注释棘轮变红，先问"这个断言是否站得住"，站不住就改写而非加数。**
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -199,11 +236,12 @@
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（两批后）：X 桶 **174** 条 = 待接 161 + 已裁定跳过 13
-   （第一批 2 + 第二批 11，均书面记账仍留桶）；已接 13 处（7+6），
-   调用点 26→**39**；W=40。下一批候选续：`loading.py` 8、`scheduler.py` 7、
-   `silences.py` 6、`alerts/__init__.py` 6、`pdf_report.py` 6、
-   `dedup_lock.py` 6、`notifier.py` 5。
+0. **本轮累计状态**（三批后）：X 桶 **169** 条 = 待接 156 + 已裁定跳过 14
+   （第一批 2 + 第二批 11 + 第三批 1，均书面记账仍留桶）；已接 18 处（7+6+5），
+   调用点 26→**44**；W=45。下一批候选续：`loading.py` 8、`scheduler.py` 7、
+   `silences.py` 6、`dedup_lock.py` 6、`alerts/__init__.py` 6（预裁定后仅 2 条
+   真候选）、`notifier.py` 5（初判全跳过：通道失败已有 OperationLog
+   `alert_channel_failed` + 调用方 notify_failed 双重落点）。
 1. **桶计数改钉（W 27→34→40 / X 187→180→174）**：只影响 `test_batch6_bucket_counts_pinned`
    的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 13 的
    去向全部可逐条指认（1.1/1.6 表），无静默蒸发。
