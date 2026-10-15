@@ -705,3 +705,26 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   ④ predict 抛异常对象走 `_candidate_predict` except）。桶计数改钉
   **W=67 / X=147**。变异 M1 删任一接线 / M2 改 location 字面量 / M3 删登记行，
   均 RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch10_result.log`。
+
+- 2026-10-15（第十三轮第十一批）：#35 X 桶接线 3 处（实记录 X 147→145、探针 P 16→15，
+  W 67→70，调用点 66→69），单文件 `app/services/file_security_service.py`：
+
+    services.file_security.clamav_dependency_missing_fail_open
+    services.file_security.clamav_unavailable_fail_open
+    services.file_security.clamav_error_fail_open
+
+  裁定说明：上传安全网的 fail-open 降级放行。`scan_with_clamav` 在依赖缺失/
+  clamd 不可用/扫描异常且显式开启 `clamav_fail_open` 时返回 `(True, ...)`，
+  调用方 `process_uploaded_file` 只看到 True，与"干净"无法区分——未扫描的文件
+  被当作已扫描通过保留。注意 118 行（EXIF 剥离失败）返回 `(False, ...)`，
+  调用方直接拒绝保留（调用方可见的 V 型），不接线。同查的
+  `excel_export_service.py` 3 处全部返回 `success=False + error_message` 结构化
+  失败，调用方同样可见，不接线（接线只会给"调用方已处理"的路径加计数，是
+  第四批 silences 教训的反例）。
+
+  闸门 `TestP235Round13Batch11Wiring`（2 条）：3 对 location 双向核对 + 一次
+  运行时覆盖三条 fail-open 路径（本仓默认无 pyclamd，ImportError 分支真实可达；
+  另两条注入假 clamd 模块驱动）。桶计数改钉 **W=70 / X=145 / P=15**（本批首次把
+  ImportError **探针记录本身**接线：探针 wired=True → W，P 16→15；总数 334 不变，
+  口径变化已在本条记账）。变异 M1 删任一接线 / M2 改 location 字面量 / M3 删登记
+  行，均 RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch11_result.log`。

@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,11 @@ def scan_with_clamav(file_path: Path) -> tuple[bool, str]:
                 "SEC-P2-003: pyclamd not installed, 显式允许 fail-open 跳过 ClamAV 扫描 (%s)",
                 file_path,
             )
+            # P2-35 第十一批：依赖缺失时的 fail-open 跳过同样是"未扫描按已扫描
+            # 处理"，必须计数（本仓默认即无 pyclamd，此分支真实可达）。
+            record_silent_degradation(
+                "services.file_security.clamav_dependency_missing_fail_open"
+            )
             return True, "pyclamd not installed, skipped (fail-open)"
         logger.error(
             "SEC-P2-003: pyclamd 未安装且未开启 clamav_fail_open, 拒绝上传 (%s)", file_path
@@ -201,6 +207,11 @@ def scan_with_clamav(file_path: Path) -> tuple[bool, str]:
                 file_path,
                 exc,
             )
+            # P2-35 第十一批：fail-open 降级放行——文件被当作"已扫描通过"保留，
+            # 调用方只看到 True。从返回元组看与"干净"无法区分，必须计数。
+            record_silent_degradation(
+                "services.file_security.clamav_unavailable_fail_open"
+            )
             return True, f"ClamAV not available, skipped (fail-open): {exc}"
         logger.error(
             "SEC-P2-003: clamd 不可用且未开启 clamav_fail_open, 拒绝上传 (%s): %s",
@@ -215,6 +226,10 @@ def scan_with_clamav(file_path: Path) -> tuple[bool, str]:
                 file_path,
                 exc,
                 exc_info=True,
+            )
+            # P2-35 第十一批：同上，扫描异常时的 fail-open 降级放行必须计数。
+            record_silent_degradation(
+                "services.file_security.clamav_error_fail_open"
             )
             return True, f"ClamAV scan failed (fail-open): {exc}"
         logger.error(

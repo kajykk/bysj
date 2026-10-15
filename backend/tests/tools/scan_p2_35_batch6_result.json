@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 66,
+  "real_wired": 68,
   "import_probe": 16,
   "real_list": [
     {
@@ -2447,7 +2447,7 @@
     },
     {
       "file": "app/services/file_security_service.py",
-      "line": 118,
+      "line": 119,
       "handled": [
         "Exception"
       ],
@@ -2457,21 +2457,21 @@
     },
     {
       "file": "app/services/file_security_service.py",
-      "line": 197,
+      "line": 203,
       "handled": [
         "ConnectionError"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "(False, f'Virus scan unavailable: ClamAV daemon not reachabl"
     },
     {
       "file": "app/services/file_security_service.py",
-      "line": 211,
+      "line": 222,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "(False, f'Virus scan failed: {exc}')"
     },
@@ -3378,11 +3378,11 @@
     },
     {
       "file": "app/services/file_security_service.py",
-      "line": 155,
+      "line": 156,
       "handled": [
         "ImportError"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "(False, 'Virus scan unavailable: pyclamd not installed')"
     }

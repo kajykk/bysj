@@ -408,8 +408,9 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 67,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十批净 40）
-            "P": 16,   # ImportError 特性探测
+            "W": 70,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十一批净 43）
+            "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
+                        # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
             "C": 7,    # 清理路径
@@ -420,7 +421,9 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 147,  # 真降级留档（第十三轮前十批净接 40 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
+            "X": 145,  # 真降级留档（本批 3 处接线中 2 处为实记录 X→W，另 1 处为探针记录 P→W；
+                        # 故 X 147→145、P 16→15、W 67→70；silences 6 处经复核改判：5 处已有
+                        # am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -1360,30 +1363,100 @@ class TestP235Round13Batch10Wiring:
             assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
 
 
-class TestP235Round13Batch4Wiring:
-    """第十三轮第四批：**复核后只保留 1 处**接线（silences 回滚补偿失败）。
+class TestP235Round13Batch11Wiring:
+    """第十三轮第十一批：#35 X 桶 2 处接线（`services/file_security_service.py`）。
 
-    这一批最初的判断错了，记账如下（第四批提交 `0cd4dd4` 之后自查发现）：
+    上传安全网的 fail-open 降级放行：`scan_with_clamav` 在依赖缺失/clamd 不可用/
+    扫描异常且运维显式开启 `clamav_fail_open` 时返回 `(True, ...)` —— 文件被当作
+    "已扫描通过"保留，调用方 `process_uploaded_file` 只看到 True，与"干净"无法
+    区分。降级放行只记 warning 日志，无计数。三处 fail-open 分支各一处接线。
 
-    最初按「向 AlertManager 的 fire-and-forget 失败只记日志、接口照样 200」接了 6 处。
-    复核调用链后发现**真实 AM 失败路径根本到不了那 5 处**：
-    `app/monitoring/am_sync.py` 的 `push_silence` / `delete_silence` 各自
-    `except Exception` 捕获 HTTP/连接异常并转成返回值，随后 `_write_sync_log`
-    在**调用点传了 db** 的情况下写 `am_sync_failed` OperationLog（含 error 全文）。
-    ⇒ 那 5 处 except 只在「am_sync 调用本身抛异常」的罕见边缘路径触发，计数器会
-    长期为 0，**反而误导运维以为同步健康** → 改判移除，改记 M/V 型
-    （`test_reclassified_five_have_no_counter` 反向钉死，防止后人顺手补回）。
-
-    唯一没有 OperationLog 落点的是 **commit 失败后的补偿删除**：它用 `db=None`
-    调用 am_sync（`_write_sync_log` 在 db=None 时直接 return），失败后 AM 侧留下
-    孤儿静默——本地规则已回滚（不存在）而 AM 仍按它抑制告警 = 漏预警。保留接线。
-
-    行为侧：patch commit 抛异常 + patch AM 删除抛异常 → 补偿分支必达 → 计数器 +1。
+    同文件第 118 行（EXIF 剥离失败）与 `excel_export_service.py` 3 处**不接线、
+    留档**：前者返回 `(False, ...)`，调用方直接拒绝保留（调用方可⻅的 V 型）；
+    后者三处全部返回 `success=False + error_message` 结构化失败，调用方同样
+    可见。接线只会给"调用方已处理"的路径加恒 0/恒可见计数，是第四批 silences
+    教训的反例，故文档裁。
     """
 
     PAIRS = (
-        ("api.silences.create.am_rollback_failed", "api/v1/silences.py"),
+        ("services.file_security.clamav_dependency_missing_fail_open", "services/file_security_service.py"),
+        ("services.file_security.clamav_unavailable_fail_open", "services/file_security_service.py"),
+        ("services.file_security.clamav_error_fail_open", "services/file_security_service.py"),
     )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_all_three_fail_open_branches_increment(self, monkeypatch, tmp_path):
+        """行为：fail-open 开启时依赖缺失/clamd 不可用/扫描异常 → 放行且各 +1。"""
+        import sys
+        import types
+
+        import app.services.file_security_service as mod
+
+        monkeypatch.setattr(mod.settings, "enable_clamav_scan", True)
+        monkeypatch.setattr(mod.settings, "clamav_fail_open", True)
+        target = tmp_path / "probe.bin"
+        target.write_bytes(b"probe")
+
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # ① 依赖缺失：本仓默认无 pyclamd，ImportError 分支真实可达。
+        ok, msg = mod.scan_with_clamav(target)
+        assert ok is True and "fail-open" in msg
+
+        # ②/③ 注入假 clamd：NetworkSocket 建连抛 ConnectionError / scan 抛异常。
+        class _FakeConnError(Exception):
+            pass
+
+        mode = {"scan_boom": False}
+
+        class _FakeSocket:
+            def __init__(self, *args, **kwargs):
+                raise _FakeConnError("probe: clamd down")
+
+        class _FakeSocket2:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def scan(self, _path):
+                if mode["scan_boom"]:
+                    raise RuntimeError("probe: scan exploded")
+                return {str(_path): ("OK", None)}
+
+        fake = types.ModuleType("clamd")
+        fake.ConnectionError = _FakeConnError
+        fake.ClamdNetworkSocket = _FakeSocket
+        fake.ClamdUnixSocket = _FakeSocket2
+        monkeypatch.setitem(sys.modules, "clamd", fake)
+        monkeypatch.setattr(mod.settings, "clamav_unix_socket", None)
+
+        # ② clamd 不可用 → fail-open 放行。
+        ok, msg = mod.scan_with_clamav(target)
+        assert ok is True and "fail-open" in msg
+
+        # ③ 扫描异常 → fail-open 放行。
+        fake.ClamdNetworkSocket = _FakeSocket2
+        mode["scan_boom"] = True
+        ok, msg = mod.scan_with_clamav(target)
+        assert ok is True and "fail-open" in msg
+
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
 
     def test_locations_wired_in_code_and_doc(self):
         doc = AUDIT.read_text(encoding="utf-8")

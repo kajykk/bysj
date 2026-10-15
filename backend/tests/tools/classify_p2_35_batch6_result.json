@@ -1,7 +1,7 @@
 {
   "counts": {
-    "X": 148,
-    "W": 62,
+    "X": 144,
+    "W": 67,
     "G": 8,
     "S": 36,
     "D": 22,
@@ -12,7 +12,7 @@
     "M": 6,
     "R": 4,
     "F": 2,
-    "P": 16
+    "P": 15
   },
   "rows": [
     {
@@ -2217,33 +2217,6 @@
       "bucket": "X"
     },
     {
-      "file": "app/services/file_security_service.py",
-      "line": 118,
-      "func": "strip_image_exif",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/file_security_service.py",
-      "line": 197,
-      "func": "scan_with_clamav",
-      "handled": [
-        "ConnectionError"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/file_security_service.py",
-      "line": 211,
-      "func": "scan_with_clamav",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
       "file": "app/services/model_predict/fusion.py",
       "line": 222,
       "func": "_log_canary_event",
@@ -2503,7 +2476,43 @@
       "handled": [
         "RuntimeError"
       ],
-      "bucket": "X"
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 122,
+      "func": "commit_shadow_stats",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 230,
+      "func": "_shadow_check",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 262,
+      "func": "_load_candidate",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/shadow_comparison_service.py",
+      "line": 296,
+      "func": "_candidate_predict",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
     },
     {
       "file": "app/services/shadow_mode_service.py",
@@ -3012,15 +3021,6 @@
       "file": "app/ml/drift_detector.py",
       "line": 128,
       "func": "compute_ks_test",
-      "handled": [
-        "ImportError"
-      ],
-      "bucket": "P"
-    },
-    {
-      "file": "app/services/file_security_service.py",
-      "line": 155,
-      "func": "scan_with_clamav",
       "handled": [
         "ImportError"
       ],
