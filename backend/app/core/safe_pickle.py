@@ -33,6 +33,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from app.core.degradation import record_silent_degradation
+
 logger = logging.getLogger(__name__)
 
 # 单次读取块大小（64KB），平衡内存与 I/O 效率
@@ -395,11 +397,14 @@ def safe_joblib_load(
                     model_id or file_path,
                 )
         except Exception:
-            # settings 不可用时维持调用方传入的 require_hash 值
+            # ISS-006 加固失效：settings 读不到 → 无从判定「生产环境」，强制哈希
+            # 校验那一步被整段跳过，require_hash 停在调用方传入的 False。调用方
+            # 拿到的仍是正常模型对象，与「已按预期做完整性校验」完全同形。
             logger.warning(
                 "safe_joblib_load: settings 不可用, 无法判定生产环境, " "require_hash 维持调用方传入值 (%s).",
                 require_hash,
             )
+            record_silent_degradation("core.safe_pickle.joblib_env_guard_unavailable")
 
     path, size, file_hash, expected_hash = _validated_model_file(
         file_path,
@@ -496,11 +501,14 @@ def safe_torch_load(
                     file_path,
                 )
         except Exception:
-            # settings 不可用时维持调用方传入的 weights_only 值
+            # ISS-046 加固失效：settings 读不到 → 生产环境强制 weights_only=True
+            # 这一步被跳过，torch.load 走回可执行任意代码的路径并成功返回，调用方
+            # 无从得知这次加载没有启用 weights_only 保护。
             logger.warning(
                 "safe_torch_load: settings 不可用, 无法判定生产环境, " "weights_only 维持调用方传入值 (%s).",
                 weights_only,
             )
+            record_silent_degradation("core.safe_pickle.torch_env_guard_unavailable")
 
     path, size, file_hash, expected_hash = _validated_model_file(
         file_path,

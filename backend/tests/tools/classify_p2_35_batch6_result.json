@@ -1,7 +1,7 @@
 {
   "counts": {
-    "X": 137,
-    "W": 78,
+    "X": 133,
+    "W": 82,
     "G": 8,
     "S": 36,
     "D": 22,
@@ -1173,7 +1173,7 @@
     },
     {
       "file": "app/core/model_registry_v2.py",
-      "line": 216,
+      "line": 224,
       "func": "_quarantine_corrupt_file",
       "handled": [
         "OSError"
@@ -1182,7 +1182,7 @@
     },
     {
       "file": "app/core/model_registry_v2.py",
-      "line": 454,
+      "line": 462,
       "func": "_promote_model_locked",
       "handled": [
         "Exception"
@@ -1191,7 +1191,7 @@
     },
     {
       "file": "app/core/model_registry_v2.py",
-      "line": 169,
+      "line": 171,
       "func": "_load_registry",
       "handled": [
         "JSONDecodeError",
@@ -1199,18 +1199,18 @@
         "OSError",
         "ValueError"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_registry_v2.py",
-      "line": 191,
+      "line": 196,
       "func": "_load_registry",
       "handled": [
         "KeyError",
         "ValueError",
         "TypeError"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/otel.py",
@@ -1322,7 +1322,7 @@
     },
     {
       "file": "app/core/safe_pickle.py",
-      "line": 286,
+      "line": 288,
       "func": "_restricted_unpickler_class",
       "handled": [
         "Exception"
@@ -1331,21 +1331,21 @@
     },
     {
       "file": "app/core/safe_pickle.py",
-      "line": 397,
+      "line": 399,
       "func": "safe_joblib_load",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/safe_pickle.py",
-      "line": 498,
+      "line": 503,
       "func": "safe_torch_load",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/sentry.py",

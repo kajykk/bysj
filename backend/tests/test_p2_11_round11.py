@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import pathlib
 import re
 from datetime import datetime, timedelta, timezone
@@ -408,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 78,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十三批净 51）
+            "W": 82,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十四批净 55）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -421,11 +422,12 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 137,  # 真降级留档（第十三批 5 处实记录 X→W：escalation 通知失败 /
-                        # idempotency begin/settle/dismiss / validation 指标中段失败；
-                        # 故 X 142→137、W 73→78；总数 334 不变。
-                        # 前一行起为第十二批口径：X 145→142、W 70→73；
-                        # 再前一批含 ImportError 探针接线：X 147→145、P 16→15。）
+            "X": 133,  # 真降级留档（第十四批 4 处实记录 X→W：safe_pickle 两个环境
+                        # 加固失效 / registry 整体损坏空表启动 / registry 部分记录丢弃；
+                        # 故 X 137→133、W 78→82；总数 334 不变。
+                        # 前一行起为第十三批口径：X 142→137、W 73→78；
+                        # 再前一批：X 145→142、W 70→73；更早一批含 ImportError
+                        # 探针接线：X 147→145、P 16→15。）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -2146,3 +2148,143 @@ class TestP235Round13Batch13Wiring:
                         "接线会给出调用方已处理的幻觉 —— 必须先推翻裁定"
                     )
         assert hits == 2, f"行为锚点命中 {hits} 处，期望 2（锚点漂移 = 闸门失效）"
+
+
+class TestP235Round13Batch14Wiring:
+    """第十三轮第十四批：#35 X 桶 4 处接线（safe_pickle 安全加固 / 注册表加载）。
+
+    四处都是「**保护层的保护罩**掉了，而加载/读取本身照样成功」：
+
+    - `core.safe_pickle.joblib_env_guard_unavailable`：ISS-006 的「生产环境强制
+      哈希校验」靠读 `settings.app_env` 判定；settings 读不到 → 加固整段跳过，
+      `require_hash` 停在调用方传入的 False，函数照常返回模型对象。
+    - `core.safe_pickle.torch_env_guard_unavailable`：ISS-046 同理，
+      `weights_only` 停在 False → `torch.load` 走回可执行任意代码的路径并成功返回。
+    - `core.model_registry_v2.registry_file_unparsable`：注册表整体损坏 → 旁路备份
+      后以空表启动，与「全新注册表」完全同形，训练资产的丢失不在任何返回值里。
+    - `core.model_registry_v2.registry_records_dropped`：部分记录结构坏 → 已加载的
+      留下、其余丢弃，registry 非空且可用，只是少了几条。
+
+    另 1 处**不接线、留档**（判据见 `test_declined_restricted_unpickler_no_wiring`）：
+    `_restricted_unpickler_class` 导入 joblib.NumpyUnpickler 失败返回 None，但它的
+    唯一调用点在下一句就把 None 翻译成 raise（fail-closed），属 V 型。
+    """
+
+    PAIRS = (
+        ("core.safe_pickle.joblib_env_guard_unavailable", "core/safe_pickle.py"),
+        ("core.safe_pickle.torch_env_guard_unavailable", "core/safe_pickle.py"),
+        ("core.model_registry_v2.registry_file_unparsable", "core/model_registry_v2.py"),
+        ("core.model_registry_v2.registry_records_dropped", "core/model_registry_v2.py"),
+    )
+
+    # 不接线那一条的行为锚点（pin 日志语义而非行号）
+    DECLINED_MARKERS = ("无法导入 joblib.NumpyUnpickler，反序列化白名单不可用",)
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_four_paths_increment(self, monkeypatch, tmp_path):
+        """行为：四条失败路径各触发一次 → 对应计数器各 +1。"""
+        import importlib
+        import json
+
+        import app.core.config as cfg
+
+        sp = importlib.import_module("app.core.safe_pickle")
+        mrv2 = importlib.import_module("app.core.model_registry_v2")
+
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # ①② 让 settings 不可用：two helpers 各自 `from app.core.config import
+        # settings` 后立刻读 `settings.app_env`，让该属性访问抛异常即可命中降级分支
+        # （不必伪造整个 import machinery）。
+        class _BoomSettings:
+            @property
+            def app_env(self) -> str:
+                raise RuntimeError("probe: settings unusable")
+
+        monkeypatch.setattr(cfg, "settings", _BoomSettings())
+        for call in (
+            lambda: sp.safe_joblib_load(tmp_path / "absent.pkl", require_hash=False),
+            lambda: sp.safe_torch_load(tmp_path / "absent.pt", weights_only=False),
+        ):
+            with contextlib.suppress(Exception):  # 后续必然因文件不存在而失败
+                call()
+
+        # ③ 注册表整体损坏
+        bad_path = tmp_path / "broken_registry.json"
+        bad_path.write_text("{not valid json", encoding="utf-8")
+        empty_registry = mrv2.ModelRegistryV2(registry_path=str(bad_path))
+        assert empty_registry.registry == {}, "损坏文件应旁路后以空表启动"
+
+        # ④ 合法 JSON 但第二条记录缺字段 → KeyError → 部分加载
+        good = {
+            "model_id": "probe_ok",
+            "name": "probe",
+            "version": "v1.0.0",
+            "model_type": "xgboost",
+            "status": "candidate",
+            "artifact_path": "models/artifacts/probe.pkl",
+            "created_at": "2026-01-01T00:00:00",
+            "updated_at": "2026-01-01T00:00:00",
+        }
+        partial_path = tmp_path / "partial_registry.json"
+        partial_path.write_text(
+            json.dumps({"models": {"probe_ok": good, "probe_bad": {"model_id": "probe_bad"}}}),
+            encoding="utf-8",
+        )
+        partial_registry = mrv2.ModelRegistryV2(registry_path=str(partial_path))
+        assert list(partial_registry.registry) == ["probe_ok"], (
+            "损坏记录应被丢弃、好记录保留 —— 正是「部分数据」形态"
+        )
+
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
+
+    def test_declined_restricted_unpickler_no_wiring(self):
+        """反向钉：白名单不可用那条 **fail-closed** 路径不得接通用计数器。
+
+        它返回 None 后，唯一调用点 `_restricted_joblib_load` 下一句就把它翻译成
+        raise RuntimeError（注释明示「绝不静默退回无白名单的 joblib.load」），
+        调用方必见异常 —— 属 V 型，接线只会稀释真降级信号。
+        """
+        src = (BE / "core/safe_pickle.py").read_text(encoding="utf-8-sig")
+        tree = ast.parse(src)
+        hits = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body_src = [ast.unparse(stmt) for stmt in node.body]
+            if not any(m in stmt for stmt in body_src for m in self.DECLINED_MARKERS):
+                continue
+            hits += 1
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Call):
+                    nm = getattr(sub.func, "id", None) or getattr(sub.func, "attr", None)
+                    assert nm != "record_silent_degradation", (
+                        "白名单不可用是 fail-closed（调用方必见 RuntimeError），接线"
+                        "会把「已被硬失败拦下」误报成静默降级 —— 必须先推翻裁定"
+                    )
+        assert hits == 1, f"行为锚点命中 {hits} 处，期望 1（锚点漂移 = 闸门失效）"
+
+        # 同时钉住 fail-closed 判据本身：这条是我的裁定前提，若被移除则上面的
+        # 「不接线」结论失效（None 会变成无白名单放行），必须同步重审。
+        assert "unpickler_cls is None or validate is None" in src, (
+            "_restricted_joblib_load 的 fail-closed 判据消失 —— "
+            "_restricted_unpickler_class 返回 None 将不再等于拒绝加载，"
+            "本批「不接线」裁定须随之推翻"
+        )

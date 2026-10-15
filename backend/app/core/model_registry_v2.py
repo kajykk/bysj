@@ -40,6 +40,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from app.core.degradation import record_silent_degradation
+
 logger = logging.getLogger(__name__)
 
 # AUDIT-2026-10-08 (P2-registry-atomic)：注册表的并发与写盘原子性。
@@ -183,6 +185,9 @@ class ModelRegistryV2:
                     exc,
                 )
                 self._quarantine_corrupt_file(path)
+                # 空表启动与「全新注册表」同形：调用方看到的都是一台没有历史产物的
+                # registry，训练资产的丢失不会体现在任何接口返回值上。
+                record_silent_degradation("core.model_registry_v2.registry_file_unparsable")
                 return
 
             try:
@@ -198,6 +203,9 @@ class ModelRegistryV2:
                     len(self.registry),
                 )
                 self._quarantine_corrupt_file(path)
+                # 部分加载同样与正常态同形：registry 非空且能用，只是少了几条，
+                # 没有任何返回值能表明「本应有更多记录」。
+                record_silent_degradation("core.model_registry_v2.registry_records_dropped")
                 return
 
             logger.info("Loaded %d models from registry", len(self.registry))

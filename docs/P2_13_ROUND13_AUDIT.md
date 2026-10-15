@@ -621,7 +621,72 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
   / M3 删 P2_11 附录登记行，均 RED-OK/GREEN-OK，日志
   `mutate_p2_35_round13_batch13_result.log`。
 
+## 一之十四、#35 X 桶第十四批：4 处接线（X 137 → 133，跨两文件）
+
+### 1.43 接线清单
+
+四处都是「**保护层的保护罩**掉了，而加载/读取本身照样成功」——与前面批次「业务
+结果缺斤少两」不同，本批降级的是**加固本身**：
+
+| location | 所属文件 | 语义 |
+|---|---|---|
+| `core.safe_pickle.joblib_env_guard_unavailable` | `core/safe_pickle.py` | ISS-006 的「生产环境强制哈希校验」靠 `settings.app_env` 判定；settings 读不到 → 加固整段跳过，`require_hash` 停在调用方传入的 False，函数照常返回模型对象 —— **调用方以为完整性校验过了** |
+| `core.safe_pickle.torch_env_guard_unavailable` | 同上 | ISS-046 同理：`weights_only` 停在 False，`torch.load` 走回可执行任意代码的路径并成功返回，与「已启用 weights_only 保护」完全同形 |
+| `core.model_registry_v2.registry_file_unparsable` | `core/model_registry_v2.py` | 注册表整体损坏 → 旁路备份后**以空表启动**；`registry` 为空与「全新注册表」一模一样，训练资产记录的历史丢失不在任何返回值里（旁路文件名虽有时间戳，但不是遥测）|
+| `core.model_registry_v2.registry_records_dropped` | 同上 | 部分记录结构坏 → 已加载的保留、其余丢弃；registry **非空且可用**，只是少了几条，没有任何字段能表明「本应有更多」|
+
+### 1.44 跳过 1 条 —— fail-closed，不是降级（V 型）
+
+`core/safe_pickle.py::_restricted_unpickler_class` 导入 `joblib.NumpyUnpickler`
+失败时返回 `None`，初看像「白名单静默失效」，实际是 **fail-closed**：全仓唯一
+调用点在下一句就把 None 翻译成 `raise RuntimeError`（该函数文档串与
+`_restricted_joblib_load` 注释都明示「绝不静默退回无白名单的 `joblib.load`」，
+并附实测：「退回的后果是恶意载荷会被真的执行」）——调用方必见异常，与第十一批
+EXIF 剥离同属 V 型。
+
+反向钉除断言「该 handler 不得出现接线」外，还**额外钉住 fail-closed 判据本身**
+（`unpickler_cls is None or validate is None`）：这条判据是「不接线」裁定的前提，
+一旦被移除，返回 None 就不再等于拒绝加载，闸门会当场红并强制重审。
+
+### 1.45 同批再确认：两簇历史已裁定，不拔桩
+
+`tasks/scheduler.py` 7 条（前批已判 F 型保守清理：失败条目本轮跳过、下轮按同一
+cutoff 重试）与 `model_registry_v2` 的 promote / quarantine 2 条（第六批已判定：
+promote 失败以 None 上抛调用方可见、quarantine 失败属嵌套清理）均按「历史快照
+不回改」维持 X 桶留档；本批接的 `_load_registry` 两条是**此前未裁过的**两个
+handler（空表启动 / 部分加载）。每批开工先做存在性核查这件事本身值得坚持：
+本轮因此避开了 9 条已裁定项的重复劳动。
+
+### 1.46 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch14Wiring`（3 条）：4 对 location 双向核对（源码+文档）
+  + 一次运行时覆盖四条路径 + 一条反向钉。运行时手法两处值得一提：
+  ① 两条 `safe_*_load` 的环境加固分支采用函数内 `from app.core.config import
+  settings`，**不必伪造 import machinery** —— 直接把 `app.core.config.settings`
+  换成 `app_env` 访问抛异常的对象即可命中（planning 阶段一度以为要 monkeypatch
+  `sys.modules`，实测不用）；
+  ② 注册表两条各在 tmp_path 造一份损坏 / 缺字段 JSON 后构造 `ModelRegistryV2`，
+  并顺带断言「部分加载后 registry 里只有好记录」这一**缺陷形态**本身。
+- 扫描器+分类器复跑：X 137→133、W 78→82、P 15 不变，总数 334 不变（纯实记录迁移）。
+- 桶计数改钉：**W=82 / X=133 / P=15**；接线调用点实测 **78→82**。
+- 四次真实变异：M1 删 safe_pickle.joblib 接线 / M2 改 registry location 字面量
+  / M3 删 P2_11 附录登记行 / **M4 反向变异**（给已裁定 fail-closed 的 handler 偷偷
+  加接线，反向钉必须红），均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch14_result.log`。
+- 门禁跑分：P2 六闸门 **155 passed**；affected（含 `test_iss02_safe_pickle` /
+  `unit/test_safe_pickle_whitelist` / `test_model_registry_v2` /
+  `test_model_registry_atomicity` / `test_training_artifact_registry` 等 10 文件）
+  **154 passed**。
+
+**连带修复（本批发现）**：上一批插入「一之十三」节时把 `## 二、prettier 最终
+决议` 的标题行一并替换掉了 —— 文档结构受损但无任何闸门覆盖（无 CI/doc lint）。
+本批插入「一之十四」时一并恢复该标题。**记账：Markdown 标题级的编辑事故目前没有
+自动防护**，后续插入新节应以「标题行 + 紧邻上下文」为锚点，而不是拿下一节标题当
+锚点。
+
 ---
+
+## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
 
@@ -656,8 +721,9 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十三批）：当前棘轮
-   **W=78 / X=137 / P=15**（总数 334 不变）。
+0. **本轮累计状态**（十四批）：当前棘轮
+   **W=82 / X=133 / P=15**（总数 334 不变）。
+   第十四批增量：W +4 / X -4（4 处实记录 X→W，无桶间迁移）；
    第十三批增量：W +5 / X -5（5 处实记录 X→W，无桶间迁移）；
    第十二批增量：W +3 / X -3（3 处实记录 X→W，无桶间迁移）；
    第十一批增量：W +3（2 处实记录 X→W + 1 处探针记录 P→W，首见探针接线）、X -2、P -1。

@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 76,
+  "real_wired": 80,
   "import_probe": 16,
   "real_list": [
     {
@@ -1288,7 +1288,7 @@
     },
     {
       "file": "app/core/model_registry_v2.py",
-      "line": 216,
+      "line": 224,
       "handled": [
         "OSError"
       ],
@@ -1298,7 +1298,7 @@
     },
     {
       "file": "app/core/model_registry_v2.py",
-      "line": 454,
+      "line": 462,
       "handled": [
         "Exception"
       ],
@@ -1308,26 +1308,26 @@
     },
     {
       "file": "app/core/model_registry_v2.py",
-      "line": 169,
+      "line": 171,
       "handled": [
         "JSONDecodeError",
         "KeyError",
         "OSError",
         "ValueError"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/model_registry_v2.py",
-      "line": 191,
+      "line": 196,
       "handled": [
         "KeyError",
         "ValueError",
         "TypeError"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -1453,7 +1453,7 @@
     },
     {
       "file": "app/core/safe_pickle.py",
-      "line": 286,
+      "line": 288,
       "handled": [
         "Exception"
       ],
@@ -1463,21 +1463,21 @@
     },
     {
       "file": "app/core/safe_pickle.py",
-      "line": 397,
+      "line": 399,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/safe_pickle.py",
-      "line": 498,
+      "line": 503,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

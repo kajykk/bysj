@@ -106,3 +106,20 @@
   test_cache_client_init_failure_increments_counter`（`from_url` 抛异常 →
   `core.cache.redis_client_init_failed` 计数器 +1，真实变异红过）。
 - 闸门 `test_inventory_ratchet_be` 同步 97→98。
+
+## 附录：全称注释清单同步（98→99，第十三轮第十四批）
+
+- 新增 1 条：`backend/app/core/model_registry_v2.py:189`
+  `# registry，训练资产的丢失不会体现在任何接口返回值上。`
+  （`_load_registry` 的整体损坏 handler 内，含全称词"不会"）。
+- 两侧账：新增 +1，无删除，净 +1（98→99）。
+- 语义与作证（非空断言）：该注释陈述"注册表整体损坏时 `ModelRegistryV2` 以空
+  dict 启动，而 `ModelRegistryV2.registry` 之外没有任何返回值/标志能表明历史记录
+  曾经存在"。行为闸门：
+  `tests/test_p2_11_round11.py::TestP235Round13Batch14Wiring::
+  test_four_paths_increment`（写入非法 JSON 后构造实例 → 断言
+  `registry == {}` 且 `core.model_registry_v2.registry_file_unparsable` 计数 +1；
+  真实变异 M1/M2 红过）。
+- 同批另三条注释（safe_pickle 两条环境加固、registry 部分加载）经副本差分复核
+  **零命中**（用词未触发检测器），非漏账。
+- 闸门 `test_inventory_ratchet_be` 同步 98→99。

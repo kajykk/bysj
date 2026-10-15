@@ -785,3 +785,31 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   **W=78 / X=137**。变异 M1 删 idempotency.begin 接线 / M2 改 escalation location
   字面量 / M3 删 P2_11 附录登记行，均 RED-OK/GREEN-OK，日志
   `mutate_p2_35_round13_batch13_result.log`。
+
+- 2026-10-16（第十三轮第十四批）：#35 X 桶接线 4 处（X 137→133，W 78→82，
+  调用点实测 78→82），跨两文件：
+
+    core.safe_pickle.joblib_env_guard_unavailable
+    core.safe_pickle.torch_env_guard_unavailable
+    core.model_registry_v2.registry_file_unparsable
+    core.model_registry_v2.registry_records_dropped
+
+  裁定说明：四处都是「**保护层的保护罩**掉了，而加载/读取本身照样成功」。
+  ISS-006（joblib 生产环境强制哈希校验）与 ISS-046（torch 生产环境强制
+  weights_only=True）都靠读 `settings.app_env` 判定，settings 读不到 → 加固整段
+  跳过、实参停在调用方传入的不安全值，函数照常返回对象；注册表两处分别是整体
+  损坏后旁路并**以空表启动**（与全新注册表同形）、部分记录结构坏后**只加载好的
+  那几条**（registry 非空且能用，只是少了几条）。
+
+  同批裁定**不接线** 1 处：`core/safe_pickle.py::_restricted_unpickler_class`
+  导入 joblib.NumpyUnpickler 失败返回 None，但唯一调用点在下一句就把 None 翻译
+  成 raise（fail-closed，注释明示绝不退回无白名单的 joblib.load）→ V 型。反向钉
+  除「不得接线」外还额外钉住该 fail-closed 判据本身，判据一旦被移除，这条裁定
+  的前提就没了。
+
+  闸门 `TestP235Round13Batch14Wiring`（3 条）：4 对 location 双向核对 + 一次
+  运行时覆盖四条路径（①② 把 `app.core.config.settings` 换成 `app_env` 访问抛
+  异常的对象，即可命中两处的环境变量降级分支 —— 不必伪造 import machinery；
+  ③④ 在 tmp_path 各造一份损坏/缺字段的注册表 JSON 后构造 ModelRegistryV2）+
+  一条反向钉。桶计数改钉 **W=82 / X=133**。变异三条见
+  `mutate_p2_35_round13_batch14_result.log`。
