@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 56,
+  "real_wired": 60,
   "import_probe": 16,
   "real_list": [
     {
@@ -2120,41 +2120,41 @@
     },
     {
       "file": "app/services/anomaly_detection_service.py",
-      "line": 572,
+      "line": 573,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/anomaly_detection_service.py",
-      "line": 583,
+      "line": 587,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/anomaly_detection_service.py",
-      "line": 592,
+      "line": 598,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/anomaly_detection_service.py",
-      "line": 601,
+      "line": 609,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

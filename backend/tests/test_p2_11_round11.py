@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 57,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前七批净 30）
+            "W": 61,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前八批净 34）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 157,  # 真降级留档（第十三轮前七批净接 30 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
+            "X": 153,  # 真降级留档（第十三轮前八批净接 34 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -1093,6 +1093,60 @@ class TestP235Round13Batch7Wiring:
         assert (
             self._counter_value(loc) == before + 1
         ), "Keras 兼容重载降级未计数（假接线）"
+
+
+class TestP235Round13Batch8Wiring:
+    """第十三轮第八批：#35 X 桶 4 处接线（`services/anomaly_detection_service.py`）。
+
+    `detect_all` 聚合 4 个安全异常检测器（高频撞库 / 非工作时间 / 异地 / 横向
+    越权），每个各自 try/except 吞掉异常并继续。任一检测器失败 → 该类异常**整类
+    漏检**，而调用方（Celery `scan_anomalies`）只拿到合并后的 findings 列表，
+    "本次没有异常"与"检测器宕机"无法区分 —— 静默安全盲区。四处全部接线。
+    """
+
+    PAIRS = (
+        ("services.anomaly_detection.high_frequency_detection_failed", "services/anomaly_detection_service.py"),
+        ("services.anomaly_detection.off_hours_detection_failed", "services/anomaly_detection_service.py"),
+        ("services.anomaly_detection.cross_region_detection_failed", "services/anomaly_detection_service.py"),
+        ("services.anomaly_detection.lateral_detection_failed", "services/anomaly_detection_service.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_all_four_detectors_increment_on_failure(self, monkeypatch):
+        """行为：四个检测器各抛异常 → 对应计数器各 +1（且 detect_all 仍返回已聚合项）。"""
+        import app.services.anomaly_detection_service as mod
+
+        monkeypatch.setattr(mod.settings, "anomaly_detection_enabled", True)
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("probe: detector down")
+
+        monkeypatch.setattr(mod, "detect_high_frequency", _boom)
+        monkeypatch.setattr(mod, "detect_off_hours", _boom)
+        monkeypatch.setattr(mod, "detect_cross_region", _boom)
+        monkeypatch.setattr(mod, "detect_lateral_access", _boom)
+
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+        findings = await mod.detect_all(None)
+        assert findings == []  # 全部失败仍返回空列表（与"无异常"同形 = 静默所在）
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
 
 
 class TestP235Round13Batch4Wiring:

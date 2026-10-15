@@ -43,6 +43,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import _is_sqlite
+from app.core.degradation import record_silent_degradation
 from app.core.contracts import (USER_ROLE_ADMIN, USER_ROLE_COUNSELOR)
 from app.models.admin import OperationLog
 
@@ -573,6 +574,9 @@ async def detect_all(db: AsyncSession) -> list[AnomalyFinding]:
         logger.error(
             "[anomaly] high_frequency detection failed: %s", exc, exc_info=True
         )
+        # P2-35 第八批：该检测器失败 → 高频撞库/爬虫整类漏检，调用方只看到 findings
+        # 变少（无异常与检测器宕机无法区分），必须计数。
+        record_silent_degradation("services.anomaly_detection.high_frequency_detection_failed")
 
     # 非工作时间检测
     try:
@@ -582,6 +586,8 @@ async def detect_all(db: AsyncSession) -> list[AnomalyFinding]:
             logger.info("[anomaly] off_hours detected %d anomalies", len(findings))
     except Exception as exc:
         logger.error("[anomaly] off_hours detection failed: %s", exc, exc_info=True)
+        # P2-35 第八批：非工作时间访问整类漏检（潜在数据外泄），必须计数。
+        record_silent_degradation("services.anomaly_detection.off_hours_detection_failed")
 
     # 异地访问检测
     try:
@@ -591,6 +597,8 @@ async def detect_all(db: AsyncSession) -> list[AnomalyFinding]:
             logger.info("[anomaly] cross_region detected %d anomalies", len(findings))
     except Exception as exc:
         logger.error("[anomaly] cross_region detection failed: %s", exc, exc_info=True)
+        # P2-35 第八批：异地访问整类漏检（账号被盗迹象），必须计数。
+        record_silent_degradation("services.anomaly_detection.cross_region_detection_failed")
 
     # 横向越权检测
     try:
@@ -600,6 +608,8 @@ async def detect_all(db: AsyncSession) -> list[AnomalyFinding]:
             logger.info("[anomaly] lateral detected %d anomalies", len(findings))
     except Exception as exc:
         logger.error("[anomaly] lateral detection failed: %s", exc, exc_info=True)
+        # P2-35 第八批：横向越权整类漏检，必须计数。
+        record_silent_degradation("services.anomaly_detection.lateral_detection_failed")
 
     return all_findings
 

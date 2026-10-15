@@ -1,6 +1,6 @@
 {
   "counts": {
-    "X": 157,
+    "X": 153,
     "W": 57,
     "G": 8,
     "S": 36,
@@ -1916,42 +1916,6 @@
       "file": "app/monitoring/notifier.py",
       "line": 455,
       "func": "_write_channel_log",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/anomaly_detection_service.py",
-      "line": 572,
-      "func": "detect_all",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/anomaly_detection_service.py",
-      "line": 583,
-      "func": "detect_all",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/anomaly_detection_service.py",
-      "line": 592,
-      "func": "detect_all",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/anomaly_detection_service.py",
-      "line": 601,
-      "func": "detect_all",
       "handled": [
         "Exception"
       ],

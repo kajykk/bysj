@@ -638,3 +638,25 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   因此假绿）。桶计数改钉 **W=57 / X=157**。变异 M1 删 audit 接线 / M2 删 keras
   接线 / M3 删登记行，均 RED-OK/GREEN-OK，日志
   `mutate_p2_35_round13_batch7_result.log`。
+
+- 2026-10-15（第十三轮第八批）：#35 X 桶接线 4 处（X 157→153，W 57→61，
+  调用点 56→60），单文件 `app/services/anomaly_detection_service.py`：
+
+    services.anomaly_detection.high_frequency_detection_failed
+    services.anomaly_detection.off_hours_detection_failed
+    services.anomaly_detection.cross_region_detection_failed
+    services.anomaly_detection.lateral_detection_failed
+
+  裁定说明：`detect_all` 聚合 4 个**安全**异常检测器（高频撞库 / 非工作时间 /
+  异地 / 横向越权），每个各自 try/except 吞掉异常并继续。任一检测器失败 → 该类
+  异常**整类漏检**，而调用方（Celery `scan_anomalies`）只拿到合并后的 findings
+  列表，"本次没有异常"与"检测器宕机"**无法区分**——静默安全盲区。四处全部接线。
+
+  闸门 `TestP235Round13Batch8Wiring`（2 条）：4 对 location 双向核对 + 一次运行时
+  覆盖（四个检测器各 patch 成必炸，断言计数器各 +1 且 `detect_all` 仍返回空列表，
+  即"与无异常同形"）。桶计数改钉 **W=61 / X=153**。变异 M1 删任一接线 / M2 改
+  location 字面量 / M3 删登记行，均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch8_result.log`。
+  相邻簇 `monitoring/notifier.py`（5）本轮**未接线、留档**：三处 `send` 失败经
+  `_write_channel_log` 落 `alert_channel_failed` OperationLog（M 型），`_dispatch`
+  的 except 同样进该落点，`_write_channel_log` 自身失败属上报失败（S 型）。

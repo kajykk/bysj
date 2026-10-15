@@ -405,6 +405,38 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ---
 
+## 一之八、#35 X 桶第八批：4 处接线（X 157 → 153，`anomaly_detection_service.py`）
+
+### 1.24 接线清单
+
+`detect_all` 聚合 4 个**安全**异常检测器，每个各自 try/except 吞掉异常并继续：
+
+| location | 语义 |
+|---|---|
+| `services.anomaly_detection.high_frequency_detection_failed` | 高频撞库/爬虫检测整类漏检 |
+| `services.anomaly_detection.off_hours_detection_failed` | 非工作时间访问整类漏检（潜在数据外泄）|
+| `services.anomaly_detection.cross_region_detection_failed` | 异地访问整类漏检（账号被盗迹象）|
+| `services.anomaly_detection.lateral_detection_failed` | 横向越权整类漏检 |
+
+调用方（Celery `scan_anomalies`）只拿到合并后的 findings 列表，"本次没有异常"与
+"检测器宕机"**无法区分**——静默安全盲区。
+
+### 1.25 相邻簇留档（`monitoring/notifier.py` 5 条，本轮未接线）
+
+三处 `send` 失败经 `_write_channel_log` 落 `alert_channel_failed` OperationLog
+（**M 型**），`_dispatch` 的 except 同样进该落点，`_write_channel_log` 自身失败属
+上报失败（**S 型**）。故整簇无新接线价值，留档。
+
+### 1.26 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch8Wiring`（2 条）：4 对 location 双向核对 + 一次运行时
+  覆盖（四检测器各 patch 成必炸，断言计数器各 +1 且 `detect_all` 仍返回空列表）。
+- 桶计数改钉：**W=61 / X=153**（总数 334 不变）。
+- 三次真实变异：M1 删任一接线 / M2 改 location 字面量 / M3 删登记行，均
+  RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch8_result.log`。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -440,11 +472,11 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（七批 + 一次修正后）：X 桶 **157** 条 = 待接 **122** + 已裁定跳过
+0. **本轮累计状态**（八批 + 一次修正后）：X 桶 **153** 条 = 待接 **118** + 已裁定跳过
    **35**（第一批 2 + 第二批 11 + 第三批 1 + 第四批 13 + 第六批 8，其中第四批 5 处经复核
-   由接线改判、第六批 8 处经追链改判；第七批 6 处为既有 M/critical/设计内/best-effort，
-   不新增跳过计数，仍在"待接"内以文档裁记）；已接 **30 处**（7+6+5+6-5+5+4+2）；
-   调用点 26→**56**；W=**57**。逐批明细见各「一之X」节；本节为结账口径，历史快照不回改。
+   由接线改判、第六批 8 处经追链改判；另有第七/八批若干为 M/critical/设计内/既存落点，
+   不新增跳过计数）；已接 **34 处**（7+6+5+6-5+5+4+2+4）；调用点 26→**60**；W=**61**。
+   逐批明细见各「一之X」节；本节为结账口径，历史快照不回改。
 1. **桶计数改钉（W 27→34→40 / X 187→180→174）**：只影响 `test_batch6_bucket_counts_pinned`
    的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 13 的
    去向全部可逐条指认（1.1/1.6 表），无静默蒸发。
