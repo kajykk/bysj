@@ -437,6 +437,38 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ---
 
+## 一之九、#35 X 桶第九批：2 处接线（X 153 → 151，`canary_fallback_monitor.py`）
+
+### 1.27 接线清单
+
+本模块是 **Celery 不可用时的最后安全网**（金丝雀自动回滚的兜底监控）：
+
+| location | 语义 |
+|---|---|
+| `services.canary_fallback_monitor.rollback_check_failed` | 接管后 `check_all_canaries` 本体失败 → 超阈值金丝雀无人回滚（故障扩大），只记 error 日志 |
+| `services.canary_fallback_monitor.loop_unexpected_error` | 循环内未预期异常（含心跳读取失败）→ 本轮接管判定/回滚机会错过而循环继续 |
+
+### 1.28 跳过 2 条（书面记账，仍留 X 桶，机器不裁、文档裁）
+
+67（`_bump_takeover_counter` 自身失败）是 **S 型**；88（breaker 快照失败）走"附加
+信号降级为主判据心跳"——连心跳也读不到时落在 `get_check_heartbeat_age` 被调方，
+此处不重复计数。
+
+### 1.29 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch9Wiring`（3 条）：2 对 location 双向核对 + 两次运行时
+  覆盖（breaker 非 closed 下接管后回滚检查抛异常；心跳读取抛异常走外层 except，
+  每次循环用 patch `asyncio.sleep` 抛 CancelledError 截断为一轮）。
+- 桶计数改钉：**W=63 / X=151**（总数 334 不变）。
+- 三次真实变异：M1 删接线 / M2 改 location 字面量 / M3 删登记行，均
+  RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch9_result.log`。
+- **本批踩坑**：`import app.services.auto_rollback_service as ars` 因包 `__init__`
+  同名 from-import 单例而拿到**实例**而非模块——patch 模块级函数必须用
+  `importlib.import_module` 拿真模块。这是比第七批（from-import 打使用方）更
+  阴险的反例：**import 遮蔽**。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -472,10 +504,10 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（八批 + 一次修正后）：X 桶 **153** 条 = 待接 **118** + 已裁定跳过
+0. **本轮累计状态**（九批 + 一次修正后）：X 桶 **151** 条 = 待接 **116** + 已裁定跳过
    **35**（第一批 2 + 第二批 11 + 第三批 1 + 第四批 13 + 第六批 8，其中第四批 5 处经复核
-   由接线改判、第六批 8 处经追链改判；另有第七/八批若干为 M/critical/设计内/既存落点，
-   不新增跳过计数）；已接 **34 处**（7+6+5+6-5+5+4+2+4）；调用点 26→**60**；W=**61**。
+   由接线改判、第六批 8 处经追链改判；另有第七/八/九批若干为 M/S/critical/设计内/既存落点，
+   不新增跳过计数）；已接 **36 处**（7+6+5+6-5+5+4+2+4+2）；调用点 26→**62**；W=**63**。
    逐批明细见各「一之X」节；本节为结账口径，历史快照不回改。
 1. **桶计数改钉（W 27→34→40 / X 187→180→174）**：只影响 `test_batch6_bucket_counts_pinned`
    的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 13 的

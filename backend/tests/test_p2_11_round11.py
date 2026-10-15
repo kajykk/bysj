@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 61,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前八批净 34）
+            "W": 63,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前九批净 36）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 153,  # 真降级留档（第十三轮前八批净接 34 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
+            "X": 151,  # 真降级留档（第十三轮前九批净接 36 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -1147,6 +1147,117 @@ class TestP235Round13Batch8Wiring:
         assert findings == []  # 全部失败仍返回空列表（与"无异常"同形 = 静默所在）
         for loc in locs:
             assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
+
+
+class TestP235Round13Batch9Wiring:
+    """第十三轮第九批：#35 X 桶 2 处接线（`services/canary_fallback_monitor.py`）。
+
+    该模块是 Celery 不可用时的**最后安全网**（金丝雀自动回滚的兜底监控）：
+    - `...rollback_check_failed`：接管后 `check_all_canaries` 本体抛异常 → 超阈值
+      金丝雀无人回滚（故障扩大），且只记 error 日志。运行时 patch
+      `check_all_canaries` 抛异常 + patch 计数器直接推进断言；
+    - `...loop_unexpected_error`：循环内未预期异常 → 本轮接管判定/回滚机会错过
+      但循环继续。运行时让 `get_check_heartbeat_age` 抛异常即可直达（外层 except）。
+
+    本簇 4 条里余 2 条记账跳过（理由见 P2_11 附录）：67（`_bump_takeover_counter`
+    自身失败）是 S 型；88（breaker 快照失败）走附加信号降级为主判据心跳——若连
+    心跳也读不到则落在第三批已接线的 `get_check_heartbeat_age` 被调方，不重复计数。
+    """
+
+    PAIRS = (
+        ("services.canary_fallback_monitor.rollback_check_failed", "services/canary_fallback_monitor.py"),
+        ("services.canary_fallback_monitor.loop_unexpected_error", "services/canary_fallback_monitor.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_rollback_check_failure_increments(self, monkeypatch):
+        """行为：接管后回滚检查抛异常 → 计数器 +1（超阈值金丝雀无人回滚）。
+
+        接管判定用 breaker 非 closed（不碰 Redis 心跳）；`check_all_canaries`
+        是 `auto_rollback_service` **单例的方法**（非模块函数），故 patch
+        单例属性。注意 `import ... as ars` 拿到的是被包 `__init__` 同名
+        from-import 遮蔽后的单例（见下个测试 docstring），这里正好是要打
+        单例，误打误中但语义正确。
+        """
+        import asyncio
+
+        import app.services.auto_rollback_service as ars_singleton_shadow
+        import app.services.canary_fallback_monitor as mod
+
+        async def _boom(*args, **kwargs):
+            raise RuntimeError("probe: check_all_canaries failed")
+
+        async def _sleep_once(_secs):
+            raise asyncio.CancelledError()
+
+        monkeypatch.setattr(mod.asyncio, "sleep", _sleep_once)
+        monkeypatch.setattr(
+            ars_singleton_shadow, "check_all_canaries", _boom
+        )
+        import app.core.celery_breaker as cb
+
+        monkeypatch.setattr(
+            cb.celery_breaker, "get_state_snapshot", lambda: {"state": "open"}
+        )
+        loc = "services.canary_fallback_monitor.rollback_check_failed"
+        before = self._counter_value(loc)
+        import pytest
+
+        with pytest.raises(asyncio.CancelledError):
+            await mod._canary_fallback_loop()
+        assert (
+            self._counter_value(loc) == before + 1
+        ), "兜底回滚检查降级未计数（假接线）"
+
+    async def test_loop_unexpected_error_increments(self, monkeypatch):
+        """行为：心跳年龄读取抛异常 → 外层 except → 计数器 +1（本轮canary 不被检查）。
+
+        踩坑：`app.services.__init__` 从 `auto_rollback_service` 模块里
+        from-import 了同名单例 `auto_rollback_service`（类实例）并挂到包属性上，
+        于是 `import app.services.auto_rollback_service as ars` 拿到的是**实例**
+        而非模块。必须用 `importlib.import_module` 拿真模块再 patch。
+        """
+        import asyncio
+        import importlib
+
+        import app.services.canary_fallback_monitor as mod
+
+        async def _boom(*args, **kwargs):
+            raise RuntimeError("probe: heartbeat unreadable")
+
+        async def _cancel_immediately(_secs):
+            raise asyncio.CancelledError()
+
+        import app.core.celery_breaker as cb
+
+        monkeypatch.setattr(
+            cb.celery_breaker, "get_state_snapshot", lambda: {"state": "closed"}
+        )
+        ars_mod = importlib.import_module("app.services.auto_rollback_service")
+        monkeypatch.setattr(ars_mod, "get_check_heartbeat_age", _boom)
+        monkeypatch.setattr(mod.asyncio, "sleep", _cancel_immediately)
+        loc = "services.canary_fallback_monitor.loop_unexpected_error"
+        before = self._counter_value(loc)
+        import pytest
+
+        with pytest.raises(asyncio.CancelledError):
+            await mod._canary_fallback_loop()
+        assert self._counter_value(loc) == before + 1, "兜底循环异常降级未计数（假接线）"
 
 
 class TestP235Round13Batch4Wiring:

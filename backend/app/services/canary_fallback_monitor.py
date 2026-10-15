@@ -33,6 +33,7 @@ import os
 from typing import TYPE_CHECKING
 
 from app.core.database import AsyncSessionLocal
+from app.core.degradation import record_silent_degradation
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -158,6 +159,12 @@ async def _canary_fallback_loop() -> None:
                         exc,
                         exc_info=True,
                     )
+                    # P2-35 第九批：兜底监控是 Celery 不可用时的最后安全网——它自己
+                    # 失败意味着超阈值金丝雀无人回滚（故障扩大），且只记 error 日志，
+                    # 运维不看日志就以为金丝雀有人在管，必须计数。
+                    record_silent_degradation(
+                        "services.canary_fallback_monitor.rollback_check_failed"
+                    )
         except asyncio.CancelledError:
             # 应用关闭, 退出循环
             logger.info("canary_fallback: loop cancelled, exiting")
@@ -168,6 +175,11 @@ async def _canary_fallback_loop() -> None:
                 "canary_fallback: unexpected error in loop: %s",
                 exc,
                 exc_info=True,
+            )
+            # P2-35 第九批：循环内未预期异常同样错过本轮接管判定/回滚机会
+            #（本轮canary 不被检查），但循环继续。必须计数。
+            record_silent_degradation(
+                "services.canary_fallback_monitor.loop_unexpected_error"
             )
 
         await asyncio.sleep(CANARY_FALLBACK_INTERVAL_SECONDS)

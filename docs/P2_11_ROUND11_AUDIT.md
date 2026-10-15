@@ -660,3 +660,27 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   相邻簇 `monitoring/notifier.py`（5）本轮**未接线、留档**：三处 `send` 失败经
   `_write_channel_log` 落 `alert_channel_failed` OperationLog（M 型），`_dispatch`
   的 except 同样进该落点，`_write_channel_log` 自身失败属上报失败（S 型）。
+
+- 2026-10-15（第十三轮第九批）：#35 X 桶接线 2 处（X 153→151，W 61→63，
+  调用点 60→62），单文件 `app/services/canary_fallback_monitor.py`：
+
+    services.canary_fallback_monitor.rollback_check_failed
+    services.canary_fallback_monitor.loop_unexpected_error
+
+  裁定说明：本模块是 **Celery 不可用时的最后安全网**（金丝雀自动回滚兜底监控）。
+  接管后 `check_all_canaries` 本体失败 → 超阈值金丝雀无人回滚（故障扩大）却只记
+  error 日志；循环内未预期异常（含心跳读取失败）→ 本轮接管判定/回滚机会错过而
+  循环继续。两者运维不看日志就以为金丝雀有人在管。
+
+  同簇 **2 条书面记账跳过**（仍留 X 桶，文档裁）：67（`_bump_takeover_counter`
+  自身失败）是 **S 型**；88（breaker 快照失败）走"附加信号降级为主判据心跳"——
+  连心跳也读不到时落在 `get_check_heartbeat_age` 被调方（其自身失败路径见对应
+  簇），此处不重复计数。
+
+  闸门 `TestP235Round13Batch9Wiring`（3 条）：2 对 location 双向核对 + 两次运行时
+  覆盖（接管后回滚检查抛异常；心跳读取抛异常走外层 except）。**patch 踩坑**：
+  `import app.services.auto_rollback_service as ars` 因包 `__init__` 同名
+  from-import 单例而拿到**实例**而非模块——patch 模块级函数须
+  `importlib.import_module`。桶计数改钉 **W=63 / X=151**。变异 M1 删接线 /
+  M2 改 location 字面量 / M3 删登记行，均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch9_result.log`。

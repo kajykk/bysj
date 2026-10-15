@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 60,
+  "real_wired": 62,
   "import_probe": 16,
   "real_list": [
     {
@@ -2274,7 +2274,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 67,
+      "line": 68,
       "handled": [
         "Exception"
       ],
@@ -2284,7 +2284,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 213,
+      "line": 225,
       "handled": [
         "CancelledError"
       ],
@@ -2294,7 +2294,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 215,
+      "line": 227,
       "handled": [
         "Exception"
       ],
@@ -2304,7 +2304,17 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 165,
+      "line": 172,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 89,
       "handled": [
         "Exception"
       ],
@@ -2314,21 +2324,11 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 88,
+      "line": 156,
       "handled": [
         "Exception"
       ],
-      "wired": false,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/services/canary_fallback_monitor.py",
-      "line": 155,
-      "handled": [
-        "Exception"
-      ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

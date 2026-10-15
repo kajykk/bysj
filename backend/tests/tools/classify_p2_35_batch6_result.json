@@ -1,13 +1,13 @@
 {
   "counts": {
-    "X": 153,
-    "W": 57,
+    "X": 149,
+    "W": 61,
     "G": 8,
     "S": 36,
     "D": 22,
     "V": 2,
-    "C": 7,
-    "K": 11,
+    "C": 6,
+    "K": 10,
     "H": 6,
     "M": 6,
     "R": 4,
@@ -1922,6 +1922,42 @@
       "bucket": "X"
     },
     {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 573,
+      "func": "detect_all",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 587,
+      "func": "detect_all",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 598,
+      "func": "detect_all",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/anomaly_detection_service.py",
+      "line": 609,
+      "func": "detect_all",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
       "file": "app/services/auth_service.py",
       "line": 277,
       "func": "change_password",
@@ -2023,60 +2059,6 @@
         "Exception"
       ],
       "bucket": "W"
-    },
-    {
-      "file": "app/services/canary_fallback_monitor.py",
-      "line": 67,
-      "func": "_bump_takeover_counter",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/canary_fallback_monitor.py",
-      "line": 213,
-      "func": "stop_canary_fallback_monitor",
-      "handled": [
-        "CancelledError"
-      ],
-      "bucket": "K"
-    },
-    {
-      "file": "app/services/canary_fallback_monitor.py",
-      "line": 215,
-      "func": "stop_canary_fallback_monitor",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "C"
-    },
-    {
-      "file": "app/services/canary_fallback_monitor.py",
-      "line": 165,
-      "func": "_canary_fallback_loop",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/canary_fallback_monitor.py",
-      "line": 88,
-      "func": "_canary_fallback_loop",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/canary_fallback_monitor.py",
-      "line": 155,
-      "func": "_canary_fallback_loop",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
     },
     {
       "file": "app/services/drift_monitoring_service.py",
