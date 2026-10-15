@@ -1714,6 +1714,7 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 | #35 X 桶第一批 | 接线 7 处：`api/v1/validation.py` 读路径 5（get/update/delete/list_jobs/count 的 Redis→内存降级）+ `core/cache.py` 客户端初始化 2（共享/pubsub，根因性降级）。X 187→**180**，W 27→**34**，调用点 26→**33**（扫描器+分类器复跑，总数 334 不变） |
 | #35 X 桶第二批 | 接线 6 处：`core/model_engine/predict.py` 5（scaler 失败→未缩放算分 / 影子触发丢失 / cleaner 缺失→原始输入——姊妹路径 predict_lite 有计数而本路径零计数 / SHAP→简单重要性 dict+array 两路）+ `services/auto_rollback_service.py` 1（回滚 savepoint 失败后结果仍 should_rollback=True，数据结构说谎）。X 180→**174**，W 34→**40**，调用点 33→39 |
 | #35 X 桶第三批 | 接线 5 处：`tasks/pdf_report.py` 任务侧 Redis 存取点（第六批只接写入侧 `save_pdf_bytes_failed`）——任务状态写失败→用户轮询查不到 / 读失败 None→与"不存在"不可区分 / 列表读失败 []→报告页凭空变空 / 字节读失败→下载拿不到 / 进度推送 fire-and-forget 丢失。X 174→**169**，W 40→**45**，调用点 39→44 |
+| #35 X 桶第五批 | 接线 6 处：`app/tasks/model_training.py`（Celery worker 侧，与第三批 pdf_report 同族）——任务状态写/读/列表/更新四处 Redis 降级 + **产物注册失败**（产物已落盘但注册表没有它 → 模型无法激活上线，训练白跑）+ **产物目录缺失**（提前 return 的非 except 路径，训练状态 completed 而注册表永远没有它）。X 168→**163**，W 46→**51**，调用点 45→51 |
 | #35 X 桶第四批 | 接线 6 处（**后经复核改为 1 处**，见下）：`api/v1/silences.py` 向 AlertManager 的同步。修正后只保留 `create.am_rollback_failed`（补偿删除用 db=None → 无 OperationLog 落点，失败留孤儿静默 = 漏预警）；另 5 处改判 M/V 型移回 X。X 163→**168**，W 46 |
 | tenant_admin 4 处 | 提示词该项 stale：第十二轮第六批 `a9926a1` 已迁完（目标租户归属 + `TestTargetTenantAttribution` 双钉），本轮实测结账不改码 |
 | prettier | **终局决议**（非第三次原样记账）：实测 370 文件不一致（437→370）+ 3 个 `.vue` parser 存量错仍在 + CI 0 命中 ⇒ 书面确认继续不做，但写入三条触发条件（CI 加格式门 / 不一致数有机降至 <50 / 答辩后归档期显式指令），满足任一即按限定方式执行 |
@@ -1767,6 +1768,15 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
     而不是"真实失败会经过这里"（与「验证工具自身失效伪装成修复有效」同族）。
     ⇒ 配套：改判掉的接线要用**反向钉**（`test_reclassified_five_have_no_counter`）
     钉死，防止后人顺手补回。
+11. **接线可能语法正确、字面量可查、却永远执行不到**（第五批实锤）：脚本以
+    「logger 块 + return」为锚点插入接线时，两处被插到 `return None`/`return []`
+    **之后**。`py_compile` 过、位置断言过、门禁全绿，运行时计数器就是不涨。
+    ⇒ 新增**全仓 AST 闸门** `TestP235WiringIsNotDeadCode`（handler 内出现
+    return/raise 之后的接线即判死）；**变异 M2 专门复现这个错误**证明闸门有效。
+    ⇒ 又一条铁律：存在性断言测不出语句顺序，**只有真跑一次或 AST 判可达才行**。
+12. **全称词表逐个避开，换同义词未必安全**（第五批实锤）：把「永远」改成「不会」
+    仍然命中（`不会` 也在表内），需二次改写为「进不了/更新不上去」。
+    读源码用 `utf-8-sig`（`app/api/v1/__init__.py` 带 BOM，否则 AST 解析报 U+FEFF）。
 
 ### 实测读数
 
@@ -1792,9 +1802,13 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 
 ### 未验证如实记账
 
-- 后端全量本地未跑（约 37 分钟）：四批本地 affected+闸门累计约 1100 passed，其余由 CI 兜底。
-- X 桶余 150 条待接（桶内 163 = 待接 150 + 已裁定跳过 27 仍留桶）；前端四批零改动
-  未跑全量，收尾轮补。
+- 第五批：`test_p2_11_round11.py` 40 passed（+3：6 对双向核对 + 六处运行时 + 死接线
+  全仓闸门）；全部 P2 闸门六套件 **132 passed**；affected **40 passed**（model_training
+  两文件）；变异 3/3 RED-OK/GREEN-OK（M2 复现死接线），日志
+  `mutate_p2_35_round13_batch3/5_result.log` 同目录。
+- 后端全量本地未跑（约 37 分钟）：五批本地 affected+闸门累计约 1300 passed，其余由 CI 兜底。
+- X 桶余 150 条待接（桶内 163 = 待接 150 + 已裁定跳过 27 仍留桶，含第四批改判的 5 处）；
+  前端五批零改动未跑全量，收尾轮补。
 - 分类器精化（认 `canary_rollback_check_lock_total`/`adapter_miss` 两个专用计数器，
   以及内层指标 except 自动归 S）为后续批可选项，本轮不改。
 

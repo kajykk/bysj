@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 45,
+  "real_wired": 50,
   "import_probe": 16,
   "real_list": [
     {
@@ -2944,51 +2944,51 @@
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 78,
+      "line": 79,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 93,
+      "line": 97,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "None"
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 111,
+      "line": 117,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "[]"
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 165,
+      "line": 177,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 194,
+      "line": 209,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

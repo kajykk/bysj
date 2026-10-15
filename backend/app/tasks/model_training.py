@@ -17,6 +17,7 @@ from typing import Any
 
 from app.core.celery_app import celery_app
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,9 @@ def save_job_to_redis(job_id: str, job_data: dict[str, Any]) -> None:
         logger.warning(
             "[training_task] failed to save job %s to Redis: %s", job_id, exc
         )
+        # P2-35 第五批：任务状态写失败 → 轮询查不到这个训练任务（报告/产物侧
+        # 孪生点见 tasks.pdf_report.save_job_to_redis_failed），必须计数。
+        record_silent_degradation("tasks.model_training.save_job_to_redis_failed")
 
 
 def get_job_from_redis(job_id: str) -> dict[str, Any] | None:
@@ -94,6 +98,8 @@ def get_job_from_redis(job_id: str) -> dict[str, Any] | None:
         logger.warning(
             "[training_task] failed to get job %s from Redis: %s", job_id, exc
         )
+        # P2-35 第五批：读失败返回 None 与「任务不存在」不可区分（假阴性），必须计数。
+        record_silent_degradation("tasks.model_training.get_job_from_redis_failed")
         return None
 
 
@@ -110,6 +116,8 @@ def list_jobs_from_redis() -> list[dict[str, Any]]:
         return jobs
     except Exception as exc:
         logger.warning("[training_task] failed to list jobs from Redis: %s", exc)
+        # P2-35 第五批：列表读失败返回 [] → 训练任务列表凭空变空（部分数据），必须计数。
+        record_silent_degradation("tasks.model_training.list_jobs_from_redis_failed")
         return []
 
 
@@ -135,6 +143,10 @@ def _register_training_artifact(
             logger.warning(
                 "[training_task] artifact dir missing, skip registry: %s", artifact_dir
             )
+            # P2-35 第五批：训练任务状态已是 completed，但产物目录不在 → 注册表里
+            # 本次产物进不了注册表（无法激活上线），这条提前 return 不抛异常，
+            # 连 exception handler 都进不去，必须单独计数。
+            record_silent_degradation("tasks.model_training.artifact_dir_missing")
             return
         metrics = {}
         if isinstance(evaluation, dict):
@@ -166,6 +178,9 @@ def _register_training_artifact(
         logger.warning(
             "[training_task] failed to register artifact %s: %s", model_name, exc
         )
+        # P2-35 第五批：产物已落盘但注册表里没有它 → 该模型无法被激活上线，
+        # 这次训练等于白跑（失败点在叶子级调用 register_model，异常确实落到这里），必须计数。
+        record_silent_degradation("tasks.model_training.artifact_register_failed")
 
 
 def update_job_in_redis(job_id: str, **updates: Any) -> None:
@@ -195,6 +210,8 @@ def update_job_in_redis(job_id: str, **updates: Any) -> None:
         logger.warning(
             "[training_task] failed to update job %s in Redis: %s", job_id, exc
         )
+        # P2-35 第五批：状态更新丢失 → 前端进度条停在旧值、训练完成状态更新不上去，必须计数。
+        record_silent_degradation("tasks.model_training.update_job_in_redis_failed")
 
 
 @celery_app.task(

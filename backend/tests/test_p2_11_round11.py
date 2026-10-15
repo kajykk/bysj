@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 46,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前四批净 19）
+            "W": 51,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前五批净 24）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 168,  # 真降级留档（第十三轮前四批净接 19 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
+            "X": 163,  # 真降级留档（第十三轮前五批净接 24 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -761,6 +761,124 @@ class TestP235Round13Batch3Wiring:
         assert pdf.list_jobs_from_redis() == []
         assert pdf.get_pdf_bytes_from_redis("probe-job") is None
         pdf.save_job_to_redis("probe-job", {"status": "running"})
+
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
+
+
+class TestP235WiringIsNotDeadCode:
+    """全仓闸门：接线语句**不得位于 except handler 内 return/raise 之后**。
+
+    第五批踩中：脚本按"logger.warning 块 + return"做锚点插入时，两处接线被插到
+    `return None` / `return []` **之后** —— 语法合法、py_compile 通过、位置断言也能
+    找到字面量，但**运行时永远执行不到**（假接线，与第四批的 am_sync 同族）。
+    ⇒ 用 AST 扫全仓：handler 体里一旦出现过 return/raise，其后的接线即判死。
+    读文件用 utf-8-sig：app/api/v1/__init__.py 带 BOM，直接 utf-8 读会解析失败。
+    """
+
+    def test_no_wiring_after_return_or_raise(self):
+        bad: list[str] = []
+        for f in sorted(BE.rglob("*.py")):
+            if "__pycache__" in f.parts:
+                continue
+            try:
+                tree = ast.parse(f.read_text(encoding="utf-8-sig"))
+            except SyntaxError as exc:  # pragma: no cover - 语法错由 py_compile 抓
+                raise AssertionError(f"{f.as_posix()} 解析失败: {exc}") from exc
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                terminated = False
+                for stmt in node.body:
+                    for sub in ast.walk(stmt):
+                        if isinstance(sub, ast.Call) and (
+                            getattr(sub.func, "id", None) or getattr(sub.func, "attr", None)
+                        ) == "record_silent_degradation":
+                            if terminated:
+                                bad.append(f"{f.relative_to(REPO).as_posix()}:{sub.lineno}")
+                    if isinstance(stmt, (ast.Return, ast.Raise)):
+                        terminated = True
+        assert not bad, (
+            "以下接线位于 return/raise 之后 = 永远执行不到的死接线: " + ", ".join(bad)
+        )
+
+
+class TestP235Round13Batch5Wiring:
+    """第十三轮第五批：#35 X 桶 5 处接线（app/tasks/model_training.py 任务侧）。
+
+    与第三批 `tasks/pdf_report` 同族（Celery worker 侧 Redis 存取），外加一条
+    本批最高价值的点：
+    - `artifact_register_failed`：产物已落盘但注册表里没有它 → 该模型无法被激活
+      上线，这次训练等于白跑。
+    其余四条：任务状态写失败 / 读失败 None（与"任务不存在"不可区分）/ 列表读失败
+    []（列表凭空变空）/ 状态更新丢失（进度停在旧值）。
+
+    **调用链已逐个追过**（第四批教训）：四处是叶子级 Redis 调用；`register_training_artifact`
+    → `registry.register_model` 也不吞异常 ⇒ 失败确实落在这些 handler 里。
+    行为侧把 `_get_sync_redis` 换成必炸替身后真调四个同步存取点；
+    产物注册点 patch `model_registry_v2.register_training_artifact` 抛异常。
+    """
+
+    PAIRS = (
+        ("tasks.model_training.save_job_to_redis_failed", "tasks/model_training.py"),
+        ("tasks.model_training.get_job_from_redis_failed", "tasks/model_training.py"),
+        ("tasks.model_training.list_jobs_from_redis_failed", "tasks/model_training.py"),
+        ("tasks.model_training.update_job_in_redis_failed", "tasks/model_training.py"),
+        ("tasks.model_training.artifact_register_failed", "tasks/model_training.py"),
+        # 非 except 路径（提前 return）：训练完成但产物目录缺失 → 注册表永远没有它
+        ("tasks.model_training.artifact_dir_missing", "tasks/model_training.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_all_six_increment_counters(self, monkeypatch, tmp_path):
+        """行为：Redis 不可用 / 产物目录缺失 / 注册写入失败 → 六处各 +1。
+
+        产物注册点需要真实存在的 artifact 目录（否则走 `artifact_dir_missing` 的
+        提前 return，根本到不了注册调用）——故把 TRAINED_ROOT patch 到 tmp_path，
+        分两次调用分别覆盖"目录缺失"与"注册抛异常"两条降级路径。
+        """
+        import app.core.model_registry_v2 as reg_v2
+        import app.services.experiment_trainer as trainer
+        import app.tasks.model_training as mt
+
+        def _boom():
+            raise ConnectionError("probe: redis down")
+
+        def _reg_boom(*args, **kwargs):
+            raise RuntimeError("probe: registry write failed")
+
+        monkeypatch.setattr(mt, "_get_sync_redis", _boom)
+        monkeypatch.setattr(reg_v2, "register_training_artifact", _reg_boom)
+        monkeypatch.setattr(trainer, "TRAINED_ROOT", tmp_path)
+
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # 降级返回值形态本身就是"看不见"：None / []
+        assert mt.get_job_from_redis("probe-job") is None
+        assert mt.list_jobs_from_redis() == []
+        mt.save_job_to_redis("probe-job", {"status": "running"})
+        mt.update_job_in_redis("probe-job", status="completed")
+        # ① 目录不存在 → 提前 return 路径
+        mt._register_training_artifact("probe-missing", "probe-ds", 1, 32, 0.01, {})
+        # ② 目录存在但注册写入失败 → exception handler 路径
+        (tmp_path / "probe-present").mkdir()
+        mt._register_training_artifact("probe-present", "probe-ds", 1, 32, 0.01, {})
 
         for loc in locs:
             assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"

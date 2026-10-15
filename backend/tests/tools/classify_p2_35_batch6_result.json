@@ -1,9 +1,9 @@
 {
   "counts": {
-    "X": 168,
+    "X": 163,
     "G": 8,
     "S": 36,
-    "W": 46,
+    "W": 51,
     "D": 22,
     "V": 2,
     "C": 7,
@@ -2666,48 +2666,48 @@
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 78,
+      "line": 79,
       "func": "save_job_to_redis",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 93,
+      "line": 97,
       "func": "get_job_from_redis",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 111,
+      "line": 117,
       "func": "list_jobs_from_redis",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 165,
+      "line": 177,
       "func": "_register_training_artifact",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/model_training.py",
-      "line": 194,
+      "line": 209,
       "func": "update_job_in_redis",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/tasks/observability.py",

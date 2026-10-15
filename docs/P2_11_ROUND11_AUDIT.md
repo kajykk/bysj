@@ -535,6 +535,34 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   RED-OK/GREEN-OK（N1 删接线 / N2 把改判处加回来 / N3 删文档登记行），
   日志 `mutate_p2_35_round13_batch4_fix_result.log`。
 
+- 2026-10-15（第十三轮第五批）：#35 X 桶接线 5 处（X 168→163，W 46→51，
+  调用点 45→50，扫描器+分类器复跑实测，总数 334 不变）——
+  `app/tasks/model_training.py`（Celery worker 侧，与第三批 `tasks/pdf_report`
+  同族；**调用链已按第四批教训逐个追过**：四处是叶子级 Redis 调用，
+  `register_training_artifact` → `registry.register_model` 亦不吞异常）：
+
+    tasks.model_training.save_job_to_redis_failed
+    tasks.model_training.get_job_from_redis_failed
+    tasks.model_training.list_jobs_from_redis_failed
+    tasks.model_training.update_job_in_redis_failed
+    tasks.model_training.artifact_register_failed
+    tasks.model_training.artifact_dir_missing
+
+  裁定说明：任务状态写失败→轮询查不到；读失败 None 与"任务不存在"不可区分
+  （假阴性）；列表读失败 []→训练任务列表凭空变空；状态更新丢失→进度停在旧值、
+  完成状态永不出现；**产物注册失败 = 本批最高价值**——产物已落盘但注册表里没有它，
+  该模型无法被激活上线，这次训练等于白跑。另有一条**非 except 路径**：
+  `_register_training_artifact` 在产物目录不存在时 `logger.warning` + **提前 return**
+  （连 exception handler 都进不去），训练状态已是 completed 而注册表永远没有该模型
+  ⇒ 单独接 `artifact_dir_missing`。它不在 X 桶候选里（扫描器只看 except handler），
+  是本批顺带发现的漏网路径。
+
+  **本批同时新增一条全仓闸门** `TestP235WiringIsNotDeadCode`：接线语句不得位于
+  except handler 内 `return`/`raise` 之后（脚本按"logger 块 + return"做锚点插入时，
+  两处接线被插到 `return None`/`return []` 之后——语法合法、py_compile 通过、
+  字面量断言也过，但运行时永远执行不到，与第四批 am_sync 同族的假接线）。
+  读源码用 `utf-8-sig`（`app/api/v1/__init__.py` 带 BOM）。
+
 - 2026-10-15（第十三轮结案）：`tenant_admin` 4 处**迁移已在第十二轮第六批
   `a9926a1` 完成**（第十三轮提示词该项为 stale，实测结账不改码）：
   4 处 `record_audit` 的 `tenant_id` 实参为 `tenant.id`/`tenant_id`（目标租户，

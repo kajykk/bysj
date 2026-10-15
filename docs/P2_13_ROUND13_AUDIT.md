@@ -276,6 +276,57 @@
 
 ---
 
+## 一之五、#35 X 桶第五批：6 处接线（X 168 → 163，其中 1 处为非 except 路径）
+
+### 1.15 接线清单（`app/tasks/model_training.py`，Celery worker 侧）
+
+| location | 语义 |
+|---|---|
+| `tasks.model_training.save_job_to_redis_failed` | 任务状态写失败 → 轮询查不到这个训练任务 |
+| `tasks.model_training.get_job_from_redis_failed` | 读失败返回 None，与「任务不存在」不可区分（假阴性） |
+| `tasks.model_training.list_jobs_from_redis_failed` | 列表读失败返回 [] → 训练任务列表凭空变空（部分数据） |
+| `tasks.model_training.update_job_in_redis_failed` | 状态更新丢失 → 进度停在旧值、完成状态更新不上去 |
+| `tasks.model_training.artifact_register_failed` | **本批最高价值**：产物已落盘但注册表里没有它 → 该模型无法激活上线，这次训练等于白跑 |
+| `tasks.model_training.artifact_dir_missing` | **非 except 路径**：产物目录不存在时 `logger.warning` + **提前 return**（连 handler 都进不去），训练状态已是 completed 而注册表永远没有该模型。扫描器只看 except handler ⇒ 它不在 X 桶候选里，是本批顺带发现的漏网路径 |
+
+**调用链已逐个追过**（第四批教训）：四处是叶子级 Redis 调用；
+`register_training_artifact` → `registry.register_model` 也不吞异常 ⇒ 失败确实
+落在这些 handler 里，计数器不会恒为 0。
+
+### 1.16 新增一条全仓闸门：接线不得是死代码
+
+`TestP235WiringIsNotDeadCode`：AST 扫全仓 `app/`，若某 except handler体内出现过
+`return`/`raise`，其后的 `record_silent_degradation` 调用即判死。
+
+**这条闸门的由来正是本批真实犯的错**：脚本以「logger 块 + return」为锚点插入时，
+`get_job_from_redis` / `list_jobs_from_redis` 两处接线被插到 `return None` /
+`return []` **之后** —— 语法合法、`py_compile` 通过、字面量断言也能找到 location，
+但**运行时永远执行不到**（与第四批 am_sync 同族的假接线）。
+发现方式：运行时断言里 `artifact_register_failed` 没涨 → 顺着查下去才看到
+list_jobs 的计数器也没涨。⇒ 又一条「门禁全绿不等于接线有效」的实例：
+**存在性断言 + 语法检查都测不出语句顺序错误，只有真跑一次（或 AST 判可达）才行。**
+读源码必须用 `utf-8-sig`（`app/api/v1/__init__.py` 带 BOM）。
+
+### 1.17 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch5Wiring`（2 条）：6 对 location 双向核对 + 一次运行时
+  覆盖六处（`_get_sync_redis` 换必炸替身 + `TRAINED_ROOT` patch 到 `tmp_path`
+  后分别触发「目录缺失」与「注册抛异常」两条产物路径）。
+- 桶计数改钉：**W=51 / X=163**（新增的 `artifact_dir_missing` 在非 except 路径，
+  不影响 X 桶计数）。
+- 三次真实变异：M1 删 save_job 接线 → 红 3/3；**M2 把 list_jobs 接线挪到
+  `return []` 之后（复现本批真实错误）→ 死接线闸门 + 运行时计数器双红**；
+  M3 删文档登记行 → 红 1/1。日志 `mutate_p2_35_round13_batch5_result.log`。
+- 实测：全部 P2 闸门六套件 **132 passed**（test_p2_11 40 + test_p2_10 10 +
+  其余四套件 82）；affected **40 passed**（tasks/test_model_training +
+  test_iss02_tasks_model_training）。
+- 全称注释：两条新注释初稿含「永远」，改写时先换成「不会」**仍命中**
+  （`不会` 也在全称词表内）⇒ 二次改写为「进不了注册表」「更新不上去」，
+  棘轮维持 98，不做账不动闸门。**推论补充：改写要逐个词避开整张表，
+  换同义词未必安全。**
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
