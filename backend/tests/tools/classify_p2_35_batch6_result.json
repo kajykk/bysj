@@ -1,7 +1,7 @@
 {
   "counts": {
-    "X": 142,
-    "W": 73,
+    "X": 137,
+    "W": 78,
     "G": 8,
     "S": 36,
     "D": 22,
@@ -709,30 +709,30 @@
     },
     {
       "file": "app/core/idempotency.py",
-      "line": 75,
+      "line": 76,
       "func": "begin_idempotent_call",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/idempotency.py",
-      "line": 93,
+      "line": 98,
       "func": "settle_idempotent_call",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/idempotency.py",
-      "line": 104,
+      "line": 112,
       "func": "dismiss_idempotent_call",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/instance.py",
@@ -1842,7 +1842,7 @@
     },
     {
       "file": "app/monitoring/escalation.py",
-      "line": 58,
+      "line": 59,
       "func": "_observe_escalation_latency",
       "handled": [
         "Exception"
@@ -1851,7 +1851,7 @@
     },
     {
       "file": "app/monitoring/escalation.py",
-      "line": 101,
+      "line": 102,
       "func": "compute_escalation",
       "handled": [
         "Exception"
@@ -1860,7 +1860,7 @@
     },
     {
       "file": "app/monitoring/escalation.py",
-      "line": 110,
+      "line": 111,
       "func": "compute_escalation",
       "handled": [
         "Exception"
@@ -1869,12 +1869,12 @@
     },
     {
       "file": "app/monitoring/escalation.py",
-      "line": 272,
+      "line": 273,
       "func": "apply_escalation",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/monitoring/notifier.py",
@@ -2601,16 +2601,16 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 235,
+      "line": 237,
       "func": "calculate_metrics",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 414,
+      "line": 422,
       "func": "_run_model_inference",
       "handled": [
         "Exception"
@@ -2619,7 +2619,7 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 504,
+      "line": 512,
       "func": "_compute_baseline_metrics",
       "handled": [
         "Exception"
@@ -2628,7 +2628,7 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 263,
+      "line": 271,
       "func": "_calculate_small_classification_metrics",
       "handled": [
         "ValueError",
@@ -2638,7 +2638,7 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 145,
+      "line": 147,
       "func": "_load_csv_dataset",
       "handled": [
         "ValueError",
@@ -2648,7 +2648,7 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 205,
+      "line": 207,
       "func": "calculate_metrics",
       "handled": [
         "ValueError"

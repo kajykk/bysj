@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 71,
+  "real_wired": 76,
   "import_probe": 16,
   "real_list": [
     {
@@ -773,31 +773,31 @@
     },
     {
       "file": "app/core/idempotency.py",
-      "line": 75,
+      "line": 76,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "(True, None)"
     },
     {
       "file": "app/core/idempotency.py",
-      "line": 93,
+      "line": 98,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/idempotency.py",
-      "line": 104,
+      "line": 112,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -2030,7 +2030,7 @@
     },
     {
       "file": "app/monitoring/escalation.py",
-      "line": 58,
+      "line": 59,
       "handled": [
         "Exception"
       ],
@@ -2040,7 +2040,7 @@
     },
     {
       "file": "app/monitoring/escalation.py",
-      "line": 101,
+      "line": 102,
       "handled": [
         "Exception"
       ],
@@ -2050,7 +2050,7 @@
     },
     {
       "file": "app/monitoring/escalation.py",
-      "line": 110,
+      "line": 111,
       "handled": [
         "Exception"
       ],
@@ -2060,11 +2060,11 @@
     },
     {
       "file": "app/monitoring/escalation.py",
-      "line": 272,
+      "line": 273,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -2872,17 +2872,17 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 235,
+      "line": 237,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 414,
+      "line": 422,
       "handled": [
         "Exception"
       ],
@@ -2892,7 +2892,7 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 504,
+      "line": 512,
       "handled": [
         "Exception"
       ],
@@ -2902,7 +2902,7 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 263,
+      "line": 271,
       "handled": [
         "ValueError",
         "TypeError"
@@ -2913,7 +2913,7 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 145,
+      "line": 147,
       "handled": [
         "ValueError",
         "TypeError"
@@ -2924,7 +2924,7 @@
     },
     {
       "file": "app/services/validation_engine.py",
-      "line": 205,
+      "line": 207,
       "handled": [
         "ValueError"
       ],

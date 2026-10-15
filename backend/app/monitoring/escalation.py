@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.database import get_db
+from app.core.degradation import record_silent_degradation
 from app.core.metrics import alert_detail_parse_failed_total
 from app.models.admin import OperationLog
 from app.monitoring.notifier import AlertPayload, CompositeNotifier
@@ -272,6 +273,11 @@ async def apply_escalation(
             except Exception as exc:
                 result = "failure"
                 logger.error("Escalation notify failed: %s", exc)
+                # P2-35：通知发送失败**不影响本轮升级提交** —— escalation_level
+                # 照常推进并在最后 commit，告警状态显示为「已升级」，但没有任何
+                # 人真的收到通知。既有的 failure 信号只挂在耗时直方图的
+                # result 标签上（顺便记到，非专用失败计数），故另记一笔。
+                record_silent_degradation("monitoring.escalation.notify_failed")
             finally:
                 # 指标不可用不应影响主流程(与项目既有降级惯例一致)
                 _observe_escalation_latency(notify_start, result)

@@ -572,7 +572,56 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ---
 
-## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
+## 一之十三、#35 X 桶第十三批：5 处接线（X 142 → 137，跨三文件）
+
+### 1.38 接线清单
+
+五处都是「安全网失效或部分数据，且**调用方从返回值上看不出来**」：
+
+| location | 语义 |
+|---|---|
+| `monitoring.escalation.notify_failed` | 升级通知发送失败**不影响本轮提交**：`escalation_level` 照常推进并在循环结束后 commit，告警被标成「已升级」，但没有任何人收到通知。既有的 failure 信号只挂在 `escalation_notify_duration_seconds` 的 result 标签上（顺带记录、非专用失败计数） |
+| `core.idempotency.begin_failed_fail_open` | Redis 故障 → 放弃幂等控制返回 `(True, None)`，调用方据此当成首次请求执行，重复 upsert 会真的写两次 |
+| `core.idempotency.settle_failed` | 首次响应没写进 Redis → 窗口内重复请求读到 `__PENDING__` 占位被判「处理中」，重放能力静默丢失 |
+| `core.idempotency.dismiss_failed` | 失败请求没释放幂等键 → 键残留至 TTL 到期，期间客户端修正后的重试被判「处理中」而拒绝 |
+| `services.validation_engine.calculate_metrics_failed` | 指标计算中段抛异常时 `accuracy`/`precision` 等已写入，返回「残缺但看起来合法」的 ValidationMetrics，无字段能表明后半段没算出来 |
+
+### 1.39 不接线（书面记账，仍留 X 桶，机器不裁、文档裁）
+
+- `services/validation_engine.py::_run_model_inference`（`return None`）：
+  调用方 `validate_model` 会写入 `result.errors`（"Model inference unavailable …"）；
+- `services/validation_engine.py::_compute_baseline_metrics`（`return None`）：
+  调用方同样写入 `result.errors`（"Baseline metrics unavailable …"）。
+  两条都是**调用方可见的 V 型**，与第十一批「EXIF 剥离失败返回 False、调用方
+  直接拒绝保留」同口径。接线只会给"调用方已处理"的路径加计数，是第四批
+  silences 教训的反例。
+- 另注：`monitoring/escalation.py` 的另外两条 X 候选本轮也裁定跳过 ——
+  L101 已有专用计数器 `alert_detail_parse_failed_total.inc(1, stage="escalation")`
+  （M 型）；L110 是**该计数自身**上报失败（S 型）。
+
+### 1.40 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch13Wiring`（3 条）：5 对 location 双向核对 + 一次
+  运行时覆盖五条路径（① `CompositeNotifier.send` 抛异常，db 用 MagicMock 建模
+  AsyncSession 且必须配 `db.flush` —— `record_audit` 内部 await 它；② ③ ④ 注入
+  `get_redis_client` 返回全抛的假 Redis；⑤ 把模块级 `roc_auc_score` 换成抛
+  `RuntimeError`，穿透内层只吃 `ValueError` 的 try，断言 `accuracy/f1` 有值而
+  `auc` 为 None —— 直接把「部分数据」形态钉进测试）+ 一条反向钉（两条 V 型用
+  日志语义锚点 `"ValidationEngine: 模型推理失败"` /
+  `"ValidationEngine: 加载 baseline dataset 失败"` 定位，锚点命中数必须为 2）。
+- **踩到并记录一条第九批同族陷阱**：`import app.services.validation_engine as ve`
+  拿到的是 `app/services/__init__.py` 导出的 **ValidationEngine 实例**（包属性遮蔽
+  子模块），patch 时报 `AttributeError: 'ValidationEngine' object has no attribute
+  'roc_auc_score'`；必须 `importlib.import_module("app.services.validation_engine")`。
+- 桶计数改钉：**W=78 / X=137 / P=15**（总数 334 不变）。本批为纯实记录迁移
+  （5 处 X→W），无探针接线、无桶间迁移。
+- 接线调用点实测 73→78。
+- 三次真实变异：M1 删 `core.idempotency.begin_failed_fail_open` 接线（整块删除）
+  / M2 改 `monitoring.escalation.notify_failed` location 字面量（含闭合引号）
+  / M3 删 P2_11 附录登记行，均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch13_result.log`。
+
+---
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
 
@@ -607,8 +656,9 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十二批，结账时点 `478d1cc` + 第十二批）：当前棘轮
-   **W=73 / X=142 / P=15**（总数 334 不变）。
+0. **本轮累计状态**（十三批）：当前棘轮
+   **W=78 / X=137 / P=15**（总数 334 不变）。
+   第十三批增量：W +5 / X -5（5 处实记录 X→W，无桶间迁移）；
    第十二批增量：W +3 / X -3（3 处实记录 X→W，无桶间迁移）；
    第十一批增量：W +3（2 处实记录 X→W + 1 处探针记录 P→W，首见探针接线）、X -2、P -1。
    已裁定跳过 35（第一批 2 + 第二批 11 + 第三批 1 + 第四批 13 + 第六批 8）之外，

@@ -756,3 +756,32 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   `record_silent_degradation`）。桶计数改钉 **W=73 / X=142**。变异 M1 删任一接线 /
   M2 改 location 字面量 / M3 删登记行，均 RED-OK/GREEN-OK，日志
   `mutate_p2_35_round13_batch12_result.log`。
+
+- 2026-10-16（第十三轮第十三批）：#35 X 桶接线 5 处（X 142→137，W 73→78，
+  调用点实测 73→78），跨三文件：
+
+    monitoring.escalation.notify_failed
+    core.idempotency.begin_failed_fail_open
+    core.idempotency.settle_failed
+    core.idempotency.dismiss_failed
+    services.validation_engine.calculate_metrics_failed
+
+  裁定说明：五处都是「安全网失效或部分数据，且调用方从返回值上看不出来」。
+  `apply_escalation` 通知失败**不影响本轮提交**（escalation_level 照常推进并
+  commit，告警被标成已升级但无人收到通知）；幂等三处分别为 Redis 故障 relinquish
+  幂等控制（重复 upsert 写两次）、首次响应没落 Redis（重放丢失）、幂等键没释放
+  （修正重试被判处理中）；`calculate_metrics` 中段抛异常时 accuracy/precision 已
+  写入，返回残缺但合法的 ValidationMetrics。
+
+  同批裁定**不接线** 2 处（`services/validation_engine.py`）：`_run_model_inference`
+  与 `_compute_baseline_metrics` 的失败都由调用方写进 `ValidationResult.errors`
+  （调用方可见的 V 型，与第十一批 EXIF 剥离失败同口径）。
+
+  闸门 `TestP235Round13Batch13Wiring`（3 条）：5 对 location 双向核对 + 一次
+  运行时覆盖五条路径（① `CompositeNotifier` send 抛异常 + MagicMock 建模
+  AsyncSession；② ③④ 注入 `get_redis_client` 返回全抛的假 Redis；⑤ 把模块级
+  `roc_auc_score` 换成抛 RuntimeError，穿透内层只吃 ValueError 的 try）+ 一条
+  反向钉（两条 V 型用日志语义锚点定位，不得出现接线）。桶计数改钉
+  **W=78 / X=137**。变异 M1 删 idempotency.begin 接线 / M2 改 escalation location
+  字面量 / M3 删 P2_11 附录登记行，均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch13_result.log`。

@@ -5,6 +5,7 @@ import json
 import logging
 
 from app.core.cache import get_redis_client
+from app.core.degradation import record_silent_degradation
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,10 @@ async def begin_idempotent_call(key: str) -> tuple[bool, dict | None]:
         return True, None
     except Exception as exc:
         logger.warning("[idempotency] begin failed (key=%s): %s", key, exc)
+        # P2-35：Redis 故障时放弃幂等控制并返回 (True, None)，调用方据此当成
+        # 首次请求正常执行 —— 重复提交的 upsert 因此可能生效两次，而调用方
+        # 完全看不出幂等网已失效（与第十一批 file_security fail-open 同族）。
+        record_silent_degradation("core.idempotency.begin_failed_fail_open")
         return True, None
 
 
@@ -92,6 +97,9 @@ async def settle_idempotent_call(key: str, result: dict) -> None:
         )
     except Exception as exc:
         logger.warning("[idempotency] settle failed (key=%s): %s", key, exc)
+        # P2-35：首次响应没写进 Redis，窗口内的重复请求会读到 __PENDING__
+        # 占位值并按「仍在处理中」处理 —— 重放能力静默丢失。
+        record_silent_degradation("core.idempotency.settle_failed")
 
 
 async def dismiss_idempotent_call(key: str) -> None:
@@ -103,3 +111,6 @@ async def dismiss_idempotent_call(key: str) -> None:
         await client.delete(key)
     except Exception as exc:
         logger.warning("[idempotency] dismiss failed (key=%s): %s", key, exc)
+        # P2-35：失败请求未能释放幂等键，该键残留至 TTL 到期，期间客户端修正后
+        # 的重试会被判成「处理中」而拒绝 —— 安全网反向卡住正常重试。
+        record_silent_degradation("core.idempotency.dismiss_failed")

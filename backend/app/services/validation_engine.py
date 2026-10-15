@@ -10,6 +10,8 @@ from typing import Any
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
+from app.core.degradation import record_silent_degradation
+
 logger = logging.getLogger(__name__)
 
 # P1-17 修复：模型推理的并发上限与批大小。
@@ -234,6 +236,12 @@ class ValidationEngine:
 
         except Exception as exc:
             logger.warning("Error calculating metrics: %s", exc)
+            # P2-35：异常发生在指标计算中段时 metrics 已被写入部分字段
+            # （如 accuracy/precision），调用方拿到的是「残缺但看起来合法」的
+            # ValidationMetrics，没有任何字段能表明后半段没算出来。
+            record_silent_degradation(
+                "services.validation_engine.calculate_metrics_failed"
+            )
 
         return metrics
 

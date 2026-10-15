@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 73,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十二批净 46）
+            "W": 78,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十三批净 51）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -421,10 +421,11 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 142,  # 真降级留档（第十二批 3 处实记录 X→W：v1.23 对照路 / lite 校准
-                        # 加载 / lite 校准执行；故 X 145→142、W 70→73；总数 334 不变。
-                        # 前一行为第十一批口径：X 147→145、P 16→15、W 67→70，silences 6 处
-                        # 经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X）
+            "X": 137,  # 真降级留档（第十三批 5 处实记录 X→W：escalation 通知失败 /
+                        # idempotency begin/settle/dismiss / validation 指标中段失败；
+                        # 故 X 142→137、W 73→78；总数 334 不变。
+                        # 前一行起为第十二批口径：X 145→142、W 70→73；
+                        # 再前一批含 ImportError 探针接线：X 147→145、P 16→15。）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -1991,4 +1992,157 @@ class TestP235Round13Batch12Wiring:
                             f"{fn.name} 的 handler（锚点 {self.DECLINED_MARKERS}）已裁定不接线，"
                             f"却发现 record_silent_degradation —— 必须先推翻裁定"
                         )
+        assert hits == 2, f"行为锚点命中 {hits} 处，期望 2（锚点漂移 = 闸门失效）"
+
+
+class TestP235Round13Batch13Wiring:
+    """第十三轮第十三批：#35 X 桶 5 处接线（escalation / idempotency / validation）。
+
+    五处都是「安全网失效或部分数据，且调用方从返回值上看不出来」：
+    - `monitoring.escalation.notify_failed`：升级通知发送失败**不影响本轮提交**
+      —— `escalation_level` 照常推进并 commit，告警被标成「已升级」，但没有
+      任何人收到通知。既有的 failure 信号只挂在耗时直方图的 result 标签上
+      （顺带记录、非专用失败计数），故另记一笔；
+    - `core.idempotency.begin_failed_fail_open`：Redis 故障 → 放弃幂等控制返回
+      `(True, None)`，调用方当成首次请求执行，重复 upsert 会真的写两次；
+    - `core.idempotency.settle_failed`：首次响应没写进 Redis → 窗口内重复请求
+      读到 `__PENDING__` 占位值被判「处理中」，重放能力静默丢失；
+    - `core.idempotency.dismiss_failed`：失败请求没释放幂等键 → 键残留至 TTL，
+      期间客户端修正后的重试被判「处理中」而拒绝；
+    - `services.validation_engine.calculate_metrics_failed`：指标计算中段抛异常时
+      metrics 已写入 accuracy/precision 等字段，返回「残缺但看起来合法」的对象。
+
+    另 2 处**不接线、留档**（判据见 `test_declined_validation_engine_no_wiring`）：
+    `_run_model_inference` / `_compute_baseline_metrics` 的失败都会由调用方写入
+    `ValidationResult.errors`，属调用方可见的 V 型（与第十一批 EXIF 剥离同口径）。
+    """
+
+    PAIRS = (
+        ("monitoring.escalation.notify_failed", "monitoring/escalation.py"),
+        ("core.idempotency.begin_failed_fail_open", "core/idempotency.py"),
+        ("core.idempotency.settle_failed", "core/idempotency.py"),
+        ("core.idempotency.dismiss_failed", "core/idempotency.py"),
+        ("services.validation_engine.calculate_metrics_failed", "services/validation_engine.py"),
+    )
+
+    # V 型两条的行为锚点（pin 日志语义而非行号）
+    DECLINED_MARKERS = (
+        "ValidationEngine: 模型推理失败",
+        "ValidationEngine: 加载 baseline dataset 失败",
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_five_paths_increment(self, monkeypatch):
+        """行为：五条失败路径各触发一次 → 对应计数器各 +1。"""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import importlib
+
+        import app.core.idempotency as idem
+        import app.monitoring.escalation as esc
+
+        # patch 命名空间第二态（第九批教训）：`app/services/__init__.py` 导出了一个
+        # 同名 **ValidationEngine 实例**，会把子模块属性遮蔽掉 ——
+        # `import app.services.validation_engine as ve` 拿到的是实例而非模块
+        # （实测 AttributeError: 'ValidationEngine' object has no attribute
+        # 'roc_auc_score'），必须走 importlib.import_module。
+        ve = importlib.import_module("app.services.validation_engine")
+
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # ① 升级通知失败 —— MagicMock 建模 AsyncSession（record_audit 需 db.flush）
+        db = MagicMock()
+        db.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=MagicMock(detail="{}")))
+        )
+        db.commit = AsyncMock()
+        db.flush = AsyncMock()
+        decision = esc.EscalationDecision(
+            alert_id=1,
+            should_escalate=True,
+            new_severity="P0",
+            reason="probe",
+            detail={"severity": "P1", "rule": "probe", "escalation_level": 1},
+        )
+        with patch("app.monitoring.escalation.CompositeNotifier") as mock_notifier:
+            mock_notifier.return_value.send = AsyncMock(
+                side_effect=RuntimeError("probe: notify boom")
+            )
+            executed = await esc.apply_escalation(db, [decision])
+        # 升级仍被提交（这正是缺陷形态：状态推进了，人没被通知）
+        assert [d.alert_id for d in executed] == [1]
+
+        # ② ③ ④ 幂等三兄弟：Redis 整体不可用
+        class _BoomRedis:
+            async def get(self, key):  # noqa: ANN001
+                raise RuntimeError("probe: redis down")
+
+            async def set(self, *args, **kwargs):  # noqa: ANN002, ANN003
+                raise RuntimeError("probe: redis down")
+
+            async def delete(self, *args, **kwargs):  # noqa: ANN002, ANN003
+                raise RuntimeError("probe: redis down")
+
+        async def _client():
+            return _BoomRedis()
+
+        monkeypatch.setattr(idem, "get_redis_client", _client)
+        assert await idem.begin_idempotent_call("probe-key") == (True, None)
+        await idem.settle_idempotent_call("probe-key", {"probe": True})
+        await idem.dismiss_idempotent_call("probe-key")
+
+        # ⑤ 指标计算中段失败：让 roc_auc_score 抛非 ValueError（内层 try 只吃
+        # ValueError），异常穿透到外层 —— 此时 accuracy/precision 已写入。
+        def _auc_boom(*args, **kwargs):  # noqa: ANN002, ANN003
+            raise RuntimeError("probe: auc boom")
+
+        monkeypatch.setattr(ve, "roc_auc_score", _auc_boom)
+        metrics = ve.ValidationEngine().calculate_metrics(
+            [0, 1, 0, 1, 1, 0], [0, 1, 0, 0, 1, 0], [0.1, 0.9, 0.2, 0.6, 0.8, 0.3]
+        )
+        assert metrics.accuracy is not None, "前半段（accuracy）应已算出"
+        assert metrics.f1 is not None, "前半段（f1）应已算出"
+        assert metrics.auc is None, "后半段（auc）缺失 —— 正是「部分数据」形态"
+
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
+
+    def test_declined_validation_engine_no_wiring(self):
+        """反向钉：两条调用方可见（V 型）的失败路径不得接通用计数器。
+
+        它们的失败会被调用方写进 `ValidationResult.errors` 返回给上层，
+        与第十一批「EXIF 剥离失败返回 False、调用方直接拒绝」同口径。
+        """
+        tree = ast.parse((BE / "services/validation_engine.py").read_text(encoding="utf-8"))
+        hits = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body_src = [ast.unparse(stmt) for stmt in node.body]
+            if not any(m in stmt for stmt in body_src for m in self.DECLINED_MARKERS):
+                continue
+            hits += 1
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Call):
+                    nm = getattr(sub.func, "id", None) or getattr(sub.func, "attr", None)
+                    assert nm != "record_silent_degradation", (
+                        "该 handler 的失败已写进 ValidationResult.errors（V 型），"
+                        "接线会给出调用方已处理的幻觉 —— 必须先推翻裁定"
+                    )
         assert hits == 2, f"行为锚点命中 {hits} 处，期望 2（锚点漂移 = 闸门失效）"
