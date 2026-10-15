@@ -14,6 +14,7 @@ from app.api.v1 import api_router
 from app.api.v1.uploads import router as uploads_router
 from app.core.config import settings
 from app.core.database import close_db, engine, init_db
+from app.core.degradation import record_silent_degradation
 from app.core.exceptions import install_exception_handlers
 from app.core.health import (
     get_health_snapshot,
@@ -188,7 +189,12 @@ async def lifespan(app: FastAPI):
             logger.info("模型侧车审计: %d 个 .pkl 全部有侧车且一致", _sidecar_total)
     except Exception as exc:  # noqa: BLE001
         # 审计失败绝不能影响启动
+        # 但「侧车缺失/陈旧」的可见性也随之整段消失：启动日志里不再有任何一行
+        # 说明这次审计没跑过，与「审计通过、全部一致」完全同形 —— 而侧车是 strict
+        # 环境下拒绝加载的依据，其完整性从此无人再问（同第七批
+        # `loading.audit_path_resolve_failed`：审计自身的失败必须由自己留痕）。
         logger.warning("模型侧车审计跳过（非致命）: %s", exc)
+        record_silent_degradation("main.sidecar_audit_skipped")
 
     # STAB-P2-004: model preload 改为后台任务, 不阻塞启动
     # 原: await record_step_async("model_preload", _preload_models(), fatal=False) 阻塞启动

@@ -813,3 +813,39 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   ③④ 在 tmp_path 各造一份损坏/缺字段的注册表 JSON 后构造 ModelRegistryV2）+
   一条反向钉。桶计数改钉 **W=82 / X=133**。变异三条见
   `mutate_p2_35_round13_batch14_result.log`。
+
+- 2026-10-16（第十三轮第十五批）：#35 X 桶接线 3 处（X 133→130，W 82→85，
+  调用点实测 82→85），跨三文件：
+
+    main.sidecar_audit_skipped
+    services.model_predict.fusion.canary_routing_failed
+    services.model_predict.inference.model_fingerprint_failed
+
+  裁定说明：三处都是「**失效的东西是别人判断的依据**」。启动时侧车完整性审计失败
+  → 整段跳过，「缺失/陈旧」的可见性消失，与「审计通过、全部一致」同形（侧车是
+  strict 环境拒绝加载的依据）；灰度路由决策失败 → `canary_routed` 保持 False，
+  本该进灰度的用户静默走 stable 且响应无标记 → 灰度样本分配失真；模型指纹计算
+  失败 → 缓存键前缀退化为 `"unknown"`，「换模型即自动失效」机制失效，用户会命中
+  上一个模型版本的缓存结果。
+
+  同批裁定**不接线** 12 处，按三类记账（详见 P2_13「一之十五」）：
+  ① `core/celery_app.py` 3 条 —— worker / beat 是**独立容器**
+  （`docker-compose.yml:201/252`），全仓无 `PROMETHEUS_MULTIPROC_DIR` /
+  `MultiProcessCollector` / `start_http_server`，计数只会落在 worker 进程内存，
+  `/metrics` 永远读不到（第四批「计数器恒为 0 的指标是误导」同族）；
+  ② `ml/unified_model_interface.py` 3 条 —— 唯一引用方 `canary_controller` 自身
+  无生产调用者，`ml/__init__.py` 明示「仅标注、不实际导入」→ 生产链路不可达，
+  接线即死代码（第十二批 `_run_experimental_v121` 同口径）；
+  ③ `services/excel_export_service.py` 3 条 —— 均返回 `success=False` +
+  `error_message`，属调用方可见的 V 型。
+  另有 `main.py` L216（preload 失败写进 `startup_status`，由 `/health/startup`
+  暴露）、`fusion.py` L157/L222、`inference.py` L143（三者均为观测系统自身上报
+  失败，S 型）。
+
+  闸门 `TestP235Round13Batch15Wiring`（2 条）：3 对 location 双向核对 + 一次
+  运行时覆盖两条路径。运行时含一条**防假绿**断言：patch `AsyncSessionLocal` 为可用
+  的假会话并断言 `decide_version` 确被调用 —— 否则异常可能来自建会话而非路由
+  决策，计数照样 +1 却是假绿。`main.sidecar_audit_skipped` 未做运行时断言（在
+  FastAPI `lifespan` 内联，触发需完整启动链路，与第六批
+  `api.alerts.webhook.final_commit_failed` 同口径）。桶计数改钉 **W=85 / X=130**。
+  变异三条见 `mutate_p2_35_round13_batch15_result.log`。

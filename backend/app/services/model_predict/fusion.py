@@ -7,6 +7,7 @@ from time import perf_counter
 
 from app.core.cache import cache_get, cache_set, make_cache_key
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 from app.core.ml_breaker import call_with_ml_breaker
 from app.core.model_engine import model_engine
 
@@ -79,7 +80,13 @@ class FusionMixin:
                             canary_version,
                         )
             except Exception as exc:
+                # 路由决策失败 → canary_routed 保持 False、本该进灰度的用户静默走
+                # stable 版本，且响应里不会带 canary_routed 标记 —— 与「路由决策就是
+                # 稳定版」完全同形。灰度样本分配因此失真（灰度组被稳定版污染）。
                 logger.warning("[predict_fusion] canary routing failed: %s", exc)
+                record_silent_degradation(
+                    "services.model_predict.fusion.canary_routing_failed"
+                )
 
         # P0 修复：缓存键必须纳入「路由结果」。
         # 旧实现只用 features/text/physiological 组键，而路由决策

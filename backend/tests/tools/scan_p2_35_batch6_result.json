@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 80,
+  "real_wired": 83,
   "import_probe": 16,
   "real_list": [
     {
@@ -1768,7 +1768,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 365,
+      "line": 371,
       "handled": [
         "OSError"
       ],
@@ -1778,7 +1778,17 @@
     },
     {
       "file": "app/main.py",
-      "line": 189,
+      "line": 190,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/main.py",
+      "line": 222,
       "handled": [
         "Exception"
       ],
@@ -1788,7 +1798,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 216,
+      "line": 326,
       "handled": [
         "Exception"
       ],
@@ -1798,17 +1808,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 320,
-      "handled": [
-        "Exception"
-      ],
-      "wired": false,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/main.py",
-      "line": 298,
+      "line": 304,
       "handled": [
         "CancelledError"
       ],
@@ -2477,7 +2477,7 @@
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 222,
+      "line": 229,
       "handled": [
         "Exception"
       ],
@@ -2487,17 +2487,17 @@
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 81,
+      "line": 82,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 157,
+      "line": 164,
       "handled": [
         "Exception"
       ],
@@ -2507,17 +2507,17 @@
     },
     {
       "file": "app/services/model_predict/inference.py",
-      "line": 115,
+      "line": 116,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "'unknown'"
     },
     {
       "file": "app/services/model_predict/inference.py",
-      "line": 143,
+      "line": 150,
       "handled": [
         "Exception"
       ],

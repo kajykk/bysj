@@ -10,6 +10,7 @@ from typing import Any
 
 from app.core.cache import cache_get, cache_set, make_cache_key
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 from app.core.ml_breaker import call_with_ml_breaker
 from app.core.model_engine import model_engine
 from app.core.model_registry import MODEL_PATHS, get_model_info, resolve_model_path
@@ -113,7 +114,13 @@ def _model_fingerprint() -> str:
         _fingerprint_cache = (now, value)
         return value
     except Exception:  # noqa: BLE001 - 指纹失败绝不能阻断推理
+        # 指纹是缓存键的版本前缀：退化为 "unknown" 后，「换模型 → 键前缀变化 → 旧
+        # 缓存自然失效」这一整套机制失效，用户会命中上一个模型版本的缓存结果，
+        # 而响应体与正常推理完全同形。
         logger.debug("模型指纹计算失败, 缓存键退化为无版本前缀", exc_info=True)
+        record_silent_degradation(
+            "services.model_predict.inference.model_fingerprint_failed"
+        )
         return "unknown"
 
 

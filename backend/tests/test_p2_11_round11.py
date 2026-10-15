@@ -409,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 82,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十四批净 55）
+            "W": 85,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十五批净 58）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -422,12 +422,11 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 133,  # 真降级留档（第十四批 4 处实记录 X→W：safe_pickle 两个环境
-                        # 加固失效 / registry 整体损坏空表启动 / registry 部分记录丢弃；
-                        # 故 X 137→133、W 78→82；总数 334 不变。
-                        # 前一行起为第十三批口径：X 142→137、W 73→78；
-                        # 再前一批：X 145→142、W 70→73；更早一批含 ImportError
-                        # 探针接线：X 147→145、P 16→15。）
+            "X": 130,  # 真降级留档（第十五批 3 处实记录 X→W：main 侧车审计跳过 /
+                        # fusion 灰度路由失败 / inference 模型指纹失败；
+                        # 故 X 133→130、W 82→85；总数 334 不变。
+                        # 前一行起为第十四批口径：X 137→133、W 78→82；
+                        # 再前一批：X 142→137、W 73→78。）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -2148,6 +2147,106 @@ class TestP235Round13Batch13Wiring:
                         "接线会给出调用方已处理的幻觉 —— 必须先推翻裁定"
                     )
         assert hits == 2, f"行为锚点命中 {hits} 处，期望 2（锚点漂移 = 闸门失效）"
+
+
+class TestP235Round13Batch15Wiring:
+    """第十三轮第十五批：#35 X 桶 3 处接线（main 侧车审计 / fusion 灰度路由 / 指纹）。
+
+    三处都是「**失效的东西是别人判断的依据**」：
+
+    - `main.sidecar_audit_skipped`：启动时模型侧车完整性审计失败 → 整段跳过，
+      「缺失 / 陈旧」的可见性随之消失。启动日志里不再有任何一行说明这次审计没跑
+      过，与「审计通过、全部一致」完全同形 —— 而侧车是 strict 环境下拒绝加载的
+      依据，其完整性从此无人再问。
+    - `services.model_predict.fusion.canary_routing_failed`：灰度路由决策失败 →
+      `canary_routed` 保持 False，本该进灰度的用户静默走 stable，且响应里不会带
+      `canary_routed` 标记 —— 灰度样本分配因此失真（灰度组被稳定版污染）。
+    - `services.model_predict.inference.model_fingerprint_failed`：模型指纹是缓存键
+      的版本前缀；计算失败退化为 `"unknown"` 后，「换模型 → 键前缀变化 → 旧缓存
+      自然失效」整套机制失效，用户会命中上一个模型版本的缓存结果。
+
+    本批**不接线** 12 处的裁定见 P2_13「一之十五」，其中三类值得单列：
+    celery 信号 3 条（worker 是独立容器，计数落不到 `/metrics`）、
+    `unified_model_interface` 3 条（生产链路不可达 = 死代码）、
+    `excel_export_service` 3 条（`success=False` 显式失败，V 型）。
+    """
+
+    PAIRS = (
+        ("main.sidecar_audit_skipped", "main.py"),
+        ("services.model_predict.fusion.canary_routing_failed", "services/model_predict/fusion.py"),
+        ("services.model_predict.inference.model_fingerprint_failed", "services/model_predict/inference.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_two_paths_increment(self, monkeypatch):
+        """行为：两条可驱动的路径各触发一次 → 对应计数器各 +1。
+
+        `main.sidecar_audit_skipped` 未做运行时断言 —— 它在 FastAPI `lifespan` 内联，
+        触发需跑完整启动链路（init_db / Redis / 模型预加载），与第六批
+        `api.alerts.webhook.final_commit_failed` 同口径，只由存在性断言守住。
+        """
+        import importlib
+
+        inf = importlib.import_module("app.services.model_predict.inference")
+        fus = importlib.import_module("app.services.model_predict.fusion")
+        cm = importlib.import_module("app.services.canary_manager")
+        dbmod = importlib.import_module("app.core.database")
+
+        locs = ("services.model_predict.fusion.canary_routing_failed",
+                "services.model_predict.inference.model_fingerprint_failed")
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # ① 指纹失败：只换 inference 命名空间里的 hashlib（不动全局 hashlib）
+        class _BoomHashlib:
+            @staticmethod
+            def sha256(*_args, **_kwargs):  # noqa: ANN205
+                raise RuntimeError("probe: fingerprint boom")
+
+        monkeypatch.setattr(inf, "_fingerprint_cache", None)  # 绕过 10s 记忆化
+        monkeypatch.setattr(inf, "hashlib", _BoomHashlib)
+        assert inf._model_fingerprint() == "unknown", "指纹失败应退化为 unknown"
+
+        # ② 灰度路由失败：必须先让 AsyncSessionLocal 可用，否则异常会来自建会话
+        #    而不是 decide_version —— 那样计数照样 +1，是**假绿**。
+        seen: list[dict] = []
+
+        async def _boom(**kwargs):  # noqa: ANN003
+            seen.append(kwargs)
+            raise RuntimeError("probe: canary routing boom")
+
+        monkeypatch.setattr(cm.canary_manager, "decide_version", _boom)
+
+        class _FakeSession:
+            async def __aenter__(self):  # noqa: ANN204
+                return self
+
+            async def __aexit__(self, *_exc):  # noqa: ANN002, ANN204
+                return False
+
+        monkeypatch.setattr(dbmod, "AsyncSessionLocal", lambda: _FakeSession())
+        with contextlib.suppress(Exception):  # 后续推理链与本次断言无关
+            await fus.FusionMixin().predict_fusion(user_id=1)
+        assert seen, (
+            "decide_version 未被调用 —— 计数可能来自建会话/其它失败路径（假绿）"
+        )
+
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
 
 
 class TestP235Round13Batch14Wiring:

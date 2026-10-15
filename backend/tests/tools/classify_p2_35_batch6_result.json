@@ -1,7 +1,7 @@
 {
   "counts": {
-    "X": 133,
-    "W": 82,
+    "X": 130,
+    "W": 85,
     "G": 8,
     "S": 36,
     "D": 22,
@@ -1606,7 +1606,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 365,
+      "line": 371,
       "func": "",
       "handled": [
         "OSError"
@@ -1615,16 +1615,16 @@
     },
     {
       "file": "app/main.py",
-      "line": 189,
+      "line": 190,
       "func": "lifespan",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/main.py",
-      "line": 216,
+      "line": 222,
       "func": "_preload_models_background",
       "handled": [
         "Exception"
@@ -1633,7 +1633,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 320,
+      "line": 326,
       "func": "lifespan",
       "handled": [
         "Exception"
@@ -1642,7 +1642,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 298,
+      "line": 304,
       "func": "lifespan",
       "handled": [
         "CancelledError"
@@ -2245,7 +2245,7 @@
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 222,
+      "line": 229,
       "func": "_log_canary_event",
       "handled": [
         "Exception"
@@ -2254,16 +2254,16 @@
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 81,
+      "line": 82,
       "func": "predict_fusion",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 157,
+      "line": 164,
       "func": "predict_fusion",
       "handled": [
         "Exception"
@@ -2272,16 +2272,16 @@
     },
     {
       "file": "app/services/model_predict/inference.py",
-      "line": 115,
+      "line": 116,
       "func": "_model_fingerprint",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/model_predict/inference.py",
-      "line": 143,
+      "line": 150,
       "func": "_fire_shadow_check",
       "handled": [
         "Exception"

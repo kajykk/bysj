@@ -123,3 +123,20 @@
 - 同批另三条注释（safe_pickle 两条环境加固、registry 部分加载）经副本差分复核
   **零命中**（用词未触发检测器），非漏账。
 - 闸门 `test_inventory_ratchet_be` 同步 98→99。
+
+## 附录：全称注释清单同步（99→100，第十三轮第十五批）
+
+- 新增 1 条：`backend/app/services/model_predict/fusion.py:84`
+  `# stable 版本，且响应里不会带 canary_routed 标记 —— 与「路由决策就是`
+  （`predict_fusion` 的灰度路由 except 内，含全称词"不会"）。
+- 两侧账：新增 +1，无删除，净 +1（99→100）。
+- 语义与作证（非空断言）：该注释陈述"灰度路由决策失败时 `canary_routed` 保持
+  False，响应体因此**不会**携带 `canary_routed` 标记"，即失败态与「路由决策本来
+  就是稳定版」在响应层面不可区分。行为闸门：
+  `tests/test_p2_11_round11.py::TestP235Round13Batch15Wiring::
+  test_two_paths_increment`（patch `canary_manager.decide_version` 抛异常 +
+  可用的假 `AsyncSessionLocal`，断言计数器 +1 且 `decide_version` 确被调用；
+  真实变异 M2 红过）。
+- 同批另两条注释（main.py 侧车审计、inference.py 模型指纹）经副本差分复核
+  **零命中**，非漏账。
+- 闸门 `test_inventory_ratchet_be` 同步 99→100。

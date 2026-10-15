@@ -692,6 +692,75 @@ safe_pickle 两条路径只用假 settings 验证过。
 
 ---
 
+## 一之十五、#35 X 桶第十五批：3 处接线（X 133 → 130，跨三文件）+ 12 处不接线
+
+### 1.47 接线清单
+
+三处都是「**失效的东西是别人判断的依据**」——它自己不是结果，却是别人解读结果的
+凭据：
+
+| location | 所属文件 | 语义 |
+|---|---|---|
+| `main.sidecar_audit_skipped` | `main.py` | 启动时模型侧车完整性审计失败 → 整段跳过，「缺失 / 陈旧」的可见性随之消失。启动日志里不再有任何一行说明这次审计没跑过，与「审计通过、全部一致」完全同形 —— 而侧车是 strict 环境下拒绝加载的依据，其完整性从此无人再问 |
+| `services.model_predict.fusion.canary_routing_failed` | `services/model_predict/fusion.py` | 灰度路由决策失败 → `canary_routed` 保持 False，本该进灰度的用户静默走 stable 版本，且响应体不会带 `canary_routed` 标记 —— 灰度样本分配失真（灰度组被稳定版污染），而灰度指标自己看不出来 |
+| `services.model_predict.inference.model_fingerprint_failed` | `services/model_predict/inference.py` | 模型指纹是 ML 缓存键的版本前缀；计算失败退化为 `"unknown"` 后，「换模型 → 键前缀变化 → 旧缓存自然失效」整套机制失效，用户命中上一个模型版本的缓存结果 |
+
+### 1.48 不接线 12 处（本批大头，三类各自独立取证）
+
+开工按 MEMORY §0 的纪律先做存在性核查，一口气避开 **22 条**已裁定项（loading 6 /
+dedup_lock 6 / silences 5 / notifier 5 = 历史批次逐条判过），再对新簇做可达性实测，
+又按下 12 处。三类裁定各自的**硬证据**：
+
+**① `core/celery_app.py` 3 条 —— 计数落不到 `/metrics`**（第四批同族陷阱）
+
+三个 request_id 传播回调（`_propagate_request_id` / `_bind_request_id` /
+`_unbind_request_id`）的失败确实是静默的，但接线点在 **worker / beat 进程**：
+- `docker-compose.yml:201` `celery -A app.core.celery_app worker`、
+  `:252` `... beat` —— 与 web 是**独立 service / 独立进程**；
+- 全仓 grep `PROMETHEUS_MULTIPROC_DIR` / `MultiProcessCollector` /
+  `start_http_server` **零命中** —— 没有多进程收集器，worker 也没有自己的
+  metrics 端口。
+
+⇒ 计数只会留在 worker 进程内存里，`/metrics` 永远读不到。**这和第四批「计数器
+恒为 0 的指标本身就是误导」是同一条判据**：不接。（若将来引入 multiprocess
+collector，这三条要重审。）
+
+**② `ml/unified_model_interface.py` 3 条 —— 生产链路不可达 = 死代码**
+
+`UnifiedModelWrapper.predict/predict_proba` 的失败会退到启发式兜底，形态上像真
+降级；但实测它的唯一引用方是 `ml/canary_controller.py`，而 `CanaryController`
+自身在 `app/` 下**没有任何实例化点**（只在自己文件与 `ml/__init__.py` 的文档
+字符串里出现），`ml/__init__.py` 更明示「按功能分类 re-export（**仅标注，不实际
+导入**，避免循环依赖）」。⇒ 与第十二批 `_run_experimental_v121` 同口径：接线即
+死代码。
+
+**③ `services/excel_export_service.py` 3 条 —— 调用方可见（V 型）**
+
+三处 `except` 都返回 `ExcelExportResult(success=False, error_message=str(exc))`，
+`success` 字段就是显式失败信号，与第十一批 EXIF 剥离同口径。
+
+**其余零散**：`main.py:216` 的 preload 失败写进 `startup_status`，而
+`startup_status.to_summary_dict()` 由 `/health/startup` 暴露（可见）；
+`fusion.py:157`（指标自增自身失败）、`fusion.py:222`（MonitoringLog 落点失败）、
+`inference.py:143`（影子对比旁路失败）均属**观测系统自身上报失败**（S 型）。
+
+### 1.49 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch15Wiring`（2 条）：3 对 location 双向核对 + 一次
+  运行时覆盖两条路径。
+- 运行时含一条**防假绿**断言：灰度路由那条若只 patch `decide_version` 而不管
+  `AsyncSessionLocal`，异常会来自建会话（无 DB）而非路由决策 —— 计数照样 +1，
+  测的却不是目标路径。故先 patch 出可用的假会话，并断言 `decide_version` 的
+  `seen` 列表非空。
+- `main.sidecar_audit_skipped` **未做运行时断言**（记账）：它在 FastAPI
+  `lifespan` 内联，触发需跑完整启动链路（init_db / Redis / 模型预加载），与第六批
+  `api.alerts.webhook.final_commit_failed` 同口径，只由存在性断言守住。
+- 指纹那条用 **只换 inference 命名空间里的 `hashlib`** 来触发（不污染全局 hashlib），
+  并先清 `_fingerprint_cache` 绕过 10s 记忆化。
+- 扫描器+分类器复跑：X 133→130、W 82→85、P 15 不变，总数 334 不变。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -727,8 +796,9 @@ safe_pickle 两条路径只用假 settings 验证过。
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十四批）：当前棘轮
-   **W=82 / X=133 / P=15**（总数 334 不变）。
+0. **本轮累计状态**（十五批）：当前棘轮
+   **W=85 / X=130 / P=15**（总数 334 不变）。
+   第十五批增量：W +3 / X -3（3 处实记录 X→W；另裁定不接线 12 处，留 X 桶）；
    第十四批增量：W +4 / X -4（4 处实记录 X→W，无桶间迁移）；
    第十三批增量：W +5 / X -5（5 处实记录 X→W，无桶间迁移）；
    第十二批增量：W +3 / X -3（3 处实记录 X→W，无桶间迁移）；
