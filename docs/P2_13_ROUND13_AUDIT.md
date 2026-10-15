@@ -201,6 +201,49 @@
 
 ---
 
+## 一之四、#35 X 桶第四批：6 处接线（X 169 → 163）
+
+### 1.11 接线清单（`api/v1/silences.py`，向 AlertManager 的同步）
+
+这一簇的共性：**fire-and-forget 到外部系统，失败只记 error 日志，本地事务照常
+提交、接口照样返回 200**，于是「静默规则的生效/删除/启停」在告警链路上与管理员
+认知分叉。
+
+| location | 端点 | 方向与语义 |
+|---|---|---|
+| `api.silences.create.am_sync_failed` | POST 创建 | 静默不生效：本地有、AM 没有 → 告警照常推送/通知，管理员却以为已静默 |
+| `api.silences.create.am_rollback_failed` | POST 创建（补偿） | **漏预警**：commit 失败后的补偿删除也失败 → AM 留下孤儿静默，规则不存在而告警被继续抑制 |
+| `api.silences.update.am_delete_failed` | PUT 更新 | **漏预警且不可补偿**：旧 AM 静默没删，且下面照样把 `am_silence_id` 清空 → 再也无法补偿删除 |
+| `api.silences.update.am_push_failed` | PUT 更新 | 静默不生效：新窗口没推上去 |
+| `api.silences.enable.am_push_failed` | POST 启用 | 静默不生效：本地 `is_active=True` 而 AM 侧仍按停用处理 |
+| `api.silences.delete.am_sync_failed` | DELETE | **漏预警**：本地已删、AM 侧静默仍在，抑制到窗口结束 |
+
+### 1.12 另裁定两簇「0 接线、全部记账跳过」（仍留 X 桶，文档裁）
+
+| 簇 | 条数 | 理由 |
+|---|---|---|
+| `tasks/scheduler.py` | 7 | 3 条是 `Sentry capture_message/capture_exception` **自身失败**（提示词明令跳过类目）；4 条是清理任务 OSError（uploads unlink / 空目录 rmdir、artifacts stat / rmtree）——F 型保守清理：失败条目本轮跳过、**下轮定时任务按同一 cutoff 重试**，无不可恢复后果（其中一条连日志都没有，但后果仅"空目录残留"） |
+| `monitoring/dedup_lock.py` | 6 | 2 条 `try_acquire_lock` 的 Redis 不可用已有 `_stats["fallback"]` 且由 `flush_lock_stats` 落 OperationLog（`dedup_lock_stats`，M 型）；2 条 `release_lock` 仅用于测试/主动清理、锁 TTL 5 分钟自动过期兜底（C 型）；1 条 `flush_lock_stats` 是审计上报自身失败（S 型）；1 条 `_get_redis_url` 回退环境变量属设计内回退 |
+
+### 1.13 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch4Wiring`（2 条）：6 对 location 双向核对 + **端到端**
+  行为断言（真调 `POST /api/v1/alerts/silences`，patch AM 推送抛异常，断言
+  「接口 200 且计数器 +1」——正是这一簇的隐蔽性所在）。
+- 桶计数改钉：**W=51 / X=163**。
+- 三次真实变异：M1 删 create 接线 → 红 3/3（locations/端到端/桶计数）；M2 换
+  create 的 location 字面量 → 红 2/2；M3 删文档登记行 → 红 1/1。日志
+  `mutate_p2_35_round13_batch4_result.log`。
+- 实测：全部 P2 闸门六套件 **128 passed**；affected **70 passed**
+  （test_am_sync / test_silence / api 三件 alerts·silences）。
+- **本批踩坑（已写入 MEMORY.md）**：`Edit` 的 `old_string` 若首行不带完整缩进，
+  工具会做**空白模糊匹配**并把原有缩进吃掉 → 一次改 6 处全部
+  `SyntaxError: expected 'except' or 'finally' block`。修法：`git checkout --`
+  该文件后按各 except 的真实缩进（12/12/8/4/4/8）逐处重做，**每次改完立刻
+  `py_compile`**（本批就是靠它当场发现，而不是等到跑测试）。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -236,12 +279,16 @@
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（三批后）：X 桶 **169** 条 = 待接 156 + 已裁定跳过 14
-   （第一批 2 + 第二批 11 + 第三批 1，均书面记账仍留桶）；已接 18 处（7+6+5），
-   调用点 26→**44**；W=45。下一批候选续：`loading.py` 8、`scheduler.py` 7、
-   `silences.py` 6、`dedup_lock.py` 6、`alerts/__init__.py` 6（预裁定后仅 2 条
-   真候选）、`notifier.py` 5（初判全跳过：通道失败已有 OperationLog
-   `alert_channel_failed` + 调用方 notify_failed 双重落点）。
+0. **本轮累计状态**（四批后）：X 桶 **163** 条 = 待接 150 + 已裁定跳过 27
+   （第一批 2 + 第二批 11 + 第三批 1 + 第四批 13〔silences 外的 scheduler 7 +
+   dedup_lock 6〕）；已接 24 处（7+6+5+6），调用点 26→**50**；W=51。
+   下一批候选续：`core/model_engine/loading.py` 8（真候选集中在「侧车哈希不可读
+   →完整性锚点缺失」与「审计路径解析失败静默跳过」，其余已有
+   `_incr_model_fallback` 计数或 critical 日志）、`api/v1/alerts/__init__.py` 6
+   （预裁定后仅 2 条真候选：final commit 失败、detail 解析退化）、
+   `training_jobs` 5 ×2、`model_registry_v2` 4、`am_sync` 4、
+   `anomaly_detection_service` 4、`canary_fallback_monitor` 4、
+   `observability/aggregate` 3、`model_engine/inference` 2 等。
 1. **桶计数改钉（W 27→34→40 / X 187→180→174）**：只影响 `test_batch6_bucket_counts_pinned`
    的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 13 的
    去向全部可逐条指认（1.1/1.6 表），无静默蒸发。

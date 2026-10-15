@@ -470,6 +470,39 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   桶计数同步改钉（W=45/X=169）；新增 `TestP235Round13Batch3Wiring`
   （存在性双向核对 + 一次运行时覆盖四个同步存取点的计数器 +1）。
 
+- 2026-10-15（第十三轮第四批）：#35 X 桶接线 6 处（X 169→163，W 45→51，
+  调用点 44→50，扫描器+分类器复跑实测，总数 334 不变）——
+  `api/v1/silences.py` 向 AlertManager 的 fire-and-forget 同步
+  （失败只记 error 日志，本地照常提交、接口照样 200）：
+
+    api.silences.create.am_sync_failed
+    api.silences.create.am_rollback_failed
+    api.silences.update.am_delete_failed
+    api.silences.update.am_push_failed
+    api.silences.enable.am_push_failed
+    api.silences.delete.am_sync_failed
+
+  裁定说明：前四条属「静默不生效」（AM 没有这条规则，告警照常推送/通知，
+  管理员却以为已静默）；`create.am_rollback_failed` / `update.am_delete_failed`
+  / `delete.am_sync_failed` 属**漏预警方向**（AM 侧孤儿/残留静默继续抑制告警，
+  其中 update 那条还把 am_silence_id 照样清空，导致再也无法补偿删除）。
+
+  **本批另裁定两簇「0 接线、全部记账跳过」**（仍留 X 桶，文档裁）：
+  - `tasks/scheduler.py` 7 条：3 条是 `Sentry capture_message/capture_exception
+    自身失败`（提示词明令跳过的类目）；4 条是清理任务 OSError
+    （uploads 文件 unlink / 空目录 rmdir、artifacts stat / rmtree）——
+    **F 型保守清理**：失败条目本轮跳过、下轮定时任务按同一 cutoff 重试，
+    无不可恢复后果（其中 1001 连日志都没有，但后果仅"空目录残留"）。
+  - `monitoring/dedup_lock.py` 6 条：2 条 `try_acquire_lock` 的 Redis 不可用
+    已有 `_stats["fallback"]` 并由 `flush_lock_stats` 落 OperationLog
+    （`dedup_lock_stats`，M 型）；2 条 `release_lock` 仅用于测试/主动清理，
+    锁 TTL 5 分钟自动过期兜底（C 型）；1 条 `flush_lock_stats` 是指标/审计
+    上报自身失败（S 型）；1 条 `_get_redis_url` 回退环境变量属设计内回退。
+
+  桶计数同步改钉（W=51/X=163）；新增 `TestP235Round13Batch4Wiring`
+  （6 对存在性双向核对 + create 端点端到端：patch AM 推送抛异常后接口
+  仍返回 200 且计数器 +1）。
+
 - 2026-10-15（第十三轮结案）：`tenant_admin` 4 处**迁移已在第十二轮第六批
   `a9926a1` 完成**（第十三轮提示词该项为 stale，实测结账不改码）：
   4 处 `record_audit` 的 `tenant_id` 实参为 `tenant.id`/`tenant_id`（目标租户，

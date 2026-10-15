@@ -1,9 +1,9 @@
 {
   "counts": {
-    "X": 169,
+    "X": 163,
     "G": 8,
     "S": 36,
-    "W": 45,
+    "W": 51,
     "D": 22,
     "V": 2,
     "C": 7,
@@ -311,57 +311,57 @@
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 406,
+      "line": 417,
       "func": "update_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 481,
+      "line": 495,
       "func": "enable_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 376,
+      "line": 383,
       "func": "update_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 537,
+      "line": 554,
       "func": "delete_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 214,
+      "line": 215,
       "func": "create_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 227,
+      "line": 231,
       "func": "create_silence",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/user_upload.py",

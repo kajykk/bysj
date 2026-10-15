@@ -1714,6 +1714,7 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 | #35 X 桶第一批 | 接线 7 处：`api/v1/validation.py` 读路径 5（get/update/delete/list_jobs/count 的 Redis→内存降级）+ `core/cache.py` 客户端初始化 2（共享/pubsub，根因性降级）。X 187→**180**，W 27→**34**，调用点 26→**33**（扫描器+分类器复跑，总数 334 不变） |
 | #35 X 桶第二批 | 接线 6 处：`core/model_engine/predict.py` 5（scaler 失败→未缩放算分 / 影子触发丢失 / cleaner 缺失→原始输入——姊妹路径 predict_lite 有计数而本路径零计数 / SHAP→简单重要性 dict+array 两路）+ `services/auto_rollback_service.py` 1（回滚 savepoint 失败后结果仍 should_rollback=True，数据结构说谎）。X 180→**174**，W 34→**40**，调用点 33→39 |
 | #35 X 桶第三批 | 接线 5 处：`tasks/pdf_report.py` 任务侧 Redis 存取点（第六批只接写入侧 `save_pdf_bytes_failed`）——任务状态写失败→用户轮询查不到 / 读失败 None→与"不存在"不可区分 / 列表读失败 []→报告页凭空变空 / 字节读失败→下载拿不到 / 进度推送 fire-and-forget 丢失。X 174→**169**，W 40→**45**，调用点 39→44 |
+| #35 X 桶第四批 | 接线 6 处：`api/v1/silences.py` 向 AlertManager 的 fire-and-forget 同步（失败只记 error 日志、本地照常提交、接口照样 200）——create 推送/补偿回滚、update 删除旧/推送新、enable 推送、delete 同步；其中补偿回滚失败、update 删旧失败、delete 同步失败三条是**漏预警方向**（AM 侧残留静默继续抑制告警）。X 169→**163**，W 45→**51**，调用点 44→50 |
 | tenant_admin 4 处 | 提示词该项 stale：第十二轮第六批 `a9926a1` 已迁完（目标租户归属 + `TestTargetTenantAttribution` 双钉），本轮实测结账不改码 |
 | prettier | **终局决议**（非第三次原样记账）：实测 370 文件不一致（437→370）+ 3 个 `.vue` parser 存量错仍在 + CI 0 命中 ⇒ 书面确认继续不做，但写入三条触发条件（CI 加格式门 / 不一致数有机降至 <50 / 答辩后归档期显式指令），满足任一即按限定方式执行 |
 | 跳过记账 | X 桶 2 条：`validation.job_store._get_redis`（生产不可达，共享客户端内部已吞失败）、`cache._get_redis_url` 内层 except（指标自报失败兜底，外层已直调 inc）——仍留 X 桶，文档裁 |
@@ -1749,6 +1750,12 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 8. **notifier 通道失败不需要通用计数器**（第三批初判）：通道发送失败已写入
    OperationLog `alert_channel_failed`（含 error_msg 全文），且 `success=False`
    会传到调用方计数 notify_failed——双重落点，按 M/V 型记账跳过。
+9. **Edit 工具的空白模糊匹配会吃掉原有缩进**（第四批实锤）：`old_string` 首行
+   不带完整缩进时，工具按空白模糊匹配并把该行原有缩进替换掉——一次改 6 处
+   `except` 全部 `SyntaxError: expected 'except' or 'finally' block`。
+   ⇒ 纪律：**old_string 首行必须带完整缩进**，且**每次多点编辑后立刻
+   `py_compile`**（当场发现，不等跑测试）；已损坏时 `git checkout -- <file>`
+   重来（本批未提交，恢复无副作用）。
 
 ### 实测读数
 
@@ -1766,12 +1773,16 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
   **126 passed**；affected **93 passed / 10 skipped**（pdf 任务/API 五个文件）；
   全称注释两条初稿改写为精确表述后维持 98；变异 3/3 RED-OK/GREEN-OK，
   日志 `mutate_p2_35_round13_batch3_result.log`。
+- 第四批：`test_p2_11_round11.py` 36 passed（再 +2 新闸门，含端到端 AM 同步断言）；
+  全部 P2 闸门六套件 **128 passed**；affected **70 passed**（am_sync/silence/alerts
+  API 六个文件）；变异 3/3 RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch4_result.log`。
 - 第二批 CI（`591c5eb`）：`total_count=10`，**10/10 全 success**。
+- 第三批 CI（HEAD `ed690b7`，含第三批全部改动）：`total_count=10`，**10/10 全 success**。
 
 ### 未验证如实记账
 
-- 后端全量本地未跑（约 37 分钟）：三批本地 affected+闸门累计约 1000 passed，其余由 CI 兜底。
-- X 桶余 156 条待接（桶内 169 = 待接 156 + 已裁定跳过 14 仍留桶）；前端三批零改动
+- 后端全量本地未跑（约 37 分钟）：四批本地 affected+闸门累计约 1100 passed，其余由 CI 兜底。
+- X 桶余 150 条待接（桶内 163 = 待接 150 + 已裁定跳过 27 仍留桶）；前端四批零改动
   未跑全量，收尾轮补。
 - 分类器精化（认 `canary_rollback_check_lock_total`/`adapter_miss` 两个专用计数器，
   以及内层指标 except 自动归 S）为后续批可选项，本轮不改。

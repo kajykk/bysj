@@ -16,7 +16,7 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 BE = REPO / "backend/app"
@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 45,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前三批 18）
+            "W": 51,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前四批 24）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 169,  # 真降级留档（第十三轮前三批已接 18 处：validation 读路径 5 + cache 初始化 2 + predict 5 + auto_rollback 1 + pdf_report 5）
+            "X": 163,  # 真降级留档（第十三轮前四批已接 24 处：validation 读路径 5 + cache 初始化 2 + predict 5 + auto_rollback 1 + pdf_report 5 + silences 6）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -764,6 +764,76 @@ class TestP235Round13Batch3Wiring:
 
         for loc in locs:
             assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
+
+
+class TestP235Round13Batch4Wiring:
+    """第十三轮第四批：#35 X 桶 6 处真降级接线（api/v1/silences.py 的 AM 同步）。
+
+    这一簇的共性：**向 AlertManager 的 fire-and-forget 调用失败只记 error 日志，
+    本地事务照常提交、接口照样 200**，于是「静默规则生效/删除/启停」在告警链路上
+    与管理员的认知分叉：
+
+    - `create.am_sync_failed`：本地有、AM 没有 → 静默不生效，告警照常推送；
+    - `create.am_rollback_failed`：commit 失败后的补偿删除也失败 → AM 留下孤儿
+      静默，规则不存在而告警被继续抑制（漏预警）；
+    - `update.am_delete_failed`：旧 AM 静默没删且 am_silence_id 照样清空 → 旧窗口
+      继续抑制（漏预警，且**再也无法补偿**）；
+    - `update.am_push_failed` / `enable.am_push_failed`：新窗口没推上去 → 静默不生效；
+    - `delete.am_sync_failed`：本地已删、AM 仍在抑制到窗口结束（漏预警）。
+
+    行为侧取 create 端点做端到端断言（真调 HTTP 接口 + patch AM 推送抛异常），
+    断言「接口返回 200 且计数器 +1」——正是这条簇的隐蔽性所在。
+    """
+
+    PAIRS = (
+        ("api.silences.create.am_sync_failed", "api/v1/silences.py"),
+        ("api.silences.create.am_rollback_failed", "api/v1/silences.py"),
+        ("api.silences.update.am_delete_failed", "api/v1/silences.py"),
+        ("api.silences.update.am_push_failed", "api/v1/silences.py"),
+        ("api.silences.enable.am_push_failed", "api/v1/silences.py"),
+        ("api.silences.delete.am_sync_failed", "api/v1/silences.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_create_am_sync_failure_increments_counter(self, client, as_role, monkeypatch):
+        """行为：AM 推送抛异常 → 本地提交成功且接口 200（静默失效）→ 计数器 +1。"""
+        import app.monitoring.am_sync as am_sync
+
+        async def _boom(*args, **kwargs):
+            raise RuntimeError("probe: AM unreachable")
+
+        monkeypatch.setattr(am_sync, "push_silence", _boom)
+        as_role("admin", 1, tenant_id=1)
+        loc = "api.silences.create.am_sync_failed"
+        before = self._counter_value(loc)
+        # 校验器要求 starts_at 不早于当前时间 5 分钟以前 → 必须动态取时间
+        now = datetime.now(timezone.utc)
+        res = client.post(
+            "/api/v1/alerts/silences",
+            json={
+                "name": "probe-am-sync",
+                "matcher": {"alertname": "ProbeAlert"},
+                "starts_at": (now - timedelta(minutes=1)).isoformat(),
+                "ends_at": (now + timedelta(hours=2)).isoformat(),
+            },
+        )
+        assert res.status_code == 200, res.text
+        assert self._counter_value(loc) == before + 1, "AM 同步失败未计数（假接线）"
 
 
 class TestP232ModelMetadataContradictionRecorded:

@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 44,
+  "real_wired": 50,
   "import_probe": 16,
   "real_list": [
     {
@@ -331,61 +331,61 @@
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 406,
+      "line": 417,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 481,
+      "line": 495,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 376,
+      "line": 383,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 537,
+      "line": 554,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 214,
+      "line": 215,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 227,
+      "line": 231,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
