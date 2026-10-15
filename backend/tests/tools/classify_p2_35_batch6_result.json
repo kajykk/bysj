@@ -1,13 +1,13 @@
 {
   "counts": {
-    "X": 149,
-    "W": 61,
+    "X": 148,
+    "W": 62,
     "G": 8,
     "S": 36,
     "D": 22,
     "V": 2,
-    "C": 6,
-    "K": 10,
+    "C": 7,
+    "K": 11,
     "H": 6,
     "M": 6,
     "R": 4,
@@ -2061,6 +2061,60 @@
       "bucket": "W"
     },
     {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 68,
+      "func": "_bump_takeover_counter",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 225,
+      "func": "stop_canary_fallback_monitor",
+      "handled": [
+        "CancelledError"
+      ],
+      "bucket": "K"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 227,
+      "func": "stop_canary_fallback_monitor",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "C"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 172,
+      "func": "_canary_fallback_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 89,
+      "func": "_canary_fallback_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 156,
+      "func": "_canary_fallback_loop",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
       "file": "app/services/drift_monitoring_service.py",
       "line": 236,
       "func": "_resolve_canary_version",
@@ -2448,42 +2502,6 @@
       "func": "fire_shadow_check",
       "handled": [
         "RuntimeError"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/shadow_comparison_service.py",
-      "line": 117,
-      "func": "commit_shadow_stats",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "W"
-    },
-    {
-      "file": "app/services/shadow_comparison_service.py",
-      "line": 225,
-      "func": "_shadow_check",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/shadow_comparison_service.py",
-      "line": 252,
-      "func": "_load_candidate",
-      "handled": [
-        "Exception"
-      ],
-      "bucket": "X"
-    },
-    {
-      "file": "app/services/shadow_comparison_service.py",
-      "line": 280,
-      "func": "_candidate_predict",
-      "handled": [
-        "Exception"
       ],
       "bucket": "X"
     },

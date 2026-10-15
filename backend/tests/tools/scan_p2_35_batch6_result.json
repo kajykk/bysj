@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 62,
+  "real_wired": 66,
   "import_probe": 16,
   "real_list": [
     {
@@ -2762,13 +2762,13 @@
       "handled": [
         "RuntimeError"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/shadow_comparison_service.py",
-      "line": 117,
+      "line": 122,
       "handled": [
         "Exception"
       ],
@@ -2778,31 +2778,31 @@
     },
     {
       "file": "app/services/shadow_comparison_service.py",
-      "line": 225,
+      "line": 230,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/shadow_comparison_service.py",
-      "line": 252,
+      "line": 262,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "None"
     },
     {
       "file": "app/services/shadow_comparison_service.py",
-      "line": 280,
+      "line": 296,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "(None, None)"
     },

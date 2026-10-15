@@ -684,3 +684,24 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   `importlib.import_module`。桶计数改钉 **W=63 / X=151**。变异 M1 删接线 /
   M2 改 location 字面量 / M3 删登记行，均 RED-OK/GREEN-OK，日志
   `mutate_p2_35_round13_batch9_result.log`。
+
+- 2026-10-15（第十三轮第十批）：#35 X 桶接线 4 处（X 151→147，W 63→67，
+  调用点 62→66），单文件 `app/services/shadow_comparison_service.py`：
+
+    services.shadow_comparison_service.fire_no_event_loop_skipped
+    services.shadow_comparison_service.shadow_check_failed
+    services.shadow_comparison_service.candidate_load_failed
+    services.shadow_comparison_service.candidate_predict_failed
+
+  裁定说明：影子对拍是训练产物激活前的**质量门**（样本累积 → 一致率 → 激活
+  校验）。四处失败全部只记 debug/warning 日志，样本或整条管线静默丢失，最终
+  都收敛到同一种失效：`is_shadow_acceptable` 恒返回 `(True,
+  "insufficient_samples(...)")` —— **证据不足放行**，坏模型可直接激活上线。
+
+  闸门 `TestP235Round13Batch10Wiring`（2 条）：4 对 location 双向核对 + 一次
+  运行时覆盖四条路径（① `asyncio.to_thread` 丢进无 loop 线程触发 RuntimeError；
+  async 测试内直接调反而会成功建 task 是个反直觉坑；② `_load_candidate` 必炸
+  穿透到 `_shadow_check` 外层；③ 真实坏 `.pkl` 走 `_load_candidate` except；
+  ④ predict 抛异常对象走 `_candidate_predict` except）。桶计数改钉
+  **W=67 / X=147**。变异 M1 删任一接线 / M2 改 location 字面量 / M3 删登记行，
+  均 RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch10_result.log`。

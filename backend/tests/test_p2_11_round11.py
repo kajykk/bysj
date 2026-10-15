@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 63,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前九批净 36）
+            "W": 67,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十批净 40）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 151,  # 真降级留档（第十三轮前九批净接 36 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
+            "X": 147,  # 真降级留档（第十三轮前十批净接 40 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -1258,6 +1258,106 @@ class TestP235Round13Batch9Wiring:
         with pytest.raises(asyncio.CancelledError):
             await mod._canary_fallback_loop()
         assert self._counter_value(loc) == before + 1, "兜底循环异常降级未计数（假接线）"
+
+
+class TestP235Round13Batch10Wiring:
+    """第十三轮第十批：#35 X 桶 4 处接线（`services/shadow_comparison_service.py`）。
+
+    影子对拍是训练产物激活前的**质量门**：样本累积 → 一致率 → 激活校验。四处失败
+    全部只记 debug/warning 日志，样本或整条管线静默丢失，最终都收敛到同一种失效：
+    `is_shadow_acceptable` 恒返回 `(True, "insufficient_samples(...)")` ——
+    **证据不足放行**，坏模型可直接激活上线。
+    - `...fire_no_event_loop_skipped`：生产路径无事件循环时该样本对拍直接跳过；
+    - `...shadow_check_failed`：管线内未预期异常，本样本丢失；
+    - `...candidate_load_failed`：候选产物加载失败，该模型对拍管线实质死亡；
+    - `...candidate_predict_failed`：候选预测失败，样本以 (None, None) 丢弃。
+    """
+
+    PAIRS = (
+        ("services.shadow_comparison_service.fire_no_event_loop_skipped", "services/shadow_comparison_service.py"),
+        ("services.shadow_comparison_service.shadow_check_failed", "services/shadow_comparison_service.py"),
+        ("services.shadow_comparison_service.candidate_load_failed", "services/shadow_comparison_service.py"),
+        ("services.shadow_comparison_service.candidate_predict_failed", "services/shadow_comparison_service.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_all_four_shadow_failures_increment(self, monkeypatch):
+        """行为：四条失败路径各触发一次 → 对应计数器各 +1。"""
+        import asyncio
+
+        import app.services.shadow_comparison_service as mod
+
+        svc = mod.ShadowComparisonService()
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # ① 无事件循环：本测试本身跑在事件循环内（async 测试），直接调 fire
+        # 反而会成功建 task。故把调用丢进 worker 线程（无 running loop），
+        # create_task 必抛 RuntimeError。sample_rate=1.0 保证不抽样早退。
+        import asyncio as _asyncio
+
+        await _asyncio.to_thread(
+            svc.fire_shadow_check, "probe_model", {}, {"prediction": 0}, 1.0
+        )
+
+        # ② 管线内未预期异常：registry 返回无候选后很难抛——patch _load_candidate
+        #    抛异常穿透到 _shadow_check 外层 except（asyncio.to_thread 不介入）。
+        def _load_boom(_path):
+            raise RuntimeError("probe: load exploded")
+
+        monkeypatch.setattr(svc, "_load_candidate", _load_boom)
+        fake_record = type("R", (), {"status": "CANDIDATE", "artifact_path": "x.pkl"})()
+        fake_registry = type(
+            "G", (), {"get_model": lambda self, _mid: fake_record}
+        )()
+        import sys
+        import types
+
+        fake_v2 = types.ModuleType("app.core.model_registry_v2")
+        fake_v2.get_registry = lambda: fake_registry
+        fake_v2.ModelStatus = type(
+            "MS", (), {"CANDIDATE": "CANDIDATE", "STAGING": "STAGING"}
+        )()
+        monkeypatch.setitem(sys.modules, "app.core.model_registry_v2", fake_v2)
+        await svc._shadow_check("probe_model", {}, {"prediction": 0})
+        # 恢复：③ 需要真实的 _load_candidate（上面 patch 的必炸版会干扰）。
+        monkeypatch.undo()
+
+        # ③ 候选加载失败：真实走 _load_candidate 的 except（不存在的路径抛异常）。
+        #    safe_joblib_load 在缺失路径上行为不定——用目录 + 缺失 phys 文件：
+        #    直接给一个损坏的 .pkl 内容抛异常更可靠。
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            bad = Path(td) / "bad.pkl"
+            bad.write_bytes(b"not-a-pickle\xff\xfe")
+            assert svc._load_candidate(str(bad)) is None
+
+        # ④ 候选预测失败：predict 抛异常的对象。
+        class _BadModel:
+            def predict(self, _x):
+                raise RuntimeError("probe: predict exploded")
+
+        assert svc._candidate_predict(_BadModel(), None) == (None, None)
+
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
 
 
 class TestP235Round13Batch4Wiring:

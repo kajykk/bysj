@@ -75,6 +75,11 @@ class ShadowComparisonService:
         except RuntimeError:
             # 无运行中事件循环 (如同步测试/非 asyncio 上下文): 跳过对拍
             logger.debug("[SHADOW] no running event loop, skip shadow check")
+            # P2-35 第十批：该样本的对拍直接丢失；若生产路径长期无事件循环，
+            # 对拍统计停滞 → 激活校验回到 insufficient_samples 放行，必须计数。
+            record_silent_degradation(
+                "services.shadow_comparison_service.fire_no_event_loop_skipped"
+            )
 
     # ── 统计管理 ──
 
@@ -224,6 +229,11 @@ class ShadowComparisonService:
             self._record(model_id, production_result, cand_pred, cand_prob)
         except Exception as exc:
             logger.debug("[SHADOW] comparison failed (non-blocking): %s", exc)
+            # P2-35 第十批：对拍管线内任何未预期异常 → 本样本丢失（non-blocking
+            # 名义下悄悄发生），必须计数。
+            record_silent_degradation(
+                "services.shadow_comparison_service.shadow_check_failed"
+            )
 
     def _load_candidate(self, artifact_path: str):
         """加载候选产物 (仅支持 joblib 可加载的 sklearn 产物)."""
@@ -251,6 +261,12 @@ class ShadowComparisonService:
             return None
         except Exception as exc:
             logger.warning("[SHADOW] candidate load failed: %s", exc)
+            # P2-35 第十批：候选产物加载失败 → 调用方按 None 直接 return，该模型
+            # 的对拍管线实质停摆（后续样本重复走同一条失败路径）却仅留一条 warning，
+            # 对拍统计停滞 → insufficient_samples 放行，必须计数。
+            record_silent_degradation(
+                "services.shadow_comparison_service.candidate_load_failed"
+            )
             return None
 
     def _build_features(self, candidate, raw_input: dict[str, Any]):
@@ -279,6 +295,11 @@ class ShadowComparisonService:
             return pred, None
         except Exception as exc:
             logger.debug("[SHADOW] candidate predict failed: %s", exc)
+            # P2-35 第十批：候选预测失败 → 本样本以 (None, None) 丢弃，调用方无法
+            # 区分"候选模型坏了"与"还没轮到这个样本"，必须计数。
+            record_silent_degradation(
+                "services.shadow_comparison_service.candidate_predict_failed"
+            )
             return None, None
 
     def _record(
