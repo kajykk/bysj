@@ -842,7 +842,8 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   暴露）、`fusion.py` L157/L222、`inference.py` L143（三者均为观测系统自身上报
   失败，S 型）。
 
-  闸门 `TestP235Round13Batch15Wiring`（2 条）：3 对 location 双向核对 + 一次
+  闸门 `TestP235Round13Batch15Wiring`（原 2 条，补钉提交补齐反向钉后为 3 条）：
+  3 对 location 双向核对 + 一次
   运行时覆盖两条路径。运行时含一条**防假绿**断言：patch `AsyncSessionLocal` 为可用
   的假会话并断言 `decide_version` 确被调用 —— 否则异常可能来自建会话而非路由
   决策，计数照样 +1 却是假绿。`main.sidecar_audit_skipped` 未做运行时断言（在

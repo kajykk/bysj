@@ -746,8 +746,13 @@ collector，这三条要重审。）
 
 ### 1.49 闸门、变异与读数
 
-- 新增 `TestP235Round13Batch15Wiring`（2 条）：3 对 location 双向核对 + 一次
-  运行时覆盖两条路径。
+- 新增 `TestP235Round13Batch15Wiring`（**记账更正**：原为 2 条，反向钉在补钉提交
+  中补齐，现为 3 条）：3 对 location 双向核对 + 一次运行时覆盖两条路径 +
+  一条反向钉（`excel_export_service` 三处 V 型不得接线）。
+  ⚠️ 第十五批的 **commit message 写的是「3 条」「158 passed」，与当时实测不符**
+  （当时实际 2 条 / 157 passed）。文档（本节与 P2_11 附录）当时写的 2 条是对的。
+  按禁止 ref 重写纪律不用 `--amend` 抹除，此处书面对账；反向钉已补，现读数与
+  「3 条 / 158 passed」一致。
 - 运行时含一条**防假绿**断言：灰度路由那条若只 patch `decide_version` 而不管
   `AsyncSessionLocal`，异常会来自建会话（无 DB）而非路由决策 —— 计数照样 +1，
   测的却不是目标路径。故先 patch 出可用的假会话，并断言 `decide_version` 的
@@ -758,6 +763,60 @@ collector，这三条要重审。）
 - 指纹那条用 **只换 inference 命名空间里的 `hashlib`** 来触发（不污染全局 hashlib），
   并先清 `_fingerprint_cache` 绕过 10s 记忆化。
 - 扫描器+分类器复跑：X 133→130、W 82→85、P 15 不变，总数 334 不变。
+
+---
+
+## 一之十六、连带修复：两条 UTC 时间炸弹测试（第十五批 CI 红灯根因）
+
+### 1.50 现象
+
+第十五批提交 `e9b474d` 的 CI 里 `backend-coverage` **failure**，两条：
+
+```
+FAILED tests/test_anomaly_detection.py::TestDetectOffHours::test_detects_admin_off_hours_access
+  assert 0 >= 1
+FAILED tests/test_perf_p2_004_risk_trend_sql.py::TestGetRiskTrendMultiDay::test_multi_day_record_count
+  AssertionError: assert 4 == 3
+2 failed, 6804 passed, 68 skipped
+```
+
+两条都不在第十五批改动的文件链路上（本批只动 `main.py` /
+`services/model_predict/fusion.py` / `services/model_predict/inference.py`）。
+
+### 1.51 根因（算术可证，非猜测）
+
+- `test_detects_admin_off_hours_access`：种子时间硬编码为**当日 23:05 UTC**，
+  而 `detect_off_hours` 的查询窗是 `_utcnow_naive() - (300 + 60)s`（默认 6 分钟）。
+  查询只有下界 `created_at >= cutoff`、无上界，因此：
+  `now < 23:11 UTC` → 种子落在窗口内（甚至是未来时刻）→ 通过；
+  `now ≥ 23:11 UTC` → 种子早于下界 → 恒 0 findings。
+  **每天只有 23:11~24:00 UTC 这 49 分钟会红**，CI 跑在 23:26 UTC 正好命中。
+- `test_multi_day_record_count`：分桶用 `func.date(created_at)`，`base = now - 3d`
+  上又叠加 `+30min` / `+60min`。当 `now` 的 UTC 时刻 ≥ 23:00 时，`base+60min`
+  跨到次日午夜 → 多出一个日期桶，3 变 4。同样只在每天最后 1 小时红。
+
+### 1.52 对照实验（证明与本批改动无关）
+
+把本批 3 个源文件临时还原到 `404da34`（本批之前）后本地复跑 —— **两条照样失败**；
+还原后立即验证 `git diff` 为空。故判为仓库既有缺陷，不是第十五批引入。
+
+### 1.53 修复
+
+- `tests/test_anomaly_detection.py`：用 `monkeypatch` 把服务内时钟
+  `anomaly_detection_service._utcnow_naive` 冻结到固定 `2026-01-02 23:30 UTC`，
+  种子取其前 1 分钟 —— 时钟、种子、窗口三者恒一致，与挂钟无关。
+- `tests/test_perf_p2_004_risk_trend_sql.py`：`base` 锚定到**当日 01:00 UTC**，
+  使 `+30min` / `+60min` 恒不跨午夜（该库其余 `base` 用例都是纯天偏移，不受影响，
+  已逐条核对）。
+- 两条修复都写在坏时段（23:40 UTC）实测通过：`test_anomaly_detection.py` +
+  `test_perf_p2_004_risk_trend_sql.py` **72 passed**；六闸门 **158 passed**。
+
+### 1.54 为什么不「等一小时重跑 CI」
+
+重跑只能换来一次绿灯，缺陷仍在，且下一批只要 CI 又落在 23:00~24:00 UTC 就会再红。
+时间炸弹必须根治。另记账：这类「只在特定挂钟时段失败」的用例，本仓此前**无任何
+闸门覆盖**，建议后续加一条静态闸门（禁止测试里出现 `.replace(hour=…)` 式的
+挂钟硬编码）—— 本批未做，列入未决。
 
 ---
 

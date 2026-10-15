@@ -273,12 +273,23 @@ class TestDetectOffHours:
     """SEC-P1-005: detect_off_hours 检测器."""
 
     @pytest.mark.asyncio
-    async def test_detects_admin_off_hours_access(self, db_session: AsyncSession):
+    async def test_detects_admin_off_hours_access(
+        self, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ):
         """admin 在 23:00 UTC 操作 → 检测出异常."""
+        import app.services.anomaly_detection_service as ads
         from app.services.anomaly_detection_service import detect_off_hours
 
-        # 构造 23:00 UTC 的时间戳 (naive)
-        off_hours_time = _utcnow_naive().replace(hour=23, minute=5)
+        # 时间炸弹修复（第十三轮第十五批连带）：检测器只查最近
+        # anomaly_scan_interval_seconds + 60s（默认 6 分钟）的窗口，而原用例把种子
+        # 时间硬编码为「当日 23:05」。当 now 落在 23:11~24:00 UTC 时，该种子已早于
+        # 窗口下界 → 恒 0 findings（CI 在 23:26 UTC 实锤 2 failed 之一）。
+        # 改为冻结服务内时钟到固定的 23:30 UTC，种子取其后 1 分钟，两者恒在窗口内。
+        frozen_now = datetime(2026, 1, 2, 23, 30, 0)
+        monkeypatch.setattr(ads, "_utcnow_naive", lambda: frozen_now)
+
+        # 构造 23:29 UTC 的时间戳 (naive, 落在冻结时钟的扫描窗口内)
+        off_hours_time = frozen_now - timedelta(seconds=60)
         _seed_oplog(
             db_session,
             operator_id=10,

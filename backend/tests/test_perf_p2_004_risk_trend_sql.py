@@ -347,7 +347,16 @@ class TestGetRiskTrendMultiDay:
 
     async def test_multi_day_record_count(self, db_session) -> None:
         """多天数据: 每天的 record_count 正确."""
-        base = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=3)
+        # 时间炸弹修复（第十三轮第十五批连带）：分桶用 func.date(created_at)，
+        # 而本用例在 base 上叠加 +30min / +60min。若 now 的 UTC 时刻 >= 23:00，
+        # base+60min 就跨到次日午夜，多出一个日期桶 → 3 变 4（CI 在 23:26 UTC
+        # 实锤 2 failed 之一）。把 base 锚定到当日 01:00 UTC，分钟偏移恒不跨日。
+        base = (
+            datetime.now(timezone.utc)
+            .replace(tzinfo=None)
+            .replace(hour=1, minute=0, second=0, microsecond=0)
+            - timedelta(days=3)
+        )
         # day1: 2 条, day2: 1 条, day3: 3 条
         records = [
             RiskAssessment(
