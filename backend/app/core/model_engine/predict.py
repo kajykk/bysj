@@ -488,6 +488,13 @@ class PredictMixin:
                 )
         except Exception as exc:
             logger.warning("v1.23 experimental external LR unavailable: %s", exc)
+            # P2-35：v1.23 对照路整路失败时 experimental_external_* 保持 None、
+            # available=False，与「该模型未部署」在响应形态上同形，排查时看不出
+            # 是没部署还是加载/推理抛异常。本路只做对照评测、不参与主判定，
+            # 但对照数据静默消失需要可归因的计数。
+            record_silent_degradation(
+                "core.model_engine.predict.experimental_v123_unavailable"
+            )
 
         delta = (
             round(experimental_external_score - default_score, 2) if experimental_external_score is not None else None
@@ -743,6 +750,12 @@ class PredictMixin:
             calibrator = await self._load_model_async("mmpsy_lite_calibrator")
         except Exception as exc:
             logger.debug("lite calibrator unavailable (raw prob kept): %s", exc)
+            # P2-35：校准产物缺失/被禁用时保底返回未校准概率，响应里的
+            # probability_calibrated=False 与「校准未启用」同形，排查时无法区分
+            # 开关关掉还是产物加载失败，故单独计数。
+            record_silent_degradation(
+                "core.model_engine.predict.lite_calibrator_unavailable"
+            )
             return probability, False
 
         # sklearn.isotonic 顶层导入较重, 与 predict_lite 的延迟导入约定一致
@@ -759,6 +772,11 @@ class PredictMixin:
         except Exception as exc:
             # 校准器存在但执行失败: 保底返回 raw 概率, 不降级整条预测
             logger.warning("lite calibration apply failed (raw prob kept): %s", exc)
+            # P2-35：与上一种同为「分数看似有效实则未校准」，但成因不同
+            # （产物在、执行炸），分开计数才能定位到是产物问题还是模型接口问题。
+            record_silent_degradation(
+                "core.model_engine.predict.lite_calibration_apply_failed"
+            )
             return probability, False
         return float(np.clip(calibrated, 0.0, 1.0)), True
 

@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 68,
+  "real_wired": 71,
   "import_probe": 16,
   "real_list": [
     {
@@ -1100,13 +1100,13 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 531,
+      "line": 538,
       "handled": [
         "Exception"
       ],
@@ -1116,7 +1116,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 628,
+      "line": 635,
       "handled": [
         "Exception"
       ],
@@ -1126,7 +1126,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 656,
+      "line": 663,
       "handled": [
         "Exception"
       ],
@@ -1136,27 +1136,27 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 744,
+      "line": 751,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "(probability, False)"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 759,
+      "line": 772,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "(probability, False)"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 960,
+      "line": 978,
       "handled": [
         "FileNotFoundError"
       ],
@@ -1166,7 +1166,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 972,
+      "line": 990,
       "handled": [
         "Exception"
       ],
@@ -1186,7 +1186,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 869,
+      "line": 887,
       "handled": [
         "NonFiniteLiteProbabilityError"
       ],
@@ -1196,7 +1196,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 879,
+      "line": 897,
       "handled": [
         "Exception"
       ],
@@ -1206,7 +1206,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1015,
+      "line": 1033,
       "handled": [
         "Exception"
       ],
@@ -1216,7 +1216,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1121,
+      "line": 1139,
       "handled": [
         "Exception"
       ],
@@ -1226,7 +1226,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1154,
+      "line": 1172,
       "handled": [
         "Exception"
       ],
@@ -1268,7 +1268,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 663,
+      "line": 670,
       "handled": [
         "Exception"
       ],
@@ -3308,7 +3308,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 968,
+      "line": 986,
       "handled": [
         "ImportError"
       ],

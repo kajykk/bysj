@@ -728,3 +728,31 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   ImportError **探针记录本身**接线：探针 wired=True → W，P 16→15；总数 334 不变，
   口径变化已在本条记账）。变异 M1 删任一接线 / M2 改 location 字面量 / M3 删登记
   行，均 RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch11_result.log`。
+
+- 2026-10-16（第十三轮第十二批）：#35 X 桶接线 3 处（X 145→142，W 70→73，
+  调用点 70→73），单文件 `app/core/model_engine/predict.py`：
+
+  > 口径记账：调用点由本轮实测「改前 70 / 改后 73」得出（改前值 = 改后值 73
+  > 减去本批新增 3，本批是本轮唯一的源码改动）。第十一批条目登记的「69」与
+  > 本轮实测口径相差 1，**属历史快照，不回改**；差异在此记账备查。
+
+    core.model_engine.predict.experimental_v123_unavailable
+    core.model_engine.predict.lite_calibrator_unavailable
+    core.model_engine.predict.lite_calibration_apply_failed
+
+  裁定说明：三处都是「分数/对照数据看似有效实则失真，且响应形态与正常态同形」。
+  v1.23 对照路整路失败时 `experimental_external_*` 保持 None、`available=False`，
+  与「该模型未部署」同形；lite 校准产物缺失或执行失败时保底返回未校准概率，
+  响应里的 `probability_calibrated=False` 与「校准未启用」同形。同文件另两处
+  **不接线**：`_run_adapter` 已有 `adapter_miss` 专用计数器（M 型，不重复接通用
+  计数器）；`_run_experimental_v121` 外层实测不可达（`get_model_info(
+  "structured_v1.21_binary_lr")` 返回 None —— 注册表已移除 v1.21 四条目），接线
+  即死代码（第五批 `TestP235WiringIsNotDeadCode` 同族）。
+
+  闸门 `TestP235Round13Batch12Wiring`（3 条）：3 对 location 双向核对 + 一次
+  运行时覆盖三条路径（① `_load_model_async` 必炸驱动 v1.23 整路失败；② 同法驱动
+  校准产物加载失败；③ 换成无 `predict_proba` 的假校准器驱动执行失败）
+  + 一条反向钉（已裁定不接线的两个 handler 用**日志语义锚点**定位，不得出现
+  `record_silent_degradation`）。桶计数改钉 **W=73 / X=142**。变异 M1 删任一接线 /
+  M2 改 location 字面量 / M3 删登记行，均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch12_result.log`。

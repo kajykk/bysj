@@ -1,7 +1,7 @@
 {
   "counts": {
-    "X": 144,
-    "W": 67,
+    "X": 142,
+    "W": 73,
     "G": 8,
     "S": 36,
     "D": 22,
@@ -1005,11 +1005,11 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 531,
+      "line": 538,
       "func": "_run_adapter",
       "handled": [
         "Exception"
@@ -1018,7 +1018,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 628,
+      "line": 635,
       "func": "_maybe_fire_shadow_predict",
       "handled": [
         "Exception"
@@ -1027,7 +1027,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 656,
+      "line": 663,
       "func": "_predict_text_ml",
       "handled": [
         "Exception"
@@ -1036,25 +1036,25 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 744,
+      "line": 751,
       "func": "_apply_lite_calibration",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 759,
+      "line": 772,
       "func": "_apply_lite_calibration",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 960,
+      "line": 978,
       "func": "_predict_physiological",
       "handled": [
         "FileNotFoundError"
@@ -1063,7 +1063,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 972,
+      "line": 990,
       "func": "_predict_physiological",
       "handled": [
         "Exception"
@@ -1081,7 +1081,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 869,
+      "line": 887,
       "func": "predict_lite",
       "handled": [
         "NonFiniteLiteProbabilityError"
@@ -1090,7 +1090,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 879,
+      "line": 897,
       "func": "predict_lite",
       "handled": [
         "Exception"
@@ -1099,7 +1099,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1015,
+      "line": 1033,
       "func": "_predict_physiological_sync",
       "handled": [
         "Exception"
@@ -1108,7 +1108,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1121,
+      "line": 1139,
       "func": "explain_prediction",
       "handled": [
         "Exception"
@@ -1117,7 +1117,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1154,
+      "line": 1172,
       "func": "explain_prediction",
       "handled": [
         "Exception"
@@ -1155,7 +1155,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 663,
+      "line": 670,
       "func": "_predict_text_ml",
       "handled": [
         "Exception"
@@ -2217,6 +2217,33 @@
       "bucket": "X"
     },
     {
+      "file": "app/services/file_security_service.py",
+      "line": 119,
+      "func": "strip_image_exif",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 203,
+      "func": "scan_with_clamav",
+      "handled": [
+        "ConnectionError"
+      ],
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 222,
+      "func": "scan_with_clamav",
+      "handled": [
+        "Exception"
+      ],
+      "bucket": "W"
+    },
+    {
       "file": "app/services/model_predict/fusion.py",
       "line": 222,
       "func": "_log_canary_event",
@@ -2965,7 +2992,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 968,
+      "line": 986,
       "func": "_predict_physiological",
       "handled": [
         "ImportError"
@@ -3025,6 +3052,15 @@
         "ImportError"
       ],
       "bucket": "P"
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 156,
+      "func": "scan_with_clamav",
+      "handled": [
+        "ImportError"
+      ],
+      "bucket": "W"
     }
   ]
 }

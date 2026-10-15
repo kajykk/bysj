@@ -532,6 +532,46 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ---
 
+## 一之十二、#35 X 桶第十二批：3 处接线（X 145 → 142，`core/model_engine/predict.py`）
+
+### 1.35 接线清单
+
+「分数/对照数据看似有效实则失真，且响应形态与正常态同形」的三条路径：
+
+| location | 语义 |
+|---|---|
+| `core.model_engine.predict.experimental_v123_unavailable` | v1.23 对照路整路失败（加载或推理抛异常）→ `experimental_external_*` 保持 None、`available=False`，与「该模型未部署」同形，对照数据静默消失 |
+| `core.model_engine.predict.lite_calibrator_unavailable` | 校准产物缺失/被禁用 → 保底返回未校准概率，响应 `probability_calibrated=False` 与「校准未启用」同形 |
+| `core.model_engine.predict.lite_calibration_apply_failed` | 产物在但执行失败（非 `IsotonicRegression` 且无 `predict_proba` 的路径）→ 同样是未校准概率，成因与上一条不同故分开计数 |
+
+### 1.36 不接线（书面记账，仍留 X 桶，机器不裁、文档裁）
+
+- `_run_adapter`（X 桶）：同一函数内紧邻已有 `adapter_hit` / `adapter_miss`
+  专用计数器成对覆盖「适配器不可用」，按 M 桶口径不重复接通用计数器；
+- `_run_experimental_v121` 外层（X 桶）：实测
+  `get_model_info("structured_v1.21_binary_lr")` 返回 `None`（注册表已移除 v1.21
+  四条目），该 `try` 块运行时**不可达** → 接线即死代码，与第五批
+  `TestP235WiringIsNotDeadCode` 同族。注：同函数内层的 scaler fallback
+  （第二批已接）在模型被重新启用后可恢复可达，与本条不是同一判据。
+
+### 1.37 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch12Wiring`（3 条）：3 对 location 双向核对 + 一次
+  运行时覆盖三条路径（`_load_model_async` 必炸驱动 ① / ②；换成无
+  `predict_proba` 的假校准器驱动 ③）+ 一条反向钉（已裁定不接线的两个 handler
+  用**日志语义锚点** `"v1.24 adapter unavailable"` /
+  `"v1.22 experimental real binary LR unavailable"` 定位，不得出现
+  `record_silent_degradation`，锚点命中数必须为 2）。
+- 桶计数改钉：**W=73 / X=142 / P=15**（总数 334 不变）。本批为纯实记录迁移
+  （3 处 X→W），无探针接线，故无桶间口径变化。
+- 接线调用点实测 70→73（改前值由「改后 73 − 本批新增 3」得出；第十一批登记的
+  69 与本轮实测口径相差 1，历史快照不回改，差异在 P2_11 附录本条记账）。
+- 三次真实变异：M1 删任一接线 / M2 改 location 字面量（含闭合引号，防子串
+  逃逸）/ M3 删 P2_11 附录登记行，均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch12_result.log`。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -567,8 +607,10 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十一批）：当前棘轮 **W=70 / X=145 / P=15**（总数 334 不变）。
-   本批增量：W +3（2 处实记录 X→W + 1 处探针记录 P→W，首见探针接线）、X -2、P -1。
+0. **本轮累计状态**（十二批，结账时点 `478d1cc` + 第十二批）：当前棘轮
+   **W=73 / X=142 / P=15**（总数 334 不变）。
+   第十二批增量：W +3 / X -3（3 处实记录 X→W，无桶间迁移）；
+   第十一批增量：W +3（2 处实记录 X→W + 1 处探针记录 P→W，首见探针接线）、X -2、P -1。
    已裁定跳过 35（第一批 2 + 第二批 11 + 第三批 1 + 第四批 13 + 第六批 8）之外，
    第七/八/九/十/十一批另有 M/S/critical/设计内/调用方可见/既存落点，均在各
    「一之X」节记账，不进 35。逐批明细见各节；本节为结账口径，历史快照不回改。

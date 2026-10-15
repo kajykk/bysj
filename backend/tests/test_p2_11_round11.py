@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 70,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十一批净 43）
+            "W": 73,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十二批净 46）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -421,9 +421,10 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 145,  # 真降级留档（本批 3 处接线中 2 处为实记录 X→W，另 1 处为探针记录 P→W；
-                        # 故 X 147→145、P 16→15、W 67→70；silences 6 处经复核改判：5 处已有
-                        # am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
+            "X": 142,  # 真降级留档（第十二批 3 处实记录 X→W：v1.23 对照路 / lite 校准
+                        # 加载 / lite 校准执行；故 X 145→142、W 70→73；总数 334 不变。
+                        # 前一行为第十一批口径：X 147→145、P 16→15、W 67→70，silences 6 处
+                        # 经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -1869,3 +1870,125 @@ class TestModuleLevelNamesDefined:
         assert not bad, "引用了未定义/未导入的名字（运行期 NameError 形态）:\n" + "\n".join(
             sorted(set(bad))[:20]
         )
+
+
+class TestP235Round13Batch12Wiring:
+    """第十三轮第十二批：#35 X 桶 3 处接线（`core/model_engine/predict.py`）。
+
+    三处都是「分数/对照数据看似有效实则失真，且响应形态与正常态同形」：
+    - `...experimental_v123_unavailable`：v1.23 对照路整路失败 →
+      `experimental_external_*` 保持 None、`available=False`，与「该模型未部署」
+      在响应形态上同形，排查时看不出是没部署还是加载/推理抛异常；
+    - `...lite_calibrator_unavailable`：校准产物缺失/被禁用 → 保底返回未校准概率，
+      响应里的 `probability_calibrated=False` 与「校准未启用」同形；
+    - `...lite_calibration_apply_failed`：产物在但执行失败 → 同样是未校准概率，
+      成因与上一条不同，分开计数才能定位是产物问题还是模型接口问题。
+
+    同文件另 2 处**不接线、留档**（判据见 `test_declined_handlers_have_no_wiring`）：
+    - `_run_adapter`：同一函数内已有 `adapter_miss` 专用计数器（与 `adapter_hit`
+      成对），按 M 桶口径不重复接通用计数器；
+    - `_run_experimental_v121` 外层：实测 `get_model_info(
+      "structured_v1.21_binary_lr")` 返回 None（注册表已移除 v1.21 四条目），
+      该 try 块运行时不可达 —— 接线即死代码，与第五批
+      `TestP235WiringIsNotDeadCode` 同族。
+    """
+
+    PAIRS = (
+        ("core.model_engine.predict.experimental_v123_unavailable", "core/model_engine/predict.py"),
+        ("core.model_engine.predict.lite_calibrator_unavailable", "core/model_engine/predict.py"),
+        ("core.model_engine.predict.lite_calibration_apply_failed", "core/model_engine/predict.py"),
+    )
+
+    # 行为锚点（pin 日志语义而非行号，行号随注释增删漂移）
+    DECLINED_MARKERS = (
+        "v1.24 adapter unavailable",
+        "v1.22 experimental real binary LR unavailable",
+    )
+
+    _RAW = {
+        "age": 20, "gender": 1, "cgpa": 3.0, "stress_level": 3,
+        "sleep_duration": 7, "social_support": 3, "financial_pressure": 3,
+        "family_history": 0, "academic_pressure": 3, "exercise_frequency": 2,
+        "anxiety": 3, "panic_attack": 0,
+    }
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_three_paths_increment(self, monkeypatch):
+        """行为：三条失败路径各触发一次 → 对应计数器各 +1。"""
+        from app.core.config import settings
+        from app.core.model_engine import ModelEngine
+        from app.core.model_engine.loading import LoadingMixin
+
+        engine = ModelEngine()
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+        monkeypatch.setattr(settings, "lite_calibration_enabled", True)
+
+        async def _boom(self, model_id, *args, **kwargs):  # noqa: ANN001
+            raise FileNotFoundError(f"probe: {model_id} unavailable")
+
+        monkeypatch.setattr(LoadingMixin, "_load_model_async", _boom)
+
+        # ① v1.23 对照路整路失败（加载即炸）
+        r123 = await engine._run_experimental_v123(dict(self._RAW), 50.0)
+        assert r123["experimental_external_available"] is False
+        assert r123["experimental_external_score"] is None
+
+        # ② 校准产物加载失败 → 保底返回未校准概率
+        prob1, applied1 = await engine._apply_lite_calibration(0.5)
+        assert prob1 == 0.5 and applied1 is False
+
+        # ③ 产物在但执行失败：假校准器既非 IsotonicRegression 也没有 predict_proba
+        async def _bogus(self, model_id, *args, **kwargs):  # noqa: ANN001
+            return object()
+
+        monkeypatch.setattr(LoadingMixin, "_load_model_async", _bogus)
+        prob2, applied2 = await engine._apply_lite_calibration(0.5)
+        assert prob2 == 0.5 and applied2 is False
+
+        for loc in locs:
+            assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
+
+    def test_declined_handlers_have_no_wiring(self):
+        """反向钉：已裁定不接线的两个 handler 不得出现通用计数器接线。
+
+        `adapter_miss` 专用计数器已覆盖 v1.24 适配器不可用；v1.21 外层 try 运行时
+        不可达。将来若有人"顺手补个计数"，必须先推翻本裁定（并证明可达性/非重复）。
+        """
+        tree = ast.parse((BE / "core/model_engine/predict.py").read_text(encoding="utf-8"))
+        hits = 0
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if fn.name not in {"_run_adapter", "_run_experimental_v121"}:
+                continue
+            for node in ast.walk(fn):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = [ast.unparse(stmt) for stmt in node.body]
+                if not any(m in stmt for stmt in body_src for m in self.DECLINED_MARKERS):
+                    continue
+                hits += 1
+                for sub in ast.walk(node):
+                    if isinstance(sub, ast.Call):
+                        nm = getattr(sub.func, "id", None) or getattr(sub.func, "attr", None)
+                        assert nm != "record_silent_degradation", (
+                            f"{fn.name} 的 handler（锚点 {self.DECLINED_MARKERS}）已裁定不接线，"
+                            f"却发现 record_silent_degradation —— 必须先推翻裁定"
+                        )
+        assert hits == 2, f"行为锚点命中 {hits} 处，期望 2（锚点漂移 = 闸门失效）"
