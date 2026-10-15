@@ -385,6 +385,11 @@ class PredictMixin:
                 except Exception as exc:
                     # P1-E 修复：scaler.transform 失败时回退到未缩放数据，但必须记录日志便于排查
                     logger.warning("exp_scaler.transform failed, using unscaled data: %s", exc)
+                    # P2-35：实验路径拿未缩放特征算分——分数看似有效实则失真，
+                    # 响应里没有任何标识能让消费者看出这次对照失效，必须计数。
+                    record_silent_degradation(
+                        "core.model_engine.predict.experimental_v121_scaler_fallback"
+                    )
                     exp_scaled = exp_array
                 exp_proba = await asyncio.to_thread(exp_model.predict_proba, exp_scaled)
                 experimental_real_probability = float(exp_proba[0][1])
@@ -625,6 +630,11 @@ class PredictMixin:
             # 注意用 debug 而非 error: 这条路径失败通常是影子侧配置问题,
             # 高频触发时会淹没真实故障日志。
             logger.debug("[SHADOW] 触发失败 (不影响生产): %s", str(e)[:150])
+            # P2-35：影子触发是 fire-and-forget——样本静默丢失，对拍覆盖率
+            # 悄悄归零而无任何告警（激活校验的依据就是这么缺掉的），必须计数。
+            record_silent_degradation(
+                "core.model_engine.predict.shadow_predict_trigger_failed"
+            )
 
     async def _predict_text_ml(self, text: str) -> dict[str, Any]:
         """ML 模型预测文本情感。
@@ -1004,6 +1014,13 @@ class PredictMixin:
                 cleaner = load_cleaner()
             except Exception as clean_exc:
                 logger.warning("Failed to load cleaner stats, using raw input: %s", clean_exc)
+                # P2-35： cleaner 统计量缺失时特征工程（中位数填充/极端值裁剪/
+                # Winsorization）被整体跳过，模型拿到未清洗的原始输入——预测值
+                # 失真但形态正常。姊妹路径 predict_lite 同型失败有 _incr_fallback
+                # 计数，本路径此前零计数，必须补上。
+                record_silent_degradation(
+                    "core.model_engine.predict.physiological_cleaner_fallback"
+                )
 
         # Build raw feature dict with original 7 features
         raw_data = {
@@ -1104,6 +1121,11 @@ class PredictMixin:
             except Exception as exc:
                 # P1-E 修复：SHAP 计算失败回退到简单特征重要性，必须记录日志便于排查
                 logger.warning("SHAP factors computation failed, falling back to simple: %s", exc)
+                # P2-35：解释静默降级——响应里 importance 字段形态不变，用户/咨询师
+                # 看到的"特征贡献"实为 |特征值| 而非 SHAP 值，无从分辨，必须计数。
+                record_silent_degradation(
+                    "core.model_engine.predict.shap_factors_fallback"
+                )
                 fallback: list[dict[str, Any]] = []
                 for f in model_feature_names[:5]:
                     val = input_dict.get(f, 0)
@@ -1134,6 +1156,11 @@ class PredictMixin:
                 logger.warning(
                     "SHAP factors array computation failed, falling back to simple: %s",
                     exc,
+                )
+                # P2-35：同 shap_factors_fallback——数组路径（无 model_feature_names
+                # 时的 feature_order 分支）的解释降级同样不可见，必须计数。
+                record_silent_degradation(
+                    "core.model_engine.predict.shap_factors_array_fallback"
                 )
                 fallback: list[dict[str, Any]] = []
                 for f in self.feature_order[:5]:

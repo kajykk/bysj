@@ -1,9 +1,9 @@
 {
   "counts": {
-    "X": 180,
+    "X": 174,
     "G": 8,
     "S": 36,
-    "W": 34,
+    "W": 40,
     "D": 22,
     "V": 2,
     "C": 7,
@@ -1000,7 +1000,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 484,
+      "line": 489,
       "func": "_run_experimental_v123",
       "handled": [
         "Exception"
@@ -1009,7 +1009,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 526,
+      "line": 531,
       "func": "_run_adapter",
       "handled": [
         "Exception"
@@ -1018,16 +1018,16 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 623,
+      "line": 628,
       "func": "_maybe_fire_shadow_predict",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 646,
+      "line": 656,
       "func": "_predict_text_ml",
       "handled": [
         "Exception"
@@ -1036,7 +1036,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 734,
+      "line": 744,
       "func": "_apply_lite_calibration",
       "handled": [
         "Exception"
@@ -1045,7 +1045,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 749,
+      "line": 759,
       "func": "_apply_lite_calibration",
       "handled": [
         "Exception"
@@ -1054,7 +1054,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 950,
+      "line": 960,
       "func": "_predict_physiological",
       "handled": [
         "FileNotFoundError"
@@ -1063,7 +1063,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 962,
+      "line": 972,
       "func": "_predict_physiological",
       "handled": [
         "Exception"
@@ -1072,7 +1072,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 416,
+      "line": 421,
       "func": "_run_experimental_v121",
       "handled": [
         "Exception"
@@ -1081,7 +1081,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 859,
+      "line": 869,
       "func": "predict_lite",
       "handled": [
         "NonFiniteLiteProbabilityError"
@@ -1090,7 +1090,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 869,
+      "line": 879,
       "func": "predict_lite",
       "handled": [
         "Exception"
@@ -1099,30 +1099,30 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1005,
+      "line": 1015,
       "func": "_predict_physiological_sync",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1104,
+      "line": 1121,
       "func": "explain_prediction",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1132,
+      "line": 1154,
       "func": "explain_prediction",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/predict.py",
@@ -1151,11 +1151,11 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 653,
+      "line": 663,
       "func": "_predict_text_ml",
       "handled": [
         "Exception"
@@ -1979,7 +1979,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 57,
+      "line": 58,
       "func": "_redis_client_or_none",
       "handled": [
         "Exception"
@@ -1988,7 +1988,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 68,
+      "line": 69,
       "func": "_bump_lock_counter",
       "handled": [
         "Exception"
@@ -1997,7 +1997,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 90,
+      "line": 91,
       "func": "try_acquire_check_lock",
       "handled": [
         "Exception"
@@ -2006,7 +2006,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 123,
+      "line": 124,
       "func": "publish_check_heartbeat",
       "handled": [
         "Exception"
@@ -2015,7 +2015,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 152,
+      "line": 153,
       "func": "get_check_heartbeat_age",
       "handled": [
         "Exception"
@@ -2024,7 +2024,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 161,
+      "line": 162,
       "func": "get_check_heartbeat_age",
       "handled": [
         "TypeError",
@@ -2035,7 +2035,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 173,
+      "line": 174,
       "func": "get_check_heartbeat_age",
       "handled": [
         "Exception"
@@ -2044,7 +2044,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 434,
+      "line": 442,
       "func": "check_all_canaries",
       "handled": [
         "Exception"
@@ -2053,12 +2053,12 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 430,
+      "line": 431,
       "func": "check_all_canaries",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
@@ -2992,7 +2992,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 958,
+      "line": 968,
       "func": "_predict_physiological",
       "handled": [
         "ImportError"

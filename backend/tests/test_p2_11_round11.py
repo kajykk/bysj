@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
+from datetime import datetime, timezone
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 BE = REPO / "backend/app"
@@ -407,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 34,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮第一批 7）
+            "W": 40,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮第一/二批 13）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -419,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 180,  # 真降级留档（第十三轮第一批已接 7 处：validation 读路径 5 + cache 客户端初始化 2）
+            "X": 174,  # 真降级留档（第十三轮第一/二批已接 13 处：validation 读路径 5 + cache 初始化 2 + predict 5 + auto_rollback 1）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -573,6 +574,126 @@ class TestP235Round13Batch1Wiring:
         run(cache_mod.get_redis_pubsub_client())
         assert self._counter_value(loc1) == before1 + 1, "共享客户端初始化失败未计数（假接线）"
         assert self._counter_value(loc2) == before2 + 1, "pubsub 客户端初始化失败未计数（假接线）"
+
+
+class TestP235Round13Batch2Wiring:
+    """第十三轮第二批：#35 X 桶 6 处真降级接线（predict 5 + auto_rollback 1）。
+
+    接线对象（X 174 / W 40，扫描器复跑实测）：
+    - `core/model_engine/predict.py` 5 处：scaler 失败→未缩放数据算分、
+      影子触发丢失（fire-and-forget）、cleaner 统计量缺失→原始输入、
+      SHAP 失败→简单特征重要性（dict/array 两条路径）；
+    - `services/auto_rollback_service.py` 1 处：回滚 savepoint 失败——
+      results 里追加的仍是 should_rollback=True 的原始结果，数据结构
+      在说谎，坏金丝雀继续生产服务而调用方无从得知。
+
+    存在性→行为双断言同第一批；行为侧挑两个可确定触发点：
+    影子触发（stub self + 必炸 sink）与回滚 savepoint（真 db_session +
+      monkeypatch 四件套：锁/心跳/健康检查/回滚）。
+    """
+
+    PAIRS = (
+        ("core.model_engine.predict.experimental_v121_scaler_fallback", "core/model_engine/predict.py"),
+        ("core.model_engine.predict.shadow_predict_trigger_failed", "core/model_engine/predict.py"),
+        ("core.model_engine.predict.physiological_cleaner_fallback", "core/model_engine/predict.py"),
+        ("core.model_engine.predict.shap_factors_fallback", "core/model_engine/predict.py"),
+        ("core.model_engine.predict.shap_factors_array_fallback", "core/model_engine/predict.py"),
+        ("services.auto_rollback_service.rollback_savepoint_failed", "services/auto_rollback_service.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_shadow_trigger_failure_increments_counter(self, monkeypatch):
+        """行为：影子 sink 抛异常 → fire-and-forget 样本丢失 → 计数器 +1。"""
+        from app.core.config import settings
+        from app.core.model_engine.predict import PredictMixin
+
+        class _StubSelf:
+            _shadow_sink = None
+
+        class _BoomSink:
+            def fire_shadow_predict(self, *args, **kwargs):
+                raise RuntimeError("probe: shadow sink broken")
+
+        stub = _StubSelf()
+        stub._shadow_sink = _BoomSink()
+        monkeypatch.setattr(settings, "shadow_mode_text_enabled", True, raising=False)
+        loc = "core.model_engine.predict.shadow_predict_trigger_failed"
+        before = self._counter_value(loc)
+        # 同步方法（fire-and-forget 调用点无 await），stub self 即可精确打击
+        PredictMixin._maybe_fire_shadow_predict(stub, "probe text", {"prediction": 1})
+        assert self._counter_value(loc) == before + 1, "影子触发失败未计数（假接线）"
+
+    async def test_rollback_savepoint_failure_increments_counter(
+        self, db_session, monkeypatch
+    ):
+        """行为：execute_rollback 抛异常 → 回滚未发生但结果仍 should_rollback=True → 计数器 +1。"""
+        import importlib
+
+        from app.models.monitoring import CanaryRecord, CanaryStatus
+
+        arb = importlib.import_module("app.services.auto_rollback_service")
+
+        canary = CanaryRecord(
+            version="v-probe-rollback",
+            traffic_percent=50,
+            status=CanaryStatus.RUNNING,
+            auto_rollback_thresholds={
+                "max_fallback_rate": 0.05,
+                "max_drift_alerts_per_hour": 10,
+                "max_avg_latency_ms": 500.0,
+            },
+            triggered_by=None,
+            started_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        db_session.add(canary)
+        await db_session.flush()
+
+        service = arb.AutoRollbackService()
+
+        async def _lock_ok(*args, **kwargs):
+            return True
+
+        async def _heartbeat_ok(*args, **kwargs):
+            return True
+
+        async def _check_should_rollback(session, canary_id):
+            return arb.RollbackCheckResult(
+                should_rollback=True,
+                reason="probe",
+                metrics={},
+                canary_id=canary_id,
+            )
+
+        async def _rollback_boom(*args, **kwargs):
+            raise RuntimeError("probe: rollback savepoint failed")
+
+        # 四件套隔离：只留 savepoint 失败这一条路径为真
+        monkeypatch.setattr(arb, "try_acquire_check_lock", _lock_ok)
+        monkeypatch.setattr(arb, "publish_check_heartbeat", _heartbeat_ok)
+        monkeypatch.setattr(service, "check_canary_health", _check_should_rollback)
+        monkeypatch.setattr(service, "execute_rollback", _rollback_boom)
+
+        loc = "services.auto_rollback_service.rollback_savepoint_failed"
+        before = self._counter_value(loc)
+        results = await service.check_all_canaries(db_session, source="probe")
+        assert len(results) == 1
+        assert results[0].should_rollback is True, "前置条件失效：结果应仍标记 should_rollback"
+        assert self._counter_value(loc) == before + 1, "回滚 savepoint 失败未计数（假接线）"
 
 
 class TestP232ModelMetadataContradictionRecorded:

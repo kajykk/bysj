@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.degradation import record_silent_degradation
 from app.models.monitoring import (
     CanaryRecord,
     CanaryStatus,
@@ -430,6 +431,13 @@ class AutoRollbackService:
                     except Exception:
                         logger.exception(
                             "Rollback savepoint failed for canary %d", canary.id
+                        )
+                        # P2-35：回滚失败但 results 里追加的仍是 should_rollback=True
+                        # 的原始 check_result——数据结构在说谎，调用方无从知道这次
+                        # 自动回滚根本没有发生（坏金丝雀继续在生产提供服务），
+                        # 唯一的痕迹就是这行日志，必须计数。
+                        record_silent_degradation(
+                            "services.auto_rollback_service.rollback_savepoint_failed"
                         )
             except Exception:
                 logger.exception("Check/rollback failed for canary %d", canary.id)

@@ -1705,13 +1705,14 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 
 ---
 
-## 第十三轮：#35 X 桶第一批接线 7 处 + tenant_admin 结案 + prettier 终局决议
+## 第十三轮：#35 X 桶两批接线 13 处 + tenant_admin 结案 + prettier 终局决议
 
 ### 改了什么
 
 | 项 | 内容 |
 |---|---|
 | #35 X 桶第一批 | 接线 7 处：`api/v1/validation.py` 读路径 5（get/update/delete/list_jobs/count 的 Redis→内存降级）+ `core/cache.py` 客户端初始化 2（共享/pubsub，根因性降级）。X 187→**180**，W 27→**34**，调用点 26→**33**（扫描器+分类器复跑，总数 334 不变） |
+| #35 X 桶第二批 | 接线 6 处：`core/model_engine/predict.py` 5（scaler 失败→未缩放算分 / 影子触发丢失 / cleaner 缺失→原始输入——姊妹路径 predict_lite 有计数而本路径零计数 / SHAP→简单重要性 dict+array 两路）+ `services/auto_rollback_service.py` 1（回滚 savepoint 失败后结果仍 should_rollback=True，数据结构说谎）。X 180→**174**，W 34→**40**，调用点 33→**39** |
 | tenant_admin 4 处 | 提示词该项 stale：第十二轮第六批 `a9926a1` 已迁完（目标租户归属 + `TestTargetTenantAttribution` 双钉），本轮实测结账不改码 |
 | prettier | **终局决议**（非第三次原样记账）：实测 370 文件不一致（437→370）+ 3 个 `.vue` parser 存量错仍在 + CI 0 命中 ⇒ 书面确认继续不做，但写入三条触发条件（CI 加格式门 / 不一致数有机降至 <50 / 答辩后归档期显式指令），满足任一即按限定方式执行 |
 | 跳过记账 | X 桶 2 条：`validation.job_store._get_redis`（生产不可达，共享客户端内部已吞失败）、`cache._get_redis_url` 内层 except（指标自报失败兜底，外层已直调 inc）——仍留 X 桶，文档裁 |
@@ -1727,18 +1728,38 @@ E11 连续三轮判 INVALID，根因不在闸门而在驱动：写变异时用
 3. **`get_redis_client()` 的失败面比看起来小**：`from_url` 失败在共享模块内被吞并
    返回 None，消费点（如 validation）的探测 except 生产不可达——根因信号必须接在
    cache 层，这也解释了本批为何把 cache 2 处与 validation 5 处并批。
+4. **分类器 M 规则漏认专用计数器（第二批实锤）**：`auto_rollback_service` 5 处失败
+   全部已有 `canary_rollback_check_lock_total{outcome}` 计数（`_bump_lock_counter`），
+   但分类器只认 `warning_notify_failed_total`/`_incr_fallback` 两个字面量 → 落入 X。
+   同型还有 `predict._run_adapter` 的 `adapter_miss`（实测经
+   `get_metrics_snapshot()` 的 adapter.miss_count 暴露到 /api/v1/metrics）。
+   本轮按「机器不裁、文档裁」跳过并记账；分类器精化（认这两个计数器名）登记为
+   后续批可选项——改规则要重验全部 334 行，blast radius 大于单批收益。
+5. **同型降级的姊妹路径 instrumentation 不一致**：`predict_lite` 的 cleaner 加载失败
+   有 `_incr_fallback` 计数（分类器正确归 M），`_predict_physiological_sync` 的
+   同型失败零计数（落 X）——照抄计数模式时漏掉了孪生路径，本次补上。
+6. **多文件 pytest 混入不存在路径会静默 0 收集**（不报 collection error）：
+   `tests/test_predict_text_integration.py` 实际在 `tests/unit/`。跑多文件前先
+   `ls` 核对；"0 收集"本身就是红色信号（已写入 MEMORY.md）。
 
 ### 实测读数
 
-- `test_p2_11_round11.py` 29 passed（+3 新闸门：location 双向核对 + 两个运行时计数器断言）；
-  全部 P2 闸门六套件 **121 passed**；affected 227 passed（validation/cache 42 +
-  cache 消费者 127 + 模型缓存/校验引擎 58）；BE 全称注释 97→98（两侧账已写 P2_10 附录）。
-- 变异 3/3 RED-OK/GREEN-OK（强度均为语义级：整句删/换 location 字面量/整行删文档登记），
-  日志 `backend/tests/tools/mutate_p2_35_round13_batch1_result.log`。
+- 第一批：`test_p2_11_round11.py` 29 passed（+3 新闸门）；全部 P2 闸门六套件
+  **121 passed**；affected 227 passed；BE 全称注释 97→98（两侧账已写 P2_10 附录）；
+  变异 3/3 RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch1_result.log`。
+  **CI（`52c5959`）：`total_count=10`，10/10 全 success（含 backend-coverage）。**
+- 第二批：`test_p2_11_round11.py` 32 passed（再 +3 新闸门：影子触发/回滚 savepoint
+  两个运行时计数器断言）；全部 P2 闸门六套件 **124 passed**；affected 230 passed
+  （auto_rollback 30 + canary_fallback_monitor 38 + shadow 14 + shadow_comparison 11
+  + nonfinite_guards 61 + structured_parallel 14 + predict_text_integration 5 +
+  scheduler 57）；BE 全称注释仍 98（新增注释零命中，闸门绿佐证）；变异 3/3
+  RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch2_result.log`。
 
 ### 未验证如实记账
 
-- 后端全量本地未跑（约 37 分钟）：本地 affected+闸门 348 passed，其余由 CI 兜底。
-- X 桶余 173 条待接（跳过 2 条仍留桶）；前端本批零改动未跑全量，收尾轮补。
-- 分类器精化（内层指标 except 自动归 S）为后续批可选项，本轮不改。
+- 后端全量本地未跑（约 37 分钟）：两批本地 affected+闸门合计约 700 passed，其余由 CI 兜底。
+- X 桶余 161 条待接（桶内 174 = 待接 161 + 已裁定跳过 13 仍留桶）；前端两批零改动
+  未跑全量，收尾轮补。
+- 分类器精化（认 `canary_rollback_check_lock_total`/`adapter_miss` 两个专用计数器，
+  以及内层指标 except 自动归 S）为后续批可选项，本轮不改。
 

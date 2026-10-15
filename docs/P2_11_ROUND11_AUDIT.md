@@ -424,6 +424,33 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   （存在性 location 双向核对 + 运行时计数器 +1 行为断言）。
   详见 `P2_13_ROUND13_AUDIT.md`。
 
+- 2026-10-15（第十三轮第二批）：#35 X 桶接线 6 处（X 180→174，W 34→40，
+  调用点 33→39，扫描器+分类器复跑实测，总数 334 不变）：
+
+    core.model_engine.predict.experimental_v121_scaler_fallback
+    core.model_engine.predict.shadow_predict_trigger_failed
+    core.model_engine.predict.physiological_cleaner_fallback
+    core.model_engine.predict.shap_factors_fallback
+    core.model_engine.predict.shap_factors_array_fallback
+    services.auto_rollback_service.rollback_savepoint_failed
+
+  裁定说明：predict 5 处——scaler 失败→未缩放特征算分（对照数据失真无标识）、
+  影子触发丢失（fire-and-forget，对拍覆盖率静默归零）、cleaner 统计量缺失→
+  原始输入进模型（姊妹路径 predict_lite 同型失败有 `_incr_fallback` 计数、
+  本路径此前零计数）、SHAP 失败→简单特征重要性（dict/array 两路径，用户看到的
+  "特征贡献"实为 |特征值|）；auto_rollback 1 处——回滚 savepoint 失败后
+  results 追加的仍是 should_rollback=True 的原始结果，坏金丝雀继续生产服务。
+  本批跳过 11 条并记账（仍留 X 桶，机器不裁、文档裁）：predict 的
+  v121/v123 实验路径 2 处（响应置 None，显式不可见）、adapter miss
+  （`_incr_counter`→`get_metrics_snapshot()` 的 adapter.miss_count，
+  经 /api/v1/metrics 与 monitoring 暴露）、lite 校准 2 处（响应
+  `probability_calibrated=False` 且阈值选择已分支）；auto_rollback 6 处——
+  5 处已有专用计数器 `canary_rollback_check_lock_total{outcome}`
+  （`_bump_lock_counter`，分类器 M 规则不认它故落入 X）、check_error
+  分支（结果里显式 `reason="check_error"`）。
+  桶计数同步改钉（W=40/X=174）；新增 `TestP235Round13Batch2Wiring`
+  （存在性双向核对 + 影子触发/回滚 savepoint 两个运行时计数器断言）。
+
 - 2026-10-15（第十三轮结案）：`tenant_admin` 4 处**迁移已在第十二轮第六批
   `a9926a1` 完成**（第十三轮提示词该项为 stale，实测结账不改码）：
   4 处 `record_audit` 的 `tenant_id` 实参为 `tenant.id`/`tenant_id`（目标租户，

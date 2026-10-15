@@ -99,10 +99,11 @@
 
 - **后端全量本地未跑**（约 37 分钟，历轮同例）：本地跑 affected 227 + 全部闸门
   121 = 348 passed，根目录其余文件由 CI 全量兜底。
-- **X 桶余 173 条**（180 - 本批记账跳过的 2 - 已接 7 = 173 待接；跳过 2 条仍留
-  X 桶）。下一批候选（按审计 6.5 Top 簇续）：`core/model_engine/predict.py` 10、
-  `core/model_engine/loading.py` 8、`services/auto_rollback_service.py` 7、
-  `tasks/scheduler.py` 7、`api/v1/silences.py` 6、`api/v1/alerts/__init__.py` 6、
+- **X 桶余 178 条待接**（第一批后桶内 180 = 已接 7 出桶 + 跳过 2 仍留桶；
+  待接 = 180 - 2 = 178）。下一批候选（按审计 6.5 Top 簇续）：
+  `core/model_engine/predict.py` 10、`core/model_engine/loading.py` 8、
+  `services/auto_rollback_service.py` 7、`tasks/scheduler.py` 7、
+  `api/v1/silences.py` 6、`api/v1/alerts/__init__.py` 6、
   `tasks/pdf_report.py` 6。
   > 注：审计 6.5 写的 `loading.py 9 / auto_rollback 9` 与 JSON 实测（8/7）差 1-2 条，
   > 系该节成文时点的快照差异；以 JSON 产物 + 桶计数闸门为权威。
@@ -116,6 +117,50 @@
   `vue-tsc` 0 错留待本轮有前端改动的批次或收尾轮。
 - 分类器精化（把「指标自报失败的内层 except」自动归 S）登记为后续批可选项，
   本轮不改（见 1.2）。
+
+---
+
+## 一之二、#35 X 桶第二批：6 处接线（X 180 → 174）+ 跳过 11 条
+
+### 1.6 接线清单
+
+| location | 文件 | 降级语义 |
+|---|---|---|
+| `core.model_engine.predict.experimental_v121_scaler_fallback` | `core/model_engine/predict.py` | scaler.transform 失败→未缩放特征算分：实验对照分数看似有效实则失真，响应无任何标识 |
+| `core.model_engine.predict.shadow_predict_trigger_failed` | 同上 | 影子触发 fire-and-forget 失败→样本静默丢失，对拍覆盖率悄悄归零（激活校验的依据就是这么缺掉的） |
+| `core.model_engine.predict.physiological_cleaner_fallback` | 同上 | cleaner 统计量缺失→特征工程（中位数填充/极端值裁剪/Winsorization）整体跳过，模型拿到未清洗原始输入。**姊妹路径 `predict_lite` 同型失败有 `_incr_fallback` 计数，本路径此前零计数** |
+| `core.model_engine.predict.shap_factors_fallback` | 同上 | SHAP 失败→简单特征重要性（dict 路径）：用户/咨询师看到的「特征贡献」实为 \|特征值\| |
+| `core.model_engine.predict.shap_factors_array_fallback` | 同上 | 同上（array 路径，无 model_feature_names 时的 feature_order 分支） |
+| `services.auto_rollback_service.rollback_savepoint_failed` | `services/auto_rollback_service.py` | 回滚 savepoint 失败后 results 追加的仍是 should_rollback=True 的原始结果——**数据结构在说谎**，坏金丝雀继续生产服务，调用方无从得知 |
+
+### 1.7 跳过 11 条（书面记账，仍留 X 桶）
+
+| 位置 | 跳过理由 |
+|---|---|
+| `predict._run_experimental_v121`（416）/ `_run_experimental_v123`（484） | V 型：实验 LR 不可用时响应字段置 None，消费者可见（非静默） |
+| `predict._run_adapter`（526） | M 型：已有专用计数 `_incr_counter("adapter_miss")` → `get_metrics_snapshot()` 的 `adapter.miss_count`，经 `/api/v1/metrics` 与 monitoring 暴露（实测快照含 adapter.hit/miss_count） |
+| `predict._apply_lite_calibration`（734/749） | V 型：返回 `(raw, False)`，响应 `probability_calibrated=False` 且阈值选择已按该标志分支，失败可见 |
+| `auto_rollback` 5 处（57/90/123/152/161） | M 型：全部已有专用计数器 `canary_rollback_check_lock_total{outcome="unavailable"}`（`_bump_lock_counter`）；分类器 M 规则只认 `warning_notify_failed_total`/`_incr_fallback` 故落入 X——**分类器盲区，文档裁** |
+| `auto_rollback.check_all_canaries`（434） | V 型：健康检查失败时结果显式 `reason="check_error"`，调用方可见 |
+
+### 1.8 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch2Wiring`（3 条）：6 对 location 双向核对 +
+  影子触发失败计数器 +1（stub self + 必炸 sink，精确打击同步方法）+
+  回滚 savepoint 失败计数器 +1（真 `db_session` + monkeypatch 四件套：
+  锁/心跳/健康检查/回滚，只留 savepoint 失败一条路径为真）。
+- 桶计数改钉：**W=40 / X=174**（总数 334 不变）。
+- 三次真实变异（强度均语义级）：M1 删 auto_rollback 整个接线语句 →
+  红 3/3（locations/运行时/桶计数）；M2 换影子触发 location 字面量 →
+  红 2/2（locations/影子运行时）；M3 删文档登记行 → 红 1/1。日志
+  `mutate_p2_35_round13_batch2_result.log`。
+- 实测：全部 P2 闸门六套件 **124 passed**；affected **230 passed**
+  （auto_rollback 30 + canary_fallback_monitor 38 + shadow 模式 14 +
+  shadow_comparison 11 + nonfinite_guards 61 + structured_parallel 14 +
+  predict_text_integration 5 + scheduler 57）；import 烟测 + AST 绑定通过；
+  BE 全称注释仍 98（本批新增注释经检测器复核零命中，闸门绿佐证）。
+- 环境小插曲（记账）：多文件 pytest 混入一个不存在路径（`tests/test_predict_text_integration.py`
+  实际在 `tests/unit/`）→ 静默 0 收集。已按既有教训先 `ls` 核对再跑。
 
 ---
 
@@ -154,9 +199,14 @@
 
 ## 三、口径变化影响面结论
 
-1. **桶计数改钉（W 27→34 / X 187→180）**：只影响 `test_batch6_bucket_counts_pinned`
-   的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 7 的
-   去向全部可逐条指认（1.1 表），无静默蒸发。
+0. **本轮累计状态**（两批后）：X 桶 **174** 条 = 待接 161 + 已裁定跳过 13
+   （第一批 2 + 第二批 11，均书面记账仍留桶）；已接 13 处（7+6），
+   调用点 26→**39**；W=40。下一批候选续：`loading.py` 8、`scheduler.py` 7、
+   `silences.py` 6、`alerts/__init__.py` 6、`pdf_report.py` 6、
+   `dedup_lock.py` 6、`notifier.py` 5。
+1. **桶计数改钉（W 27→34→40 / X 187→180→174）**：只影响 `test_batch6_bucket_counts_pinned`
+   的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 13 的
+   去向全部可逐条指认（1.1/1.6 表），无静默蒸发。
 2. **全称注释净值 +1（97→98）**：仅 `cache.py:152` 新增命中（「只会看到」），
    P2_10 附录两侧账已写、闸门同步改钉；validation.py 5 处新注释经检测器复核
    **零命中**（用词避开了全称词），非漏账。

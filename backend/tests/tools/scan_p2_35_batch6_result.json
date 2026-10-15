@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 33,
+  "real_wired": 39,
   "import_probe": 16,
   "real_list": [
     {
@@ -1096,7 +1096,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 484,
+      "line": 489,
       "handled": [
         "Exception"
       ],
@@ -1106,7 +1106,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 526,
+      "line": 531,
       "handled": [
         "Exception"
       ],
@@ -1116,17 +1116,17 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 623,
+      "line": 628,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 646,
+      "line": 656,
       "handled": [
         "Exception"
       ],
@@ -1136,7 +1136,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 734,
+      "line": 744,
       "handled": [
         "Exception"
       ],
@@ -1146,7 +1146,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 749,
+      "line": 759,
       "handled": [
         "Exception"
       ],
@@ -1156,7 +1156,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 950,
+      "line": 960,
       "handled": [
         "FileNotFoundError"
       ],
@@ -1166,7 +1166,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 962,
+      "line": 972,
       "handled": [
         "Exception"
       ],
@@ -1176,7 +1176,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 416,
+      "line": 421,
       "handled": [
         "Exception"
       ],
@@ -1186,7 +1186,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 859,
+      "line": 869,
       "handled": [
         "NonFiniteLiteProbabilityError"
       ],
@@ -1196,7 +1196,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 869,
+      "line": 879,
       "handled": [
         "Exception"
       ],
@@ -1206,31 +1206,31 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1005,
+      "line": 1015,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1104,
+      "line": 1121,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "fallback"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1132,
+      "line": 1154,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "fallback"
     },
@@ -1262,13 +1262,13 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 653,
+      "line": 663,
       "handled": [
         "Exception"
       ],
@@ -2182,7 +2182,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 57,
+      "line": 58,
       "handled": [
         "Exception"
       ],
@@ -2192,7 +2192,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 68,
+      "line": 69,
       "handled": [
         "Exception"
       ],
@@ -2202,7 +2202,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 90,
+      "line": 91,
       "handled": [
         "Exception"
       ],
@@ -2212,7 +2212,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 123,
+      "line": 124,
       "handled": [
         "Exception"
       ],
@@ -2222,7 +2222,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 152,
+      "line": 153,
       "handled": [
         "Exception"
       ],
@@ -2232,7 +2232,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 161,
+      "line": 162,
       "handled": [
         "TypeError",
         "ValueError",
@@ -2244,7 +2244,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 173,
+      "line": 174,
       "handled": [
         "Exception"
       ],
@@ -2254,7 +2254,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 434,
+      "line": 442,
       "handled": [
         "Exception"
       ],
@@ -2264,11 +2264,11 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 430,
+      "line": 431,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -3308,7 +3308,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 958,
+      "line": 968,
       "handled": [
         "ImportError"
       ],
