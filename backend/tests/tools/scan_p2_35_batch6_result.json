@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 54,
+  "real_wired": 56,
   "import_probe": 16,
   "real_list": [
     {
@@ -974,7 +974,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 240,
+      "line": 244,
       "handled": [
         "Exception"
       ],
@@ -1000,13 +1000,13 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 425,
+      "line": 429,
       "handled": [
         "Exception"
       ],
@@ -1016,7 +1016,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 270,
+      "line": 274,
       "handled": [
         "FileNotFoundError"
       ],
@@ -1026,7 +1026,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 284,
+      "line": 288,
       "handled": [
         "PermissionError"
       ],
@@ -1036,7 +1036,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 290,
+      "line": 294,
       "handled": [
         "OSError"
       ],
@@ -1046,7 +1046,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 296,
+      "line": 300,
       "handled": [
         "Exception"
       ],
@@ -1056,7 +1056,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 396,
+      "line": 400,
       "handled": [
         "Exception"
       ],
@@ -1066,17 +1066,17 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 556,
+      "line": 560,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "None"
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 588,
+      "line": 596,
       "handled": [
         "OSError"
       ],
@@ -1086,7 +1086,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 704,
+      "line": 712,
       "handled": [
         "Exception"
       ],
@@ -3298,7 +3298,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 278,
+      "line": 282,
       "handled": [
         "ImportError"
       ],

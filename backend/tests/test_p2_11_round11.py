@@ -408,7 +408,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 55,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前六批净 28）
+            "W": 57,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前七批净 30）
             "P": 16,   # ImportError 特性探测
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
             "D": 22,   # 脏数据探测
@@ -420,7 +420,7 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 159,  # 真降级留档（第十三轮前六批净接 28 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
+            "X": 157,  # 真降级留档（第十三轮前七批净接 30 处；silences 6 处经复核改判：5 处已有 am_sync_failed OperationLog 落点故移回 X，1 处保留接线）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -970,6 +970,129 @@ class TestP235Round13Batch6Wiring:
         assert stats == {"acquired": 0, "skipped": 0, "fallback": 0, "errors": 0}
         assert last_flush is None
         assert self._counter_value(loc) == before + 1, "锁统计降级未计数（假接线）"
+
+
+class TestP235Round13Batch7Wiring:
+    """第十三轮第七批：#35 X 桶 2 处接线（`core/model_engine/loading.py`）。
+
+    本簇 8 条里 6 条记账跳过（理由见 P2_11 附录）：82（侧车不可读）与 425
+    （adapter 加载失败）均已被调用方 `_incr_model_fallback` 计数（M 型）；
+    284/290 是 preload 的 critical 日志（loud）；588 是本地无缓存→Hub 下载的
+    设计内回退；704 是 sklearn 兼容补丁的 best-effort（失败后下游 transform 可见）。
+    剩下这两条是调用链确认过的真沉默：
+
+    - `...loading.audit_path_resolve_failed`：该模型随后被 `skipped`，不仅不进
+      `missing` 清单，调用方（preload）还丢弃了整个 summary 返回值——它就这样
+      静默逃过完整性审计（锚点是否存在从此无人再问）。触发 `resolve_model_path`
+      抛异常即可；
+    - `...loading.keras_compat_load_failed`：Keras 二次加载失败后本函数直接
+      `return None`，调用方按“没有这个模型”走 fallback（分数通道彻底缺席，却和
+      “从未配置”无法区分）。patch `tf.keras.models.load_model` 抛异常即可。
+    """
+
+    PAIRS = (
+        ("core.model_engine.loading.audit_path_resolve_failed", "core/model_engine/loading.py"),
+        ("core.model_engine.loading.keras_compat_load_failed", "core/model_engine/loading.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_audit_path_resolve_failure_increments(self, monkeypatch):
+        """行为：审计中某模型路径解析失败 → 计数器 +1（该模型被 skipped 静默逃审）。"""
+        import app.core.model_engine.loading as ld
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("probe: path resolve failed")
+
+        # loading.py 用 `from app.core.model_registry import ... resolve_model_path`
+        # —— 必须 patch 使用方命名空间（ld），patch 定义方（mr）对它不可见。
+        monkeypatch.setattr(ld, "resolve_model_path", _boom)
+        loc = "core.model_engine.loading.audit_path_resolve_failed"
+        before = self._counter_value(loc)
+        # 审计遍历所有模型；patch 全局后每个"已启用"模型都在 resolve 处失败并计数。
+        enabled = [m for m in ld.MODEL_PATHS if ld.is_model_enabled(m)]
+        summary = ld.audit_model_integrity_anchors()
+        assert summary["missing_anchors"] == []  # 解析失败者不进 missing 清单
+        assert len(enabled) >= 1, "测试前提：至少一个模型处于启用态"
+        assert (
+            self._counter_value(loc) == before + len(enabled)
+        ), "审计路径解析降级未计数（假接线）"
+
+    def test_keras_compat_load_failure_increments(self, monkeypatch, tmp_path):
+        """行为：Keras 兼容重载失败 → 计数器 +1（模型返回 None，静默 fallback）。
+
+        真调 `_load_model` 的 .keras 分支：注入探针模型使前置守卫全过；第一次
+        `tf.keras.models.load_model` 抛带 quantization_config 的 ValueError 进兼容
+        分支，第二次（兼容重载）抛 RuntimeError → 落到新接线。
+        """
+        import sys
+        import threading
+        import types
+
+        import app.core.model_engine.loading as ld
+        from app.core.model_engine import ModelEngine
+
+        keras_file = tmp_path / "probe.keras"
+        keras_file.write_bytes(b"probe")
+
+        calls = {"n": 0}
+
+        def _load_model_router(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise ValueError("probe: bad quantization_config payload")
+            raise RuntimeError("probe: keras compat reload failed")
+
+        fake_models = types.SimpleNamespace(load_model=_load_model_router)
+        fake_tf = types.ModuleType("tensorflow")
+        fake_tf.keras = types.SimpleNamespace(models=fake_models)
+        monkeypatch.setitem(sys.modules, "tensorflow", fake_tf)
+
+        fake_dense_mod = types.ModuleType("keras.src.layers.core.dense")
+
+        class _DenseStub:
+            @classmethod
+            def from_config(cls, config):  # noqa: ANN001
+                return object()
+
+        fake_dense_mod.Dense = _DenseStub
+        monkeypatch.setitem(sys.modules, "keras.src.layers.core.dense", fake_dense_mod)
+
+        # 前置守卫：model_id 在 MODEL_PATHS 且 enabled
+        monkeypatch.setitem(ld.MODEL_PATHS, "probe_keras", "probe_keras.pkl")
+        monkeypatch.setattr(ld, "is_model_enabled", lambda _mid: True)
+        monkeypatch.setattr(
+            ModelEngine, "_abs_path", lambda self, _rel: keras_file
+        )
+
+        engine = ModelEngine.__new__(ModelEngine)
+        engine.models = {}
+        engine._cache_lock = threading.Lock()
+        engine._cache_maxsize = 10
+        engine._cache_evictions = 0
+        engine.model_load_stats = {"probe_keras": {"cache_hits": 0}}
+
+        loc = "core.model_engine.loading.keras_compat_load_failed"
+        before = self._counter_value(loc)
+        assert engine._load_model("probe_keras") is None
+        assert calls["n"] == 2, "必须走到第二次 load_model（兼容重载分支）"
+        assert (
+            self._counter_value(loc) == before + 1
+        ), "Keras 兼容重载降级未计数（假接线）"
 
 
 class TestP235Round13Batch4Wiring:

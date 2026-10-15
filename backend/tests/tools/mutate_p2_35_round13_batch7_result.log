@@ -1,0 +1,125 @@
+# 第十三轮第七批（#35 X 桶接线）闸门变异验证
+# 判据：变异态必须红且在期望测试上红；还原态必须全绿。
+
+== M1 删 audit_path_resolve_failed 接线
+   强度自评：强（整块删除，语义级）
+   变异态 returncode==0? False（应为 False）
+   期望红的测试命中：2/2 ['test_locations_wired_in_code_and_doc', 'test_audit_path_resolve_failure_increments']
+   还原态 returncode==0? True（应为 True）
+   判定：RED-OK/GREEN-OK
+   --- 变异态输出尾部 ---
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481
+  E:\code\bysj\backend\.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481: UserWarning: Skipping collection of '.hypothesis' directory - this usually means you've explicitly set the `norecursedirs` pytest config option, replacing rather than extending the default ignores.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_p2_11_round11.py::TestP235Round13Batch7Wiring::test_locations_wired_in_code_and_doc
+FAILED tests/test_p2_11_round11.py::TestP235Round13Batch7Wiring::test_audit_path_resolve_failure_increments
+2 failed, 1 passed, 4 warnings in 1.29s
+   --- 还原态输出尾部 ---
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481
+  E:\code\bysj\backend\.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481: UserWarning: Skipping collection of '.hypothesis' directory - this usually means you've explicitly set the `norecursedirs` pytest config option, replacing rather than extending the default ignores.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 4 warnings in 1.01s
+
+== M2 删 keras_compat_load_failed 接线
+   强度自评：强（整块删除，语义级）
+   变异态 returncode==0? False（应为 False）
+   期望红的测试命中：2/2 ['test_locations_wired_in_code_and_doc', 'test_keras_compat_load_failure_increments']
+   还原态 returncode==0? True（应为 True）
+   判定：RED-OK/GREEN-OK
+   --- 变异态输出尾部 ---
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481
+  E:\code\bysj\backend\.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481: UserWarning: Skipping collection of '.hypothesis' directory - this usually means you've explicitly set the `norecursedirs` pytest config option, replacing rather than extending the default ignores.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_p2_11_round11.py::TestP235Round13Batch7Wiring::test_locations_wired_in_code_and_doc
+FAILED tests/test_p2_11_round11.py::TestP235Round13Batch7Wiring::test_keras_compat_load_failure_increments
+2 failed, 1 passed, 4 warnings in 1.33s
+   --- 还原态输出尾部 ---
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481
+  E:\code\bysj\backend\.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481: UserWarning: Skipping collection of '.hypothesis' directory - this usually means you've explicitly set the `norecursedirs` pytest config option, replacing rather than extending the default ignores.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 4 warnings in 0.95s
+
+== M3 删 P2_11 附录登记行
+   强度自评：强（整行删除，文档侧半断言；注：只改后缀会因子串逃逸仍绿，作废）
+   变异态 returncode==0? False（应为 False）
+   期望红的测试命中：1/1 ['test_locations_wired_in_code_and_doc']
+   还原态 returncode==0? True（应为 True）
+   判定：RED-OK/GREEN-OK
+   --- 变异态输出尾部 ---
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481
+  E:\code\bysj\backend\.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481: UserWarning: Skipping collection of '.hypothesis' directory - this usually means you've explicitly set the `norecursedirs` pytest config option, replacing rather than extending the default ignores.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_p2_11_round11.py::TestP235Round13Batch7Wiring::test_locations_wired_in_code_and_doc
+1 failed, 2 passed, 4 warnings in 1.31s
+   --- 还原态输出尾部 ---
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481
+  E:\code\bysj\backend\.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481: UserWarning: Skipping collection of '.hypothesis' directory - this usually means you've explicitly set the `norecursedirs` pytest config option, replacing rather than extending the default ignores.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 4 warnings in 0.93s

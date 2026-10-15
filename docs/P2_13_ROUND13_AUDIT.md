@@ -368,6 +368,43 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ---
 
+## 一之七、#35 X 桶第七批：2 处接线（X 159 → 157，`model_engine/loading.py`）
+
+### 1.21 接线清单
+
+本簇 8 条里只有这两条经调用链确认是真沉默（余 6 条见 1.22）：
+
+| location | 所属文件 | 语义 |
+|---|---|---|
+| `core.model_engine.loading.audit_path_resolve_failed` | `core/model_engine/loading.py` | 审计中某模型路径解析失败 → 被 `skipped`，既不进 `missing` 清单，调用方（preload）又**丢弃整个 summary 返回值**——它静默逃过完整性审计（锚点是否存在从此无人再问）|
+| `core.model_engine.loading.keras_compat_load_failed` | 同上 | `_load_model` 的 Keras 兼容重载（quantization_config 路径）二次加载失败 → 直接 `return None`，调用方按"没有这个模型"走 fallback（分数通道彻底缺席，却和"从未配置"无法区分）|
+
+### 1.22 跳过 6 条（书面记账，仍留 X 桶，机器不裁、文档裁）
+
+82（侧车不可读）与 425（adapter 加载失败）均已被调用方 `_incr_model_fallback`
+计数（**M 型**，侧车来源还区分 `unreadable`/`absent`）；284（PermissionError）/
+290（OSError）是 `preload` 的 **critical 日志**（loud，与既有接线口径缺
+`missing_file`/`failed` 的 warning 级相对）；588 是本地无缓存→Hub 下载的
+**设计内回退**；704 是 sklearn 兼容补丁的 **best-effort**（失败后下游 transform
+可见）。
+
+### 1.23 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch7Wiring`（3 条）：2 对 location 双向核对 + 两处运行时
+  覆盖（patch **使用方命名空间** `ld.resolve_model_path`；真调 `_load_model` 的
+  `.keras` 分支，注入假 `tensorflow`/`keras` 模块 + 探针模型使前置守卫全过，
+  第一次 load_model 抛带 `quantization_config` 的 ValueError 进兼容分支、第二次
+  抛异常）。
+- 桶计数改钉：**W=57 / X=157**（总数 334 不变）。
+- 三次真实变异：M1 删 audit 接线 / M2 删 keras 接线 / M3 删 P2_11 登记行，
+  均 RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch7_result.log`。
+- **本批踩坑（已写入 MEMORY.md）**：`loading.py` 用 `from ... import resolve_model_path`
+  —— patch **定义方** `model_registry` 对使用方不可见（首版测试假绿）；必须 patch
+  **使用方命名空间** `ld`。同理 `_load_model` 有 `MODEL_PATHS`/`is_model_enabled`/
+  `_abs_path`/缓存锁多道前置守卫，驱动其内部分支需逐道满足。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -403,10 +440,11 @@ persist 失败下轮自愈（R 型）、Prometheus 上报失败属 S 型（自�
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（六批 + 一次修正后）：X 桶 **159** 条 = 待接 **124** + 已裁定跳过
+0. **本轮累计状态**（七批 + 一次修正后）：X 桶 **157** 条 = 待接 **122** + 已裁定跳过
    **35**（第一批 2 + 第二批 11 + 第三批 1 + 第四批 13 + 第六批 8，其中第四批 5 处经复核
-   由接线改判、第六批 8 处经追链改判）；已接 **28 处**（7+6+5+6-5+5+4）；调用点
-   26→**54**；W=**55**。逐批明细见各「一之X」节；本节为结账口径，历史快照不回改。
+   由接线改判、第六批 8 处经追链改判；第七批 6 处为既有 M/critical/设计内/best-effort，
+   不新增跳过计数，仍在"待接"内以文档裁记）；已接 **30 处**（7+6+5+6-5+5+4+2）；
+   调用点 26→**56**；W=**57**。逐批明细见各「一之X」节；本节为结账口径，历史快照不回改。
 1. **桶计数改钉（W 27→34→40 / X 187→180→174）**：只影响 `test_batch6_bucket_counts_pinned`
    的 expected 与 P2_11 附录；总数 334 不变证明无候选丢失/新增。X 桶下降 13 的
    去向全部可逐条指认（1.1/1.6 表），无静默蒸发。

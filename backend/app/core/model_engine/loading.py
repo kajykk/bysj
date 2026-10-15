@@ -187,6 +187,10 @@ def audit_model_integrity_anchors() -> dict[str, Any]:
             file_path = probe._abs_path(resolve_model_path(model_id))
         except Exception as exc:  # noqa: PERF203 — 逐项隔离，单个失败不中断审计
             logger.warning("完整性审计: 模型 %s 路径解析失败 %s", model_id, exc)
+            # P2-35 第七批：该模型随后被 skipped，不仅不进 missing 清单，调用方
+            # （preload）还丢弃了整个 summary 返回值——它就这样静默逃过完整性审计
+            #（锚点是否存在从此无人再问），必须计数。
+            record_silent_degradation("core.model_engine.loading.audit_path_resolve_failed")
             skipped += 1
             continue
 
@@ -555,6 +559,10 @@ class LoadingMixin:
                     model = tf.keras.models.load_model(model_path, custom_objects={"Dense": _CompatDense})
                 except Exception as e:
                     logger.warning("Keras model load failed: %s", e)
+                    # P2-35 第七批：到这里本函数直接 return None，调用方按“没有这个
+                    # 模型”走 fallback。Keras 二次加载也失败 = 该分数通道彻底缺席，
+                    # 却和“从未配置”无法区分，必须计数。
+                    record_silent_degradation("core.model_engine.loading.keras_compat_load_failed")
                     return None
         elif model_path.is_dir():
             # 阶段三: 支持 M2 BERT feature extraction + LogReg 部署模式

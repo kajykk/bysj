@@ -1,7 +1,7 @@
 {
   "counts": {
-    "X": 159,
-    "W": 55,
+    "X": 157,
+    "W": 57,
     "G": 8,
     "S": 36,
     "D": 22,
@@ -890,7 +890,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 240,
+      "line": 244,
       "func": "_incr_model_fallback",
       "handled": [
         "Exception"
@@ -915,11 +915,11 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 425,
+      "line": 429,
       "func": "_load_adapter",
       "handled": [
         "Exception"
@@ -928,7 +928,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 270,
+      "line": 274,
       "func": "preload",
       "handled": [
         "FileNotFoundError"
@@ -937,7 +937,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 284,
+      "line": 288,
       "func": "preload",
       "handled": [
         "PermissionError"
@@ -946,7 +946,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 290,
+      "line": 294,
       "func": "preload",
       "handled": [
         "OSError"
@@ -955,7 +955,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 296,
+      "line": 300,
       "func": "preload",
       "handled": [
         "Exception"
@@ -964,7 +964,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 396,
+      "line": 400,
       "func": "_load_adapter",
       "handled": [
         "Exception"
@@ -973,16 +973,16 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 556,
+      "line": 560,
       "func": "_load_model",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 588,
+      "line": 596,
       "func": "_load_model",
       "handled": [
         "OSError"
@@ -991,7 +991,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 704,
+      "line": 712,
       "func": "_patch_simple_imputer",
       "handled": [
         "Exception"
@@ -2983,7 +2983,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 278,
+      "line": 282,
       "func": "preload",
       "handled": [
         "ImportError"

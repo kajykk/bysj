@@ -609,3 +609,32 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   配套工具：`tests/tools/watch_ci.py` 增 `cancelled` 识别（本仓 workflow 带
   concurrency cancel-in-progress，被后续 push 取代的 job 是 cancelled 而非 failure，
   不再误判为 CI 失败）。
+
+- 2026-10-15（第十三轮第七批）：#35 X 桶接线 2 处（X 159→157，W 55→57，
+  调用点 54→56），单文件 `app/core/model_engine/loading.py`：
+
+    core.model_engine.loading.audit_path_resolve_failed
+    core.model_engine.loading.keras_compat_load_failed
+
+  裁定说明：`audit_model_integrity_anchors` 里某模型路径解析失败 → 该模型被
+  `skipped`，不仅不进 `missing` 清单，调用方（preload）还**丢弃整个 summary
+  返回值**，于是它静默逃过完整性审计（锚点是否存在从此无人再问）。
+  `_load_model` 的 Keras 兼容重载（quantization_config 兼容路径）二次加载失败
+  → 本函数直接 `return None`，调用方按"没有这个模型"走 fallback（分数通道彻底
+  缺席，却和"从未配置"无法区分）。
+
+  同簇 **6 条书面记账跳过**（仍留 X 桶，文档裁）：82（侧车不可读）与 425
+  （adapter 加载失败）均已被调用方 `_incr_model_fallback` 计数（**M 型**，且
+  侧车来源区分 `unreadable`/`absent`）；284（PermissionError）/290（OSError）是
+  `preload` 的 **critical 日志**（loud，与既有接线口径缺 `missing_file`/`failed`
+  的 warning 级相对）；588 是本地无缓存→Hub 下载的**设计内回退**；704 是
+  sklearn 兼容补丁的 **best-effort**（失败后下游 transform 可见）。
+
+  闸门 `TestP235Round13Batch7Wiring`（3 条）：2 对 location 双向核对 + 两处运行时
+  覆盖（patch 使用方命名空间 `ld.resolve_model_path` 触发审计路径失败；
+  真调 `_load_model` 的 .keras 分支，注入假 `tensorflow`/`keras` 模块使兼容重载
+  抛异常）。**patch 踩坑**：`loading.py` 用 `from ... import resolve_model_path`，
+  必须 patch 使用方命名空间 `ld`，patch 定义方 `model_registry` 对它不可见（首版
+  因此假绿）。桶计数改钉 **W=57 / X=157**。变异 M1 删 audit 接线 / M2 删 keras
+  接线 / M3 删登记行，均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch7_result.log`。
