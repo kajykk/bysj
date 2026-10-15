@@ -2248,6 +2248,37 @@ class TestP235Round13Batch15Wiring:
         for loc in locs:
             assert self._counter_value(loc) == before[loc] + 1, f"{loc} 未计数（假接线）"
 
+    # 反向钉：excel_export_service 三处失败一律返回 success=False（V 型，调用方可见），
+    # 接线会给出「调用方已处理」的幻觉 —— 必须先推翻 P2_13「一之十五」的裁定。
+    # 锚点写「不带引号」的语义串：ast.unparse 会把字符串常量渲染成单引号，
+    # 写死双引号会静默命中 0 处（锚点失效 = 反向钉变摆设，本批实锤过一次）。
+    DECLINED_MARKERS = (
+        "Excel export failed",
+        "Excel stream export failed",
+        "Large Excel export failed",
+    )
+
+    def test_declined_excel_export_no_wiring(self):
+        tree = ast.parse((BE / "services/excel_export_service.py").read_text(encoding="utf-8"))
+        hits = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body_src = [ast.unparse(stmt) for stmt in node.body]
+            if not any(m in stmt for stmt in body_src for m in self.DECLINED_MARKERS):
+                continue
+            if not any("success=False" in stmt for stmt in body_src):
+                continue
+            hits += 1
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Call):
+                    nm = getattr(sub.func, "id", None) or getattr(sub.func, "attr", None)
+                    assert nm != "record_silent_degradation", (
+                        "该 handler 的失败已由 success=False 显式返回（V 型），"
+                        "接线会造成「调用方已处理」的幻觉 —— 必须先推翻裁定"
+                    )
+        assert hits == 3, f"行为锚点命中 {hits} 处，期望 3（锚点漂移 = 闸门失效）"
+
 
 class TestP235Round13Batch14Wiring:
     """第十三轮第十四批：#35 X 桶 4 处接线（safe_pickle 安全加固 / 注册表加载）。
