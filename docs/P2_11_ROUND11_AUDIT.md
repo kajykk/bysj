@@ -1046,3 +1046,22 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   心跳 None / decrypt 耗尽 raise / 健康检查 return False）+
   文档登记。桶计数维持 **W=96 / X=119**。变异四条见
   `mutate_p2_35_round13_batch22_result.log`。
+- **第十三轮第二十三批（纯裁定批，0 接线，W=96 / X=119 不变）**：
+  `services/validation_engine.py` 5 条未接线 handler 逐条存在性实测
+  后全部裁定不接线/复核维持。① L422 `_run_model_inference` /
+  L512 `_compute_baseline_metrics`：第十三批已裁 V 型（失败
+  `return None` + error 日志，调用方 `validate_model` 显式写
+  `result.errors`），本批锚点实测复核维持；② L147
+  `_load_csv_dataset` / L207 `calculate_metrics` 内层 auc / L271
+  `_calculate_small_classification_metrics`：分类器定型 D（脏数据
+  探测，单条解析跳过、数据本来就是坏的），本批首次书面裁定维持——
+  非数值特征原样保留字符串、单类标签 AUC 本就无定义（`auc=None`
+  诚实且返回值显式）、非数字标签样本跳过后 `sample_count` 更新为
+  有效样本数（返回值可核对）；三条均有既有测试钉住设计行为。
+
+  闸门 `TestP235Round13Batch23Declined`（5 条）：D 型三兄弟块级
+  反向钉（未接线 + `pass`/`total -= 1`/auc 赋值见证 + 外层
+  `calculate_metrics_failed` 互锁）+ X 二兄弟复核维持 + 运行时
+  四条（CSV 非数值保留 / 有效样本数 / 单类 AUC=None 零接线 /
+  推理不可用写 errors）+ 文档登记。桶计数维持 **W=96 / X=119**。
+  变异三条见 `mutate_p2_35_round13_batch23_result.log`。

@@ -1358,6 +1358,63 @@ handler 级未接线）；裁定前提见证钉 1 条（decrypt_field 的 raise 
 
 ---
 
+## 一之二十四、#35 X 桶第二十三批：纯裁定批（0 接线，W=96 / X=119 不变，validation_engine 5 条）
+
+### 1.68 本批结论一句话
+
+`services/validation_engine.py` 5 条未接线 handler 逐条存在性实测后
+**全部裁定不接线/复核维持**，无实记录 X→W，桶计数维持
+**W=96 / X=119**。其中 L422/L512 为第十三批已裁 V 型（本批复核
+维持），L147/L207/L271 为分类器定型 D（脏数据探测）的首次书面
+裁定。提示词建议清单中的 `validation_engine` 簇至此收口。
+
+### 1.69 存在性核查与分类器现场重算
+
+（`tests/tools/verify_p2_35_batch23_candidates.py`：先重跑 scan 再
+逐条 classify，口径与 `test_batch6_bucket_counts_pinned` 一致）
+
+| 位置 | 函数 | 分类器桶 | 本批裁定 |
+|---|---|---|---|
+| L422 | `_run_model_inference` | X | V 型，第十三批已裁，复核维持 |
+| L512 | `_compute_baseline_metrics` | X | V 型，第十三批已裁，复核维持 |
+| L147 | `_load_csv_dataset` | D | D 型定型维持 + 首次书面裁定 |
+| L207 | `calculate_metrics`（内层 auc） | D | 同上 |
+| L271 | `_calculate_small_classification_metrics` | D | 同上 |
+
+**挑簇教训记账（与第十六/十七批实锤同族）**：挑簇器按「审计文档
+未提及」把 5 条全列为「未裁定」，但分类器现场重算显示
+L147/L207/L271 早已被 D 规则（`types <= DIRTY_TYPES`，单条解析
+跳过、数据本来就是坏的）定型——「文档未提及」≠「未裁定」，
+文档提及计数只是粗排信号，裁定状态必须以分类器 + 审计文档逐条
+核对为准。
+
+### 1.70 不接线裁定 5 条（书面记账，X 二条仍留 X 桶，D 三条留 D 桶）
+
+| # | 位置 | 类型 | 理由 |
+|---|---|---|---|
+| 1 | L422 `_run_model_inference` | V 型（维持） | 失败 `return None` + error 日志；调用方 `validate_model` 显式写 `result.errors`（"Model inference unavailable …"） |
+| 2 | L512 `_compute_baseline_metrics` | V 型（维持） | 同上（"Baseline metrics unavailable …"），与第十一批 EXIF 剥离失败同口径 |
+| 3 | L147 `_load_csv_dataset` 数值转换跳过 | D 型 + V 型链 | 非数值**原样保留字符串**（`test_load_dataset_csv_numeric_conversion` 钉住 `features[0]["b"] == "x"`），数据不丢失也不造假；字符串特征若令下游推理失败，走 L422 handler → `result.errors` 显式链 |
+| 4 | L207 `calculate_metrics` 内层 auc | D 型 + V 型 | `roc_auc_score` 仅对单类标签抛 ValueError，此时 AUC 本就无定义，`metrics.auc = None` 是诚实取值且在返回值中显式（与 probabilities=None 同形态，均表示「未算」）。块级互锁：内层（L207，`pass`）不得接线 / 外层（L237，已接线 `calculate_metrics_failed`）必须仍在 |
+| 5 | L271 `_calculate_small_classification_metrics` 标签跳过 | D 型 + V 型 | H-Svc-16 设计行为（`test_calculate_metrics_skips_non_numeric_labels` 钉住 `sample_count == 2`）；循环后 `metrics.sample_count = total` 更新为**有效样本数**，调用方核对返回值即可发现样本缩减，不存在「残缺但看起来合法」的失真 |
+
+### 1.71 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch23Declined`（5 条）：D 型三兄弟块级
+  反向钉（handler 未接线 + `pass` / `total -= 1` / auc 赋值见证 +
+  外层互锁）+ X 二兄弟复核维持（error 锚点 + `return None` +
+  调用方 `result.errors` 链）+ 运行时四条（CSV 非数值原样保留 /
+  有效样本数如实 / 单类 AUC=None 且内层零接线调用 / 推理不可用写
+  errors + 空指标无假数据）+ 文档登记。
+- 桶计数棘轮实跑通过：**W=96 / X=119** 不变（纯裁定批，无新增
+  `record_silent_degradation` 调用点）。
+- 三次真实变异：M1 给 L207 内层 auc handler 接线（块级反向钉红）/
+  M2 删 L271 的 `total -= 1` 设计行为（D 型见证红）/ M3 删「一之
+  二十四」节标题（文档登记红），均 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch23_result.log`。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1393,8 +1450,12 @@ handler 级未接线）；裁定前提见证钉 1 条（decrypt_field 的 raise 
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（二十二批）：当前棘轮
+0. **本轮累计状态**（二十三批）：当前棘轮
    **W=96 / X=119 / P=15**（总数 334 不变）。
+   第二十三批增量：**W +0 / X -0**（纯裁定批：validation_engine 5 条
+   逐条实测后全部裁定不接线/复核维持——L422/L512 为第十三批已裁 V 型
+   维持，L147/L207/L271 为分类器 D 定型（脏数据探测）的首次书面裁定；
+   无实记录 X→W，桶计数不变）；
    第二十二批增量：**W +0 / X -0**（纯裁定批：health 1 +
    auto_rollback 5 + pii_crypto 4 共 10 条 X 桶候选逐条实测后全部
    裁定不接线，8 条已定型项复核维持；**连带修复一对自出生即死的

@@ -4228,3 +4228,246 @@ class TestP235Round13Batch22Declined:
             assert token in doc11, f"P2_11 附录第二十二批条目缺少文件名: {token}"
         counts_doc = "W=96 / X=119" in doc13 or "W 96" in doc13
         assert counts_doc, "第二十二批为纯裁定批，累计状态应维持 W=96 / X=119"
+
+
+class TestP235Round13Batch23Declined:
+    """第十三轮第二十三批：#35 X 桶**纯裁定批**（0 接线，W=96 / X=119 不变，
+    `services/validation_engine.py` 5 条）。
+
+    挑簇对象（分类器现场重算 + 存在性实测确认，见
+    `tests/tools/verify_p2_35_batch23_candidates.py`）：
+
+    - L422 `_run_model_inference` / L512 `_compute_baseline_metrics`：
+      分类器仍判 **X**（真降级留档），第十三批 1.39 已裁 V 型，本批
+      复核维持；
+    - L147 `_load_csv_dataset` / L207 `calculate_metrics` 内层 auc /
+      L271 `_calculate_small_classification_metrics`：分类器定型 **D**
+      （脏数据探测——`types <= DIRTY_TYPES`，单条解析跳过、数据本来
+      就是坏的），本批做首次书面裁定，复核维持 D 定型。
+
+    逐条裁定：
+    1. **L422/L512（V 型，第十三批已裁）**——失败均 `return None` +
+       error 日志；调用方 `validate_model` 显式写入 `result.errors`
+       （"Model inference unavailable …" / "Baseline metrics
+       unavailable …"），与第十一轮 EXIF 剥离失败同口径。
+    2. **L147（D 型 + V 型链）**——非数值特征**原样保留字符串**
+       （`test_load_dataset_csv_numeric_conversion` 钉住），数据不
+       丢失也不造假；字符串特征若令下游推理失败，走 L422 handler →
+       `result.errors` 显式链，本 handler 无「洗白」形态。
+    3. **L207（D 型 + V 型）**——`roc_auc_score` 仅对单类标签抛
+       ValueError，此时 AUC 本就无定义，`metrics.auc = None` 是诚实
+       取值且在返回值中显式。块级互锁：`calculate_metrics` 内层
+       （L207，`pass`，不得接线）与外层（L237，已接线
+       `calculate_metrics_failed`，必须仍在）两侧互钉。
+    4. **L271（D 型 + V 型）**——非数字标签样本跳过是 H-Svc-16 设计
+       行为（`test_calculate_metrics_skips_non_numeric_labels` 钉住），
+       且循环后 `metrics.sample_count = total` 更新为**有效样本数**，
+       调用方核对返回值即可发现样本缩减，不存在「残缺但看起来合法」。
+    """
+
+    @staticmethod
+    def _read(rel: str) -> str:
+        return (BE / rel).read_text(encoding="utf-8-sig")
+
+    @staticmethod
+    def _handlers_in_func(tree, src, funcname):
+        """AST 定位指定函数内的全部 except handler（不过滤异常名）。
+
+        不能全局扫异常名：`ValueError` 在本文件多处出现；且
+        `calculate_metrics` 内有两个 handler（内层 auc L207 + 外层
+        L237），必须按函数限定后再按块内容区分。
+        """
+        fn_span = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                fn_span = (node.lineno, node.end_lineno or node.lineno)
+                break
+        assert fn_span is not None, f"找不到函数 {funcname}（锚点漂移 = 闸门失效）"
+        out = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and fn_span[0] <= node.lineno <= fn_span[1]:
+                out.append(node)
+        return out
+
+    def test_d_trio_reconfirmed_not_wired(self):
+        """D 型三兄弟反向钉（块级）：三个 handler 均未接线，且各自
+        「数据本来就是坏的 / 信号显式」见证锚点必须在。"""
+        src = self._read("services/validation_engine.py")
+        tree = ast.parse(src)
+
+        # L147 _load_csv_dataset：单 handler，pass 保留原值，未接线
+        hs = self._handlers_in_func(tree, src, "_load_csv_dataset")
+        assert len(hs) == 1, f"_load_csv_dataset handler 数 {len(hs)}，期望 1"
+        seg = ast.get_source_segment(src, hs[0]) or ""
+        assert "record_silent_degradation" not in seg, (
+            "_load_csv_dataset 的数值转换跳过 handler 已接线 —— D 型裁定须重审"
+        )
+        assert "pass" in seg, "非数值保留原值的 pass 消失（数据不再原样保留）"
+        fn_src = ""
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef) and fn.name == "_load_csv_dataset":
+                fn_src = ast.get_source_segment(src, fn) or ""
+        assert "float(value)" in fn_src, "数值转换尝试消失 —— D 型前提失效"
+
+        # L207 calculate_metrics 内层 auc：两个 handler 中 body 含 pass 的
+        # 是内层（不得接线）；另一个是外层（已接线，互锁必须仍在）
+        hs = self._handlers_in_func(tree, src, "calculate_metrics")
+        assert len(hs) == 2, f"calculate_metrics handler 数 {len(hs)}，期望 2"
+        inner = [h for h in hs if "pass" in (ast.get_source_segment(src, h) or "")]
+        outer = [h for h in hs if "record_silent_degradation" in (ast.get_source_segment(src, h) or "")]
+        assert len(inner) == 1 and len(outer) == 1, (
+            "内层（pass）/外层（已接线）handler 分辨失败 —— 块级定位失效"
+        )
+        inner_seg = ast.get_source_segment(src, inner[0]) or ""
+        assert "record_silent_degradation" not in inner_seg, (
+            "calculate_metrics 内层 auc handler 已接线 —— D/V 型裁定失效"
+        )
+        assert "services.validation_engine.calculate_metrics_failed" in (
+            ast.get_source_segment(src, outer[0]) or ""
+        ), "外层 calculate_metrics_failed 接线消失 —— 互锁前提失效"
+        cm_src = ""
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef) and fn.name == "calculate_metrics":
+                cm_src = ast.get_source_segment(src, fn) or ""
+        assert "metrics.auc = float(roc_auc_score(" in cm_src, (
+            "auc 赋值语句消失 —— 内层 except 守护的对象不存在"
+        )
+
+        # L271 _calculate_small_classification_metrics：单 handler，
+        # total -= 1 + continue，未接线；循环后 sample_count=有效数
+        hs = self._handlers_in_func(tree, src, "_calculate_small_classification_metrics")
+        assert len(hs) == 1, (
+            f"_calculate_small_classification_metrics handler 数 {len(hs)}，期望 1"
+        )
+        seg = ast.get_source_segment(src, hs[0]) or ""
+        assert "record_silent_degradation" not in seg, (
+            "非数字标签跳过 handler 已接线 —— D 型裁定须重审"
+        )
+        assert "total -= 1" in seg and "continue" in seg, (
+            "跳过样本时递减有效样本数的设计行为消失 —— D 型前提失效"
+        )
+        sm_src = ""
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef) and fn.name == "_calculate_small_classification_metrics":
+                sm_src = ast.get_source_segment(src, fn) or ""
+        assert "metrics.sample_count = total" in sm_src, (
+            "循环后 sample_count=有效样本数更新消失 —— 「返回值可核对」前提失效"
+        )
+
+    def test_d_trio_runtime_signals_visible(self, tmp_path):
+        """运行时：三条 D 型路径的信号都在返回值里显式可见。"""
+        import importlib
+
+        ve = importlib.import_module("app.services.validation_engine")
+        engine = ve.ValidationEngine()
+
+        # L147：非数值特征原样保留字符串（不丢失、不造假），数值仍转换
+        csv_path = tmp_path / "d.csv"
+        csv_path.write_text("a,b,label\n1.5,x,1\n2,y,0\n", encoding="utf-8")
+        features, _labels = engine.load_dataset(csv_path)
+        assert features[0]["b"] == "x", "非数值特征未原样保留（数据被洗掉）"
+        assert features[1]["b"] == "y"
+        assert features[0]["a"] == 1.5 and features[1]["a"] == 2.0, "数值转换失效"
+
+        # L271：非数字标签样本跳过 → sample_count=有效样本数（可核对）
+        m = engine.calculate_metrics([1, "negative", 0], [1, "positive", 0])
+        assert m.sample_count == 2, "有效样本数未如实反映（调用方无从核对）"
+        assert m.accuracy == 1.0
+
+        # L207：单类标签 → roc_auc_score ValueError → auc=None 显式，
+        # 且内层 handler 不接线（record_silent_degradation 零调用）
+        calls: list[str] = []
+        orig_deg = ve.record_silent_degradation
+        orig_roc = ve.roc_auc_score
+
+        def _single_class(*_a, **_k):  # noqa: ANN002, ANN003
+            raise ValueError("Only one class present in y_true")
+
+        ve.record_silent_degradation = lambda loc: calls.append(loc)
+        ve.roc_auc_score = _single_class
+        try:
+            m2 = engine.calculate_metrics([1, 1, 1, 1], [1, 0, 1, 0], [0.9, 0.8, 0.7, 0.6])
+        finally:
+            ve.record_silent_degradation = orig_deg
+            ve.roc_auc_score = orig_roc
+        assert m2.auc is None, "AUC 计算失败未留 None（调用方无从按未算处理）"
+        assert m2.accuracy == 0.5, "其余指标未照常计算（不是干净的单点失败）"
+        assert calls == [], "内层 auc handler 已接线 —— D/V 型裁定失效（假绿）"
+
+    def test_x_pair_batch13_declines_reconfirmed(self):
+        """X 二兄弟复核维持（第十三批 1.39 V 型）：handler 未接线，
+        error 锚点 + return None 在；调用方 result.errors 显式链在。"""
+        src = self._read("services/validation_engine.py")
+        tree = ast.parse(src)
+        for funcname, anchor in (
+            ("_run_model_inference", "ValidationEngine: 模型推理失败"),
+            ("_compute_baseline_metrics", "ValidationEngine: 加载 baseline dataset 失败"),
+        ):
+            hs = self._handlers_in_func(tree, src, funcname)
+            assert len(hs) == 1, f"{funcname} handler 数 {len(hs)}，期望 1"
+            seg = ast.get_source_segment(src, hs[0]) or ""
+            assert "record_silent_degradation" not in seg, (
+                f"{funcname} 已接线 —— 第十三批 V 型裁定须重审"
+            )
+            assert anchor in seg, f"{funcname} 的 error 日志锚点消失（锚点漂移）"
+            assert "return None" in seg, f"{funcname} 的 return None 显式上报消失"
+        # 调用方 V 型见证：validate_model 把两类不可用写进 result.errors
+        vm_src = ""
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.AsyncFunctionDef) and fn.name == "validate_model":
+                vm_src = ast.get_source_segment(src, fn) or ""
+        assert "Model inference unavailable for version" in vm_src, (
+            "validate_model 的推理不可用 errors 分支消失 —— V 型前提失效"
+        )
+        assert "Baseline metrics unavailable for version" in vm_src, (
+            "validate_model 的 baseline 不可用 errors 分支消失 —— V 型前提失效"
+        )
+
+    async def test_runtime_inference_unavailable_writes_errors(self, tmp_path):
+        """运行时：推理不可用 → result.errors 显式 + 空指标（无假数据）。"""
+        import importlib
+        import json as _json
+
+        ve = importlib.import_module("app.services.validation_engine")
+        engine = ve.ValidationEngine()
+
+        async def _none(*_a, **_k):  # noqa: ANN002, ANN003
+            return None
+
+        ds = tmp_path / "d.json"
+        ds.write_text(
+            _json.dumps([{"a": 1, "label": 1}, {"a": 2, "label": 0}]),
+            encoding="utf-8",
+        )
+        orig = engine._run_model_inference
+        engine._run_model_inference = _none
+        try:
+            result = await engine.validate_model("v1.20", ds)
+        finally:
+            engine._run_model_inference = orig
+        assert any("Model inference unavailable" in e for e in result.errors), (
+            "推理不可用未写入 result.errors —— V 型（调用方可见）裁定失效"
+        )
+        assert result.metrics.sample_count == 0 and result.metrics.accuracy is None, (
+            "空指标被填了值 —— 出现假数据，裁定须重审"
+        )
+
+    def test_doc_registered_batch23(self):
+        """文档登记：P2_13「一之二十四」节（结构钉）含本批裁定关键标识；
+        P2_11 附录含第二十三批条目；纯裁定批账实一致 W=96 / X=119 维持。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十四、" in doc13, (
+            "P2_13 缺少第二十三批（一之二十四）**节标题**（结构断言：正文提及不算）"
+        )
+        for token in (
+            "_load_csv_dataset", "calculate_metrics",
+            "_calculate_small_classification_metrics",
+            "_run_model_inference", "_compute_baseline_metrics",
+            "validation_engine.py", "D 型", "V 型",
+            "roc_auc_score", "sample_count",
+        ):
+            assert token in doc13, f"P2_13 第二十三批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十三批" in doc11, "P2_11 附录缺少第二十三批条目"
+        assert "validation_engine" in doc11, "P2_11 附录第二十三批条目缺少文件名"
+        assert "W=96 / X=119" in doc13, "第二十三批为纯裁定批，累计状态应维持 W=96 / X=119"
