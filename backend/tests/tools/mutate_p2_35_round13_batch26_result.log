@@ -1,0 +1,29 @@
+========================================================================
+P2-35 第二十六批变异验证（锚点均为落盘实读文本）
+========================================================================
+  [baseline] 变异前闸门应为绿…
+    gate: 171 passed, 5 warnings in 13.73s
+  [baseline] GREEN-OK
+  [M1 给 preload PermissionError handler 接线] 变异注入…
+    gate: 2 failed, 169 passed, 5 warnings in 14.42s
+  [M1 给 preload PermissionError handler 接线] RED-OK（returncode=1）
+    gate: 171 passed, 5 warnings in 13.81s
+  [M1 给 preload PermissionError handler 接线] GREEN-OK（还原后 returncode=0）
+  [M2 消费点 location 字面量改错值] 变异注入…
+    gate: 1 failed, 170 passed, 5 warnings in 14.37s
+  [M2 消费点 location 字面量改错值] RED-OK（returncode=1）
+    gate: 171 passed, 5 warnings in 13.68s
+  [M2 消费点 location 字面量改错值] GREEN-OK（还原后 returncode=0）
+  [M3 给 _incr_model_fallback 指标 handler 接线] 变异注入…
+    gate: 2 failed, 169 passed, 5 warnings in 14.39s
+  [M3 给 _incr_model_fallback 指标 handler 接线] RED-OK（returncode=1）
+    gate: 171 passed, 5 warnings in 13.70s
+  [M3 给 _incr_model_fallback 指标 handler 接线] GREEN-OK（还原后 returncode=0）
+  [M4 删 P2_13 节标题] 变异注入…
+    gate: 1 failed, 170 passed, 5 warnings in 14.42s
+  [M4 删 P2_13 节标题] RED-OK（returncode=1）
+    gate: 171 passed, 5 warnings in 13.46s
+  [M4 删 P2_13 节标题] GREEN-OK（还原后 returncode=0）
+========================================================================
+四条变异全部 RED-OK / GREEN-OK
+========================================================================

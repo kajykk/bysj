@@ -4960,3 +4960,273 @@ class TestP235Round13Batch25Declined:
         assert "第十三轮第二十五批" in doc11, "P2_11 附录缺少第二十五批条目"
         assert "scheduler" in doc11, "P2_11 附录第二十五批条目缺少文件名"
         assert "W=97 / X=119" in doc13, "第二十五批为纯裁定批，累计状态应维持 W=97 / X=119"
+
+
+class TestP235Round13Batch26Declined:
+    """第十三轮第二十六批：#35 **纯裁定批**（0 接线，W=97 / X=119 不变，
+    `app/core/model_engine/loading.py` 收口）。
+
+    挑簇器列 loading.py 7 条。逐条存在性核查后的真实库存：
+
+    - **本批首次书面裁定的 3 条**（往批从未钉过）：
+      1. **L244 `_incr_model_fallback` 指标 inc 失败（S 型）**——失败的是
+         **指标采集通道自身**；P0 (2026-09-24) 注释已定性：变更前的 debug
+         被提到 warning，因为「指标递增失败时 Grafana 降级率曲线会变平
+         （运维看到降级率 0%），若日志同时静默则两种情况都不可见」。**日志
+         侧盲区已被 2026-10-05 的升级补齐**（warning + exc_info=True）。
+         注意此函数是第二批两次接线（L82 侧车 / L429 adapter）的 M 型
+         理由来源；它自身失败只影响曲线形状，不改变任何调用方返回值。
+      2. **L288 `preload` PermissionError** 3. **L294 `preload` OSError**
+         ——**消费点已接线（V/M 混合型）**：`predict_structured` 的模型加载
+         try **只捕获 `(FileNotFoundError, ValueError)`**（AST 实测，本文件
+         该函数的全部 handler 就这两条），PermissionError / 一般 OSError
+         **不被捕获 → 向调用方传播**；而主消费方 `risk_service_assessment`
+         对该调用包了 `except Exception` 并已接
+         `services.risk_service_assessment.structured_predict_fallback`
+         （第二批接线），且返回 dict 自带 `"error": str(exc)` 与
+         `"model_used": "heuristic_fallback"`。⇒ 真正导致用户可见结果降级的
+         那一刻**已被计数**，预热期再加一次会重复计数。
+    - **往批已裁、本批复核维持 4 条**：`_get_expected_hash` L82（V 型，
+      P0-6 三态可区分）、`_load_adapter` L429（M 型 + 见证接线
+      `adapter.pkl_fallback`）、`_load_model` L596（设计内 Hub 回退 +
+      见证接线 `keras_compat_load_failed`）、`_patch_simple_imputer` L712
+      （补丁失败后续 transform 可见 AttributeError）——第十九批
+      `TestP235Round13Batch19Declined` 已钉，此处只做**记账一致性复核**。
+
+    运行时三条：① preload 内 `_load_model` 抛 PermissionError → 循环继续、
+    **零接线调用**（防与消费点重复计数）+ critical 日志文明；② 同型 OSError；
+    ③ `predict_structured` 对该异常**真的向上抛**（pytest.raises 实证）。
+    """
+
+    LD_REL = "core/model_engine/loading.py"
+    RS_REL = "services/risk_service_assessment.py"
+    PT_REL = "core/model_engine/predict.py"
+
+    PRELOAD_WIRED_LOCS = (
+        "core.model_engine.loading.preload.missing_file",
+        "core.model_engine.loading.preload.failed",
+    )
+    PRELOAD_OS_HANDLERS = (288, 294)
+    CONSUMER_LOC = "services.risk_service_assessment.structured_predict_fallback"
+
+    @staticmethod
+    def _read(rel: str) -> str:
+        return (BE / rel).read_text(encoding="utf-8-sig")
+
+    @staticmethod
+    def _handlers_of(src: str, tree, funcname: str) -> dict[int, str]:
+        """返回 {handler 起始行: 源码片段}，按 enclosing function 定位。"""
+        span = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                span = (node.lineno, node.end_lineno or node.lineno)
+                break
+        assert span is not None, f"找不到函数 {funcname}（锚点漂移 = 闸门失效）"
+        out = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and span[0] <= node.lineno <= span[1]:
+                out[node.lineno] = ast.get_source_segment(src, node) or ""
+        return out
+
+    def test_incr_model_fallback_metric_channel_not_wired(self):
+        """L244（S 型）：指标采集通道自身失败不得接线；日志侧盲区必须仍在补位。"""
+        src = self._read(self.LD_REL)
+        tree = ast.parse(src)
+        hs = self._handlers_of(src, tree, "_incr_model_fallback")
+        hit = [line for line, seg in hs.items() if "model_fallback_total inc failed" in seg]
+        assert len(hit) == 1, f"_incr_model_fallback 目标 handler 数 {len(hit)}，期望 1（锚点漂移）"
+        seg = hs[hit[0]]
+        assert "record_silent_degradation" not in seg, (
+            "_incr_model_fallback 指标 inc 失败已接线 —— S 型裁定须重审"
+        )
+        # 见证钉：2026-10-05 把 debug 提到 warning 以补齐指标侧盲区 + 堆栈
+        assert "logger.warning(" in seg, "warning 级升级消失 —— S 型前提失效"
+        assert "exc_info=True" in seg, "exc_info 消失 —— 指标侧盲区失去补位"
+        # 见证钉：专用计数器本身仍被调用（M 型理由来源没被拆掉）
+        fn_seg = ""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_incr_model_fallback":
+                fn_seg = ast.get_source_segment(src, node) or ""
+        assert "model_fallback_total.inc(" in fn_seg, "专用计数器调用消失 —— M 型前提失效"
+
+    def test_preload_oserror_pair_not_wired(self):
+        """L288/L294（V/M 混合）：不得接线；两对见证必须仍在。"""
+        src = self._read(self.LD_REL)
+        tree = ast.parse(src)
+        hs = self._handlers_of(src, tree, "preload")
+        for line in self.PRELOAD_OS_HANDLERS:
+            assert line in hs, f"preload L{line} handler 不在（行号漂移 = 闸门失效）"
+            seg = hs[line]
+            assert "record_silent_degradation" not in seg, (
+                f"preload L{line} 已接线 —— 消费点已接线，重复计数须重审"
+            )
+            assert "logger.critical(" in seg, f"preload L{line} 的 critical 日志消失"
+            assert "NON-RECOVERABLE" in seg, f"preload L{line} 的不可恢复定性消失"
+        # 互锁：同函数 FileNotFoundError / 兜底 Exception 两条**仍在接线**
+        wired_src = ""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno in hs:
+                s = ast.get_source_segment(src, node) or ""
+                if "record_silent_degradation" in s:
+                    wired_src += s
+        for loc in self.PRELOAD_WIRED_LOCS:
+            # 同上：子串匹配会被 `_typo` 变异绕过，按带引号的字面量核对
+            assert f'"{loc}"' in wired_src, f"preload 的见证接线 {loc} 消失 —— 精细钉前提失效"
+
+    def test_consumer_already_wired_and_oserror_propagates(self):
+        """消费点见证：① `predict_structured` 只捕获 (FileNotFoundError,
+        ValueError) ⇒ PermissionError / 一般 OSError 向调用方传播；
+        ② 主消费方 `risk_service_assessment` 已对该调用接了专用 location
+        并在返回 dict 里显式 error / heuristic_fallback。"""
+        # ① 结构证据：该函数全部 handler 的捕获类型
+        src = self._read(self.PT_REL)
+        tree = ast.parse(src)
+        fn_seg = ""
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "predict_structured":
+                fn_seg = ast.get_source_segment(src, node) or ""
+        assert fn_seg, "找不到 predict_structured（锚点漂移）"
+        caught = set()
+        for node in ast.walk(ast.parse(fn_seg)):
+            if isinstance(node, ast.ExceptHandler) and node.type is not None:
+                t = node.type
+                names = [e.id for e in t.elts] if isinstance(t, ast.Tuple) else [getattr(t, "id", "")]
+                caught.update(names)
+        assert caught == {"FileNotFoundError", "ValueError"}, (
+            f"predict_structured 捕获类型变为 {sorted(caught)} —— "
+            "PermissionError 若被吞，L288/L294 的「向调用方传播」前提失效"
+        )
+
+        # ② 消费点接线仍在 + 返回形态显式（定位包住该调用的 Try，再取其 handler）
+        rs = self._read(self.RS_REL)
+        rs_tree = ast.parse(rs)
+        target = None
+        for node in ast.walk(rs_tree):
+            if not isinstance(node, ast.Try):
+                continue
+            body = "".join(ast.get_source_segment(rs, s) or "" for s in node.body)
+            if "await model_engine.predict_structured(" in body:
+                assert len(node.handlers) == 1, "该 try 的 handler 数不为 1（锚点漂移）"
+                target = node.handlers[0]
+                break
+        assert target is not None, (
+            "risk_service_assessment 包 predict_structured 的 except Exception 消失 —— "
+            "V/M 混合裁定前提失效"
+        )
+        seg = ast.get_source_segment(rs, target) or ""
+        # 注意：必须按**带引号的字面量**核对（子串匹配会被 `_typo` 之类
+        # 的变异绕过 —— 第二十六批 M2 实锤）
+        assert f'"{self.CONSUMER_LOC}"' in seg, f"消费点接线 {self.CONSUMER_LOC} 消失"
+        assert '"model_used": "heuristic_fallback"' in seg, "返回形态不再显式标注降级"
+        assert '"error": str(exc)' in seg, "返回结果不再携带 error 字段"
+
+    def test_runtime_preload_oserror_no_double_count(self, caplog):
+        """运行时：preload 内 `_load_model` 抛 PermissionError / OSError →
+        循环继续（不中断预热）、**零接线调用**（防与消费点重复计数）、
+        critical 日志文明。"""
+        import importlib
+        import logging
+
+        ld = importlib.import_module("app.core.model_engine.loading")
+        me_mod = importlib.import_module("app.core.model_engine")
+
+        calls: list[tuple] = []
+        orig_sd = ld.record_silent_degradation
+        orig_ids = me_mod.model_engine.PRELOAD_IDS
+
+        def _record(*args, **kwargs):  # noqa: ANN002, ANN003
+            calls.append((args, kwargs))
+
+        ld.record_silent_degradation = _record  # patch **使用方命名空间**（第七批教训）
+        me_mod.model_engine.PRELOAD_IDS = ["probe_model_for_batch26"]
+        caplog.set_level(logging.CRITICAL)
+        try:
+            for exc_cls in (PermissionError, OSError):
+                def _boom(self, model_id, _cls=exc_cls):  # noqa: ANN001, ANN002
+                    raise _cls("probe: batch26 disk/permission failure")
+
+                setattr(type(me_mod.model_engine), "_load_model", _boom)
+                try:
+                    me_mod.model_engine.preload()  # 不得抛出
+                finally:
+                    delattr(type(me_mod.model_engine), "_load_model")
+        finally:
+            ld.record_silent_degradation = orig_sd
+            me_mod.model_engine.PRELOAD_IDS = orig_ids
+
+        assert calls == [], (
+            f"preload 的 OSError 族分支调用了通用计数器（{calls}）—— "
+            "与消费点 structured_predict_fallback 重复计数，裁定须重审"
+        )
+        assert any("NON-RECOVERABLE" in r.message for r in caplog.records), (
+            "critical 日志未出现 —— 「仍能型号化地notify运维」的前提失效"
+        )
+
+    async def test_runtime_oserror_propagates_from_predict(self, monkeypatch):
+        """运行时：`predict_structured` 对 PermissionError 不捕获，真的向调用方抛。"""
+        import importlib
+
+        pytest = importlib.import_module("pytest")
+        me_mod = importlib.import_module("app.core.model_engine")
+        engine = me_mod.ModelEngine()
+
+        async def _boom(model_id):  # noqa: ANN001
+            raise PermissionError("probe: batch26 permission denied")
+
+        monkeypatch.setattr(engine, "_load_model_async", _boom)
+        # 完整 14 特征：否则 routing 会在「信息不足」处提前 return，走不到加载
+        features = {
+            "age": 22, "gender": 1, "study_year": 3, "cgpa": 3.5,
+            "stress_level": 3, "sleep_duration": 7, "social_support": 4,
+            "financial_pressure": 2, "family_history": 0,
+            "academic_pressure": 3, "exercise_frequency": 2,
+            "anxiety": 2, "panic_attack": 0, "treatment_seeking": 1,
+        }
+        with pytest.raises(PermissionError):
+            await engine.predict_structured(features)
+
+    def test_previously_ruled_loading_items_still_unwired(self):
+        """记账一致性：第十九批已裁的 loading 4 条仍是未接线状态
+        （本批不重复钉，只做跨批口径复核）。"""
+        src = self._read(self.LD_REL)
+        tree = ast.parse(src)
+        # (函数名, 该藏仍需存在的锚点)
+        checks = (
+            ("_get_expected_hash", "无法解析侧车校验文件"),
+            ("_patch_simple_imputer", "SimpleImputer _fill_dtype patch failed"),
+            ("_load_adapter", '_incr_model_fallback("v1.24_adapter", "load_failed")'),
+            ("_load_model", "无本地缓存"),
+        )
+        for funcname, anchor in checks:
+            fn_seg = ""
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                    fn_seg = ast.get_source_segment(src, node) or ""
+                    break
+            assert fn_seg, f"找不到 {funcname}（锚点漂移）"
+            assert anchor in fn_seg, f"{funcname} 的行为锚点 {anchor!r} 消失"
+        # 这四条里只有 _load_adapter/_load_model 的同函数其它路径接线了——
+        # 见证必须与第十九批口径一致（不能凭空多出也不能消失）
+        for loc in (
+            "core.model_engine.loading.adapter.pkl_fallback",
+            "core.model_engine.loading.keras_compat_load_failed",
+        ):
+            assert f'"{loc}"' in src, f"第十九批见证接线 {loc} 消失 —— 跨批口径不一致"
+
+    def test_doc_registered_batch26(self):
+        """文档登记：P2_13「一之二十七」节（结构钉）含本批裁定关键标识；
+        P2_11 附录含第二十六批条目；纯裁定批账实一致 W=97 / X=119 维持。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十七、" in doc13, (
+            "P2_13 缺少第二十六批（一之二十七）**节标题**（结构断言：正文提及不算）"
+        )
+        for token in (
+            "loading.py", "_incr_model_fallback", "preload",
+            "structured_predict_fallback", "predict_structured",
+            "S 型", "FileNotFoundError, ValueError", "NON-RECOVERABLE",
+        ):
+            assert token in doc13, f"P2_13 第二十六批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十六批" in doc11, "P2_11 附录缺少第二十六批条目"
+        assert "loading" in doc11, "P2_11 附录第二十六批条目缺少文件名"
+        assert "W=97 / X=119" in doc13, "第二十六批为纯裁定批，累计状态应维持 W=97 / X=119"

@@ -1120,3 +1120,37 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   实证；清理 resolve 抛 `OSError` 的**差分实验**：对照组删最老
   1 个 / 实验组 removed=0 且目录保留）+ 文档登记。桶计数维持
   **W=97 / X=119**。变异三条见 `mutate_p2_35_round13_batch25_result.log`。
+
+- **第十三轮第二十六批（纯裁定批，0 接线，W=97 / X=119 不变）**：
+  `app/core/model_engine/loading.py` 收口（7 条候选）。机器口径：六条仍
+  在 X（第七批「跳过 6 条、机器不裁文档裁」的历史写法所致）、L244 判 S。
+  ① 首次书面裁定 3 条：L244 `_incr_model_fallback` 指标 inc 失败（**S 型**
+  ——指标采集通道自身失败；P0 (2026-09-24) 注释已定性「曲线变平」风险，
+  AUDIT-2026-10-05 把日志从 debug 提到 warning + `exc_info=True` 补齐盲区；
+  此函数是第二批 L82/L429 两次接线的 M 型理由来源，其自身失败只改变曲线
+  形状、不改变调用方返回值）；L288/L294 `preload` PermissionError/OSError
+  （**V/M 混合——消费点已接线**）。② 往批已裁 4 条做记账一致性复核
+  （`_get_expected_hash` / `_load_adapter` / `_load_model` /
+  `_patch_simple_imputer`，第十九批已钉）。
+
+  L288/L294 的裁定依据（替代第七批仅「critical 日志 loud」的软理由）：
+  `PredictMixin.predict_structured` 的模型加载 try **只捕获
+  (FileNotFoundError, ValueError)**，PermissionError / 一般 OSError
+  **不被捕获 → 向调用方传播**（运行时 `pytest.raises(PermissionError)`
+  实证）；主消费方 `services/risk_service_assessment.py` 对该调用包了
+  `except Exception` 并已接第二批的 `structured_predict_fallback`，返回
+  dict 自带 `"error": str(exc)` 与 `"model_used": "heuristic_fallback"`
+  ——真降级那一刻已被计数且显式标注，预热期再接会重复计数；诊断侧由
+  critical「NON-RECOVERABLE」日志文明。
+
+  闸门 `TestP235Round13Batch26Declined`（7 条）：L244 块级反向钉 +
+  warning/`exc_info`/`model_fallback_total.inc` 三见证；L288/L294 块级
+  反向钉 + `logger.critical` + `NON-RECOVERABLE` 见证 + 两条既有接线
+  互锁（`preload.missing_file` / `preload.failed` 仍在）；**消费点见证钉**
+  （`predict_structured` 捕获类型集合恰为 {FileNotFoundError, ValueError}；
+  `risk_service_assessment` try→handler 定位 + 专用 location + 返回形态
+  显式）+ 往批复核 + 运行时两条（preload 依次抛 PermissionError/OSError
+  → 循环继续、零接线调用、critical 日志文明；`predict_structured` 真的
+  向上抛——须用完整 14 特征，否则 routing 会在「信息不足」处提前 return
+  导致断言假绿）+ 文档登记。桶计数维持 **W=97 / X=119**。变异四条见
+  `mutate_p2_35_round13_batch26_result.log`。

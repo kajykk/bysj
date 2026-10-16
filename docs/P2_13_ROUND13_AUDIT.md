@@ -1564,6 +1564,81 @@ scan 再逐条 classify）：L81→M、L108→S、L129→M、L1134→F、L1150�
 
 ---
 
+## 一之二十七、#35 X 桶第二十六批：纯裁定批（0 接线，W=97 / X=119 不变，loading.py 收口）
+
+挑簇器列 `app/core/model_engine/loading.py` 7 条。第七批已裁 8 条（当时的
+行号）、第十九批又对其中 4 条做了精细钉复核。本批把**此前从未书面裁定过的
+3 条**补齐，并对往批 4 条做记账一致性复核。
+
+**存在性核查**（`tests/tools/verify_p2_35_batch26_candidates.py`）：机器口径
+L82/L288/L294/L429/L596/L712 六条仍在 X（第七批「跳过 6 条、机器不裁文档裁」
+的历史写法所致），L244 判 S。**五类并存不冲突**——X 是「机器未消化的留档」，
+文档裁定不改变机器分类，故本批仍为纯裁定、桶计数不变。
+
+### 1. 本批首次书面裁定（3 条，全部不接线）
+
+| # | 位置 | 类型 | 理由（可客观断言） |
+|---|---|---|---|
+| 1 | L244 `_incr_model_fallback` 指标 inc 失败 | S 型 | 失败的是**指标采集通道自身**；P0 (2026-09-24) 注释已定性「指标递增失败时 Grafana 降级率曲线会**变平**（运维看到降级率 0%），若日志同时静默则『模型正在静默降级』与『指标链路已断』两种情况都不可见」——**日志侧盲区已由 AUDIT-2026-10-05 的 debug→warning 升级补齐**（带 `exc_info=True`）。注意此函数是第二批 L82（侧车）/L429（adapter）两次接线的 **M 型理由来源**；它自身失败只改变曲线形状，不改变任何调用方返回值（L108 scheduler 指标 inc 失败同族） |
+| 2 | L288 `preload` PermissionError | V/M 混合（**消费点已接线**） | 详见 §2 |
+| 3 | L294 `preload` OSError | V/M 混合（**消费点已接线**） | 详见 §2 |
+
+### 2. L288/L294 的裁定依据：真降级那一刻已被计数
+
+第七批只写了「critical 日志（loud）」这一条理由。本批把它换成**可客观断言的
+调用链证据**，结论一致、依据更硬：
+
+1. **异常在请求路径不被吞**：`PredictMixin.predict_structured` 的模型加载
+   try **只捕获 `(FileNotFoundError, ValueError)`**（AST 实测该函数全部
+   handler 就这两条，见闸门 `test_consumer_already_wired_and_oserror_
+   propagates`），PermissionError / 一般 OSError **不被捕获 → 向调用方传播**
+   （运行时实证：`pytest.raises(PermissionError)`）。
+2. **主消费方已接线**：`services/risk_service_assessment.py` 对该调用包了
+   `except Exception`，已接第二批的
+   `services.risk_service_assessment.structured_predict_fallback`，且返回
+   dict 自带 `"error": str(exc)` 与 `"model_used": "heuristic_fallback"`
+   ——真正导致用户可见结果降级的那一刻**已被计数并显式标注**。
+3. ⇒ 预热期再接一次会与消费点**重复计数**；诊断信息侧由 critical
+   「NON-RECOVERABLE」日志文明（运维可查），metrics 侧由消费点覆盖。
+
+互锁见证：同函数的 FileNotFoundError / 兜底 Exception 两条
+（`preload.missing_file` / `preload.failed`）**仍在接线**，不得因本裁定被误删。
+
+### 3. 往批 4 条记账一致性复核（不重复钉）
+
+`_get_expected_hash` L82（V 型，P0-6 三态可区分）、`_load_adapter` L429
+（M 型，见证 `adapter.pkl_fallback`）、`_load_model` L596（设计内 Hub 回退，
+见证 `keras_compat_load_failed`）、`_patch_simple_imputer` L712（补丁失败
+后续 transform 可见 AttributeError）——第十九批
+`TestP235Round13Batch19Declined` 已钉，本批只做 4 个行为锚点 + 2 个见证
+location 的跨批口径复核。
+
+### 4. 闸门
+
+- 新增 `TestP235Round13Batch26Declined`（7 条）：L244 块级反向钉 + warning/
+  `exc_info`/`model_fallback_total.inc` 三见证；L288/L294 块级反向钉 +
+  `logger.critical` + `NON-RECOVERABLE` 见证 + 两条既有接线互锁；
+  **消费点见证钉**（`predict_structured` 捕获类型集合恰为
+  `{FileNotFoundError, ValueError}`；`risk_service_assessment` 的 try→handler
+  定位 + 专用 location + `"model_used": "heuristic_fallback"` + `"error"`）；
+  运行时三条 + 往批复核 + 文档登记。
+- **运行时三条**：① preload 内 `_load_model` 依次抛 PermissionError/OSError
+  → 循环继续、**零接线调用**（防重复计数）+ critical 日志文明；② `predict_
+  structured` 对该异常**真的向上抛**（用完整 14 特征，否则 routing 会在
+  「信息不足」处提前 return——漏特征会让这条断言假绿）；③ 见①的日志侧断言。
+- 桶计数维持 **W=97 / X=119 / R=3**（纯裁定批，实跑棘轮验证）。
+
+### 5. 记账
+
+- 变异四条见 `mutate_p2_35_round13_batch26_result.log`。
+- 未验证如实记账：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+  由 CI `backend-coverage` 兜底。
+- 挑簇器「文档未提及 = 未裁定」信号缺陷**第五次**实锤（loading 7 条里
+  6 条系第七/十九批已裁或行号平移）。工具未修，继续以**分类器现场重算 +
+  审计文档逐条核对**为准。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1599,8 +1674,18 @@ scan 再逐条 classify）：L81→M、L108→S、L129→M、L1134→F、L1150�
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（二十五批）：当前棘轮
+0. **本轮累计状态**（二十六批）：当前棘轮
    **W=97 / X=119 / P=15**（总数 334 不变；R 4→3）。
+   第二十六批增量：**W +0 / X -0**（纯裁定批：loading.py 7 条候选里
+   3 条为首次书面裁定——L244 `_incr_model_fallback` 指标 inc 失败 S 型
+   （指标采集通道自身失败，日志侧盲区已由 debug→warning 升级补齐；该
+   函数是第二批两次接线的 M 型理由来源，其自身失败只改变曲线形状不改
+   返回值）；L288/L294 `preload` PermissionError/OSError 为 **V/M 混合
+   （消费点已接线）**——`predict_structured` 只捕获 (FileNotFoundError,
+   ValueError)，该异常向上传播，主消费方 `risk_service_assessment` 已接
+   `structured_predict_fallback` 且返回 dict 显式带 `error` 与
+   `heuristic_fallback`，预热期再接会重复计数。另 4 条系第七/十九批已裁，
+   本批只做跨批记账一致性复核。机器分类维持六条 X + 一条 S，桶计数不变）；
    第二十五批增量：**W +0 / X -0**（纯裁定批：scheduler.py 5 条新候选
    ——L81 `_notify_warning` 重试 except 为 M 型（失败重试 2 次后 error
    日志 + 专用计数器 `warning_notify_failed_total` **运行时实测真涨
