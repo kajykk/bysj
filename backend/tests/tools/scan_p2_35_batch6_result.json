@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 83,
+  "real_wired": 87,
   "import_probe": 16,
   "real_list": [
     {
@@ -1607,7 +1607,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 424,
+      "line": 430,
       "handled": [
         "Exception"
       ],
@@ -1617,7 +1617,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 449,
+      "line": 455,
       "handled": [
         "Exception"
       ],
@@ -1627,7 +1627,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 503,
+      "line": 509,
       "handled": [
         "Exception"
       ],
@@ -1637,7 +1637,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 196,
+      "line": 199,
       "handled": [
         "Exception"
       ],
@@ -1647,7 +1647,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 221,
+      "line": 224,
       "handled": [
         "Exception"
       ],
@@ -1657,7 +1657,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 244,
+      "line": 247,
       "handled": [
         "CancelledError"
       ],
@@ -1667,7 +1667,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 246,
+      "line": 249,
       "handled": [
         "Exception"
       ],
@@ -1677,7 +1677,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 310,
+      "line": 316,
       "handled": [
         "JSONDecodeError",
         "TypeError"
@@ -1712,13 +1712,13 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/ws.py",
-      "line": 284,
+      "line": 290,
       "handled": [
         "CancelledError"
       ],
@@ -1728,7 +1728,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 287,
+      "line": 293,
       "handled": [
         "Exception"
       ],
@@ -1738,7 +1738,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 332,
+      "line": 338,
       "handled": [
         "ValueError"
       ],
@@ -1748,17 +1748,17 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 282,
+      "line": 285,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/ws.py",
-      "line": 294,
+      "line": 300,
       "handled": [
         "Exception"
       ],
@@ -2808,21 +2808,21 @@
     },
     {
       "file": "app/services/shadow_mode_service.py",
-      "line": 59,
+      "line": 60,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "False"
     },
     {
       "file": "app/services/shadow_mode_service.py",
-      "line": 128,
+      "line": 132,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

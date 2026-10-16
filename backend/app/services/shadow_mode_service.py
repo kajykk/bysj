@@ -22,6 +22,7 @@ import logging
 import random
 from typing import Any
 
+from app.core.degradation import record_silent_degradation
 from app.core.text_m2_bert_predictor import get_m2_bert_predictor
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,9 @@ class ShadowModeService:
             return True
         except Exception as e:
             logger.warning("[SHADOW] M2 BERT 推理器加载失败, 影子模式停用: %s", str(e)[:150])
+            # P2-35 第十六批：推理器加载失败 → 对拍停用，生产链路毫发无损，对照数据
+            # 却从此断流；get_stats 的拉取式 flag 之外，运行时没有任何推送信号
+            record_silent_degradation("services.shadow_mode.predictor_unavailable")
             return False
 
     def fire_shadow_predict(
@@ -127,6 +131,9 @@ class ShadowModeService:
             )
         except Exception as e:
             logger.debug("[SHADOW] 对拍异常 (不影响生产): %s", str(e)[:150])
+            # P2-35 第十六批：单次对拍异常被吞 → 该样本从一致率统计中静默消失，
+            # 影子期切换决策的依据出现无痕缺口
+            record_silent_degradation("services.shadow_mode.compare_failed")
 
     def get_stats(self) -> dict[str, Any]:
         """获取影子模式一致率统计 (供 API / 监控查询)."""

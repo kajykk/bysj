@@ -170,6 +170,9 @@ class ConnectionManager:
                 # L-06 修复：扩大异常捕获范围，避免未捕获异常导致后续连接无法收到消息
                 # 常见异常：RuntimeError, WebSocketDisconnect, ConnectionClosedError, OSError 等
                 logger.debug("WebSocket send failed for user_id=%d: %s", user_id, exc)
+                # P2-35 第十六批：本进程投递失败 = 该用户这一次推送静默丢失，调用方
+                # （send_to_user / notify_*）从返回值里看不出任何异常，与送达成功同形
+                record_silent_degradation("core.ws.local_send_failed")
                 dead.append(ws)
         for ws in dead:
             await self.disconnect(user_id, ws)
@@ -281,6 +284,9 @@ class ConnectionManager:
                         await self._handle_pubsub_message(msg)
                     except Exception:
                         logger.exception("WebSocket pubsub message handling failed")
+                        # P2-35 第十六批：单条跨进程消息处理失败即被丢弃，订阅循环照常
+                        # 继续运行 —— 消息就此消失，而投递方与接收方都毫无察觉
+                        record_silent_degradation("core.ws.pubsub_message_handling_failed")
             except asyncio.CancelledError:
                 logger.info("WebSocket pubsub loop cancelled")
                 break

@@ -850,3 +850,41 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   FastAPI `lifespan` 内联，触发需完整启动链路，与第六批
   `api.alerts.webhook.final_commit_failed` 同口径）。桶计数改钉 **W=85 / X=130**。
   变异三条见 `mutate_p2_35_round13_batch15_result.log`。
+
+- 2026-10-16（第十三轮第十六批）：#35 X 桶接线 4 处（X 130→126，W 85→89，
+  调用点实测 85→89），跨两文件：
+
+    core.ws.local_send_failed
+    core.ws.pubsub_message_handling_failed
+    services.shadow_mode.predictor_unavailable
+    services.shadow_mode.compare_failed
+
+  裁定说明：四处都是「**旁路失效，而主链路返回值毫发无损**」。ws 两处：本进程
+  投递失败 → 该用户这一次推送静默丢失（`send_to_user` 继续走 Redis 发布并正常
+  返回）；订阅循环里单条消息处理抛异常 → 该条消息被丢弃、循环照常续跑，而
+  投递方早已返回成功。影子两处（`shadow_mode_service` 经 `main._init_shadow_sink`
+  注入生产链路，非死代码）：推理器加载失败 → 对拍停用、生产 TF-IDF 链路毫无
+  变化，一致率数据从此断流；单次对拍异常 → 该样本从统计中静默消失，切换决策
+  依据出现无痕缺口。
+
+  同批裁定**不接线** 9 处，按四类记账（详见 P2_13「一之十七」）：
+  ① ws disconnect 的指标 dec 失败（M 型：指标采集自身，主链路不受影响，
+  连接上限拒绝对客户端可见）；② `rate_limit.py` 2 条 —— 签名修补回退后
+  FastAPI 解析失败会以 500 暴露（V 型）、中间件 RateLimitExceeded→429
+  是设计内转换；③ `token_blocklist.revoke_token` 撤销失败（V 型：三个
+  调用方均检查返回值并记 ERROR，检查侧 `is_token_revoked` fail-closed
+  已堵）；④ `tenant_guard.scan_unscoped_protected_queries` 跳过不可解析
+  文件（运行期不可达：全仓 `app/` 无调用方，仅两个测试门禁调用）。
+  另有 `status.py` 缓存写失败（无失真：返回实时计算的真数据）、
+  `checksum.py` 2 条（fail-closed 判 stale + 启动审计报告可见；清理路径
+  仅维护脚本调用）、`risk_service_warning` 事件发布防御层（底层
+  `core.event_bus.publish` 已接线且队列满不向上抛，本层为重复层）。
+
+  闸门 `TestP235Round13Batch16Wiring`（5 条）：4 对 location 双向核对 +
+  一次运行时覆盖四条路径（各带防假绿断言：假连接 send_text 必炸且确被调用、
+  pubsub 假客户端确投递过消息、推理器 predict 确被调用且失败后
+  `_predictor_loaded` 仍为 False、对拍失败后统计不涨）+ 五条反向钉
+  （8 个行为锚点不得接线 + token_blocklist 的 `return False` V 型判据 +
+  tenant_guard 的 `continue` 形状与生产无调用方 + event_bus 底层接线
+  仍在）。桶计数改钉 **W=89 / X=126**。变异三条见
+  `mutate_p2_35_round13_batch16_result.log`。

@@ -409,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 85,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十五批净 58）
+            "W": 89,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十六批净 62）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -422,10 +422,10 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 130,  # 真降级留档（第十五批 3 处实记录 X→W：main 侧车审计跳过 /
-                        # fusion 灰度路由失败 / inference 模型指纹失败；
-                        # 故 X 133→130、W 82→85；总数 334 不变。
-                        # 前一行起为第十四批口径：X 137→133、W 78→82；
+            "X": 126,  # 真降级留档（第十六批 4 处实记录 X→W：ws 本进程投递失败 /
+                        # ws 订阅消息处理失败 / 影子推理器不可用 / 影子对拍异常；
+                        # 故 X 130→126、W 85→89；总数 334 不变。
+                        # 前一行起为第十五批口径：X 133→130、W 82→85；
                         # 再前一批：X 142→137、W 73→78。）
         }
         assert counts == expected, (
@@ -2417,4 +2417,261 @@ class TestP235Round13Batch14Wiring:
             "_restricted_joblib_load 的 fail-closed 判据消失 —— "
             "_restricted_unpickler_class 返回 None 将不再等于拒绝加载，"
             "本批「不接线」裁定须随之推翻"
+        )
+
+
+class TestP235Round13Batch16Wiring:
+    """第十三轮第十六批：#35 X 桶 4 处接线（ws 本进程投递 / ws 订阅消息处理 /
+    影子推理器加载 / 影子对拍异常）+ 9 处不接线裁定。
+
+    四处接线的共同形状：**旁路失效，而主链路返回值毫发无损**：
+
+    - `core.ws.local_send_failed`：`_local_send_to_user` 对某条连接的
+      `send_text` 失败 → 该用户这一次推送静默丢失；`send_to_user` 继续走
+      Redis 发布并正常返回，调用方（notify_warning 等）从返回值看不出
+      有一次投递已经失败。
+    - `core.ws.pubsub_message_handling_failed`：`_pubsub_loop` 里单条消息
+      处理抛异常 → 该条消息被丢弃，订阅循环照常续跑；消息就此消失，而
+      投递方（其它 worker 的 publish）早已返回成功。
+    - `services.shadow_mode.predictor_unavailable`：M2 BERT 推理器加载失败
+      → 对拍停用；生产 TF-IDF 链路毫无变化，影子期的一致率数据却从此断流，
+      `get_stats` 的拉取式 flag 之外没有运行时信号。
+    - `services.shadow_mode.compare_failed`：单次对拍异常被吞 → 该样本从
+      一致率统计中静默消失，影子期切换决策的依据出现无痕缺口。
+
+    本批**不接线** 9 处裁定见 P2_13「一之十七」，四类代表：
+    ws disconnect 指标 dec 失败（M 型，指标采集自身）、
+    rate_limit 签名修补回退（V 型，失败会以 500 暴露）、
+    token_blocklist 撤销失败（V 型，三个调用方均检查返回值并记 ERROR，
+    且检查侧 is_token_revoked fail-closed 已堵）、
+    tenant_guard 扫描器跳过（运行期不可达，仅两个测试门禁调用）。
+    """
+
+    PAIRS = (
+        ("core.ws.local_send_failed", "core/ws.py"),
+        ("core.ws.pubsub_message_handling_failed", "core/ws.py"),
+        ("services.shadow_mode.predictor_unavailable", "services/shadow_mode_service.py"),
+        ("services.shadow_mode.compare_failed", "services/shadow_mode_service.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_runtime_paths_increment(self, monkeypatch):
+        """行为：四条可驱动的路径各触发一次 → 对应计数器各 +1。
+
+        每条都带防假绿断言（probe 必须真的被调用 / 中间状态必须符合预期），
+        避免「计数来自别处」的假绿。
+        """
+        import asyncio
+        import importlib
+
+        wsmod = importlib.import_module("app.core.ws")
+        sms = importlib.import_module("app.services.shadow_mode_service")
+        cachemod = importlib.import_module("app.core.cache")
+
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # ① 本进程投递失败：伪造一条 send_text 必炸的连接
+        class _BoomWS:
+            async def send_text(self, *_args, **_kwargs):  # noqa: ANN205
+                raise RuntimeError("probe: local send boom")
+
+        mgr = wsmod.ConnectionManager()
+        mgr._connections = {7: [_BoomWS()]}
+        await mgr._local_send_to_user(7, {"type": "probe"})
+        assert self._counter_value(locs[0]) == before[locs[0]] + 1, (
+            "本进程投递失败未计数（假接线）"
+        )
+
+        # ② 订阅消息处理失败：_handle_pubsub_message 必炸 + 假 Redis pubsub 客户端
+        handled: list[dict] = []
+
+        async def _boom_handler(msg: dict) -> None:  # noqa: ANN001
+            handled.append(msg)
+            raise RuntimeError("probe: pubsub handling boom")
+
+        mgr2 = wsmod.ConnectionManager()
+        monkeypatch.setattr(mgr2, "_handle_pubsub_message", _boom_handler)
+
+        class _FakePubSub:
+            async def psubscribe(self, *_args):  # noqa: ANN002, ANN204
+                return None
+
+            async def listen(self):  # noqa: ANN201
+                yield {
+                    "type": "pmessage",
+                    "channel": "ws:user:7",
+                    "data": '{"node_id": "other", "message": {"type": "probe"}}',
+                }
+                await asyncio.sleep(3600)
+
+            async def aclose(self):  # noqa: ANN201
+                return None
+
+        class _FakeClient:
+            def pubsub(self):  # noqa: ANN201
+                return _FakePubSub()
+
+        async def _fake_pubsub_client():  # noqa: ANN201
+            return _FakeClient()
+
+        # _pubsub_loop 函数体内 from-import → patch 定义方模块属性
+        monkeypatch.setattr(cachemod, "get_redis_pubsub_client", _fake_pubsub_client)
+        task = asyncio.create_task(mgr2._pubsub_loop())
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if self._counter_value(locs[1]) > before[locs[1]]:
+                break
+        assert handled, "_handle_pubsub_message 未被调用（假绿：计数可能来自别处）"
+        assert self._counter_value(locs[1]) == before[locs[1]] + 1, (
+            "订阅消息处理失败未计数（假接线）"
+        )
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+        # ③ 影子推理器加载失败（_ensure_predictor 的 except 位于 return False 之前）
+        def _boom_predictor():  # noqa: ANN202
+            raise RuntimeError("probe: predictor load boom")
+
+        monkeypatch.setattr(sms, "get_m2_bert_predictor", _boom_predictor)
+        svc = sms.ShadowModeService()
+        assert svc._ensure_predictor() is False, "加载失败应返回 False"
+        assert svc._predictor_loaded is False, "加载失败不应标记为已加载（防假绿）"
+        assert self._counter_value(locs[2]) == before[locs[2]] + 1, (
+            "推理器加载失败未计数（假接线）"
+        )
+
+        # ④ 单次对拍异常：predict 必炸，样本不得计入统计
+        class _BoomPredictor:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            async def predict(self, _text: str) -> dict:  # noqa: ANN001, ANN201
+                self.calls += 1
+                raise RuntimeError("probe: shadow compare boom")
+
+        boom_pred = _BoomPredictor()
+        svc2 = sms.ShadowModeService()
+        svc2._predictor = boom_pred
+        svc2._predictor_loaded = True
+        await svc2._shadow_predict("探针文本", {"prediction": 1, "probability": 0.5})
+        assert boom_pred.calls == 1, "对拍推理未被调用（假绿）"
+        assert svc2._total == 0, "对拍失败不应计入一致率统计（防假绿）"
+        assert self._counter_value(locs[3]) == before[locs[3]] + 1, (
+            "对拍异常未计数（假接线）"
+        )
+
+    # 反向钉：本批 9 处不接线裁定。锚点写「不带引号」的语义串 —— ast.unparse
+    # 会把字符串常量渲染成单引号，写死双引号会静默命中 0 处（锚点失效 =
+    # 反向钉变摆设，第十五批实锤过一次）。
+    DECLINED_MARKERS = (
+        ("core/ws.py", "websocket_connections_active.dec failed"),
+        ("core/rate_limit.py", "限流装饰器签名修补失败"),
+        ("core/rate_limit.py", "Rate limit exceeded at middleware layer"),
+        ("api/v1/model_predict/status.py", "[model_status] cache_set failed"),
+        ("core/token_blocklist.py", "token_blocklist: redis unavailable"),
+        ("utils/checksum.py", "无法解析侧车校验文件"),
+        ("utils/checksum.py", "RES-P3-005: failed to remove stale sidecar"),
+        ("services/risk_service_warning.py", "Failed to publish warning.created event"),
+    )
+
+    def test_declined_handlers_not_wired(self):
+        for rel, marker in self.DECLINED_MARKERS:
+            tree = ast.parse((BE / rel).read_text(encoding="utf-8-sig"))
+            hits = 0
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = [ast.unparse(stmt) for stmt in node.body]
+                if not any(marker in stmt for stmt in body_src):
+                    continue
+                hits += 1
+                for sub in ast.walk(node):
+                    if isinstance(sub, ast.Call):
+                        nm = getattr(sub.func, "id", None) or getattr(sub.func, "attr", None)
+                        assert nm != "record_silent_degradation", (
+                            f"{rel} 的「{marker}」handler 已接线 —— "
+                            "必须先推翻 P2_13「一之十七」的裁定"
+                        )
+            assert hits >= 1, f"行为锚点「{marker}」在 {rel} 命中 0 处（锚点漂移 = 闸门失效）"
+
+    def test_declined_token_blocklist_returns_false(self):
+        """V 型判据钉住：撤销失败由返回值显式呈现，调用方看得见。"""
+        tree = ast.parse((BE / "core/token_blocklist.py").read_text(encoding="utf-8-sig"))
+        hits = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body_src = [ast.unparse(stmt) for stmt in node.body]
+            if not any("token_blocklist: redis unavailable" in s for s in body_src):
+                continue
+            hits += 1
+            assert any("return False" in s for s in body_src), (
+                "revoke_token 的 Redis 不可用分支不再返回 False —— "
+                "「调用方可见」的裁定前提消失，须重审"
+            )
+        assert hits == 1, f"行为锚点命中 {hits} 处，期望 1（锚点漂移 = 闸门失效）"
+
+    def test_declined_tenant_guard_scanner_unreachable(self):
+        """运行时不可达钉住：扫描器在生产代码里没有调用方（仅测试门禁调用）。
+
+        同时钉住 handler 形状（OSError/SyntaxError → continue，部分结果），
+        出现任何变化都意味着「静默安全网失效」的裁定前提要重审。
+        """
+        tree = ast.parse((BE / "core/tenant_guard.py").read_text(encoding="utf-8-sig"))
+        hits = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            if not any(isinstance(s, ast.Continue) for s in node.body):
+                continue
+            types = node.type.elts if isinstance(node.type, ast.Tuple) else [node.type]
+            names = {getattr(t, "id", None) for t in types}
+            if not {"OSError", "SyntaxError"} <= names:
+                continue
+            hits += 1
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Call):
+                    nm = getattr(sub.func, "id", None) or getattr(sub.func, "attr", None)
+                    assert nm != "record_silent_degradation", (
+                        "扫描器跳过分支已接线 —— 生产不可达裁定须先重审"
+                    )
+        assert hits == 1, f"行为锚点命中 {hits} 处，期望 1（锚点漂移 = 闸门失效）"
+
+        callers = []
+        for p in (BEPKG / "app").rglob("*.py"):
+            if "__pycache__" in p.parts or p.name == "tenant_guard.py":
+                continue
+            if "scan_unscoped_protected_queries" in p.read_text(encoding="utf-8-sig"):
+                callers.append(p.relative_to(BEPKG).as_posix())
+        assert callers == [], (
+            f"扫描器出现生产调用方，不可达裁定须重审: {callers}"
+        )
+
+    def test_declined_event_bus_underlay_wired(self):
+        """risk_service_warning 不接线的前提：底层 event_bus.publish 已留痕。
+
+        本层 except 只是防御性捕获（publish 的队列满分支内部已接线且不向上抛），
+        若底层接线被拔掉，本层「重复层」裁定即失效。
+        """
+        src = (BE / "core/event_bus.py").read_text(encoding="utf-8-sig")
+        assert '"core.event_bus.publish"' in src, (
+            "底层 event_bus.publish 接线消失 —— risk_service_warning "
+            "「防御层不接线」裁定须重审"
         )

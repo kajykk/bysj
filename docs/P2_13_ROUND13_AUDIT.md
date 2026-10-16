@@ -851,6 +851,67 @@ FAILED ...::TestGetRiskTrendPriorityOrder::test_same_priority_latest_created_at_
 
 ---
 
+## 一之十七、#35 X 桶第十六批：4 处接线（X 130 → 126，跨两文件）+ 9 处不接线
+
+挑簇：续作提示词建议的 `core/ws.py` / `api/v1/*` 方向。先跑 UNJUDGED 批量标记
+（X 桶 130 条按 basename+func 去两份审计文档数提及次数），`dedup_lock` 6 条、
+`model_engine/inference` 的 persist/Prometheus 在 P2_11 已裁定（M/R 型）跳过；
+`api/v1/*` 与 `rate_limit` / `token_blocklist` / `tenant_guard` / `checksum`
+等簇逐条存在性核查后，真降级集中在 ws 与 shadow_mode 两簇。
+
+### 1.56 接线清单（4 处）
+
+| location | 文件 | 降级形状 |
+|---|---|---|
+| `core.ws.local_send_failed` | `core/ws.py` `_local_send_to_user` | 某条连接 `send_text` 失败 → 该用户这一次推送静默丢失；`send_to_user` 继续走 Redis 发布并正常返回，调用方从返回值看不出有一次投递已失败 |
+| `core.ws.pubsub_message_handling_failed` | `core/ws.py` `_pubsub_loop` | 单条跨进程消息处理抛异常 → 消息被丢弃、订阅循环照常续跑；投递方（其它 worker 的 publish）早已返回成功 |
+| `services.shadow_mode.predictor_unavailable` | `services/shadow_mode_service.py` `_ensure_predictor` | M2 BERT 推理器加载失败 → 对拍停用；生产 TF-IDF 链路毫无变化，一致率数据从此断流，`get_stats` 的拉取式 flag 之外无运行时信号 |
+| `services.shadow_mode.compare_failed` | `services/shadow_mode_service.py` `_shadow_predict` | 单次对拍异常被吞 → 该样本从一致率统计中静默消失，影子期切换决策依据出现无痕缺口 |
+
+存在性核查（防 stale 行号）：扫描快照行号与现状逐条对齐（ws.py L169/L282 附近、
+shadow_mode_service.py L59/L128 附近）；`shadow_mode_service` 的生产可达性经
+`main._init_shadow_sink`（main.py:85-101，启动时 `set_shadow_sink`）证实 ——
+不是死代码。`_ensure_predictor` 的接线置于 `return False` **之前**（第五批死接线
+闸门同款纪律）。`shadow_mode_service.py` 原无 degradation import，本批新增并做
+import 烟测（名字绑定验证，非只查语法）。
+
+### 1.57 不接线 9 处（书面记账，仍留 X 桶，机器不裁、文档裁）
+
+| # | 位置 | 类型 | 理由 |
+|---|---|---|---|
+| 1 | `ws.py` disconnect 指标 dec 失败 | M 型 | 指标采集自身失败；主链路不受影响，连接上限拒绝对客户端可见（4009） |
+| 2 | `rate_limit.py` `_patched_limit` 签名修补回退 | V 型 | 回退后 FastAPI 解析失败会以 500 暴露，非静默 |
+| 3 | `rate_limit.py` `SafeRateLimitMiddleware` 捕获转 429 | 设计内 | RateLimitExceeded→统一 429 是既定行为，附告警日志 |
+| 4 | `status.py` `_get_cached_model_status` cache_set 失败 | 无失真 | 返回实时计算的真数据，仅损失缓存收益 |
+| 5 | `token_blocklist.py` `revoke_token` Redis 不可用 | V 型 | 三个调用方（logout / change_password / reset_password）均检查返回值并记 ERROR；检查侧 `is_token_revoked` fail-closed（CacheUnavailableError→503）已堵 |
+| 6 | `tenant_guard.py` `scan_unscoped_protected_queries` 跳过不可解析文件 | 死代码 | 运行期不可达：全仓 `app/` 无调用方，仅 `test_p2_31_tenant_guard.py` / `test_isolation_wiring_gate.py` 两个测试门禁调用 |
+| 7 | `checksum.py` `_read_recorded_hash` 解析失败 | fail-closed | 返回 None → 判 stale → strict 环境拒绝加载（安全方向）；启动审计报告 `audit_model_sidecars` 可见 |
+| 8 | `checksum.py` `cleanup_stale_sidecars` 删除失败 | 低价值 | 仅 `scripts/generate_sidecars.py --cleanup` 与测试调用；失败仅残留磁盘文件 |
+| 9 | `risk_service_warning.py` warning.created 发布失败 | 重复层 | 底层 `core.event_bus.publish` 队列满已接线且不向上抛；本层 except 只在 publish 意外抛错时触发，属防御性捕获 + exc_info 日志 |
+
+### 1.58 闸门与读数
+
+- 新增 `TestP235Round13Batch16Wiring`（5 条）：4 对 location 双向核对 + 一次
+  运行时覆盖四条路径（假连接 `send_text` 必炸；pubsub 假客户端确投递过一条
+  pmessage 且 `_handle_pubsub_message` 必炸；推理器 predict 必炸且失败后
+  `_predictor_loaded` 仍为 False、统计不涨 —— 每条均带防假绿断言）+ 五条反向钉
+  （8 个行为锚点不得出现接线；token_blocklist 的 `return False` V 型判据；
+  tenant_guard 的 `continue` 形状 + 全仓 `app/` 无生产调用方；event_bus
+  底层接线仍在）。
+- 桶计数改钉：**W=89 / X=126**（4 处实记录 X→W，无桶间迁移；棘轮测试实跑
+  通过 = 扫描器现场重算与改钉一致，不是改常数）。
+- 六闸门本地单跑：**164 passed**（test_p2_09/10/11/12/31/32 六套件；
+  不得并发双跑）。affected **139 passed**（ws 全家 / test_p4_shadow_mode /
+  rate_limit ×2 / token_blocklist ×2 / risk_service_warning / fault_injection）。
+- 全称注释棘轮：4 条新注释经检测器复核**零命中**（逐个词避开全称词表），
+  维持 100，不做账不动闸门。
+- 三次真实变异（删 ws 接线 / 改 shadow location 字面量 / 删 P2_11 附录登记行）
+  均 RED-OK/GREEN-OK，日志 `mutate_p2_35_round13_batch16_result.log`。
+- 未验证如实记账：后端全量本地未跑（约 37 分钟，禁止并发双跑），由 CI
+  `backend-coverage` 兜底；前端未触及。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -886,8 +947,11 @@ FAILED ...::TestGetRiskTrendPriorityOrder::test_same_priority_latest_created_at_
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十五批）：当前棘轮
-   **W=85 / X=130 / P=15**（总数 334 不变）。
+0. **本轮累计状态**（十六批）：当前棘轮
+   **W=89 / X=126 / P=15**（总数 334 不变）。
+   第十六批增量：W +4 / X -4（4 处实记录 X→W：ws 本进程投递失败 /
+   ws 订阅消息处理失败 / 影子推理器不可用 / 影子对拍异常；
+   另裁定不接线 9 处，留 X 桶）；
    第十五批增量：W +3 / X -3（3 处实记录 X→W；另裁定不接线 12 处，留 X 桶）；
    第十四批增量：W +4 / X -4（4 处实记录 X→W，无桶间迁移）；
    第十三批增量：W +5 / X -5（5 处实记录 X→W，无桶间迁移）；
