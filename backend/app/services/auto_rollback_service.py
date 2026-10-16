@@ -440,6 +440,11 @@ class AutoRollbackService:
                             "services.auto_rollback_service.rollback_savepoint_failed"
                         )
             except Exception:
+                # P2-35: 检查/回滚整体失败 → check_result 被洗成 should_rollback=False
+                # + reason="check_error"，两个调用方（scheduler beat / fallback monitor）
+                # 都只按 should_rollback 分支走 debug 日志——「无需回滚」的假象下
+                # 这次检查根本没跑成，超阈值金丝雀静默无人回滚，必须计数。
+                record_silent_degradation("services.auto_rollback_service.check_failed")
                 logger.exception("Check/rollback failed for canary %d", canary.id)
                 check_result = RollbackCheckResult(
                     should_rollback=False,

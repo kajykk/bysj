@@ -409,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 92,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十七批净 65）
+            "W": 95,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十八批净 68）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -422,11 +422,11 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 123,  # 真降级留档（第十七批 3 处实记录 X→W：健康监控快照刷新失败 /
-                        # HTTP 指标记录失败 / 自动回退检查失败；
-                        # 故 X 126→123、W 89→92；总数 334 不变。
-                        # 前一行起为第十六批口径：X 130→126、W 85→89；
-                        # 再前一批：X 133→130、W 82→85。）
+            "X": 120,  # 真降级留档（第十八批 3 处实记录 X→W：金丝雀检查失败洗白 /
+                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败；
+                        # 故 X 126→123→120、W 89→92→95；总数 334 不变。
+                        # 前两行为第十七/十六批口径：X 126→123、W 89→92；
+                        # X 130→126、W 85→89。）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -2903,3 +2903,277 @@ class TestP235Round13Batch17Wiring:
             "services/review_service.py", "create_review_task", "review.submitted",
             "EventBus 发布失败底层已接线（防御性重复层）",
         )
+
+
+class TestP235Round13Batch18Wiring:
+    """第十三轮第十八批：#35 X 桶 3 处接线（金丝雀检查洗白 / 训练任务 Redis
+    列表回退 / 训练任务 Redis 更新失败）+ 13 处不接线裁定。
+
+    三处接线的共同形状：**失败把「未检查/不完整/只写一半」洗成了正常形态**：
+
+    - `services.auto_rollback_service.check_failed`：`check_all_canaries`
+      单 canary 的检查/回滚整体失败 → `check_result` 被置为
+      `should_rollback=False + reason="check_error"`；两个调用方
+      （scheduler beat 与 fallback monitor）都只按 `should_rollback`
+      分支走 **debug 级**日志——「无需回滚」的假象下这次检查根本没跑成，
+      超阈值金丝雀静默无人回滚（与已接线的 `rollback_savepoint_failed`
+      同族：那个是「结果在说回滚了但其实没有」，这个是「结果在说不用回滚
+      但其实没检查」）。
+    - `services.model_predict.training_jobs.redis_list_fallback`：
+      `list_training_jobs` 读 Redis 失败 → 回退进程内内存表，残缺子集经
+      `status.py` 的 `ok({"jobs": ...})` 直接包进成功响应返给前端——
+      Redis 里可能仍在运行的任务整体消失，调用方拿到的就是「完整列表」形态。
+    - `services.model_predict.training_jobs.redis_update_failed`：
+      `update_job` 内存表已改而 Redis 持久化失败 → 双写不一致；函数无
+      返回值，调用方无从得知这次状态变更只落了一半，Redis 恢复后读到旧状态。
+
+    本批**不接线** 13 处裁定见 P2_13「一之十九」，代表类型：
+    auto_rollback_service 5 条（`_bump_lock_counter` 专用计数器全覆盖的 M 型，
+    其中 `get_check_heartbeat_age` 返回 None 时调用方有专门接管分支）、
+    notifier 2 条（_dispatch 的 success=False+error_msg 随 results 返回 +
+    alert_channel_failed 审计；_write_channel_log 的 C 型审计写失败）、
+    am_sync 2 条（pull_silences 返回 None 显式失败 + am_sync_failed 审计；
+    _write_sync_log C 型）、silences.create_silence 的 AM sync 异常
+    （第四批注释明示：am_sync 内部已写 am_sync_failed，不重复计数）、
+    training_jobs.get_training_job（storage_degraded=True + message 变更
+    的显式降级标记）、event_bus._consume_loop 2 条（handler_errors 专用
+    计数器 + stop 日志汇总；loop 级为 queue.get() 异常的防御性不可达路径）。
+    """
+
+    PAIRS = (
+        ("services.auto_rollback_service.check_failed", "services/auto_rollback_service.py"),
+        ("services.model_predict.training_jobs.redis_list_fallback", "services/model_predict/training_jobs.py"),
+        ("services.model_predict.training_jobs.redis_update_failed", "services/model_predict/training_jobs.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_runtime_paths_increment(self, monkeypatch):
+        """行为：三条可驱动的路径各触发一次 → 对应计数器各 +1。
+
+        每条都带防假绿断言（检查确被调用且结果被洗白 / 内存表长度与返回一致 /
+        内存写确已生效），避免「计数来自别处」的假绿。
+        """
+        import importlib
+        from types import SimpleNamespace
+
+        ars = importlib.import_module("app.services.auto_rollback_service")
+        tj = importlib.import_module("app.services.model_predict.training_jobs")
+
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # ① 金丝雀检查失败被洗白：check_canary_health 必炸 + 假 db/锁/心跳
+        check_calls = {"n": 0}
+
+        async def _boom_health(*_a, **_k):  # noqa: ANN002, ANN202
+            check_calls["n"] += 1
+            raise RuntimeError("probe: canary health boom")
+
+        async def _always_lock(*_a, **_k):  # noqa: ANN002, ANN202
+            return True
+
+        async def _noop_heartbeat(*_a, **_k):  # noqa: ANN002, ANN202
+            return True
+
+        monkeypatch.setattr(ars.AutoRollbackService, "check_canary_health", _boom_health)
+        monkeypatch.setattr(ars, "try_acquire_check_lock", _always_lock)
+        monkeypatch.setattr(ars, "publish_check_heartbeat", _noop_heartbeat)
+
+        class _FakeSavepoint:
+            async def __aenter__(self):  # noqa: ANN201
+                return self
+
+            async def __aexit__(self, *_a):  # noqa: ANN002, ANN201
+                return False
+
+        class _FakeResult:
+            def __init__(self, items):  # noqa: ANN001
+                self._items = items
+
+            def scalars(self):  # noqa: ANN201
+                return self
+
+            def all(self):  # noqa: ANN201
+                return self._items
+
+        class _FakeDB:
+            async def execute(self, *_a, **_k):  # noqa: ANN002, ANN202
+                return _FakeResult([SimpleNamespace(id=7)])
+
+            def begin_nested(self):  # noqa: ANN201
+                return _FakeSavepoint()
+
+        results = await ars.auto_rollback_service.check_all_canaries(
+            _FakeDB(), source="probe-b18"
+        )
+        assert check_calls["n"] >= 1, "check_canary_health 未被调用（假绿）"
+        assert len(results) == 1 and results[0].should_rollback is False, (
+            "结果未被洗成 should_rollback=False（防假绿：走的不是洗白路径）"
+        )
+        assert results[0].reason == "check_error", "reason 不是 check_error（锚点漂移）"
+        assert self._counter_value(locs[0]) >= before[locs[0]] + 1, (
+            "金丝雀检查失败未计数（假接线）"
+        )
+
+        # ② 训练任务 Redis 列表回退：list_jobs_from_redis 必炸 + 内存表有货
+        def _boom_redis_list():  # noqa: ANN202
+            raise RuntimeError("probe: redis list boom")
+
+        monkeypatch.setattr("app.tasks.model_training.list_jobs_from_redis", _boom_redis_list)
+        with tj.TRAINING_JOBS_LOCK:
+            tj.TRAINING_JOBS["probe-b18"] = {"job_id": "probe-b18", "status": "running"}
+        try:
+            jobs = tj.list_training_jobs()
+        finally:
+            with tj.TRAINING_JOBS_LOCK:
+                tj.TRAINING_JOBS.pop("probe-b18", None)
+        assert any(j.get("job_id") == "probe-b18" for j in jobs), (
+            "内存表任务未出现在返回里（假绿：走的不是回退路径）"
+        )
+        assert self._counter_value(locs[1]) >= before[locs[1]] + 1, (
+            "Redis 列表回退未计数（假接线）"
+        )
+
+        # ③ 训练任务 Redis 更新失败：update_job_in_redis 必炸 + 内存写已生效
+        def _boom_redis_update(*_a, **_k):  # noqa: ANN002, ANN202
+            raise RuntimeError("probe: redis update boom")
+
+        monkeypatch.setattr("app.tasks.model_training.update_job_in_redis", _boom_redis_update)
+        with tj.TRAINING_JOBS_LOCK:
+            tj.TRAINING_JOBS["probe-b18b"] = {"job_id": "probe-b18b", "status": "queued"}
+        try:
+            tj.update_job("probe-b18b", status="done")
+            with tj.TRAINING_JOBS_LOCK:
+                mem_status = tj.TRAINING_JOBS["probe-b18b"]["status"]
+        finally:
+            with tj.TRAINING_JOBS_LOCK:
+                tj.TRAINING_JOBS.pop("probe-b18b", None)
+        assert mem_status == "done", "内存表未更新（假绿：走的不是双写不一致路径）"
+        assert self._counter_value(locs[2]) >= before[locs[2]] + 1, (
+            "Redis 更新失败未计数（假接线）"
+        )
+
+    @staticmethod
+    def _func_source(rel: str, funcname: str) -> str:
+        src = (BE / rel).read_text(encoding="utf-8-sig")
+        tree = ast.parse(src)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                seg = ast.get_source_segment(src, node)
+                assert seg is not None, f"{rel}::{funcname} 取不到源码片段"
+                return seg
+        raise AssertionError(f"{rel} 找不到函数 {funcname}（锚点漂移 = 闸门失效）")
+
+    def _assert_declined(self, rel: str, funcname: str, anchor: str, reason: str):
+        """反向钉：该函数体不得接线，且必须仍含锚点行为（否则裁定前提漂移）。"""
+        seg = self._func_source(rel, funcname)
+        assert "record_silent_degradation" not in seg, (
+            f"{rel}::{funcname} 已接线 —— 「{reason}」裁定须重审"
+        )
+        assert anchor in seg, f"{rel}::{funcname} 行为锚点消失（{anchor!r}），闸门失效"
+
+    def test_declined_no_distortion_batch18(self):
+        """13 处不接线裁定的反向钉（逐一锚定行为 + 断言未接线）。"""
+        # M 型：Redis 客户端获取失败 → 调用方全部处理 None + _bump_lock_counter
+        self._assert_declined(
+            "services/auto_rollback_service.py", "_redis_client_or_none",
+            "获取 redis 客户端失败", "锁/心跳辅助的 M 型专用计数器",
+        )
+        # M 型：锁获取异常 → _bump_lock_counter + 注释明示的降级执行
+        self._assert_declined(
+            "services/auto_rollback_service.py", "try_acquire_check_lock",
+            '_bump_lock_counter("unavailable")', "锁降级执行已有专用计数器（M 型）",
+        )
+        # M 型：心跳写失败 → _bump_lock_counter + return False
+        self._assert_declined(
+            "services/auto_rollback_service.py", "publish_check_heartbeat",
+            "写入心跳失败", "心跳写失败已有专用计数器（M 型）",
+        )
+        # M 型：心跳读失败/解析失败 → _bump_lock_counter + return None
+        self._assert_declined(
+            "services/auto_rollback_service.py", "get_check_heartbeat_age",
+            "读取心跳失败", "心跳读失败已有专用计数器（M 型）",
+        )
+        # V 型：单通道未捕获异常 → success=False + error_msg 随 results 返回
+        self._assert_declined(
+            "monitoring/notifier.py", "_dispatch",
+            "未捕获异常", "通道发送失败显式上报（V 型）",
+        )
+        # C 型：通道审计写失败不影响通知结果
+        self._assert_declined(
+            "monitoring/notifier.py", "_write_channel_log",
+            "写 OperationLog 失败", "通道审计写失败低价值（C 型）",
+        )
+        # C 型：AM 同步审计写失败不影响主流程
+        self._assert_declined(
+            "monitoring/am_sync.py", "_write_sync_log",
+            "写 OperationLog 失败", "AM 同步审计写失败低价值（C 型）",
+        )
+        # V 型：pull 失败返回 None + am_sync_failed 审计
+        self._assert_declined(
+            "monitoring/am_sync.py", "pull_silences",
+            "pull exception", "AM 拉取失败显式返回 None（V 型）",
+        )
+        # V 型：存储不可用时 not_found 带 storage_degraded + message 变更
+        self._assert_declined(
+            "services/model_predict/training_jobs.py", "get_training_job",
+            "storage_degraded", "存储降级有显式标记（V 型）",
+        )
+        # M 型：handler 失败有 handler_errors 专用计数器
+        self._assert_declined(
+            "core/event_bus.py", "_consume_loop",
+            "handler_errors += 1", "事件 handler 失败已有专用计数器（M 型）",
+        )
+
+    def test_declined_silences_am_sync_exception_not_wired(self):
+        """silences.create_silence：AM sync 异常不接线（am_sync 内部已写审计），
+        但同函数的补偿失败路径 am_rollback_failed 必须仍在（第四批已接线）。
+
+        两个 except 在同函数内裁决相反，必须分别钉，防止「整个函数不接线」
+        的粗粒度断言把已接线路径一起误钉为未接。
+        """
+        src = (BE / "api/v1/silences.py").read_text(encoding="utf-8-sig")
+        tree = ast.parse(src)
+        seg = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "create_silence":
+                seg = ast.get_source_segment(src, node)
+                break
+        assert seg is not None, "create_silence 取不到源码片段"
+        wired = seg.count("record_silent_degradation")
+        assert wired == 1, (
+            f"create_silence 接线点数量 {wired}，期望 1（am_rollback_failed）；"
+            "数量变化意味着第四批补偿路径裁定须重审"
+        )
+        assert "api.silences.create.am_rollback_failed" in seg, (
+            "补偿失败接线消失 —— 孤儿静默（漏预警方向）将无计数"
+        )
+        assert "AM sync exception" in seg, "AM sync 异常行为锚点消失，闸门失效"
+        # AM sync 那个 except 不得接线：用 AST 定位含该日志的 handler
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body_src = ast.get_source_segment(src, node) or ""
+            if "AM sync exception" not in body_src:
+                continue
+            assert "record_silent_degradation" not in body_src, (
+                "AM sync 异常分支已接线 —— 「重复层不接线」裁定须重审"
+            )
+            break
+        else:
+            raise AssertionError("未找到含 AM sync exception 的 except（锚点漂移）")

@@ -913,3 +913,35 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   inc 确被调用且响应仍 200 交还、check probe 确被调用）+ 一条反向钉
   （12 个行为锚点逐一「未接线 + 锚点仍在」）。桶计数改钉
   **W=92 / X=123**。变异三条见 `mutate_p2_35_round13_batch17_result.log`。
+
+- **第十三轮第十八批（X 123→120，W 92→95，总数 334 不变）**：3 处实记录
+  X→W。① `services.auto_rollback_service.check_failed`
+  （`check_all_canaries` 单 canary 检查/回滚整体失败 → check_result 被洗成
+  `should_rollback=False + reason="check_error"`，两个调用方（scheduler beat /
+  fallback monitor）都只按 should_rollback 分支走 debug 级日志——
+  「无需回滚」假象下检查根本没跑成，与已接线的
+  `rollback_savepoint_failed` 同族）；②
+  `services.model_predict.training_jobs.redis_list_fallback`
+  （`list_training_jobs` 读 Redis 失败回退内存表，残缺子集经 status.py 的
+  `ok({"jobs": ...})` 包进成功响应，Redis 里仍在运行的任务整体消失）；
+  ③ `services.model_predict.training_jobs.redis_update_failed`
+  （`update_job` 内存表已改而 Redis 持久化失败 → 双写不一致，函数无返回值
+  调用方无从得知只写了一半）。
+  同批裁定不接线 13 处：`auto_rollback_service` 5 条（`_bump_lock_counter`
+  专用计数器全覆盖的 M 型，`get_check_heartbeat_age` 返回 None 时调用方有
+  专门接管分支）、`notifier._dispatch`（V 型 success=False + error_msg 随
+  results 返回 + alert_channel_failed 审计）、`notifier._write_channel_log`
+  与 `am_sync._write_sync_log`（C 型审计写失败）、`am_sync.pull_silences`
+  （V 型返回 None 显式失败 + am_sync_failed 审计）、
+  `silences.create_silence` 的 AM sync 异常（第四批注释明示不重复计数，
+  精细钉：同函数内补偿路径 am_rollback_failed 已接线须仍在）、
+  `training_jobs.get_training_job`（V 型 storage_degraded=True + message
+  变更显式可辨）、`event_bus._consume_loop` 2 条（handler_errors 专用
+  计数器 M 型；loop 级为 queue.get() 异常的防御性不可达路径）。
+
+  闸门 `TestP235Round13Batch18Wiring`（4 条）：3 对 location 双向核对 +
+  一次运行时覆盖三路径（各带防假绿断言：check 确被调用且结果确被洗成
+  should_rollback=False/check_error、内存表任务确出现在返回里、内存写确已
+  生效）+ 两条反向钉（10 个行为锚点逐一「未接线 + 锚点仍在」+ silences
+  同函数双 except 反向裁决精细钉）。桶计数改钉 **W=95 / X=120**。
+  变异三条见 `mutate_p2_35_round13_batch18_result.log`。

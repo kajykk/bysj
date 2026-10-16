@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 90,
+  "real_wired": 93,
   "import_probe": 16,
   "real_list": [
     {
@@ -2258,7 +2258,7 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -2561,17 +2561,17 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 306,
+      "line": 312,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

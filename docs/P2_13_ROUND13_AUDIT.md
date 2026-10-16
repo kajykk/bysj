@@ -975,6 +975,72 @@ import 烟测（名字绑定验证，非只查语法）。
 
 ---
 
+## 一之十九、#35 X 桶第十八批：3 处接线（X 123 → 120，跨两文件）+ 13 处不接线
+
+1. **接线 3 处**（X 123→120，W 92→95，总数 334 不变）——共同形状是
+   **失败把「未检查 / 不完整 / 只写一半」洗成了正常形态**：
+
+   | location | 文件 | 降级形状 |
+   |---|---|---|
+   | `services.auto_rollback_service.check_failed` | `services/auto_rollback_service.py` | `check_all_canaries` 单 canary 检查/回滚整体失败 → `check_result` 洗成 `should_rollback=False + reason="check_error"`；两个调用方（scheduler beat / fallback monitor）都只按 `should_rollback` 分支走 **debug 级**日志——「无需回滚」假象下这次检查根本没跑成，超阈值金丝雀静默无人回滚（与已接线的 `rollback_savepoint_failed` 同族：那个是「结果说回滚了但其实没有」，这个是「结果说不用回滚但其实没检查」） |
+   | `services.model_predict.training_jobs.redis_list_fallback` | `services/model_predict/training_jobs.py` | `list_training_jobs` 读 Redis 失败 → 回退进程内内存表，残缺子集经 `status.py` 的 `ok({"jobs": ...})` 直接包进成功响应返给前端——Redis 里可能仍在运行的任务整体消失，调用方拿到的就是「完整列表」形态 |
+   | `services.model_predict.training_jobs.redis_update_failed` | `services/model_predict/training_jobs.py` | `update_job` 内存表已改而 Redis 持久化失败 → 双写不一致；函数无返回值，调用方（`model_predict_service._update_job` 乃至训练任务本身）无从得知这次状态变更只落了一半，Redis 恢复后读到旧状态 |
+
+   两个文件的 degradation import 均已在（本批无新增 import）。
+
+2. **裁定不接线 13 处**（留 X 桶，逐一书面记账）：
+   ① `auto_rollback_service._redis_client_or_none`——Redis 客户端获取
+   失败返回 None，三个调用方全部处理 None 且 `_bump_lock_counter("unavailable")`
+   专用计数器（M 型）；② `try_acquire_check_lock` 锁获取异常——M 型计数器
+   + 注释明示的「降级执行检查」语义；③ `publish_check_heartbeat` 写心跳
+   失败——M 型计数器 + return False；④ `get_check_heartbeat_age` 读/解析
+   失败（2 处）——M 型计数器 + return None，且调用方
+   `canary_fallback_monitor` 对 None 有专门接管分支（heartbeat_missing）；
+   ⑤ `notifier._dispatch` 单通道未捕获异常——success=False + error_msg
+   随 results 字典返回，db 传入时写 `alert_channel_failed` OperationLog
+   （V 型）；⑥ `notifier._write_channel_log` 通道审计写失败——C 型，
+   通知结果已由 results 承载；⑦ `am_sync._write_sync_log`——C 型同上；
+   ⑧ `am_sync.pull_silences`——返回 None 显式失败 + `am_sync_failed`
+   审计（V 型）；⑨ `silences.create_silence` 的 AM sync 异常——第四批
+   注释明示「am_sync 内部已写 am_sync_failed OperationLog，此处不重复
+   计数（避免计数器长期为 0 误导运维）」；⑩ `training_jobs.get_training_job`
+   Redis 读失败——not_found 带 `storage_degraded=True` + message 变更的
+   显式降级标记（V 型，AUDIT-P0-8 修复）；⑪ `event_bus._consume_loop`
+   handler 失败——`handler_errors` 专用计数器 + stop 时日志汇总（M 型）；
+   ⑫ 同函数 loop 级未预期异常——`queue.get()` 异常的防御性路径，生产中
+   不可达（与 tenant_guard 扫描器同理）。
+3. **闸门**：新增 `TestP235Round13Batch18Wiring`（4 条）——3 对 location
+   源码 + 文档双向断言；一次运行时覆盖三路径（auto_rollback 假 db/假
+   savepoint + check 必炸、training_jobs 假 Redis 必炸 + 内存表有种，
+   各带防假绿断言：check 确被调用且结果确被洗成 should_rollback=False /
+   reason=check_error、内存任务确出现在返回里、内存写确已生效）；
+   两条反向钉——10 个行为锚点逐一「函数体未接线 + 锚点仍在」+
+   `test_declined_silences_am_sync_exception_not_wired` 对同函数双
+   except 反向裁决的精细钉（AM sync 分支不得接线、补偿分支
+   am_rollback_failed 必须仍在且全函数接线数恰为 1）。
+4. **桶计数改钉**：**W=95 / X=120**（3 处实记录 X→W，无桶间迁移；棘轮
+   测试实跑通过 = 扫描器现场重算与改钉一致）。
+5. **实测读数**：六闸门本地单跑 **170 passed**（唯一失败为文档登记，
+   本文档落盘后转绿）。affected 23 文件分三组：组 1（auto_rollback /
+   canary_fallback / event_bus / notifier / am_sync / silence）
+   **162 passed**；组 2（model_predict_service / model_training /
+   scheduler / iss02×2 / training schema）**172 passed**；组 3
+   （dedup / ml_breaker / perf×2 / resource_cleanup / security_p1 /
+   services_init / api_contract）**406 passed**（20 分钟，含 schemathesis
+   属性测试；三组合计 **740 passed**）。
+   **环境性备注**：`tests/contract/test_api_contract.py`（schemathesis +
+   hypothesis 属性测试）单跑或组合跑会随机超过工具默认 120s 时限被
+   SIGTERM——已做还原对照实验（`git show HEAD:` 还原两个源文件后复跑）
+   **两侧同为 58 passed / 100s 内完成**，确认与本批改动无关，纯属
+   hypothesis 生成量的耗时波动；后续该文件一律后台跑或加 shell timeout。
+6. **全称注释棘轮**：新增注释经检测器复核零命中，维持 100，不动闸门。
+7. **变异三条**（删 auto_rollback 接线 / 改 training_jobs location
+   字面量 / 删 P2_11 附录登记行）见 `mutate_p2_35_round13_batch18_result.log`。
+8. **未验证如实记账**：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+   由 CI `backend-coverage` 兜底；前端未触及。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1010,8 +1076,11 @@ import 烟测（名字绑定验证，非只查语法）。
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十七批）：当前棘轮
-   **W=92 / X=123 / P=15**（总数 334 不变）。
+0. **本轮累计状态**（十八批）：当前棘轮
+   **W=95 / X=120 / P=15**（总数 334 不变）。
+   第十八批增量：W +3 / X -3（3 处实记录 X→W：金丝雀检查失败洗白 /
+   训练任务 Redis 列表回退 / 训练任务 Redis 更新失败；另裁定不接线
+   13 处，留 X 桶）；
    第十七批增量：W +3 / X -3（3 处实记录 X→W：健康监控快照刷新失败 /
    HTTP 指标记录失败 / 自动回退检查失败；另裁定不接线 12 处，留 X 桶）；
    第十六批增量：W +4 / X -4（4 处实记录 X→W：ws 本进程投递失败 /

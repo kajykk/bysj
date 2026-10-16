@@ -1,7 +1,7 @@
 {
   "counts": {
-    "X": 123,
-    "W": 92,
+    "X": 120,
+    "W": 95,
     "G": 8,
     "S": 36,
     "D": 22,
@@ -2049,7 +2049,7 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/auto_rollback_service.py",
@@ -2322,16 +2322,16 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/model_predict/training_jobs.py",
-      "line": 306,
+      "line": 312,
       "func": "update_job",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/observability/aggregate.py",

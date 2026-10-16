@@ -283,6 +283,12 @@ def list_training_jobs() -> list[dict[str, Any]]:
         # AUDIT-2026-10-06 (P1-9): 原实现裸 `pass` —— Redis 读取失败时静默回退
         # 进程内内存表，用户看到的是残缺的本进程子集（Redis 里可能还有正在运行的
         # 任务），而服务端不留任何痕迹。补日志，使降级可见。
+        # P2-35: 残缺列表经 status.py 的 ok({"jobs": ...}) 直接包进成功响应返给
+        # 前端——调用方拿到的就是「完整列表」形态，内存表子集与 Redis 全量的差异
+        # 无从分辨（正在运行的任务可能整体消失），必须计数。
+        record_silent_degradation(
+            "services.model_predict.training_jobs.redis_list_fallback"
+        )
         logger.warning(
             "读取 Redis 训练任务列表失败, 回退进程内内存表 (结果可能不完整)",
             exc_info=True,
@@ -304,6 +310,12 @@ def update_job(job_id: str, **updates: Any) -> None:
 
         update_job_in_redis(job_id, **updates)
     except Exception:
+        # P2-35: 内存表已改而 Redis 持久化静默失败 → 双写不一致；update_job 无
+        # 返回值，调用方（model_predict_service._update_job 乃至训练任务本身）
+        # 无从得知这次状态变更只落了一半，Redis 恢复后读到的是旧状态。
+        record_silent_degradation(
+            "services.model_predict.training_jobs.redis_update_failed"
+        )
         logger.warning("update_job_in_redis failed", exc_info=True)
 
 
