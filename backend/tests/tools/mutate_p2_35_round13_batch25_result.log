@@ -1,0 +1,29 @@
+========================================================================
+P2-35 第二十五批变异验证（锚点均为落盘实读文本）
+========================================================================
+  [baseline] 变异前闸门应为绿…
+    gate: 97 passed, 19 warnings in 3.79s
+  [baseline] GREEN-OK
+  [M1 给 _notify_warning 重试 handler 接线] 变异注入…
+    gate: 2 failed, 95 passed, 18 warnings in 4.02s
+  [M1 给 _notify_warning 重试 handler 接线] RED-OK（returncode=1）
+    gate: 97 passed, 19 warnings in 3.46s
+  [M1 给 _notify_warning 重试 handler 接线] GREEN-OK（还原后 returncode=0）
+  [M2 给产物目录 resolve handler 接线] 变异注入…
+    gate: 1 failed, 96 passed, 19 warnings in 3.85s
+  [M2 给产物目录 resolve handler 接线] RED-OK（returncode=1）
+    gate: 97 passed, 19 warnings in 3.55s
+  [M2 给产物目录 resolve handler 接线] GREEN-OK（还原后 returncode=0）
+  [M3 删 L1134 保守跳过 is_active = True] 变异注入…
+    gate: 2 failed, 95 passed, 19 warnings in 4.34s
+  [M3 删 L1134 保守跳过 is_active = True] RED-OK（returncode=1）
+    gate: 97 passed, 19 warnings in 3.54s
+  [M3 删 L1134 保守跳过 is_active = True] GREEN-OK（还原后 returncode=0）
+  [M4 删 P2_13 节标题] 变异注入…
+    gate: 1 failed, 96 passed, 19 warnings in 3.98s
+  [M4 删 P2_13 节标题] RED-OK（returncode=1）
+    gate: 97 passed, 19 warnings in 3.50s
+  [M4 删 P2_13 节标题] GREEN-OK（还原后 returncode=0）
+========================================================================
+四条变异全部 RED-OK / GREEN-OK
+========================================================================

@@ -4712,3 +4712,251 @@ class TestP235Round13Batch24Wiring:
         assert "第十三轮第二十四批" in doc11, "P2_11 附录缺少第二十四批条目"
         assert "pubsub_loop_crashed" in doc11, "P2_11 附录第二十四批条目缺少接线 location"
         assert "W=97 / X=119" in doc13, "第二十四批后累计状态应为 W=97 / X=119"
+
+
+class TestP235Round13Batch25Declined:
+    """第十三轮第二十五批：#35 **纯裁定批**（0 接线，W=97 / X=119 不变，
+    `app/tasks/scheduler.py` 5 条新候选）。
+
+    第十九批已裁 scheduler 7 条（L401/L510/L994/L1001/L1054/L1102/
+    L1170），本批 5 条为挑簇器列出的剩余未裁定项（ws.py 12 条系
+    第二十四批已裁，挑簇器文档匹配格式缺陷误列，不在本批范围）。
+
+    逐条裁定（分类器现场重算 + 运行时实证，见
+    `tests/tools/verify_p2_35_batch25_candidates.py`）：
+
+    1. **L81 `_notify_warning` 重试 except（M 型）**——失败先就地重试
+       （`_NOTIFY_MAX_ATTEMPTS=2`），耗尽后 error 级完整上下文日志 +
+       `warning_notify_failed_total` 专用计数器（运行时实测**真涨**
+       +1，非第二十二批那对死计数器）+ Sentry + `return False`；
+       调用方 `_daily_risk_scan_impl` L360 检查 `ok` 并汇总 error
+       上报。专用计数器已覆盖同一失败，不重复接通用计数器。
+    2. **L108 指标 inc 失败（S 型）**——`warning_notify_failed_total
+       .inc()` 自身失败只记 debug；失败的是指标采集通道本身
+       （第五批 S 型裁定同族）。
+    3. **L129 Sentry capture_exception 失败（S 型）**——自报通道
+       自身失败；主通道（L93 error 日志 + L107 计数器）已先触发，
+       Sentry 是叠加的第二上报通道（第十九批①②③ 同型）。
+    4. **L1134 产物目录 resolve 失败（F 型）**——AUDIT-P0-3 明示
+       「宁可整个清理中止，也不能带残缺保护集继续删」：warning +
+       `is_active = True` 保守跳过删除，安全方向 fail-safe。
+    5. **L1150 产物文件 resolve 失败（F 型）**——同族保守跳过
+       （「无法判定真实位置 → 保守视为 active」+ break）。
+
+    运行时实证两条：① 推送失败 → `return False` + 专用计数器 +1 +
+    探针确被调用 2 次（重试发生）+ 通用计数器零调用；② resolve
+       失败 → 对照组删 1 个、实验组删 0 个且目录保留（差分证明
+       保守跳过生效），全程零接线调用。
+    """
+
+    @staticmethod
+    def _read(rel: str) -> str:
+        return (BE / rel).read_text(encoding="utf-8-sig")
+
+    @staticmethod
+    def _handlers_in_func(tree, funcname):
+        """AST 定位指定函数内的全部 except handler（不过滤异常名）。"""
+        fn_span = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                fn_span = (node.lineno, node.end_lineno or node.lineno)
+                break
+        assert fn_span is not None, f"找不到函数 {funcname}（锚点漂移 = 闸门失效）"
+        out = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and fn_span[0] <= node.lineno <= fn_span[1]:
+                out.append(node)
+        return out
+
+    def test_notify_trio_not_wired(self):
+        """`_notify_warning` 三个 handler 块级反向钉 + 各自见证锚点。"""
+        src = self._read("tasks/scheduler.py")
+        tree = ast.parse(src)
+        hs = self._handlers_in_func(tree, "_notify_warning")
+        assert len(hs) == 3, f"_notify_warning handler 数 {len(hs)}，期望 3"
+
+        by_marker = {}
+        for h in hs:
+            seg = ast.get_source_segment(src, h) or ""
+            if "WebSocket notification attempt" in seg:
+                by_marker["retry"] = (h, seg)
+            elif "warning_notify_failed_total 指标上报失败" in seg:
+                by_marker["metric"] = (h, seg)
+            elif "Sentry capture_exception 调用失败" in seg:
+                by_marker["sentry"] = (h, seg)
+        assert set(by_marker) == {"retry", "metric", "sentry"}, (
+            f"三个 handler 分辨失败：{sorted(by_marker)}（锚点漂移 = 闸门失效）"
+        )
+        for name, (_h, seg) in by_marker.items():
+            assert "record_silent_degradation" not in seg, (
+                f"_notify_warning 的 {name} handler 已接线 —— 裁定须重审"
+            )
+        # L81 重试 handler 见证：warning 级 + exc_info（重试不静默）
+        assert "exc_info=True" in by_marker["retry"][1], "重试 except 的 exc_info 消失"
+        # 函数级终端见证：return False + error 级汇总日志 + 专用计数器 + Sentry
+        fn_src = ""
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.AsyncFunctionDef) and fn.name == "_notify_warning":
+                fn_src = ast.get_source_segment(src, fn) or ""
+        assert "return False" in fn_src, "重试耗尽的 return False 消失 —— V/M 前提失效"
+        assert "AUDIT-P0-2 预警推送最终失败" in fn_src, "error 级汇总日志消失"
+        assert "warning_notify_failed_total.inc()" in fn_src, "专用计数器调用消失"
+        assert "capture_exception(" in fn_src, "Sentry 上报调用消失"
+
+    def test_notify_caller_aggregates_failure(self):
+        """调用方见证：`_daily_risk_scan_impl` 检查 `ok` 并汇总 error 上报
+        —— 失败对调用方显式，不存在「洗白」形态。"""
+        src = self._read("tasks/scheduler.py")
+        tree = ast.parse(src)
+        fn_src = ""
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.AsyncFunctionDef) and fn.name == "_daily_risk_scan_impl":
+                fn_src = ast.get_source_segment(src, fn) or ""
+        assert fn_src, "找不到 _daily_risk_scan_impl（锚点漂移）"
+        assert "ok = await _notify_warning(" in fn_src, "调用点消失 —— M 型前提失效"
+        assert "if not ok:" in fn_src, "返回值检查消失 —— 失败不再对调用方显式"
+        assert "failed_notifications.append(warning_id)" in fn_src, "失败汇总收集消失"
+        assert "AUDIT-P0-2 本次风险扫描有" in fn_src, "汇总 error 日志消失"
+
+    def test_cleanup_resolve_pair_not_wired(self):
+        """`_cleanup_experiment_artifacts_impl` 两个 resolve 失败 handler
+        （F 型保守跳过）块级反向钉 + `is_active = True` 见证。"""
+        src = self._read("tasks/scheduler.py")
+        tree = ast.parse(src)
+        hs = self._handlers_in_func(tree, "_cleanup_experiment_artifacts_impl")
+        markers = {
+            "entry": "无法解析产物目录真实路径",
+            "file": "无法解析产物文件真实路径",
+        }
+        found = {}
+        for h in hs:
+            seg = ast.get_source_segment(src, h) or ""
+            for key, marker in markers.items():
+                if marker in seg:
+                    found[key] = (h, seg)
+        assert set(found) == set(markers), (
+            f"两个 resolve 失败 handler 分辨失败：{sorted(found)}（锚点漂移 = 闸门失效）"
+        )
+        for key, (_h, seg) in found.items():
+            assert "record_silent_degradation" not in seg, (
+                f"resolve 失败（{key}）handler 已接线 —— F 型裁定须重审"
+            )
+            assert "is_active = True" in seg, (
+                f"resolve 失败（{key}）的保守跳过赋值消失 —— F 型前提失效"
+            )
+        # file 侧还带 break（停止遍历该目录）
+        assert "break" in found["file"][1], "文件侧 resolve 失败的 break 消失"
+        # 函数级见证：rmtree 仍在（保守跳过不影响正常删除路径）
+        fn_src = ""
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef) and fn.name == "_cleanup_experiment_artifacts_impl":
+                fn_src = ast.get_source_segment(src, fn) or ""
+        assert "shutil.rmtree(entry" in fn_src, "rmtree 删除路径消失 —— F 型前提失效"
+
+    async def test_runtime_notify_failure_explicit(self, monkeypatch):
+        """运行时：推送双探针均炸 → return False + 专用计数器 +1 +
+        探针确被调用 2 次（重试发生，防假绿）+ 通用计数器零调用。"""
+        import importlib
+
+        metrics = importlib.import_module("app.core.metrics")
+        ws = importlib.import_module("app.core.ws")
+        sched = importlib.import_module("app.tasks.scheduler")
+
+        generic_calls: list[tuple] = []
+        probe_calls: list[int] = []
+
+        async def _boom(*_a, **_k):  # noqa: ANN002, ANN003
+            probe_calls.append(1)
+            raise RuntimeError("probe: notify boom")
+
+        monkeypatch.setattr(metrics.silent_degradation_total, "inc", lambda *a, **k: generic_calls.append((a, k)))
+        monkeypatch.setattr(ws, "notify_warning", _boom)
+        monkeypatch.setattr(ws, "notify_counselor", _boom)
+
+        before = sum(v for _, v in metrics.warning_notify_failed_total.collect())
+        ok = await sched._notify_warning(7, 42, 2, "probe", None)
+        after = sum(v for _, v in metrics.warning_notify_failed_total.collect())
+
+        assert ok is False, "重试耗尽未返回 False —— 失败不再对调用方显式"
+        assert len(probe_calls) == 2, (
+            f"探针调用 {len(probe_calls)} 次，期望 2（重试一次）—— 防假绿失效"
+        )
+        assert after == before + 1, (
+            f"专用计数器增量 {after - before}，期望 1（死计数器/假接线）"
+        )
+        assert generic_calls == [], (
+            "通用静默降级计数器被调用 —— 说明已接线或接了别处，M/S 裁定须重审"
+        )
+
+    def test_runtime_resolve_failure_conservative_skip(self, tmp_path):
+        """运行时差分：最老目录 resolve 抛 OSError → 保守跳过（removed 0、
+        目录保留），对照组（无 probe）同设置删 1 个 —— 证明 F 型行为
+        且无接线调用。"""
+        import os
+        import time
+        from pathlib import Path
+        from unittest.mock import patch
+
+        import importlib
+
+        sched = importlib.import_module("app.tasks.scheduler")
+
+        def _build() -> list[Path]:
+            trained = tmp_path / "trained"
+            trained.mkdir(parents=True, exist_ok=True)
+            dirs = []
+            for i in range(11):
+                d = trained / f"model_v{i}"
+                d.mkdir(parents=True, exist_ok=True)
+                (d / "model.bin").write_text("x")
+                old = time.time() - (20 - i) * 86400
+                os.utime(d, (old, old))
+                dirs.append(d)
+            return dirs
+
+        # 对照组：11 个目录 keep_recent=10 → 删最老 1 个
+        dirs = _build()
+        with patch("app.core.config.settings.model_dir", str(tmp_path)):
+            with patch("app.core.model_registry.MODEL_PATHS", {}):
+                removed_control = sched._cleanup_experiment_artifacts_impl(keep_recent=10)
+        assert removed_control == 1, f"对照组删除数 {removed_control}，期望 1（测试前提失效）"
+        assert not dirs[0].exists() and dirs[1].exists(), "对照组删除目标不符（最老一个）"
+
+        # 实验组：重建 + 最老目录 resolve 抛 → 保守跳过
+        import shutil
+
+        shutil.rmtree(tmp_path / "trained")
+        dirs = _build()
+        real_resolve = Path.resolve
+
+        def _selective(self, *_a, **_k):  # noqa: ANN002, ANN003
+            if self == dirs[0]:
+                raise OSError("probe: resolve boom")
+            return real_resolve(self, *_a, **_k)
+
+        with patch("app.core.config.settings.model_dir", str(tmp_path)):
+            with patch("app.core.model_registry.MODEL_PATHS", {}):
+                with patch.object(Path, "resolve", _selective):
+                    removed_probe = sched._cleanup_experiment_artifacts_impl(keep_recent=10)
+        assert removed_probe == 0, (
+            f"resolve 失败未保守跳过（removed={removed_probe}）—— F 型裁定失效"
+        )
+        assert dirs[0].exists(), "保守跳过的目录仍被删除 —— 安全方向失效"
+
+    def test_doc_registered_batch25(self):
+        """文档登记：P2_13「一之二十六」节（结构钉）含本批裁定关键标识；
+        P2_11 附录含第二十五批条目；纯裁定批账实一致 W=97 / X=119 维持。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十六、" in doc13, (
+            "P2_13 缺少第二十五批（一之二十六）**节标题**（结构断言：正文提及不算）"
+        )
+        for token in (
+            "_notify_warning", "_cleanup_experiment_artifacts_impl",
+            "warning_notify_failed_total", "scheduler.py",
+            "M 型", "S 型", "F 型", "AUDIT-P0-3", "保守跳过删除",
+        ):
+            assert token in doc13, f"P2_13 第二十五批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十五批" in doc11, "P2_11 附录缺少第二十五批条目"
+        assert "scheduler" in doc11, "P2_11 附录第二十五批条目缺少文件名"
+        assert "W=97 / X=119" in doc13, "第二十五批为纯裁定批，累计状态应维持 W=97 / X=119"

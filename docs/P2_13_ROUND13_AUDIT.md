@@ -1506,6 +1506,64 @@ dec 失败）——「文档未提及」≠「未裁定」，本批复核维持�
 
 ---
 
+## 一之二十六、#35 X 桶第二十五批：纯裁定批（0 接线，W=97 / X=119 不变，scheduler.py 5 条新候选）
+
+挑簇器本轮列出 `app/tasks/scheduler.py` 9 条未裁定项（ws.py 12 条系
+第二十四批已裁，格式匹配缺陷误列）。手工核对：第十九批已裁 7 条
+（`_send_push_notification` L401 / `_nightly_maintenance_impl` L510 /
+`_cleanup_experiment_artifacts_impl` L994·L1001·L1054·L1102·L1170），
+本批 5 条为剩余真新候选——`_notify_warning` 3 条（L81/L108/L129）+
+`_cleanup_experiment_artifacts_impl` 2 条（L1134/L1150）。
+
+**存在性核查**（`tests/tools/verify_p2_35_batch25_candidates.py`：先重跑
+scan 再逐条 classify）：L81→M、L108→S、L129→M、L1134→F、L1150→F。
+其中 L129 机器判 M 系**函数级归类的误并**（同一函数先命中 M 规则）；
+按第十九批③ 同型裁定，Sentry 是叠加的第二上报通道，实为 **S 型**。
+五条**均不在 X=119 内**，故本批**纯裁定、桶计数不变**。
+
+### 1. 裁定逐条（全部不接线）
+
+| # | 位置 | 类型 | 理由（可客观断言） |
+|---|---|---|---|
+| 1 | L81 `_notify_warning` 重试 except | M 型 | 失败先就地重试（`_NOTIFY_MAX_ATTEMPTS=2`），耗尽后 error 级完整上下文日志 + `warning_notify_failed_total` 专用计数器（**运行时实测真涨 +1**）+ Sentry + `return False`；调用方 `_daily_risk_scan_impl` 检查 `ok` 并汇总 error 上报 |
+| 2 | L108 指标 inc 失败 | S 型 | 失败的是**指标采集通道自身**（只记 debug）；主通道日志/返回值不受影响（第五批 S 型同族） |
+| 3 | L129 Sentry capture_exception 失败 | S 型 | 自报通道自身失败；主通道（L93 error 日志 + L107 专用计数器）已先触发（第十九批①②③ 同型） |
+| 4 | L1134 产物目录 resolve 失败 | F 型 | AUDIT-P0-3 明示「宁可整个清理中止，也不能带残缺保护集继续删」：warning + `is_active = True` **保守跳过删除**，安全方向 fail-safe |
+| 5 | L1150 产物文件 resolve 失败 | F 型 | 同族保守跳过（「无法判定真实位置 → 保守视为 active」+ `break` 停止遍历该目录） |
+
+### 2. M 型前提的运行时实证（第二十二批纪律）
+
+第二十二批实锤过「源码字面量在 ≠ 运行时活着」的死计数器。**本批在裁定
+前实测 `warning_notify_failed_total` 存活**：注入双探针均抛 → `_notify_warning`
+返回 `False`、探针确被调用 **2 次**（重试发生）、专用计数器 **+1**、
+通用计数器 `silent_degradation_total.inc` **零调用**。⇒ M 型前提成立，
+不重复接通用计数器；同一形态锁定为回归断言。
+
+### 3. 闸门
+
+- 新增 `TestP235Round13Batch25Declined`（6 条）：`_notify_warning` 三
+  handler **块级反向钉**（按注释标记分辨 retry/metric/sentry）+ 终端
+  见证（`return False` + error 级汇总日志 + 专用计数器 + Sentry）+
+  调用方汇总见证（`ok` 检查 → `failed_notifications.append` → 汇总
+  error）+ 清理两条 **F 型块级反向钉** + `is_active = True` 见证 +
+  `rmtree` 仍在证明正常删除路径未被裁掉 + 运行时两条 + 文档登记。
+- **运行时两条**：① 推送双探针均炸 → `return False` + 专用计数器 +1
+  + 探针调用 2 次（防假绿）+ 通用计数器零调用；② **差分实验**——
+  对照组（11 目录 keep_recent=10）删最老 1 个，实验组给最老目录注入
+  `Path.resolve` 抛 `OSError` → `removed == 0` 且目录保留。
+- 桶计数维持 **W=97 / X=119 / R=3**（纯裁定批，实跑棘轮验证）。
+
+### 4. 记账
+
+- 变异三条见 `mutate_p2_35_round13_batch25_result.log`。
+- 未验证如实记账：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+  由 CI `backend-coverage` 兜底。
+- 挑簇器「文档未提及 = 未裁定」信号缺陷**第四次**实锤（本批 5 条里
+  第十九批已裁残留 / 格式匹配失配）。工具未修，后续挑簇继续以
+  **分类器现场重算 + 审计文档逐条核对**为准。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1541,8 +1599,17 @@ dec 失败）——「文档未提及」≠「未裁定」，本批复核维持�
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（二十四批）：当前棘轮
+0. **本轮累计状态**（二十五批）：当前棘轮
    **W=97 / X=119 / P=15**（总数 334 不变；R 4→3）。
+   第二十五批增量：**W +0 / X -0**（纯裁定批：scheduler.py 5 条新候选
+   ——L81 `_notify_warning` 重试 except 为 M 型（失败重试 2 次后 error
+   日志 + 专用计数器 `warning_notify_failed_total` **运行时实测真涨
+   +1** + Sentry + `return False`，调用方检查 `ok` 汇总上报）；
+   L108 指标 inc 失败、L129 Sentry capture_exception 失败为 S 型
+   （自报通道自身失败，主通道已先触发）；L1134/L1150 产物目录/文件
+   resolve 失败为 F 型（AUDIT-P0-3：宁可整个清理中止也不带残缺保护集
+   继续删，`is_active = True` 保守跳过删除）。分类器现场重算确认
+   五条均不在 X=119 内，故桶计数不变）；
    第二十四批增量：**W +1 / X -0 / R -1**（ws.py 13 条候选：1 处
    接线 `core.ws.pubsub_loop_crashed`——订阅循环崩溃重启窗口内
    （≥1s，Redis 持续故障时长期存在）其它 worker 发布的消息被

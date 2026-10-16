@@ -1092,3 +1092,31 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   原因码 / disconnect 仍在）+ 文档登记。桶计数棘轮实跑改钉
   **W=97 / R=3 / X=119**。变异见
   `mutate_p2_35_round13_batch24_result.log`。
+
+- **第十三轮第二十五批（纯裁定批，0 接线，W=97 / X=119 不变）**：
+  `app/tasks/scheduler.py` 9 条候选逐条手工核对——第十九批已裁 7 条
+  （L401/L510/L994/L1001/L1054/L1102/L1170），本批 5 条为真新候选。
+  分类器现场重算：L81→M、L108→S、L129→M（函数级误并，实为 S 型，
+  第十九批③ 同型）、L1134→F、L1150→F；**五条均不在 X=119 内**。
+  ① `_notify_warning` L81 重试 except（M 型）：失败先就地重试
+  （`_NOTIFY_MAX_ATTEMPTS=2`），耗尽后 error 级完整上下文日志 +
+  `warning_notify_failed_total` 专用计数器 + Sentry + `return False`；
+  调用方 `_daily_risk_scan_impl` 检查 `ok` 并汇总 error 上报。
+  **裁定前按第二十二批纪律实测专用计数器存活**：注入双探针均抛 →
+  返回 False + 探针调用 2 次 + 计数器 +1 + 通用计数器零调用。
+  L108（指标 inc 失败）/ L129（Sentry capture_exception 失败）为
+  S 型：失败的是自报通道自身，主通道已先触发。② `_cleanup_
+  experiment_artifacts_impl` L1134/L1150（F 型）：产物目录/文件
+  resolve 失败 → AUDIT-P0-3「宁可整个清理中止，也不能带残缺保护集
+  继续删」，warning + `is_active = True` 保守跳过删除（文件侧还
+  `break` 停止遍历该目录）。
+
+  闸门 `TestP235Round13Batch25Declined`（6 条）：`_notify_warning`
+  三 handler 块级反向钉（按注释标记分辨 retry/metric/sentry）+
+  终端见证（`return False` + error 汇总 + 专用计数器 + Sentry）+
+  调用方汇总见证（`ok` 检查 → `failed_notifications.append` →
+  汇总 error）+ 清理两条 F 型块级反向钉 + `is_active = True` 见证
+  + `rmtree` 仍在（正常删除路径未被裁掉）+ 运行时两条（推送失败
+  实证；清理 resolve 抛 `OSError` 的**差分实验**：对照组删最老
+  1 个 / 实验组 removed=0 且目录保留）+ 文档登记。桶计数维持
+  **W=97 / X=119**。变异三条见 `mutate_p2_35_round13_batch25_result.log`。
