@@ -18,6 +18,20 @@ from app.models.risk import RiskAssessment
 from app.services.risk_service import RiskService
 
 
+def _utc_anchor() -> datetime:
+    """测试时间基准: 固定为「当日 12:00 UTC」.
+
+    本文件大量用 now +/- minutes 构造样本, 而分桶键是 func.date(created_at)
+    —— 只要偏移跨过 UTC 午夜, 单日样本就会裂成两天, 与挂钟强相关:
+    CI 在 23:26 UTC 实锤 1 条 (base+60min 跨到次日), 在 00:29 UTC 又实锤
+    3 条 (now-30min 跨到前一日). 锚定到中午后, minutes/hours/days 各级偏移
+    都不可能跨午夜, 结果与挂钟无关.
+    """
+    return datetime.now(timezone.utc).replace(
+        tzinfo=None, hour=12, minute=0, second=0, microsecond=0
+    )
+
+
 class TestSourceCodeStructure:
     """源码静态扫描: 验证 get_risk_trend 使用 SQL window function."""
 
@@ -101,7 +115,7 @@ class TestGetRiskTrendSingleDay:
 
     async def test_single_record_single_day(self, db_session) -> None:
         """单天单条记录: primary = 该记录, record_count = 1."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         assessment = RiskAssessment(
             user_id=1001,
             risk_score=45.0,
@@ -127,7 +141,7 @@ class TestGetRiskTrendSingleDay:
 
     async def test_multiple_records_same_day_primary_selection(self, db_session) -> None:
         """同一天多条记录: primary 按 priority_order 选最优先类型."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         # 同一天创建 3 条: text (priority=0) + structured (priority=2) + fusion (priority=3)
         records = [
             RiskAssessment(
@@ -169,7 +183,7 @@ class TestGetRiskTrendSingleDay:
 
     async def test_same_day_latest_scores_from_different_records(self, db_session) -> None:
         """同一天各模态 latest score 可来自不同记录."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         # 记录1 (较早): structured_score=40
         # 记录2 (较晚): text_score=60, 但 structured_score=None
         # latest_structured 应来自记录1 (40), latest_text 应来自记录2 (60)
@@ -211,7 +225,7 @@ class TestGetRiskTrendSingleDay:
 
     async def test_same_day_all_null_scores(self, db_session) -> None:
         """同一天所有模态分数为 NULL: structured/text/physio 都返回 None."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         assessment = RiskAssessment(
             user_id=1004,
             risk_score=50.0,
@@ -241,7 +255,7 @@ class TestGetRiskTrendMultiDay:
 
     async def test_multi_day_trend_direction_stable(self, db_session) -> None:
         """多天数据: 风险分波动 < 5 时 direction=stable."""
-        base = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=5)
+        base = _utc_anchor() - timedelta(days=5)
         records = []
         for i in range(3):
             records.append(
@@ -263,7 +277,7 @@ class TestGetRiskTrendMultiDay:
 
     async def test_multi_day_trend_direction_up(self, db_session) -> None:
         """多天数据: 风险分上升 >= 5 时 direction=up."""
-        base = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=5)
+        base = _utc_anchor() - timedelta(days=5)
         records = [
             RiskAssessment(
                 user_id=1006,
@@ -300,7 +314,7 @@ class TestGetRiskTrendMultiDay:
 
     async def test_multi_day_trend_direction_up_with_more_points(self, db_session) -> None:
         """5 天数据: 早期低分, 晚期高分, direction=up."""
-        base = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=6)
+        base = _utc_anchor() - timedelta(days=6)
         records = []
         scores = [20.0, 25.0, 30.0, 60.0, 65.0]  # early_avg=25, late_avg=51.67, delta=26.67
         for i, score in enumerate(scores):
@@ -324,7 +338,7 @@ class TestGetRiskTrendMultiDay:
 
     async def test_multi_day_trend_direction_down(self, db_session) -> None:
         """5 天数据: 早期高分, 晚期低分, direction=down."""
-        base = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=6)
+        base = _utc_anchor() - timedelta(days=6)
         records = []
         scores = [65.0, 60.0, 30.0, 25.0, 20.0]  # early_avg=51.67, late_avg=25, delta=-26.67
         for i, score in enumerate(scores):
@@ -347,16 +361,11 @@ class TestGetRiskTrendMultiDay:
 
     async def test_multi_day_record_count(self, db_session) -> None:
         """多天数据: 每天的 record_count 正确."""
-        # 时间炸弹修复（第十三轮第十五批连带）：分桶用 func.date(created_at)，
-        # 而本用例在 base 上叠加 +30min / +60min。若 now 的 UTC 时刻 >= 23:00，
-        # base+60min 就跨到次日午夜，多出一个日期桶 → 3 变 4（CI 在 23:26 UTC
-        # 实锤 2 failed 之一）。把 base 锚定到当日 01:00 UTC，分钟偏移恒不跨日。
-        base = (
-            datetime.now(timezone.utc)
-            .replace(tzinfo=None)
-            .replace(hour=1, minute=0, second=0, microsecond=0)
-            - timedelta(days=3)
-        )
+        # 分桶用 func.date(created_at)，而本用例在 base 上叠加 +30min / +60min；
+        # 基准走 _utc_anchor()（当日 12:00 UTC），分钟偏移恒不跨午夜。
+        # 原写法用挂钟取点，now >= 23:00 UTC 时 base+60min 跨到次日 → 3 桶变 4
+        # （CI 在 23:26 UTC 实锤）。
+        base = _utc_anchor() - timedelta(days=3)
         # day1: 2 条, day2: 1 条, day3: 3 条
         records = [
             RiskAssessment(
@@ -413,7 +422,7 @@ class TestGetRiskTrendMultiDay:
 
     async def test_multi_day_physiological_scores(self, db_session) -> None:
         """多天数据: physiological_scores 列表正确."""
-        base = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=3)
+        base = _utc_anchor() - timedelta(days=3)
         records = [
             RiskAssessment(
                 user_id=1010,
@@ -449,7 +458,7 @@ class TestGetRiskTrendFiltering:
 
     async def test_risk_score_zero_filtered(self, db_session) -> None:
         """risk_score=0 的记录被过滤 (WHERE risk_score > 0)."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         records = [
             RiskAssessment(
                 user_id=1011,
@@ -477,7 +486,7 @@ class TestGetRiskTrendFiltering:
 
     async def test_outside_time_window_filtered(self, db_session) -> None:
         """超出 days 窗口的记录被过滤."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         records = [
             RiskAssessment(
                 user_id=1012,
@@ -504,7 +513,7 @@ class TestGetRiskTrendFiltering:
 
     async def test_other_user_filtered(self, db_session) -> None:
         """其他用户的记录被过滤."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         records = [
             RiskAssessment(
                 user_id=1013,
@@ -536,7 +545,7 @@ class TestGetRiskTrendPriorityOrder:
 
     async def test_fusion_over_structured(self, db_session) -> None:
         """fusion (priority=3) 优先于 structured (priority=2)."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         records = [
             RiskAssessment(
                 user_id=1015,
@@ -563,7 +572,7 @@ class TestGetRiskTrendPriorityOrder:
 
     async def test_structured_over_text(self, db_session) -> None:
         """structured (priority=2) 优先于 text (priority=0)."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         records = [
             RiskAssessment(
                 user_id=1016,
@@ -590,7 +599,7 @@ class TestGetRiskTrendPriorityOrder:
 
     async def test_same_priority_latest_created_at_wins(self, db_session) -> None:
         """同优先级类型: created_at 更大的记录为 primary."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         records = [
             RiskAssessment(
                 user_id=1017,
@@ -618,7 +627,7 @@ class TestGetRiskTrendPriorityOrder:
 
     async def test_same_priority_same_created_at_higher_score_wins(self, db_session) -> None:
         """同优先级 + 同 created_at: risk_score 更高的为 primary."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         records = [
             RiskAssessment(
                 user_id=1018,
@@ -651,7 +660,7 @@ class TestGetRiskTrendDateKeyFormat:
 
     async def test_date_key_is_isoformat_string(self, db_session) -> None:
         """date_key 应为 ISO 格式字符串 'YYYY-MM-DD'."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utc_anchor()
         assessment = RiskAssessment(
             user_id=1019,
             risk_score=50.0,
@@ -673,7 +682,7 @@ class TestGetRiskTrendDateKeyFormat:
 
     async def test_points_sorted_by_date_asc(self, db_session) -> None:
         """points 按日期升序排列."""
-        base = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=5)
+        base = _utc_anchor() - timedelta(days=5)
         records = []
         for i in range(3):
             records.append(

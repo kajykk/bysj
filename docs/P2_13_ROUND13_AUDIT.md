@@ -811,12 +811,43 @@ FAILED tests/test_perf_p2_004_risk_trend_sql.py::TestGetRiskTrendMultiDay::test_
 - 两条修复都写在坏时段（23:40 UTC）实测通过：`test_anomaly_detection.py` +
   `test_perf_p2_004_risk_trend_sql.py` **72 passed**；六闸门 **158 passed**。
 
-### 1.54 为什么不「等一小时重跑 CI」
+### 1.54 第二波：同一家族还有 3 条，只是触发窗口不同
 
-重跑只能换来一次绿灯，缺陷仍在，且下一批只要 CI 又落在 23:00~24:00 UTC 就会再红。
-时间炸弹必须根治。另记账：这类「只在特定挂钟时段失败」的用例，本仓此前**无任何
-闸门覆盖**，建议后续加一条静态闸门（禁止测试里出现 `.replace(hour=…)` 式的
-挂钟硬编码）—— 本批未做，列入未决。
+修完上面两条后重跑 CI（00:11 UTC 起跑），**又红 3 条**（同一文件、不同用例）：
+
+```
+FAILED ...::TestGetRiskTrendSingleDay::test_multiple_records_same_day_primary_selection - assert 2 == 1
+FAILED ...::TestGetRiskTrendSingleDay::test_same_day_latest_scores_from_different_records - assert 2 == 1
+FAILED ...::TestGetRiskTrendPriorityOrder::test_same_priority_latest_created_at_wins      - assert 2 == 1
+```
+
+根因同族、方向相反：这三条用 `now - timedelta(minutes=30)`，在 **UTC 刚过午夜**
+（00:29）时减到前一日 → 单日样本裂成两天。教训：**只修「当前窗口在红的那几条」
+不够，必须按家族修** —— 同一个文件里「`now ± 分钟偏移」+「按日期分桶」的组合，
+在 23:00~00:30 UTC 之间会分批轮流红。
+
+统一根治：新增模块级 `_utc_anchor()`（固定返回当日 **12:00 UTC**），把该文件
+18 处挂钟取点全部换成它 —— 锚到中午后 `minutes/hours/days` 各级偏移都不可能跨
+午夜。另有一处多行写法（原单条修复留下的 `hour=1`）一并收敛到锚点函数。
+实测（坏时段 00:35 UTC）：`test_perf_p2_004_risk_trend_sql.py` **29 passed**，
+连同 `test_anomaly_detection.py` **72 passed**；六闸门 **158 passed**。
+
+### 1.55 未决风险（如实记账，未做）
+
+- 全仓还有 **14 个测试文件 / 57 处** `datetime.now(timezone.utc).replace(tzinfo=None)`
+  （`services/test_canary_manager.py`、`services/test_risk_service.py`、
+  `test_alert_tasks.py`、`test_dedup.py`、`test_escalation.py`、
+  `test_iss02_monitoring.py`、`test_mttr_service.py`、`test_p1_audit_2026_10_13_round3.py`、
+  `test_p2_11_round11.py`、`test_silence.py`、`test_stab_p2_006_canary_route_prefix.py`、
+  `test_auto_rollback_service.py`、`unit/test_password_reset_token_one_time.py` 等）。
+  只有「分钟级偏移 + 按日期分桶/按小时判定」的组合才是炸弹，本批**只修已证实在
+  CI 红的那一族**，其余未动 —— 全量改属于范围外且风险过高。
+- 未加静态闸门（禁止测试里出现挂钟硬编码 / 建议统一走锚点函数）。本仓对这类
+  「只在特定挂钟时段失败」的用例**目前无任何自动覆盖**，建议后续补一条。
+- 另注：第十五批这轮 CI 里 `backend-coverage` 先出现一次 **cancelled**
+  （日志显示 pytest 仍在跑时被外部终止：`Terminate orphan process: pid (3832) (pytest)`；
+  workflow 未设 `timeout-minutes`，也无后续 push 与新 Coverage run）—— 按既有
+  口径 `cancelled ≠ 失败`，已用 `gh run rerun` 重跑取得结论。
 
 ---
 
