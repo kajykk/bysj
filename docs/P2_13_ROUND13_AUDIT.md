@@ -1041,6 +1041,68 @@ import 烟测（名字绑定验证，非只查语法）。
 
 ---
 
+## 一之二十、#35 X 桶第十九批：纯裁定批（0 接线，W=95 / X=120 不变，13 条不接线）
+
+本批对 scheduler(7) + `core/model_engine/loading`(4) + `core/config`(2)
+共 13 条 X 候选逐条代码实证后**全部裁定不接线**，无一处实记录 X→W，
+桶计数不变。判据分四类：
+
+1. **S 型（自报失败通道自身失败）3 条**——`tasks/scheduler.py`：
+   ① `_daily_risk_scan_impl` L401（滞留汇总的 Sentry `capture_message`
+   失败只记 debug）——主通道已在：同分支上游 L383-390 已按 AUDIT-P0-2
+   记 **error 级**汇总日志（含未送达条数与 warning_ids），Sentry 只是
+   叠加的第二上报通道；② `_stale_warning_reminder_impl` L510 同型
+   （滞留已逐条写 OperationLog + error 日志，P0-FIX-2026-10-11）；
+   ③ `_cleanup_experiment_artifacts_impl` L1102（保护集解析失败的
+   Sentry `capture_exception` 失败）——主通道更强：同分支 L1084 记
+   error 后 L1104 `raise RuntimeError` **显式中止清理**（celery 任务
+   失败可见，AUDIT-P0-3）。
+2. **C 型（清理路径跳过/失败）4 条**——`tasks/scheduler.py`：
+   ④ `_cleanup_uploads_dir_impl` L994（单文件 unlink OSError → debug
+   「skip file」）；⑤ 同函数 L1001（空目录 rmdir OSError → 裸 pass）；
+   ⑥ `_cleanup_experiment_artifacts_impl` L1054（`entry.stat()` 失败
+   → continue，该产物目录漏删）；⑦ 同函数 L1170（rmtree OSError →
+   warning，该目录清理失败）。失败形状均为「少删一些」——磁盘缓慢
+   增长而非数据/安全失真，warning/debug 级日志已在；且这些任务跑在
+   celery worker（跨进程，无 `PROMETHEUS_MULTIPROC_DIR`，按第十五批
+   口径计数不可达，接线无意义）。
+3. **V 型（显式失败信号）1 条**——`core/model_engine/loading.py`
+   `_get_expected_hash` L82：侧车存在但不可解析时返回
+   `(None, "unreadable_sidecar:<name>")`，与「侧车不存在」
+   （`"absent"`）、「内容畸形」（`"malformed_sidecar:<name>"`）分成
+   三种可区分来源（AUDIT-2026-10-08 P0-6 专门修复），调用方
+   `_verify_file_hash` 按 source 分级告警/拒绝，形态可辨。
+4. **设计内 / 低价值 / dev-only 5 条**：
+   ⑧ `loading._load_adapter` L429：适配器整体加载失败 →
+   `_incr_model_fallback("v1.24_adapter", "load_failed")` 专用计数器
+   + return None（M 型；同函数内层 pkl→config.json 回退已接
+   `adapter.pkl_fallback`，本 except 是外层兜底）；
+   ⑨ `loading._load_model` L596：BERT 无本地缓存回退 Hub 下载是注释
+   明示的正常双路径（`local_files_only` 优先、无缓存触网），两侧都
+   成功加载、无失真；同函数 keras 二次加载失败已接
+   `keras_compat_load_failed`；
+   ⑩ `loading._patch_simple_imputer` L712：sklearn 兼容性补丁失败
+   只记 debug，但旧模型 pickle 缺 `_fill_dtype` 会在后续 transform 时
+   **可见地**抛 AttributeError，不属静默；
+   ⑪ `core/config.py` `apply_env_defaults` L359（PII key 文件读失败
+   → warning + 生成新密钥）；⑫ 同函数 L372（写失败 → warning）：
+   均为 dev-only 路径（生产缺失密钥由模块级检查拦截），且都伴随
+   `warnings.warn` 显式提示，重启后历史 PII 不可解密的风险有 UserWarning
+   兜底告知。
+
+**闸门**：新增 `TestP235Round13Batch19Declined`（3 条）——函数级反向钉
+7 个（函数体未接线 + 行为锚点仍在）；except 块级精细钉 2 个
+（`_load_adapter` / `_load_model` 同函数内存在其他已接线路径，函数级
+断言会假红，故 AST 定位目标 handler，并同时钉住见证接线
+`adapter.pkl_fallback` / `keras_compat_load_failed` 仍在）；文档登记
+1 条（「一之二十」节 + 13 条裁定关键标识 + 纯裁定批账实一致）。
+**桶计数**：不改钉，维持 **W=95 / X=120**（纯裁定批，无桶间迁移；
+棘轮测试实跑通过）。
+**未验证如实记账**：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+由 CI `backend-coverage` 兜底；前端未触及。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1076,8 +1138,11 @@ import 烟测（名字绑定验证，非只查语法）。
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十八批）：当前棘轮
+0. **本轮累计状态**（十九批）：当前棘轮
    **W=95 / X=120 / P=15**（总数 334 不变）。
+   第十九批增量：**W +0 / X -0**（纯裁定批：scheduler 7 +
+   model_engine/loading 4 + config 2 共 13 条逐条实证后全部裁定不接线，
+   无实记录 X→W，桶计数不变）；
    第十八批增量：W +3 / X -3（3 处实记录 X→W：金丝雀检查失败洗白 /
    训练任务 Redis 列表回退 / 训练任务 Redis 更新失败；另裁定不接线
    13 处，留 X 桶）；

@@ -3177,3 +3177,144 @@ class TestP235Round13Batch18Wiring:
             break
         else:
             raise AssertionError("未找到含 AM sync exception 的 except（锚点漂移）")
+
+
+class TestP235Round13Batch19Declined:
+    """第十三轮第十九批：#35 X 桶**纯裁定批**（0 接线，W=95 / X=120 不变）。
+
+    对 scheduler(7) + model_engine/loading(4) + config(2) 共 13 条 X 候选
+    逐条代码实证后全部裁定**不接线**，判据分四类：
+
+    - **S 型（自报失败通道自身失败）**：`scheduler` 的 Sentry
+      `capture_message` / `capture_exception` 3 处（L401/L510/L1102）——
+      主通道已在：`_daily_risk_scan_impl` / `_stale_warning_reminder_impl`
+      的滞留汇总都先记了 **error 级**日志（AUDIT-P0-2 / P0-FIX-2026-10-11），
+      `_cleanup_experiment_artifacts_impl` 的保护集解析失败更是先记 error
+      再 `raise RuntimeError` 显式中止（celery 任务失败可见）。Sentry 只是
+      叠加的第二上报通道，它自己失败记 debug 不构成静默降级。
+    - **C 型（清理路径跳过/失败）**：`_cleanup_uploads_dir_impl` 2 处
+      （L994 单文件 unlink 失败 skip / L1001 空目录 rmdir 失败 pass）与
+      `_cleanup_experiment_artifacts_impl` 2 处（L1054 stat 失败跳过该目录 /
+      L1170 rmtree 失败 warning）——清理任务的失败形状是「少删一些」，
+      磁盘缓慢增长而非数据/安全失真，且 warning/debug 级日志已在；
+      这些任务还跑在 celery worker（跨进程，无 PROMETHEUS_MULTIPROC_DIR，
+      按第十五批口径计数不可达）。
+    - **V 型（显式失败信号）**：`loading._get_expected_hash` 侧车不可解析
+      返回 `(None, "unreadable_sidecar:...")`——AUDIT-2026-10-08 (P0-6)
+      专门把「侧车不存在/不可解析/畸形」拆成可区分来源，调用方
+      `_verify_file_hash` 按 source 分级处置，形态可辨。
+    - **设计内/低价值/dev-only**：`loading._load_model` 的 BERT 无本地
+      缓存回退 Hub 下载是注释明示的正常双路径（有缓存零网络、无缓存触网，
+      两侧都成功加载，无失真）；`loading._patch_simple_imputer` 补丁失败
+      只记 debug，但旧模型 pickle 缺 `_fill_dtype` 会在后续 transform 时
+      **可见地**抛 AttributeError，不属静默；`config.apply_env_defaults`
+      的 PII key 文件读/写失败 2 处——仅 dev 环境路径（生产缺失密钥由模块级
+      检查拦截），且都伴随 `warnings.warn` 显式提示。
+
+    裁定明细（13 条，file:line → 类型）：
+    scheduler.py L401/L510/L1102 → S 型；scheduler.py L994/L1001/L1054/
+    L1170 → C 型；loading.py L82 → V 型；loading.py L429/L596/L712 →
+    M 型/设计内/低价值（详见各钉）；config.py L359/L372 → dev-only 显式警告。
+    """
+
+    DECLINED_FUNC_LEVEL = (
+        # (文件, 函数, 行为锚点, 裁定理由)
+        ("tasks/scheduler.py", "_daily_risk_scan_impl", "Sentry capture_message 调用失败",
+         "滞留汇总已记 error 日志，Sentry 为叠加层（S 型）"),
+        ("tasks/scheduler.py", "_stale_warning_reminder_impl", "Sentry capture_message 调用失败",
+         "滞留已留 OperationLog + error 日志，Sentry 为叠加层（S 型）"),
+        ("tasks/scheduler.py", "_cleanup_uploads_dir_impl", "skip file",
+         "清理跳过/失败只损失磁盘回收（C 型，celery 跨进程）"),
+        ("tasks/scheduler.py", "_cleanup_experiment_artifacts_impl", "中止本次产物清理以避免误删",
+         "保护集解析失败已 raise 显式中止；清理跳过为 C 型"),
+        ("core/model_engine/loading.py", "_get_expected_hash", "无法解析侧车校验文件",
+         "侧车状态以 tuple 来源显式返回（V 型，P0-6 修复）"),
+        ("core/model_engine/loading.py", "_patch_simple_imputer", "SimpleImputer _fill_dtype patch failed",
+         "补丁失败后续 transform 可见 AttributeError，不静默"),
+        ("core/config.py", "apply_env_defaults", "Failed to read PII key file",
+         "dev-only 路径 + warnings.warn 显式提示"),
+    )
+
+    # except 块级精细钉：同函数内存在**其他**已接线路径，函数级断言会假红，
+    # 必须 AST 定位目标 handler（与 Batch18 silences 同款教训）。
+    DECLINED_HANDLER_LEVEL = (
+        ("core/model_engine/loading.py", "_load_adapter", '_incr_model_fallback("v1.24_adapter", "load_failed")',
+         "适配器加载失败有 _incr_model_fallback 专用计数器（M 型）",
+         'core.model_engine.loading.adapter.pkl_fallback'),
+        ("core/model_engine/loading.py", "_load_model", "无本地缓存，回退 Hub 下载",
+         "BERT 无缓存回退 Hub 是设计内双路径，两侧都成功加载",
+         'core.model_engine.loading.keras_compat_load_failed'),
+    )
+
+    @staticmethod
+    def _read(rel: str) -> str:
+        return (BE / rel).read_text(encoding="utf-8-sig")
+
+    def test_declined_func_level_not_wired(self):
+        """函数级反向钉：7 个函数体不得接线，且行为锚点必须在。"""
+        for rel, funcname, anchor, reason in self.DECLINED_FUNC_LEVEL:
+            src = self._read(rel)
+            tree = ast.parse(src)
+            seg = None
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                    seg = ast.get_source_segment(src, node)
+                    break
+            assert seg is not None, f"{rel} 找不到函数 {funcname}（锚点漂移 = 闸门失效）"
+            assert "record_silent_degradation" not in seg, (
+                f"{rel}::{funcname} 已接线 —— 「{reason}」裁定须重审"
+            )
+            assert anchor in seg, f"{rel}::{funcname} 行为锚点消失（{anchor!r}），闸门失效"
+
+    def test_declined_handler_level_not_wired(self):
+        """except 块级反向钉：目标 handler 不得接线；同函数的其他已接线路径
+        （witness location）必须仍在——两侧同时钉，防粗粒度误判。"""
+        for rel, funcname, anchor, reason, witness in self.DECLINED_HANDLER_LEVEL:
+            src = self._read(rel)
+            tree = ast.parse(src)
+            func_seg = None
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                    func_seg = ast.get_source_segment(src, node)
+                    break
+            assert func_seg is not None, f"{rel} 找不到函数 {funcname}"
+            assert witness in func_seg, (
+                f"{rel}::{funcname} 的见证接线 {witness} 消失 —— "
+                "精细钉的前提（同函数其他路径已接线）失效"
+            )
+            hit = False
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = ast.get_source_segment(src, node) or ""
+                if anchor not in body_src:
+                    continue
+                hit = True
+                assert "record_silent_degradation" not in body_src, (
+                    f"{rel}::{funcname} 目标 except 已接线 —— 「{reason}」裁定须重审"
+                )
+            assert hit, f"{rel}::{funcname} 未找到含锚点 {anchor!r} 的 except（锚点漂移）"
+
+    def test_doc_registered_batch19(self):
+        """文档登记：P2_13「一之二十」节含 13 条裁定关键标识；P2_11 附录
+        含第十九批条目与三个文件名（两文档各管一侧，防止读错文档假红）。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十、" in doc13, (
+            "P2_13 缺少第十九批（一之二十）**节标题**（结构断言：正文提及不算）"
+        )
+        for token in (
+            "scheduler.py", "loading.py", "config.py",
+            "_daily_risk_scan_impl", "_stale_warning_reminder_impl",
+            "_cleanup_uploads_dir_impl", "_cleanup_experiment_artifacts_impl",
+            "_get_expected_hash", "_load_adapter", "_load_model",
+            "_patch_simple_imputer", "apply_env_defaults",
+            "S 型", "C 型",
+        ):
+            assert token in doc13, f"P2_13 第十九批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第十九批" in doc11, "P2_11 附录缺少第十九批条目"
+        for token in ("scheduler", "model_engine/loading", "config"):
+            assert token in doc11, f"P2_11 附录第十九批条目缺少文件名: {token}"
+        # 纯裁定批账实一致：桶计数钉不变（W=95 / X=120）
+        counts_doc = "W=95 / X=120" in doc13 or "W 95" in doc13
+        assert counts_doc, "第十九批为纯裁定批，累计状态应维持 W=95 / X=120"

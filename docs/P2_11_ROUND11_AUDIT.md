@@ -945,3 +945,25 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   生效）+ 两条反向钉（10 个行为锚点逐一「未接线 + 锚点仍在」+ silences
   同函数双 except 反向裁决精细钉）。桶计数改钉 **W=95 / X=120**。
   变异三条见 `mutate_p2_35_round13_batch18_result.log`。
+
+- **第十三轮第十九批（纯裁定批，W=95 / X=120 不变）**：scheduler(7) +
+  `core/model_engine/loading`(4) + `core/config`(2) 共 13 条 X 候选逐条
+  代码实证后全部裁定不接线，无实记录 X→W。判据四类：① S 型自报失败
+  通道自身失败 3 条（scheduler Sentry capture_message/capture_exception
+  ——主通道 error 日志或 raise RuntimeError 显式中止已在）；
+  ② C 型清理路径 4 条（uploads/experiment 清理的 skip/pass/rmtree 失败，
+  失败形状是「少删一些」的磁盘增长而非数据失真，且 celery 跨进程计数
+  不可达）；③ V 型显式失败信号 1 条（loading._get_expected_hash 侧车
+  不可解析返回带来源标记的 tuple，P0-6 修复的三态可区分）；
+  ④ 设计内/低价值/dev-only 5 条（_load_adapter 的 M 型专用计数器、
+  _load_model BERT 无缓存回退 Hub 的设计内双路径、_patch_simple_imputer
+  补丁失败后续可见 AttributeError、config PII key 文件读/写失败的
+  dev-only + warnings.warn）。
+
+  闸门 `TestP235Round13Batch19Declined`（3 条）：函数级反向钉 7 个 +
+  except 块级精细钉 2 个（_load_adapter/_load_model 同函数内有其他已
+  接线路径，函数级断言会假红，AST 定位目标 handler 并同时钉住见证
+  接线 adapter.pkl_fallback / keras_compat_load_failed 仍在）+
+  文档登记 1 条（「一之二十」节 + 13 条裁定关键标识 + 纯裁定批账实
+  一致）。桶计数不改钉，维持 **W=95 / X=120**。变异三条见
+  `mutate_p2_35_round13_batch19_result.log`。
