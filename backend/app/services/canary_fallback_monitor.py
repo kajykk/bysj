@@ -60,11 +60,18 @@ def _is_test_environment() -> bool:
 
 
 def _bump_takeover_counter(reason: str) -> None:
-    """接管判定计数 (静默失效必须有可观测计数)。"""
+    """接管判定计数 (静默失效必须有可观测计数)。
+
+    P2-35 第二十二批修复：`app.core.metrics.Counter` 是自研实现
+    （`inc(**labels)`，无 `.labels()` 方法）。原调用写成 prometheus_client
+    的 `.labels(reason=reason).inc()`，每次 AttributeError 被下方 except
+    吞掉只留 debug 日志 —— 接管计数自引入起从未递增。已改为自研 API 并
+    配运行时回归测试（test_p2_11_round11.py::TestP235Round13Batch22Declined）。
+    """
     try:
         from app.core.metrics import canary_rollback_takeover_total
 
-        canary_rollback_takeover_total.labels(reason=reason).inc()
+        canary_rollback_takeover_total.inc(reason=reason)
     except Exception:  # pragma: no cover - 指标异常不得影响主流程
         logger.debug("canary_rollback_takeover_total 更新失败", exc_info=True)
 

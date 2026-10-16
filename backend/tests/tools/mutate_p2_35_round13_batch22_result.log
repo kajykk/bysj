@@ -1,0 +1,26 @@
+========================================================================
+P2-35 第二十二批变异验证（锚点均为落盘实读文本）
+========================================================================
+  [M1 计数器 API 回退] 变异注入…
+    gate: 4 failed, 7 passed, 4 warnings in 18.91s
+  [M1 计数器 API 回退] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 18.24s
+  [M1 计数器 API 回退] GREEN-OK（还原后 returncode=0）
+  [M2 删 Fernet 末端 raise] 变异注入…
+    gate: 2 failed, 9 passed, 4 warnings in 18.72s
+  [M2 删 Fernet 末端 raise] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 17.98s
+  [M2 删 Fernet 末端 raise] GREEN-OK（还原后 returncode=0）
+  [M3 删 P2_13 节标题] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 18.42s
+  [M3 删 P2_13 节标题] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 18.17s
+  [M3 删 P2_13 节标题] GREEN-OK（还原后 returncode=0）
+  [M4 删 P2_11 条目头行] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 18.81s
+  [M4 删 P2_11 条目头行] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 17.90s
+  [M4 删 P2_11 条目头行] GREEN-OK（还原后 returncode=0）
+========================================================================
+四条变异全部 RED-OK / GREEN-OK
+========================================================================

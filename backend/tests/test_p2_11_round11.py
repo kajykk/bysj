@@ -3783,3 +3783,448 @@ class TestP235Round13Batch21Declined:
             assert token in doc11, f"P2_11 附录第二十一批条目缺少关键标识: {token}"
         counts_doc = "W=96 / X=119" in doc13 or "W 96" in doc13
         assert counts_doc, "第二十一批为纯裁定批，累计状态应维持 W=96 / X=119"
+
+
+class TestP235Round13Batch22Declined:
+    """第十三轮第二十二批：#35 X 桶**纯裁定批**（0 接线，W=96 / X=119 不变）
+    + 连带修复一对「自出生即死」的专用计数器。
+
+    挑簇对象（分类器现场重算确认仍在 X 桶）：`core/health.py` 1 条 +
+    `services/auto_rollback_service.py` 5 条 + `core/pii_crypto.py` 4 条，
+    共 10 条；另同文件 8 条已被分类器定型（health 6×H 检查型 /
+    auto_rollback 2×S 自报失败）复核维持。
+
+    **本批核心发现（连带修复）**：auto_rollback 锁/心跳家族的 M 型裁定
+    （第二批 L143 / 第十八批）理由是「已有专用计数器
+    `canary_rollback_check_lock_total{outcome}`」——存在性实测发现该
+    计数器**自引入（e120ce3）起从未递增**：本仓 `app.core.metrics.Counter`
+    是自研实现（`inc(**labels)`，无 `.labels()` 方法），而两个调用点写成
+    prometheus_client 的 `.labels(...).inc()`，每次 AttributeError 被
+    `except Exception` 吞掉只留 debug 日志。既有闸门只钉「调用点在源码里」
+    的字面量，从无运行时计数断言，故死计数器活过全部往批。「失败路径不
+    允许静默」的设计被计数器自身击穿。本批修两处调用点并补运行时回归。
+
+    逐条裁定：
+    1. **health.py L375 `stop_health_monitor`（K 型）**——lifespan 关闭阶段
+       主动 `cancel()` 后台监控任务，`except CancelledError: pass` 是标准
+       清理形态；取消是设计行为而非降级。
+    2. **auto_rollback 锁/心跳家族 5 条（M/V 型，前提已修复）**——每个
+       失败路径都有专用计数器 `canary_rollback_check_lock_total
+       {outcome="unavailable"}` + error/warning 日志 + 显式返回值；
+       `try_acquire_check_lock` 的 fail-open（Redis 不可用→返回 True
+       降级执行）由 docstring 明示取舍。修复后 M 型前提真正成立。
+    3. **pii_crypto 回退链中间步 4 条（V 型）**——`_decrypt_aes_gcm` /
+       `decrypt_field` 的「当前密钥失败→试旧密钥」链中 `pass`/`continue`
+       是回退尝试而非降级；链路末端显式 `raise InvalidTag` /
+       `raise ValueError` + error 日志（exhausted），调用方可见。
+    """
+
+    @staticmethod
+    def _read(rel: str) -> str:
+        return (BE / rel).read_text(encoding="utf-8-sig")
+
+    @staticmethod
+    def _handlers_in_func(tree, src, funcname, exc_name=None):
+        """AST 定位**指定函数内**的 except handler（可按异常名过滤）。
+
+        不能全局扫异常名：如 InvalidTag 在 pii_crypto 有 4 处、CancelledError
+        在 health.py 有 2 处，不过滤函数会把别的函数的 handler 误计入。
+        """
+        fn_span = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                fn_span = (node.lineno, node.end_lineno or node.lineno)
+                break
+        assert fn_span is not None, f"找不到函数 {funcname}（锚点漂移 = 闸门失效）"
+        out = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            if not (fn_span[0] <= node.lineno <= fn_span[1]):
+                continue
+            if exc_name is not None:
+                names = (
+                    [
+                        getattr(n, "id", None) or getattr(n, "attr", None)
+                        for n in ast.walk(node.type)
+                    ]
+                    if node.type
+                    else []
+                )
+                if exc_name not in names:
+                    continue
+            out.append(node)
+        return out
+
+    def test_health_check_family_h_type_not_wired(self):
+        """H 型复核维持：6 个健康检查 handler 未接线，且 return False +
+        warning 日志锚点必须在（/health 经 HealthSnapshot 显式暴露）。"""
+        src = self._read("core/health.py")
+        tree = ast.parse(src)
+        anchors = (
+            ("check_database", "Database health check failed"),
+            ("check_redis", "Redis health check timed out"),
+            ("check_redis", "Redis health check failed"),
+            ("check_celery_worker", "Celery worker health check timed out"),
+            ("check_celery_worker", "Celery worker health check failed"),
+            ("check_models", "Model health check failed"),
+        )
+        for funcname, anchor in anchors:
+            hits = 0
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = ast.get_source_segment(src, node) or ""
+                if anchor not in body_src:
+                    continue
+                hits += 1
+                assert "record_silent_degradation" not in body_src, (
+                    f"health.py::{funcname} 目标 except（锚点 {anchor!r}）已接线"
+                    " —— H 型（检查型，/health 显式暴露）裁定须重审"
+                )
+                assert "return False" in body_src, (
+                    f"health.py::{funcname} 的 return False 显式上报消失"
+                    f"（锚点 {anchor!r}）—— H 型裁定前提失效"
+                )
+            assert hits == 1, (
+                f"锚点 {anchor!r} 命中 {hits} 处，期望 1（锚点漂移 = 闸门失效）"
+            )
+        # /health 暴露见证：四个字段进 HealthSnapshot，故障对负载均衡可见
+        for field in (
+            "database: bool | None = None",
+            "redis: bool | None = None",
+            "celery_worker: bool | None = None",
+            "models: bool | None = None",
+        ):
+            assert field in src, f"HealthSnapshot 字段 {field!r} 消失 —— 暴露见证失效"
+        # S 型元素见证：celery 检查失败同时置 heartbeat gauge=0
+        assert "celery_worker_heartbeat" in src, "celery heartbeat gauge 见证消失"
+
+    def test_stop_health_monitor_k_type_not_wired(self):
+        """K 型反向钉：stop_health_monitor 的 CancelledError handler 未接线，
+        且 cancel + info 日志清理锚点必须在（主动取消非降级）。
+
+        注意不能全局扫 CancelledError：_health_monitor_loop 也有一个
+        （L323），必须按函数过滤。"""
+        src = self._read("core/health.py")
+        tree = ast.parse(src)
+        handlers = self._handlers_in_func(tree, src, "stop_health_monitor", "CancelledError")
+        assert len(handlers) == 1, (
+            f"stop_health_monitor 的 CancelledError handler 数 {len(handlers)}，期望 1"
+        )
+        seg = ast.get_source_segment(src, handlers[0]) or ""
+        assert "record_silent_degradation" not in seg, (
+            "stop_health_monitor 的 CancelledError handler 已接线"
+            " —— K 型（任务取消）裁定须重审"
+        )
+        assert "pass" in seg, "stop_health_monitor 的清理 pass 消失 —— K 型锚点漂移"
+        for anchor in ("_health_monitor_task.cancel()", 'logger.info("Health monitor stopped")'):
+            assert anchor in src, f"stop_health_monitor 清理锚点 {anchor!r} 消失"
+
+    def test_auto_rollback_lock_heartbeat_not_wired(self):
+        """V/M 型反向钉：锁/心跳家族 5 条 X 桶候选未接线，且每失败路径的
+        专用计数器 + 显式返回 + error 日志锚点必须在；2 条 S 型（指标
+        自身失败）复核维持。"""
+        src = self._read("services/auto_rollback_service.py")
+        tree = ast.parse(src)
+        # (anchor, 计数必须在**调用方 None 分支**还是本 handler, return 形态)
+        # _redis_client_or_none 是 helper：自身只 error + return None，
+        # 计数由三个调用方的 `if client is None:` 分支负责（下方见证）。
+        cases = (
+            ("获取 redis 客户端失败", False, "return None"),
+            ("获取跨进程锁异常", True, "return True"),
+            ("写入心跳失败", True, "return False"),
+            ("读取心跳失败", True, "return None"),
+            ("心跳内容解析失败", True, "return None"),
+        )
+        for anchor, need_counter, ret in cases:
+            hits = 0
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = ast.get_source_segment(src, node) or ""
+                if anchor not in body_src:
+                    continue
+                hits += 1
+                assert "record_silent_degradation" not in body_src, (
+                    f"auto_rollback 目标 except（锚点 {anchor!r}）已接线"
+                    " —— 「专用计数器 + 显式返回」裁定须重审"
+                )
+                if need_counter:
+                    assert '_bump_lock_counter("unavailable")' in body_src, (
+                        f"auto_rollback（锚点 {anchor!r}）的 unavailable 计数消失"
+                        " —— M/V 型裁定前提失效"
+                    )
+                assert ret in body_src, (
+                    f"auto_rollback（锚点 {anchor!r}）的 {ret} 显式上报消失"
+                    " —— V 型裁定前提失效"
+                )
+            assert hits == 1, (
+                f"锚点 {anchor!r} 命中 {hits} 处，期望 1（锚点漂移 = 闸门失效）"
+            )
+        # 调用方 None 分支计数见证：3 个调用方各 1 次 + 4 个 handler 各 1 次
+        # = 7 处 unavailable 计数（Redis 不可用的每一跳都可观测）
+        n = src.count('_bump_lock_counter("unavailable")')
+        assert n == 7, (
+            f"unavailable 计数点 {n} 处，期望 7（3 调用方 None 分支 + 4 handler）"
+            " —— M 型「专用计数器全覆盖」裁定前提失效"
+        )
+        # API 形态防回退钉：自研 Counter 无 .labels()，写回旧形态即复燃死计数
+        assert "canary_rollback_check_lock_total.inc(outcome=outcome)" in src, (
+            "锁计数器调用不是自研 API `inc(outcome=...)` —— "
+            " prometheus_client 形态（.labels().inc()）会重新变成死计数"
+        )
+        assert not self._has_labels_call(src), (
+            "auto_rollback_service.py 出现 .labels( 调用（AST 级，注释/docstring"
+            "不算）—— 死计数形态回潮"
+        )
+        # S 型复核：指标/gauge 自身失败只记 debug，主链路无失真
+        for anchor in ("canary_rollback 锁计数更新失败", "心跳年龄 gauge 更新失败"):
+            hits = 0
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = ast.get_source_segment(src, node) or ""
+                if anchor not in body_src:
+                    continue
+                hits += 1
+                assert "record_silent_degradation" not in body_src, (
+                    f"auto_rollback（锚点 {anchor!r}）已接线 —— S 型裁定须重审"
+                )
+            assert hits == 1, f"S 型锚点 {anchor!r} 命中 {hits} 处，期望 1"
+        # 设计意图见证：docstring 明示「不允许静默」与 fail-open 取舍
+        for witness in (
+            "Redis 不可用等失败路径不允许静默",
+            "不得静默跳过检查",
+            "Redis 不可用时返回 True（降级执行）",
+            "调用方必须自行记录/计数",
+        ):
+            assert witness in src, f"auto_rollback 设计意图见证 {witness!r} 消失"
+
+    def test_pii_crypto_fallback_chains_not_wired(self):
+        """V 型反向钉：pii_crypto 回退链 4 个中间 handler（pass/continue）
+        未接线；链路末端显式 raise（AES-GCM InvalidTag / Fernet ValueError）
+        与 exhausted error 日志必须在。"""
+        src = self._read("core/pii_crypto.py")
+        tree = ast.parse(src)
+        # _decrypt_aes_gcm：两个 InvalidTag 中间步（pass / continue）
+        aes_handlers = self._handlers_in_func(tree, src, "_decrypt_aes_gcm", "InvalidTag")
+        assert len(aes_handlers) == 2, (
+            f"_decrypt_aes_gcm 的 InvalidTag handler 数 {len(aes_handlers)}，期望 2"
+        )
+        for node in aes_handlers:
+            seg = ast.get_source_segment(src, node) or ""
+            assert "record_silent_degradation" not in seg, (
+                "_decrypt_aes_gcm 回退链中间步已接线 —— V 型裁定须重审"
+            )
+        assert 'raise InvalidTag("AES-GCM decryption exhausted current + previous keys")' in src, (
+            "_decrypt_aes_gcm 末端显式 raise 消失 —— V 型裁定前提失效"
+        )
+        # decrypt_field：两个 InvalidToken 中间步 + v2 InvalidTag 中转
+        tok_handlers = self._handlers_in_func(tree, src, "decrypt_field", "InvalidToken")
+        assert len(tok_handlers) == 2, (
+            f"decrypt_field 的 InvalidToken handler 数 {len(tok_handlers)}，期望 2"
+        )
+        for node in tok_handlers:
+            seg = ast.get_source_segment(src, node) or ""
+            assert "record_silent_degradation" not in seg, (
+                "decrypt_field 回退链中间步已接线 —— V 型裁定须重审"
+            )
+        # 末端：v1/v2 两条路径各一次显式 raise ValueError + exhausted error 日志
+        raise_count = src.count('raise ValueError("PII 解密失败（密钥错误或数据损坏）")')
+        assert raise_count == 2, (
+            f"decrypt_field 的显式 raise ValueError 计 {raise_count}，期望 2"
+            "（v1 Fernet + v2 AES-GCM 各一）—— V 型裁定前提失效"
+        )
+        assert "PII v1 decryption failed (exhausted current + %d previous keys)" in src, (
+            "Fernet 末端 exhausted error 日志消失 —— V 型裁定前提失效"
+        )
+        assert "PII v2 decryption failed (exhausted current + previous keys)" in src, (
+            "AES-GCM 末端 exhausted error 日志消失 —— V 型裁定前提失效"
+        )
+
+    def test_pii_crypto_rotation_probe_explicit(self):
+        """见证钉：密钥轮换探测 is_encrypted_with_current_key 对解密失败
+        返回 False（显式信号给轮换脚本），不是静默。"""
+        src = self._read("core/pii_crypto.py")
+        assert "def is_encrypted_with_current_key" in src
+        assert "用于密钥轮换脚本判断是否需要重新加密某行数据" in src, (
+            "轮换探测用途注释消失 —— 见证锚点漂移"
+        )
+
+    @staticmethod
+    def _lock_counter(outcome: str) -> float:
+        from app.core.metrics import canary_rollback_check_lock_total
+
+        for labels, value in canary_rollback_check_lock_total.collect():
+            if labels.get("outcome") == outcome:
+                return value
+        return 0.0
+
+    @staticmethod
+    def _takeover_counter(reason: str) -> float:
+        from app.core.metrics import canary_rollback_takeover_total
+
+        for labels, value in canary_rollback_takeover_total.collect():
+            if labels.get("reason") == reason:
+                return value
+        return 0.0
+
+    def test_dedicated_counters_actually_increment(self):
+        """回归测试（本批连带修复的核心取证）：两个专用计数器必须**真的**
+        递增。
+
+        背景：调用点原写成 prometheus_client 的 `.labels(x=y).inc()`，而
+        本仓 `app.core.metrics.Counter` 是自研类（`inc(**labels)`，无
+        `.labels()`）——每次调用 AttributeError 被 except 吞掉只留 debug
+        日志，计数器自引入（e120ce3）起恒 0。往批闸门只钉「调用点在源码
+        里」的字面量，从无运行时断言，故死计数器活过全部批次。此处直接
+        调 helper 并读计数器值，API 形态回退（.labels 复潮）即红。
+        """
+        import importlib
+
+        ars = importlib.import_module("app.services.auto_rollback_service")
+        cfm = importlib.import_module("app.services.canary_fallback_monitor")
+
+        probe = "p2_35_b22_probe"
+        lock_before = self._lock_counter(probe)
+        takeover_before = self._takeover_counter(probe)
+        ars._bump_lock_counter(probe)
+        cfm._bump_takeover_counter(probe)
+        assert self._lock_counter(probe) >= lock_before + 1, (
+            "canary_rollback_check_lock_total 未递增 —— 锁/心跳计数器仍是死的"
+            "（.labels().inc() 形态回潮？）"
+        )
+        assert self._takeover_counter(probe) >= takeover_before + 1, (
+            "canary_rollback_takeover_total 未递增 —— 接管计数器仍是死的"
+            "（.labels().inc() 形态回潮？）"
+        )
+        # fallback monitor 侧同样不得出现死计数形态
+        monitor_src = self._read("services/canary_fallback_monitor.py")
+        assert "canary_rollback_takeover_total.inc(reason=reason)" in monitor_src, (
+            "接管计数器调用不是自研 API `inc(reason=...)`"
+        )
+        assert not self._has_labels_call(monitor_src), (
+            "canary_fallback_monitor.py 出现 .labels( 调用（AST 级，注释/docstring"
+            "不算）—— 死计数形态回潮"
+        )
+
+    @staticmethod
+    def _has_labels_call(src: str) -> bool:
+        """AST 判定是否存在 `.labels(...)` 调用（注释/docstring 里的字样不算）。
+
+        自研 `app.core.metrics.Counter` 没有 `.labels()` 方法，出现该形态
+        即意味着 prometheus_client API 误用回归（调用会被 except 吞成死计数）。
+        """
+        tree = ast.parse(src)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if node.func.attr == "labels":
+                    return True
+        return False
+
+    async def test_runtime_lock_unavailable_observable(self):
+        """运行时：Redis 不可用 → try_acquire_check_lock 返回 True（设计内
+        降级执行）+ unavailable 计数器 +1（M/V 型显式，非静默）。"""
+        import importlib
+
+        mod = importlib.import_module("app.services.auto_rollback_service")
+
+        async def _none():  # noqa: ANN202
+            return None
+
+        before = self._lock_counter("unavailable")
+        orig = mod._redis_client_or_none
+        mod._redis_client_or_none = _none
+        try:
+            got = await mod.try_acquire_check_lock()
+        finally:
+            mod._redis_client_or_none = orig
+        assert got is True, "Redis 不可用未按设计返回 True（降级执行）"
+        assert self._lock_counter("unavailable") >= before + 1, (
+            "锁不可用未计数 —— 「专用计数器显式」裁定前提失效（假绿）"
+        )
+
+    async def test_runtime_heartbeat_missing_observable(self):
+        """运行时：Redis 不可读 → get_check_heartbeat_age 返回 None +
+        unavailable 计数器 +1；兜底 monitor 对 None 走接管（fail-safe
+        方向是多查而非漏查），不得静默跳过。"""
+        import importlib
+
+        mod = importlib.import_module("app.services.auto_rollback_service")
+
+        async def _none():  # noqa: ANN202
+            return None
+
+        before = self._lock_counter("unavailable")
+        orig = mod._redis_client_or_none
+        mod._redis_client_or_none = _none
+        try:
+            age = await mod.get_check_heartbeat_age()
+        finally:
+            mod._redis_client_or_none = orig
+        assert age is None, "Redis 不可读未返回 None（调用方无从按未知处理）"
+        assert self._lock_counter("unavailable") >= before + 1, (
+            "心跳不可读未计数 —— 「专用计数器显式」裁定前提失效（假绿）"
+        )
+        # 调用方契约见证：fallback monitor 对 None 判定接管并计数
+        monitor = self._read("services/canary_fallback_monitor.py")
+        assert "heartbeat_missing" in monitor and "_bump_takeover_counter" in monitor, (
+            "fallback monitor 的 None→接管计数分支消失 —— 「调用方不得静默跳过」前提失效"
+        )
+
+    async def test_runtime_decrypt_exhausted_raises(self):
+        """运行时：密钥全耗尽 → 两条路径均显式 raise（InvalidTag /
+        ValueError），回退链不是静默降级。"""
+        import pytest
+
+        from app.core.pii_crypto import _decrypt_aes_gcm, decrypt_field
+        from cryptography.exceptions import InvalidTag
+
+        # AES-GCM 链：合法 base64 但过短 → 当前密钥 InvalidTag → 旧密钥穷尽 → raise
+        with pytest.raises(InvalidTag, match="exhausted"):
+            _decrypt_aes_gcm("QUJDREU=", "email")
+        # v2 路径经 decrypt_field：InvalidTag 被中转为 ValueError + error 日志
+        with pytest.raises(ValueError, match="PII 解密失败"):
+            decrypt_field("enc:v2:QUJDREU=", "email")
+        # v1 Fernet 路径：InvalidToken 穷尽后同样显式 raise
+        with pytest.raises(ValueError, match="PII 解密失败"):
+            decrypt_field("enc:v1:QUJDREU=", "email")
+
+    async def test_runtime_health_check_reports_false(self):
+        """运行时：数据库健康检查失败 → return False（H 型显式，
+        /health 据此降级，非静默）。"""
+        from app.core.health import check_database
+
+        class _BoomEngine:
+            def connect(self):  # noqa: ANN202
+                raise RuntimeError("db down")
+
+        assert await check_database(_BoomEngine()) is False, (
+            "数据库健康检查失败未返回 False —— H 型裁定前提失效"
+        )
+
+    def test_doc_registered_batch22(self):
+        """文档登记：P2_13「一之二十三」节（结构钉）含本批裁定关键标识；
+        P2_11 附录含第二十二批条目；纯裁定批账实一致 W=96 / X=119 维持。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十三、" in doc13, (
+            "P2_13 缺少第二十二批（一之二十三）**节标题**（结构断言：正文提及不算）"
+        )
+        for token in (
+            "stop_health_monitor", "check_database", "check_redis",
+            "check_celery_worker", "check_models",
+            "try_acquire_check_lock", "publish_check_heartbeat",
+            "get_check_heartbeat_age", "_redis_client_or_none",
+            "canary_rollback_check_lock_total",
+            "_decrypt_aes_gcm", "decrypt_field",
+            "K 型", "V 型", "M 型", "H 型", "S 型",
+            "health.py", "auto_rollback_service.py", "pii_crypto.py",
+        ):
+            assert token in doc13, f"P2_13 第二十二批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十二批" in doc11, "P2_11 附录缺少第二十二批条目"
+        for token in ("health", "auto_rollback", "pii_crypto"):
+            assert token in doc11, f"P2_11 附录第二十二批条目缺少文件名: {token}"
+        counts_doc = "W=96 / X=119" in doc13 or "W 96" in doc13
+        assert counts_doc, "第二十二批为纯裁定批，累计状态应维持 W=96 / X=119"

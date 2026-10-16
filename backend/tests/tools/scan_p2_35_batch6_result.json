@@ -2192,7 +2192,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 69,
+      "line": 77,
       "handled": [
         "Exception"
       ],
@@ -2202,7 +2202,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 91,
+      "line": 99,
       "handled": [
         "Exception"
       ],
@@ -2212,7 +2212,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 124,
+      "line": 132,
       "handled": [
         "Exception"
       ],
@@ -2222,7 +2222,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 153,
+      "line": 161,
       "handled": [
         "Exception"
       ],
@@ -2232,7 +2232,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 162,
+      "line": 170,
       "handled": [
         "TypeError",
         "ValueError",
@@ -2244,7 +2244,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 174,
+      "line": 182,
       "handled": [
         "Exception"
       ],
@@ -2254,7 +2254,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 442,
+      "line": 450,
       "handled": [
         "Exception"
       ],
@@ -2264,7 +2264,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 431,
+      "line": 439,
       "handled": [
         "Exception"
       ],
@@ -2274,7 +2274,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 68,
+      "line": 75,
       "handled": [
         "Exception"
       ],
@@ -2284,7 +2284,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 225,
+      "line": 232,
       "handled": [
         "CancelledError"
       ],
@@ -2294,7 +2294,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 227,
+      "line": 234,
       "handled": [
         "Exception"
       ],
@@ -2304,7 +2304,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 172,
+      "line": 179,
       "handled": [
         "Exception"
       ],
@@ -2314,7 +2314,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 89,
+      "line": 96,
       "handled": [
         "Exception"
       ],
@@ -2324,7 +2324,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 156,
+      "line": 163,
       "handled": [
         "Exception"
       ],

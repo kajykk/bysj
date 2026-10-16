@@ -61,11 +61,19 @@ async def _redis_client_or_none() -> Any | None:
 
 
 def _bump_lock_counter(outcome: str) -> None:
-    """锁/心跳相关可观测计数（Redis 不可用等失败路径不允许静默）。"""
+    """锁/心跳相关可观测计数（Redis 不可用等失败路径不允许静默）。
+
+    P2-35 第二十二批修复：本仓 `app.core.metrics.Counter` 是自研实现
+    （`inc(**labels)`，无 `.labels()` 方法）。原调用写成 prometheus_client
+    的 `.labels(outcome=outcome).inc()`，每次调用都 AttributeError 被
+    下方 except 吞掉只留 debug 日志 —— 计数器自引入（e120ce3）起从未
+    递增，「不允许静默」的设计被计数器自身击穿。已改为自研 API 并配
+    运行时回归测试（test_p2_11_round11.py::TestP235Round13Batch22Declined）。
+    """
     try:
         from app.core.metrics import canary_rollback_check_lock_total
 
-        canary_rollback_check_lock_total.labels(outcome=outcome).inc()
+        canary_rollback_check_lock_total.inc(outcome=outcome)
     except Exception:  # pragma: no cover - 指标模块异常不得影响主流程
         logger.debug("canary_rollback 锁计数更新失败", exc_info=True)
 

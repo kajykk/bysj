@@ -1022,3 +1022,27 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   `.gitignore` 排除 + `git ls-files *.pkl` 实测 0）+ 文档登记 1 条。
   桶计数维持 **W=96 / X=119**。变异四条见
   `mutate_p2_35_round13_batch21_result.log`。
+- **第十三轮第二十二批（纯裁定批，0 接线，W=96 / X=119 不变 +
+  连带修复死计数器）**：health 1 + auto_rollback 5 + pii_crypto 4
+  共 10 条 X 桶候选全部裁定不接线（K 型清理 / V 型显式上报 /
+  M 型专用计数器——前提经本批修复后真正成立 / V 型回退链中间步），
+  8 条已定型项（health 6×H / auto_rollback 2×S）复核维持。
+  **核心发现**：`_bump_lock_counter` 与 `_bump_takeover_counter`
+  原调用 `canary_rollback_check_lock_total.labels(outcome=...).inc()`
+  （prometheus_client 形态），而 `app/core/metrics.py` 的 Counter
+  是自研类（`inc(**labels)`，无 `.labels()`），每次 AttributeError
+  被 except 吞掉只留 debug 日志 ⇒ 两个计数器**自 e120ce3 引入起
+  恒 0**；第二批 1.7 表「已有专用计数器」的 M 型裁定与第十八批
+  反向钉均只钉源码字面量、从无运行时计数断言，死计数器活过全部
+  往批。已改自研 API 并新增回归测试
+  `test_dedicated_counters_actually_increment` + AST 级 `.labels(`
+  禁现防回退钉。
+
+  闸门 `TestP235Round13Batch22Declined`（10 条）：health H 型家族
+  反向钉 + stop_health_monitor K 型钉 + auto_rollback 家族反向钉
+  （7 处 unavailable 计数点 + API 形态钉）+ pii_crypto 回退链钉
+  （2+2 个中间 handler 未接线 + 末端 raise×2 + exhausted 日志）+
+  轮换探测见证 + 计数器真涨回归 + 运行时四条（锁 fail-open /
+  心跳 None / decrypt 耗尽 raise / 健康检查 return False）+
+  文档登记。桶计数维持 **W=96 / X=119**。变异四条见
+  `mutate_p2_35_round13_batch22_result.log`。

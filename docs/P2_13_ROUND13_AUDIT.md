@@ -1268,6 +1268,96 @@ handler 级未接线）；裁定前提见证钉 1 条（decrypt_field 的 raise 
 
 ---
 
+## 一之二十三、#35 X 桶第二十二批：纯裁定批（0 接线，W=96 / X=119 不变）+ 连带修复「自出生即死」的专用计数器
+
+### 1.63 本批结论一句话
+
+`core/health.py` 1 条 + `services/auto_rollback_service.py` 5 条 +
+`core/pii_crypto.py` 4 条共 10 条 X 桶候选逐条存在性实测后**全部裁定
+不接线**，无实记录 X→W，桶计数维持 **W=96 / X=119**。另同文件 8 条
+已被分类器定型（health 6×H / auto_rollback 2×S）复核维持。
+**本批核心发现（连带修复）**：auto_rollback 锁/心跳家族的 M 型裁定
+（第二批 1.7 表 / 第十八批）理由是「已有专用计数器
+`canary_rollback_check_lock_total{outcome}`」——实测该计数器
+**自引入（e120ce3）起从未递增**，两处调用点一直在用不存在的 API。
+
+### 1.64 核心发现：专用计数器「自出生即死」
+
+**事实链**（全部实测）：
+
+1. 本仓 `app/core/metrics.py` 的 `Counter` 是**自研实现**（初始提交
+   341f22c 即在）：API 为 `inc(amount=1.0, **labels)`，**没有
+   `.labels()` 方法**（`Counter` 类只定义 `inc` / `collect`）。
+2. `auto_rollback_service._bump_lock_counter` 原调用
+   `canary_rollback_check_lock_total.labels(outcome=outcome).inc()`
+   （prometheus_client 形态），`canary_fallback_monitor.
+   _bump_takeover_counter` 同型——全仓仅此 2 处 `.labels(` 调用。
+3. 每次调用都 `AttributeError`，被各自 `except Exception` 吞掉只留
+   debug 日志（「…计数更新失败」）⇒ **两个计数器恒 0**。
+4. `git log -S` 证实：`.labels(outcome=outcome)` 随 e120ce3
+   （「修复金丝雀自动回滚三条不可达链路」）引入，自研 Counter 类自
+   初版即在 ⇒ 不是回归，是**从未工作过**。
+5. 运行时实证（修复前）：驱动 `try_acquire_check_lock` 的
+   Redis 不可用路径，warning 日志正常打出，但
+   `canary_rollback_check_lock_total{outcome="unavailable"}` 读数
+   0.0（探针当场复现）。
+
+**影响面**：第二批 1.7 表把这 5 条（57/90/123/152/161）裁为 M 型的
+唯一理由「全部已有专用计数器」**从未成立**；第十八批
+`test_declined_no_distortion_batch18` 与 P2_11 L448 同引该理由。
+往批闸门只钉「调用点在源码里」的**字面量**（`_bump_lock_counter(
+"unavailable")` in seg），从无**运行时计数断言**——死计数器因此
+活过全部往批。「失败路径不允许静默」的设计被计数器自身击穿，
+这正是 #35 要防的形态：可观测性设施自身静默失效。
+
+**修复**：两处调用点改自研 API（`inc(outcome=...)` /
+`inc(reason=...)`），docstring 记账缘由；新增运行时回归测试
+`test_dedicated_counters_actually_increment`（直接调 helper 读
+计数器值，`.labels()` 形态复潮即红）+ AST 级 `.labels(` 调用禁现
+防回退钉（注释/docstring 字样不算，走 `ast.Call` 判定）。
+
+### 1.65 不接线 10 条（X 桶候选，书面记账，仍留 X 桶）
+
+| # | 位置 | 类型 | 理由 |
+|---|---|---|---|
+| 1 | `health.py` L375 `stop_health_monitor` CancelledError→pass | K 型 | lifespan 关闭阶段主动 `cancel()`，pass 是标准清理；取消是设计行为 |
+| 2 | `auto_rollback` L58 `_redis_client_or_none` →None+error | V 型 | helper；三个调用方的 `if client is None:` 分支各自计数+warning（7 处 unavailable 计数点全覆盖） |
+| 3 | `auto_rollback` L91 `try_acquire_check_lock` →True+计数+error | M/V 型 | 设计内 fail-open 降级执行（docstring 明示「beat/fallback 可能重复触发」），专用计数器经本批修复后真正生效 |
+| 4 | `auto_rollback` L124 `publish_check_heartbeat` →False+计数+error | V 型 | 返回值显式；失败方向是兜底 monitor 接管（fail-safe 多查而非漏查） |
+| 5 | `auto_rollback` L153 `get_check_heartbeat_age` →None+计数+error | V 型 | docstring 契约「不得静默跳过检查」由调用方遵守：fallback monitor 对 None 走接管 + `heartbeat_missing` 计数（实测见证） |
+| 6 | `auto_rollback` L162 心跳内容解析失败 →None+计数+error | V 型 | 注释明示「显式记录, 不静默」；同上 |
+| 7 | `pii_crypto` L228 `_decrypt_aes_gcm` InvalidTag→pass | V 型链 | 旧密钥回退尝试的中间步；末端 L244 `raise InvalidTag("…exhausted…")` |
+| 8 | `pii_crypto` L242 同上 continue | V 型链 | 同上 |
+| 9 | `pii_crypto` L344 `decrypt_field` InvalidToken→pass | V 型链 | Fernet 回退链中间步；末端 L367 `raise ValueError("PII 解密失败…")` + exhausted error 日志 |
+| 10 | `pii_crypto` L358 同上 continue | V 型链 | 同上 |
+
+### 1.66 已定型项复核维持（8 条，分类器现场重算确认）
+
+- health 6×H（`check_database` L57 / `check_redis` L85、L89 /
+  `check_celery_worker` L130、L136 / `check_models` L173）：
+  `return False` + warning，经 `HealthSnapshot` 四字段进 `/health`
+  对负载均衡显式暴露；celery 检查另置
+  `celery_worker_heartbeat` gauge=0（S 型元素）。
+- auto_rollback 2×S（L69/L174）：指标/gauge 自身失败只记 debug，
+  主链路无失真。
+
+### 1.67 闸门与读数
+
+- 新增 `TestP235Round13Batch22Declined`（10 条）：health H 型家族
+  反向钉 + stop_health_monitor K 型钉 + auto_rollback 家族反向钉
+  （7 处计数点 + API 形态防回退）+ pii_crypto 回退链钉（handler 数
+  + 末端 raise 计数 + exhausted 日志）+ 轮换探测见证 + **计数器
+  真涨回归** + 运行时三条（锁 fail-open 可观测 / 心跳 None 可观测 /
+  decrypt 耗尽显式 raise / 健康检查 return False）+ 文档登记。
+- 桶计数棘轮实跑通过：**W=96 / X=119** 不变（纯裁定批 + 计数器修复
+  不新增 `record_silent_degradation` 调用点）。
+- 变异四条（删接线无对象——本批 0 接线，改以「修复回退」为变异
+  对象）：M1 把锁计数器调用改回 `.labels().inc()` 形态（计数器回归
+  测试红 + 运行时红）、M2 删 decrypt_field Fernet 末端 raise（链
+  witness 红）、M3 删「一之二十三」节标题、M4 删 P2_11 条目头行。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1303,8 +1393,16 @@ handler 级未接线）；裁定前提见证钉 1 条（decrypt_field 的 raise 
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（二十一批）：当前棘轮
+0. **本轮累计状态**（二十二批）：当前棘轮
    **W=96 / X=119 / P=15**（总数 334 不变）。
+   第二十二批增量：**W +0 / X -0**（纯裁定批：health 1 +
+   auto_rollback 5 + pii_crypto 4 共 10 条 X 桶候选逐条实测后全部
+   裁定不接线，8 条已定型项复核维持；**连带修复一对自出生即死的
+   专用计数器**——`_bump_lock_counter` / `_bump_takeover_counter`
+   原用 prometheus_client 的 `.labels().inc()`，而本仓 Counter 是
+   自研类（`inc(**labels)`），每次 AttributeError 被 except 吞掉，
+   计数器自 e120ce3 引入起恒 0，第二批起两条 M 型裁定的「已有专用
+   计数器」前提从未成立；已改自研 API 并补运行时回归测试）；
    第二十一批增量：**W +0 / X -0**（纯裁定批：predict.py 剩余 6 条
    逐条存在性实测后全部裁定不接线——scaler 路径双重外部阻断不可达
    （默认配置 v1.23 + pkl 有意不入库）、模型加载/lite 4 条 V 型显式、
