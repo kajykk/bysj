@@ -292,6 +292,12 @@ class ConnectionManager:
                 break
             except Exception:
                 logger.exception("WebSocket pubsub loop crashed, restarting in 1s")
+                # P2-35 第二十四批：订阅循环崩溃后重启有 ≥1s 无订阅者窗口
+                # （Redis 持续故障时每秒崩溃一次，窗口长期存在），期间其它
+                # worker 发布到本节点用户 channel 的消息被 Redis 直接丢弃
+                # （pubsub 无订阅者即丢），而发布方的 publish 早已返回成功
+                # —— 消息永久丢失，投递方与接收方都毫无察觉，与正常态同形
+                record_silent_degradation("core.ws.pubsub_loop_crashed")
                 await asyncio.sleep(1.0)
             finally:
                 if pubsub is not None:

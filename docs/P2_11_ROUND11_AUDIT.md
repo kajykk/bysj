@@ -1065,3 +1065,30 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   四条（CSV 非数值保留 / 有效样本数 / 单类 AUC=None 零接线 /
   推理不可用写 errors）+ 文档登记。桶计数维持 **W=96 / X=119**。
   变异三条见 `mutate_p2_35_round13_batch23_result.log`。
+
+- **第十三轮第二十四批（接线 1 处，W 96→97 / R 4→3 / X 119 不变）**：
+  `app/core/ws.py` 13 条候选逐条存在性实测 + 分类器现场重算。
+  ① 接线 `core.ws.pubsub_loop_crashed`：`_pubsub_loop` 外层
+  handler 崩溃后 sleep 1s 重启，≥1s 无订阅者窗口内（Redis 持续
+  故障时每秒崩溃一次、窗口长期存在）其它 worker 发布到本节点
+  用户 channel 的消息被 Redis 直接丢弃，而发布方 `publish` 早已
+  返回成功——消息永久丢失且无任何调用方能察觉。原分类器判 R
+  （sleep+restart 自愈）本批改判接线：自愈只恢复订阅不恢复消息，
+  丢失的是外部输入，与第六批 inference persist 的 R 型先例（下轮
+  从进程内内存状态重新生成、无外部输入丢失）本质不同。② 不接线
+  12 处：S 型 2（`_inc_ws_auth_failure` / `connect` 指标 inc 失败，
+  采集自身）、M 型 1（`disconnect` 指标 dec 失败，第十六批已裁
+  复核维持）、K 型 2（两处 CancelledError 正常控制流）、C 型 2
+  （stop 关停异常 / finally aclose 清理失败）、D 型 2（畸形
+  payload / 非法 channel，数据本来就是坏的）、V 型 3
+  （`websocket_endpoint` 三处：close 4001/4503 原因码 + 专用
+  计数器 + 日志，失败对客户端显式）。
+
+  闸门 `TestP235Round13Batch24Wiring`（6 条）：接线 location 双向
+  核对 + 运行时一条（假 pubsub `psubscribe` 必炸 → 计数恰好 +1，
+  防假绿：psubscribe 调用计数 ≥1 + 取消时机压.sleep 内防双计数）+
+  反向钉 10 条文本锚点 + K 型函数级锚点（`stop_pubsub_subscriber`
+  裸 `pass` 按 enclosing function 定位）+ V 型见证 3 条（close
+  原因码 / disconnect 仍在）+ 文档登记。桶计数棘轮实跑改钉
+  **W=97 / R=3 / X=119**。变异见
+  `mutate_p2_35_round13_batch24_result.log`。

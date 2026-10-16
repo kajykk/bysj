@@ -409,8 +409,9 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 96,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十批净 69：
-                       # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1）
+            "W": 97,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+                       # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
+                       # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -418,7 +419,7 @@ class TestP235SilentDegradationRatchet:
             "C": 7,    # 清理路径
             "H": 6,    # 检查型
             "K": 11,   # 任务取消
-            "R": 4,    # 自恢复
+            "R": 3,    # 自恢复（第二十四批把 ws pubsub 循环崩溃从 R 改判接线：见下）
             "M": 6,    # 已有专用计数器
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
@@ -426,6 +427,9 @@ class TestP235SilentDegradationRatchet:
             "X": 119,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
                        # 告警 history detail JSON 解析失败 → 空壳 item 照常入列表；
                        # 故 X 120→119、W 95→96；总数 334 不变。
+                       # 第二十三批纯裁定不变；第二十四批接线的 ws pubsub 循环
+                       # 崩溃原分类为 R（sleep+restart 自愈启发式），非 X，
+                       # 故 X 维持 119、W 96→97、R 4→3。
                        # 前序口径：第十八批 3 处 X→W（金丝雀检查失败洗白 /
                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败），
                        # X 126→123→120、W 89→92→95；
@@ -4471,3 +4475,240 @@ class TestP235Round13Batch23Declined:
         assert "第十三轮第二十三批" in doc11, "P2_11 附录缺少第二十三批条目"
         assert "validation_engine" in doc11, "P2_11 附录第二十三批条目缺少文件名"
         assert "W=96 / X=119" in doc13, "第二十三批为纯裁定批，累计状态应维持 W=96 / X=119"
+
+
+class TestP235Round13Batch24Wiring:
+    """第十三轮第二十四批：#35 接线 1 处（ws 订阅循环崩溃重启窗口丢消息）
+    + 12 处不接线裁定（W 96→97 / R 4→3 / X 119 不变，总数 334 不变）。
+
+    接线裁定（分类器现场重算原判 R「自恢复」，本批改判接线）：
+
+    - `core.ws.pubsub_loop_crashed`：`_pubsub_loop` 外层 handler 捕获订阅/
+      连接异常后 sleep 1s 重启。R 型「下轮自愈」启发式在此**不成立**——
+      自愈只恢复订阅、不恢复窗口内已丢失的消息：崩溃→重订阅的 ≥1s 内
+      （Redis 持续故障时每秒崩溃一次，窗口长期存在）没有任何订阅者，
+      其它 worker 发布到本节点用户 channel 的消息被 Redis 直接丢弃，
+      而发布方的 `publish` 早已返回成功。与第十六批已接线的
+      `core.ws.pubsub_message_handling_failed`（单条消息处理失败）是
+      不同位置、不同形状：前者丢「一条」，此处丢「整个窗口的全部」。
+      对照先例：第六批 inference persist 失败判 R 不接，因其下轮从
+      进程内状态重新生成快照、无外部输入丢失；此处丢失的是外部输入
+      （其它 worker 的消息），不可恢复。
+
+    不接线 12 处（书面记账，详见 P2_13「一之二十五」）：
+      S 型 2 —— `_inc_ws_auth_failure` / `connect` 的指标 inc 失败
+      （指标采集自身失败，主链路不受影响；认证失败对客户端可见）；
+      M 型 1 —— `disconnect` 指标 dec 失败（第十六批已裁，本批复核）；
+      K 型 2 —— `stop_pubsub_subscriber` / `_pubsub_loop` 的
+      CancelledError（关停与取消是正常控制流）；
+      C 型 2 —— `stop_pubsub_subscriber` 的 stop 异常（仅关停时调用）、
+      `_pubsub_loop` finally 的 aclose 失败（资源清理，debug 日志
+      留痕，AUDIT-2026-10-06 已定性为泄漏定位）；
+      D 型 2 —— `_handle_pubsub_message` 的畸形 payload / 非法
+      channel（数据本来就是坏的，warning 日志 + return 丢弃）；
+      V 型 3 —— `websocket_endpoint` 的 unexpected_error / db_error /
+      runtime.error（均 close 带原因码 + 专用计数器 + 日志，
+      失败对客户端显式）。
+    """
+
+    PAIRS = (("core.ws.pubsub_loop_crashed", "core/ws.py"),)
+
+    @staticmethod
+    def _read(rel: str) -> str:
+        return (BE / rel).read_text(encoding="utf-8-sig")
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = self._read(rel)
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    async def test_runtime_pubsub_loop_crash_increments(self, monkeypatch):
+        """运行时：psubscribe 抛异常 → 外层 handler 计数恰好 +1。
+
+        防假绿：假 pubsub 的 psubscribe 必须真的被调用（否则计数可能
+        来自别处）；且断言**恰好** +1 —— 重启后的第二轮崩溃尚未发生
+        就被取消，避免「崩溃循环多轮计数」把断言写成 >= 而放过大计数。
+        """
+        import asyncio
+        import importlib
+
+        wsmod = importlib.import_module("app.core.ws")
+        cachemod = importlib.import_module("app.core.cache")
+
+        loc = self.PAIRS[0][0]
+        before = self._counter_value(loc)
+
+        class _BoomPubSub:
+            def __init__(self) -> None:
+                self.psubscribe_calls = 0
+
+            async def psubscribe(self, *_args):  # noqa: ANN002, ANN204
+                self.psubscribe_calls += 1
+                raise RuntimeError("probe: psubscribe boom")
+
+            async def aclose(self):  # noqa: ANN201
+                return None
+
+        boom_ps = _BoomPubSub()
+
+        class _BoomClient:
+            def pubsub(self):  # noqa: ANN201
+                return boom_ps
+
+        async def _fake_pubsub_client():  # noqa: ANN201
+            return _BoomClient()
+
+        # _pubsub_loop 函数体内 from-import → patch 定义方模块属性
+        monkeypatch.setattr(cachemod, "get_redis_pubsub_client", _fake_pubsub_client)
+        mgr = wsmod.ConnectionManager()
+        task = asyncio.create_task(mgr._pubsub_loop())
+        try:
+            for _ in range(300):
+                await asyncio.sleep(0.01)
+                if self._counter_value(loc) > before:
+                    break
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        assert boom_ps.psubscribe_calls >= 1, (
+            "psubscribe 未被调用（假绿：计数可能来自别处）"
+        )
+        assert self._counter_value(loc) == before + 1, (
+            "订阅循环崩溃未计数或计数翻倍（假接线/双计数）"
+        )
+
+    # 反向钉：本批 12 处不接线裁定。锚点写「不带引号」的语义串 ——
+    # ast.unparse 会把字符串常量渲染成单引号，写死双引号会静默命中
+    # 0 处（锚点失效 = 反向钉变摆设）。
+    DECLINED_MARKERS = (
+        # S 型：指标自报失败（采集自身，主链路不受影响）
+        ("core/ws.py", "ws_auth_failures_total.inc failed"),
+        ("core/ws.py", "websocket_connections_active.inc failed"),
+        # M 型：第十六批已裁，本批复核维持
+        ("core/ws.py", "websocket_connections_active.dec failed"),
+        # K 型：循环取消是正常控制流
+        ("core/ws.py", "WebSocket pubsub loop cancelled"),
+        # C 型：关停/清理路径
+        ("core/ws.py", "WebSocket pubsub subscriber stop encountered error"),
+        ("core/ws.py", "WebSocket pubsub aclose() 失败"),
+        # D 型：脏数据（畸形 payload / 非法 channel）
+        ("core/ws.py", "WebSocket pubsub received malformed payload"),
+        ("core/ws.py", "WebSocket pubsub invalid channel"),
+        # V 型：显式失败上报（close 带原因码 + 计数器 + 日志）
+        ("core/ws.py", "websocket.auth.unexpected_error"),
+        ("core/ws.py", "websocket.auth.db_error"),
+        ("core/ws.py", "websocket.runtime.error"),
+    )
+
+    def test_declined_handlers_not_wired(self):
+        for rel, marker in self.DECLINED_MARKERS:
+            tree = ast.parse(self._read(rel))
+            hits = 0
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = [ast.unparse(stmt) for stmt in node.body]
+                if not any(marker in stmt for stmt in body_src):
+                    continue
+                hits += 1
+                for sub in ast.walk(node):
+                    if isinstance(sub, ast.Call):
+                        nm = getattr(sub.func, "id", None) or getattr(sub.func, "attr", None)
+                        assert nm != "record_silent_degradation", (
+                            f"{rel} 的「{marker}」handler 已接线 —— "
+                            "必须先推翻 P2_13「一之二十五」的裁定"
+                        )
+            assert hits >= 1, f"行为锚点「{marker}」在 {rel} 命中 0 处（锚点漂移 = 闸门失效）"
+
+    def test_declined_stop_cancelled_not_wired(self):
+        """K 型函数级反向钉：`stop_pubsub_subscriber` 的 CancelledError
+        handler 体是裸 `pass`（无文本锚点可用），按 enclosing function
+        定位；不得接线，且 pass 形状必须在（取消即正常关停）。"""
+        src = self._read("core/ws.py")
+        tree = ast.parse(src)
+        hits = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            # 函数级限定：取 lineno 最紧致的 enclosing 函数
+            fn = None
+            for f in ast.walk(tree):
+                if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if f.lineno <= node.lineno <= (f.end_lineno or f.lineno):
+                        if fn is None or f.lineno > fn.lineno:
+                            fn = f
+            if fn is None or fn.name != "stop_pubsub_subscriber":
+                continue
+            type_names = []
+            if node.type is not None:
+                elts = node.type.elts if isinstance(node.type, ast.Tuple) else [node.type]
+                type_names = [getattr(e, "id", getattr(e, "attr", "?")) for e in elts]
+            if "CancelledError" not in type_names:
+                continue
+            hits += 1
+            seg = ast.get_source_segment(src, node) or ""
+            assert "record_silent_degradation" not in seg, (
+                "stop_pubsub_subscriber 的 CancelledError handler 已接线 —— K 型裁定须重审"
+            )
+            assert "pass" in seg, "取消 handler 的 pass 形状消失（锚点漂移）"
+        assert hits == 1, (
+            f"stop_pubsub_subscriber 的 CancelledError handler 命中 {hits} 处，期望 1"
+        )
+
+    # V 型见证锚点：三个 handler 必须仍把失败显式呈现给客户端
+    V_WITNESSES = (
+        ("websocket.auth.unexpected_error", "code=4001"),
+        ("websocket.auth.db_error", "code=4503"),
+        ("websocket.runtime.error", "disconnect"),
+    )
+
+    def test_declined_v_type_witnesses(self):
+        """V 型判据钉住：认证/DB/运行期失败均由 close 原因码或 disconnect
+        显式呈现，调用方（客户端）看得见 —— 不存在「洗白」形态。"""
+        src = self._read("core/ws.py")
+        tree = ast.parse(src)
+        for marker, witness in self.V_WITNESSES:
+            hits = 0
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = [ast.unparse(stmt) for stmt in node.body]
+                if not any(marker in stmt for stmt in body_src):
+                    continue
+                hits += 1
+                seg = ast.get_source_segment(src, node) or ""
+                assert witness in seg, (
+                    f"「{marker}」handler 的 V 型见证「{witness}」消失 —— "
+                    "失败不再对客户端显式，裁定须重审"
+                )
+            assert hits == 1, f"V 型锚点「{marker}」命中 {hits} 处，期望 1"
+
+    def test_doc_registered_batch24(self):
+        """文档登记：P2_13「一之二十五」节（结构钉）含本批裁定关键标识；
+        P2_11 附录含第二十四批条目；计数账实一致 W=97 / X=119。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十五、" in doc13, (
+            "P2_13 缺少第二十四批（一之二十五）**节标题**（结构断言：正文提及不算）"
+        )
+        for token in (
+            "_pubsub_loop", "pubsub_loop_crashed", "core/ws.py",
+            "R 型", "S 型", "M 型", "K 型", "C 型", "D 型", "V 型",
+            "psubscribe", "Redis",
+        ):
+            assert token in doc13, f"P2_13 第二十四批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十四批" in doc11, "P2_11 附录缺少第二十四批条目"
+        assert "pubsub_loop_crashed" in doc11, "P2_11 附录第二十四批条目缺少接线 location"
+        assert "W=97 / X=119" in doc13, "第二十四批后累计状态应为 W=97 / X=119"

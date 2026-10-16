@@ -1415,6 +1415,97 @@ L147/L207/L271 早已被 D 规则（`types <= DIRTY_TYPES`，单条解析
 
 ---
 
+## 一之二十五、#35 X 桶第二十四批：接线 1 处（W 96→97 / R 4→3 / X 119 不变，ws.py 13 条候选）
+
+### 1.72 本批结论一句话
+
+挑簇器输出的最大未裁定簇 `app/core/ws.py`（13 条）逐条存在性实测 +
+分类器现场重算后：**1 处接线**（`core.ws.pubsub_loop_crashed`，
+订阅循环崩溃重启窗口丢消息，原分类 R 本批改判接线）+ **12 处不接线**
+（S/M/K/C/D/V 六型，含 1 条第十六批已裁项复核维持）。桶计数
+**W=97 / X=119 / P=15**（总数 334 不变；R 4→3）。
+
+### 1.73 存在性核查与分类器现场重算
+
+（`tests/tools/verify_p2_35_batch24_candidates.py`：先重跑 scan 再
+逐条 classify，口径与 `test_batch6_bucket_counts_pinned` 一致）
+
+| 位置 | 函数 | 分类器桶 | 本批裁定 |
+|---|---|---|---|
+| L300 | `_pubsub_loop`（外层，扫描快照 L293） | R | **改判接线** `core.ws.pubsub_loop_crashed` |
+| L32 | `_inc_ws_auth_failure` | S | S 型，不接 |
+| L84 | `connect` | S | S 型，不接 |
+| L130 | `disconnect` | X（机器）/ M（文档） | 第十六批已裁 M 型，复核维持 |
+| L247 | `stop_pubsub_subscriber` | K | K 型，不接 |
+| L249 | `stop_pubsub_subscriber` | C | C 型，不接 |
+| L290 | `_pubsub_loop` | K | K 型，不接 |
+| L306 | `_pubsub_loop`（finally） | C | C 型，不接 |
+| L322 | `_handle_pubsub_message` | D | D 型，不接 |
+| L344 | `_handle_pubsub_message` | D | D 型，不接 |
+| L436 | `websocket_endpoint` | G（机器）/ V（裁定） | V 型，不接 |
+| L461 | `websocket_endpoint` | G（机器）/ V（裁定） | V 型，不接 |
+| L515 | `websocket_endpoint` | G（机器）/ V（裁定） | V 型，不接 |
+
+（行号为接线后现状；扫描快照行号 L293/L316/L338/L430/L455/L509 因
+本批插入 6 行注释整体 +6 平移，已逐条核对。）
+
+**部署形态核查**：Redis 是生产依赖（`docker-compose.yml` 9 服务含
+`redis:7.4-alpine`，backend/celery 均配 `REDIS_URL`），pubsub 跨进程
+投递是生产真实路径；`_pubsub_loop` 经 `main.py:279` lifespan 启动
+（`fatal=False`），运行期可达，非死代码。
+
+**挑簇教训记账（第三例）**：挑簇器把 L130 列为「未裁定」，实则
+第十六批「一之十七」不接线表第 1 条已裁 M 型（ws disconnect 指标
+dec 失败）——「文档未提及」≠「未裁定」，本批复核维持并第三次
+记账该信号缺陷（工具匹配未修，继续以分类器 + 审计文档逐条核对
+为准）。
+
+### 1.74 接线 1 处
+
+| location | 文件 | 降级形状 |
+|---|---|---|
+| `core.ws.pubsub_loop_crashed` | `core/ws.py` `_pubsub_loop` | 订阅循环崩溃后 sleep 1s 重启，≥1s 内无订阅者（Redis 持续故障时每秒崩溃一次、窗口长期存在）；期间其它 worker 发布到本节点用户 channel 的消息被 Redis 直接丢弃（pubsub 无订阅者即丢），而发布方 `publish` 早已返回成功——消息永久丢失，投递方与接收方都毫无察觉 |
+
+**R 型改判接线的关键论证**：分类器 R 规则（`sleep+continue/restart`
+= 瞬时降级会自愈）在本处**不成立**。对照第六批先例：inference
+`_persist_loop` 失败判 R 不接，因其下轮从进程内内存状态重新生成
+快照、无外部输入丢失；而 pubsub 循环崩溃丢失的是**外部输入**
+（其它 worker 已发布成功的消息），自愈只恢复订阅、不恢复消息。
+与第十六批已接线的 `core.ws.pubsub_message_handling_failed` 位置
+不同、形状不同：前者丢「一条消息」，此处丢「整个窗口的全部消息」。
+
+### 1.75 不接线 12 处（书面记账，仍留原桶）
+
+| # | 位置 | 类型 | 理由 |
+|---|---|---|---|
+| 1 | L32 `_inc_ws_auth_failure` 指标 inc 失败 | S 型 | 指标采集自身失败（warning 自报）；认证失败本身已由 close 4001 + 该函数计数上抛，客户端可见 |
+| 2 | L84 `connect` 指标 inc 失败 | S 型 | 同族：连接照常建立并返回 True，仅 gauge 漂移；与 #3 互为镜像 |
+| 3 | L130 `disconnect` 指标 dec 失败 | M 型（第十六批已裁） | 同 #2；连接上限拒绝对客户端可见（4009），主链路不受影响 |
+| 4 | L247 `stop_pubsub_subscriber` CancelledError | K 型 | 取消是正常关停控制流（仅 main.py 关停时调用） |
+| 5 | L249 `stop_pubsub_subscriber` stop 异常 | C 型 | 关停清理路径；任务已结束，warning + exc_info 留痕 |
+| 6 | L290 `_pubsub_loop` CancelledError | K 型 | 循环取消即退出，break + info 日志 |
+| 7 | L306 finally aclose 失败 | C 型 | 资源清理失败，debug 日志留痕（AUDIT-2026-10-06/P1-9 已定性为泄漏定位）；不影响业务语义 |
+| 8 | L322 `_handle_pubsub_message` 畸形 payload | D 型 | 其它 worker 发来的数据本来就是坏的，warning + return 丢弃 |
+| 9 | L344 `_handle_pubsub_message` 非法 channel | D 型 | 同上，user_id 无从提取，warning + return |
+| 10 | L436 `websocket_endpoint` unexpected_error | V 型 | close 4001 + 专用计数器 + exception 日志，失败对客户端显式 |
+| 11 | L461 `websocket_endpoint` db_error | V 型 | close 4503 + 计数器 + 日志；DB 故障显式呈现 |
+| 12 | L515 `websocket_endpoint` runtime.error | V 型 | exception 日志 + `disconnect` 收尾，客户端连接显式终止 |
+
+### 1.76 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch24Wiring`（6 条）：接线 location 双向
+  核对 + 运行时一条（假 pubsub `psubscribe` 必炸 → 计数**恰好**
+  +1，带防假绿：psubscribe 调用计数 ≥1；取消时机压在 sleep 内防
+  双计数）+ 反向钉 10 条文本锚点 + K 型函数级锚点 1 条
+  （`stop_pubsub_subscriber` 裸 `pass`，按 enclosing function
+  定位）+ V 型见证 3 条（close 原因码 / disconnect 仍在）+
+  文档登记。桶计数棘轮实跑改钉 **W=97 / R=3 / X=119**。
+- 变异三条见 `mutate_p2_35_round13_batch24_result.log`。
+- 未验证如实记账：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+  由 CI `backend-coverage` 兜底。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1450,8 +1541,16 @@ L147/L207/L271 早已被 D 规则（`types <= DIRTY_TYPES`，单条解析
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（二十三批）：当前棘轮
-   **W=96 / X=119 / P=15**（总数 334 不变）。
+0. **本轮累计状态**（二十四批）：当前棘轮
+   **W=97 / X=119 / P=15**（总数 334 不变；R 4→3）。
+   第二十四批增量：**W +1 / X -0 / R -1**（ws.py 13 条候选：1 处
+   接线 `core.ws.pubsub_loop_crashed`——订阅循环崩溃重启窗口内
+   （≥1s，Redis 持续故障时长期存在）其它 worker 发布的消息被
+   Redis 丢弃而发布方已返回成功，消息永久丢失；原分类器判 R
+   （sleep+restart 自愈）本批改判：自愈只恢复订阅不恢复消息，
+   丢失的是外部输入，与第六批 inference persist R 型先例（下轮
+   从进程内状态重生、无外部输入丢失）本质不同。12 处不接线：
+   S 2 + M 1（第十六批已裁复核）+ K 2 + C 2 + D 2 + V 3）；
    第二十三批增量：**W +0 / X -0**（纯裁定批：validation_engine 5 条
    逐条实测后全部裁定不接线/复核维持——L422/L512 为第十三批已裁 V 型
    维持，L147/L207/L271 为分类器 D 定型（脏数据探测）的首次书面裁定；

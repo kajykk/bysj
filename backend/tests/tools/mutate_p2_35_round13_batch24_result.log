@@ -1,0 +1,21 @@
+========================================================================
+P2-35 第二十四批变异验证（锚点均为落盘实读文本）
+========================================================================
+  [M1 删 pubsub_loop_crashed 接线] 变异注入…
+    gate: 2 failed, 21 passed, 4 warnings in 9.85s
+  [M1 删 pubsub_loop_crashed 接线] RED-OK（returncode=1）
+    gate: 23 passed, 4 warnings in 4.57s
+  [M1 删 pubsub_loop_crashed 接线] GREEN-OK（还原后 returncode=0）
+  [M2 location 字面量改错值] 变异注入…
+    gate: 2 failed, 21 passed, 4 warnings in 9.81s
+  [M2 location 字面量改错值] RED-OK（returncode=1）
+    gate: 23 passed, 4 warnings in 4.69s
+  [M2 location 字面量改错值] GREEN-OK（还原后 returncode=0）
+  [M3 删 P2_13 节标题] 变异注入…
+    gate: 1 failed, 22 passed, 4 warnings in 4.98s
+  [M3 删 P2_13 节标题] RED-OK（returncode=1）
+    gate: 23 passed, 4 warnings in 4.59s
+  [M3 删 P2_13 节标题] GREEN-OK（还原后 returncode=0）
+========================================================================
+三条变异全部 RED-OK / GREEN-OK
+========================================================================

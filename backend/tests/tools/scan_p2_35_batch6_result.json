@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 94,
+  "real_wired": 95,
   "import_probe": 16,
   "real_list": [
     {
@@ -1607,7 +1607,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 430,
+      "line": 436,
       "handled": [
         "Exception"
       ],
@@ -1617,7 +1617,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 455,
+      "line": 461,
       "handled": [
         "Exception"
       ],
@@ -1627,7 +1627,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 509,
+      "line": 515,
       "handled": [
         "Exception"
       ],
@@ -1677,7 +1677,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 316,
+      "line": 322,
       "handled": [
         "JSONDecodeError",
         "TypeError"
@@ -1732,13 +1732,13 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/core/ws.py",
-      "line": 338,
+      "line": 344,
       "handled": [
         "ValueError"
       ],
@@ -1758,7 +1758,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 300,
+      "line": 306,
       "handled": [
         "Exception"
       ],
