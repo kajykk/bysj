@@ -3621,3 +3621,165 @@ class TestP235Round13Batch20Wiring:
             assert token in doc11, f"P2_11 附录第二十批条目缺少文件名: {token}"
         counts_doc = "W=96 / X=119" in doc13 or "W 96" in doc13
         assert counts_doc, "第二十批接线 1 处，累计状态应改钉 W=96 / X=119"
+
+
+class TestP235Round13Batch21Declined:
+    """第十三轮第二十一批：#35 X 桶**纯裁定批**（0 接线，W=96 / X=119 不变）。
+
+    挑簇对象 `core/model_engine/predict.py` 剩余 6 条未接线候选，逐条实测：
+
+    1. **`predict_structured` scaler 加载失败 handler（L178，本批新裁，不接）**
+       —— 初判似真降级（scaler 缺失 → 未缩放特征直接算分，响应
+       `fallback_used=False`、无 `fallback_reason`、`model_used` 与正常态同形，
+       与第二批 `experimental_v121_scaler_fallback` 同型），但存在性实测发现
+       **双重外部阻断**：① `structured_default_model` 当前默认 `"v1.23"`
+       （v1.23 是 Pipeline 无需单独 scaler，`primary_needs_scaler=False`，
+       根本进不了该分支）；② `models/*.pkl` 按 `.gitignore` L303-307 **有意
+       不入库**（全仓 tracked pkl 数为 0），v1.20 主模型在官方交付形态下恒
+       `FileNotFoundError` → L167 except → `model is None` → scaler 分支的
+       `if model is not None` guard 为假。与第十二批 `_run_experimental_v121`
+       外层（注册表移除 v1.21）同族，也同 keras 三条目「生产/CI 恒 MISSING」
+       先例 —— 接线即计数器恒 0 的死代码。**解锁条件**（任一满足须重审）：
+       默认配置切回 v1.20 且 pkl 纳入交付，或部署侧手工放置 v1.20 产物。
+    2. **模型加载失败 handler（L167，V 型）**——`fallback_reason =
+       "model_load_failed: {exc}"` 显式赋值，下游 `model_used=
+       "structured_heuristic_fallback"` + `fallback_used=True`，响应可见。
+       这正是当前交付形态下**真实可达**的降级点，且显式。
+    3. **`predict_lite` 两个 handler（L887/L897，V 型）**——非有限概率 /
+       通用异常都 `logger.error/warning` + `_incr_fallback()` +
+       `fallback_reason` 显式写入响应（`lite_model_non_finite_output:` /
+       `lite_model_unavailable:`），P0-5 修复后的成熟范式。
+    4. **两条已裁维持（第十二批，本批实测复核防 stale）**——
+       `_run_experimental_v121` 外层：`get_model_info(
+       "structured_v1.21_binary_lr")` 实测仍返回 None（注册表已移除）；
+       `_run_adapter`：`adapter_hit`/`adapter_miss` 专用计数器仍在（M 型）。
+
+    **连带修复**：`predict.py` L147 注释漂移——原文写「v1.20 (默认)」，
+    而 `config.py` 的 `structured_default_model` 默认值是 `"v1.23"`
+    （S-02 时代以降改的配置、注释没跟上）。该漂移正是初裁被引向
+    「默认路径」误判的根源，本批更正并写入可达性事实。
+    """
+
+    def test_scaler_handler_not_wired(self):
+        """except 块级反向钉：scaler 加载失败 handler 不得接线（死代码家族），
+        且行为锚点（未缩放告警日志）必须在。"""
+        src = (BE / "core/model_engine/predict.py").read_text(encoding="utf-8-sig")
+        tree = ast.parse(src)
+        hits = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body_src = ast.get_source_segment(src, node) or ""
+            if "proceeding without scaling" not in body_src:
+                continue
+            hits += 1
+            assert "record_silent_degradation" not in body_src, (
+                "scaler 加载失败 handler 已接线 —— 「双重外部阻断不可达」"
+                "裁定须重审（先验证默认配置与 pkl 交付形态）"
+            )
+        assert hits == 1, f"锚点 'proceeding without scaling' 命中 {hits} 处，期望 1（锚点漂移 = 闸门失效）"
+
+    def test_model_load_handler_explicit_fallback(self):
+        """V 型反向钉：模型加载失败 handler 未接线，且 fallback_reason 显式
+        赋值必须在（响应可见性前提）。"""
+        src = (BE / "core/model_engine/predict.py").read_text(encoding="utf-8-sig")
+        tree = ast.parse(src)
+        hits = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body_src = ast.get_source_segment(src, node) or ""
+            if "model_load_failed" not in body_src:
+                continue
+            hits += 1
+            assert "record_silent_degradation" not in body_src, (
+                "模型加载失败 handler 已接线 —— V 型（fallback_reason 显式）裁定须重审"
+            )
+            assert "fallback_reason =" in body_src, (
+                "模型加载失败 handler 的 fallback_reason 显式赋值消失 —— V 型裁定前提失效"
+            )
+        assert hits == 1, f"锚点 'model_load_failed' 命中 {hits} 处，期望 1（锚点漂移 = 闸门失效）"
+
+    def test_lite_handlers_explicit_fallback(self):
+        """V 型反向钉：predict_lite 两个 handler 未接线，且 fallback_reason
+        显式写入必须在（P0-5 修复后的显式降级范式）。"""
+        src = (BE / "core/model_engine/predict.py").read_text(encoding="utf-8-sig")
+        tree = ast.parse(src)
+        for anchor in ("lite_model_non_finite_output", "lite_model_unavailable"):
+            hits = 0
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                body_src = ast.get_source_segment(src, node) or ""
+                if anchor not in body_src:
+                    continue
+                hits += 1
+                assert "record_silent_degradation" not in body_src, (
+                    f"predict_lite handler（锚点 {anchor}）已接线 —— V 型裁定须重审"
+                )
+                assert "fallback_reason" in body_src and "_incr_fallback" in body_src, (
+                    f"predict_lite handler（锚点 {anchor}）的显式降级信号消失 —— 裁定前提失效"
+                )
+            assert hits == 1, f"锚点 {anchor!r} 命中 {hits} 处，期望 1（锚点漂移 = 闸门失效）"
+
+    def test_prior_rulings_still_hold(self):
+        """第十二批两条已裁项的现状复核（防 stale）：v1.21 注册条目仍移除、
+        adapter 专用计数器仍在。"""
+        from app.core.model_registry import get_model_info
+
+        assert get_model_info("structured_v1.21_binary_lr") is None, (
+            "v1.21 注册条目已恢复 —— _run_experimental_v121 外层不再是死代码，"
+            "第十二批裁定须重审"
+        )
+        src = (BE / "core/model_engine/predict.py").read_text(encoding="utf-8-sig")
+        for counter in ('"adapter_hit"', '"adapter_miss"'):
+            assert counter in src, f"adapter 专用计数器 {counter} 消失 —— M 型裁定前提失效"
+
+    def test_delivery_form_premise(self):
+        """死代码裁定的交付形态前提钉：默认配置 v1.23 + pkl 有意不入库。
+        任一事实变化（切回 v1.20 / pkl 纳入交付）都意味着 scaler 路径恢复
+        可达，本批裁定必须重审。"""
+        import subprocess
+
+        from app.core.config import settings
+
+        assert settings.structured_default_model == "v1.23", (
+            "structured_default_model 默认已切离 v1.23 —— scaler 分支可达性前提变化，须重审"
+        )
+        gitignore = (REPO / ".gitignore").read_text(encoding="utf-8")
+        assert "backend/models/*" in gitignore, (
+            ".gitignore 的 models 排除规则消失 —— pkl 交付形态可能已变，须重审"
+        )
+        out = subprocess.run(
+            ["git", "ls-files", "*.pkl"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert out.stdout.strip() == "", (
+            f"仓库已出现 tracked pkl（{out.stdout.strip()[:200]}）—— "
+            "scaler 路径可达性前提变化，须重审"
+        )
+
+    def test_doc_registered_batch21(self):
+        """文档登记：P2_13「一之二十二」节（结构钉）含本批裁定关键标识；
+        P2_11 附录含第二十一批条目；纯裁定批账实一致 W=96 / X=119 维持。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十二、" in doc13, (
+            "P2_13 缺少第二十一批（一之二十二）**节标题**（结构断言：正文提及不算）"
+        )
+        for token in (
+            "proceeding without scaling", "model_load_failed",
+            "lite_model_non_finite_output", "lite_model_unavailable",
+            "structured_v1.21_binary_lr", "adapter_hit", "adapter_miss",
+            "structured_default_model", ".gitignore",
+            "双重外部阻断", "死代码", "V 型",
+        ):
+            assert token in doc13, f"P2_13 第二十一批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十一批" in doc11, "P2_11 附录缺少第二十一批条目"
+        for token in ("model_engine/predict", "scaler", "v1.20", "v1.23"):
+            assert token in doc11, f"P2_11 附录第二十一批条目缺少关键标识: {token}"
+        counts_doc = "W=96 / X=119" in doc13 or "W 96" in doc13
+        assert counts_doc, "第二十一批为纯裁定批，累计状态应维持 W=96 / X=119"

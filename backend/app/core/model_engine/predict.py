@@ -144,8 +144,13 @@ class PredictMixin:
                 logger.warning("Structured model forced to fallback by config")
 
             # S-02: 根据 structured_default_model 配置选择默认结构化模型
-            # v1.20 (默认): structured_logistic_regression_quick + structured_scaler_v1.20
-            # v1.23: structured_v1.23_external_lr (Pipeline, 自带 preprocessor, 无需单独 scaler)
+            # v1.23 (config 当前默认值): structured_v1.23_external_lr (Pipeline,
+            #   自带 preprocessor, 无需单独 scaler)
+            # v1.20: structured_logistic_regression_quick + structured_scaler_v1.20
+            #   （需单独 scaler；本分支的 scaler 缺失 except 在当前交付形态下
+            #   不可达——默认配置为 v1.23 时不进本分支，且 models/*.pkl 按
+            #   .gitignore 有意不入库、主模型恒加载失败，model 保持 None；
+            #   裁定与解锁条件见 P2_13 审计「一之二十二」）
             default_model_version = getattr(settings, "structured_default_model", "v1.20")
             if default_model_version == "v1.23":
                 primary_model_id = "structured_v1.23_external_lr"

@@ -1096,7 +1096,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 489,
+      "line": 494,
       "handled": [
         "Exception"
       ],
@@ -1106,7 +1106,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 538,
+      "line": 543,
       "handled": [
         "Exception"
       ],
@@ -1116,7 +1116,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 635,
+      "line": 640,
       "handled": [
         "Exception"
       ],
@@ -1126,7 +1126,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 663,
+      "line": 668,
       "handled": [
         "Exception"
       ],
@@ -1136,7 +1136,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 751,
+      "line": 756,
       "handled": [
         "Exception"
       ],
@@ -1146,7 +1146,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 772,
+      "line": 777,
       "handled": [
         "Exception"
       ],
@@ -1156,7 +1156,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 978,
+      "line": 983,
       "handled": [
         "FileNotFoundError"
       ],
@@ -1166,7 +1166,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 990,
+      "line": 995,
       "handled": [
         "Exception"
       ],
@@ -1176,7 +1176,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 421,
+      "line": 426,
       "handled": [
         "Exception"
       ],
@@ -1186,7 +1186,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 887,
+      "line": 892,
       "handled": [
         "NonFiniteLiteProbabilityError"
       ],
@@ -1196,7 +1196,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 897,
+      "line": 902,
       "handled": [
         "Exception"
       ],
@@ -1206,7 +1206,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1033,
+      "line": 1038,
       "handled": [
         "Exception"
       ],
@@ -1216,7 +1216,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1139,
+      "line": 1144,
       "handled": [
         "Exception"
       ],
@@ -1226,7 +1226,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1172,
+      "line": 1177,
       "handled": [
         "Exception"
       ],
@@ -1236,7 +1236,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 167,
+      "line": 172,
       "handled": [
         "FileNotFoundError",
         "ValueError"
@@ -1247,7 +1247,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 178,
+      "line": 183,
       "handled": [
         "FileNotFoundError",
         "ValueError"
@@ -1258,7 +1258,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 385,
+      "line": 390,
       "handled": [
         "Exception"
       ],
@@ -1268,7 +1268,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 670,
+      "line": 675,
       "handled": [
         "Exception"
       ],
@@ -3308,7 +3308,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 986,
+      "line": 991,
       "handled": [
         "ImportError"
       ],

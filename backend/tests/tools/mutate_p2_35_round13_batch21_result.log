@@ -1,0 +1,26 @@
+========================================================================
+P2-35 第二十一批变异验证（锚点均为落盘实读文本）
+========================================================================
+  [M1 scaler handler 补接线] 变异注入…
+    gate: 1 failed, 5 passed, 4 warnings in 18.78s
+  [M1 scaler handler 补接线] RED-OK（returncode=1）
+    gate: 6 passed, 4 warnings in 18.73s
+  [M1 scaler handler 补接线] GREEN-OK（还原后 returncode=0）
+  [M2 删 fallback_reason 赋值] 变异注入…
+    gate: 1 failed, 5 passed, 4 warnings in 18.98s
+  [M2 删 fallback_reason 赋值] RED-OK（returncode=1）
+    gate: 6 passed, 4 warnings in 18.70s
+  [M2 删 fallback_reason 赋值] GREEN-OK（还原后 returncode=0）
+  [M3 删 P2_13 节标题] 变异注入…
+    gate: 1 failed, 5 passed, 4 warnings in 19.53s
+  [M3 删 P2_13 节标题] RED-OK（returncode=1）
+    gate: 6 passed, 4 warnings in 20.41s
+  [M3 删 P2_13 节标题] GREEN-OK（还原后 returncode=0）
+  [M4 删 P2_11 条目头行] 变异注入…
+    gate: 1 failed, 5 passed, 4 warnings in 18.60s
+  [M4 删 P2_11 条目头行] RED-OK（returncode=1）
+    gate: 6 passed, 4 warnings in 18.36s
+  [M4 删 P2_11 条目头行] GREEN-OK（还原后 returncode=0）
+========================================================================
+四条变异全部 RED-OK / GREEN-OK
+========================================================================

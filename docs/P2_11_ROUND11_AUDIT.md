@@ -998,3 +998,27 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   （decrypt_field 的 raise 与上游两条接线仍在）+ 文档登记 1 条。
   桶计数改钉 **W=96 / X=119**。变异四条见
   `mutate_p2_35_round13_batch20_result.log`。
+- **第十三轮第二十一批（纯裁定批，0 接线，W=96 / X=119 不变）**：
+  `core/model_engine/predict.py` 剩余 6 条未接线候选逐条存在性实测后
+  全部裁定不接线。① scaler 加载失败 handler（L178）：初判与第二批
+  `experimental_v121_scaler_fallback` 同型（未缩放特征直接算分、响应
+  同形），实测发现**双重外部阻断不可达**——`structured_default_model`
+  默认 `"v1.23"`（Pipeline 无需 scaler，不进分支）+ `models/*.pkl` 按
+  `.gitignore` 有意不入库（tracked pkl 实测 0，v1.20 主模型恒
+  FileNotFoundError → model=None），同第十二批 v1.21 外层死代码与
+  keras「生产恒 MISSING」先例，解锁条件（切回 v1.20 且 pkl 入交付）
+  已记账；② 模型加载失败 handler（L167）：`fallback_reason=
+  "model_load_failed: ..."` 显式（V 型，当前形态下真实可达）；
+  ③ `predict_lite` L887/L897：`_incr_fallback` + fallback_reason
+  显式（V 型）；④⑤ `_run_experimental_v121` 外层（注册表实测仍无
+  v1.21）与 `_run_adapter`（adapter_hit/miss 计数器在）为第十二批
+  已裁项，本批实测复核维持。连带修复 L147 注释漂移（「v1.20 (默认)」
+  与实际默认 v1.23 矛盾，正是初裁被误导的根源）。
+
+  闸门 `TestP235Round13Batch21Declined`（6 条）：scaler handler
+  except 块级反向钉 + 模型加载/lite 三条 V 型反向钉（fallback_reason
+  与 `_incr_fallback` 显式信号在）+ 已裁维持 1 条（get_model_info
+  实测 None + adapter 计数器在）+ 交付形态前提钉 1 条（默认 v1.23 +
+  `.gitignore` 排除 + `git ls-files *.pkl` 实测 0）+ 文档登记 1 条。
+  桶计数维持 **W=96 / X=119**。变异四条见
+  `mutate_p2_35_round13_batch21_result.log`。

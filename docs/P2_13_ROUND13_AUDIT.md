@@ -1177,6 +1177,97 @@ handler 级未接线）；裁定前提见证钉 1 条（decrypt_field 的 raise 
 
 ---
 
+## 一之二十二、#35 X 桶第二十一批：纯裁定批（0 接线，W=96 / X=119 不变，predict.py 6 条）
+
+### 1.60 本批结论一句话
+
+`core/model_engine/predict.py` 剩余 6 条未接线候选逐条存在性实测后
+**全部裁定不接线**，无实记录 X→W，桶计数维持 **W=96 / X=119**。
+连带修复该文件一处注释漂移（v1.20「默认」标注与 config 实际默认 v1.23 矛盾，
+正是初裁被引向误判的根源）。
+
+### 1.61 逐条裁定明细
+
+1. **scaler 加载失败 handler（L178，本批新裁：双重外部阻断不可达）**——
+   `structured_scaler_v1.20` 加载失败（FileNotFoundError/ValueError）→
+   warning「proceeding without scaling」→ `structured_scaler=None` →
+   L192-198 `feature_scaled = feature_df` **未缩放特征直接送入
+   `model.predict`**，概率/分数在错误特征尺度上算出，而响应
+   `fallback_used=False`、无 `fallback_reason`、`model_used` 与正常态
+   完全同形——单看代码形状与第二批 `experimental_v121_scaler_fallback`
+   （scaler.transform 失败→未缩放算分）同型，初判为真降级候选。
+   **存在性实测推翻初判**，发现双重外部阻断：
+   ① `structured_default_model` 当前默认 `"v1.23"`
+   （config.py L483；v1.23 是 Pipeline 自带 preprocessor，
+   `primary_needs_scaler=False`，L175 的 `if model is not None and
+   primary_needs_scaler` guard 直接为假，根本进不了该分支）；
+   ② `models/*.pkl` 按 `.gitignore` L303-307 **有意不入库**（全仓
+   tracked pkl 实测 0 个，Dockerfile COPY models/ 交付的是不含 pkl 的
+   上下文），v1.20 主模型在官方交付形态下恒 `FileNotFoundError` →
+   L167 except → `model is None` → 同上 guard 为假。
+   与第十二批 `_run_experimental_v121` 外层（注册表移除 v1.21，代码级
+   guard 保证不可达）同族，也与 keras 三条目「生产/CI 恒 MISSING」
+   注释先例同口径 —— 接线即计数器恒 0 的死代码。
+   **解锁条件（任一满足须重审本裁定）**：默认配置切回 v1.20 且 pkl
+   纳入交付；或部署侧手工放置 v1.20 产物且 scaler 缺失/损坏。
+   闸门 `test_delivery_form_premise` 把两个前提（默认配置 v1.23 +
+   pkl 不入库）钉住，前提变化即红。
+2. **模型加载失败 handler（L167，V 型）**——
+   `fallback_reason = f"model_load_failed: {exc}"` 显式赋值，下游
+   `model_used="structured_heuristic_fallback"` + `fallback_used=True`，
+   响应可见。这正是当前交付形态下**真实可达**的降级点，且显式。
+3. **`predict_lite` 两个 handler（L887/L897，V 型）**——非有限概率 /
+   通用异常均 `logger.error/warning` + `_incr_fallback()` +
+   `fallback_reason` 显式写入响应（`lite_model_non_finite_output:` /
+   `lite_model_unavailable:`），AUDIT-2026-10-08 (P0-5) 修复后的成熟
+   显式降级范式。
+4. **`_run_experimental_v121` 外层（L421，第十二批已裁：死代码，
+   本批实测复核维持）**——`get_model_info(
+   "structured_v1.21_binary_lr")` 实测仍返回 None（S-03 已从注册表
+   移除 v1.21 四条目，model_registry.py L132-137 注释明示 deprecated），
+   try 块运行时不可达。
+5. **`_run_adapter`（L538，第十二批已裁：M 型，本批实测复核维持）**——
+   `adapter_hit` / `adapter_miss` 专用计数器成对覆盖适配器不可用，
+   按 M 桶口径不重复接通用计数器。
+6. （第 6 条即第 1 条的姊妹路径 `experimental_v121_scaler_fallback`
+   L395，第二批已接线，本批不重复裁定。）
+
+### 1.62 连带修复：注释漂移
+
+`predict.py` L146-149 原文案：
+
+```
+# S-02: 根据 structured_default_model 配置选择默认结构化模型
+# v1.20 (默认): structured_logistic_regression_quick + structured_scaler_v1.20
+# v1.23: structured_v1.23_external_lr (Pipeline, 自带 preprocessor, 无需单独 scaler)
+```
+
+「v1.20 (默认)」与 `config.py` L483 `structured_default_model: str = "v1.23"`
+矛盾（S-02 时代默认是 v1.20，后来切 v1.23 时注释没跟上）。该漂移直接
+导致本批初裁把 L178 当成「默认路径上的真降级」。已更正为事实陈述 +
+可达性结论 + 裁定出处（零行为变更，AST 解析通过）。
+
+### 1.63 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch21Declined`（6 条）：scaler handler
+  except 块级反向钉（锚点 "proceeding without scaling"，未接线且
+  锚点在）；模型加载 handler 反向钉（未接线 + `fallback_reason =`
+  显式赋值在）；lite 两个 handler 反向钉（未接线 + fallback_reason
+  与 `_incr_fallback` 在）；已裁维持 1 条（`get_model_info` 实测
+  None + adapter 计数器在）；交付形态前提钉 1 条（默认 v1.23 +
+  `.gitignore` 排除 + `git ls-files *.pkl` 实测 0）；文档登记 1 条。
+- **桶计数**：不改钉，维持 **W=96 / X=119**（纯裁定批，无桶间迁移；
+  棘轮测试实跑通过）。
+- 变异验证：4 条（M1 给 scaler handler 补接线 → 反向钉红；
+  M2 删模型加载 handler 的 fallback_reason 赋值 → V 型前提钉红；
+  M3 删本节标题 → 文档结构钉红； M4 删 P2_11 条目头行），
+  全部 RED-OK/GREEN-OK，日志
+  `mutate_p2_35_round13_batch21_result.log`。
+- **未验证如实记账**：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+  由 CI `backend-coverage` 兜底；前端未触及。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1212,8 +1303,12 @@ handler 级未接线）；裁定前提见证钉 1 条（decrypt_field 的 raise 
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（二十批）：当前棘轮
+0. **本轮累计状态**（二十一批）：当前棘轮
    **W=96 / X=119 / P=15**（总数 334 不变）。
+   第二十一批增量：**W +0 / X -0**（纯裁定批：predict.py 剩余 6 条
+   逐条存在性实测后全部裁定不接线——scaler 路径双重外部阻断不可达
+   （默认配置 v1.23 + pkl 有意不入库）、模型加载/lite 4 条 V 型显式、
+   2 条第十二批已裁项实测复核维持；连带修复 L147 注释漂移）；
    第二十批增量：**W +1 / X -1**（1 处实记录 X→W：告警历史 detail
    JSON 解析失败 → 空壳 item 照常入列表，告警内容静默丢失；另裁定
    不接线 14 处，留 X 桶）；
