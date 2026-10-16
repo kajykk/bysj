@@ -348,6 +348,11 @@ async def list_alert_history(
                 detail = json.loads(r.detail)
         except Exception as exc:
             # P1-E 修复：告警 detail JSON 解析失败必须记录日志，便于发现告警数据损坏
+            # P2-35 第十三轮第二十批：detail 解析失败 → detail={} → rule/severity/
+            # message 全为空的**空壳 item 仍照常入列表**，前端告警历史页看到一条
+            # 字段全空的告警记录，与正常记录同形（列表项存在、只是内容空）——
+            # 告警内容静默丢失，从响应形态无法分辨，必须计数。
+            record_silent_degradation("api.alerts.history_detail_parse_failed")
             logger.warning("Failed to parse alert detail JSON (id=%s): %s", r.id, exc)
             detail = {}
         # ISS-042 修复：Python 端二次校验 severity 严格相等，作为 SQL contains 的安全兜底。

@@ -1103,6 +1103,80 @@ import 烟测（名字绑定验证，非只查语法）。
 
 ---
 
+## 一之二十一、#35 X 桶第二十批：1 处接线（X 120 → 119）+ 14 处不接线
+
+**接线 1 处**：`api.alerts.history_detail_parse_failed`
+（`api/v1/alerts/__init__.py` `list_alert_history` L349）：detail JSON
+解析失败 → warning + `detail = {}` → rule/severity/message 全为空的
+**空壳 item 仍照常 append 进列表**（无 severity 过滤时；有过滤时该条被
+`continue` 跳过，但 total 仍计它）。前端告警历史页因此看到一条字段全空
+的告警记录——与正常记录同形（列表项存在、只是内容空），告警内容静默
+丢失，从响应形态无法分辨。接线置于 `logger.warning` 前，注释写明判据。
+
+**不接线 14 处**（逐条代码实证，仍留 X 桶，机器不裁、文档裁）：
+
+1. **alerts 4 条（V 型显式失败上报）**——`api/v1/alerts/__init__.py`：
+   ① `_handle_silenced_alert` L152：静默告警持久化失败 → error 日志 +
+   `return False`，调用方（webhook 主流程）累计 failed（H-API-11 修复）；
+   ② `_handle_active_alert` L173：去重检查失败 → `send = True`
+   （defaulting to send），error 日志 + 注释明示的 fail-open 设计——
+   失败方向是「多通知」而非「漏预警」，按本仓口径危害低；
+   ③ 同函数 L190：持久化失败 → `return (0, 1, 0)`，failed 计数显式；
+   ④ 同函数 L205：通知失败 → `return (1, 0, 1)`，notify_failed 显式。
+2. **pii_crypto 2 条（V 型）**——`core/pii_crypto.py`
+   `_get_previous_fernets` L133 / `_get_previous_aes_gcms` L191：旧密钥
+   派生失败 → warning + 跳过该旧密钥。其后果（用该旧密钥加密的数据无法
+   解密）在 `decrypt_field` 是**显式**的：当前 + 全部旧密钥耗尽后
+   L336/L367 `raise ValueError("PII 解密失败（密钥错误或数据损坏）")`，
+   且先记 error 日志（exhausted current + N previous keys），调用方
+   可见，不属静默。
+3. **escalation 2 条（M 型已有专用计数器）**——
+   `monitoring/escalation.py` `compute_escalation` L102：detail 解析
+   失败 → `alert_detail_parse_failed_total.inc(1, stage="escalation")`
+   专用计数器 + 结构化 warning（AUDIT-2026-10-06 P1-6 专门修复，注释
+   说明 acknowledged 丢失 / 重复升级两个后果）；L111：该计数器的上传
+   失败（观察者的观察者）只记 debug，主信号已在。
+4. **drift 2 条**——`services/drift_monitoring_service.py`：
+   ① `check_all_modalities` L104：单模态检测失败 →
+   `DriftCheckResult(failed=True)` 显式入结果列表 + rollback +
+   exception 日志（V 型）；② `_push_to_gauge` L464：PSI/KL 推送 Gauge
+   失败 → debug（S 型指标自身通道，且注释明示 failed 模态跳过推送的
+   安全语义）。
+5. **model_registry_v2 2 条**——`core/model_registry_v2.py`：
+   ① `_quarantine_corrupt_file` L224：旁路 `os.replace` 失败 → error
+   日志。「注册表已降级」的事实由上游 L190/L208 两条接线
+   （registry_file_unparsable / registry_records_dropped）计数，旁路
+   失败只是恢复现场的最佳努力，其后果是现场丢失而非新的降级；
+   ② `_promote_model_locked` L462：磁盘写失败 → 内存状态回滚 + error
+   + `return None`，调用方显式得知失败（V 型）。
+6. **fusion 1 条（M 型变体）**——`services/model_predict/fusion.py`
+   `predict_fusion` L164：canary 指标自增失败 → debug（注释明示 P1
+   问题 5 的取舍）。推理主流程不受影响、响应无失真，灰度指标只缺一个
+   样本，且紧随其后的 `_log_canary_event` 仍会写事件。
+7. **main 1 条（V 型）**——`main.py` `_preload_models_background` L222：
+   后台预加载失败 → `startup_status.record("model_preload", "failed", ...)`
+   + error 日志。startup_status 是显式状态记录（运维可从
+   /startup_status 看到 failed），不属于静默。
+
+**闸门**：新增 `TestP235Round13Batch20Wiring`（6 条）——location 双向
+核对 1 条；运行时驱动 1 条（正常行 + 损坏行各一条，两条都入列表、
+损坏行 rule/severity/message 全空实证「同形失真」，计数器 +1）；
+函数级反向钉 9 个（_handle_silenced_alert / _get_previous_fernets /
+_get_previous_aes_gcms / compute_escalation / check_all_modalities /
+_push_to_gauge / _quarantine_corrupt_file / _promote_model_locked /
+_preload_models_background）；except 块级精细钉 5 个
+（_handle_active_alert 三个 except 分别钉 defaulting-to-send /
+`return (0, 1, 0)` / `return (1, 0, 1)`；escalation 内层计数上传失败；
+predict_fusion 同函数已有 canary_routing_failed 接线，钉见证 +
+handler 级未接线）；裁定前提见证钉 1 条（decrypt_field 的 raise 与
+上游两条接线仍在）；文档登记 1 条（本节 + P2_11 附录 + 桶计数改钉）。
+**桶计数**：改钉 **W=96 / X=119**（1 处实记录 X→W，总数 334 不变；
+棘轮测试实跑通过）。
+**未验证如实记账**：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+由 CI `backend-coverage` 兜底；前端未触及。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1138,8 +1212,11 @@ import 烟测（名字绑定验证，非只查语法）。
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十九批）：当前棘轮
-   **W=95 / X=120 / P=15**（总数 334 不变）。
+0. **本轮累计状态**（二十批）：当前棘轮
+   **W=96 / X=119 / P=15**（总数 334 不变）。
+   第二十批增量：**W +1 / X -1**（1 处实记录 X→W：告警历史 detail
+   JSON 解析失败 → 空壳 item 照常入列表，告警内容静默丢失；另裁定
+   不接线 14 处，留 X 桶）；
    第十九批增量：**W +0 / X -0**（纯裁定批：scheduler 7 +
    model_engine/loading 4 + config 2 共 13 条逐条实证后全部裁定不接线，
    无实记录 X→W，桶计数不变）；

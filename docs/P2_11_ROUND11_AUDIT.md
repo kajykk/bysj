@@ -967,3 +967,34 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   文档登记 1 条（「一之二十」节 + 13 条裁定关键标识 + 纯裁定批账实
   一致）。桶计数不改钉，维持 **W=95 / X=120**。变异三条见
   `mutate_p2_35_round13_batch19_result.log`。
+
+- **第十三轮第二十批（接线 1 处 + 不接线 14 处，W 95→96 / X 120→119）**：
+  接 `api.alerts.history_detail_parse_failed`（`api/v1/alerts/__init__.py`
+  `list_alert_history`：detail JSON 解析失败 → warning + `detail={}` →
+  rule/severity/message 全空的**空壳 item 仍照常入列表**，与正常记录
+  同形，告警内容静默丢失）。不接线 14 处：① alerts 4（V 型：
+  `_handle_silenced_alert` return False；`_handle_active_alert` 三个
+  except 分别注释明示 default-to-send / failed 计数 (0,1,0) /
+  notify_failed 计数 (1,0,1)）；② pii_crypto 2（V 型：`_get_previous_fernets`/
+  `_get_previous_aes_gcms` 旧密钥派生失败跳过，后果由 decrypt_field
+  密钥全耗尽时 raise ValueError + error 日志 exhausted 显式暴露）；
+  ③ escalation 2（M 型：`compute_escalation` detail 解析失败已有
+  `alert_detail_parse_failed_total` 专用计数器，AUDIT-2026-10-06 P1-6；
+  内层计数上传失败只记 debug）；④ drift 2（V 型
+  `DriftCheckResult(failed=True)` / S 型 `_push_to_gauge` Gauge 自报
+  失败）；⑤ model_registry_v2 2（`_quarantine_corrupt_file` 旁路失败
+  上游 registry_file_unparsable/records_dropped 已计数且是最佳努力 /
+  `_promote_model_locked` 内存回滚 return None）；⑥ fusion 1（M 型变体：
+  `predict_fusion` canary 指标自增失败，主链路无失真且
+  `_log_canary_event` 仍写事件）；⑦ main 1（V 型：
+  `_preload_models_background` 经 `startup_status.record("model_preload",
+  "failed")` 显式记录）。
+
+  闸门 `TestP235Round13Batch20Wiring`（6 条）：location 双向核对 +
+  运行时驱动（正常行/损坏行各一条都入列表，空壳同形失真实证 + 计数器
+  +1）+ 函数级反向钉 9 个 + except 块级精细钉 5 个（_handle_active_alert
+  三个 except 分别钉、escalation 内层计数上传失败、predict_fusion 同函数
+  有 canary_routing_failed 见证接线需 handler 级）+ 裁定前提见证钉
+  （decrypt_field 的 raise 与上游两条接线仍在）+ 文档登记 1 条。
+  桶计数改钉 **W=96 / X=119**。变异四条见
+  `mutate_p2_35_round13_batch20_result.log`。

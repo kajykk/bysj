@@ -409,7 +409,8 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 95,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十八批净 68）
+            "W": 96,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十批净 69：
+                       # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -422,11 +423,13 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 120,  # 真降级留档（第十八批 3 处实记录 X→W：金丝雀检查失败洗白 /
-                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败；
-                        # 故 X 126→123→120、W 89→92→95；总数 334 不变。
-                        # 前两行为第十七/十六批口径：X 126→123、W 89→92；
-                        # X 130→126、W 85→89。）
+            "X": 119,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
+                       # 告警 history detail JSON 解析失败 → 空壳 item 照常入列表；
+                       # 故 X 120→119、W 95→96；总数 334 不变。
+                       # 前序口径：第十八批 3 处 X→W（金丝雀检查失败洗白 /
+                       # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败），
+                       # X 126→123→120、W 89→92→95；
+                       # 第十七批 X 126→123、W 89→92；第十六批 X 130→126、W 85→89。）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -3318,3 +3321,303 @@ class TestP235Round13Batch19Declined:
         # 纯裁定批账实一致：桶计数钉不变（W=95 / X=120）
         counts_doc = "W=95 / X=120" in doc13 or "W 95" in doc13
         assert counts_doc, "第十九批为纯裁定批，累计状态应维持 W=95 / X=120"
+
+
+class TestP235Round13Batch20Wiring:
+    """第十三轮第二十批：#35 X 桶接线 1 处（api.alerts.history_detail_parse_failed）
+    + 14 处不接线裁定（W 95→96 / X 120→119，总数 334 不变）。
+
+    **接线点形状**：`list_alert_history` 逐条解析 OperationLog.detail 的
+    JSON，解析失败 → warning + `detail = {}` → rule/severity/message 全为
+    **空的 item 仍照常 append 进列表**（无 severity 过滤时；有过滤时该条被
+    `continue` 跳过，total 仍计它）。前端告警历史页因此看到一条字段全空的
+    告警记录——与正常记录同形（列表项存在、只是内容空），告警内容静默丢失，
+    从响应形态无法分辨。
+
+    **14 处不接线**（裁定明细见 P2_13「一之二十一」）：
+    - alerts 4（V 型：failed/notify_failed 计数或 return False 显式上报）
+    - pii_crypto 2（V 型：密钥全耗尽时 decrypt_field raise ValueError + error 日志）
+    - escalation 2（M 型：alert_detail_parse_failed_total 专用计数器）
+    - drift 2（V 型 DriftCheckResult(failed=True) / S 型 gauge 自报失败）
+    - model_registry_v2 2（上游已接线的旁路最佳努力 / V 型内存回滚 return None）
+    - fusion 1（M 型指标自身失败，_log_canary_event 仍写事件）
+    - main 1（V 型：startup_status.record("model_preload", "failed") 显式状态）
+    """
+
+    PAIRS = (
+        ("api.alerts.history_detail_parse_failed", "api/v1/alerts/__init__.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_runtime_paths_increment(self):
+        """行为：detail 损坏的行 → 空壳 item 照常入列表（同形失真实证）+
+        计数器 +1。一行正常 + 一行损坏，证明两者在响应里不可分辨。"""
+        import importlib
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+
+        from fastapi import Request
+
+        alerts = importlib.import_module("app.api.v1.alerts")
+
+        loc = self.PAIRS[0][0]
+        before = self._counter_value(loc)
+
+        row_ok = SimpleNamespace(
+            id=1001,
+            detail='{"rule": "high_error_rate", "severity": "P1", "message": "5xx > 5%"}',
+            action_type="alert_fired",
+            operator_id=7,
+            operator_role="counselor",
+            created_at=datetime(2026, 10, 16, 12, 0, 0, tzinfo=timezone.utc),
+        )
+        row_bad = SimpleNamespace(
+            id=1002,
+            detail="{invalid json!!",
+            action_type="alert_fired",
+            operator_id=7,
+            operator_role="counselor",
+            created_at=datetime(2026, 10, 16, 12, 0, 0, tzinfo=timezone.utc),
+        )
+
+        class _FakeResult:
+            def __init__(self, items):  # noqa: ANN001
+                self._items = items
+
+            def scalars(self):  # noqa: ANN201
+                return self
+
+            def all(self):  # noqa: ANN201
+                return self._items
+
+            def scalar_one(self):  # noqa: ANN201
+                return len(self._items)
+
+        class _FakeDB:
+            def __init__(self, rows):  # noqa: ANN001
+                self._rows = rows
+
+            async def execute(self, *_a, **_k):  # noqa: ANN002, ANN202
+                return _FakeResult(self._rows)
+
+        req = Request(
+            {
+                "type": "http",
+                "http_version": "1.1",
+                "method": "GET",
+                "path": "/api/v1/alerts/history",
+                "raw_path": b"/api/v1/alerts/history",
+                "query_string": b"",
+                "headers": [],
+                "client": ("127.0.0.1", 12345),
+            }
+        )
+        resp = await alerts.list_alert_history(
+            request=req,
+            db=_FakeDB([row_ok, row_bad]),
+            _=None,
+            page=1,
+            page_size=50,
+            severity=None,
+            status=None,
+            start_time=None,
+            end_time=None,
+        )
+        data = resp["data"]
+        assert data["total"] == 2, "total 未统计全部行（防假绿：走的不是列表路径）"
+        assert len(data["items"]) == 2, "两条记录都应入列表（同形失真实证）"
+        bad_item = next(i for i in data["items"] if i["id"] == 1002)
+        ok_item = next(i for i in data["items"] if i["id"] == 1001)
+        assert (
+            bad_item["rule"] == ""
+            and bad_item["severity"] == ""
+            and bad_item["message"] == ""
+        ), "损坏行的字段未洗空（防假绿：走的不是 detail={} 路径）"
+        assert ok_item["rule"] == "high_error_rate", "正常行内容异常（对照组失效）"
+        assert self._counter_value(loc) >= before + 1, "detail 解析失败未计数（假接线）"
+
+    @staticmethod
+    def _read(rel: str) -> str:
+        return (BE / rel).read_text(encoding="utf-8-sig")
+
+    def _assert_declined(self, rel: str, funcname: str, anchor: str, reason: str):
+        """反向钉：该函数体不得接线，且必须仍含锚点行为（否则裁定前提漂移）。"""
+        src = self._read(rel)
+        tree = ast.parse(src)
+        seg = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                seg = ast.get_source_segment(src, node)
+                break
+        assert seg is not None, f"{rel} 找不到函数 {funcname}（锚点漂移 = 闸门失效）"
+        assert "record_silent_degradation" not in seg, (
+            f"{rel}::{funcname} 已接线 —— 「{reason}」裁定须重审"
+        )
+        assert anchor in seg, f"{rel}::{funcname} 行为锚点消失（{anchor!r}），闸门失效"
+
+    def _assert_declined_handler(
+        self, rel: str, funcname: str, anchor: str, reason: str, witness: str | None = None
+    ):
+        """except 块级反向钉：AST 定位含锚点的 handler，断言其未接线；
+        witness 为同函数内**其他**已接线路径，必须仍在（精细钉前提）。"""
+        src = self._read(rel)
+        tree = ast.parse(src)
+        func_seg = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                func_seg = ast.get_source_segment(src, node)
+                break
+        assert func_seg is not None, f"{rel} 找不到函数 {funcname}"
+        if witness is not None:
+            assert witness in func_seg, (
+                f"{rel}::{funcname} 的见证接线 {witness} 消失 —— 精细钉前提失效"
+            )
+        hit = False
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body_src = ast.get_source_segment(src, node) or ""
+            if anchor not in body_src:
+                continue
+            hit = True
+            assert "record_silent_degradation" not in body_src, (
+                f"{rel}::{funcname} 目标 except 已接线 —— 「{reason}」裁定须重审"
+            )
+        assert hit, f"{rel}::{funcname} 未找到含锚点 {anchor!r} 的 except（锚点漂移）"
+
+    def test_declined_func_level_not_wired(self):
+        """函数级反向钉：9 个函数体不得接线，且行为锚点必须在。"""
+        # V 型：静默告警持久化失败 → error 日志 + return False（调用方累计 failed）
+        self._assert_declined(
+            "api/v1/alerts/__init__.py", "_handle_silenced_alert", "return False",
+            "静默告警持久化失败显式返回 False（V 型）",
+        )
+        # V 型：旧密钥派生失败 → 跳过该密钥；decrypt_field 密钥全耗尽时
+        # raise ValueError + error 日志（exhausted），失败显式
+        self._assert_declined(
+            "core/pii_crypto.py", "_get_previous_fernets", "Failed to derive previous Fernet key",
+            "旧密钥派生失败的后果是 decrypt_field 显式 raise（V 型）",
+        )
+        self._assert_declined(
+            "core/pii_crypto.py", "_get_previous_aes_gcms", "Failed to derive previous AES-GCM key",
+            "旧密钥派生失败的后果是 decrypt_field 显式 raise（V 型）",
+        )
+        # M 型：detail 解析失败已有 alert_detail_parse_failed_total 专用计数器
+        self._assert_declined(
+            "monitoring/escalation.py", "compute_escalation", "alert_detail_parse_failed_total",
+            "detail 解析失败已有专用计数器（M 型）",
+        )
+        # V 型：单模态检测失败 → DriftCheckResult(failed=True) 显式入结果列表
+        self._assert_declined(
+            "services/drift_monitoring_service.py", "check_all_modalities", "failed=True",
+            "漂移检测失败以 failed=True 显式上报（V 型）",
+        )
+        # S 型：PSI/KL 推送 Gauge 失败只记 debug，且注释明示 failed 模态跳过推送
+        self._assert_declined(
+            "services/drift_monitoring_service.py", "_push_to_gauge", "推送 PSI/KL 到 Gauge 失败",
+            "Gauge 上报失败为指标自身通道（S 型）",
+        )
+        # 上游已接线：_load_registry 对 registry_file_unparsable /
+        # records_dropped 均已计数，旁路失败只是恢复现场的最佳努力
+        self._assert_declined(
+            "core/model_registry_v2.py", "_quarantine_corrupt_file", "无法旁路损坏的注册表文件",
+            "旁路失败上游已计数，且为最佳努力兜底",
+        )
+        # V 型：磁盘写失败 → 内存状态回滚 + return None（调用方显式得知失败）
+        self._assert_declined(
+            "core/model_registry_v2.py", "_promote_model_locked", "Failed to persist model promotion",
+            "晋升持久化失败内存回滚并返回 None（V 型）",
+        )
+        # V 型：后台预加载失败 → startup_status.record("model_preload", "failed")
+        self._assert_declined(
+            "main.py", "_preload_models_background", "Model preload failed in background",
+            "预加载失败经 startup_status 显式记录（V 型）",
+        )
+
+    def test_declined_handler_level_not_wired(self):
+        """except 块级反向钉：同函数多路径分别裁定 / 同函数有其他已接线
+        路径时，必须 AST 定位目标 handler（函数级断言会假红或漏红）。"""
+        # _handle_active_alert 三个 except 分别裁定（去重 fail-open / 持久化失败 /
+        # 通知失败），全部 V 型显式；该函数内无任何已接线路径
+        self._assert_declined_handler(
+            "api/v1/alerts/__init__.py", "_handle_active_alert", "defaulting to send",
+            "去重检查失败注释明示放行 + error 日志（V 型变体）",
+        )
+        self._assert_declined_handler(
+            "api/v1/alerts/__init__.py", "_handle_active_alert", "return 0, 1, 0",
+            "持久化失败计入 failed（V 型）",
+        )
+        self._assert_declined_handler(
+            "api/v1/alerts/__init__.py", "_handle_active_alert", "return 1, 0, 1",
+            "通知失败计入 notify_failed（V 型）",
+        )
+        # escalation 内层：专用计数器的上传失败（观察者的观察者），主信号已在
+        self._assert_declined_handler(
+            "monitoring/escalation.py", "compute_escalation", "告警 detail 解析失败计数上报失败",
+            "专用计数器上传失败不影响升级决策（主信号已在）",
+        )
+        # predict_fusion 同函数内已有 canary_routing_failed 接线（见证），
+        # 目标 except 是指标自增失败（M 型变体：指标自身，主链路无失真）
+        self._assert_declined_handler(
+            "services/model_predict/fusion.py", "predict_fusion",
+            "canary 指标自增失败（不影响推理结果）",
+            "canary 指标自增失败为指标自身通道（M 型变体）",
+            witness="services.model_predict.fusion.canary_routing_failed",
+        )
+
+    def test_declined_premises_still_hold(self):
+        """裁定前提的见证钉：V 型/M 型裁定的依据若消失，裁定须重审。"""
+        # pii_crypto V 型前提：decrypt_field 密钥全耗尽时显式 raise
+        seg = self._read("core/pii_crypto.py")
+        assert 'raise ValueError("PII 解密失败（密钥错误或数据损坏）")' in seg, (
+            "decrypt_field 的显式 raise 消失 —— pii_crypto「V 型不接线」前提失效"
+        )
+        # model_registry_v2 旁路裁定前提：上游两条接线仍在
+        mrv = self._read("core/model_registry_v2.py")
+        for witness in (
+            "core.model_registry_v2.registry_file_unparsable",
+            "core.model_registry_v2.registry_records_dropped",
+        ):
+            assert witness in mrv, f"上游接线 {witness} 消失 —— 旁路「上游已计数」裁定前提失效"
+
+    def test_doc_registered_batch20(self):
+        """文档登记：P2_13「一之二十一」节（结构钉）含 1 接 14 不接关键标识；
+        P2_11 附录含第二十批条目；桶计数改钉 W=96 / X=119。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十一、" in doc13, (
+            "P2_13 缺少第二十批（一之二十一）**节标题**（结构断言：正文提及不算）"
+        )
+        for token in (
+            "api.alerts.history_detail_parse_failed",
+            "api/v1/alerts/__init__.py", "pii_crypto.py", "escalation.py",
+            "drift_monitoring_service.py", "model_registry_v2.py",
+            "fusion.py", "main.py",
+            "_handle_silenced_alert", "_handle_active_alert",
+            "_get_previous_fernets", "_get_previous_aes_gcms",
+            "compute_escalation", "check_all_modalities", "_push_to_gauge",
+            "_quarantine_corrupt_file", "_promote_model_locked",
+            "predict_fusion", "_preload_models_background",
+            "V 型", "M 型", "S 型",
+        ):
+            assert token in doc13, f"P2_13 第二十批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十批" in doc11, "P2_11 附录缺少第二十批条目"
+        for token in ("api/v1/alerts", "pii_crypto", "escalation", "drift_monitoring", "model_registry_v2"):
+            assert token in doc11, f"P2_11 附录第二十批条目缺少文件名: {token}"
+        counts_doc = "W=96 / X=119" in doc13 or "W 96" in doc13
+        assert counts_doc, "第二十批接线 1 处，累计状态应改钉 W=96 / X=119"
