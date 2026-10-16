@@ -409,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 89,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十六批净 62）
+            "W": 92,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前十七批净 65）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
@@ -422,11 +422,11 @@ class TestP235SilentDegradationRatchet:
             "G": 8,    # fail-closed 安全
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 126,  # 真降级留档（第十六批 4 处实记录 X→W：ws 本进程投递失败 /
-                        # ws 订阅消息处理失败 / 影子推理器不可用 / 影子对拍异常；
-                        # 故 X 130→126、W 85→89；总数 334 不变。
-                        # 前一行起为第十五批口径：X 133→130、W 82→85；
-                        # 再前一批：X 142→137、W 73→78。）
+            "X": 123,  # 真降级留档（第十七批 3 处实记录 X→W：健康监控快照刷新失败 /
+                        # HTTP 指标记录失败 / 自动回退检查失败；
+                        # 故 X 126→123、W 89→92；总数 334 不变。
+                        # 前一行起为第十六批口径：X 130→126、W 85→89；
+                        # 再前一批：X 133→130、W 82→85。）
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -2674,4 +2674,232 @@ class TestP235Round13Batch16Wiring:
         assert '"core.event_bus.publish"' in src, (
             "底层 event_bus.publish 接线消失 —— risk_service_warning "
             "「防御层不接线」裁定须重审"
+        )
+
+
+class TestP235Round13Batch17Wiring:
+    """第十三轮第十七批：#35 X 桶 3 处接线（健康监控刷新 / HTTP 指标记录 /
+    自动回退检查）+ 12 处不接线裁定。
+
+    三处接线的共同形状：**失效发生后，主链路对外形态与正常态完全同形**：
+
+    - `core.health.monitor_refresh_failed`：`_health_monitor_loop` 快照刷新
+      失败 → 缓存留旧值，`/health/ready` 仍以 200 + 陈旧快照应答，K8s 探针
+      与调用方无从得知健康数据已停止更新（守护对象实际可能已故障）。
+    - `core.middlewares.http_metrics_record_failed`：`metrics_middleware`
+      finally 里 `http_requests_total.inc` 失败 → 请求本身照常返回，但 HTTP
+      请求量/时延数据出现缺口，SLO 可用性统计静默偏乐观。
+    - `services.registry_auto_rollback.check_failed`：`_rollback_loop` 里
+      `check_auto_rollback` 失败 → 循环静默续跑，自动回退监控形同停摆，
+      回退率超阈值的高风险训练产物继续滞留 PRODUCTION 服务推理，而任何
+      调用方都看到系统「正常运行」。
+
+    本批**不接线** 12 处裁定见 P2_13「一之十八」，代表类型：
+    hyperparameter_tuning 缓存读写失败（结果正确、仅断点续跑失效的性能降级）、
+    pdf_report 两处（success=False + error_message 的 V 型显式失败）、
+    instance.get_instance_id（降级值 "unknown-<pid>" 形态可辨）、
+    tasks/observability（返回 False → 上层 retry + FAILURE 事件）、
+    model_loader/scaler（F 型 fallback，路径不存在时后续加载可见地报错）、
+    model_validation（degenerate 计数随返回值暴露）、
+    email_service（C 型清理路径低价值）、text_tokenizer（仅日志级别无失真）、
+    review_service.create_review_task（底层 event_bus.publish 已接线的重复层）。
+    """
+
+    PAIRS = (
+        ("core.health.monitor_refresh_failed", "core/health.py"),
+        ("core.middlewares.http_metrics_record_failed", "core/middlewares.py"),
+        ("services.registry_auto_rollback.check_failed", "services/registry_auto_rollback.py"),
+    )
+
+    def test_locations_wired_in_code_and_doc(self):
+        doc = AUDIT.read_text(encoding="utf-8")
+        for loc, rel in self.PAIRS:
+            src = (BE / rel).read_text(encoding="utf-8-sig")
+            assert f'"{loc}"' in src, f"{rel} 未接线（源码找不到 location 字面量）: {loc}"
+            assert loc in doc, f"接线点 {loc} 未登记进审计文档"
+
+    @staticmethod
+    def _counter_value(location: str) -> float:
+        from app.core.metrics import silent_degradation_total
+
+        for labels, value in silent_degradation_total.collect():
+            if labels.get("location") == location:
+                return value
+        return 0.0
+
+    async def test_runtime_paths_increment(self, monkeypatch):
+        """行为：三条可驱动的路径各触发一次 → 对应计数器各 +1。
+
+        每条都带防假绿断言（probe 必须真的被调用 / 假计数器必须真的被调用），
+        避免「计数来自别处」的假绿。
+        """
+        import asyncio
+        import importlib
+        from types import SimpleNamespace
+
+        from fastapi import Request
+        from starlette.responses import Response
+
+        health = importlib.import_module("app.core.health")
+        mid = importlib.import_module("app.core.middlewares")
+        rar = importlib.import_module("app.services.registry_auto_rollback")
+
+        locs = tuple(loc for loc, _ in self.PAIRS)
+        before = {loc: self._counter_value(loc) for loc in locs}
+
+        # ① 健康监控刷新失败：get_health_snapshot 必炸 + 间隔压到 0
+        probe_calls = {"n": 0}
+
+        async def _boom_snapshot(*_a, **_k):  # noqa: ANN002, ANN202
+            probe_calls["n"] += 1
+            raise RuntimeError("probe: health snapshot boom")
+
+        monkeypatch.setattr(health, "get_health_snapshot", _boom_snapshot)
+        monkeypatch.setattr(health, "HEALTH_MONITOR_INTERVAL_SECONDS", 0)
+        task = asyncio.create_task(health._health_monitor_loop(None, "redis://probe"))
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if self._counter_value(locs[0]) > before[locs[0]]:
+                break
+        assert probe_calls["n"] >= 1, "get_health_snapshot 未被调用（假绿）"
+        assert self._counter_value(locs[0]) >= before[locs[0]] + 1, (
+            "健康监控刷新失败未计数（假接线）"
+        )
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+        # ② HTTP 指标记录失败：inc 必炸 + 假计数器必须被真的调用过
+        inc_calls = {"n": 0}
+
+        class _BoomCounter:
+            def inc(self, *_a, **_k):  # noqa: ANN002, ANN003, ANN201
+                inc_calls["n"] += 1
+                raise RuntimeError("probe: metrics inc boom")
+
+        monkeypatch.setattr(mid, "http_requests_total", _BoomCounter())
+        req = Request(
+            {
+                "type": "http",
+                "http_version": "1.1",
+                "method": "GET",
+                "path": "/probe-b17",
+                "raw_path": b"/probe-b17",
+                "query_string": b"",
+                "headers": [],
+            }
+        )
+
+        async def _call_next(_request):  # noqa: ANN001, ANN201
+            return Response(status_code=200)
+
+        resp = await mid.metrics_middleware(req, _call_next)
+        assert resp.status_code == 200, "中间件未把正常响应交还调用方（形态失真）"
+        assert inc_calls["n"] >= 1, "http_requests_total.inc 未被调用（假绿）"
+        assert self._counter_value(locs[1]) == before[locs[1]] + 1, (
+            "HTTP 指标记录失败未计数（假接线）"
+        )
+
+        # ③ 自动回退检查失败：check_auto_rollback 必炸 + settings 间隔压到 0
+        check_calls = {"n": 0}
+
+        def _boom_check():  # noqa: ANN202
+            check_calls["n"] += 1
+            raise RuntimeError("probe: auto-rollback check boom")
+
+        monkeypatch.setattr(rar, "check_auto_rollback", _boom_check)
+        monkeypatch.setattr(
+            rar,
+            "settings",
+            SimpleNamespace(registry_auto_rollback_enabled=True, registry_auto_rollback_interval=0),
+        )
+        task2 = asyncio.create_task(rar._rollback_loop())
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if self._counter_value(locs[2]) > before[locs[2]]:
+                break
+        assert check_calls["n"] >= 1, "check_auto_rollback 未被调用（假绿）"
+        assert self._counter_value(locs[2]) >= before[locs[2]] + 1, (
+            "自动回退检查失败未计数（假接线）"
+        )
+        task2.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task2
+
+    @staticmethod
+    def _func_source(rel: str, funcname: str) -> str:
+        tree = ast.parse((BE / rel).read_text(encoding="utf-8-sig"))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
+                seg = ast.get_source_segment((BE / rel).read_text(encoding="utf-8-sig"), node)
+                assert seg is not None, f"{rel}::{funcname} 取不到源码片段"
+                return seg
+        raise AssertionError(f"{rel} 找不到函数 {funcname}（锚点漂移 = 闸门失效）")
+
+    def _assert_declined(self, rel: str, funcname: str, anchor: str, reason: str):
+        """反向钉：该函数体不得接线，且必须仍含锚点行为（否则裁定前提漂移）。"""
+        seg = self._func_source(rel, funcname)
+        assert "record_silent_degradation" not in seg, (
+            f"{rel}::{funcname} 已接线 —— 「{reason}」裁定须重审"
+        )
+        assert anchor in seg, f"{rel}::{funcname} 行为锚点消失（{anchor!r}），闸门失效"
+
+    def test_declined_no_distortion_batch17(self):
+        """12 处不接线裁定的反向钉（逐一锚定行为 + 断言未接线）。"""
+        # 性能降级无失真：缓存读/写失败 → 结果正确，仅断点续跑失效
+        self._assert_declined(
+            "ml/hyperparameter_tuning.py", "_load_tuning_cache", "starting fresh",
+            "缓存读失败无结果失真（性能降级）",
+        )
+        self._assert_declined(
+            "ml/hyperparameter_tuning.py", "_append_tuning_cache", "Failed to persist tuning cache",
+            "缓存写失败无结果失真（性能降级）",
+        )
+        # V 型显式失败：success=False + error_message
+        self._assert_declined(
+            "services/pdf_report_service.py", "generate_pdf", "success=False",
+            "PDF 生成失败显式上报（V 型）",
+        )
+        self._assert_declined(
+            "services/pdf_report_service.py", "generate_pdf_stream", "success=False",
+            "PDF 流式生成失败显式上报（V 型）",
+        )
+        # 降级值形态可辨："unknown" 前缀 + 已有 warning
+        self._assert_declined(
+            "core/instance.py", "get_instance_id", '"unknown"',
+            "实例标识降级值形态可辨",
+        )
+        # V 型：返回 False → 上层 retry + FAILURE 事件
+        self._assert_declined(
+            "tasks/observability.py", "_flush_lock_stats_impl", "return False",
+            "flush 失败显式返回 False 交由上层重试",
+        )
+        # F 型保守 fallback：解析失败回退路径，路径不存在时后续加载可见报错
+        self._assert_declined(
+            "ml/model_loader.py", "_resolve_artifacts_dir", "fallback to default",
+            "工件目录解析 fallback（失败后续可见）",
+        )
+        self._assert_declined(
+            "ml/scaler.py", "__getattr__", "_LEGACY_ARTIFACTS_DIR",
+            "scaler 工件路径 fallback（失败后续可见）",
+        )
+        # 可辨信号：degenerate 计数随返回值暴露
+        self._assert_declined(
+            "ml/model_validation.py", "_bootstrap_auc_ci_with_count", "degenerate_samples += 1",
+            "bootstrap 退化样本计数随返回值暴露",
+        )
+        # C 型清理路径低价值：连接已置空不重用，quit 失败仅残留到超时
+        self._assert_declined(
+            "services/email_service.py", "_close_thread_smtp", "SMTP quit() 失败",
+            "SMTP 连接清理失败低价值（C 型）",
+        )
+        # 无失真：旧版 jieba 无 setLogLevel，仅日志级别差异
+        self._assert_declined(
+            "core/text_tokenizer.py", "_get_jieba", "pass",
+            "jieba setLogLevel 缺失仅影响日志级别",
+        )
+        # 重复层：底层 event_bus.publish 已接线（Batch16 反向钉覆盖底层）
+        self._assert_declined(
+            "services/review_service.py", "create_review_task", "review.submitted",
+            "EventBus 发布失败底层已接线（防御性重复层）",
         )

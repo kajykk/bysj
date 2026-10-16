@@ -888,3 +888,28 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   tenant_guard 的 `continue` 形状与生产无调用方 + event_bus 底层接线
   仍在）。桶计数改钉 **W=89 / X=126**。变异三条见
   `mutate_p2_35_round13_batch16_result.log`。
+
+- **第十三轮第十七批（X 126→123，W 89→92，总数 334 不变）**：3 处实记录
+  X→W。① `core.health.monitor_refresh_failed`（`_health_monitor_loop`
+  快照刷新失败 → 缓存留旧值，`/health/ready` 仍以 200 + 陈旧快照应答，
+  探针无从得知健康数据已停更）；② `core.middlewares.http_metrics_record_failed`
+  （`metrics_middleware` finally 里 `http_requests_total.inc` 失败 → 请求
+  照常返回，SLO 可用性数据静默缺口）；③
+  `services.registry_auto_rollback.check_failed`（`_rollback_loop` 检查
+  失败 → 循环静默续跑，自动回退监控形同停摆，超阈值危险产物滞留
+  PRODUCTION）。同批裁定不接线 12 处：`hyperparameter_tuning` 缓存读/写
+  失败（结果正确、仅断点续跑失效的性能降级）、`pdf_report_service` 两处
+  （success=False + error_message 的 V 型显式失败）、`instance.get_instance_id`
+  （降级值 "unknown-<pid>" 形态可辨）、`tasks/observability._flush_lock_stats_impl`
+  （返回 False → 上层 retry + FAILURE 事件）、`ml/model_loader._resolve_artifacts_dir`
+  与 `ml/scaler.__getattr__`（F 型 fallback，路径不存在时后续加载可见报错）、
+  `ml/model_validation._bootstrap_auc_ci_with_count`（degenerate 计数随返回值
+  暴露）、`email_service._close_thread_smtp`（C 型清理低价值）、
+  `text_tokenizer._get_jieba`（仅日志级别无失真）、`review_service.create_review_task`
+  （底层 event_bus.publish 已接线的防御性重复层）。
+
+  闸门 `TestP235Round13Batch17Wiring`（3 条）：3 对 location 双向核对 +
+  一次运行时覆盖三条路径（各带防假绿断言：快照 probe 确被调用、假计数器
+  inc 确被调用且响应仍 200 交还、check probe 确被调用）+ 一条反向钉
+  （12 个行为锚点逐一「未接线 + 锚点仍在」）。桶计数改钉
+  **W=92 / X=123**。变异三条见 `mutate_p2_35_round13_batch17_result.log`。

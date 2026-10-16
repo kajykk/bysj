@@ -113,6 +113,10 @@ async def metrics_middleware(request: Request, call_next: Callable[[Request], Aw
                 http_requests_total.inc(method=method, path=path_template, status=status)
                 http_request_duration_seconds.observe(duration, method=method, path=path_template)
             except Exception as exc:
+                # P2-35: 指标记录失败不影响请求本身（调用方照常拿到正常响应），
+                # 但 HTTP 请求量/时延数据出现缺口，SLO 可用性统计静默偏乐观 ——
+                # 静默降级，记入 silent_degradation_total。
+                record_silent_degradation("core.middlewares.http_metrics_record_failed")
                 # P1-E 修复：HTTP 指标记录失败必须记录日志，便于发现指标系统异常
                 logger.warning(
                     "HTTP metrics recording failed for %s %s: %s",

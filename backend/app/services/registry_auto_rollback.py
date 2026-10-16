@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from app.core.config import settings
+from app.core.degradation import record_silent_degradation
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -100,6 +101,10 @@ async def _rollback_loop() -> None:
             if settings.registry_auto_rollback_enabled:
                 check_auto_rollback()
         except Exception as exc:
+            # P2-35: 检查失败时循环静默续跑，自动回退监控形同停摆 —— 回退率超阈值
+            # 的危险训练产物继续滞留 PRODUCTION 服务推理，而任何调用方都看到系统
+            # 「正常运行」—— 静默降级，记入 silent_degradation_total。
+            record_silent_degradation("services.registry_auto_rollback.check_failed")
             logger.error("auto-rollback: check failed: %s", exc, exc_info=True)
         await asyncio.sleep(int(settings.registry_auto_rollback_interval))
 

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.concurrency import run_in_threadpool
 
 from app.core.celery_app import celery_app
+from app.core.degradation import record_silent_degradation
 
 # P1-E 修复：添加 logger 记录健康检查失败原因，便于运维定位问题
 logger = logging.getLogger(__name__)
@@ -323,6 +324,10 @@ async def _health_monitor_loop(engine: AsyncEngine, redis_url: str) -> None:
             # 应用关闭时正常退出
             raise
         except Exception:
+            # P2-35: 快照刷新失败时缓存留旧值，/health/ready 仍以 200 + 陈旧快照
+            # 应答，探针与调用方无从得知健康数据已停止更新（守护对象实际可能已
+            # 故障）—— 静默降级，记入 silent_degradation_total。
+            record_silent_degradation("core.health.monitor_refresh_failed")
             logger.warning("Health monitor refresh failed", exc_info=True)
         await asyncio.sleep(HEALTH_MONITOR_INTERVAL_SECONDS)
 

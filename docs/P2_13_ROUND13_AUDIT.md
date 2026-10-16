@@ -912,6 +912,69 @@ import 烟测（名字绑定验证，非只查语法）。
 
 ---
 
+## 一之十八、#35 X 桶第十七批：3 处接线（X 126 → 123，跨三文件）+ 12 处不接线
+
+1. **接线 3 处**（X 126→123，W 89→92，总数 334 不变）——共同形状是
+   **失效发生后，主链路对外形态与正常态完全同形**：
+
+   | location | 文件 | 降级形状 |
+   |---|---|---|
+   | `core.health.monitor_refresh_failed` | `core/health.py` | `_health_monitor_loop` 快照刷新失败 → 缓存留旧值，`/health/ready` 仍以 200 + 陈旧快照应答；K8s 探针与调用方无从得知健康数据已停止更新（守护对象实际可能已故障） |
+   | `core.middlewares.http_metrics_record_failed` | `core/middlewares.py` | `metrics_middleware` finally 里 `http_requests_total.inc` 失败 → 请求本身照常返回，但 HTTP 请求量/时延数据出现缺口，SLO 可用性统计静默偏乐观 |
+   | `services.registry_auto_rollback.check_failed` | `services/registry_auto_rollback.py` | `_rollback_loop` 里 `check_auto_rollback` 失败 → 循环静默续跑，自动回退监控形同停摆；回退率超阈值的高风险训练产物继续滞留 PRODUCTION 服务推理，而任何调用方都看到系统「正常运行」 |
+
+   `core/health.py` 与 `services/registry_auto_rollback.py` 新增
+   `from app.core.degradation import record_silent_degradation`（import 烟测
+   验证名字绑定）；`core/middlewares.py` 复用既有 import（本文件 L281 已有
+   `core.middlewares.error_sanitizer` 一处）。
+
+2. **裁定不接线 12 处**（留 X 桶，逐一书面记账）：
+   ① `hyperparameter_tuning._load_tuning_cache` / `_append_tuning_cache`
+   缓存读/写失败——结果正确，仅断点续跑失效，属无失真的性能降级
+   （同 `status.py` 缓存写口径）；② `pdf_report_service.generate_pdf` /
+   `generate_pdf_stream` 异常分支——`success=False + error_message`
+   显式失败（V 型，同 `excel_export_service` 第十五批口径）；
+   ③ `instance.get_instance_id`——降级值 "unknown-<pid>" 形态可辨且已有
+   warning；④ `tasks/observability._flush_lock_stats_impl`——返回 False
+   交由上层 retry，MaxRetriesExceeded 时 raise 产生 FAILURE 事件（V 型）；
+   ⑤ `ml/model_loader._resolve_artifacts_dir` / `ml/scaler.__getattr__`——
+   F 型保守 fallback，回退路径不存在时后续加载可见地抛
+   FileNotFoundError；⑥ `ml/model_validation._bootstrap_auc_ci_with_count`
+   bootstrap 退化样本——`degenerate_samples` 随返回值暴露 + warning，
+   信号可辨；⑦ `email_service._close_thread_smtp`——quit() 失败仅连接
+   残留到超时，conn 已置空不重用，C 型清理低价值；
+   ⑧ `text_tokenizer._get_jieba`——旧版 jieba 无 setLogLevel，仅日志级别
+   差异，无功能失真；⑨ `review_service.create_review_task` 事件发布
+   防御层——底层 `core.event_bus.publish` 已接线且队列满不向上抛，
+   本层为重复层（第十六批同口径）。
+
+3. **闸门**：新增 `TestP235Round13Batch17Wiring`（3 条）——3 对 location
+   源码 + 文档双向断言；一次运行时覆盖三条路径（health 循环驱动、
+   middlewares 假 Request + 假计数器、rar 循环驱动，各带防假绿断言：
+   probe 确被调用 / inc 确被调用且响应仍以 200 交还 / check 确被调用）；
+   一条反向钉 `test_declined_no_distortion_batch17` 对 12 处不接线裁定
+   逐一「函数体未接线 + 行为锚点仍在」双断言。
+4. **桶计数改钉**：**W=92 / X=123**（3 处实记录 X→W，无桶间迁移；棘轮
+   测试实跑通过 = 扫描器现场重算与改钉一致）。
+5. **实测读数**：六闸门本地单跑 **166 passed**（唯一失败为文档登记，
+   本文档落盘后转绿；不得并发双跑）。affected 两组共 **1071 passed /
+   10 skipped**（ml 全家 / pdf_report / observability / auto_rollback /
+   celery×2 / health×3 / middlewares×2 / email / fault_injection /
+   instance / review / security 等 47 文件）；其中
+   `test_importlinter_config.py::test_lint_imports_passes` 1 条失败为
+   **本机环境缺失**（venv 未装 import-linter，`lint-imports` 命令不存在），
+   与本批无关——契约方向已手工核对：唯一 forbidden 契约为
+   `app.core → app.ml/services`，本批两处新 import（health→core.degradation、
+   services.registry_auto_rollback→core.degradation）均不违约，且
+   services→core.degradation 同模式已在 `shadow_mode_service` 等多处存在。
+6. **全称注释棘轮**：新增注释经检测器复核零命中，维持 100，不动闸门。
+7. **变异三条**（删 health 接线 / 改 middlewares location 字面量 / 删 P2_11
+   附录登记行）见 `mutate_p2_35_round13_batch17_result.log`。
+8. **未验证如实记账**：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+   由 CI `backend-coverage` 兜底；前端未触及。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -947,8 +1010,10 @@ import 烟测（名字绑定验证，非只查语法）。
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（十六批）：当前棘轮
-   **W=89 / X=126 / P=15**（总数 334 不变）。
+0. **本轮累计状态**（十七批）：当前棘轮
+   **W=92 / X=123 / P=15**（总数 334 不变）。
+   第十七批增量：W +3 / X -3（3 处实记录 X→W：健康监控快照刷新失败 /
+   HTTP 指标记录失败 / 自动回退检查失败；另裁定不接线 12 处，留 X 桶）；
    第十六批增量：W +4 / X -4（4 处实记录 X→W：ws 本进程投递失败 /
    ws 订阅消息处理失败 / 影子推理器不可用 / 影子对拍异常；
    另裁定不接线 9 处，留 X 桶）；

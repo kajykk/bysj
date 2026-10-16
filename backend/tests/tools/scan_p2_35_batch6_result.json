@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 87,
+  "real_wired": 90,
   "import_probe": 16,
   "real_list": [
     {
@@ -693,7 +693,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 56,
+      "line": 57,
       "handled": [
         "Exception"
       ],
@@ -703,7 +703,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 84,
+      "line": 85,
       "handled": [
         "TimeoutError"
       ],
@@ -713,7 +713,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 88,
+      "line": 89,
       "handled": [
         "Exception"
       ],
@@ -723,7 +723,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 129,
+      "line": 130,
       "handled": [
         "TimeoutError"
       ],
@@ -733,7 +733,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 135,
+      "line": 136,
       "handled": [
         "Exception"
       ],
@@ -743,7 +743,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 172,
+      "line": 173,
       "handled": [
         "Exception"
       ],
@@ -753,7 +753,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 370,
+      "line": 375,
       "handled": [
         "CancelledError"
       ],
@@ -763,11 +763,11 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 325,
+      "line": 326,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -863,7 +863,7 @@
     },
     {
       "file": "app/core/middlewares.py",
-      "line": 277,
+      "line": 281,
       "handled": [
         "Exception"
       ],
@@ -877,7 +877,7 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -2688,7 +2688,7 @@
     },
     {
       "file": "app/services/registry_auto_rollback.py",
-      "line": 131,
+      "line": 136,
       "handled": [
         "CancelledError"
       ],
@@ -2698,7 +2698,7 @@
     },
     {
       "file": "app/services/registry_auto_rollback.py",
-      "line": 133,
+      "line": 138,
       "handled": [
         "Exception"
       ],
@@ -2708,11 +2708,11 @@
     },
     {
       "file": "app/services/registry_auto_rollback.py",
-      "line": 102,
+      "line": 103,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

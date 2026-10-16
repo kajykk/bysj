@@ -1,7 +1,7 @@
 {
   "counts": {
-    "X": 126,
-    "W": 89,
+    "X": 123,
+    "W": 92,
     "G": 8,
     "S": 36,
     "D": 22,
@@ -637,7 +637,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 56,
+      "line": 57,
       "func": "check_database",
       "handled": [
         "Exception"
@@ -646,7 +646,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 84,
+      "line": 85,
       "func": "check_redis",
       "handled": [
         "TimeoutError"
@@ -655,7 +655,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 88,
+      "line": 89,
       "func": "check_redis",
       "handled": [
         "Exception"
@@ -664,7 +664,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 129,
+      "line": 130,
       "func": "check_celery_worker",
       "handled": [
         "TimeoutError"
@@ -673,7 +673,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 135,
+      "line": 136,
       "func": "check_celery_worker",
       "handled": [
         "Exception"
@@ -682,7 +682,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 172,
+      "line": 173,
       "func": "check_models",
       "handled": [
         "Exception"
@@ -691,7 +691,7 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 370,
+      "line": 375,
       "func": "stop_health_monitor",
       "handled": [
         "CancelledError"
@@ -700,12 +700,12 @@
     },
     {
       "file": "app/core/health.py",
-      "line": 325,
+      "line": 326,
       "func": "_health_monitor_loop",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/idempotency.py",
@@ -790,7 +790,7 @@
     },
     {
       "file": "app/core/middlewares.py",
-      "line": 277,
+      "line": 281,
       "func": "error_sanitizer_middleware",
       "handled": [
         "Exception"
@@ -804,7 +804,7 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/model_engine/fallback.py",
@@ -2435,7 +2435,7 @@
     },
     {
       "file": "app/services/registry_auto_rollback.py",
-      "line": 131,
+      "line": 136,
       "func": "stop_auto_rollback_monitor",
       "handled": [
         "CancelledError"
@@ -2444,7 +2444,7 @@
     },
     {
       "file": "app/services/registry_auto_rollback.py",
-      "line": 133,
+      "line": 138,
       "func": "stop_auto_rollback_monitor",
       "handled": [
         "Exception"
@@ -2453,12 +2453,12 @@
     },
     {
       "file": "app/services/registry_auto_rollback.py",
-      "line": 102,
+      "line": 103,
       "func": "_rollback_loop",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/review_service.py",
