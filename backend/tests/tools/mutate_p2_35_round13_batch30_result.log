@@ -2,27 +2,27 @@
 P2-35 第三十批变异验证（第二十九批 CI 红事故复盘）
 ========================================================================
   [baseline] 变异前闸门应为绿…
-    gate: 16 passed, 4 warnings in 5.04s
+    gate: 17 passed, 4 warnings in 4.81s
   [baseline] GREEN-OK
   [M1 把 _instrument_fastapi 提到成功标记之前] 变异注入…
-    gate: 1 failed, 15 passed, 4 warnings in 5.52s
+    gate: 1 failed, 16 passed, 4 warnings in 5.48s
   [M1 把 _instrument_fastapi 提到成功标记之前] RED-OK（returncode=1）
-    gate: 16 passed, 4 warnings in 5.15s
+    gate: 17 passed, 4 warnings in 4.86s
   [M1 把 _instrument_fastapi 提到成功标记之前] GREEN-OK（还原后 returncode=0）
   [M2 删 instrument_app 的 _otel_initialized 闸门] 变异注入…
-    gate: 3 failed, 13 passed, 4 warnings in 5.94s
+    gate: 3 failed, 14 passed, 4 warnings in 5.58s
   [M2 删 instrument_app 的 _otel_initialized 闸门] RED-OK（returncode=1）
-    gate: 16 passed, 4 warnings in 5.00s
+    gate: 17 passed, 4 warnings in 4.86s
   [M2 删 instrument_app 的 _otel_initialized 闸门] GREEN-OK（还原后 returncode=0）
   [M3 把依赖门收紧为同时查 sdk] 变异注入…
-    gate: 5 failed, 11 passed, 4 warnings in 6.06s
+    gate: 6 failed, 11 passed, 4 warnings in 6.11s
   [M3 把依赖门收紧为同时查 sdk] RED-OK（returncode=1）
-    gate: 16 passed, 4 warnings in 5.05s
+    gate: 17 passed, 4 warnings in 4.79s
   [M3 把依赖门收紧为同时查 sdk] GREEN-OK（还原后 returncode=0）
   [M4 绕过空 endpoint 的提前 return] 变异注入…
-    gate: 3 failed, 13 passed, 4 warnings in 5.68s
+    gate: 3 failed, 14 passed, 4 warnings in 5.64s
   [M4 绕过空 endpoint 的提前 return] RED-OK（returncode=1）
-    gate: 16 passed, 4 warnings in 4.98s
+    gate: 17 passed, 4 warnings in 4.85s
   [M4 绕过空 endpoint 的提前 return] GREEN-OK（还原后 returncode=0）
 ========================================================================
 四条变异全部 RED-OK / GREEN-OK

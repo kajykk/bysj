@@ -1,0 +1,23 @@
+========================================================================
+第三十一批：CI 等价环境下自验证整批闸门（查残留环境依赖断言）
+========================================================================
+[sanity] 注入后 _check_otel_available() = True
+[sanity]   opentelemetry.sdk.trace → ImportError（与 CI 一致）
+[sanity]   opentelemetry.exporter.otlp.proto.grpc.trace_exporter → ImportError（与 CI 一致）
+[sanity]   opentelemetry.instrumentation.fastapi → ImportError（与 CI 一致）
+
+[A] 本机默认环境（本机 venv 未装 opentelemetry）…
+    rc=0 :: 17 passed, 4 warnings in 4.80s
+
+[B] CI 等价环境（注入命名空间包形态的 opentelemetry）…
+    rc=0 :: 17 passed, 4 warnings in 4.82s
+
+[C] 反向验证：临时制造一个环境依赖断言，闸门必须在 B 下变红
+    [C] 注入 PROBE-ENVDEP 环境依赖断言…
+    rc=1 :: 1 failed, 16 passed, 4 warnings in 5.46s
+    [C] OK：CI 等价环境能识别环境依赖断言（B 的结论因此可信）
+
+[D] 还原后复跑：rc=0 :: 17 passed, 4 warnings in 4.85s
+========================================================================
+整批闸门在两种环境下均绿，且环境探针本身有效 ⇒ 无残留环境依赖断言
+========================================================================

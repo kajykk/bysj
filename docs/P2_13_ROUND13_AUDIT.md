@@ -2047,6 +2047,105 @@ M1 只打 1 红这一点很有说服力：新加的顺序钉**精确命中**且�
 
 ---
 
+> 🔺 **本节的 E3 结论在第三十二批被加上条件前提**（L133 的可达性依赖交付形态
+> 下顶层包可导入，非无条件成立），修正见「一之三十二」。
+
+---
+
+## 一之三十二、#35 第三十一批：第三十批 CI 红事故复盘（同一纪律在同一批里被违反两次，W=97 / X=119 不变）
+
+### 1. 事故：修完 E2 的当批，E5 又红了
+
+HEAD `b1d4493` 的 CI：`backend-coverage` **failure**（**1 failed / 6904 passed /
+68 skipped**，848s），唯一红项是**本批新增**的
+`test_instrument_app_and_shutdown_gated_by_initialized_flag`：
+
+```
+AssertionError: _otel_initialized=True 时仍无日志 ⇒ 闸门反证不成立，
+L203/L205/L228 的可达性判据需重估
+```
+
+### 2. 根因：同一条纪律在同一批测试里被违反两次
+
+我上一节刚把 E2 从「断言本机环境」改成「在 tempdir 造交付形态」，紧接着在 E5
+里又写回了「环境状态」——用「`_otel_initialized=True` 时日志数 > 0」反证闸门生效：
+
+| 环境 | `from opentelemetry import trace` | 走哪个分支 | 日志数 |
+|---|---|---|---|
+| 本机 venv（未装 otel） | **失败**（ImportError） | `except Exception` → warning | **1** |
+| CI（api 经 fastapi 已装） | **成功** | `hasattr(provider,"shutdown")`；`ProxyTracerProvider` 无 `shutdown` ⇒ 整个 `if` 跳过 | **0** |
+
+⇒ 本机绿、CI 红。**「我刚立完的纪律，在下一条测试里就违反」本身就是一个信号**：
+说明这条纪律没有被**机制**兜住，只停留在文字层面。
+
+### 3. 修法一：反证改用**探针调用计数**（与包是否安装无关）
+
+不再数日志，改为自造 `opentelemetry` 包并让 `trace.get_tracer_provider()` 记录
+被调用次数：
+- 闸门生效 ⇒ `_otel_initialized=False` 时 provider **一次都不该被取**；
+- 反证 ⇒ 置 `True` 后 **必须被取**（证明上面不是假通过）。
+
+两条在「装了 otel」和「没装 otel」的机器上都成立。
+
+### 4. 修法二：把「CI 装了 otel」变成本机可复现（防再犯的机制）
+
+新增 `tests/tools/probe_p2_35_batch31_ci_env.py`：把 fake `opentelemetry`
+装进 `PYTHONPATH`，让 pytest **进程启动起**就认为 otel 可导入，跑整批闸门四轮：
+
+| 轮 | 环境 | 结果 |
+|---|---|---|
+| A | 本机默认（未装 otel） | **17 passed** |
+| B | CI 等价（注入命名空间包形态的 otel） | **17 passed** |
+| C | B + **故意注入一条环境依赖断言** | **1 failed** ← 证明该环境**真能识别**环境依赖断言 |
+| D | 还原后 | **17 passed** |
+
+C 轮是关键：没有它，「B 全绿」可能只是探针失真。**反向验证让结论可信。**
+
+### 5. 附带发现（裁定层面）：「L133 可达」是**条件结论**，不是无条件结论
+
+双形态实测（新测试 `test_reachability_conclusions_hold_in_both_env_shapes` 自身
+输出即证据）：
+
+| 形态 | 依赖门 | 空 endpoint | 配 endpoint 后命中 L133？ |
+|---|---|---|---|
+| A：opentelemetry 完全不可导入 | `False` | `False` | **否**（走 L71 提前 return，进不去 L133） |
+| B：顶层包可导入、sdk/exporter 全缺（**交付形态**） | `True` | `False` | **是** |
+
+⇒ 第三十批那句「L133 可达（V 型）」**以交付形态为前提**。前提已由
+`test_otel_dependency_not_delivered` 钉住（lock 里 `opentelemetry-api==1.45.0`
+的 `# via` 是 `fastapi` ⇒ 顶层包必然可导入）。若后续 fastapi 版本变更把 api
+移出依赖闭包，L133 将退化为不可达 ⇒ 该测试形态 B 段会红，裁定需据实重估。
+
+**由此新增一条纪律**：可达性结论若依赖依赖形态，**必须把那个形态钉成断言的
+前提**，并在文档里写明它是条件结论。
+
+### 6. 修法三：形态 A 的构造也不能用 `sys.path` 过滤
+
+初版形态 A 用「从 `sys.path` 里过滤掉 `site-packages`」来屏蔽 otel，自验证时
+**B 轮立刻红**——那样只能屏蔽装在 site-packages 的包，屏蔽不了 `PYTHONPATH`
+注入的（CI 仿真正是这么注入的）。改用 `sys.meta_path` 拦截器抛 `ImportError`，
+与安装位置无关。
+
+### 7. 闸门与读数
+
+- 闸门 `TestP235Round13Batch29Declined` 16 → **17 条**（新增
+  `test_reachability_conclusions_hold_in_both_env_shapes`）。
+- 变异四条重跑全RED-OK/GREEN-OK：M1 → 1 红 / M2 删闸门 → **3 红**（探针法生效）
+  / M3 依赖门收紧 → **6 红**（比上轮多 1，正是新形态测试）/ M4 绕过提前
+  return → 3 红。变异后 blob 哈希核对 `otel.py` / `_common.py` 与 HEAD 一致。
+- 受影响测试合并跑（6 文件）**253 passed**。
+- 纯裁定批，`app/` 生产代码**零改动**，桶计数 W=97 / X=119 不变。
+
+### 8. 记账
+
+- 证据 `probe_p2_35_batch31_ci_env_result.log`（四轮读数全落盘）。
+- 后端全量本地未跑（约 37 分钟，禁止并发双跑），由 CI `backend-coverage` 兜底。
+- **未验证**：本批 CI 待轮询，不预先宣称全绿。
+- **纪律落地缺口已补**：第三十批立的纪律只写在文档里，没有机制兜 ⇒ 本批把
+  「双环境跑闸门 + 反向验证探针有效性」做成可复现脚本，作为后续批次的固定动作。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：

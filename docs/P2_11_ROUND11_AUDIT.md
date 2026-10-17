@@ -1372,3 +1372,45 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 
   **历史快照不改**：P2_13 第二十九批节原文保留并加更正标记，符合「历史快照
   只追加、不篡改」。纯裁定批，`app/` 生产代码零改动。
+
+- **第十三轮第三十一批（第三十批 CI 红事故复盘批，纯裁定，W=97 / X=119 不变）**：
+
+  **事故**：HEAD `b1d4493` 的 `backend-coverage` **failure**（1 failed /
+  6904 passed / 68 skipped），唯一红项是本批**新增**的
+  `test_instrument_app_and_shutdown_gated_by_initialized_flag`。
+
+  **根因：同一条纪律在同一批测试里被违反两次**。上一批刚把 E2 从「断言本机
+  环境」改成「tempdir 造交付形态」，紧接着 E5 又写回「环境状态」——用
+  「`_otel_initialized=True` 时日志数 > 0」反证闸门生效。本机未装 otel ⇒
+  `from opentelemetry import trace` 失败 ⇒ `except Exception` ⇒ 1 条 warning；
+  CI 经 fastapi 装了 api ⇒ import 成功 ⇒ 走 `hasattr(provider,"shutdown")`
+  而 `ProxyTracerProvider` 无 `shutdown` ⇒ **零日志** ⇒ 断言红。
+  **「刚立完的纪律在下一条测试就违反」本身是信号：纪律只停在文字层面，没有
+  机制兜住。**
+
+  **修法一（反证去环境依赖）**：不再数日志，改为自造 otel 包并让
+  `trace.get_tracer_provider()` 记录调用次数——闸门生效时 provider 一次都不该
+  被取，置 `True` 后必须被取。两条在装/不装 otel 的机器上都成立。
+
+  **修法二（把 CI 变成本机可复现，机制兜底）**：新增
+  `probe_p2_35_batch31_ci_env.py`，用 `PYTHONPATH` 注入 fake otel 让 pytest
+  **进程启动起**就认为 otel 可导入，跑四轮：A 本机默认 17 passed / B CI 等价
+  17 passed / **C 故意注入一条环境依赖断言 → 1 failed**（证明该环境**真能
+  识别**环境依赖断言，B 的结论因此可信）/ D 还原后 17 passed。
+  **C 轮是关键**：没有它，「B 全绿」可能只是探针失真。
+
+  **修法三（形态构造本身也不能依赖环境）**：初版形态 A 用「过滤 sys.path 里的
+  site-packages」屏蔽 otel，自验证 B 轮立刻红——屏蔽不了 `PYTHONPATH` 注入的。
+  改用 `sys.meta_path` 拦截器抛 ImportError，与安装位置无关。
+
+  **附带发现（裁定层面）**：「L133 可达」是**条件结论**。双形态实测：形态 A
+  （完全没装）依赖门 False ⇒ 走 L71 提前 return，**进不去 L133**；形态 B（交付
+  形态，顶层包在、sdk 不在）依赖门 True ⇒ 配 endpoint 后**命中 L133**。
+  ⇒ 第三十批那句 V 型判定**以交付形态为前提**（该前提已由「api 的 `# via` 是
+  fastapi」钉住）。**新纪律：可达性结论若依赖依赖形态，必须把那个形态钉成
+  断言的前提，并在文档写明它是条件结论。**
+
+  **读数**：闸门 16 → 17 条；变异四条重跑全 RED-OK/GREEN-OK（M1 1 红 /
+  M2 删闸门 **3 红** / M3 依赖门收紧 **6 红**，比上轮多 1 正是新形态测试 /
+  M4 3 红）；受影响测试合并跑（6 文件）**253 passed**。纯裁定批，`app/`
+  生产代码零改动。

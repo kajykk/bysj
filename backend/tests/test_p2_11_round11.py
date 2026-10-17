@@ -6291,11 +6291,22 @@ class TestP235Round13Batch29Declined:
         """第三十批新增结构钉：`instrument_app` / `shutdown_otel` 都有
         `if not _otel_initialized: return` 闸门 ⇒ L203/L205/L228 不可达。
 
-        并用运行时反证钉住「闸门确实生效」：置 False 时两个函数零日志，
-        置 True 时才产生日志。
+        运行时用**探针调用计数**反证闸门生效，而不数日志条数。
+        第三十一批修正：初版数日志（`_otel_initialized=True` 时必须 >0 条），
+        那又依赖「本机没装 opentelemetry」这一**环境状态**——CI 里
+        `opentelemetry-api` 经 fastapi 已安装 ⇒ `from opentelemetry import
+        trace` 成功 ⇒ 走 `hasattr(provider, "shutdown")` 分支，而
+        ProxyTracerProvider 无 `shutdown` ⇒ **零日志**，断言必红
+        （CI 实锤：1 failed / 6904 passed）。
+
+        探针法与环境无关：自造 `opentelemetry` 包，其 `trace.get_tracer_provider`
+        记录被调用次数。闸门若生效，`_otel_initialized=False` 时**一次都不该
+        被调用**；置 `True` 时**必须被调用**。两条在装/不装 otel 的机器上都成立。
         """
         import importlib
-        import logging
+        import pathlib
+        import sys
+        import tempfile
 
         otel_src = (REPO / BEPKG / self.OTEL_REL).read_text(encoding="utf-8")
         for func_name, line_no in (("instrument_app", 203), ("shutdown_otel", 228)):
@@ -6309,37 +6320,53 @@ class TestP235Round13Batch29Declined:
 
         otel = importlib.import_module("app.core.otel")
 
-        class _Cap(logging.Handler):
-            def __init__(self) -> None:
-                super().__init__()
-                self.records: list[logging.LogRecord] = []
+        probes: list[str] = []
+        saved_path = list(sys.path)
+        for key in list(sys.modules):
+            if key.split(".")[0] == "opentelemetry":
+                del sys.modules[key]
 
-            def emit(self, record: logging.LogRecord) -> None:
-                self.records.append(record)
-
-        cap = _Cap()
-        otel.logger.addHandler(cap)
-        otel.logger.setLevel(logging.DEBUG)
-        try:
-            otel._otel_initialized = False
-            otel.instrument_app(object())
-            otel.shutdown_otel()
-            assert cap.records == [], (
-                f"_otel_initialized=False 时两个函数应直接 return，"
-                f"实际日志={[r.getMessage() for r in cap.records]}"
+        with tempfile.TemporaryDirectory() as td:
+            pkg = pathlib.Path(td) / "opentelemetry"
+            pkg.mkdir(parents=True)
+            (pkg / "__init__.py").write_text("", encoding="utf-8")
+            # 探针 provider **故意没有** shutdown 方法 ⇒ 若断言改成数日志就会红，
+            # 但探针调用与「provider 有无 shutdown」无关。
+            (pkg / "trace.py").write_text(
+                "def set_tracer_provider(p):\n    pass\n\n\n"
+                "def get_tracer_provider():\n"
+                "    import sys\n"
+                "    sys.modules['__otel_probe__'].append('get_tracer_provider')\n"
+                "    class _P:\n        pass\n    return _P()\n",
+                encoding="utf-8",
             )
+            sys.modules["__otel_probe__"] = probes
+            sys.path.insert(0, td)
+            try:
+                # 闸门生效：未初始化时 provider 一次都不该被取
+                otel._otel_initialized = False
+                otel.instrument_app(object())
+                otel.shutdown_otel()
+                assert probes == [], (
+                    f"_otel_initialized=False 时闸门未拦住，provider 被取用 {probes} ⇒ "
+                    "L203/L205/L228 在未初始化时也会进入，裁定需重估"
+                )
 
-            otel._otel_initialized = True
-            cap.records.clear()
-            otel.instrument_app(object())
-            otel.shutdown_otel()
-            assert cap.records, (
-                "_otel_initialized=True 时仍无日志 ⇒ 闸门反证不成立，"
-                "L203/L205/L228 的可达性判据需重估"
-            )
-        finally:
-            otel.logger.removeHandler(cap)
-            otel._otel_initialized = False
+                # 反证：闸门一旦放行，provider 必须被取用（证明上面不是假通过）
+                otel._otel_initialized = True
+                otel.instrument_app(object())
+                otel.shutdown_otel()
+                assert "get_tracer_provider" in probes, (
+                    f"闸门放行后 provider 仍未被取用（probes={probes}）⇒ "
+                    "闸门反证不成立，可达性判据需重估"
+                )
+            finally:
+                sys.path[:] = saved_path
+                sys.modules.pop("__otel_probe__", None)
+                for key in list(sys.modules):
+                    if key.split(".")[0] == "opentelemetry":
+                        del sys.modules[key]
+                otel._otel_initialized = False
 
     def test_runtime_e3_startup_status_records_ok(self):
         """E3 运行时：`main.py` 形态的 `_init_otel` 让 `/health/startup` 记 `ok`。
@@ -6403,6 +6430,140 @@ class TestP235Round13Batch29Declined:
         )
         assert "break" not in unparsed, "handler 出现 break —— 会掐断整轮特征遍历"
         assert "return" not in unparsed, "handler 出现 return —— 会提前退出整个函数"
+
+    def test_reachability_conclusions_hold_in_both_env_shapes(self):
+        """第三十一批新增（防再犯）：可达性结论必须在**两种环境形态**下都成立。
+
+        事故复盘：第三十批修好 E2 后，E5 又用「日志数 > 0」反证闸门生效，
+        再次把**环境状态**当判据 —— 本机未装 otel ⇒ import 失败 ⇒ 1 条 warning；
+        CI 经 fastapi 装了 api ⇒ import 成功且 ProxyTracerProvider 无
+        `shutdown` ⇒ **零日志** ⇒ CI 红（1 failed / 6904 passed）。
+
+        本测试在同一进程内构造两种形态，逐条比对结论：
+          - 形态 A：opentelemetry 完全不可导入（本机 venv 的样子）
+          - 形态 B：顶层可导入、sdk/exporter/instrumentation 全缺（**交付形态**）
+
+        实测（本测试自身的输出即证据）：
+          - 「空 endpoint ⇒init_otel 返回 False」：**两形态一致**（环境无关不变量）
+          - 「配 endpoint ⇒ 命中 L133」：**只有形态 B 成立** —— 形态 A 里
+            `_check_otel_available()` 返回 False，直接走 L71 提前 return，
+            L133 根本进不去。
+
+        ⇒ 「L133 可达」是**以交付形态为前提的条件结论**，不是无条件结论。
+        前提已由 `test_otel_dependency_not_delivered` 钉住（lock 里
+        `opentelemetry-api==1.45.0` 的 `# via` 是 `fastapi`，故顶层包必然可导入）。
+        若哪天 fastapi 版本变更把 api 移出依赖闭包，形态 B 不再成立，
+        L133 将退化为不可达 ⇒ 本测试的形态 B 段会红，裁定需据实重估。
+        """
+        import importlib
+        import logging
+        import pathlib
+        import sys
+        import tempfile
+
+        otel = importlib.import_module("app.core.otel")
+
+        def _purge() -> None:
+            for key in list(sys.modules):
+                if key.split(".")[0] == "opentelemetry":
+                    del sys.modules[key]
+
+        def _probe(label: str) -> dict[str, object]:
+            """配 endpoint 后是否命中 L133；空 endpoint 是否返回 False。"""
+            records: list[logging.LogRecord] = []
+
+            class _Cap(logging.Handler):
+                def emit(self, record: logging.LogRecord) -> None:
+                    records.append(record)
+
+            cap = _Cap()
+            otel.logger.addHandler(cap)
+            otel.logger.setLevel(logging.DEBUG)
+            try:
+                available = otel._check_otel_available()
+                otel._otel_initialized = False
+                empty = otel.init_otel("shape_probe", otlp_endpoint="")
+                otel._otel_initialized = False
+                records.clear()
+                with_ep = otel.init_otel(
+                    "shape_probe", otlp_endpoint="http://probe.invalid:4317"
+                )
+            finally:
+                otel.logger.removeHandler(cap)
+                otel._otel_initialized = False
+            msgs = [r.getMessage() for r in records if r.levelno >= logging.WARNING]
+            hit = any("initialization failed" in m for m in msgs)
+            print(f"    [{label}] 依赖门={available}  empty->{empty}  "
+                  f"with_endpoint->{with_ep}  L133命中={hit}")
+            return {
+                "available": available,
+                "empty": empty,
+                "with_endpoint": with_ep,
+                "l133_hit": hit,
+            }
+
+        results: dict[str, dict[str, object]] = {}
+        saved_path = list(sys.path)
+
+        # 形态 A：opentelemetry 完全不可导入。
+        # 注意：不能用「过滤 site-packages」这种办法 —— 第三十一批自验证实锤，
+        # 那样只能屏蔽装在 site-packages 里的包，屏蔽不了 PYTHONPATH 注入的
+        # （CI 仿真就是这么注入的）。必须用 meta_path 拦截器，与安装位置无关。
+        class _BlockOtel:
+            def find_spec(self, fullname, path=None, target=None):  # noqa: ANN001
+                if fullname.split(".")[0] == "opentelemetry":
+                    raise ImportError(f"PROBE: {fullname} blocked")
+                return None
+
+        blocker = _BlockOtel()
+        _purge()
+        sys.meta_path.insert(0, blocker)
+        try:
+            results["A_无otel"] = _probe("A_无otel")
+        finally:
+            sys.meta_path.remove(blocker)
+            _purge()
+
+        # 形态 B：顶层可导入、sdk/exporter/instrumentation 全缺（CI 形态）
+        with tempfile.TemporaryDirectory() as td:
+            pkg = pathlib.Path(td) / "opentelemetry"
+            pkg.mkdir(parents=True)
+            # 不写 __init__.py ⇒ 命名空间包，与真实 opentelemetry-api 安装一致
+            (pkg / "trace.py").write_text(
+                "def set_tracer_provider(p):\n    pass\n",
+                encoding="utf-8",
+            )
+            _purge()
+            sys.path.insert(0, td)
+            try:
+                results["B_有顶层包"] = _probe("B_有顶层包")
+            finally:
+                sys.path[:] = saved_path
+                _purge()
+
+        # 不变量 1：空 endpoint ⇒ 返回 False，两形态必须一致（环境无关）
+        for key, res in results.items():
+            assert res["empty"] is False, f"{key}: 空 endpoint 应返回 False"
+            assert res["with_endpoint"] is False, f"{key}: 配 endpoint 应返回 False"
+
+        # 不变量 2：两种形态的依赖门必须真的不同（证明形态构造有效）
+        assert results["A_无otel"]["available"] is False, (
+            "形态 A 的依赖门应为 False —— 形态构造失效，本测试失去意义"
+        )
+        assert results["B_有顶层包"]["available"] is True, (
+            "形态 B 的依赖门应为 True —— 形态构造失效，本测试失去意义"
+        )
+
+        # 交付形态（B）下 L133 必须命中 ⇒ 「L133 可达（V 型）」成立
+        assert results["B_有顶层包"]["l133_hit"] is True, (
+            "交付形态下配了 endpoint 却未命中 L133 ⇒ "
+            "「L133 可达（V 型）」判据不成立，需重估为 P 型"
+        )
+        # 对照：形态 A 下 L133 进不去（因为依赖门就 return 了）
+        assert results["A_无otel"]["l133_hit"] is False, (
+            "形态 A（完全未装）下不应命中 L133 —— 若命中说明提前 return 消失，"
+            "可达性链条变了"
+        )
 
     def test_runtime_e4_dirty_data_same_shape(self):
         """E4 运行时：_common.py 五处脏数据 handler —— 返回结构与正常态同形。
@@ -6472,10 +6633,21 @@ class TestP235Round13Batch29Declined:
             "L133 可达",
         ):
             assert token in doc13, f"P2_13 第三十批登记缺少关键标识: {token}"
+        # 第三十二批（第三十一批修第三十批 CI 红）
+        assert "## 一之三十二、" in doc13, "P2_13 缺少「一之三十二」节标题"
+        for token in (
+            "第三十一批",
+            "探针调用计数",
+            "C 轮",
+            "条件结论",
+            "sys.meta_path",
+        ):
+            assert token in doc13, f"P2_13 第三十一批登记缺少关键标识: {token}"
         doc11 = AUDIT.read_text(encoding="utf-8")
         assert "第十三轮第二十九批" in doc11, "P2_11 附录缺少第二十九批条目"
         assert "otel.py" in doc11, "P2_11 附录第二十九批条目缺少文件名"
         assert "第十三轮第三十批" in doc11, "P2_11 附录缺少第三十批条目"
+        assert "第十三轮第三十一批" in doc11, "P2_11 附录缺少第三十一批条目"
         for token in ("环境状态", "交付形态", "V 型可达"):
             assert token in doc11, f"P2_11 附录第三十批条目缺少关键标识: {token}"
         assert "W=97 / X=119" in doc13, "第二十九批为纯裁定批，累计状态应维持 W=97 / X=119"
