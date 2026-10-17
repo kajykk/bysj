@@ -7733,3 +7733,536 @@ class TestP235Round13Batch34Wiring:
             assert token in doc13, f"P2_13 第三十四批登记缺少关键标识: {token}"
         doc11 = AUDIT.read_text(encoding="utf-8")
         assert "第十三轮第三十四批" in doc11, "P2_11 附录缺少第三十四批条目"
+
+
+class TestP235Round13Batch35Declined:
+    """第三十五批：8 个文件 8 条候选 —— **全部裁定不接线，本批 0 接线**。
+
+    挑簇口径（本批**第三次换信号**）：
+    - 第三十三批「basename 零记载」：第三十四批初耗尽，**反向失效**（短名被
+      文档别处同名串命中 ⇒ 假负）。
+    - 第三十四批「函数名级零记载」：本批实测**彻底退化** —— 25 个候选函数名
+      在三份审计文档全文命中数**全为 0**（文档只按 location 登记、不按函数名
+      登记）⇒ 该信号已无区分力。
+    - 本批改用**结构信号**：候选文件是否从未出现在任何 location 登记表的
+      「| `a.b.c` | `path/x.py` |」行里（登记表共收录 22 个文件），
+      再减去第二十至三十四批已处理簇 + 逐簇人工核对。命中 8 文件 8 条。
+
+    裁定（存在性核查见 `verify_p2_35_batch35_candidates.py`，MISSING=0 /
+    FUNC-DRIFT=0；运行时证据见 `probe_p2_35_batch35_runtime.py`，E1~E8 全成立）：
+      - `api/v1/observability/__init__.py:228` `cached_or_compute` —— 分类器判 S，
+        人工按**同形性不成立**不接：降级态返回 0 键 `{}`，而任何正常态（含
+        「真实空数据」）都是固定 6 键结构化字典 ⇒ **键集合可分辨**。
+        这是第三十四批 `_parse_detail_json`（`{}` == `{}` ⇒ 接）的**反面对照**。
+      - `core/metrics.py:868` `track_model_inference` —— **S + V**：被保护的两个
+        计数器就定义在 `metrics.py` 本模块内（同源）；且业务异常**照常向上抛**
+        （实测 `ValueError` 传播）⇒ 失败态对调用方可见。
+      - `ml/canary_controller.py:235` `_log_comparison` —— **死代码**：
+        `CanaryController(` 在生产代码中**零实例化**，`_log_comparison` 唯一
+        调用点只在本文件内。
+      - `monitoring/escalation.py:59` `_observe_escalation_latency` —— **S**：
+        可观测设施自身，且 `record_silent_degradation` 同走 `app.core.metrics`
+        ⇒ 实测阻断后计数 0→0（同源失效）。
+      - `services/observability_service.py:135` `_flush_loop` —— **死代码产物**：
+        唯一产物 `_flushed_buffer` 的消费者 `consume_flushed_logs` 在生产中
+        **零调用点**，已按 RES-P1-004 登记为有意保留的死缓冲区 ⇒ 循环故障
+        不影响任何生产可见行为。
+      - `services/risk_service.py:138` `_schedule_warning_and_intervention` ——
+        **P 型不可达**（外层 except 被内层全捕获挡住，第二十八批同型第二次实锤）：
+        ① 唯一调用方 `assess_structured` 是 `async def` 且含 await ⇒
+        `ensure_future` 不抛；② `fire_forget_metrics` 模块级**无 app 依赖**
+        ⇒ import 不抛；③ `register_task` → `record_scheduled` 自身内层
+        `except Exception` 全捕获。实测阻断 metrics 后仍不抛。
+      - `services/risk_service_warning.py:136` `_check_warning_trigger` ——
+        **P 型不可达**：`event_bus.publish` 自身内层 `except asyncio.QueueFull`
+        全捕获，且**已在第一批接线** `core.event_bus.publish` ⇒ 唯一真实
+        失败路径既不外抛、也已被观测。
+      - `tasks/anomaly_detection.py:140` `_detect_impl` —— **P 型**：跑在
+        `celery_worker` **独立容器**（`docker-compose.yml`），`/metrics` 由
+        backend 容器暴露，且全仓无 `PROMETHEUS_MULTIPROC_DIR` /
+        `MultiProcessCollector` ⇒ 接线计数恒 0（第十五批 `celery_app` 同族）。
+
+    桶计数：本批 0 接线 ⇒ W=100 / X=118 / 总数 334 **全部不变**。
+    """
+
+    OBS_REL = "app/api/v1/observability/__init__.py"
+    METRICS_REL = "app/core/metrics.py"
+    CANARY_REL = "app/ml/canary_controller.py"
+    ESC_REL = "app/monitoring/escalation.py"
+    OBSVC_REL = "app/services/observability_service.py"
+    RISK_REL = "app/services/risk_service.py"
+    RISKW_REL = "app/services/risk_service_warning.py"
+    ANOM_REL = "app/tasks/anomaly_detection.py"
+
+    # (文件, 行号, 所属函数, 本批人工裁定)
+    CANDIDATES = [
+        (OBS_REL, 228, "cached_or_compute", "X-键可分辨"),
+        (METRICS_REL, 868, "track_model_inference", "S-同源/V"),
+        (CANARY_REL, 235, "_log_comparison", "DEAD"),
+        (ESC_REL, 59, "_observe_escalation_latency", "S-同源"),
+        (OBSVC_REL, 135, "_flush_loop", "DEAD"),
+        (RISK_REL, 138, "_schedule_warning_and_intervention", "P-内层全捕获"),
+        (RISKW_REL, 136, "_check_warning_trigger", "P-内层全捕获"),
+        (ANOM_REL, 140, "_detect_impl", "P-跨进程"),
+    ]
+
+    # 三个 compute 端点共用的结构化响应键（E1 的判定基准）
+    TREND_KEYS = (
+        "total_fired",
+        "total_acked",
+        "total_pending",
+        "response_time",
+        "by_severity",
+        "ack_rate",
+    )
+
+    # 死代码 / 同源 的登记与交付物锚点
+    RES_P1_004 = "RES-P1-004"
+    EVENT_BUS_WIRING = "core.event_bus.publish"
+
+    # ---- 辅助 ----------------------------------------------------------
+
+    @staticmethod
+    def _read(rel: str) -> str:
+        return (BEPKG / rel).read_text(encoding="utf-8-sig")
+
+    @staticmethod
+    def _parse(rel: str) -> ast.AST:
+        return ast.parse((BEPKG / rel).read_text(encoding="utf-8-sig"))
+
+    @staticmethod
+    def _handler_at(tree: ast.AST, line: int) -> ast.ExceptHandler:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        raise AssertionError(f"该行没有 except handler（行号漂移）: {line}")
+
+    @staticmethod
+    def _enclosing(tree: ast.AST, line: int) -> str:
+        best: tuple[int, str] | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.lineno <= line <= (node.end_lineno or node.lineno):
+                    if best is None or node.lineno > best[0]:
+                        best = (node.lineno, node.name)
+        assert best is not None, f"{line} 不在任何函数内"
+        return best[1]
+
+    def _walk_app(self):
+        for p in (BEPKG / "app").rglob("*.py"):
+            yield p
+
+    # ---- 存在性 / 反向钉 -------------------------------------------------
+
+    def test_candidates_present_and_enclosing_func(self):
+        """8 条候选全部在位且所属函数未漂移。"""
+        for rel, line, fn_name, _verdict in self.CANDIDATES:
+            tree = self._parse(rel)
+            handler = self._handler_at(tree, line)
+            assert self._enclosing(tree, line) == fn_name, (
+                f"{rel}:{line} 所属函数漂移：期望 {fn_name}"
+            )
+            assert handler.type is not None, f"{rel}:{line} 裸 except"
+
+    def test_no_wiring_in_any_batch35_handler(self):
+        """反向钉：本批 8 条 handler 内**一律不得**出现 `record_silent_degradation`。
+
+        本批 0 接线是裁定结论，不是遗漏 —— 若有人日后在其中某条里接线，
+        本断言会红，提示该条必须先推翻本批的裁定理由。
+        """
+        for rel, line, fn_name, _verdict in self.CANDIDATES:
+            src = self._read(rel)
+            tree = self._parse(rel)
+            handler = self._handler_at(tree, line)
+            seg = ast.get_source_segment(src, handler) or ""
+            assert "record_silent_degradation" not in seg, (
+                f"{rel}:{line} ({fn_name}) 出现了接线 —— 本批裁定该条不接，"
+                "若改判必须先推翻裁定理由并更新本节"
+            )
+
+    def test_bucket_counts_unchanged_by_this_batch(self):
+        """本批 0 接线 ⇒ 桶计数必须维持 W=100 / X=118 / 总数 334。
+
+        （直接复用棘轮里的期望值，避免两处漂移。）
+        """
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "W=100 / X=118" in doc13, "第三十四批登记的桶计数不见了"
+
+    # ---- E1 -------------------------------------------------------------
+
+    def test_runtime_e1_singleflight_degraded_shape_is_distinguishable(self, monkeypatch):
+        """E1：降级态 0 键 vs 正常态 6 键 ⇒ 键集合可分辨 ⇒ 不满足同形性。
+
+        对照组（真实空数据）必须同样是 6 键 —— 否则本断言失去区分力
+        （第二十九批 M3 假绿教训）。
+        """
+        import asyncio
+        import importlib
+        import time as _time
+        from datetime import datetime, timedelta, timezone
+
+        obs = importlib.import_module("app.api.v1.observability")
+        query = importlib.import_module("app.services.observability.query")
+
+        class _EmptyResult:
+            def all(self) -> list:
+                return []
+
+            def scalars(self):
+                return self
+
+        class _EmptySession:
+            async def execute(self, stmt):
+                return _EmptyResult()
+
+        now = datetime.now(timezone.utc)
+        start = now - timedelta(hours=1)
+
+        empty = asyncio.run(query._compute_response_time(_EmptySession(), start, now, None))
+        fired_at = now - timedelta(seconds=3)
+        full = query._build_response_time_stats([(fired_at, "fp1", "P1")], {"fp1": now})
+
+        for shape in (empty, full):
+            assert set(shape) == set(self.TREND_KEYS), f"响应键集合漂移：{sorted(shape)}"
+
+        async def _no_cache(key):
+            return None
+
+        async def _no_set(key, data, ttl=None):
+            return None
+
+        monkeypatch.setattr(obs, "cache_get", _no_cache, raising=True)
+        monkeypatch.setattr(obs, "cache_set", _no_set, raising=True)
+
+        saved = dict(obs._inflight_futures)
+
+        async def _drive():
+            key = obs.make_cache_key("observability.response-time", {"probe": "b35"})
+            loop = asyncio.get_running_loop()
+            fut = loop.create_future()
+            fut.set_exception(RuntimeError("leader compute blew up"))
+            # created_at 必须取当前单调时钟，否则会被入口的
+            # `_cleanup_inflight_futures()` 清掉 ⇒ 探针失真
+            obs._inflight_futures[key] = (fut, _time.monotonic())
+            try:
+                return await obs.cached_or_compute(
+                    endpoint="observability.response-time",
+                    params={"probe": "b35"},
+                    compute_fn=lambda: asyncio.sleep(0, result=({}, False)),
+                    ttl=60,
+                )
+            finally:
+                obs._inflight_futures.pop(key, None)
+
+        try:
+            data, cached = asyncio.run(_drive())
+        finally:
+            obs._inflight_futures.clear()
+            obs._inflight_futures.update(saved)
+
+        assert data == {}, f"降级态应为 0 键空字典，实际 {data}"
+        assert cached is False, "降级态 cached 应为 False"
+        assert set(data) != set(self.TREND_KEYS), (
+            "降级态与空数据键集合相同 ⇒ 不可分辨 ⇒ 同形性成立，本批裁定需推翻"
+        )
+
+    # ---- E2 / E3 死代码 ---------------------------------------------------
+
+    def test_runtime_e2_canary_controller_never_instantiated(self):
+        """E2：`CanaryController` 在生产代码中零实例化 ⇒ `_log_comparison` 不可达。"""
+        instantiations: list[str] = []
+        log_callers: list[str] = []
+        for p in self._walk_app():
+            rel = p.relative_to(BEPKG).as_posix()
+            tree = ast.parse(p.read_text(encoding="utf-8-sig"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                    if node.func.id == "CanaryController":
+                        instantiations.append(f"{rel}:{node.lineno}")
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                    if node.func.attr == "_log_comparison":
+                        log_callers.append(f"{rel}:{node.lineno}")
+        assert not instantiations, (
+            f"CanaryController 被实例化了 ⇒ 死代码裁定需重估：{instantiations}"
+        )
+        assert log_callers == [f"{self.CANARY_REL}:172"], (
+            f"_log_comparison 调用点变了 ⇒ 可达性需重估：{log_callers}"
+        )
+
+    def test_runtime_e3_flush_buffer_has_no_production_consumer(self):
+        """E3：`_flushed_buffer` 的唯一消费者在生产中零调用（RES-P1-004 死缓冲区）。"""
+        consumers: list[str] = []
+        for p in self._walk_app():
+            rel = p.relative_to(BEPKG).as_posix()
+            tree = ast.parse(p.read_text(encoding="utf-8-sig"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                    if node.func.attr == "consume_flushed_logs":
+                        consumers.append(f"{rel}:{node.lineno}")
+        assert not consumers, f"出现了生产消费者 ⇒ 裁定需重估：{consumers}"
+        reg = (REPO / "docs" / "RETENTION_REGISTRY.md").read_text(encoding="utf-8")
+        assert self.RES_P1_004 in reg, "RES-P1-004 登记消失 ⇒ 死缓冲区定性需重估"
+
+    # ---- E4 / E5 外层不可达 -----------------------------------------------
+
+    def test_runtime_e4_risk_schedule_outer_except_unreachable(self):
+        """E4：三条进入路径全被挡住 ⇒ 外层 except 运行期不可达（P 型）。"""
+        import asyncio
+        import importlib
+        import sys
+
+        ffm = importlib.import_module("app.core.fire_forget_metrics")
+
+        # ① 被 import 的模块模块级无 app 依赖
+        tree = ast.parse(
+            (BEPKG / "app/core/fire_forget_metrics.py").read_text(encoding="utf-8-sig")
+        )
+        app_imports = [
+            ast.unparse(n)
+            for n in tree.body
+            if isinstance(n, ast.ImportFrom) and (n.module or "").startswith("app")
+        ]
+        assert not app_imports, f"模块级引入 app 依赖 ⇒ import 可达：{app_imports}"
+
+        # ② 唯一调用方是 async def
+        rsa = ast.parse(
+            (BEPKG / "app/services/risk_service_assessment.py").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        enclosing = None
+        for node in ast.walk(rsa):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.lineno <= 274 <= (node.end_lineno or node.lineno):
+                    enclosing = node
+        assert enclosing is not None and isinstance(enclosing, ast.AsyncFunctionDef), (
+            "调用方不是 async def ⇒ ensure_future 可达 ⇒ 裁定需重估"
+        )
+
+        # ③ 运行时：阻断 metrics 后 register_task 仍不抛
+        class _Blocker:
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname == "app.core.metrics":
+                    raise ImportError("metrics unavailable (simulated)")
+                return None
+
+        saved = {
+            k: v
+            for k, v in sys.modules.items()
+            if k == "app.core.metrics" or k.startswith("app.core.metrics.")
+        }
+        blocker = _Blocker()
+        for k in saved:
+            del sys.modules[k]
+        sys.meta_path.insert(0, blocker)
+        try:
+            try:
+                importlib.import_module("app.core.metrics")
+            except ImportError:
+                pass
+            else:
+                raise AssertionError("阻断未生效 ⇒ E4 是假证据")
+
+            async def _drive() -> None:
+                async def _noop() -> None:
+                    return None
+
+                task = asyncio.ensure_future(_noop())
+                ffm.register_task(task, "probe")
+                await task
+
+            asyncio.run(_drive())
+        finally:
+            sys.meta_path.remove(blocker)
+            sys.modules.update(saved)
+
+    def test_runtime_e5_event_publish_outer_except_unreachable(self):
+        """E5：`publish` 内层已捕获 QueueFull 并已接线 ⇒ 外层 P 型不可达。"""
+        import asyncio
+        import importlib
+
+        bus_mod = importlib.import_module("app.core.event_bus")
+
+        src = (BEPKG / "app/core/event_bus.py").read_text(encoding="utf-8-sig")
+        assert f'record_silent_degradation("{self.EVENT_BUS_WIRING}")' in src, (
+            f"第一批的 EventBus 队列满接线 {self.EVENT_BUS_WIRING} 消失 ⇒ 裁定需重估"
+        )
+        tree = ast.parse(src)
+        inner = False
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and fn.name == "publish":
+                for node in ast.walk(fn):
+                    if isinstance(node, ast.ExceptHandler) and node.type is not None:
+                        if ast.unparse(node.type) == "asyncio.QueueFull":
+                            inner = True
+        assert inner, "publish 内的 QueueFull 捕获消失 ⇒ 外层变为可达"
+
+        async def _drive() -> None:
+            small = bus_mod.EventBus(max_queue_size=1)
+            small._ensure_queue().put_nowait({"type": "filler", "data": {}})
+
+            async def _handler(data):
+                return None
+
+            small.subscribe("probe.evt", _handler)
+            await small.publish("probe.evt", {"probe": 1})  # 队列满，但不应抛
+
+        asyncio.run(_drive())
+
+    # ---- E6 跨进程 -------------------------------------------------------
+
+    def test_runtime_e6_anomaly_task_runs_in_separate_container(self):
+        """E6：Celery worker 独立容器 + 无多进程收集器 ⇒ 计数恒 0。"""
+        compose = (REPO / "docker-compose.yml").read_text(encoding="utf-8")
+        assert "celery_worker:" in compose, "compose 无独立 worker ⇒ 裁定需重估"
+        assert "celery -A app.core.celery_app worker" in compose, "worker 命令变了"
+
+        beat = ast.parse(
+            (BEPKG / "app/core/celery_app.py").read_text(encoding="utf-8-sig")
+        )
+        scheduled = any(
+            isinstance(node, ast.Constant)
+            and node.value == "app.tasks.anomaly_detection.detect_anomaly_access_task"
+            for node in ast.walk(beat)
+        )
+        assert scheduled, "beat 不再调度该任务 ⇒ 需重估"
+
+        leaks: list[str] = []
+        for p in self._walk_app():
+            try:
+                t = p.read_text(encoding="utf-8-sig")
+            except (OSError, UnicodeDecodeError):
+                continue
+            if "PROMETHEUS_MULTIPROC_DIR" in t or "MultiProcessCollector" in t:
+                leaks.append(p.relative_to(BEPKG).as_posix())
+        for extra in (REPO / "infra", REPO / "docker-compose.yml"):
+            cands = [extra] if extra.is_file() else (
+                [q for pat in ("*.yml", "*.yaml") for q in extra.rglob(pat)]
+                if extra.exists()
+                else []
+            )
+            for q in cands:
+                try:
+                    t = q.read_text(encoding="utf-8-sig")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if "PROMETHEUS_MULTIPROC_DIR" in t or "MultiProcessCollector" in t:
+                    leaks.append(q.as_posix())
+        assert not leaks, f"存在多进程收集器 ⇒ 计数可跨进程 ⇒ P 型裁定需重估：{leaks}"
+
+    # ---- E7 / E8 同源 ------------------------------------------------------
+
+    def test_runtime_e7_metrics_failures_are_homologous(self):
+        """E7：阻断 metrics 后 escalation 静默、接线设施计数 0→0（同源失效）。"""
+        import importlib
+        import sys
+
+        metrics = importlib.import_module("app.core.metrics")
+        esc = importlib.import_module("app.monitoring.escalation")
+        deg = importlib.import_module("app.core.degradation")
+        counter = metrics.silent_degradation_total
+        probe_loc = "probe.batch35.homologous"
+
+        def _read() -> float:
+            for labels, value in counter.collect():
+                if labels.get("location") == probe_loc:
+                    return float(value)
+            return 0.0
+
+        dsrc = (BEPKG / "app/core/degradation.py").read_text(encoding="utf-8-sig")
+        assert "from app.core.metrics import" in dsrc, "degradation 不再依赖 metrics"
+        esrc = self._read(self.ESC_REL)
+        assert "from app.core import metrics" in esrc, "escalation 不再依赖 metrics"
+
+        class _Blocker:
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname == "app.core.metrics":
+                    raise ImportError("metrics unavailable (simulated)")
+                return None
+
+        saved = {
+            k: v
+            for k, v in sys.modules.items()
+            if k == "app.core.metrics" or k.startswith("app.core.metrics.")
+        }
+        blocker = _Blocker()
+        for k in saved:
+            del sys.modules[k]
+        sys.meta_path.insert(0, blocker)
+        try:
+            try:
+                importlib.import_module("app.core.metrics")
+            except ImportError:
+                pass
+            else:
+                raise AssertionError("阻断未生效 ⇒ E7 是假证据")
+            esc._observe_escalation_latency(0.0, "ok")
+            deg.record_silent_degradation(probe_loc)
+        finally:
+            sys.meta_path.remove(blocker)
+            sys.modules.update(saved)
+
+        assert _read() == 0.0, "同源失效不成立 ⇒ 裁定需重估"
+
+    def test_runtime_e8_track_model_inference_business_exception_propagates(
+        self, monkeypatch
+    ):
+        """E8：指标失败被吞但业务异常**照常外抛**（V 型）；且与被保护计数器同模块。"""
+        import importlib
+
+        metrics = importlib.import_module("app.core.metrics")
+
+        monkeypatch.setattr(
+            metrics.model_inference_total,
+            "inc",
+            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("counter exploded")),
+            raising=True,
+        )
+        raised = None
+        try:
+            with metrics.track_model_inference("probe"):
+                raise ValueError("business failure")
+        except ValueError as exc:
+            raised = exc
+        assert isinstance(raised, ValueError), (
+            f"业务异常未传播 ⇒ V 型定性需重估：{raised!r}"
+        )
+
+        msrc = (BEPKG / self.METRICS_REL).read_text(encoding="utf-8-sig")
+        for name in ("model_inference_total", "model_inference_duration_seconds"):
+            assert f"{name} =" in msrc, f"{name} 不在 metrics.py 内 ⇒ 同源判据需重估"
+
+        # 结构钉：业务异常在 `except` 里被 `raise` 转发出去
+        tree = ast.parse(msrc)
+        forwarded = False
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if fn.name != "track_model_inference":
+                    continue
+                for node in ast.walk(fn):
+                    if isinstance(node, ast.ExceptHandler):
+                        if any(isinstance(s, ast.Raise) for s in node.body):
+                            forwarded = True
+        assert forwarded, "track_model_inference 不再转发异常 ⇒ V 型定性需重估"
+
+    # ---- 文档 -------------------------------------------------------------
+
+    def test_document_registration(self):
+        """文档登记：P2_13「一之三十六」节 + P2_11 附录第三十五批条目。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之三十六、" in doc13, "P2_13 缺少「一之三十六」节标题"
+        for token in (
+            "api/v1/observability/__init__.py",
+            "core/metrics.py",
+            "ml/canary_controller.py",
+            "monitoring/escalation.py",
+            "services/observability_service.py",
+            "services/risk_service.py",
+            "services/risk_service_warning.py",
+            "tasks/anomaly_detection.py",
+            "0 接线",
+            "W=100 / X=118",
+        ):
+            assert token in doc13, f"P2_13 第三十五批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第三十五批" in doc11, "P2_11 附录缺少第三十五批条目"

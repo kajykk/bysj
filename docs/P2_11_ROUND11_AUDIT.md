@@ -1533,3 +1533,46 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   M5 1红 / M6 1红 / M7 2红），见
   `mutate_p2_35_round13_batch34_result.log`；受影响 19 个测试文件 504 passed。
   桶计数 **W=100 / X=118**。CI 10/10 success（含 backend-coverage）。
+
+- **第十三轮第三十五批（0 接线，W=100 / X=118 / 总数 334 全部不变）**：
+
+  **挑簇信号第三次更换**：第三十三批的 basename 零记载口径是**反向失效**
+  （短名被文档别处同名串命中 ⇒ 假负）；第三十四批的函数名级零记载口径
+  **彻底退化** —— 实测 25 个候选函数名在三份审计文档全文命中数**全为 0**
+  （文档只按 location 登记、不按函数名登记）。本批改用**结构信号**：
+  候选文件是否从未出现在任何 location 登记表的
+  `| \`a.b.c\` | \`path/x.py\` |` 行里（登记表共收录 22 个文件），
+  再减去第二十至三十四批已处理簇 + 逐簇人工核对 ⇒ 命中 8 文件 8 条。
+
+  **8 条全部裁定不接，本批 0 接线**：
+  ① `api/v1/observability/__init__.py:228` `cached_or_compute` —— 分类器判 S，
+  人工按**同形性不成立**不接：降级态 `data` 是 0 键 `{}`，而任何正常态
+  （含真实空数据）都是固定 6 键结构化字典 ⇒ **键集合可分辨**（第三十四批
+  `_parse_detail_json` 的 `{}`==`{}` 是反面对照）；
+  ② `core/metrics.py:868` `track_model_inference` —— S + V（与被保护计数器
+  同模块同源；业务异常在 `except` 里 `raise` 照常外抛，实测 `ValueError`）；
+  ③ `ml/canary_controller.py:235` `_log_comparison` —— **死代码**
+  （`CanaryController(` 生产零实例化）；
+  ④ `monitoring/escalation.py:59` —— S 型同源（实测阻断后计数 0→0）；
+  ⑤ `services/observability_service.py:135` `_flush_loop` —— **死代码产物**
+  （唯一产物 `_flushed_buffer` 的消费者 `consume_flushed_logs` 生产零调用点，
+  已按 RES-P1-004 登记）；
+  ⑥ `services/risk_service.py:138` —— **P 型（内层全捕获）**，第二十八批
+  不可达形态的**第二次实锤**：挡住它的是 `fire_forget_metrics.record_scheduled`
+  的内层 `except Exception`，另两条路径（async 调用方 ⇒ `ensure_future` 不抛；
+  该模块模块级无 app 依赖 ⇒ import 不抛）也被堵死；
+  ⑦ `services/risk_service_warning.py:136` —— **P 型**（`event_bus.publish`
+  内层已捕获 `QueueFull` 且已于第一批接线 `core.event_bus.publish`）；
+  ⑧ `tasks/anomaly_detection.py:140` —— **P 型（跨进程）**：跑在
+  `celery_worker` 独立容器，全仓无 `PROMETHEUS_MULTIPROC_DIR` /
+  `MultiProcessCollector` ⇒ 接线计数恒 0（第十五批 `celery_app` 同族）。
+
+  **闸门**：新增 `TestP235Round13Batch35Declined`（12 条），含 8 处存在性 +
+  全量反向钉（8 条 handler 内一律禁现 `record_silent_degradation`）+
+  桶计数不变钉 + 运行时 E1~E8 + 文档登记。**棘轮无需改动**（0 接线）。
+
+  **读数**：见 `verify_p2_35_batch35_candidates.py`（MISSING=0、FUNC-DRIFT=0）与
+  `probe_p2_35_batch35_runtime.py`（E1~E8 全成立）；
+  变异 8 条全 RED-OK/GREEN-OK，见
+  `mutate_p2_35_round13_batch35_result.log`。
+  桶计数 **W=100 / X=118 不变**。

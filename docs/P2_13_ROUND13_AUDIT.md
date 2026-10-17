@@ -2466,6 +2466,61 @@ IP 格式 ⇒ 走后续域名分支），根本不是降级路径。
 
 ---
 
+## 一之三十六、#35 X 桶第三十五批：**0 接线**（8 文件 8 条全部不接），W=100 / X=118 不变
+
+### 1. 挑簇：信号第三次更换（前两个口径相继退化）
+
+| 口径 | 出处 | 失效方式 |
+|---|---|---|
+| basename 在文档 0 次 | 第三十三批 | **反向失效**：`cache.py`/`reports.py`/`inference.py` 等短名被文档别处同名串命中 ⇒ **假负**（第三十四批初耗尽） |
+| 函数名级零记载 | 第三十四批 | **彻底退化**：本批实测 25 个候选函数名在三份审计文档全文命中数**全为 0** —— 文档只按 location 登记、从不按函数名登记 ⇒ 该信号已无区分力 |
+| **location 登记表零收录** | **本批** | 候选文件是否从未出现在任何 `\| \`a.b.c\` \| \`path/x.py\` \|` 登记表行里（登记表共收录 22 个文件），再减去第二十至三十四批已处理簇 + 逐簇人工核对 |
+
+本批命中 8 个文件 8 条。
+
+### 2. 裁定表（全部不接）
+
+| 候选 | 分类器 | 人工裁定 | 硬判据 |
+|---|---|---|---|
+| `api/v1/observability/__init__.py:228`（`cached_or_compute`） | S | **同形性不成立** | 降级态 `data` 是 **0 键 `{}`**；任何正常态（含真实空数据）都是固定 **6 键**结构化字典（`total_fired`/`total_acked`/`total_pending`/`response_time`/`by_severity`/`ack_rate`）⇒ **键集合可分辨** |
+| `core/metrics.py:868`（`track_model_inference`） | S | **S + V** | 被保护的 `model_inference_total` / `model_inference_duration_seconds` 就定义在 `metrics.py` 本模块内（同源）；且业务异常在 `except` 里被 `raise` **照常外抛**（实测 `ValueError` 传播）⇒ 失败态对调用方可见 |
+| `ml/canary_controller.py:235`（`_log_comparison`） | X | **死代码** | `CanaryController(` 在生产代码中**零实例化**；`_log_comparison` 唯一调用点只在本文件 L172 |
+| `monitoring/escalation.py:59`（`_observe_escalation_latency`） | S | **S（同源）** | 可观测设施自身；`record_silent_degradation` 同走 `app.core.metrics` ⇒ 实测阻断后计数 **0→0** |
+| `services/observability_service.py:135`（`_flush_loop`） | X | **死代码产物** | 唯一产物 `_flushed_buffer` 的消费者 `consume_flushed_logs` 生产中**零调用点**，已按 **RES-P1-004** 登记为有意保留的死缓冲区（`flush_to_db` 直接取 `_pending_logs` 绕过它）⇒ 循环故障不影响任何生产可见行为 |
+| `services/risk_service.py:138`（`_schedule_warning_and_intervention`） | X | **P（内层全捕获）** | ① 唯一调用方 `assess_structured` 是 `async def` 且含 await ⇒ `ensure_future` 不抛；② `fire_forget_metrics` 模块级**无 app 依赖** ⇒ import 不抛；③ `register_task` → `record_scheduled` 自身内层 `except Exception` 全捕获。实测阻断 metrics 后仍不抛 |
+| `services/risk_service_warning.py:136`（`_check_warning_trigger`） | X | **P（内层全捕获）** | `event_bus.publish` 自身内层 `except asyncio.QueueFull` 全捕获，且**已在第一批接线** `core.event_bus.publish` ⇒ 唯一真实失败路径既不外抛、也已被观测 |
+| `tasks/anomaly_detection.py:140`（`_detect_impl`） | X | **P（跨进程）** | 跑在 `celery_worker` **独立容器**（`docker-compose.yml:175`，命令 `celery -A app.core.celery_app worker`）；`/metrics` 由 backend 容器暴露；全仓无 `PROMETHEUS_MULTIPROC_DIR` / `MultiProcessCollector` ⇒ 接线计数恒 0（第十五批 `celery_app` 同族） |
+
+### 3. 一条方法论收获：同形性判据的**反面**用法
+
+第三十四批 `_parse_detail_json` 是 `{}` == `{}`（逐字段同形）⇒ **接**；
+本批 `cached_or_compute` 是 `{}` vs 6 键 ⇒ **不接**。
+同一条判据在本项目里第一次以「反面对照」的方式被使用：
+**判据的价值不只在于选出该接的，也在于排除不该接的** —— 只要键集合可分辨，
+调用方就有机会察觉，就不满足 #35 的「静默」定义。
+
+### 4. 第二十八批不可达形态的第二次实锤
+
+第二十八批在 `fallback.py` 首次裁定「外层 `except` 存在但运行期不可达 ——
+被调函数自身内层已 `except Exception` 全捕获、永不外抛」。
+本批 `risk_service.py:138` 是**第二次**：挡住它的是
+`fire_forget_metrics.record_scheduled` 的内层全捕获。
+（§0 已立：给不可达路径接线＝制造「看起来有降级观测、实际永不触发」的假设施。）
+
+### 5. 闸门与读数
+
+- 新增 `TestP235Round13Batch35Declined`（**12 条**）：8 处存在性 + 所属函数
+  未漂移 + **全量反向钉**（8 条 handler 内一律禁现 `record_silent_degradation`）
+  + 桶计数不变钉 + 运行时 E1~E8 + 文档登记。
+- 变异见 `mutate_p2_35_round13_batch35_result.log`。
+
+### 6. 本批结论一句话
+
+8 个文件 8 条候选逐条实测后**全部不接**，**本批 0 接线**；
+桶计数 **W=100 / X=118**（总数 334 不变）。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
