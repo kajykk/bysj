@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 95,
+  "real_wired": 96,
   "import_probe": 16,
   "real_list": [
     {
@@ -145,7 +145,7 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 223,
+      "line": 231,
       "handled": [
         "Exception"
       ],
@@ -155,7 +155,7 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 249,
+      "line": 257,
       "handled": [
         "Exception"
       ],
@@ -165,7 +165,7 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 275,
+      "line": 283,
       "handled": [
         "Exception"
       ],
@@ -180,7 +180,7 @@
         "OSError",
         "JSONDecodeError"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

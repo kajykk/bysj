@@ -1,0 +1,34 @@
+========================================================================
+P2-35 第三十二批变异验证（metrics_helpers._load_json 接线批）
+========================================================================
+  [baseline] 变异前闸门应为绿…
+    gate: 9 passed, 4 warnings in 4.37s
+  [baseline] GREEN-OK
+  [M1 删 _load_json 的接线] 变异注入…
+    gate: 2 failed, 7 passed, 4 warnings in 4.91s
+  [M1 删 _load_json 的接线] RED-OK（returncode=1）
+    gate: 9 passed, 4 warnings in 4.38s
+  [M1 删 _load_json 的接线] GREEN-OK（还原后 returncode=0）
+  [M2 给 celery_breaker 的 ImportError 接线] 变异注入…
+    gate: 2 failed, 7 passed, 4 warnings in 4.96s
+  [M2 给 celery_breaker 的 ImportError 接线] RED-OK（returncode=1）
+    gate: 9 passed, 4 warnings in 4.46s
+  [M2 给 celery_breaker 的 ImportError 接线] GREEN-OK（还原后 returncode=0）
+  [M3 _load_json 改为向外抛（破坏同形性）] 变异注入…
+    gate: 3 failed, 6 passed, 4 warnings in 5.10s
+  [M3 _load_json 改为向外抛（破坏同形性）] RED-OK（returncode=1）
+    gate: 9 passed, 4 warnings in 4.35s
+  [M3 _load_json 改为向外抛（破坏同形性）] GREEN-OK（还原后 returncode=0）
+  [M4 user_data_service 脏数据 pass → break] 变异注入…
+    gate: 1 failed, 8 passed, 4 warnings in 4.78s
+  [M4 user_data_service 脏数据 pass → break] RED-OK（returncode=1）
+    gate: 9 passed, 4 warnings in 4.33s
+  [M4 user_data_service 脏数据 pass → break] GREEN-OK（还原后 returncode=0）
+  [M5 删 P2_13 第三十二批节标题] 变异注入…
+    gate: 1 failed, 8 passed, 4 warnings in 4.66s
+  [M5 删 P2_13 第三十二批节标题] RED-OK（returncode=1）
+    gate: 9 passed, 4 warnings in 4.24s
+  [M5 删 P2_13 第三十二批节标题] GREEN-OK（还原后 returncode=0）
+========================================================================
+五条变异全部 RED-OK / GREEN-OK
+========================================================================

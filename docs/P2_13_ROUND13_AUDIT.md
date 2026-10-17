@@ -2146,6 +2146,101 @@ C 轮是关键：没有它，「B 全绿」可能只是探针失真。**反向�
 
 ---
 
+## 一之三十三、#35 X 桶第三十二批：1 接线（`metrics_helpers._load_json`），W=97→98 / X=119 不变
+
+### 1. 本批范围（15 条：1 接线 + 14 不接）
+
+簇来源仍是 `tests/tools/probe_p2_35_batch29_unjudged.py` 的**函数名级**零记载
+候选清单（第二十九批确立的口径）。四簇的函数名在 P2_10/P2_11/P2_13 三份文档中
+均零出现：
+
+| 簇 | 条数 | 裁定 |
+|---|---|---|
+| `app/api/v1/metrics_helpers.py` | 4 | **W 1（本批接线）+ W 3（已接线复核）** |
+| `app/core/celery_breaker.py` | 4 | **P 4**（ImportError 在交付形态下不可达） |
+| `app/services/user_data_service.py` | 4 | **D 4**（脏数据跳过） |
+| `app/core/idempotency.py` | 3 | **W 3**（已接线复核） |
+
+桶计数 **W 97→98、S 36→35，总数 334 不变**；累计状态 **W=98 / X=119**。
+
+### 2. 接线项：`metrics_helpers.py:116` `_load_json`（S → W）
+
+**判据不是「日志不够响」** —— 那类软理由一律不采（见 §2 判据纪律）。依据是可客
+断言的**同形性**（runtime 实测，见 `probe_p2_35_batch32_runtime.py` E3）：
+
+| 情形 | `_load_json` 返回 | 下游 `_extract_*` | Prometheus |
+|---|---|---|---|
+| 产物正常 | `dict` | 有指标 | 序列存在 |
+| **产物损坏**（截断/权限/训练并发写半截） | **`None`** | `{}` | **序列消失** |
+| **产物未部署** | **`None`** | `{}` | **序列消失** |
+
+后两行**对调用方完全同形**：Grafana 上「模型没训过」与「产物坏了」长得一模一样，
+调用方从返回值看不出 ⇒ 满足接线判据。
+
+**同族一致性（范式互锁）**：同文件 `collect_ml_quality` / `collect_drift` /
+`collect_canary` 三处**已经接线**（L231/L257/L283），失败语义同样是「真实产物
+读不到 ⇒ 指标序列消失」。本处不接就与同文件已接线路径自相矛盾。
+
+**可达性已按第三十批纪律核实**（不靠「依赖没装」推断）：`docker-compose.yml:155`
+把 `./backend/models` 只读挂载进容器，实测该目录下真实存在 3 个 `metrics.json`
+（`artifacts/physiological/`、`artifacts/physiological_optimized/`、
+`v1.23_external_lr/`）⇒ 文件确实存在 ⇒ `OSError`/`JSONDecodeError` 可达。
+这与第二十一批 scaler 的情形**相反**（那批默认配置 + 模型文件不入库 ⇒ 不可达）。
+
+接线 location：`"api.metrics_helpers.load_json"`。
+
+### 3. 不接项判据
+
+**`celery_breaker.py` 4 条 —— P 型不可达（接线即假设施）**
+
+- `requirements.txt` 有 `celery>=5.4.0` / `redis>=5.0.4`；
+  `requirements.lock` 有 `celery==5.6.3` / `kombu==5.6.2` / `redis==8.1.0`。
+- 实测 `_INFRA_EXCEPTIONS` 已含 `OperationalError` / `TimeoutError` /
+  `ConnectionError` / `BusyLoadingError` ⇒ 四条 `except ImportError` 在交付
+  形态下**永不触发**。
+- 这是第二十九批 otel 同族，但**方向相反**：otel 那里我错把「本机没装」当成
+  交付形态（实际 `# via` 是 fastapi，门是开的）；这里恰恰是「依赖**已交付**」
+  ⇒ ImportError 真的不会触发。两次都要求查 `requirements.lock` 的真实来源，
+  不凭印象。
+
+**`user_data_service.py` 4 条 —— D 型脏数据**
+
+- 混合输入实测（脏 `sleep_hours` + 正常 `heart_rate`/`steps`/`exercise_minutes`）：
+  脏字段只跳过自己，其余三项**全部仍产出**（`['步数','运动时长','心率']`）。
+- 这是第二十九批 M3 假绿事故教训的直接应用：只投**单个**脏值无法区分
+  `continue` 与 `break`，必须投「脏 + 正常」混合输入。
+- 全脏 + `data_quality=poor` 时兜底因子「数据质量」仍在 ⇒ 不是静默降级。
+
+**`idempotency.py` 3 条 —— W 复核**：`begin_failed_fail_open` /
+`settle_failed` / `dismiss_failed` 三个 location 字面量齐全。
+
+### 4. 闸门与变异
+
+- 新增 `TestP235Round13Batch32Wiring`（9 条）：15 处 handler 存在性 + 所属函数
+  未漂移 + **块级反向钉**（8 条不得接线路径内禁现 `record_silent_degradation`）
+  + location 完整字面量 + 交付物依赖钉 + 运行时 E1/E2/E3 + 文档登记。
+- 变异四条见 `mutate_p2_35_round13_batch32_result.log`。
+
+### 5. 附带记账：CI 出现一条与本轮无关的计时 flake
+
+HEAD `48c6410`（第三十一批）的 `backend-coverage` **failure**，
+**1 failed / 6905 passed / 68 skipped**（609s），唯一红项是
+`tests/performance/test_observability_perf.py::test_response_time_7d_under_300ms`
+—— `assert 421.86 < 300`。判定为**与本轮无关的计时型 flake**，依据三条：
+
+1. 失败项与前两批完全不同（前两批分别是 otel 的两个新断言），说明第三十一批
+   的修复**已生效**；
+2. 该文件自仓库初始化（`341f22c`）以来未被本轮任何批次改动过，且断言的是
+   5000 行聚合查询的**墙钟耗时**（`<300ms`），本质受机器负载影响；
+3. 本机单独复跑该用例 **1 passed**（8.08s）。
+
+本轮不改它（超出 #35 范围），转**独立待办**：该性能断言缺少容差/重试机制。
+下一次 CI 运行同时充当这条 flake 的 A/B 复测。
+
+- **未验证**：本批 CI 待轮询，不预先宣称全绿。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：

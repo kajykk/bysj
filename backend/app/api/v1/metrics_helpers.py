@@ -115,6 +115,14 @@ def _load_json(relative: str) -> dict[str, Any] | None:
                     return data
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning("读取指标产物失败: %s error=%s", path, exc)
+            # P2-35：产物**存在但读不出来**（损坏 / 权限 / 训练过程中被并发读到
+            # 半截文件）与「产物根本没部署」在 `_load_json` 这里返回的是同一个
+            # 值 None —— 调用方 `_extract_*` 拿到空 dict，Prometheus 里该模态的
+            # 序列直接消失。Grafana 上「指标极差/没数据」与「产物损坏」完全无法
+            # 区分，调用方从返回值看不出 ⇒ 属真降级，必须留痕。
+            # 与同文件 collect_ml_quality/drift/canary 三处的处理保持同族
+            # （都是「真实产物读不到 ⇒ 指标序列消失」）。
+            record_silent_degradation("api.metrics_helpers.load_json")
     return None
 
 

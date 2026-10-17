@@ -409,12 +409,14 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 97,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+            "W": 98,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
                        # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
-                       # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1）
+                       # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1，
+                       # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
-            "S": 36,   # 自报失败（metrics/sentry/otel/gauge）
+            "S": 35,   # 自报失败（metrics/sentry/otel/gauge；第三十二批
+                       # metrics_helpers `_load_json` 由 S 改判接线 ⇒ 36→35）
             "D": 22,   # 脏数据探测
             "C": 7,    # 清理路径
             "H": 6,    # 检查型
@@ -6651,3 +6653,272 @@ class TestP235Round13Batch29Declined:
         for token in ("环境状态", "交付形态", "V 型可达"):
             assert token in doc11, f"P2_11 附录第三十批条目缺少关键标识: {token}"
         assert "W=97 / X=119" in doc13, "第二十九批为纯裁定批，累计状态应维持 W=97 / X=119"
+
+
+class TestP235Round13Batch32Wiring:
+    """第三十二批：四簇 15 条 —— 1 条接线 + 14 条不接线。
+
+    簇来源：`tests/tools/probe_p2_35_batch29_unjudged.py` 的**函数名级**零记载
+    候选清单（第二十九批确立的口径：裁定记载的检索单位是函数名，不是文件名）。
+    四簇的函数名在 P2_10/P2_11/P2_13 三份文档中均零出现：
+      - `app/api/v1/metrics_helpers.py`      10 个函数中 9 个零记载
+      - `app/core/celery_breaker.py`          4 个函数全部零记载
+      - `app/services/user_data_service.py`  10 个函数中 8 个零记载
+      - `app/core/idempotency.py`             4 个函数全部零记载
+
+    裁定（分类器现场重算，见 `verify_p2_35_batch32_candidates.py`）：
+      - `metrics_helpers.py:116` `_load_json` —— **S → W（本批唯一接线）**。
+        判据不是"日志不够响"（那类软理由一律不采），而是**可客断言的同形性**：
+        产物损坏与产物不存在在 `_load_json` 返回同一个 `None`，下游
+        `_extract_*` 都得到 `{}`，Prometheus 里该模态序列直接消失 ⇒ 调用方
+        （Grafana）无法区分"没部署产物"与"产物损坏"。且与同文件
+        `collect_ml_quality/drift/canary` 三处**同族**（都是「真实产物读不到
+        ⇒ 指标序列消失」），那三处已接线，本处不接就自相矛盾。
+      - `celery_breaker.py` 4 条 —— **P 型不可达**。`requirements.txt` 有
+        `celery>=5.4.0`/`redis>=5.0.4`，lock 有 celery/kombu/redis ⇒ 四条
+        `except ImportError` 在交付形态下永不触发，接线即假设施
+        （第二十九批 otel 同族，方向一致：被"依赖齐备"挡住，不是被自己挡住）。
+      - `user_data_service.py` 4 条 —— **D 型脏数据**。混合输入实测：脏字段
+        只跳过自己，同批正常字段仍全部产出 ⇒ 不是"一个坏字段让整份因子变空"。
+      - `idempotency.py` 3 条 —— **W 复核**（已接线，location 字面量齐全）。
+
+    桶计数：W 97→98、S 36→35，总数 334 不变。
+    """
+
+    MH_REL = "app/api/v1/metrics_helpers.py"
+    CB_REL = "app/core/celery_breaker.py"
+    UDS_REL = "app/services/user_data_service.py"
+    IDM_REL = "app/core/idempotency.py"
+
+    # (文件, 行号, 所属函数, 裁定桶)
+    CANDIDATES = [
+        (MH_REL, 116, "_load_json", "W"),
+        (MH_REL, 231, "collect_ml_quality_metrics", "W"),
+        (MH_REL, 257, "collect_drift_metrics", "W"),
+        (MH_REL, 283, "collect_canary_metrics", "W"),
+        (CB_REL, 89, "_collect_infra_exceptions", "P"),
+        (CB_REL, 97, "_collect_infra_exceptions", "P"),
+        (CB_REL, 107, "_collect_infra_exceptions", "P"),
+        (CB_REL, 153, "_is_celery_failure", "P"),
+        (UDS_REL, 165, "_generate_physio_factors", "D"),
+        (UDS_REL, 180, "_generate_physio_factors", "D"),
+        (UDS_REL, 197, "_generate_physio_factors", "D"),
+        (UDS_REL, 212, "_generate_physio_factors", "D"),
+        (IDM_REL, 76, "begin_idempotent_call", "W"),
+        (IDM_REL, 98, "settle_idempotent_call", "W"),
+        (IDM_REL, 112, "dismiss_idempotent_call", "W"),
+    ]
+
+    def _read(self, rel: str) -> str:
+        return (BEPKG / rel).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _handler_at(rel_path: pathlib.Path, line: int) -> ast.ExceptHandler:
+        tree = ast.parse(rel_path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        raise AssertionError(f"{rel_path.name}:{line} 处没有 except handler（行号漂移）")
+
+    @staticmethod
+    def _enclosing(rel_path: pathlib.Path, line: int) -> str:
+        tree = ast.parse(rel_path.read_text(encoding="utf-8"))
+        best: tuple[int, str] | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.lineno <= line <= (node.end_lineno or node.lineno):
+                    if best is None or node.lineno > best[0]:
+                        best = (node.lineno, node.name)
+        assert best is not None, f"{rel_path.name}:{line} 不在任何函数内"
+        return best[1]
+
+    def test_candidates_present_and_enclosing_func(self):
+        """15 条候选全部在位且所属函数未漂移（行号以接线后落盘文本为准）。"""
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            p = BEPKG / rel
+            handler = self._handler_at(p, line)
+            actual = self._enclosing(p, line)
+            assert actual == fn_name, (
+                f"{rel}:{line} 所属函数漂移：期望 {fn_name}，实际 {actual}"
+            )
+            assert handler.type is not None, f"{rel}:{line} 裸 except"
+
+    def test_wiring_only_at_load_json_and_three_collectors(self):
+        """接线点恰好四处：`_load_json` + 三个 `collect_*`。
+
+        反向钉：celery_breaker 四条与 user_data_service 四条的 handler 内
+        **不得**出现 `record_silent_degradation` —— 前者不可达（接线即假设施），
+        后者是脏数据跳过（不构成降级）。
+        """
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            src = self._read(rel)
+            handler = self._handler_at(BEPKG / rel, line)
+            seg = ast.get_source_segment(src, handler) or ""
+            has = "record_silent_degradation" in seg
+            already_wired = (
+                "_load_json",
+                "collect_ml_quality_metrics",
+                "collect_drift_metrics",
+                "collect_canary_metrics",
+                "begin_idempotent_call",
+                "settle_idempotent_call",
+                "dismiss_idempotent_call",
+            )
+            if fn_name in already_wired:
+                assert has, f"{rel}:{line} ({fn_name}) 接线消失"
+            else:
+                assert not has, (
+                    f"{rel}:{line} ({fn_name}) 出现了接线 —— "
+                    "不可达路径/脏数据路径接线即假设施，裁定需重估"
+                )
+
+    def test_load_json_location_literal_pinned(self):
+        """`_load_json` 的 location 字面量必须带引号完整匹配。
+
+        第二十六批教训：子串匹配会被 `_typo` 型变异放行。
+        """
+        src = self._read(self.MH_REL)
+        assert 'record_silent_degradation("api.metrics_helpers.load_json")' in src, (
+            "`api.metrics_helpers.load_json` 接线 location 消失或被改写"
+        )
+
+    def test_celery_breaker_optional_deps_delivered(self):
+        """E1 结构钉：kombu / celery / redis 在交付物中齐备 ⇒ 四条 ImportError 不可达。
+
+        第二十九批纪律的反向应用：那里是「依赖没装 ⇒ handler 不可达」被推翻
+        （因为 `# via` 是 fastapi），这里是「依赖**已交付** ⇒ ImportError 永不
+        触发」。两者都要求查 `requirements.lock` 的真实来源，不凭印象。
+        """
+        req = self._read("requirements.txt")
+        lock = self._read("requirements.lock")
+        assert "celery" in req, "requirements.txt 缺 celery ⇒ 可达性判据需重估"
+        assert "redis" in req, "requirements.txt 缺 redis ⇒ 可达性判据需重估"
+        for pkg in ("celery==", "kombu==", "redis=="):
+            assert pkg in lock, f"requirements.lock 缺 {pkg} ⇒ 可达性判据需重估"
+
+    def test_runtime_e1_celery_breaker_imports_succeed(self, monkeypatch):
+        """E1 运行时：三条可选 import 在交付形态下全部成功 ⇒ handler 不触发。"""
+        import importlib
+
+        cb = importlib.import_module("app.core.celery_breaker")
+        for modname, attr in (
+            ("kombu.exceptions", "OperationalError"),
+            ("celery.exceptions", "TimeoutError"),
+            ("redis.exceptions", "ConnectionError"),
+            ("redis.exceptions", "BusyLoadingError"),
+        ):
+            assert hasattr(importlib.import_module(modname), attr), (
+                f"{modname}.{attr} 不可导入 ⇒ 对应的 except ImportError 会触发，"
+                "P 型裁定需重估"
+            )
+        names = [t.__name__ for t in cb._INFRA_EXCEPTIONS]
+        for want in ("OperationalError", "TimeoutError", "BusyLoadingError"):
+            assert any(want in n for n in names), (
+                f"{want} 未进 _INFRA_EXCEPTIONS ⇒ except ImportError 触发了"
+            )
+
+    def test_runtime_e2_user_data_dirty_field_skips_only_itself(self):
+        """E2 运行时：脏字段只跳过自己，同批正常字段仍产出（D 型判据）。
+
+        第二十九批 M3 假绿事故的教训：只投**单个**脏值无法区分 `continue` 与
+        `break`，必须投「脏 + 正常」混合输入。
+        """
+        import importlib
+
+        svc = importlib.import_module("app.services.user_data_service")
+        gen = svc.UserDataService._generate_physio_factors
+
+        mixed = gen(
+            {"data_quality": "good"},
+            {
+                "physiological": {
+                    "sleep_hours": "睡了很久",  # 脏
+                    "heart_rate": 95,  # 正常：>=90
+                    "steps": 1000,  # 正常：<3000
+                    "exercise_minutes": 5,  # 正常：<15
+                }
+            },
+        )
+        feats = [f["feature"] for f in mixed]
+        assert len(mixed) == 3, (
+            f"脏字段应只跳过自己，其余三项正常字段必须仍产出，实际={feats}"
+        )
+        assert svc._PHYSIO_FEATURE_LABELS["sleep_hours"] not in feats, (
+            f"脏的 sleep_hours 不应产出因子：{feats}"
+        )
+
+        poor = gen(
+            {"data_quality": "poor"},
+            {"physiological": {"sleep_hours": "x", "heart_rate": "y",
+                               "steps": "z", "exercise_minutes": "w"}},
+        )
+        assert poor and poor[0]["feature"] == "数据质量", (
+            "data_quality=poor 的兜底因子消失"
+        )
+
+    def test_runtime_e3_load_json_failure_shape_is_silent(self, monkeypatch):
+        """E3 运行时：`_load_json` 的两种失败对调用方完全同形（接线判据硬证据）。
+
+        产物**损坏**与产物**不存在**都返回 `None`，下游 `_extract_*` 都得到
+        `{}` ⇒ Prometheus 序列消失，调用方无从区分。
+        """
+        import importlib
+        import pathlib
+        import tempfile
+
+        mh = importlib.import_module("app.api.v1.metrics_helpers")
+
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / "good.json").write_text(
+                '{"test_metrics": {"roc_auc": 0.91}}', encoding="utf-8"
+            )
+            (root / "corrupt.json").write_text(
+                '{"test_metrics": {"roc_auc": 0.', encoding="utf-8"
+            )  # 截断 ⇒ JSONDecodeError
+
+            monkeypatch.setattr(mh, "_model_roots", lambda: [root], raising=True)
+
+            assert mh._load_json("good.json") == {"test_metrics": {"roc_auc": 0.91}}, (
+                "正常产物应读出 dict（对照：证明不是一律返回空的退化实现）"
+            )
+            corrupt_out = mh._load_json("corrupt.json")
+            missing_out = mh._load_json("nope.json")
+            assert corrupt_out is None, "损坏产物应走 except 返回 None"
+            assert missing_out is None, "不存在的产物应返回 None"
+            assert corrupt_out == missing_out, "两种失败形态返回值必须完全同形"
+
+            monkeypatch.setitem(
+                mh._MODALITY_METRIC_SOURCES, "probe", ("corrupt.json",)
+            )
+            assert mh._extract_modality_metrics("probe") == {}, "损坏 ⇒ 空指标"
+            monkeypatch.setitem(
+                mh._MODALITY_METRIC_SOURCES, "probe", ("nope.json",)
+            )
+            assert mh._extract_modality_metrics("probe") == {}, "无产物 ⇒ 空指标"
+
+    def test_idempotency_wiring_locations_pinned(self):
+        """E4：idempotency.py 三条已接线，location 字面量带引号完整匹配。"""
+        src = self._read(self.IDM_REL)
+        for loc in (
+            '"core.idempotency.begin_failed_fail_open"',
+            '"core.idempotency.settle_failed"',
+            '"core.idempotency.dismiss_failed"',
+        ):
+            assert loc in src, f"idempotency 接线 location 消失: {loc}"
+
+    def test_document_registration(self):
+        """文档登记：P2_13「一之三十三」节 + P2_11 附录第三十二批条目。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之三十三、" in doc13, "P2_13 缺少「一之三十三」节标题"
+        for token in (
+            "metrics_helpers.py",
+            "celery_breaker.py",
+            "user_data_service.py",
+            "idempotency.py",
+            "api.metrics_helpers.load_json",
+            "W=98 / X=119",
+        ):
+            assert token in doc13, f"P2_13 第三十二批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第三十二批" in doc11, "P2_11 附录缺少第三十二批条目"

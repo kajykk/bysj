@@ -1414,3 +1414,47 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   M2 删闸门 **3 红** / M3 依赖门收紧 **6 红**，比上轮多 1 正是新形态测试 /
   M4 3 红）；受影响测试合并跑（6 文件）**253 passed**。纯裁定批，`app/`
   生产代码零改动。
+
+  **CI 结果**：`backend-coverage` **failure**（1 failed / 6905 passed /
+  68 skipped，609s），唯一红项是 `tests/performance/
+  test_observability_perf.py::test_response_time_7d_under_300ms`
+  （`assert 421.86 < 300`）。判定**与本轮无关**：①失败项与前两批完全不同，
+  说明本批修复已生效；②该文件自 `341f22c` 以来未被本轮改动，断言的是 5000 行
+  聚合查询的墙钟耗时；③本机单独复跑 **1 passed**（8.08s）。转独立待办。
+
+- **第十三轮第三十二批（1 接线，W=97→98 / S 36→35 / X=119 不变，总数 334 不变）**：
+
+  **簇**：四簇 15 条，函数名级零记载 —— `app/api/v1/metrics_helpers.py` 4 +
+  `app/core/celery_breaker.py` 4 + `app/services/user_data_service.py` 4 +
+  `app/core/idempotency.py` 3。
+
+  **接线 1 条**：`metrics_helpers.py:116` `_load_json` → `"api.metrics_helpers.
+  load_json"`（S → W）。判据是**可客断言的同形性**（不是「日志不够响」）：
+  产物损坏与产物不存在都返回 `None`，下游 `_extract_*` 都得 `{}` ⇒ Prometheus
+  序列消失，Grafana 无法区分「没训过」与「产物坏了」。且与同文件
+  `collect_ml_quality`/`drift`/`canary` 三处已接线路径**同族**（语义都是
+  「真实产物读不到 ⇒ 序列消失」），本处不接即自相矛盾。
+  **可达性按第三十批纪律核实**：`docker-compose.yml:155` 只读挂载
+  `./backend/models`，实测该目录有 3 个真实 `metrics.json` ⇒ 文件存在 ⇒
+  `OSError`/`JSONDecodeError` 可达（与第二十一批 scaler 相反）。
+
+  **不接 14 条**：
+  - `celery_breaker.py` 4 条 **P 型不可达** —— `requirements.txt` 有
+    celery/redis、lock 有 celery/kombu/redis，实测 `_INFRA_EXCEPTIONS` 已含
+    四类可选异常 ⇒ 四条 `except ImportError` 永不触发。这是第二十九批 otel
+    同族但**方向相反**：那次我错把「本机没装」当交付形态，这次是「依赖已交付」
+    真的不触发。
+  - `user_data_service.py` 4 条 **D 型脏数据** —— 混合输入实测（脏
+    `sleep_hours` + 正常 `heart_rate`/`steps`/`exercise_minutes`）脏字段只跳过
+    自己，其余三项全部仍产出。这是第二十九批 M3 假绿教训的直接应用：只投单个
+    脏值无法区分 `continue` 与 `break`。
+  - `idempotency.py` 3 条 **W 复核** —— 三个 location 字面量齐全。
+
+  **闸门**：新增 `TestP235Round13Batch32Wiring`（9 条），含 15 处存在性 +
+  所属函数未漂移 + **块级反向钉**（8 条不得接线路径内禁现
+  `record_silent_degradation`）+ location 完整字面量 + 交付物依赖钉 +
+  运行时 E1/E2/E3 + 文档登记。桶计数棘轮断言同步 W 97→98、S 36→35。
+
+  **读数**：见 `verify_p2_35_batch32_candidates.py`（MISSING=0）与
+  `probe_p2_35_batch32_runtime.py`（四项证据全成立）；变异四条见
+  `mutate_p2_35_round13_batch32_result.log`。
