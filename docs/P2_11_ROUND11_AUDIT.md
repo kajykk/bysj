@@ -1154,3 +1154,51 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   向上抛——须用完整 14 特征，否则 routing 会在「信息不足」处提前 return
   导致断言假绿）+ 文档登记。桶计数维持 **W=97 / X=119**。变异四条见
   `mutate_p2_35_round13_batch26_result.log`。
+
+- **第十三轮第二十七批（纯裁定批，0 接线，W=97 / X=119 不变）**：
+  `app/core/sentry.py`（6 条）+ `app/api/v1/metrics.py`（5 条）收口。
+  两簇检索全文**无任何裁定记载**，属真正的新库存（sentry 此前只在
+  「scheduler 里的 Sentry 调用点」语境被裁过、本体从未逐条裁；
+  metrics.py 的 5 个 `_set_*` 采集器同样从未裁过）。挑簇器前列的
+  ws.py/scheduler.py/loading.py 三簇**全部系已裁残留**——挑簇器
+  「文档未提及 = 未裁定」信号缺陷第六次实锤。
+  机器口径：11 条**全判 S**（两文件均在分类器 `SELF_REPORT_FILES`
+  白名单）。逐条独立复核后全部维持不接线：L103 `init_sentry` SDK
+  import 失败（S 型——可观测性设施自身启动失败；且 sentry-sdk 是
+  `requirements.txt:50` 顶层依赖 + `requirements.lock:323` 硬锁
+  `2.71.0` + `Dockerfile:100` pin 清单显式含，生产镜像构建期必装、
+  运行期不可达）；L148/L163（S 型——自报通道自身失败，调用方
+  `scheduler.py:117-130` 还有第二层 try/except 记 debug）；L27/L36/L47
+  `_extract_status_code`（D 型——上游脏数据，`pass` 后穷举下一路径，
+  三条全失败才 `return None`）；metrics.py 五条 `_set_*`（S 型——采集
+  失败不改 HTTP 状态码，旧 gauge 留存比归零更保守；第二十六批 L244
+  同型先例可援引）。
+
+  **运行时实证附带发现（已转独立待办信号）**：`init_sentry` 的两个
+  handler 都是 `return` 不抛，调用方 `main.py:249`
+  `record_step_sync("init_sentry", _init_sentry, fatal=False)` 因此把
+  状态记为 **`ok`**——实测输出
+  `init_sentry record -> {"status": "ok", "error_type": "", ...}`，
+  即 `/health/startup`（`main.py:543`）**无法区分「Sentry 已初始化」与
+  「SDK 根本导不进来」**。`startup_status` 其实有 `skipped` 状态可用
+  （`test_iss02_startup_status.py:59` 已有用例），但修它需改
+  `init_sentry` 返回契约或让 main.py 显式记 `skipped`，属**行为变更
+  而非接线**，超出 #35 范围；R-006 注释亦明示「初始化失败不影响启动
+  （仅监控降级）」。
+
+  **文件内正确范式互锁**：同文件 `_set_redis_metrics`（L100-108）失败时
+  执行 `redis_circuit_state.set(2)`——把「Redis 不可达」编码进指标值
+  本身，是全文件唯一「失败被显式编码」的采集器；与五处「只 warning」
+  形成对照，已加互锁钉（改成纯 warning 会打红闸门）。端点鉴权链
+  `_require_metrics_token`（L47-68，AUDIT-2026-10-06 P1-3）是
+  fail-closed 白名单，无静默口子。
+
+  闸门 `TestP235Round13Batch27Declined`（9 条）：11 处存在性 + 块级反向钉
+  （含直调式 `silent_degradation_total` 禁现）+ sentry 三条 warning 文案
+  见证 + `_extract_status_code` 三路径结构钉（handler 数=3 / 捕获类型 /
+  `pass` 形态 / 三个取值键按 AST 字符串实参断言，**不用文本匹配以免
+  引号风格漂移**）+ metrics 五条 warning 文案见证 +
+  `_set_redis_metrics` 范式互锁 + 运行时两条（启动状态记 `ok` 实证 /
+  非数值 status code 三路径皆 `None` 且合法值仍能提取）+ 既有测试与
+  R-006 注释互锁 + 文档登记。桶计数维持 **W=97 / X=119**。变异四条见
+  `mutate_p2_35_round13_batch27_result.log`。

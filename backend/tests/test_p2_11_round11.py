@@ -5230,3 +5230,251 @@ class TestP235Round13Batch26Declined:
         assert "第十三轮第二十六批" in doc11, "P2_11 附录缺少第二十六批条目"
         assert "loading" in doc11, "P2_11 附录第二十六批条目缺少文件名"
         assert "W=97 / X=119" in doc13, "第二十六批为纯裁定批，累计状态应维持 W=97 / X=119"
+
+
+class TestP235Round13Batch27Declined:
+    """第二十七批：app/core/sentry.py 6 条 + app/api/v1/metrics.py 5 条。
+
+    两簇在往批审计文档中**完全无裁定记载**（sentry 此前只在「scheduler 里的
+    Sentry 调用点」语境被裁过，metrics.py 的 5 个 _set_* 采集器从未逐条裁过），
+    属真正的新库存而非行号平移。分类器现场重算 11 条全判 S（两文件均在
+    SELF_REPORT_FILES 里），本批逐条独立复核后维持不接线，桶计数不变。
+    """
+
+    SENTRY_REL = "app/core/sentry.py"
+    METRICS_REL = "app/api/v1/metrics.py"
+
+    # 裁定不接线的 11 处（文件, 行号, 所属函数）
+    TARGETS = (
+        (SENTRY_REL, 103, "init_sentry"),
+        (SENTRY_REL, 148, "capture_exception"),
+        (SENTRY_REL, 163, "capture_message"),
+        (SENTRY_REL, 27, "_extract_status_code"),
+        (SENTRY_REL, 36, "_extract_status_code"),
+        (SENTRY_REL, 47, "_extract_status_code"),
+        (METRICS_REL, 84, "_set_breaker_metrics"),
+        (METRICS_REL, 96, "_set_db_pool_metrics"),
+        (METRICS_REL, 117, "_set_model_fallback_metric"),
+        (METRICS_REL, 136, "_set_mttr_metrics"),
+        (METRICS_REL, 152, "_set_slo_metrics"),
+    )
+
+    def _read(self, rel: str) -> str:
+        return (BEPKG / rel).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _handler_at(src: str, line: int):
+        tree = ast.parse(src)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        return None
+
+    def test_eleven_handlers_exist_and_not_wired(self):
+        """存在性核查 + 反向钉：11 处 handler 均在原位且均未接线。"""
+        for rel, line, fn_name in self.TARGETS:
+            src = self._read(rel)
+            handler = self._handler_at(src, line)
+            assert handler is not None, f"{rel}:{line} handler 消失或位移"
+            seg = ast.get_source_segment(src, handler) or ""
+            assert "record_silent_degradation" not in seg, (
+                f"{rel}:{line}（{fn_name}）被接线 —— 第二十七批裁定为不接线，"
+                "若改判需先更新审计文档并同步桶计数棘轮"
+            )
+            assert "silent_degradation_total" not in seg, (
+                f"{rel}:{line}（{fn_name}）出现直调式 silent_degradation_total 计数"
+            )
+
+    def test_sentry_handlers_keep_warning_anchors(self):
+        """sentry 三处 SDK 层 handler 的 warning 文案仍在（诊断侧留痕）。"""
+        src = self._read(self.SENTRY_REL)
+        for line, token in (
+            (103, '"sentry_sdk not available, skipping Sentry initialization"'),
+            (148, '"sentry_sdk not available, exception not captured"'),
+            (163, '"sentry_sdk not available, message not captured"'),
+        ):
+            handler = self._handler_at(src, line)
+            assert handler is not None, f"sentry.py:{line} handler 消失"
+            seg = ast.get_source_segment(src, handler) or ""
+            assert token in seg, f"sentry.py:{line} 的 warning 文案消失：{token}"
+
+    def test_extract_status_code_keeps_three_paths(self):
+        """_extract_status_code 三条 ValueError/TypeError handler 的设计行为见证。
+
+        既有 tests/test_sentry.py::TestExtractStatusCode 已钉「非数值 status code
+        → None」，本批复核三条 `pass` 路径未被裁掉（裁掉任一条会让该测试红）。
+        """
+        src = self._read(self.SENTRY_REL)
+        tree = ast.parse(src)
+        fn = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_extract_status_code":
+                fn = node
+                break
+        assert fn is not None, "_extract_status_code 函数消失"
+        handlers = [n for n in ast.walk(fn) if isinstance(n, ast.ExceptHandler)]
+        assert len(handlers) == 3, f"_extract_status_code handler 数变为 {len(handlers)}，应为 3"
+        for node in handlers:
+            types = ast.unparse(node.type)
+            assert types == "(ValueError, TypeError)", f"捕获类型漂移为 {types}"
+            seg = ast.get_source_segment(src, node) or ""
+            assert seg.strip().endswith("pass"), "三条 handler 应为 `pass` 后继续下一路径"
+        # 三条路径各自的取值键仍在（按 AST 的字符串实参断言，不受引号风格影响）
+        wanted = {"response_status_code", "http.status_code", "http.response.status_code"}
+        got = set()
+        for node in ast.walk(fn):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "get"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            ):
+                got.add(node.args[0].value)
+        assert wanted <= got, f"三条路径的取值键缺失：缺 {sorted(wanted - got)}"
+        assert "return None" in ast.unparse(fn), "最终 return None 消失"
+
+    def test_metrics_collectors_keep_warning_anchors(self):
+        """metrics.py 五个 _set_* 采集器的 warning 文案仍在。"""
+        src = self._read(self.METRICS_REL)
+        for line, token in (
+            (84, '"%s circuit metric collection failed: %s"'),
+            (96, '"db_pool_size metric collection failed: %s"'),
+            (117, '"model_fallback_rate metric collection failed: %s"'),
+            (136, '"mttr metric collection failed: %s"'),
+            (152, '"slo metric collection failed: %s"'),
+        ):
+            handler = self._handler_at(src, line)
+            assert handler is not None, f"metrics.py:{line} handler 消失"
+            seg = ast.get_source_segment(src, handler) or ""
+            assert token in seg, f"metrics.py:{line} 的 warning 文案消失：{token}"
+
+    def test_redis_collector_keeps_fail_visible_paradigm(self):
+        """文件内正确范式互锁：_set_redis_metrics 失败时把状态编码进指标值。
+
+        这是 metrics.py 里唯一「失败被显式编码」的采集器（L108
+        `redis_circuit_state.set(2)`），与五处只 warning 的采集器形成对照。
+        若有人把 set(2) 改成纯 warning，本钉会红 —— 那会把「Redis 不可达」
+        从可观测降为静默。
+        """
+        src = self._read(self.METRICS_REL)
+        tree = ast.parse(src)
+        fn = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_set_redis_metrics":
+                fn = node
+                break
+        assert fn is not None, "_set_redis_metrics 函数消失"
+        handler = None
+        for node in ast.walk(fn):
+            if isinstance(node, ast.ExceptHandler):
+                handler = node
+                break
+        assert handler is not None, "_set_redis_metrics 的 except handler 消失"
+        seg = ast.get_source_segment(src, handler) or ""
+        assert "redis_circuit_state.set(2)" in seg, (
+            "失败时的 redis_circuit_state.set(2) 消失 —— "
+            "Redis 不可达将从可观测退化为静默"
+        )
+        assert "logger" not in seg, (
+            "该 handler 应只设指标不记日志（对照范式），出现 logger 说明形态漂移"
+        )
+
+    def test_runtime_init_sentry_failure_records_ok(self):
+        """运行时：SDK 不可导入时 /health/startup 把 init_sentry 记为 ok。
+
+        这是本批最关键的可客断言 —— 证明「不接线」不是因为信号已显式，而是
+        因为 signal 通道（startup_status）确实把它记成了成功：运维读
+        /health/startup 无法区分「Sentry 已初始化」与「SDK 根本导不进来」。
+        判据据此改写（详见审计文档）：不是 V 型，而是 S 型 —— 失败的是
+        可观测性设施自身启动，且 sentry-sdk 是 requirements.lock 硬锁依赖
+        （镜像构建期安装），生产不可达。
+        """
+        import builtins
+        import importlib
+        import sys
+
+        ss = importlib.import_module("app.core.startup_status")
+        sentry_mod = importlib.import_module("app.core.sentry")
+
+        real_import = builtins.__import__
+
+        def _blocked(name, *a, **k):
+            if name == "sentry_sdk" or name.startswith("sentry_sdk."):
+                raise ImportError("probe: sentry_sdk blocked")
+            return real_import(name, *a, **k)
+
+        saved = {k: v for k, v in sys.modules.items() if k.startswith("sentry_sdk")}
+        for k in saved:
+            del sys.modules[k]
+        builtins.__import__ = _blocked
+        try:
+            ss.record_step_sync(
+                "init_sentry",
+                lambda: sentry_mod.init_sentry(dsn="https://key@sentry.io/123"),
+                fatal=False,
+            )
+        finally:
+            builtins.__import__ = real_import
+            for k in [m for m in sys.modules if m.startswith("sentry_sdk")]:
+                del sys.modules[k]
+            sys.modules.update(saved)
+
+        rec = ss.startup_status.components["init_sentry"]
+        assert rec.status == "ok", (
+            f"init_sentry 启动状态变为 {rec.status!r} —— 若改为 failed/skipped，"
+            "说明 signal 已显式，第二十七批「S 型不接线」判据需重估"
+        )
+        assert rec.error_type == "", "不应有 error_type"
+
+    def test_runtime_extract_status_code_non_numeric_returns_none(self):
+        """运行时：非数值 status code 三条路径都返回 None（既有设计行为见证）。"""
+        import importlib
+
+        sentry_mod = importlib.import_module("app.core.sentry")
+        extract = sentry_mod._extract_status_code
+
+        assert extract({"request": {"response_status_code": "not-a-number"}}) is None
+        assert extract({"tags": {"http.status_code": "bad"}}) is None
+        assert extract(
+            {"contexts": {"trace": {"tags": {"http.response.status_code": []}}}}
+        ) is None
+        # 对照：合法值仍能提取（证明不是「一律返回 None」的退化实现）
+        assert extract({"request": {"response_status_code": 500}}) == 500
+
+    def test_existing_sentry_tests_still_pin_design_behavior(self):
+        """往批既有测试互锁：三处关键设计行为测试仍在且钉住预期语义。"""
+        test_src = (BEPKG / "tests" / "test_sentry.py").read_text(encoding="utf-8")
+        for token in (
+            "def test_sdk_import_failure_does_not_raise",
+            "def test_extract_handles_invalid_code_gracefully",
+            "def test_5xx_always_retained",
+        ):
+            assert token in test_src, f"既有设计行为测试消失：{token}"
+        main_src = self._read("app/main.py")
+        assert 'record_step_sync("init_sentry", _init_sentry, fatal=False)' in main_src, (
+            "main.py 的 init_sentry 启动登记（fatal=False）消失 —— "
+            "「不抛出以免阻断启动」的前提失效"
+        )
+        assert "# R-006: sentry 初始化失败不影响启动 (仅监控降级)" in main_src, (
+            "R-006 设计注释消失"
+        )
+
+    def test_document_registration(self):
+        """文档登记：P2_13「一之二十八」节 + P2_11 附录第二十七批条目。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "## 一之二十八、" in doc13, "P2_13 缺少「一之二十八」节标题"
+        for token in (
+            "sentry.py",
+            "api/v1/metrics.py",
+            "init_sentry",
+            "_set_redis_metrics",
+            "S 型",
+        ):
+            assert token in doc13, f"P2_13 第二十七批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十七批" in doc11, "P2_11 附录缺少第二十七批条目"
+        assert "sentry" in doc11, "P2_11 附录第二十七批条目缺少文件名"
+        assert "W=97 / X=119" in doc13, "第二十七批为纯裁定批，累计状态应维持 W=97 / X=119"

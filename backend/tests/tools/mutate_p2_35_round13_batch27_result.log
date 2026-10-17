@@ -1,0 +1,29 @@
+========================================================================
+P2-35 第二十七批变异验证（锚点均为落盘实读文本）
+========================================================================
+  [baseline] 变异前闸门应为绿…
+    gate: 63 passed, 4 warnings in 37.36s
+  [baseline] GREEN-OK
+  [M1 给 init_sentry SDK import handler 接线] 变异注入…
+    gate: 3 failed, 60 passed, 4 warnings in 40.82s
+  [M1 给 init_sentry SDK import handler 接线] RED-OK（returncode=1）
+    gate: 63 passed, 4 warnings in 38.82s
+  [M1 给 init_sentry SDK import handler 接线] GREEN-OK（还原后 returncode=0）
+  [M2 把 _set_redis_metrics 的 set(2) 改成纯 warning] 变异注入…
+    gate: 1 failed, 62 passed, 4 warnings in 38.40s
+  [M2 把 _set_redis_metrics 的 set(2) 改成纯 warning] RED-OK（returncode=1）
+    gate: 63 passed, 4 warnings in 37.77s
+  [M2 把 _set_redis_metrics 的 set(2) 改成纯 warning] GREEN-OK（还原后 returncode=0）
+  [M3 裁掉 _extract_status_code 路径 3 的穷举降级] 变异注入…
+    gate: 1 failed, 62 passed, 4 warnings in 40.11s
+  [M3 裁掉 _extract_status_code 路径 3 的穷举降级] RED-OK（returncode=1）
+    gate: 63 passed, 4 warnings in 40.03s
+  [M3 裁掉 _extract_status_code 路径 3 的穷举降级] GREEN-OK（还原后 returncode=0）
+  [M4 删 P2_13 节标题] 变异注入…
+    gate: 1 failed, 62 passed, 4 warnings in 36.95s
+  [M4 删 P2_13 节标题] RED-OK（returncode=1）
+    gate: 63 passed, 4 warnings in 36.28s
+  [M4 删 P2_13 节标题] GREEN-OK（还原后 returncode=0）
+========================================================================
+四条变异全部 RED-OK / GREEN-OK
+========================================================================

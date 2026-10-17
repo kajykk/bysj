@@ -1639,6 +1639,97 @@ location 的跨批口径复核。
 
 ---
 
+## 一之二十八、#35 X 桶第二十七批：纯裁定批（0 接线，W=97 / X=119 不变，sentry.py + api/v1/metrics.py 收口）
+
+挑簇器前列的 `ws.py` 12 条 / `scheduler.py` 9 条 / `loading.py` 7 条
+**全部系已裁残留**（第二十四/二十五/二十六批），挑簇器「文档未提及 = 未裁定」
+信号缺陷**第六次**实锤。手工逐簇核对后改取**真正无任何裁定记载**的两簇：
+`app/core/sentry.py`（6 条）与 `app/api/v1/metrics.py`（5 条）——检索
+`P2_11_ROUND11_AUDIT.md` / `P2_13_ROUND13_AUDIT.md` 全文，
+sentry 此前只在「scheduler 里的 Sentry 调用点」语境被裁过（第十九批②③、
+第二十五批③），sentry.py 本体从未逐条裁；metrics.py 的 5 个 `_set_*`
+采集器同样从未裁过。
+
+**存在性核查**（`tests/tools/verify_p2_35_batch27_candidates.py`，MISSING=0）：
+11 条机器口径**全判 S**（两文件均在分类器 `SELF_REPORT_FILES` 白名单里，
+该名单把 metrics/sentry/otel/degradation 等可观测性自报文件整体归 S）。
+按纪律分类器只作粗排，以下逐条独立复核。
+
+### 1. app/core/sentry.py（6 条，全部不接线）
+
+| # | 位置 | 类型 | 理由（可客观断言） |
+|---|---|---|---|
+| 1 | L103 `init_sentry` SDK import 失败 → warning + `return` | S 型 | 失败的是**可观测性设施自身启动**。部署形态核查：`sentry-sdk[fastapi]>=2.0.0` 是 `requirements.txt:50` 顶层依赖，`requirements.lock:323` 硬锁 `sentry-sdk==2.71.0`，`Dockerfile:100` 的 pin 清单显式含 `sentry-sdk:[fastapi]` ⇒ 生产镜像构建期必装，运行期 import 失败不可达。既有测试 `test_sdk_import_failure_does_not_raise` 已钉「不抛」语义 |
+| 2 | L148 `capture_exception` SDK 调用失败 → warning | S 型 | 自报通道自身失败。调用方 `scheduler.py:117-130` 自己还包了一层 try/except 记 `debug(exc_info=True)`（双层保险），主通道不受影响 |
+| 3 | L163 `capture_message` SDK 调用失败 → warning | S 型 | 同 #2（第十九批②③、第二十五批③同型） |
+| 4 | L27 `_extract_status_code` 路径 1 `int()` 失败 → `pass` | D 型 | 上游 SDK 给的 status code 本来就非数值（脏数据探测），`pass` 后继续试路径 2/3 是**穷举降级**而非放弃 |
+| 5 | L36 同上（路径 2） | D 型 | 同 #4 |
+| 6 | L47 同上（路径 3） | D 型 | 同 #4；三条全失败才 `return None` |
+
+**#1 的关键运行时发现（值得单列）**：`init_sentry` 的两个 handler 都是
+`return` 而不抛，调用方 `main.py:249` 的 `record_step_sync("init_sentry",
+_init_sentry, fatal=False)` 因此把状态记为 **`ok`**。运行时实测（阻断
+`sentry_sdk` 导入后驱动 `record_step_sync`）：
+
+```
+WARNING:app.core.sentry:sentry_sdk not available, skipping Sentry initialization
+init_sentry record -> {"status": "ok", "error_type": "", "error_message": "", "duration_ms": 0.0}
+```
+
+即 `/health/startup`（`main.py:543`，直接 `**startup_status.to_dict()`）
+**无法区分「Sentry 已初始化」与「SDK 根本导不进来」**——运维读启动状态
+会以为监控已就绪。`startup_status` 其实有 `skipped` 状态可用
+（`test_iss02_startup_status.py:59` 已有用例），本批**不接线但如实记账**：
+修它需要改 `init_sentry` 的返回契约或让 main.py 显式记 `skipped`，
+属**行为变更而非接线**，超出 #35「静默降级接线」范围；
+且 R-006 设计注释明示「sentry 初始化失败不影响启动（仅监控降级）」，
+配合部署形态硬锁（见上）判 S 型。**该记账已转为独立待办信号。**
+
+### 2. app/api/v1/metrics.py（5 条，全部不接线）
+
+`/metrics` 端点（`main.py:390` 已注册）的自采集快照器，5 条形如
+`logger.warning("<name> metric collection failed: %s", exc)`。
+
+| # | 位置 | 类型 | 理由（可客观断言） |
+|---|---|---|---|
+| 7 | L84 `_set_breaker_metrics` | S 型 | 采集失败只影响该 gauge 本次是否刷新；端点其余指标照常返回，**HTTP 状态码不变**（200）。与第二十二批 `health` 家族、第十九批 metrics 同型 |
+| 8 | L96 `_set_db_pool_metrics` | S 型 | 同 #7（连接池指标采不到，`db_pool_size` 保持上次值而非归零——**保持上次值比归零更保守**，不会误导成「池空」） |
+| 9 | L117 `_set_model_fallback_metric` | S 型 | 同 #7。这里有一处往批先例可援引：第二十六批 L244 `loading._incr_model_fallback` 判 S 型的理由正是「降级率曲线变平不改变任何调用方返回值」 |
+| 10 | L136 `_set_mttr_metrics` | S 型 | 同 #7（MTTR 统计来自 `mttr_service.compute_mttr`，失败时旧 gauge 留存） |
+| 11 | L152 `_set_slo_metrics` | S 型 | 同 #7 |
+
+**文件内正确范式对照（本批新增互锁）**：同一文件的 `_set_redis_metrics`
+（L100-108）失败时执行 `redis_circuit_state.set(2)`——把「Redis 不可达」
+**编码进指标值本身**，是全文件唯一「失败被显式编码」的采集器。
+它与五处「只 warning」的采集器形成对照，构成本批的**范式互锁钉**：
+若有人把 `set(2)` 改成纯 warning，闸门会红（Redis 不可达将从可观测
+退化为静默）。同时 `_require_metrics_token`（L47-68，AUDIT-2026-10-06
+P1-3）是 fail-closed 白名单，鉴权失败会显式 401/403/503——端点自身的
+访问控制链无静默口子。
+
+### 3. 闸门与读数
+
+- 新增 `TestP235Round13Batch27Declined`（9 条）：11 处 handler 存在性 +
+  块级反向钉（含直调式 `silent_degradation_total` 禁现）+ sentry 三条
+  warning 文案见证 + `_extract_status_code` 三路径结构钉（handler 数=3 /
+  捕获类型 / `pass` 形态 / 三个取值键按 AST 字符串实参断言）+ metrics 五条
+  warning 文案见证 + **`_set_redis_metrics` 范式互锁** + 运行时两条
+  （启动状态记 `ok` 实证 / 非数值 status code 三路径皆 `None` 且合法值
+  仍能提取）+ 既有测试与 R-006 注释互锁 + 文档登记。
+- 分类器现场重算：11 条全判 S（非 X）⇒ 纯裁定、桶计数不变。
+
+### 4. 记账
+
+- 变异四条见 `mutate_p2_35_round13_batch27_result.log`。
+- 未验证如实记账：后端全量本地未跑（约 37 分钟，禁止并发双跑），
+  由 CI `backend-coverage` 兜底。
+- 挑簇器「文档未提及 = 未裁定」信号缺陷**第六次**实锤。工具未修，
+  继续以**分类器现场重算 + 审计文档逐条核对**为准。
+- **独立待办信号**：`init_sentry` 失败时 `/health/startup` 记 `ok`
+  （见 §1），建议后续单独立项改 `skipped`；不属本轮接线范围。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：
@@ -1674,8 +1765,25 @@ location 的跨批口径复核。
 
 ## 三、口径变化影响面结论
 
-0. **本轮累计状态**（二十六批）：当前棘轮
+0. **本轮累计状态**（二十七批）：当前棘轮
    **W=97 / X=119 / P=15**（总数 334 不变；R 4→3）。
+   第二十七批增量：**W +0 / X -0**（纯裁定批：sentry.py 6 条 +
+   api/v1/metrics.py 5 条，两簇均**首次逐条书面裁定**——sentry 此前
+   只在「scheduler 里的 Sentry 调用点」语境被裁过、本体从未裁过，
+   metrics.py 的 5 个 `_set_*` 采集器同样从未裁过。L103
+   `init_sentry` SDK import 失败为 S 型（可观测性设施自身启动失败，
+   且 `sentry-sdk[fastapi]` 是 requirements.txt:50 顶层依赖 +
+   requirements.lock:323 硬锁 2.71.0 + Dockerfile:100 pin 清单显式
+   含，生产镜像构建期必装、运行期不可达）；L148/L163 S 型（自报通道
+   自身失败，调用方 scheduler 还有第二层 try/except）；L27/L36/L47
+   `_extract_status_code` 三条为 D 型（上游脏数据，`pass` 后穷举下一
+   路径）。metrics.py 五条 `_set_*` 全为 S 型（采集失败不改 HTTP 状态码、
+   旧 gauge 留存比归零更保守；文件内 `_set_redis_metrics` 的
+   `redis_circuit_state.set(2)` 是唯一「失败编码进指标值」的正确范式，
+   已加互锁钉）。**运行时实证附带发现**：`init_sentry` 的 handler
+   `return` 不抛 ⇒ `record_step_sync(fatal=False)` 记 `ok` ⇒
+   `/health/startup` 无法区分「已初始化」与「SDK 导不进来」，已转独立
+   待办信号。分类器现场重算 11 条全判 S（非 X），桶计数不变）；
    第二十六批增量：**W +0 / X -0**（纯裁定批：loading.py 7 条候选里
    3 条为首次书面裁定——L244 `_incr_model_fallback` 指标 inc 失败 S 型
    （指标采集通道自身失败，日志侧盲区已由 debug→warning 升级补齐；该
