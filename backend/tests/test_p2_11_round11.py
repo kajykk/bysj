@@ -409,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 102,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+            "W": 103,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
                        # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
                        # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1，
                        # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1，
@@ -420,7 +420,10 @@ class TestP235SilentDegradationRatchet:
                        # 第三十六批 2 处：text_m2_bert_predictor 推理失败⇒对拍
                        # 样本静默消失（与第十六批 compare_failed 同链同语义）
                        # +1、log_sanitizer 脱敏失败⇒未脱敏 PII 无痕放行
-                       # （exc_info=实例 ⇒ len() TypeError 实测可达）+1）
+                       # （exc_info=实例 ⇒ len() TypeError 实测可达）+1，
+                       # 第三十七批 1 处：model_predict.fusion canary 事件落库
+                       # 失败⇒回滚率判据缺样本（生产中唯一落库的 INFERENCE/
+                       # FALLBACK 写入方）+1）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 34,   # 自报失败（metrics/sentry/otel/gauge；第三十二批
@@ -438,7 +441,7 @@ class TestP235SilentDegradationRatchet:
                        # 上传）而非 fail-closed 拒绝，故改判接线 ⇒ G 8→7）
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 117,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
+            "X": 116,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
                        # 告警 history detail JSON 解析失败 → 空壳 item 照常入列表；
                        # 故 X 120→119、W 95→96；总数 334 不变。
                        # 第二十三批纯裁定不变；第二十四批接线的 ws pubsub 循环
@@ -449,6 +452,8 @@ class TestP235SilentDegradationRatchet:
                        # `_parse_detail_json` 原分类为 X ⇒ X 119→118、W 99→100。
                        # 第三十六批 text_m2_bert_predictor 推理失败原分类为 X
                        # ⇒ X 118→117、W 100→101（同批 log_sanitizer 原分类为 S）。
+                       # 第三十七批 model_predict.fusion canary 事件落库失败
+                       # 原分类为 X ⇒ X 117→116、W 102→103。
                        # 前序口径：第十八批 3 处 X→W（金丝雀检查失败洗白 /
                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败），
                        # X 126→123→120、W 89→92→95；
@@ -8687,3 +8692,373 @@ class TestP235Round13Batch36Wiring:
             assert token in doc13, f"P2_13 第三十六批登记缺少关键标识: {token}"
         doc11 = AUDIT.read_text(encoding="utf-8")
         assert "第十三轮第三十六批" in doc11, "P2_11 附录缺少第三十六批条目"
+
+
+class TestP235Round13Batch37Wiring:
+    """第三十七批：12 个文件 15 条 —— 1 条接线 + 14 条不接。
+
+    挑簇口径（第五代信号：条目级终局扫描 + 人工逐簇分离）：
+    第三十七批挑簇沿用第四代信号（location 登记表零收录）⇒ 候选 0 个
+    （文件级信号耗尽，排除文件 83 个）。**信号耗尽 ≠ 审计完成**，转条目级：
+    `final_sweep_p2_35_round13.py` 对 scan 全量 334 候选逐条查五种登记
+    形态 ⇒ 93 条查不到（31 文件）。本批人工逐簇核对：78 条确认已裁残留
+    （历批登记格式多达六七种，文本匹配不可能穷尽 ⇒ 分离靠人工），
+    **15 条真新库存**即本批工作面。
+
+    接线 1：`services/model_predict/fusion.py:229` `_log_canary_event`
+      canary 事件落库失败。判据：① 同形性——推理响应正常返回，事件缺失
+      无痕；`auto_rollback_service.check_canary_rollback` 的
+      fallback_rate 分子/分母同时缺样本 ⇒ 低估 ⇒ 超阈值金丝雀的回滚被
+      静默抑制（安全侧），`RollbackCheckResult.metrics` 只报计数、
+      无「数据可能不完整」标记；② 数据源唯一性（实测）——本函数是生产中
+      **唯一真正落库**的 INFERENCE/FALLBACK 写入方：observability_service
+      也构造这两类事件但只进内存 `_pending_logs`，唯一落库出口
+      `flush_to_db` 生产零调用；③ 可达性——DB 写在每次 canary 推理上
+      发生，连接失败/约束违反应有尽有；④ 不同源——保护的是 DB 写，
+      与 `app.core.metrics` 无关。
+
+    不接 14 条（逐条硬判据见 P2_13「一之三十八」节）：
+      celery_app.py:254 S（主 DLQ error 日志+exc_info 已在 L239-247，
+      except 只包 `celery_task_failures_total.inc` 指标自增）/
+      canary_fallback_monitor.py:232 K（停机取消标准清理，与第二十二批
+      health L375 同型）/
+      canary_fallback_monitor.py:234 C（停机清理，任务已终止，
+      warning+exc_info，单例照旧重置）/
+      event_bus.py:141 K（同上）/
+      observability_service.py:121 K（同上，且 stop 仍执行 final flush）/
+      cache.py:241/247 C（停机 aclose 失败，warning，单例照旧重置）/
+      kill_switch.py:119 V（调用方 `_degrade` 显式写 degraded=True +
+      source="unavailable"，fail-closed 由 P1-7 设计）/
+      main.py:371 V（启动 warning + 影响点上传端点显式失败）/
+      reports.py:355 P（`notify_task_progress`→ws `send_to_user` 两条
+      内层路径 L175/L203 均已接线，外层防御性重复层）/
+      reports.py:403 V（status=failed+error 入 job_store + notify）/
+      validation.py:254 D（单条 created_at 畸形只跳过自己，第三十二批
+      user_data_service 同型）/
+      validation.py:478 V（status=failed+error 入 job_store + error 日志）/
+      model_predict/inference.py:150 P（包裹调用生产不可抛：单例获取/
+      纯内存 dict 更新/唯一现实异常 create_task RuntimeError 已被内层
+      捕获且第十批接线 ⇒ 外层运行期不可达）
+
+    桶计数：W 102→103、X 117→116，总数 334 不变。
+    """
+
+    FUSION_REL = "app/services/model_predict/fusion.py"
+    LOCATION = "services.model_predict.fusion.canary_event_log_failed"
+
+    # (文件, 行号, 所属函数, 裁定桶)
+    CANDIDATES = [
+        ("app/core/celery_app.py", 254, "on_task_failure", "S"),
+        ("app/services/canary_fallback_monitor.py", 232, "stop_canary_fallback_monitor", "K"),
+        ("app/services/canary_fallback_monitor.py", 234, "stop_canary_fallback_monitor", "C"),
+        ("app/core/event_bus.py", 141, "stop", "K"),
+        ("app/services/observability_service.py", 121, "stop", "K"),
+        ("app/core/cache.py", 241, "close_redis_client", "C"),
+        ("app/core/cache.py", 247, "close_redis_client", "C"),
+        ("app/core/kill_switch.py", 119, "_get_redis", "V"),
+        ("app/main.py", 371, None, "V"),  # 模块级（ lifespan 装配段）
+        ("app/api/v1/reports.py", 355, "_notify", "P"),
+        ("app/api/v1/reports.py", 403, "_execute_pdf_generation", "V"),
+        ("app/api/v1/validation.py", 254, "_cleanup_memory_expired", "D"),
+        ("app/api/v1/validation.py", 478, "_execute_validation", "V"),
+        ("app/services/model_predict/inference.py", 150, "_fire_shadow_check", "P"),
+        (FUSION_REL, 229, "_log_canary_event", "W"),
+    ]
+
+    WIRED_LINES = {(FUSION_REL, 229)}
+
+    # ---- 辅助 ----------------------------------------------------------
+
+    @staticmethod
+    def _handler_at(rel: str, line: int) -> ast.ExceptHandler:
+        tree = ast.parse((BEPKG / rel).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        raise AssertionError(f"{rel}:{line} 处没有 except handler（行号漂移）")
+
+    @staticmethod
+    def _enclosing(rel: str, line: int) -> str | None:
+        tree = ast.parse((BEPKG / rel).read_text(encoding="utf-8"))
+        best: tuple[int, str] | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.lineno <= line <= (node.end_lineno or node.lineno):
+                    if best is None or node.lineno > best[0]:
+                        best = (node.lineno, node.name)
+        return best[1] if best else None
+
+    # ---- 存在性 / 反向钉 ------------------------------------------------
+
+    def test_candidates_present_and_enclosing_func(self):
+        """15 条候选全部在位且所属函数未漂移（main.py:371 为模块级）。"""
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            handler = self._handler_at(rel, line)
+            actual = self._enclosing(rel, line)
+            if fn_name is None:
+                assert actual is None, (
+                    f"{rel}:{line} 应在模块级，实际在函数 {actual} 内"
+                )
+            else:
+                assert actual == fn_name, (
+                    f"{rel}:{line} 所属函数漂移：期望 {fn_name}，实际 {actual}"
+                )
+            assert handler.type is not None, f"{rel}:{line} 裸 except"
+
+    def test_wiring_only_at_the_batch37_handler(self):
+        """块级反向钉：接线只允许出现在 fusion:229 这一个 handler 内。"""
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            src = (BEPKG / rel).read_text(encoding="utf-8")
+            handler = self._handler_at(rel, line)
+            seg = ast.get_source_segment(src, handler) or ""
+            has = "record_silent_degradation" in seg
+            if (rel, line) in self.WIRED_LINES:
+                assert has, f"{rel}:{line} ({fn_name}) 接线消失"
+            else:
+                assert not has, (
+                    f"{rel}:{line} ({fn_name}) 出现了接线 —— "
+                    "S/K/C/V/P/D 路径接线即假设施、重复计数或防御层，裁定需重估"
+                )
+
+    def test_location_literal_pinned(self):
+        """location 字面量带引号完整匹配（第二十六批 `_typo` 教训）。"""
+        src = (BEPKG / self.FUSION_REL).read_text(encoding="utf-8")
+        assert f'"{self.LOCATION}"' in src, (
+            f"`{self.LOCATION}` 接线 location 消失或被改写"
+        )
+
+    # ---- 结构钉（裁定前提）----------------------------------------------
+
+    def test_fusion_is_the_sole_db_writer(self):
+        """fusion 是生产中唯一真正落库的 INFERENCE/FALLBACK 写入方。
+
+        observability_service 也构造这两类 MonitoringLog，但只 append 进
+        内存 `_pending_logs`；其唯一落库出口 `flush_to_db` 必须**生产零
+        调用**（仅测试覆盖）。若该前提消失（flush_to_db 被生产调用），
+        落库方不再唯一 ⇒ 接线判据的数据源唯一性需重估。
+        """
+        app_root = BEPKG / "app"
+        direct: set[str] = set()
+        memory_only: set[str] = set()
+        flush_callers = 0
+        for p in sorted(app_root.rglob("*.py")):
+            if "__pycache__" in p.parts:
+                continue
+            try:
+                tree = ast.parse(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            rel = str(p.relative_to(BEPKG)).replace("\\", "/")
+            for fn in ast.walk(tree):
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                fn_src = ast.unparse(fn)
+                if "MonitoringLog(" not in fn_src:
+                    continue
+                if "INFERENCE" not in fn_src and "FALLBACK" not in fn_src:
+                    continue
+                if "AsyncSessionLocal" in fn_src or "db.commit()" in fn_src:
+                    direct.add(rel)
+                elif "_pending_logs.append" in fn_src:
+                    memory_only.add(rel)
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "flush_to_db"
+                ):
+                    flush_callers += 1
+        assert direct == {self.FUSION_REL}, (
+            f"直接落库写入方变为 {sorted(direct)} ⇒ 数据源唯一性前提消失"
+        )
+        assert memory_only == {"app/services/observability_service.py"}, (
+            f"仅内存构造方变为 {sorted(memory_only)}"
+        )
+        assert flush_callers == 0, (
+            f"flush_to_db 出现 {flush_callers} 个生产调用点 ⇒ "
+            "observability_service 的事件开始落库，唯一性前提需重估"
+        )
+
+    def test_rollback_consumer_reads_those_events(self):
+        """回滚判据消费方仍在：check_canary_rollback 按 INFERENCE/FALLBACK 计数。"""
+        src = (BEPKG / "app/services/auto_rollback_service.py").read_text(
+            encoding="utf-8"
+        )
+        assert "MonitoringEventType.FALLBACK" in src, "FALLBACK 计数消失"
+        assert "MonitoringEventType.INFERENCE" in src, "INFERENCE 计数消失"
+        assert "fallback_rate" in src, "fallback_rate 判据消失"
+
+    def test_reports_notify_inner_paths_wired(self):
+        """reports `_notify` P 型结构钉：ws 两条内层路径已接线。"""
+        tree = ast.parse(
+            (BEPKG / "app/core/ws.py").read_text(encoding="utf-8")
+        )
+        wired_funcs: set[str] = set()
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if "record_silent_degradation" in ast.unparse(fn):
+                    wired_funcs.add(fn.name)
+        assert {"_local_send_to_user", "_publish_to_redis"} <= wired_funcs, (
+            "ws.py 内层接线消失 ⇒ reports._notify 的 P 型裁定需重估"
+        )
+
+    def test_fire_shadow_check_defensive_shape(self):
+        """inference `_fire_shadow_check` P 型结构钉：包裹调用生产不可抛。"""
+        tree = ast.parse(
+            (BEPKG / "app/services/shadow_comparison_service.py").read_text(
+                encoding="utf-8"
+            )
+        )
+        record_pure = False
+        getter_trivial = False
+        fire_guarded = False
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            body = ast.unparse(fn)
+            if fn.name == "record_inference":
+                record_pure = (
+                    "await" not in body
+                    and "open(" not in body
+                    and "execute" not in body
+                )
+            if fn.name == "get_shadow_comparison_service":
+                getter_trivial = len(fn.body) <= 3 and "raise" not in body
+            if fn.name == "fire_shadow_check":
+                for node in ast.walk(fn):
+                    if isinstance(node, ast.Try):
+                        for h in node.handlers:
+                            hsrc = ast.unparse(h)
+                            if "RuntimeError" in hsrc and (
+                                "record_silent_degradation" in hsrc
+                            ):
+                                fire_guarded = True
+        assert record_pure, "record_inference 不再是纯内存操作 ⇒ P 型需重估"
+        assert getter_trivial, "单例获取不再平凡 ⇒ P 型需重估"
+        assert fire_guarded, (
+            "create_task 的 RuntimeError 内层捕获+接线消失 ⇒ P 型需重估"
+        )
+
+    def test_kill_switch_degrade_marks_explicitly(self):
+        """kill_switch V 型结构钉：`_degrade` 显式标记 degraded=True。"""
+        tree = ast.parse(
+            (BEPKG / "app/core/kill_switch.py").read_text(encoding="utf-8")
+        )
+        found = False
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef) and fn.name == "_degrade":
+                body = ast.unparse(fn)
+                found = '"degraded": True' in body or "'degraded': True" in body
+        assert found, "_degrade 不再显式标记 degraded ⇒ V 型裁定需重估"
+
+    # ---- 运行时证据 ------------------------------------------------------
+
+    def test_runtime_e1_db_write_failure_increments(self, monkeypatch):
+        """E1：canary 事件落库失败 → 接线计数 +1 且不抛。"""
+        import asyncio
+        import importlib
+
+        fusion = importlib.import_module("app.services.model_predict.fusion")
+        import app.core.database as database
+        from app.core.metrics import silent_degradation_total
+
+        class _BoomSession:
+            def __init__(self, *a, **k):
+                pass
+
+            async def __aenter__(self):
+                raise RuntimeError("db unreachable (simulated)")
+
+            async def __aexit__(self, *a):
+                return False
+
+        def loc_count() -> int:
+            return sum(
+                v
+                for labels, v in silent_degradation_total.collect()
+                if labels.get("location") == self.LOCATION
+            )
+
+        svc = fusion.FusionMixin()
+        monkeypatch.setattr(database, "AsyncSessionLocal", _BoomSession)
+        before = loc_count()
+        asyncio.run(
+            svc._log_canary_event(
+                event_type="fallback",
+                model_version="v-test",
+                user_id=1,
+                latency_ms=12.5,
+                fallback_reason="simulated",
+            )
+        )
+        assert loc_count() == before + 1, (
+            f"接线计数未 +1：{before}→{loc_count()}"
+        )
+
+    def test_runtime_e2_db_write_success_does_not_increment(self, monkeypatch):
+        """E2 防假绿：落库成功 → 计数不涨。"""
+        import asyncio
+        import importlib
+
+        fusion = importlib.import_module("app.services.model_predict.fusion")
+        import app.core.database as database
+        from app.core.metrics import silent_degradation_total
+
+        class _OkSession:
+            def __init__(self, *a, **k):
+                self.added = None
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            def add(self, obj):
+                self.added = obj
+
+            async def commit(self):
+                pass
+
+        def loc_count() -> int:
+            return sum(
+                v
+                for labels, v in silent_degradation_total.collect()
+                if labels.get("location") == self.LOCATION
+            )
+
+        svc = fusion.FusionMixin()
+        monkeypatch.setattr(database, "AsyncSessionLocal", _OkSession)
+        before = loc_count()
+        asyncio.run(
+            svc._log_canary_event(
+                event_type="inference",
+                model_version="v-test",
+                user_id=1,
+                latency_ms=8.0,
+                response_summary={"risk_level": "low"},
+            )
+        )
+        assert loc_count() == before, (
+            f"成功路径计数不得涨：{before}→{loc_count()}"
+        )
+
+    # ---- 桶计数 / 文档登记 ----------------------------------------------
+
+    def test_bucket_counts_updated_by_this_batch(self):
+        """本批 1 接线 ⇒ W=103 / X=116，总数 334 不变。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "W=103 / X=116" in doc13, "P2_13 第三十七批登记的桶计数不见了"
+
+    def test_document_registration(self):
+        """P2_13「一之三十八」节 + P2_11 附录第三十七批条目均在。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        for token in (
+            "## 一之三十八、",
+            self.LOCATION,
+            "W=103 / X=116",
+            "93",
+        ):
+            assert token in doc13, f"P2_13 第三十七批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第三十七批" in doc11, "P2_11 附录缺少第三十七批条目"

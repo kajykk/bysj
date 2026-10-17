@@ -2609,6 +2609,91 @@ IP 格式 ⇒ 走后续域名分支），根本不是降级路径。
 
 ---
 
+## 一之三十八、#35 X 桶第三十七批：1 接线（fusion canary 事件落库失败），W=103 / X=116
+
+### 1. 挑簇：文件级信号耗尽 ⇒ 条目级终局扫描 + 人工逐簇分离
+
+第三十七批挑簇沿用第四代信号（location 登记表零收录 + 文档已登记排除）⇒
+**候选 0 个**（排除文件 83 个 = 文件级信号彻底耗尽）。
+**信号耗尽 ≠ 审计完成**——转条目级：
+
+`final_sweep_p2_35_round13.py` 对 scan 全量 334 候选（318 真降级 +
+16 ImportError 探针，101 已接线）逐条在三份审计文档查五种登记形态
+（路径:行号 / basename+L号 / 表格行共现 / 函数名+basename 同行 /
+L号±5行宽容）⇒ **93 条查不到**（31 文件）。扫描器口径经两次实测修正
+（ws.py 9 条漏判 = 第二十四批「L号独立成列」格式；scheduler/health
+漏判 = 中文标点「L1102（」「L85、」不在尾随字符集），修正后 112→93。
+
+本批人工逐簇核对 93 条：**78 条确认已裁残留**（predict 7 在第12/21批、
+health 3 在第二十二批 6×H、celery_breaker 4 在第三十二批、fallback 4 在
+第二十八批、alerts 4 在第二十一批、auto_rollback 6 在第二/二十二批、
+`_persist_loop` 2 判 R 等——历批登记格式多达六七种：location 表格行 /
+L号列 / 函数名 L号 / 路径:行号 / 裸数字 / 中文括号行号，**条目级文本
+匹配不可能穷尽 ⇒ 分离必须靠人工逐簇核对**），**15 条真新库存**即本批
+工作面（12 个文件）。
+
+### 2. 接线清单（1 处，X 117→116）
+
+| location | 语义 |
+|---|---|
+| `services.model_predict.fusion.canary_event_log_failed` | canary 事件（INFERENCE/FALLBACK）落库失败 → 该样本从回滚判据中静默消失：`auto_rollback_service.check_canary_rollback` 的 `fallback_rate` 分子/分母同时缺样本 ⇒ 低估 ⇒ 超阈值金丝雀的回滚被静默抑制（**安全侧**） |
+
+四判据（全部实测）：
+
+1. **同形性**：推理响应正常返回、事件缺失无痕；
+   `RollbackCheckResult.metrics` 只报 `fallback_count`/`inference_count`
+   计数、**无「数据可能不完整」标记** ⇒ 调用方（scheduler beat /
+   fallback monitor）只按 `should_rollback` 分支走，「健康检查」与
+   「判据缺样本」不可分辨。
+2. **数据源唯一性（实测，探针 E3）**：本函数是生产中**唯一真正落库**的
+   INFERENCE/FALLBACK 写入方——observability_service 也构造这两类
+   MonitoringLog（`record_inference`/`record_fallback`/`record_model_success`），
+   但只 append 进内存 `_pending_logs`，其唯一落库出口 `flush_to_db`
+   **生产零调用**（全仓 AST：仅测试覆盖，类 docstring 自述）。
+   alert_lifecycle 只写 DRIFT_ALERT。
+3. **可达性**：DB 写在每次 canary 推理上发生（成功路径 L172 +
+   fallback 路径 L147），连接失败/约束违反应有尽有。
+4. **不同源**：保护的是 DB 写，与 `app.core.metrics` 无关。
+
+### 3. 不接 14 条（逐条硬判据）
+
+| # | 位置 | 桶 | 理由 |
+|---|---|---|---|
+| 1 | `core/celery_app.py:254` `on_task_failure` | S | except 只包 `celery_task_failures_total.inc`；主 DLQ 信号（error 日志 + 全量脱敏参数 + exc_info）已在 L239-247 发出 ⇒ 指标自增失败是「观察者的观察者」 |
+| 2 | `services/canary_fallback_monitor.py:232` stop | K | lifespan 关闭阶段主动 `cancel()` 后 `await`，CancelledError→pass 是标准清理（第二十二批 health L375 同型） |
+| 3 | `services/canary_fallback_monitor.py:234` stop | C | 非取消异常：任务已终止（await 已返回/抛出），warning+exc_info，`_canary_fallback_task=None` 照旧执行；无业务语义失真 |
+| 4 | `core/event_bus.py:141` stop | K | 同 #2 |
+| 5 | `services/observability_service.py:121` stop | K | 同 #2，且 stop 随后仍执行 final `_flush()` |
+| 6/7 | `core/cache.py:241/247` `close_redis_client` | C | 停机 aclose 失败，warning；单例照旧重置为 None，下次调用重建；关机路径无业务后果 |
+| 8 | `core/kill_switch.py:119` `_get_redis` | V | 返回 None 不抛；调用方 `_degrade` **显式**写 `degraded=True` + `source="unavailable"`，fail-closed 方向由 `kill_switch_fail_closed` 决定（P1-7 有意设计：前端/运维必须能分辨） |
+| 9 | `main.py:371`（模块级）mkdir OSError | V | 启动 warning 明示「/uploads route may fail」；影响点（上传端点）在请求时**显式**失败 ⇒ 故障在冲击点可见，非静默 |
+| 10 | `api/v1/reports.py:355` `_notify` | P | `notify_task_progress` → `ws_manager.send_to_user` 的两条内层路径（`_local_send_to_user` L175 / `_publish_to_redis` L203）**均已接线**；且任务状态以 job_store 为准、status 端点可轮询 ⇒ 外层是防御性重复层（第三十五批 risk_service_warning 同型） |
+| 11 | `api/v1/reports.py:403` `_execute_pdf_generation` | V | 失败即 `job_store.update(status="failed", error=...)` + `_notify("failed")`，status 端点显式可见 |
+| 12 | `api/v1/validation.py:254` `_cleanup_memory_expired` | D | 单条 `created_at` 畸形只跳过自己（continue），其余条目照常清理；无假数据进输出（第三十二批 user_data_service 同型分水岭） |
+| 13 | `api/v1/validation.py:478` `_execute_validation` | V | 同 #11：status=failed + error 入 store + error 日志 |
+| 14 | `services/model_predict/inference.py:150` `_fire_shadow_check` | P | 包裹的三个调用生产不可抛：`get_shadow_comparison_service` 是单例获取；`record_inference` 是纯内存 dict 更新（无 await/IO）；`fire_shadow_check` 唯一能抛的 `asyncio.create_task`（无事件循环）已被内层 `except RuntimeError` 捕获且**第十批已接线** ⇒ 外层运行期不可达 |
+
+### 4. 闸门、变异与读数
+
+- 新增 `TestP235Round13Batch37Wiring`（12 条）：15 条存在性（main.py:371
+  按模块级钉）+ 块级反向钉（14 禁接 / 1 必接）+ location 字面量钉 +
+  结构钉 ×4（fusion 唯一落库方 / 回滚消费方在读 / ws 内层双接线 /
+  fire_shadow_check 防御形态 / kill_switch 显式标记）+ 运行时 E1~E2
+  （落库失败 +1、成功不涨）+ 桶计数钉 + 文档登记。
+- 棘轮期望同步：**W=103 / X=116**（总数 334 不变）。
+- 读数：`verify_p2_35_batch37_candidates.py` MISSING=0、FUNC-DRIFT=0、
+  接线=1；`probe_p2_35_batch37_runtime.py` E1~E6 全成立（E3 即唯一落库方
+  实测：直接落库={fusion}、仅内存={observability_service}、
+  flush_to_db 生产调用点=0）。
+- 变异见 `mutate_p2_35_round13_batch37_result.log`。
+
+### 5. 本批结论一句话
+
+93 条条目级候选池人工分离为 78 已裁残留 + 15 真新库存；15 条逐条实测后
+**1 接 14 不接**；桶计数 **W=103 / X=116**（总数 334 不变）。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：

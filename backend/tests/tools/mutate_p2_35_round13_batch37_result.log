@@ -1,0 +1,35 @@
+==============================================================================
+第三十七批变异验证（1 接线 + 14 不接，6 条）
+==============================================================================
+  [M1] 变异注入…
+    gate: 3 failed, 9 passed, 4 warnings in 6.69s
+  [M1] RED-OK（returncode=1）
+    gate: 12 passed, 4 warnings in 5.59s
+  [M1] GREEN-OK（还原后 returncode=0）
+  [M2] 变异注入…
+    gate: 2 failed, 10 passed, 4 warnings in 6.49s
+  [M2] RED-OK（returncode=1）
+    gate: 12 passed, 4 warnings in 5.64s
+  [M2] GREEN-OK（还原后 returncode=0）
+  [M3] 变异注入…
+    gate: 1 failed, 11 passed, 4 warnings in 6.26s
+  [M3] RED-OK（returncode=1）
+    gate: 12 passed, 4 warnings in 5.67s
+  [M3] GREEN-OK（还原后 returncode=0）
+  [M4] 变异注入…
+    gate: 2 failed, 10 passed, 4 warnings in 6.51s
+  [M4] RED-OK（returncode=1）
+    gate: 12 passed, 4 warnings in 5.65s
+  [M4] GREEN-OK（还原后 returncode=0）
+  [M5] 变异注入…
+    gate: 3 failed, 9 passed, 4 warnings in 7.12s
+  [M5] RED-OK（returncode=1）
+    gate: 12 passed, 4 warnings in 5.92s
+  [M5] GREEN-OK（还原后 returncode=0）
+  [M6] 变异注入…
+    gate: 1 failed, 11 passed, 4 warnings in 6.30s
+  [M6] RED-OK（returncode=1）
+    gate: 12 passed, 4 warnings in 5.89s
+  [M6] GREEN-OK（还原后 returncode=0）
+==============================================================================
+第三十七批变异验证完成：6/6 RED-OK + GREEN-OK

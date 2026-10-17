@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 100,
+  "real_wired": 101,
   "import_probe": 16,
   "real_list": [
     {
@@ -2481,7 +2481,7 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },

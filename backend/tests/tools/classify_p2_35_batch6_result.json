@@ -1,16 +1,16 @@
 {
   "counts": {
-    "X": 120,
-    "W": 95,
-    "G": 8,
-    "S": 36,
+    "X": 116,
+    "W": 103,
+    "G": 7,
+    "S": 34,
     "D": 22,
     "V": 2,
     "C": 7,
     "K": 11,
     "H": 6,
     "M": 6,
-    "R": 4,
+    "R": 3,
     "F": 2,
     "P": 15
   },
@@ -76,7 +76,7 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/alerts/_schemas.py",
@@ -143,7 +143,7 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 223,
+      "line": 231,
       "func": "collect_ml_quality_metrics",
       "handled": [
         "Exception"
@@ -152,7 +152,7 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 249,
+      "line": 257,
       "func": "collect_drift_metrics",
       "handled": [
         "Exception"
@@ -161,7 +161,7 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 275,
+      "line": 283,
       "func": "collect_canary_metrics",
       "handled": [
         "Exception"
@@ -176,7 +176,7 @@
         "OSError",
         "JSONDecodeError"
       ],
-      "bucket": "S"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
@@ -365,13 +365,13 @@
     },
     {
       "file": "app/api/v1/user_upload.py",
-      "line": 161,
+      "line": 162,
       "func": "_validate_mime_type",
       "handled": [
         "MagicException",
         "OSError"
       ],
-      "bucket": "G"
+      "bucket": "W"
     },
     {
       "file": "app/api/v1/validation.py",
@@ -763,12 +763,12 @@
     },
     {
       "file": "app/core/log_sanitizer.py",
-      "line": 449,
+      "line": 451,
       "func": "filter",
       "handled": [
         "Exception"
       ],
-      "bucket": "S"
+      "bucket": "W"
     },
     {
       "file": "app/core/logging_config.py",
@@ -1000,7 +1000,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 489,
+      "line": 494,
       "func": "_run_experimental_v123",
       "handled": [
         "Exception"
@@ -1009,7 +1009,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 538,
+      "line": 543,
       "func": "_run_adapter",
       "handled": [
         "Exception"
@@ -1018,7 +1018,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 635,
+      "line": 640,
       "func": "_maybe_fire_shadow_predict",
       "handled": [
         "Exception"
@@ -1027,7 +1027,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 663,
+      "line": 668,
       "func": "_predict_text_ml",
       "handled": [
         "Exception"
@@ -1036,7 +1036,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 751,
+      "line": 756,
       "func": "_apply_lite_calibration",
       "handled": [
         "Exception"
@@ -1045,7 +1045,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 772,
+      "line": 777,
       "func": "_apply_lite_calibration",
       "handled": [
         "Exception"
@@ -1054,7 +1054,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 978,
+      "line": 983,
       "func": "_predict_physiological",
       "handled": [
         "FileNotFoundError"
@@ -1063,7 +1063,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 990,
+      "line": 995,
       "func": "_predict_physiological",
       "handled": [
         "Exception"
@@ -1072,7 +1072,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 421,
+      "line": 426,
       "func": "_run_experimental_v121",
       "handled": [
         "Exception"
@@ -1081,7 +1081,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 887,
+      "line": 892,
       "func": "predict_lite",
       "handled": [
         "NonFiniteLiteProbabilityError"
@@ -1090,7 +1090,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 897,
+      "line": 902,
       "func": "predict_lite",
       "handled": [
         "Exception"
@@ -1099,7 +1099,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1033,
+      "line": 1038,
       "func": "_predict_physiological_sync",
       "handled": [
         "Exception"
@@ -1108,7 +1108,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1139,
+      "line": 1144,
       "func": "explain_prediction",
       "handled": [
         "Exception"
@@ -1117,7 +1117,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1172,
+      "line": 1177,
       "func": "explain_prediction",
       "handled": [
         "Exception"
@@ -1126,7 +1126,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 167,
+      "line": 172,
       "func": "predict_structured",
       "handled": [
         "FileNotFoundError",
@@ -1136,7 +1136,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 178,
+      "line": 183,
       "func": "predict_structured",
       "handled": [
         "FileNotFoundError",
@@ -1146,7 +1146,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 385,
+      "line": 390,
       "func": "_run_experimental_v121",
       "handled": [
         "Exception"
@@ -1155,7 +1155,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 670,
+      "line": 675,
       "func": "_predict_text_ml",
       "handled": [
         "Exception"
@@ -1425,12 +1425,12 @@
     },
     {
       "file": "app/core/text_m2_bert_predictor.py",
-      "line": 160,
+      "line": 162,
       "func": "predict",
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/core/text_tokenizer.py",
@@ -1461,7 +1461,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 430,
+      "line": 436,
       "func": "websocket_endpoint",
       "handled": [
         "Exception"
@@ -1470,7 +1470,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 455,
+      "line": 461,
       "func": "websocket_endpoint",
       "handled": [
         "Exception"
@@ -1479,7 +1479,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 509,
+      "line": 515,
       "func": "websocket_endpoint",
       "handled": [
         "Exception"
@@ -1524,7 +1524,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 316,
+      "line": 322,
       "func": "_handle_pubsub_message",
       "handled": [
         "JSONDecodeError",
@@ -1575,11 +1575,11 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "R"
+      "bucket": "W"
     },
     {
       "file": "app/core/ws.py",
-      "line": 338,
+      "line": 344,
       "func": "_handle_pubsub_message",
       "handled": [
         "ValueError"
@@ -1597,7 +1597,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 300,
+      "line": 306,
       "func": "_pubsub_loop",
       "handled": [
         "Exception"
@@ -1988,7 +1988,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 69,
+      "line": 77,
       "func": "_bump_lock_counter",
       "handled": [
         "Exception"
@@ -1997,7 +1997,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 91,
+      "line": 99,
       "func": "try_acquire_check_lock",
       "handled": [
         "Exception"
@@ -2006,7 +2006,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 124,
+      "line": 132,
       "func": "publish_check_heartbeat",
       "handled": [
         "Exception"
@@ -2015,7 +2015,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 153,
+      "line": 161,
       "func": "get_check_heartbeat_age",
       "handled": [
         "Exception"
@@ -2024,7 +2024,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 162,
+      "line": 170,
       "func": "get_check_heartbeat_age",
       "handled": [
         "TypeError",
@@ -2035,7 +2035,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 174,
+      "line": 182,
       "func": "get_check_heartbeat_age",
       "handled": [
         "Exception"
@@ -2044,7 +2044,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 442,
+      "line": 450,
       "func": "check_all_canaries",
       "handled": [
         "Exception"
@@ -2053,7 +2053,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 431,
+      "line": 439,
       "func": "check_all_canaries",
       "handled": [
         "Exception"
@@ -2062,7 +2062,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 68,
+      "line": 75,
       "func": "_bump_takeover_counter",
       "handled": [
         "Exception"
@@ -2071,7 +2071,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 225,
+      "line": 232,
       "func": "stop_canary_fallback_monitor",
       "handled": [
         "CancelledError"
@@ -2080,7 +2080,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 227,
+      "line": 234,
       "func": "stop_canary_fallback_monitor",
       "handled": [
         "Exception"
@@ -2089,7 +2089,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 172,
+      "line": 179,
       "func": "_canary_fallback_loop",
       "handled": [
         "Exception"
@@ -2098,7 +2098,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 89,
+      "line": 96,
       "func": "_canary_fallback_loop",
       "handled": [
         "Exception"
@@ -2107,7 +2107,7 @@
     },
     {
       "file": "app/services/canary_fallback_monitor.py",
-      "line": 156,
+      "line": 163,
       "func": "_canary_fallback_loop",
       "handled": [
         "Exception"
@@ -2250,7 +2250,7 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/model_predict/fusion.py",
@@ -2340,11 +2340,11 @@
       "handled": [
         "Exception"
       ],
-      "bucket": "X"
+      "bucket": "W"
     },
     {
       "file": "app/services/observability/aggregate.py",
-      "line": 474,
+      "line": 484,
       "func": "_fetch_lock_memory_stats",
       "handled": [
         "Exception"
@@ -2992,7 +2992,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 986,
+      "line": 991,
       "func": "_predict_physiological",
       "handled": [
         "ImportError"

@@ -1642,3 +1642,40 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 
   **CI 结论（`629e7b8`，2026-10-17）**：check-runs total_count=10，
   全部 completed/success（含 backend-coverage）。第三十六批完整收口。
+
+- **第十三轮第三十七批（1 接线，W=103 / X=116 / 总数 334 不变）**：
+
+  **挑簇（第五代信号：文件级耗尽 ⇒ 条目级终局扫描 + 人工分离）**：第四代
+  信号（location 登记表零收录）跑出**候选 0 个**（排除文件 83 个 = 文件级
+  彻底耗尽）。转条目级：`final_sweep_p2_35_round13.py` 对 334 候选逐条
+  查五种登记形态 ⇒ 93 条查不到（31 文件；扫描器口径两次实测修正：
+  112→93）。人工逐簇核对：**78 条已裁残留**（历批登记格式六七种，文本
+  匹配不可能穷尽）+ **15 条真新库存**（12 文件）= 本批工作面。
+
+  **接线 1 处**：`services/model_predict/fusion.py:229` `_log_canary_event`
+  → `"services.model_predict.fusion.canary_event_log_failed"`：
+  canary 事件落库失败 ⇒ 样本从回滚判据静默消失。同形性（响应正常、
+  事件缺失无痕，`RollbackCheckResult.metrics` 只报计数无完整性标记）
+  + 数据源唯一性（实测：生产中**唯一真正落库**的 INFERENCE/FALLBACK
+  写入方——observability_service 也构造但只进内存 `_pending_logs`，
+  唯一落库出口 `flush_to_db` 生产零调用）+ 可达（每次 canary 推理都写）
+  + 不同源（DB 写 vs app.core.metrics）。后果方向：fallback_rate 低估
+  ⇒ 超阈值金丝雀回滚被静默抑制（安全侧）。
+
+  **不接 14 条**：celery_app:254 S（主 DLQ 信号已在）/ canary stop
+  ×2 K+C（停机标准清理）/ event_bus stop K / observability_service
+  stop K / cache close ×2 C（停机 aclose）/ kill_switch:119 V（调用方
+  `_degrade` 显式 degraded=True，P1-7）/ main:371 V（启动 warning +
+  冲击点显式失败）/ reports:355 P（ws 两条内层路径已接线，防御性
+  重复层）/ reports:403 V / validation:254 D（单条脏时间戳只跳过
+  自己）/ validation:478 V / inference:150 P（包裹调用生产不可抛，
+  唯一现实异常已被内层捕获且第十批接线）。
+
+  **闸门**：新增 `TestP235Round13Batch37Wiring`（12 条），含 15 条
+  存在性 + 块级反向钉（14 禁接/1 必接）+ location 字面量钉 + 结构钉
+  ×4 + 运行时 E1~E2 + 桶计数钉 + 文档登记。**棘轮 W=103 / X=116**
+  （总数 334 不变）。
+
+  **读数**：见 `verify_p2_35_batch37_candidates.py`（MISSING=0、
+  FUNC-DRIFT=0、接线=1）与 `probe_p2_35_batch37_runtime.py`（E1~E6
+  全成立）；变异见 `mutate_p2_35_round13_batch37_result.log`。

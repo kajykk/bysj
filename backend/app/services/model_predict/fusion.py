@@ -233,3 +233,17 @@ class FusionMixin:
                 model_version,
                 exc,
             )
+            # P2-35 第三十七批：本函数是生产中**唯一真正落库**的
+            # MonitoringLog INFERENCE/FALLBACK 写入方——observability_service
+            # 也构造这两类事件，但只 append 进内存 `_pending_logs`，其唯一
+            # 落库出口 `flush_to_db` 生产零调用（仅测试覆盖）；而这两类事件
+            # 正是 auto_rollback_service.check_canary_rollback 计算
+            # fallback_rate 的输入（L253-270 按 event_type + model_version
+            # + 1h 窗口从 MonitoringLog 表计数）。
+            # 写入失败 ⇒ 分子/分母同时缺少样本 ⇒ fallback_rate 被低估 ⇒
+            # 超阈值金丝雀的回滚被静默抑制（安全侧），且
+            # RollbackCheckResult.metrics 只报计数、无「数据可能不完整」
+            # 标记，调用方无从分辨。
+            record_silent_degradation(
+                "services.model_predict.fusion.canary_event_log_failed"
+            )
