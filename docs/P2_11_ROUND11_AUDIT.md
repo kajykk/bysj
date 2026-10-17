@@ -1322,3 +1322,53 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   靠 `git checkout --` 挽回）。
   **检索口径再次记账**：本批先试 basename 口径也失效（短名误命中，
   零提及簇被压到 >=3 条的 0 个），最终确立**以函数名为裁定检索单位**。
+  **⚠️ 本条目的「发现二」已被第三十批推翻并重写**（见下条），原文保留作历史
+  快照：错在把**本机 venv 的环境状态**当成交付形态。
+
+- **第十三轮第三十批（第二十九批 CI 红事故复盘批，纯裁定，W=97 / X=119 不变）**：
+
+  **事故**：HEAD `7bd9bcc` 的 `backend-coverage` **failure**（1 failed /
+  6901 passed / 68 skipped），唯一红项是 E2
+  `test_runtime_e2_otel_unavailable_and_returns_false`。
+
+  **根因（第三条同族纪律）**：`opentelemetry-api==1.45.0` 在 lock 里的
+  `# via` 是 **`fastapi`**（不是第二十九批文档写的 prometheus 链路）⇒
+  **任何装了 fastapi 的环境（含 CI）顶层包都可导入**，而
+  `_check_otel_available()` 只做 `import opentelemetry` ⇒ **这道门在交付形态
+  下是开着的**。本机 venv 恰好没装 api（fastapi 0.135.3）⇒ 我测到 `False`
+  并把它写成断言。
+  **纪律：断言钉的必须是「交付形态下不变的事实」，不是「我这台机器上碰巧
+  成立的状态」。** 这是继「源码字面量在 ≠ 运行时活着」「变异只翻转实现 ≠
+  翻转真值空间」之后的第三条同族教训——三者都源于「把一个偶然成立的观测
+  当成了不变量」。
+
+  **裁定修正**：在 tempdir 造CI 等价环境（顶层 otel 可导入、sdk/exporter/
+  instrumentation 全缺）逐条重算五项证据——①依赖门 → `True` ②空 endpoint
+  → `False`（阻断在 L77，不是依赖门）③**配 endpoint 后 `otel.py:133` 的
+  外层 except 真实可达**（V 型：`return False` + warning，失败如实上报）
+  ④三处 `_instrument_*()` 调用行号**全部晚于** `_otel_initialized = True`
+  ⑤`instrument_app`/`shutdown_otel` 在 `_otel_initialized=False` 时零日志、
+  置 `True` 后有日志（反证闸门生效）。
+  ⇒ **7 条不是「全部不可达」：L133 = V 型可达，其余 6 条 = P 型不可达**
+  （被 `_otel_initialized` 闸门保护，而非被自己的 except 保护）。
+  **净结果仍是 0 接线、桶计数不变**，但理由已换。
+  **判据修订（取代第二十九批那条）**：不可达性**不能**由「依赖没装」推出，
+  必须**逐条问它的进入路径被什么挡住**。
+
+  **闸门修正（13 → 16 条）**：E2 重写为「tempdir 自造 CI 等价环境 + 断言
+  依赖门为 True 与空 endpoint 返回 False 两条与运行环境无关的事实」；
+  新增 E2b 反向钉（配 endpoint 必须命中 L133 并 warning，否则裁定需重估）、
+  `test_instrument_calls_only_on_success_path`（顺序结构钉）、
+  `test_instrument_app_and_shutdown_gated_by_initialized_flag`（闸门结构钉 +
+  运行时反证）；`test_otel_dependency_not_delivered` 结论不变但**推理链换掉**，
+  并新增钉「api 的 `# via` 是 fastapi」与「依赖门只 import 顶层包」两条。
+
+  **变异四条**（`mutate_p2_35_round13_batch30_result.log`）：M1 把
+  `_instrument_fastapi()` 提到成功标记之前 → **1 红**（正是新加的顺序钉，
+  旧断言集对这次变异完全无感 ⇒ 证明「结构顺序」是原测试集缺的维度）；
+  M2 删 `instrument_app` 闸门 → 3 红；M3 依赖门收紧为同时 import sdk → 5 红；
+  M4 绕过空 endpoint 提前 return → 3 红。变异后 blob 哈希核对 `otel.py`/
+  `_common.py` 与 HEAD 一致（无残留）。
+
+  **历史快照不改**：P2_13 第二十九批节原文保留并加更正标记，符合「历史快照
+  只追加、不篡改」。纯裁定批，`app/` 生产代码零改动。

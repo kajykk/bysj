@@ -5899,15 +5899,20 @@ class TestP235Round13Batch29Declined:
     桶计数 W=97/X=119 不变。
 
     本批最关键的两条发现（均为**部署形态优先**判据的应用）：
-    - **E1`otel_enabled` 是死配置**：全仓AST 零消费点（唯一命中是 otel.py
+    - **E1 `otel_enabled` 是死配置**：全仓AST 零消费点（唯一命中是 otel.py
       模块 docstring 的说明文字）。`main.py:_init_otel` 只透传
       `settings.otlp_endpoint`（默认 `""`），从不读 `otel_enabled`。
-    - **E2 双重不可达**：`requirements.txt` 零 opentelemetry 条目，
-      `requirements.lock` 只有间接依赖 `opentelemetry-api==1.45.0`
-      （无 sdk / exporter / instrumentation）⇒ `_check_otel_available()`
-      返回 False，`init_otel` 在 L63 提前 return，**走不到 L133 的 handler**。
-      这与第二十一/二十二批的「双重外部阻断」同型，但方向相反：那批是
-      「接线即恒0」，这批是「handler 不可达 ⇒ 接线即假设施」。
+    - **E2 依赖门在交付形态下是「开」的**（第三十批修正）。`requirements.lock`
+      里 `opentelemetry-api==1.45.0` 的 `# via` 是 **fastapi** ⇒ 任何装了
+      fastapi 的环境（含 CI）`import opentelemetry` 都成功，
+      `_check_otel_available()` 返回 **True**。真正的默认阻断是
+      `otlp_endpoint` 默认空串 ⇒ `init_otel` 在 L77 提前 return。
+      **一旦运维显式配置 endpoint，L133 外层 except 真实可达**
+      （sdk/exporter 缺失 ⇒ ImportError 被 `except Exception` 捕获）。
+      ⇒ 7 条裁定修正为：**L133 = V 型可达**（return False + warning，
+      失败如实上报），**其余 6 条 = P 型不可达**（三处 `_instrument_*`
+      在 `_otel_initialized = True` 之后才调用；`instrument_app` /
+      `shutdown_otel` 被 `if not _otel_initialized: return` 闸门保护）。
     - **E3** `main.py:_init_otel` 丢弃 `init_otel` 返回值 ⇒
       `/health/startup` 把失败记为 `ok`（与第二十七批 `init_sentry` 同型，
       第二次出现该信号）。
@@ -6025,10 +6030,23 @@ class TestP235Round13Batch29Declined:
         )
 
     def test_otel_dependency_not_delivered(self):
-        """E2 结构钉：交付物中无 opentelemetry sdk / exporter / instrumentation。
+        """E2 结构钉：交付物中**只有** `opentelemetry-api`，无 sdk/exporter/instrumentation。
 
-        这是「handler 在交付形态下不可达」的源码判据：依赖未进lock ⇒
-        `_check_otel_available()` 恒 False ⇒ `init_otel` 提前 return。
+        第三十批修正此判据的**推理链**（结论「sdk 未交付」不变，链条变了）：
+        `requirements.lock` 里 `opentelemetry-api==1.45.0` 的 `# via` 是
+        **fastapi** ⇒ 任何装了 fastapi 的环境 `import opentelemetry` 成功
+        ⇒ `_check_otel_available()` 在交付形态下返回 **True**，依赖门是
+        「开」的（第二十九批据本机 venv 断言它 False，CI 实锤红）。
+
+        所以不可达性**不**由依赖门决定，而由两处结构决定：
+        ① `otlp_endpoint` 默认空串 ⇒ L77 提前 return（见
+           `test_runtime_e2_otel_unavailable_and_returns_false`）；
+        ② 成功需要 sdk/exporter（lock 无）⇒ `_otel_initialized` 永不为 True
+           ⇒ 六条 P 型 handler 不可达（见
+           `test_instrument_calls_only_on_success_path` 与
+           `test_instrument_app_and_shutdown_gated_by_initialized_flag`）。
+
+        本测试钉的是**交付物事实 + 依赖门是顶层包检查**这两点。
         """
         req = self._read("requirements.txt")
         lock = self._read("requirements.lock")
@@ -6042,9 +6060,29 @@ class TestP235Round13Batch29Declined:
             "opentelemetry-distro",
         ):
             assert pkg not in lock, f"requirements.lock 出现 {pkg} ⇒ 可达性判据需重估"
+        # 钉住 api 的来源：fastapi 传递依赖 ⇒ 依赖门在交付形态下是开的
+        assert "opentelemetry-api" in lock, (
+            "requirements.lock 不再含 opentelemetry-api ⇒ 需重新核算依赖门"
+        )
+        api_line = lock.index("opentelemetry-api==")
+        via_block = lock[api_line : api_line + 200]
+        assert "fastapi" in via_block, (
+            "opentelemetry-api 的 `# via` 不再是 fastapi ⇒ "
+            "「依赖门在交付形态下开着」这条前提需重估"
+        )
         otel_src = self._read(self.OTEL_REL)
         assert "def _check_otel_available() -> bool:" in otel_src, (
             "_check_otel_available 函数消失"
+        )
+        # 依赖门只 import 顶层包（这是它「在 api 存在时即开」的根本原因）
+        gate = otel_src[
+            otel_src.index("def _check_otel_available() -> bool:") : otel_src.index(
+                "def init_otel("
+            )
+        ]
+        assert "import opentelemetry  # noqa: F401" in gate, (
+            "_check_otel_available 不再只 import 顶层包 ⇒ "
+            "依赖门语义变化，E2/E2b 可达性结论需重估"
         )
         assert "opentelemetry packages not installed" in otel_src, (
             "未安装提示文案消失（运维唯一可见线索）"
@@ -6106,21 +6144,202 @@ class TestP235Round13Batch29Declined:
         )
 
     def test_runtime_e2_otel_unavailable_and_returns_false(self):
-        """E2 运行时：`_check_otel_available()` 恒 False，init_otel 走提前 return。
+        """E2 运行时：**在自造的 CI 等价环境下**验证可达性判据。
 
-        注：本机 venv 无 opentelemetry（与交付物一致）。若在装了 sdk 的环境跑，
-        本断言会红 —— 那正是「可达性判据被推翻」的信号，应据实重估而非改断言。
+        第三十批修正：第二十九批此断言写成 `_check_otel_available() is False`
+        —— 那是**本机 venv 的环境状态**断言（本机恰好没装 opentelemetry-api），
+        而 `requirements.lock` 里 `opentelemetry-api==1.45.0` 的来源是
+        **fastapi** ⇒ CI 环境里顶层包可导入，断言必红（实锤：CI 1 failed /
+        6901 passed）。
+
+        教训：**判据不能钉环境，要钉交付形态**。此处改为在 tempdir 里造出
+        「顶层 opentelemetry 可导入、sdk/exporter/instrumentation 全缺」的
+        交付形态，断言真正的两条结论：
+        1. `_check_otel_available()` 在该环境下为 **True**（依赖门是开的）；
+        2. 空endpoint 时 `init_otel` 仍返回 False（默认阻断在 L77）。
+        这两条与运行环境无关，任何装了 fastapi 的机器都成立。
         """
         import importlib
+        import pathlib
+        import sys
+        import tempfile
 
         otel = importlib.import_module("app.core.otel")
-        available = otel._check_otel_available()
-        print(f"[E2b] _check_otel_available() -> {available}")
-        assert available is False, (
-            "opentelemetry 在本机可导入 —— 与交付物（requirements.lock 无 sdk）"
-            "不一致，可达性判据需重估"
+
+        saved_path = list(sys.path)
+        for key in list(sys.modules):
+            if key.split(".")[0] == "opentelemetry":
+                del sys.modules[key]
+
+        with tempfile.TemporaryDirectory() as td:
+            pkg = pathlib.Path(td) / "opentelemetry"
+            pkg.mkdir(parents=True)
+            (pkg / "__init__.py").write_text("", encoding="utf-8")
+            (pkg / "trace.py").write_text(
+                "def set_tracer_provider(p):\n    pass\n\n\n"
+                "def get_tracer_provider():\n    class _P:\n"
+                "        def shutdown(self):\n            pass\n    return _P()\n",
+                encoding="utf-8",
+            )
+            sys.path.insert(0, td)
+            try:
+                available = otel._check_otel_available()
+                assert available is True, (
+                    f"交付形态（顶层 opentelemetry 可导入）下依赖门应为 True，"
+                    f"实际={available}"
+                )
+                otel._otel_initialized = False
+                assert otel.init_otel("b29_probe", otlp_endpoint="") is False, (
+                    "空 endpoint 时 init_otel 应返回 False（默认阻断在 L77，"
+                    "不是依赖门）"
+                )
+                assert otel._otel_initialized is False, "otel 不应被本测试初始化"
+            finally:
+                sys.path[:] = saved_path
+                for key in list(sys.modules):
+                    if key.split(".")[0] == "opentelemetry":
+                        del sys.modules[key]
+
+    def test_runtime_e2b_l133_reachable_when_endpoint_configured(self):
+        """E2b 运行时（第三十批新增）：配了 endpoint 后 **L133 真实可达**。
+
+        这是对第二十九批「7 条全部不可达」判据的**反向钉**：钉住
+        `init_otel` 在 sdk/exporter 缺失时**仍然走外层 except 并
+        return False + warning**（V 型：失败如实上报，无需接线）。
+        若哪天有人把 sdk 依赖补齐，本断言会红 —— 那正是「该 handler
+        在交付形态下不再可达」的信号，应据实重估裁定而非改断言。
+        """
+        import importlib
+        import logging
+        import pathlib
+        import sys
+        import tempfile
+
+        otel = importlib.import_module("app.core.otel")
+
+        records: list[logging.LogRecord] = []
+
+        class _Cap(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                records.append(record)
+
+        saved_path = list(sys.path)
+        for key in list(sys.modules):
+            if key.split(".")[0] == "opentelemetry":
+                del sys.modules[key]
+
+        cap = _Cap()
+        with tempfile.TemporaryDirectory() as td:
+            pkg = pathlib.Path(td) / "opentelemetry"
+            pkg.mkdir(parents=True)
+            (pkg / "__init__.py").write_text("", encoding="utf-8")
+            (pkg / "trace.py").write_text(
+                "def set_tracer_provider(p):\n    pass\n",
+                encoding="utf-8",
+            )
+            sys.path.insert(0, td)
+            otel.logger.addHandler(cap)
+            otel.logger.setLevel(logging.DEBUG)
+            try:
+                otel._otel_initialized = False
+                out = otel.init_otel(
+                    "b29_probe", otlp_endpoint="http://collector.invalid:4317"
+                )
+            finally:
+                otel.logger.removeHandler(cap)
+                sys.path[:] = saved_path
+                for key in list(sys.modules):
+                    if key.split(".")[0] == "opentelemetry":
+                        del sys.modules[key]
+                otel._otel_initialized = False
+
+        assert out is False, "sdk/exporter 缺失时 init_otel 应 return False"
+        msgs = [r.getMessage() for r in records if r.levelno >= logging.WARNING]
+        assert any("initialization failed" in m for m in msgs), (
+            f"L133 外层 except 未触发 ⇒ 该 handler 在交付形态下不可达，"
+            f"P 型可成立；实际日志={msgs}"
         )
-        assert otel._otel_initialized is False, "otel 不应被本测试初始化"
+        assert otel._otel_initialized is False, "失败后不得置 _otel_initialized"
+
+    def test_instrument_calls_only_on_success_path(self):
+        """第三十批新增结构钉：三处 `_instrument_*` 调用在 `_otel_initialized=True` 之后。
+
+        它们各自的 `except ImportError`（L151/L166/L180）因此只在 init
+        **成功**后才可能触发，而成功需要 sdk+exporter（lock 无）⇒ P 型不可达。
+        结构钉锁住这个顺序，防止将来有人把调用提到成功之前。
+        """
+        otel_src = (REPO / BEPKG / self.OTEL_REL).read_text(encoding="utf-8")
+        init_body = otel_src[
+            otel_src.index("def init_otel(") : otel_src.index("def _instrument_fastapi(")
+        ]
+        assert "        _otel_initialized = True" in init_body, (
+            "init_otel 的成功标记行消失，顺序钉失去锚点"
+        )
+        idx_success = init_body.index("        _otel_initialized = True")
+        for name in (
+            "_instrument_fastapi",
+            "_instrument_sqlalchemy",
+            "_instrument_redis",
+        ):
+            assert f"    {name}()" in init_body, f"init_otel 体内不再调用 {name}"
+            assert init_body.index(f"    {name}()") > idx_success, (
+                f"{name}() 被提到 _otel_initialized=True 之前 ⇒ "
+                "失败路径也会触发，L{}/L{}/L{} 的 P 型不成立".format(151, 166, 180)
+            )
+
+    def test_instrument_app_and_shutdown_gated_by_initialized_flag(self):
+        """第三十批新增结构钉：`instrument_app` / `shutdown_otel` 都有
+        `if not _otel_initialized: return` 闸门 ⇒ L203/L205/L228 不可达。
+
+        并用运行时反证钉住「闸门确实生效」：置 False 时两个函数零日志，
+        置 True 时才产生日志。
+        """
+        import importlib
+        import logging
+
+        otel_src = (REPO / BEPKG / self.OTEL_REL).read_text(encoding="utf-8")
+        for func_name, line_no in (("instrument_app", 203), ("shutdown_otel", 228)):
+            body = otel_src[otel_src.index(f"def {func_name}(") :]
+            body = body[: body.index("\ndef ") if "\ndef " in body else None]
+            assert "if not _otel_initialized:" in body, (
+                f"{func_name} 的 _otel_initialized 闸门消失 ⇒ "
+                f"otel.py:{line_no} 变为可达，裁定需重估"
+            )
+            assert "    return" in body, f"{func_name} 闸门后缺 return"
+
+        otel = importlib.import_module("app.core.otel")
+
+        class _Cap(logging.Handler):
+            def __init__(self) -> None:
+                super().__init__()
+                self.records: list[logging.LogRecord] = []
+
+            def emit(self, record: logging.LogRecord) -> None:
+                self.records.append(record)
+
+        cap = _Cap()
+        otel.logger.addHandler(cap)
+        otel.logger.setLevel(logging.DEBUG)
+        try:
+            otel._otel_initialized = False
+            otel.instrument_app(object())
+            otel.shutdown_otel()
+            assert cap.records == [], (
+                f"_otel_initialized=False 时两个函数应直接 return，"
+                f"实际日志={[r.getMessage() for r in cap.records]}"
+            )
+
+            otel._otel_initialized = True
+            cap.records.clear()
+            otel.instrument_app(object())
+            otel.shutdown_otel()
+            assert cap.records, (
+                "_otel_initialized=True 时仍无日志 ⇒ 闸门反证不成立，"
+                "L203/L205/L228 的可达性判据需重估"
+            )
+        finally:
+            otel.logger.removeHandler(cap)
+            otel._otel_initialized = False
 
     def test_runtime_e3_startup_status_records_ok(self):
         """E3 运行时：`main.py` 形态的 `_init_otel` 让 `/health/startup` 记 `ok`。
@@ -6231,7 +6450,7 @@ class TestP235Round13Batch29Declined:
         )
 
     def test_document_registration(self):
-        """文档登记：P2_13「一之三十」节 + P2_11 附录第二十九批条目。"""
+        """文档登记：P2_13「一之三十」节 + 「一之三十一」节 + P2_11 附录两条目。"""
         doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
         assert "## 一之三十、" in doc13, "P2_13 缺少「一之三十」节标题"
         for token in (
@@ -6242,7 +6461,21 @@ class TestP235Round13Batch29Declined:
             "双重不可达",
         ):
             assert token in doc13, f"P2_13 第二十九批登记缺少关键标识: {token}"
+        # 第三十批：CI 红事故复盘节
+        assert "## 一之三十一、" in doc13, "P2_13 缺少「一之三十一」节标题"
+        for token in (
+            "第三十批",
+            "第三十批更正",
+            "# via` 是 **`fastapi`**",
+            "环境状态",
+            "交付形态",
+            "L133 可达",
+        ):
+            assert token in doc13, f"P2_13 第三十批登记缺少关键标识: {token}"
         doc11 = AUDIT.read_text(encoding="utf-8")
         assert "第十三轮第二十九批" in doc11, "P2_11 附录缺少第二十九批条目"
         assert "otel.py" in doc11, "P2_11 附录第二十九批条目缺少文件名"
+        assert "第十三轮第三十批" in doc11, "P2_11 附录缺少第三十批条目"
+        for token in ("环境状态", "交付形态", "V 型可达"):
+            assert token in doc11, f"P2_11 附录第三十批条目缺少关键标识: {token}"
         assert "W=97 / X=119" in doc13, "第二十九批为纯裁定批，累计状态应维持 W=97 / X=119"

@@ -1850,11 +1850,11 @@ P1-3）是 fail-closed 白名单，鉴权失败会显式 401/403/503——端点
 
 | location | 桶 | 依据 |
 |---|---|---|
-| `otel.py:133` `init_otel` 初始化异常 | **S 型** | 自报设施自身失败；且 E2 证明该 handler **不可达**（见下） |
+| `otel.py:133` `init_otel` 初始化异常 | **S 型**（第三十批改判 **V 型**） | 自报设施自身失败；且 E2 证明该 handler **不可达**（见下） |
 | `otel.py:151/166/180` `_instrument_*` 的 ImportError | **P 型** | instrumentation 是可选增强，缺失只少一段 trace；handler 只 `logger.debug`，无 metrics |
 | `otel.py:203` `instrument_app` 的 ImportError | **P 型** | 同上（`pass` 形态） |
-| `otel.py:205` `instrument_app` 的 Exception | **S 型** | 自报设施自身失败，warning 带 `exc_info` |
-| `otel.py:228` `shutdown_otel` 失败 | **S 型** | 关停期清理失败，不影响业务语义 |
+| `otel.py:205` `instrument_app` 的 Exception | **S 型**（第三十批确认 **P 型不可达**） | 自报设施自身失败，warning 带 `exc_info` |
+| `otel.py:228` `shutdown_otel` 失败 | **S 型**（第三十批确认 **P 型不可达**） | 关停期清理失败，不影响业务语义 |
 | `_common.py:184` `_save_assessment_sync` 调度失败 | **W（复核）** | 第六批已接 `api.model_predict._common.assessment_save_schedule_failed`，本批钉住完整 location 字面量防`_typo` 型变异 |
 | `_common.py:261` `_generate_structured_factors` 的 `float()` 失败 | **D 型** | 脏数据探测，`continue` 跳过该特征 |
 | `_common.py:317/333/349/365` `_generate_physio_factors` 四处 | **D 型** | 同上（四个生理字段各一处） |
@@ -1869,11 +1869,23 @@ P1-3）是 fail-closed 白名单，鉴权失败会显式 401/403/503——端点
 
 ### 4. 核心发现二：otel 依赖**双重不可达**（E2），方向与往批相反
 
+> ⚠️ **本节的推理链已被第三十批推翻并重写**，结论由「7 条全部不可达」修正为
+> 「**L133 可达（V 型）+ 其余 6 条不可达（P 型）**」。保留原文以存历史快照，
+> 正确表述见下方「🔺 第三十批更正」。
+
 - `requirements.txt` **零** opentelemetry 条目；
 - `requirements.lock` 只有间接依赖 `opentelemetry-api==1.45.0`
   （来自 prometheus/fastapi 链路），**无 sdk / exporter / instrumentation / distro**；
 - 实测 `_check_otel_available()` → `False`，`init_otel(endpoint="")` → `False`
   （走L71 的提前 return）。
+
+> 🔺 **第三十批更正**：`opentelemetry-api` 的来源是 **fastapi**（lock 中该条目的
+> `# via` 为 `fastapi`），因此**任何装了 fastapi 的环境（含 CI）顶层包都能导入**，
+> `_check_otel_available()` 在交付形态下返回 **True**——本节「实测 → False」测的是
+> **本机 venv 的环境状态**（恰好没装 api），不是交付形态。真正的默认阻断是
+> `otlp_endpoint` 默认空串。且一旦运维显式配置 endpoint，`otel.py:133` 的外层
+> `except Exception` **真实可达**（sdk/exporter 缺失 ⇒ ImportError 被捕获 ⇒
+> `return False` + warning）。
 
 ⇒ `otel.py` 的 7 条 handler 在**交付形态下全部不可达**。这与第二十一/二十二批
 的「双重外部阻断」同型但**方向相反**：那批是「接线即恒 0」（计数器活着但永不涨），
@@ -1936,6 +1948,102 @@ P1-3）是 fail-closed 白名单，鉴权失败会显式 401/403/503——端点
   `probe_p2_35_batch29_unjudged.json`（99 条真新库存候选清单，供后续批次取用）。
 - **独立待办信号（第二次出现）**：`/health/startup` 把 `init_otel` 记为 `ok`，
   与第二十七批 `init_sentry` 同型；建议合并立项把两者改为 `skipped`。
+- **CI 实锤本批 §4 判据错误**：HEAD `7bd9bcc` 的 `backend-coverage`
+  **1 failed / 6901 passed**，红的正是 E2（详见下节）。
+
+---
+
+## 一之三十一、#35 第三十批：第二十九批 CI 红事故复盘（裁定修正，W=97 / X=119 不变）
+
+### 1. 事故
+
+HEAD `7bd9bcc` 第二十九批的 CI：`backend-coverage` **failure**
+（**1 failed, 6901 passed, 68 skipped**, 576s），唯一红项：
+
+```
+TestP235Round13Batch29Declined::test_runtime_e2_otel_unavailable_and_returns_false
+AssertionError: opentelemetry 在本机可导入 —— 与交付物（requirements.lock 无 sdk）
+不一致，可达性判据需重估
+```
+
+### 2. 根因：我把**环境状态**当成了**交付形态**
+
+第二十九批 E2 断言 `_check_otel_available() is False`，依据是本机 venv 实测。
+但：
+
+| 环境 | `opentelemetry-api` | `_check_otel_available()` |
+|---|---|---|
+| 本机 venv（fastapi 0.135.3） | **未安装** | `False` |
+| CI（`pip install -r requirements.txt`） | **已安装**（lock 里经 fastapi 传递引入） | **`True`** |
+
+`requirements.lock:229` 的 `opentelemetry-api==1.45.0` 的 `# via` 是 **`fastapi`**
+（不是第二十九批文档里写的 prometheus 链路）⇒ **任何装了 fastapi 的机器**顶层
+包都可导入。`_check_otel_available()` 只做 `import opentelemetry`，因此这道门
+在交付形态下是**开着的**。
+
+**这条是继「源码字面量在 ≠ 运行时活着」「变异只翻转实现 ≠ 翻转真值空间」之后，
+第三条同族纪律：断言钉的必须是「交付形态下不变的事实」，不是「我这台机器上
+碰巧成立的状态」。**
+
+### 3. 裁定修正：7 条不是「全部不可达」
+
+在 tempdir 里造出 **CI 等价环境**（顶层 `opentelemetry` 可导入、
+sdk/exporter/instrumentation 全缺 = lock 的真实形态）逐条重算
+（证据脚本 `tests/tools/probe_p2_35_batch30_runtime.py`，五项全部成立）：
+
+| 编号 | 实测 | 修正后桶 |
+|---|---|---|
+| E1 | `_check_otel_available()` → **`True`** | 依赖门是开的 |
+| E2 | `init_otel(otlp_endpoint="")` → `False`，且 `_otel_initialized` 不置位 | 真正的默认阻断在 **L77**（endpoint 空串），非依赖门 |
+| E3 | 配 endpoint 后 `init_otel` → `False`，命中 `L133` 外层 except，记`initialization failed` warning | **L133 可达 = V 型**（`return False` + warning，失败如实上报，无需接线） |
+| E4 | 三处 `_instrument_*()` 调用行号（2885等）**全部大于** `_otel_initialized = True` 行号（2615） | L151/L166/L180 **P 型不可达** |
+| E5 | `_otel_initialized=False` 时 `instrument_app`+`shutdown_otel` 零日志；置 `True` 后产生 1 条日志（反证闸门生效） | L203/L205/L228 **P 型不可达** |
+
+⇒ **净结果仍是 0 接线、桶计数 W=97 / X=119 不变**，但**理由换了**：不再是
+「依赖未交付 ⇒ handler 不可达」，而是「成功路径需要 lock 里没有的 sdk/exporter
+⇒ `_otel_initialized` 永不为 True ⇒ 六条 P 型不可达；L133 本身是 V 型可达」。
+
+**判据修订（取代第二十九批那条）**：不可达性**不能**由「依赖没装」推出——
+必须**逐条问它的进入路径被什么挡住**。这里挡住六条的是**上游成功路径的
+依赖缺口**（`_otel_initialized` 闸门），不是它自己的 `except`。
+
+### 4. 闸门修正（`TestP235Round13Batch29Declined` 13 → 16 条）
+
+- **E2 重写**：不再断言 `_check_otel_available()` 的真实返回值（环境依赖），
+  改为在 tempdir 里自造 CI 等价环境，断言①该环境下依赖门为 `True`
+  ②空 endpoint 时`init_otel` 返回 `False`——两条与运行环境无关。
+- **E2b 新增（反向钉）**：配了 endpoint 时`init_otel` 必须命中 `L133` 外层
+  except 并 `return False` + warning。若哪天 sdk 补齐，此断言会红 ⇒ 那正是
+  「该 handler 不再可达」的信号，应据实重估裁定。
+- **`test_instrument_calls_only_on_success_path` 新增（结构钉）**：三处
+  `_instrument_*()` 的调用位置必须**晚于** `_otel_initialized = True`。
+- **`test_instrument_app_and_shutdown_gated_by_initialized_flag` 新增**：两函数
+  必须有 `if not _otel_initialized: return` 闸门 + 运行时反证（零日志 / 有日志）。
+- **`test_otel_dependency_not_delivered` 重写**：结论（「sdk/exporter 未交付」）
+  不变，**推理链换掉**——并新增钉「`opentelemetry-api` 的 `# via` 是 `fastapi`」
+  与「依赖门只 `import` 顶层包」两条，把「依赖门是开的」这个前提本身钉住。
+
+### 5. 变异四条（全 RED-OK / GREEN-OK）
+
+| 变异 | 改什么 | 红几条 |
+|---|---|---|
+| M1 | `_instrument_fastapi()` 提到 `_otel_initialized = True` **之前** | **1**（正是新加的顺序钉） |
+| M2 | 删 `instrument_app` 的 `_otel_initialized` 闸门 | 3 |
+| M3 | 依赖门收紧为同时 import `opentelemetry.sdk.trace` | 5 |
+| M4 | 绕过空 endpoint 的提前 return（`or "http://mutated.invalid:4317"`） | 3 |
+
+M1 只打 1 红这一点很有说服力：新加的顺序钉**精确命中**且不牵连其他断言
+（旧断言对这次变异完全无感，说明「结构顺序」这条新判据是原测试集里缺的维度）。
+变异后blob 哈希核对 `otel.py` / `_common.py` 与 HEAD 一致（无残留）。
+
+### 6. 记账
+
+- 变异日志 `tests/tools/mutate_p2_35_round13_batch30_result.log`。
+- 后端全量本地仍未跑（约 37 分钟，禁止并发双跑），由 CI `backend-coverage` 兜底。
+- **历史快照不改**：第二十九批节保留原文并加更正标记，符合「历史快照只追加、
+  不篡改」纪律。
+- **未验证**：本批 CI 结果待轮询确认，不预先宣称全绿。
+- 纯裁定批，`app/` 生产代码**零改动**。
 
 ---
 
