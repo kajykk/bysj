@@ -1829,6 +1829,116 @@ P1-3）是 fail-closed 白名单，鉴权失败会显式 401/403/503——端点
 
 ---
 
+## 一之三十、#35 X 桶第二十九批：纯裁定批（0 接线，W=97 / X=119 不变，otel.py + model_predict/_common.py）
+
+### 1. 存在性核查口径修正（挑簇器与 basename 双双失效后）
+
+第二十九批起，**裁定记载的检索单位从「文件名」改为「函数名」**。原因：
+本批先试basename 口径（去掉 `.py` 的短名在四份文档中检索），结果「零提及簇」
+只剩 4 个、其中 >=3 条的**0 个**——短名（`_common` / `training_jobs`）被别的
+句子误命中，把已裁的也算成了零提及。而挑簇器「文档未提及 = 未裁定」已连续
+七次误报。函数名才是P2_13 各节真实的登记单位（「文件 L号（函数名）」格式），
+比文件名更细、也不受短名污染。工具 `tests/tools/probe_p2_35_batch29_unjudged.py`。
+
+按函数名口径，全仓共 **99 条**真新库存候选，其中整簇零记载（该簇函数名一次都
+未被登记）的有 6 个：`otel.py`(7)、`model_predict/_common.py`(6)、
+`metrics_helpers.py`(4)、`user_data_service.py`(4)、`celery_breaker.py`(4)、
+`idempotency.py`(3)。本批取前两簇（13 条）。两簇的完整路径为 `app/core/otel.py` 与
+`app/api/v1/model_predict/_common.py`（下表为简写）。
+
+### 2. 裁定明细（13 条，全部不接线）
+
+| location | 桶 | 依据 |
+|---|---|---|
+| `otel.py:133` `init_otel` 初始化异常 | **S 型** | 自报设施自身失败；且 E2 证明该 handler **不可达**（见下） |
+| `otel.py:151/166/180` `_instrument_*` 的 ImportError | **P 型** | instrumentation 是可选增强，缺失只少一段 trace；handler 只 `logger.debug`，无 metrics |
+| `otel.py:203` `instrument_app` 的 ImportError | **P 型** | 同上（`pass` 形态） |
+| `otel.py:205` `instrument_app` 的 Exception | **S 型** | 自报设施自身失败，warning 带 `exc_info` |
+| `otel.py:228` `shutdown_otel` 失败 | **S 型** | 关停期清理失败，不影响业务语义 |
+| `_common.py:184` `_save_assessment_sync` 调度失败 | **W（复核）** | 第六批已接 `api.model_predict._common.assessment_save_schedule_failed`，本批钉住完整 location 字面量防`_typo` 型变异 |
+| `_common.py:261` `_generate_structured_factors` 的 `float()` 失败 | **D 型** | 脏数据探测，`continue` 跳过该特征 |
+| `_common.py:317/333/349/365` `_generate_physio_factors` 四处 | **D 型** | 同上（四个生理字段各一处） |
+
+### 3. 核心发现一：`otel_enabled` 是**死配置**（E1）
+
+`config.py:427` 声明了 `otel_enabled: bool = False`，但**全仓 AST 零消费点**——
+唯一命中是 `otel.py` 模块 docstring 里的说明文字，不是代码读取。`main.py:253`
+的 `_init_otel` 只透传 `settings.otlp_endpoint`（默认 `""`），**从不读
+`otel_enabled`**。运维改 `OTEL_ENABLED=true` 不会有任何效果，而配置项存在
+本身会让人以为「关着是配置问题」。
+
+### 4. 核心发现二：otel 依赖**双重不可达**（E2），方向与往批相反
+
+- `requirements.txt` **零** opentelemetry 条目；
+- `requirements.lock` 只有间接依赖 `opentelemetry-api==1.45.0`
+  （来自 prometheus/fastapi 链路），**无 sdk / exporter / instrumentation / distro**；
+- 实测 `_check_otel_available()` → `False`，`init_otel(endpoint="")` → `False`
+  （走L71 的提前 return）。
+
+⇒ `otel.py` 的 7 条 handler 在**交付形态下全部不可达**。这与第二十一/二十二批
+的「双重外部阻断」同型但**方向相反**：那批是「接线即恒 0」（计数器活着但永不涨），
+这批是「handler 永不触发，接线即假设施」。两者共同指向第二十二批那条纪律：
+**源码字面量在 ≠ 运行时活着**。
+
+**判据修订**：给不可达路径接线不只是「无价值」，而是**制造「看起来有降级观测、
+实际永不触发」的假设施**——比不接线更危险，因为它会让后续维护者误以为该路径
+已被覆盖。
+
+### 5. 核心发现三：`/health/startup` 把 OTel 失败记为 `ok`（E3）
+
+`main.py:253-262` 的 `_init_otel` 调用 `init_otel(...)` 但**不return**，
+而 `init_otel` 自身所有失败路径都是 `return False` 不抛⇒
+`record_step_sync("init_otel", _init_otel, fatal=False)` 把状态记为 **`ok`**。
+
+实测输出：`init_otel 启动状态 -> status='ok' error_type=''`。
+即 `/health/startup` **无法区分「追踪已启用」与「依赖根本没装」**。
+
+这是第二十七批 `init_sentry` 同型信号的**第二次出现**（两次都是
+「调用方不检查返回 bool + 被调用方只 return不抛」的组合）。两次都属**行为变更
+而非接线**（`startup_status` 有 `skipped` 状态可用），超出 #35 范围，已并入
+独立待办信号。
+
+### 6. D 型的运行时见证（E4）
+
+`_common.py` 五处脏数据 handler：结构化路径投`"abc"`/`None` ⇒ 返回 `[]`；
+生理四个字段各投`"坏值"` ⇒ 全部跳过、返回 `[]`；`data_quality=="poor"` 时
+兜底因子「数据质量」仍在。对照组：正常数据产出真实因子（证明不是「一律返回空」
+的退化实现）。
+
+### 7. 闸门与读数
+
+- **M3 假绿事故（已修，方法论级）**：M3 把结构化因子的 `continue` 改成 `break`
+  后闸门**竟全绿** —— 原E4 只投单个脏值，`continue` 与 `break` 行为完全相同，
+  断言根本没覆盖「脏特征之后的正常特征是否仍被产出」这一真正的风险面。
+  **根因**：变异只翻转了实现，没翻转断言的**真值空间**。已补①混合输入用例
+  （脏 `stress_level` + 正常 `anxiety`，后者必须仍产出因子）②结构钉
+  `test_structured_dirty_data_must_continue_not_break`（按 AST 断言 handler
+  里有 `continue` 且无 `break`/`return`）③变异脚本 `mutate()` 加 `try/finally`
+  —— **无论 RED 还是假绿都必须还原**，否则残留变异污染工作树
+  （M3 中断时确实在 `_common.py` 留下了 `break`，靠 `git checkout --` 挽回）。
+- 新增 `TestP235Round13Batch29Declined`（13 条）：13 处 handler 存在性 +
+  12 处块级反向钉（`_common.py:184` 已接线故排除）+ **完整 location 字面量
+  互锁**（防 `_typo` 型变异）+ `otel_enabled` **死配置 AST 钉** + 依赖未交付
+  源码钉 + 三处 warning 文案见证 + 三处 debug-only 钉 + **`continue` 结构钉**
+  （见上 M3 事故）+ 运行时四条（E1/E2/E3/E4）+ 文档登记。
+- 分类器现场重算 13 条：S3 + P4 + D5 + W1（已接线）⇒ **无一条在 X 桶内**
+  ⇒ 纯裁定、桶计数不变。
+- CI（HEAD `8cac938`，第二十八批）：**10/10 success**。
+
+### 8. 记账
+
+- 变异四条见 `mutate_p2_35_round13_batch29_result.log`。
+- 未验证如实记账：后端全量本地未跑（约 37 分钟，禁止并发双跑），由 CI
+  `backend-coverage` 兜底。
+- **检索口径修正**：裁定记载的检索单位由「文件名」改为「函数名」（见 §1）。
+  挑簇器与 basename 口径**双双失效**（前者七次误报，后者被短名污染压到 0 个
+  >=3 条簇）。工具 `probe_p2_35_batch29_unjudged.py` 已入库，输出 JSON 落盘
+  `probe_p2_35_batch29_unjudged.json`（99 条真新库存候选清单，供后续批次取用）。
+- **独立待办信号（第二次出现）**：`/health/startup` 把 `init_otel` 记为 `ok`，
+  与第二十七批 `init_sentry` 同型；建议合并立项把两者改为 `skipped`。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：

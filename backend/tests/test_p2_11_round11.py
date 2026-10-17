@@ -5881,3 +5881,368 @@ class TestP235Round13Batch28Declined:
         assert "第十三轮第二十八批" in doc11, "P2_11 附录缺少第二十八批条目"
         assert "fallback.py" in doc11, "P2_11 附录第二十八批条目缺少文件名"
         assert "W=97 / X=119" in doc13, "第二十八批为纯裁定批，累计状态应维持 W=97 / X=119"
+
+
+class TestP235Round13Batch29Declined:
+    """第二十九批：`app/core/otel.py` 7 条 + `app/api/v1/model_predict/_common.py` 6 条。
+
+    两簇在 P2_10/P2_11/P2_13 三份审计文档中**函数名级零记载**（口径见
+    `tests/tools/probe_p2_35_batch29_unjudged.py`：以「函数名是否被文档登记」
+    为裁定单位——比文件名更细，也不受短名误命中影响）：otel.py 的
+    `_check_otel_available` / `init_otel` / `_instrument_fastapi` /
+    `_instrument_sqlalchemy` / `_instrument_redis` / `instrument_app` /
+    `shutdown_otel` 七个名字一次都没出现过；_common.py 的五个
+    `_generate_*_factors` / `_save_assessment_sync` 同样零记载。
+
+    分类器现场重算13 条：S 3 + P 4 + D 5 + **W 1**（`_common.py:184`
+    `_save_assessment_sync` 已由第六批接线，本批复核）⇒ 纯裁定批，
+    桶计数 W=97/X=119 不变。
+
+    本批最关键的两条发现（均为**部署形态优先**判据的应用）：
+    - **E1`otel_enabled` 是死配置**：全仓AST 零消费点（唯一命中是 otel.py
+      模块 docstring 的说明文字）。`main.py:_init_otel` 只透传
+      `settings.otlp_endpoint`（默认 `""`），从不读 `otel_enabled`。
+    - **E2 双重不可达**：`requirements.txt` 零 opentelemetry 条目，
+      `requirements.lock` 只有间接依赖 `opentelemetry-api==1.45.0`
+      （无 sdk / exporter / instrumentation）⇒ `_check_otel_available()`
+      返回 False，`init_otel` 在 L63 提前 return，**走不到 L133 的 handler**。
+      这与第二十一/二十二批的「双重外部阻断」同型，但方向相反：那批是
+      「接线即恒0」，这批是「handler 不可达 ⇒ 接线即假设施」。
+    - **E3** `main.py:_init_otel` 丢弃 `init_otel` 返回值 ⇒
+      `/health/startup` 把失败记为 `ok`（与第二十七批 `init_sentry` 同型，
+      第二次出现该信号）。
+    """
+
+    OTEL_REL = "app/core/otel.py"
+    COMMON_REL = "app/api/v1/model_predict/_common.py"
+    MAIN_REL = "app/main.py"
+    CFG_REL = "app/core/config.py"
+
+    # 裁定明细13 处（文件, 行号, 所属函数, 裁定桶）
+    TARGETS = (
+        (OTEL_REL, 133, "init_otel", "S"),
+        (OTEL_REL, 151, "_instrument_fastapi", "P"),
+        (OTEL_REL, 166, "_instrument_sqlalchemy", "P"),
+        (OTEL_REL, 180, "_instrument_redis", "P"),
+        (OTEL_REL, 203, "instrument_app", "P"),
+        (OTEL_REL, 205, "instrument_app", "S"),
+        (OTEL_REL, 228, "shutdown_otel", "S"),
+        (COMMON_REL, 184, "_save_assessment_sync", "W"),  # 第六批已接，复核
+        (COMMON_REL, 261, "_generate_structured_factors", "D"),
+        (COMMON_REL, 317, "_generate_physio_factors", "D"),
+        (COMMON_REL, 333, "_generate_physio_factors", "D"),
+        (COMMON_REL, 349, "_generate_physio_factors", "D"),
+        (COMMON_REL, 365, "_generate_physio_factors", "D"),
+    )
+
+    # 复核维持「已接线」的 1 处（第六批）
+    WIRED_TARGET = (COMMON_REL, 184)
+
+    def _read(self, rel: str) -> str:
+        return (BEPKG / rel).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _handler_at(src: str, line: int):
+        tree = ast.parse(src)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        return None
+
+    def test_thirteen_handlers_exist(self):
+        """存在性核查：13 处 handler 均在原位。"""
+        for rel, line, fn_name, bucket in self.TARGETS:
+            src = self._read(rel)
+            handler = self._handler_at(src, line)
+            assert handler is not None, (
+                f"{rel}:{line}（{fn_name}）handler 消失或位移"
+            )
+
+    def test_twelve_declined_handlers_not_wired(self):
+        """块级反向钉：裁定不接线的 12 处均无接线（含直调式计数器禁现）。
+
+        `WIRED_TARGET`（`_common.py:184`）不在此列——它已由第六批接线。
+        """
+        for rel, line, fn_name, bucket in self.TARGETS:
+            if (rel, line) == self.WIRED_TARGET:
+                continue
+            src = self._read(rel)
+            handler = self._handler_at(src, line)
+            seg = ast.get_source_segment(src, handler) or ""
+            assert "record_silent_degradation" not in seg, (
+                f"{rel}:{line}（{fn_name}，裁定 {bucket} 型）被接线 —— "
+                "第二十九批裁定为不接线，若改判需先更新审计文档并同步桶计数棘轮"
+            )
+            assert "silent_degradation_total" not in seg, (
+                f"{rel}:{line}（{fn_name}）出现直调式 silent_degradation_total 计数"
+            )
+
+    def test_common_schedule_failure_stays_wired(self):
+        """互锁钉：`_common.py:184` 的第六批接线仍在且location 字面量完整。
+
+        接线判据（第六批）：fire-and-forget 调度失败 ⇒ 评估结果永久丢失，
+        调用方早已返回 200、用户侧无感 ⇒ 真降级，必须计数。
+        """
+        src = self._read(self.COMMON_REL)
+        handler = self._handler_at(src, self.WIRED_TARGET[1])
+        assert handler is not None, "_save_assessment_sync 的 handler 消失"
+        seg = ast.get_source_segment(src, handler) or ""
+        assert (
+            '"api.model_predict._common.assessment_save_schedule_failed"' in seg
+        ), (
+            "第六批接线点的完整 location 字面量消失 —— "
+            "子串匹配会被 _typo 型变异放行（第二十六批 M2 实锤）"
+        )
+        assert "Failed to schedule assessment save" in seg, "该handler 的 error 日志消失"
+
+    def test_otel_enabled_is_dead_config(self):
+        """E1 结构钉：`otel_enabled` 只有定义与 docstring，无代码消费点。
+
+        这是本批的核心发现之一：声明了配置项却没有任何代码读它，
+        运维改`OTEL_ENABLED=true` 不会有任何效果。
+        """
+        consumers: list[str] = []
+        for p in (BEPKG / "app").rglob("*.py"):
+            if "__pycache__" in p.parts:
+                continue
+            try:
+                tree = ast.parse(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            for n in ast.walk(tree):
+                if isinstance(n, ast.Attribute) and n.attr == "otel_enabled":
+                    consumers.append(f"{p.name}:{n.lineno}")
+        assert consumers == [], (
+            f"otel_enabled 出现代码消费点 {consumers} —— "
+            "「死配置」发现需重估（若已被接线消费，本批判据要改）"
+        )
+        cfg = self._read(self.CFG_REL)
+        assert "otel_enabled: bool = False" in cfg, "otel_enabled 配置定义消失"
+        main_src = self._read(self.MAIN_REL)
+        assert "otel_enabled" not in main_src, "main.py 开始读otel_enabled 了"
+        assert "otlp_endpoint=settings.otlp_endpoint," in main_src, (
+            "main.py 的参数透传形态漂移"
+        )
+
+    def test_otel_dependency_not_delivered(self):
+        """E2 结构钉：交付物中无 opentelemetry sdk / exporter / instrumentation。
+
+        这是「handler 在交付形态下不可达」的源码判据：依赖未进lock ⇒
+        `_check_otel_available()` 恒 False ⇒ `init_otel` 提前 return。
+        """
+        req = self._read("requirements.txt")
+        lock = self._read("requirements.lock")
+        assert "opentelemetry" not in req.lower(), (
+            "requirements.txt 出现 opentelemetry 条目 ⇒ handler 可达性判据需重估"
+        )
+        for pkg in (
+            "opentelemetry-sdk",
+            "opentelemetry-exporter",
+            "opentelemetry-instrumentation",
+            "opentelemetry-distro",
+        ):
+            assert pkg not in lock, f"requirements.lock 出现 {pkg} ⇒ 可达性判据需重估"
+        otel_src = self._read(self.OTEL_REL)
+        assert "def _check_otel_available() -> bool:" in otel_src, (
+            "_check_otel_available 函数消失"
+        )
+        assert "opentelemetry packages not installed" in otel_src, (
+            "未安装提示文案消失（运维唯一可见线索）"
+        )
+
+    def test_otel_handlers_keep_warning_anchors(self):
+        """otel 三处 Exception handler 的 warning 文案仍在（诊断侧留痕）。
+
+        三条 `_instrument_*` 的 ImportError 分支是 `logger.debug`
+        （instrumentation 是可选增强，不是故障），不在此列。
+        """
+        src = self._read(self.OTEL_REL)
+        for line, token in (
+            (133, '"STAB-P2-009: OpenTelemetry initialization failed, "'),
+            (205, '"STAB-P2-009: FastAPI instrumentation failed: %s"'),
+            (228, '"STAB-P2-009: OpenTelemetry shutdown failed: %s"'),
+        ):
+            handler = self._handler_at(src, line)
+            assert handler is not None, f"otel.py:{line} handler 消失"
+            seg = ast.get_source_segment(src, handler) or ""
+            assert token in seg, f"otel.py:{line} 的 warning 文案消失：{token}"
+            assert "logger" in seg, f"otel.py:{line} 应保留日志（对比 _instrument_* 的纯 debug）"
+
+    def test_instrument_import_errors_stay_debug_only(self):
+        """`_instrument_*` 三处 ImportError 保持 debug 且不打metrics。
+
+        instrumentation 缺失只是少一段 trace，不构成故障 ⇒ 判P 型不接线。
+        若有人把它升级成 warning/error，说明运维要把它当故障看，判据需重估。
+        """
+        src = self._read(self.OTEL_REL)
+        for line, token in (
+            (151, '"STAB-P2-009: opentelemetry-instrumentation-fastapi not installed, "'),
+            (166, '"STAB-P2-009: opentelemetry-instrumentation-sqlalchemy not installed, "'),
+            (180, '"STAB-P2-009: opentelemetry-instrumentation-redis not installed, "'),
+        ):
+            handler = self._handler_at(src, line)
+            assert handler is not None, f"otel.py:{line} handler 消失"
+            seg = ast.get_source_segment(src, handler) or ""
+            assert token in seg, f"otel.py:{line} 的 debug 文案消失：{token}"
+            assert "logger.debug" in seg, f"otel.py:{line} 应保持 debug 级别"
+            assert "record_silent_degradation" not in seg, (
+                f"otel.py:{line} 出现接线 —— P 型不接线裁定被改"
+            )
+
+    def test_runtime_e1_otel_enabled_zero_consumers(self):
+        """E1 运行时：`Settings().otel_enabled` 为 False 且endpoint 空（死配置实证）。"""
+        import importlib
+
+        from app.core.config import Settings
+
+        s = Settings()
+        assert s.otel_enabled is False, "otel_enabled 默认值不再是 False"
+        assert s.otlp_endpoint == "", (
+            "otlp_endpoint 默认值不再是空串 ⇒ E2「提前 return」前提需重估"
+        )
+        otel = importlib.import_module("app.core.otel")
+        assert otel.init_otel("b29_probe", otlp_endpoint="") is False, (
+            "默认配置下 init_otel 应返回 False（endpoint 未配置）"
+        )
+
+    def test_runtime_e2_otel_unavailable_and_returns_false(self):
+        """E2 运行时：`_check_otel_available()` 恒 False，init_otel 走提前 return。
+
+        注：本机 venv 无 opentelemetry（与交付物一致）。若在装了 sdk 的环境跑，
+        本断言会红 —— 那正是「可达性判据被推翻」的信号，应据实重估而非改断言。
+        """
+        import importlib
+
+        otel = importlib.import_module("app.core.otel")
+        available = otel._check_otel_available()
+        print(f"[E2b] _check_otel_available() -> {available}")
+        assert available is False, (
+            "opentelemetry 在本机可导入 —— 与交付物（requirements.lock 无 sdk）"
+            "不一致，可达性判据需重估"
+        )
+        assert otel._otel_initialized is False, "otel 不应被本测试初始化"
+
+    def test_runtime_e3_startup_status_records_ok(self):
+        """E3 运行时：`main.py` 形态的 `_init_otel` 让 `/health/startup` 记 `ok`。
+
+        与第二十七批 `init_sentry` 完全同型：失败被如实呈现给启动状态检查器
+        之前就已丢失 ⇒ 属S 型（自报设施自身失败）而非 V 型。
+        """
+        import importlib
+
+        importlib.import_module("app.core.otel")
+        ss = importlib.import_module("app.core.startup_status")
+        from app.core.config import settings
+
+        def _init_otel():
+            from app.core.otel import init_otel
+
+            # 与 main.py L253-262 逐字同形：调用但不 return
+            init_otel(
+                service_name=settings.otel_service_name,
+                service_version=settings.app_version,
+                otlp_endpoint=settings.otlp_endpoint,
+                otlp_protocol=settings.otlp_protocol,
+                environment=settings.sentry_environment,
+            )
+
+        ss.record_step_sync("init_otel", _init_otel, fatal=False)
+        rec = ss.startup_status.components["init_otel"]
+        assert rec.status == "ok", (
+            f"init_otel 启动状态变为 {rec.status!r} —— "
+            "若改为 failed/skipped，说明 signal 已显式，判据需重估"
+        )
+        assert rec.error_type == "", "不应有 error_type"
+        # main.py 的真实接线形态仍在（fatal=False + 不 return）
+        main_src = self._read(self.MAIN_REL)
+        assert 'record_step_sync("init_otel", _init_otel, fatal=False)' in main_src, (
+            "main.py 的 init_otel 启动登记消失"
+        )
+        assert (
+            "# OTel 初始化失败不影响启动 (仅追踪降级, 与 Sentry 一致)" in main_src
+        ), "main.py 的设计注释消失（R-006 同型前提失效）"
+
+    def test_structured_dirty_data_must_continue_not_break(self):
+        """结构钉：结构化因子的脏数据分支必须是 `continue`（不得掐断整轮循环）。
+
+        `_generate_structured_factors` 遍历 `STRUCTURED_FEATURE_LABELS`（有序），
+        遇脏特征只能跳过**该特征**。若改成 `break` / `return`，排在脏特征之后的
+        正常特征将一并丢失 —— 表现为「一个坏字段让整份风险因子变空」，
+        调用方从返回值看不出。这是第二十九批 M3 变异暴露的假绿，必须钉住。
+        """
+        src = self._read(self.COMMON_REL)
+        handler = self._handler_at(src, 261)
+        assert handler is not None, "_generate_structured_factors 的 L261 handler 消失"
+        seg = ast.get_source_segment(src, handler) or ""
+        assert ast.unparse(handler.type) == "(TypeError, ValueError)", (
+            f"捕获类型漂移为 {ast.unparse(handler.type)}"
+        )
+        unparsed = ast.unparse(handler)
+        assert "continue" in unparsed, (
+            f"handler 应为 `continue` 跳过该特征，实际语句为 {unparsed!r} —— "
+            "改成 break/return 会让后续正常特征一并丢失"
+        )
+        assert "break" not in unparsed, "handler 出现 break —— 会掐断整轮特征遍历"
+        assert "return" not in unparsed, "handler 出现 return —— 会提前退出整个函数"
+
+    def test_runtime_e4_dirty_data_same_shape(self):
+        """E4 运行时：_common.py 五处脏数据 handler —— 返回结构与正常态同形。
+
+        关键用例是「脏 + 正常」混合输入：`continue` 只跳过脏特征，
+        排在它之后的正常特征仍须产出因子（若实现退化成 `break`，此断言会红）。
+        """
+        import importlib
+
+        common = importlib.import_module("app.api.v1.model_predict._common")
+
+        good = common._generate_structured_factors(
+            {"features": {"stress_level": 5, "anxiety": 4}},
+            {"features": {"stress_level": 5, "anxiety": 4}},
+        )
+        dirty = common._generate_structured_factors(
+            {"features": {"stress_level": "abc", "anxiety": None}},
+            {"features": {"stress_level": "abc", "anxiety": None}},
+        )
+        assert isinstance(dirty, list), "返回类型应仍是 list"
+        assert dirty == [], "全脏数据时应无因子（continue 跳过）"
+        assert good, "对照：正常数据应产出因子（证明不是一律返回空的退化实现）"
+
+        # 混合输入：stress_level（脏，排第一）之后的 anxiety（正常）必须仍被产出
+        mixed = common._generate_structured_factors(
+            {"features": {"stress_level": "abc", "anxiety": 5}},
+            {"features": {"stress_level": "abc", "anxiety": 5}},
+        )
+        print(f"[E4b] mixed(dirty stress_level + normal anxiety) -> {mixed}")
+        assert mixed, "混合输入下排在脏特征之后的正常特征被丢弃 —— continue 退化成 break 了"
+        assert any(f["feature"] == "焦虑程度" for f in mixed), (
+            f"正常特征 anxiety 未被产出：{mixed}"
+        )
+
+        for field in ("sleep_hours", "heart_rate", "steps", "exercise_minutes"):
+            out = common._generate_physio_factors({"physiological_data": {field: "坏值"}}, {})
+            assert isinstance(out, list), f"{field} 脏值返回类型异常"
+            assert out == [], f"{field} 脏值应被跳过，实际={out}"
+
+        poor = common._generate_physio_factors(
+            {"physiological_data": {}, "data_quality": "poor"}, {}
+        )
+        assert poor and poor[0]["feature"] == "数据质量", (
+            "data_quality=poor 的兜底因子消失"
+        )
+
+    def test_document_registration(self):
+        """文档登记：P2_13「一之三十」节 + P2_11 附录第二十九批条目。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之三十、" in doc13, "P2_13 缺少「一之三十」节标题"
+        for token in (
+            "app/core/otel.py",
+            "model_predict/_common.py",
+            "otel_enabled",
+            "死配置",
+            "双重不可达",
+        ):
+            assert token in doc13, f"P2_13 第二十九批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十九批" in doc11, "P2_11 附录缺少第二十九批条目"
+        assert "otel.py" in doc11, "P2_11 附录第二十九批条目缺少文件名"
+        assert "W=97 / X=119" in doc13, "第二十九批为纯裁定批，累计状态应维持 W=97 / X=119"

@@ -1,0 +1,658 @@
+{
+  "unjudged": [
+    {
+      "file": "app/api/v1/admin.py",
+      "line": 619,
+      "func": "_stream_csv",
+      "bucket": "X"
+    },
+    {
+      "file": "app/api/v1/alerts/_schemas.py",
+      "line": 68,
+      "func": "_validate_url_safety",
+      "bucket": "G"
+    },
+    {
+      "file": "app/api/v1/alerts/_schemas.py",
+      "line": 63,
+      "func": "_validate_url_safety",
+      "bucket": "G"
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 223,
+      "func": "collect_ml_quality_metrics",
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 249,
+      "func": "collect_drift_metrics",
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 275,
+      "func": "collect_canary_metrics",
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/metrics_helpers.py",
+      "line": 116,
+      "func": "_load_json",
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 184,
+      "func": "_save_assessment_sync",
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 261,
+      "func": "_generate_structured_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 317,
+      "func": "_generate_physio_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 333,
+      "func": "_generate_physio_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 349,
+      "func": "_generate_physio_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 365,
+      "func": "_generate_physio_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/api/v1/model_predict/predict.py",
+      "line": 87,
+      "func": "_create_review_task_sync",
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/observability/__init__.py",
+      "line": 228,
+      "func": "cached_or_compute",
+      "bucket": "S"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 164,
+      "func": "_resolve_pdf_job",
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 403,
+      "func": "_execute_pdf_generation",
+      "bucket": "V"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 513,
+      "func": "list_pdf_jobs",
+      "bucket": "W"
+    },
+    {
+      "file": "app/api/v1/user_upload.py",
+      "line": 161,
+      "func": "_validate_mime_type",
+      "bucket": "G"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 478,
+      "func": "_execute_validation",
+      "bucket": "V"
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 254,
+      "func": "_cleanup_memory_expired",
+      "bucket": "D"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 192,
+      "func": "get_redis_pubsub_client",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 241,
+      "func": "close_redis_client",
+      "bucket": "C"
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 247,
+      "func": "close_redis_client",
+      "bucket": "C"
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 254,
+      "func": "on_task_failure",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 89,
+      "func": "_collect_infra_exceptions",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 97,
+      "func": "_collect_infra_exceptions",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 107,
+      "func": "_collect_infra_exceptions",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 153,
+      "func": "_is_celery_failure",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/db_breaker.py",
+      "line": 100,
+      "func": "_check_exception_is_connection_failure",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/db_breaker.py",
+      "line": 109,
+      "func": "_check_exception_is_connection_failure",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/deps.py",
+      "line": 184,
+      "func": "_role_for_request",
+      "bucket": "G"
+    },
+    {
+      "file": "app/core/fire_forget_metrics.py",
+      "line": 41,
+      "func": "record_scheduled",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/fire_forget_metrics.py",
+      "line": 77,
+      "func": "_callback",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 76,
+      "func": "begin_idempotent_call",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 98,
+      "func": "settle_idempotent_call",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/idempotency.py",
+      "line": 112,
+      "func": "dismiss_idempotent_call",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/kill_switch.py",
+      "line": 109,
+      "func": "_record_degraded",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/logging_config.py",
+      "line": 235,
+      "func": "configure_logging",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/metrics.py",
+      "line": 868,
+      "func": "track_model_inference",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/middlewares.py",
+      "line": 281,
+      "func": "error_sanitizer_middleware",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/ml_breaker.py",
+      "line": 107,
+      "func": "_is_ml_failure",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 171,
+      "func": "_structured_heuristic_fallback",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 233,
+      "func": "_anxiety_only_fallback",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 297,
+      "func": "_physiological_heuristic_fallback",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 348,
+      "func": "_publish_to_prometheus",
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 362,
+      "func": "stop_persist",
+      "bucket": "K"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 640,
+      "func": "_maybe_fire_shadow_predict",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 668,
+      "func": "_predict_text_ml",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 983,
+      "func": "_predict_physiological",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 995,
+      "func": "_predict_physiological",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1038,
+      "func": "_predict_physiological_sync",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1144,
+      "func": "explain_prediction",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1177,
+      "func": "explain_prediction",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 675,
+      "func": "_predict_text_ml",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 991,
+      "func": "_predict_physiological",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 133,
+      "func": "init_otel",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 205,
+      "func": "instrument_app",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 228,
+      "func": "shutdown_otel",
+      "bucket": "S"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 151,
+      "func": "_instrument_fastapi",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 166,
+      "func": "_instrument_sqlalchemy",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 180,
+      "func": "_instrument_redis",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 203,
+      "func": "instrument_app",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/rate_limit.py",
+      "line": 142,
+      "func": "decorator",
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/rate_limit.py",
+      "line": 198,
+      "func": "__call__",
+      "bucket": "X"
+    },
+    {
+      "file": "app/core/safe_pickle.py",
+      "line": 399,
+      "func": "safe_joblib_load",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/safe_pickle.py",
+      "line": 503,
+      "func": "safe_torch_load",
+      "bucket": "W"
+    },
+    {
+      "file": "app/core/smtp_breaker.py",
+      "line": 113,
+      "func": "_is_smtp_failure",
+      "bucket": "P"
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 199,
+      "func": "_publish_to_redis",
+      "bucket": "W"
+    },
+    {
+      "file": "app/main.py",
+      "line": 371,
+      "func": "",
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/canary_controller.py",
+      "line": 235,
+      "func": "_log_comparison",
+      "bucket": "X"
+    },
+    {
+      "file": "app/ml/drift_detector.py",
+      "line": 128,
+      "func": "compute_ks_test",
+      "bucket": "P"
+    },
+    {
+      "file": "app/monitoring/dedup.py",
+      "line": 95,
+      "func": "should_send",
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/dedup.py",
+      "line": 103,
+      "func": "should_send",
+      "bucket": "X"
+    },
+    {
+      "file": "app/monitoring/escalation.py",
+      "line": 59,
+      "func": "_observe_escalation_latency",
+      "bucket": "S"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 232,
+      "func": "stop_canary_fallback_monitor",
+      "bucket": "K"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 234,
+      "func": "stop_canary_fallback_monitor",
+      "bucket": "C"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 179,
+      "func": "_canary_fallback_loop",
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 96,
+      "func": "_canary_fallback_loop",
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 163,
+      "func": "_canary_fallback_loop",
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 236,
+      "func": "_resolve_canary_version",
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/email_service.py",
+      "line": 164,
+      "func": "_send_smtp",
+      "bucket": "R"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 246,
+      "func": "export_to_stream",
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 400,
+      "func": "export_large_dataset",
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/excel_job_store.py",
+      "line": 131,
+      "func": "_cleanup_expired",
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/model_predict/inference.py",
+      "line": 116,
+      "func": "_model_fingerprint",
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/model_predict/inference.py",
+      "line": 150,
+      "func": "_fire_shadow_check",
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 43,
+      "func": "_load_training_jobs",
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 59,
+      "func": "_save_training_jobs",
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/observability/aggregate.py",
+      "line": 38,
+      "func": "_parse_detail_json",
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/observability/aggregate.py",
+      "line": 474,
+      "func": "_fetch_lock_memory_stats",
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/observability_service.py",
+      "line": 135,
+      "func": "_flush_loop",
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/pdf_job_store.py",
+      "line": 129,
+      "func": "_cleanup_expired",
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/registry_auto_rollback.py",
+      "line": 136,
+      "func": "stop_auto_rollback_monitor",
+      "bucket": "K"
+    },
+    {
+      "file": "app/services/registry_auto_rollback.py",
+      "line": 138,
+      "func": "stop_auto_rollback_monitor",
+      "bucket": "C"
+    },
+    {
+      "file": "app/services/risk_service.py",
+      "line": 138,
+      "func": "_schedule_warning_and_intervention",
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/risk_service_assessment.py",
+      "line": 180,
+      "func": "assess_structured",
+      "bucket": "W"
+    },
+    {
+      "file": "app/services/risk_service_warning.py",
+      "line": 136,
+      "func": "_check_warning_trigger",
+      "bucket": "X"
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 165,
+      "func": "_generate_physio_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 180,
+      "func": "_generate_physio_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 197,
+      "func": "_generate_physio_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 212,
+      "func": "_generate_physio_factors",
+      "bucket": "D"
+    },
+    {
+      "file": "app/tasks/anomaly_detection.py",
+      "line": 140,
+      "func": "_detect_impl",
+      "bucket": "X"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 260,
+      "func": "_notify_progress",
+      "bucket": "W"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 277,
+      "func": "save_pdf_bytes_to_redis",
+      "bucket": "W"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 290,
+      "func": "get_pdf_bytes_from_redis",
+      "bucket": "W"
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 902,
+      "func": "_load_referenced_upload_paths",
+      "bucket": "W"
+    }
+  ],
+  "counts": {
+    "X": 17,
+    "G": 4,
+    "W": 35,
+    "S": 15,
+    "D": 12,
+    "V": 2,
+    "C": 4,
+    "P": 14,
+    "K": 3,
+    "R": 1
+  }
+}

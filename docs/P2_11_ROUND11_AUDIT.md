@@ -1258,3 +1258,67 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   且未还原，合并跑时把 `tests/test_notifier.py` 四条通道审计用例打红，
   而单跑该文件 55 passed 全绿 —— 「单跑绿 / 合并跑红」是测试间污染的可客
   signature。已改 `monkeypatch.setattr`，复跑 7 个受影响文件**405 passed**。
+
+- **第十三轮第二十九批（纯裁定批，0 接线，W=97 / X=119 不变）**：
+  `app/core/otel.py`（7 条）+ `app/api/v1/model_predict/_common.py`（6 条）。
+  两簇函数名级零记载（`init_otel` / `_instrument_fastapi` /
+  `_instrument_sqlalchemy` / `_instrument_redis` / `instrument_app` /
+  `shutdown_otel` / `_generate_*_factors` / `_save_assessment_sync`
+  在 P2_10+P2_11+P2_13 全文一次都未被登记）。
+
+  **检索口径修正（本批方法论级）**：裁定记载的检索单位由「文件名」改为
+  **「函数名」**。basename 口径实测失效——去掉 `.py` 的短名会被别的句子
+  误命中，「零提及簇」被压到只剩 4 个、>=3 条的 0 个；而挑簇器「文档未提及
+  = 未裁定」已连续七次误报。函数名才是 P2_13 各节真实的登记单位
+  （「文件 L号（函数名）」格式）。工具 `probe_p2_35_batch29_unjudged.py`入库，
+  产出全仓 **99 条**真新库存候选清单（JSON 落盘），整簇零记载的 6 个簇中
+  本批取前两簇。
+
+  **发现一：`otel_enabled` 是死配置**。`config.py:427` 声明了
+  `otel_enabled: bool = False`，但**全仓 AST 零消费点**——唯一命中是
+  `otel.py` 模块 docstring 的说明文字。`main.py:253` 的 `_init_otel` 只透传
+  `settings.otlp_endpoint`（默认 `""`），从不读 `otel_enabled` ⇒ 运维改
+  `OTEL_ENABLED=true` 不会有任何效果，而配置项存在本身让人误以为「关着是
+  配置问题」。
+
+  **发现二：otel 依赖双重不可达（方向与往批相反）**。`requirements.txt`
+  零 opentelemetry 条目；`requirements.lock` 只有间接依赖
+  `opentelemetry-api==1.45.0`（无 sdk/exporter/instrumentation/distro）；
+  实测 `_check_otel_available()` → False、`init_otel(endpoint="")` → False
+  （走 L71 提前 return）⇒ **7 条 handler 在交付形态下全部不可达**。
+  这与第二十一/二十二批「双重外部阻断」同型但**方向相反**：那批是
+  「接线即恒 0」，这批是「handler 永不触发，接线即假设施」。**判据修订**：
+  给不可达路径接线不只是无价值，而是**制造「看起来有降级观测、实际永不触发」
+  的假设施**——比不接线更危险，会让后续维护者误以为该路径已被覆盖。
+
+  **发现三：`/health/startup` 把 OTel 失败记为 `ok`**。`main.py:253-262`
+  的 `_init_otel` 调用 `init_otel(...)` 但**不return**，而 `init_otel` 所有
+  失败路径都只`return False` 不抛 ⇒ `record_step_sync(..., fatal=False)`
+  记为 `ok`（实测 `status='ok' error_type=''`）。这是第二十七批
+  `init_sentry` 同型信号的**第二次出现**（共同模式：「调用方不检查返回 bool +
+  被调用方只 return 不抛」），两次都属**行为变更而非接线**，已并入独立待办。
+
+  裁定：otel.py S3（S 型：自报设施自身失败）+ P4（`ImportError`：三处
+  `_instrument_*` 只 debug、`instrument_app` 是 `pass`，instrumentation 缺失
+  只少一段 trace）；`_common.py` L184 为**第六批已接线的复核**（钉完整
+  location 字面量防 `_typo` 型变异）+ D5（`float()` 脏数据探测，
+  `continue` 跳过；E4 实证返回结构与正常态同形、`data_quality=="poor"`
+  兜底因子仍在）。
+
+  闸门 `TestP235Round13Batch29Declined`（12 条）：13 处存在性 + 12 处块级
+  反向钉（已接线那条排除）+ 完整 location 字面量互锁 + `otel_enabled`
+  **死配置 AST 钉** + 依赖未交付源码钉 + 三处 warning 文案见证 + 三处
+  debug-only 钉 + 运行时四条（E1/E2/E3/E4）+ 文档登记。桶计数维持
+  **W=97 / X=119**（分类器现场重算 13 条为 S3+P4+D5+W1，**无一条在 X 桶内**）。
+  变异四条见 `mutate_p2_35_round13_batch29_result.log`。
+  **M3 假绿事故（已修，方法论级）**：M3 把结构化因子的 `continue` 改成
+  `break` 后闸门**竟全绿**——原 E4 只投单个脏值，两种实现行为完全相同，
+  断言没覆盖「脏特征之后的正常特征是否仍被产出」这一真正的风险面。
+  **根因：变异只翻转了实现，没翻转断言的真值空间**。已补①混合输入用例
+  （脏 `stress_level` + 正常 `anxiety`，后者必须仍产出因子）②`continue`
+  结构钉（AST 断言 handler 有 `continue` 且无 `break`/`return`）
+  ③变异脚本 `mutate()` 加 `try/finally`——**无论 RED 还是假绿都必须还原**，
+  否则残留变异污染工作树（M3 中断时确实在 `_common.py` 留下 `break`，
+  靠 `git checkout --` 挽回）。
+  **检索口径再次记账**：本批先试 basename 口径也失效（短名误命中，
+  零提及簇被压到 >=3 条的 0 个），最终确立**以函数名为裁定检索单位**。
