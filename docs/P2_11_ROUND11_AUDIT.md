@@ -1639,3 +1639,6 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   零涉其路径 ⇒ 非本批引入，属共享 runner 计时抖动。维持独立待办
   （该断言无容差/重试），**不在本批改断言掩盖**；第四/五批连续未复现
   后本批复现，flaky 特征不变（计时型断言在共享 runner 上的偶发超时）。
+
+  **CI 结论（`629e7b8`，2026-10-17）**：check-runs total_count=10，
+  全部 completed/success（含 backend-coverage）。第三十六批完整收口。
