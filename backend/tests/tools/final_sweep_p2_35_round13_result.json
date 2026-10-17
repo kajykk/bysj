@@ -1,0 +1,853 @@
+{
+  "never_registered": [
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 152,
+      "func": "_handle_silenced_alert",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "False"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 173,
+      "func": "_handle_active_alert",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 190,
+      "func": "_handle_active_alert",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "(0, 1, 0)"
+    },
+    {
+      "file": "app/api/v1/alerts/__init__.py",
+      "line": 205,
+      "func": "_handle_active_alert",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "(1, 0, 1)"
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 403,
+      "func": "_execute_pdf_generation",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/reports.py",
+      "line": 355,
+      "func": "_notify",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/silences.py",
+      "line": 215,
+      "func": "create_silence",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 478,
+      "func": "_execute_validation",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/validation.py",
+      "line": 254,
+      "func": "_cleanup_memory_expired",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 241,
+      "func": "close_redis_client",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/cache.py",
+      "line": 247,
+      "func": "close_redis_client",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 254,
+      "func": "on_task_failure",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 348,
+      "func": "_propagate_request_id",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 369,
+      "func": "_bind_request_id",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_app.py",
+      "line": 380,
+      "func": "_unbind_request_id",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 141,
+      "func": "stop",
+      "handled": [
+        "CancelledError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 174,
+      "func": "_consume_loop",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/event_bus.py",
+      "line": 164,
+      "func": "_consume_loop",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/fire_forget_metrics.py",
+      "line": 41,
+      "func": "record_scheduled",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/fire_forget_metrics.py",
+      "line": 77,
+      "func": "_callback",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 89,
+      "func": "check_redis",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "False"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 136,
+      "func": "check_celery_worker",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "False"
+    },
+    {
+      "file": "app/core/health.py",
+      "line": 173,
+      "func": "check_models",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "False"
+    },
+    {
+      "file": "app/core/instance.py",
+      "line": 25,
+      "func": "get_instance_id",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/kill_switch.py",
+      "line": 119,
+      "func": "_get_redis",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "None"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 81,
+      "func": "_finite",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "returns": "default"
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 199,
+      "func": "_text_heuristic_fallback",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 233,
+      "func": "_anxiety_only_fallback",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/fallback.py",
+      "line": 297,
+      "func": "_physiological_heuristic_fallback",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 323,
+      "func": "_persist_loop",
+      "handled": [
+        "CancelledError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 326,
+      "func": "_persist_loop",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 543,
+      "func": "_run_adapter",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 426,
+      "func": "_run_experimental_v121",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 892,
+      "func": "predict_lite",
+      "handled": [
+        "NonFiniteLiteProbabilityError"
+      ],
+      "returns": "result"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 902,
+      "func": "predict_lite",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "result"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 172,
+      "func": "predict_structured",
+      "handled": [
+        "FileNotFoundError",
+        "ValueError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 183,
+      "func": "predict_structured",
+      "handled": [
+        "FileNotFoundError",
+        "ValueError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 224,
+      "func": "_quarantine_corrupt_file",
+      "handled": [
+        "OSError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_registry_v2.py",
+      "line": 462,
+      "func": "_promote_model_locked",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "None"
+    },
+    {
+      "file": "app/core/pii_crypto.py",
+      "line": 191,
+      "func": "_get_previous_aes_gcms",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/main.py",
+      "line": 371,
+      "func": null,
+      "handled": [
+        "OSError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 231,
+      "func": "predict",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 239,
+      "func": "predict",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/ml/unified_model_interface.py",
+      "line": 270,
+      "func": "predict_proba",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 106,
+      "func": "_write_sync_log",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/monitoring/am_sync.py",
+      "line": 265,
+      "func": "pull_silences",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 77,
+      "func": "_bump_lock_counter",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 99,
+      "func": "try_acquire_check_lock",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "True"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 132,
+      "func": "publish_check_heartbeat",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "False"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 161,
+      "func": "get_check_heartbeat_age",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "None"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 170,
+      "func": "get_check_heartbeat_age",
+      "handled": [
+        "TypeError",
+        "ValueError",
+        "KeyError"
+      ],
+      "returns": "None"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 182,
+      "func": "get_check_heartbeat_age",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 75,
+      "func": "_bump_takeover_counter",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 232,
+      "func": "stop_canary_fallback_monitor",
+      "handled": [
+        "CancelledError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 234,
+      "func": "stop_canary_fallback_monitor",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/canary_fallback_monitor.py",
+      "line": 96,
+      "func": "_canary_fallback_loop",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 464,
+      "func": "_push_to_gauge",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/drift_monitoring_service.py",
+      "line": 104,
+      "func": "check_all_modalities",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/email_service.py",
+      "line": 39,
+      "func": "_close_thread_smtp",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 164,
+      "func": "export",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "ExcelExportResult(success=False, error_message=str(exc))"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 246,
+      "func": "export_to_stream",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "ExcelStreamResult(success=False, error_message=str(exc))"
+    },
+    {
+      "file": "app/services/excel_export_service.py",
+      "line": 400,
+      "func": "export_large_dataset",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "ExcelExportResult(success=False, error_message=str(exc))"
+    },
+    {
+      "file": "app/services/excel_job_store.py",
+      "line": 131,
+      "func": "_cleanup_expired",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/file_security_service.py",
+      "line": 119,
+      "func": "strip_image_exif",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "(False, f'EXIF strip failed: {exc}')"
+    },
+    {
+      "file": "app/services/model_predict/fusion.py",
+      "line": 229,
+      "func": "_log_canary_event",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/fusion.py",
+      "line": 164,
+      "func": "predict_fusion",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/inference.py",
+      "line": 150,
+      "func": "_fire_shadow_check",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/model_predict/training_jobs.py",
+      "line": 248,
+      "func": "get_training_job",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/observability_service.py",
+      "line": 121,
+      "func": "stop",
+      "handled": [
+        "CancelledError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/pdf_job_store.py",
+      "line": 129,
+      "func": "_cleanup_expired",
+      "handled": [
+        "ValueError",
+        "TypeError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/pdf_report_service.py",
+      "line": 295,
+      "func": "generate_pdf",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "PDFReportResult(success=False, error_message=str(exc), gener"
+    },
+    {
+      "file": "app/services/pdf_report_service.py",
+      "line": 450,
+      "func": "generate_pdf_stream",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "PDFStreamResult(success=False, error_message=str(exc), gener"
+    },
+    {
+      "file": "app/services/review_service.py",
+      "line": 125,
+      "func": "create_review_task",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 165,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 180,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 197,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 212,
+      "func": "_generate_physio_factors",
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/tasks/observability.py",
+      "line": 79,
+      "func": "_flush_lock_stats_impl",
+      "handled": [
+        "Exception"
+      ],
+      "returns": "False"
+    },
+    {
+      "file": "app/tasks/pdf_report.py",
+      "line": 303,
+      "func": "delete_pdf_bytes_from_redis",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1134,
+      "func": "_cleanup_experiment_artifacts_impl",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1150,
+      "func": "_cleanup_experiment_artifacts_impl",
+      "handled": [
+        "Exception"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 89,
+      "func": "_collect_infra_exceptions",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 97,
+      "func": "_collect_infra_exceptions",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 107,
+      "func": "_collect_infra_exceptions",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/celery_breaker.py",
+      "line": 153,
+      "func": "_is_celery_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/db_breaker.py",
+      "line": 100,
+      "func": "_check_exception_is_connection_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/db_breaker.py",
+      "line": 109,
+      "func": "_check_exception_is_connection_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/ml_breaker.py",
+      "line": 107,
+      "func": "_is_ml_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 991,
+      "func": "_predict_physiological",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 151,
+      "func": "_instrument_fastapi",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 166,
+      "func": "_instrument_sqlalchemy",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/otel.py",
+      "line": 180,
+      "func": "_instrument_redis",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    },
+    {
+      "file": "app/core/smtp_breaker.py",
+      "line": 113,
+      "func": "_is_smtp_failure",
+      "handled": [
+        "ImportError"
+      ],
+      "returns": null
+    }
+  ]
+}
