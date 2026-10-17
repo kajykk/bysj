@@ -1,0 +1,29 @@
+========================================================================
+P2-35 第二十八批变异验证（锚点均为落盘实读文本）
+========================================================================
+  [baseline] 变异前闸门应为绿…
+    gate: 10 passed, 4 warnings in 3.73s
+  [baseline] GREEN-OK
+  [M1 让 _incr_model_fallback 内层重新抛出] 变异注入…
+    gate: 2 failed, 8 passed, 4 warnings in 4.40s
+  [M1 让 _incr_model_fallback 内层重新抛出] RED-OK（returncode=1）
+    gate: 10 passed, 4 warnings in 3.85s
+  [M1 让 _incr_model_fallback 内层重新抛出] GREEN-OK（还原后 returncode=0）
+  [M2 失败轮误推进 _prev_total_fired] 变异注入…
+    gate: 1 failed, 9 passed, 4 warnings in 4.22s
+  [M2 失败轮误推进 _prev_total_fired] RED-OK（returncode=1）
+    gate: 10 passed, 4 warnings in 3.79s
+  [M2 失败轮误推进 _prev_total_fired] GREEN-OK（还原后 returncode=0）
+  [M3 给 fallback.py 文本回退 inc handler 接线] 变异注入…
+    gate: 3 failed, 7 passed, 4 warnings in 4.48s
+  [M3 给 fallback.py 文本回退 inc handler 接线] RED-OK（returncode=1）
+    gate: 10 passed, 4 warnings in 3.75s
+  [M3 给 fallback.py 文本回退 inc handler 接线] GREEN-OK（还原后 returncode=0）
+  [M4 删 P2_13 节标题] 变异注入…
+    gate: 1 failed, 9 passed, 4 warnings in 4.17s
+  [M4 删 P2_13 节标题] RED-OK（returncode=1）
+    gate: 10 passed, 4 warnings in 3.76s
+  [M4 删 P2_13 节标题] GREEN-OK（还原后 returncode=0）
+========================================================================
+四条变异全部 RED-OK / GREEN-OK
+========================================================================

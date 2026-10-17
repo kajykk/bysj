@@ -1730,6 +1730,105 @@ P1-3）是 fail-closed 白名单，鉴权失败会显式 401/403/503——端点
 
 ---
 
+## 一之二十九、#35 X 桶第二十八批：纯裁定批（0 接线，W=97 / X=119 不变，fallback.py + observability_exporter.py + notifier.py复核）
+
+### 1. 存在性核查与分类器现场重算
+
+14 条候选，14 条**全部不在 X 桶内**（D 1 + S 5 + K 1 + R 2 + 分类器粗排 X 5※），
+故为纯裁定批，桶计数不变。
+
+| 簇 | 条数 | 审计文档历史记载 | 本批性质 |
+|---|---|---|---|
+| `app/core/model_engine/fallback.py` | 5 | **零记载**（`_incr_model_fallback` 的 M 型先例只裁过 `model_engine/loading.py` L244 与 `predict.py` 侧调用点，从未裁过 fallback.py 自身的 4 个 inc 失败点） | 新库存 |
+| `app/services/observability_exporter.py` | 4 | **零记载** | 新库存 |
+| `app/monitoring/notifier.py` | 5 | P2_13 §1.25 + §一之十一⑤⑥ 已逐条裁过 | 复核 |
+
+※ notifier 5 条的分类器粗排为 X，但文档已裁V/V/V/V/C——**分类器只是粗排**
+（第五次印证），逐条以文档核对 + 本批运行时实证为准。
+
+### 2. 核心发现：`fallback.py` 四处 except 的运行期**不可达**（E1）
+
+分类器把 `fallback.py` L171/L199/L233/L297 判为 **S 型（metrics 自报失败）**，
+本批运行时实测证明该判据**需修正为 P 型（特性探测）/ 运行期不可达**：
+
+- **E1a**：`model_fallback_total` 专用计数器真的增长（`0.0 → 1.0`）
+  —— 顺带补上第二十二批纪律「M 型裁定前必须实测专用计数器真涨」在本簇的执行。
+- **E1b**：把 `model_fallback_total.inc` 打成必抛，`_incr_model_fallback`
+  **仍未向外抛**——它自身内层已有 `except Exception` 全捕获并warning。
+  ⇒ 外层 except 唯一可达路径是 `from app.core.model_engine.loading import
+  _incr_model_fallback` 这一行失败（ImportError）。
+- **E1c**：屏蔽该 import 后调用 `_text_heuristic_fallback`，返回结构与降级标记
+  与正常态**完全同形**（`model_used="text_heuristic_fallback"` 保留）。
+
+**判据意义**：这4 条 handler 保护的只是一次 import 语句，不是运行期降级。
+给不可达路径接线等于制造「看起来有降级观测、实际永远不触发」的假设施——
+正是第二十二批「自出生即死的专用计数器」同族陷阱的**镜像**形态
+（那次是计数器活着但恒 0，这次是 except 存在但不可达）。两者的共同教训：
+**源码字面量在 ≠ 运行时活着**。
+
+对应闸门：`test_fallback_import_line_present_in_four_sites`（四处 try 首行必须是
+那条 import）、`test_incr_model_fallback_inner_handler_keeps_full_capture`
+（锁住「内层全捕获」这一前提——若有人把内层改成 `raise`，P 型判据失效）。
+
+### 3. `observability_exporter.py` 四条裁定
+
+| location | 裁定 | 依据 |
+|---|---|---|
+| L136 `stop` 的 `CancelledError` | **K 型**（取消） | `self._task.cancel()` 的正常配对，任务取消不是降级 |
+| L150 `_wait_for_db_ready` 的 `SELECT 1` 失败 | **R 型**（自恢复） | 3 次重试后返回 False，但 `start()` 不阻断启动（warning 后继续），`_collect_all` 每轮内部继续重试 |
+| L168 `_loop` 的 `_collect_all` 失败 | **R 型**（自恢复），**有硬证据** | 见下E2 |
+| L206 `_record_export_failure` 的计数器 inc 失败 | **S 型**（自报失败） | 失败的是 `observability_export_errors_total` 自身；且注释明示「避免递归失败」——递归防护是设计决策 |
+
+**E2（R 型的硬证据，对应第二十四批 R 型判据「自愈是否丢失外部输入」）**：
+
+`_safe_set_alert_total` 失败时**不推进** `_prev_total_fired`，故下轮
+`delta = total_fired - prev` 会把退避期间新增的告警**一并计入**。实测：
+基线 100 → 失败轮（`_compute_trend` 必抛）→ 基线仍 100、Counter 无增量；
+恢复轮 `total_fired=130` → delta **= 30**（含退避期间新增的 30）。
+⇒ 自愈不丢外部输入，R 型判定成立。结构钉锁住「`_compute_trend` 调用行号 <
+`_prev_total_fired` 赋值行号」，顺序颠倒会让退避期间的增量永久丢失。
+
+### 4. `notifier.py` 五条复核（维持V/V/V/V/C）
+
+- L198/L287/L342 三个通道 `send` 的 `except Exception` → **V 型**：
+  E3 实测——通道失败既进 `results{"probe": False}`（调用方可察觉），又落
+  `alert_channel_failed` 审计（detail 带 error 原文），**失败被如实呈现**。
+- L413 `_dispatch` 的未捕获异常 → **V 型**（同上，`success=False` + `error_msg`
+  随 results 返回）。
+- L455 `_write_channel_log` 的审计写失败 → **C 型**（通知结果已由 results 承载）。
+
+复核钉同时确认 `monitoring.escalation.notify_failed`（第二十四批已接）与
+`alerts._handle_active_alert` 的 `return 1, 0, 1` 失败形态仍在。
+
+### 5. 闸门与读数
+
+- 新增 `TestP235Round13Batch28Declined`（10 条）：14 处 handler 存在性 + 块级反向钉
+  （含直调式 `silent_degradation_total` 禁现）+ 四处 import 首行结构钉 +
+  `_incr_model_fallback` 内层全捕获结构钉 + `_safe_set_alert_total` 基线推进顺序钉 +
+  `observability_export_errors_total` 调用见证 + notifier 复核钉 + 运行时三条
+  （E1a/E1b/E1c/E2/E3）+ 文档登记。
+- **测试污染事故（已修）**：E3 首版用 `notifier.record_audit = _fake` 直接赋值替换
+  模块属性且未还原，污染同进程后续测试 —— 合并跑时 `tests/test_notifier.py` 四条
+  通道审计用例（`test_channel_sent_logged_on_success` /
+  `test_channel_failed_logged_on_failure` /
+  `test_channel_log_includes_duration_ms` /
+  `test_channel_log_detail_includes_error`）红，而单跑 `test_notifier.py` 55 passed
+  全绿。**「单跑绿、合并跑红」正是测试间污染的可客signature**；已改`monkeypatch.setattr`
+  并复跑确认 **405 passed**（7 个受影响测试文件合并跑）。
+- 分类器现场重算：14 条**无一条在 X 桶内** ⇒ 纯裁定、桶计数不变。
+- CI（HEAD `24c7aea`，第二十七批）：**10/10 success**（含 `backend-coverage`），
+  第二十七批收口。
+
+### 6. 记账
+
+- 变异四条见 `mutate_p2_35_round13_batch28_result.log`。
+- 未验证如实记账：后端全量本地未跑（约 37 分钟，禁止并发双跑），由 CI
+  `backend-coverage`兜底。
+- 挑簇器「文档未提及 = 未裁定」信号缺陷**第七次**实锤（它把本批两簇新库存
+  也报为「未裁定」，但同时也把已裁的 notifier 报进来）。工具未修。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：

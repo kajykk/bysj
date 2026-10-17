@@ -1202,3 +1202,59 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   非数值 status code 三路径皆 `None` 且合法值仍能提取）+ 既有测试与
   R-006 注释互锁 + 文档登记。桶计数维持 **W=97 / X=119**。变异四条见
   `mutate_p2_35_round13_batch27_result.log`。
+
+- **第十三轮第二十八批（纯裁定批，0 接线，W=97 / X=119 不变）**：
+  `app/core/model_engine/fallback.py`（5 条，新库存）+
+  `app/services/observability_exporter.py`（4 条，新库存）+
+  `app/monitoring/notifier.py`（5 条，复核）。前两簇检索 P2_11/P2_13
+  全文**零裁定记载**（`_incr_model_fallback` 的 M 型先例只裁过
+  `model_engine/loading.py` L244 与 `predict.py` 侧调用点，从未裁过
+  fallback.py 自身的 4 个 inc 失败点；exporter 全文从未逐条裁过）；
+  notifier 5 条已由 P2_13 §1.25 + §一之十一⑤⑥ 逐条裁过，本批复核维持。
+
+  **核心发现（分类器粗排需修正）**：分类器把 fallback.py L171/L199/
+  L233/L297 判为 **S 型（metrics 自报失败）**，运行时实测证明应为
+  **P 型（特性探测）/ 运行期不可达**——`_incr_model_fallback`
+  （`model_engine/loading.py:234`）自身内层已有 `except Exception`
+  全捕获并 warning，**永不向外抛**（E1b 实测：把 `model_fallback_total.inc`
+  打成必抛，该函数仍未外抛）。故四处外层 except 唯一可达路径是
+  `from app.core.model_engine.loading import _incr_model_fallback`
+  这一行失败（ImportError）。E1a 顺带实证 `model_fallback_total`
+  真的增长（`0.0 → 1.0`，第二十二批纪律的执行）；E1c 实证屏蔽该 import
+  后 `_text_heuristic_fallback` 返回结构与降级标记仍与正常态同形。
+  **纪律意义**：给不可达路径接线＝制造「看起来有降级观测、实际永不触发」
+  的假设施，是第二十二批「自出生即死的专用计数器」的**镜像**形态
+  （那次计数器活着但恒 0，这次 except 存在但不可达）——共同教训仍是
+  **源码字面量在≠ 运行时活着**。L81 `_finite` 的 `float()` 失败为 **D 型**
+  （上游脏数据，已warning 且退回既有默认值）。
+
+  `observability_exporter.py` 四条：L136 `stop` 的 `CancelledError` 为
+  **K 型**（任务取消的正常配对）；L150 `_wait_for_db_ready` 与 L168 `_loop`
+  为 **R 型**（自恢复），其中 L168 有**硬证据 E2**——`_safe_set_alert_total`
+  失败时不推进 `_prev_total_fired`，故下轮 delta 会把退避期间新增告警一并
+  计入（实测：基线 100 → 失败轮基线仍 100、Counter 无增量 → 恢复轮
+  `total_fired=130` 得 delta **= 30**），即自愈不丢外部输入，符合第二十四批
+  R 型判据；已加结构钉锁住「`_compute_trend` 调用行号 < `_prev_total_fired`
+  赋值行号」，顺序颠倒会让退避期增量永久丢失。L206
+  `_record_export_failure` 的计数器 inc 失败为 **S 型**（失败的是
+  `observability_export_errors_total` 自身，且注释明示避免递归失败）。
+
+  `notifier.py` 复核维持V/V/V/V/C：E3 实测通道失败既进
+  `results{"probe": False}`（调用方可察觉）又落 `alert_channel_failed`
+  审计（detail 带 error 原文）⇒ 三处 `send` 与 `_dispatch` 为 **V 型**；
+  `_write_channel_log` 审计写失败为 **C 型**。复核钉同时确认
+  `monitoring.escalation.notify_failed`（第二十四批已接）与
+  `alerts._handle_active_alert` 的 `return 1, 0, 1` 失败形态仍在。
+
+  闸门 `TestP235Round13Batch28Declined`（10 条）：14 处存在性 + 块级反向钉
+  （含直调式 `silent_degradation_total` 禁现）+ 四处 import 首行结构钉 +
+  `_incr_model_fallback` 内层全捕获结构钉 + `_safe_set_alert_total` 基线推进
+  顺序钉 + `observability_export_errors_total` 调用见证 + notifier 复核钉
+  + 运行时三条（E1a/E1b/E1c 合一、E2、E3）+ 文档登记。桶计数维持
+  **W=97 / X=119**（分类器现场重算 14 条**无一条在 X 桶内**）。变异四条见
+  `mutate_p2_35_round13_batch28_result.log`。挑簇器「文档未提及 = 未裁定」
+  信号缺陷**第七次**实锤。
+  **测试污染事故（已修）**：E3 首版直接赋值 `notifier.record_audit = _fake`
+  且未还原，合并跑时把 `tests/test_notifier.py` 四条通道审计用例打红，
+  而单跑该文件 55 passed 全绿 —— 「单跑绿 / 合并跑红」是测试间污染的可客
+  signature。已改 `monkeypatch.setattr`，复跑 7 个受影响文件**405 passed**。

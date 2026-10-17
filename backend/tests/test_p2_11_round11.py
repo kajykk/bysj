@@ -5478,3 +5478,406 @@ class TestP235Round13Batch27Declined:
         assert "第十三轮第二十七批" in doc11, "P2_11 附录缺少第二十七批条目"
         assert "sentry" in doc11, "P2_11 附录第二十七批条目缺少文件名"
         assert "W=97 / X=119" in doc13, "第二十七批为纯裁定批，累计状态应维持 W=97 / X=119"
+
+
+class TestP235Round13Batch28Declined:
+    """第二十八批：`core/model_engine/fallback.py` 5 条 +
+    `services/observability_exporter.py` 4 条（新库存）+ `monitoring/notifier.py` 5 条（复核）。
+
+    两簇在 P2_11/P2_13 两份审计文档中**零裁定记载**：
+    - `fallback.py` 的 4 个 `_incr_model_fallback` inc 失败点—— M 型先例只裁过
+      `model_engine/loading.py` L244 与 `predict.py` 侧调用点，从未裁过 fallback.py 自身；
+    - `observability_exporter.py` 全文从未被逐条裁过。
+    `notifier.py` 5 条已在 P2_13 §1.25 + §一之十一⑤⑥ 逐条裁过，本批作**复核**。
+
+    分类器现场重算14 条**全部不在 X 桶**（D1 + S5 + K1 + R2 + X5*，其中 notifier
+    5 条的 X 是分类器粗排、文档已裁V/C 型），⇒ 纯裁定批，桶计数 W=97/X=119 不变。
+
+    本批最关键的运行时发现（E1）：`fallback.py` 四处外层 except 的**唯一可达路径是
+    import 失败**—— `_incr_model_fallback` 内层已`except Exception` 全捕获、自身永不外抛
+    （E1b 实测）。故这 4 条不是"S 型自报失败"而是 **P 型（特性探测）/ 运行期不可达**，
+    分类器粗排需修正。这是「源码字面量在 ≠ 运行时活着」纪律的又一次应用。
+    """
+
+    FB_REL = "app/core/model_engine/fallback.py"
+    OE_REL = "app/services/observability_exporter.py"
+    NT_REL = "app/monitoring/notifier.py"
+    LD_REL = "app/core/model_engine/loading.py"
+
+    # 裁定不接线的 14 处（文件, 行号, 所属函数, 裁定桶）
+    TARGETS = (
+        #新库存：fallback.py 5 条
+        (FB_REL, 81, "_finite", "D"),
+        (FB_REL, 171, "_structured_heuristic_fallback", "P"),
+        (FB_REL, 199, "_text_heuristic_fallback", "P"),
+        (FB_REL, 233, "_anxiety_only_fallback", "P"),
+        (FB_REL, 297, "_physiological_heuristic_fallback", "P"),
+        # 新库存：observability_exporter.py 4 条
+        (OE_REL, 136, "stop", "K"),
+        (OE_REL, 150, "_wait_for_db_ready", "R"),
+        (OE_REL, 168, "_loop", "R"),
+        (OE_REL, 206, "_record_export_failure", "S"),
+        # 复核：notifier.py 5 条（P2_13 §1.25 / §一之十一⑤⑥ 已裁）
+        (NT_REL, 198, "send", "V"),
+        (NT_REL, 287, "send", "V"),
+        (NT_REL, 342, "send", "V"),
+        (NT_REL, 413, "_dispatch", "V"),
+        (NT_REL, 455, "_write_channel_log", "C"),
+    )
+
+    def _read(self, rel: str) -> str:
+        return (BEPKG / rel).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _handler_at(src: str, line: int):
+        tree = ast.parse(src)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        return None
+
+    def test_fourteen_handlers_exist_and_not_wired(self):
+        """存在性核查 + 块级反向钉：14 处 handler 均在原位且均未接线。"""
+        for rel, line, fn_name, bucket in self.TARGETS:
+            src = self._read(rel)
+            handler = self._handler_at(src, line)
+            assert handler is not None, f"{rel}:{line} handler 消失或位移"
+            seg = ast.get_source_segment(src, handler) or ""
+            assert "record_silent_degradation" not in seg, (
+                f"{rel}:{line}（{fn_name}，裁定 {bucket} 型）被接线 —— "
+                "第二十八批裁定为不接线，若改判需先更新审计文档并同步桶计数棘轮"
+            )
+            assert "silent_degradation_total" not in seg, (
+                f"{rel}:{line}（{fn_name}）出现直调式 silent_degradation_total 计数"
+            )
+
+    def test_fallback_import_line_present_in_four_sites(self):
+        """fallback.py 四处 inc 失败点的**唯一可达路径**是 import 失败（E1 判据）。
+
+        每处的 try 块首行必须是 `from app.core.model_engine.loading import
+        _incr_model_fallback` —— 这是 E1c 实证的唯一可达入口。若有人把 import
+        提到 try 之外（或删除），四处 except 将彻底不可达，本批 P 型判据需重估。
+        """
+        src = self._read(self.FB_REL)
+        tree = ast.parse(src)
+        for line in (171, 199, 233, 297):
+            handler = self._handler_at(src, line)
+            assert handler is not None, f"fallback.py:{line} handler 消失"
+            # handler 所属 try 的 body：向上找最近的 Try.body
+            owner = None
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Try) and any(
+                    h is handler or h.lineno == handler.lineno for h in node.handlers
+                ):
+                    owner = node
+                    break
+            assert owner is not None, f"fallback.py:{line} 找不到所属 try 块"
+            first = owner.body[0]
+            unparsed = ast.unparse(first)
+            assert unparsed == (
+                "from app.core.model_engine.loading import _incr_model_fallback"
+            ), f"fallback.py:{line} try 块首行漂移为 {unparsed!r}"
+
+    def test_incr_model_fallback_inner_handler_keeps_full_capture(self):
+        """loading.py `_incr_model_fallback` 内层必须仍是全捕获（E1b 的判据来源）。
+
+        E1b 实测：把 `model_fallback_total.inc` 打成必炸，`_incr_model_fallback`
+        仍未外抛 ⇒ fallback.py 四处外层 except 运行期不可达。本钉锁住「内层全捕获」
+        这一前提；若有人把内层 except 改成 `raise`，四处外层 except 变为唯一防线，
+        裁定需重估。
+        """
+        src = self._read(self.LD_REL)
+        tree = ast.parse(src)
+        fn = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_incr_model_fallback":
+                fn = node
+                break
+        assert fn is not None, "_incr_model_fallback 函数消失"
+        handlers = [n for n in ast.walk(fn) if isinstance(n, ast.ExceptHandler)]
+        assert len(handlers) == 1, f"内层 handler 数变为 {len(handlers)}，应为 1"
+        h = handlers[0]
+        assert ast.unparse(h.type) == "Exception", (
+            f"内层捕获类型漂移为 {ast.unparse(h.type)} —— 非全捕获则外层 except 可达"
+        )
+        hseg = ast.get_source_segment(src, h) or ""
+        assert "logger.warning" in hseg, "内层 warning 消失（指标侧盲区）"
+        assert "raise" not in ast.unparse(h), "内层若重新抛出，E1 判据失效"
+
+    def test_runtime_e1_incr_counter_grows_and_never_raises(self):
+        """E1 运行时：专用计数器真涨（0.0 → 1.0），且 inc 必炸时不外抛。
+
+        这是第二十二批纪律「M 型裁定前必须运行时实测专用计数器真的活着」的又一次执行：
+        `model_fallback_total` 是第二/十九批多条 M 型裁定的「已有专用计数器」前提。
+        """
+        import importlib
+
+        import pytest
+
+        from app.core.metrics import model_fallback_total
+
+        loading = importlib.import_module("app.core.model_engine.loading")
+
+        def cval(**labels: str) -> float:
+            for got, value in model_fallback_total.collect():
+                if got == labels:
+                    return value
+            return 0.0
+
+        before = cval(model="b28_probe", reason="b28_reason")
+        loading._incr_model_fallback("b28_probe", "b28_reason")
+        after = cval(model="b28_probe", reason="b28_reason")
+        assert after == before + 1, (
+            f"model_fallback_total 未真涨：{before} -> {after} —— "
+            "若恒为 0，所有引用它的 M 型裁定前提失效（第二十二批事故重演）"
+        )
+
+        real_inc = model_fallback_total.inc
+        model_fallback_total.inc = lambda **kw: (_ for _ in ()).throw(
+            RuntimeError("b28: inc boom")
+        )
+        try:
+            loading._incr_model_fallback("b28_probe", "b28_reason")
+        except RuntimeError as exc:
+            pytest.fail(f"_incr_model_fallback 外抛了 {exc} —— P 型判据失效")
+        finally:
+            model_fallback_total.inc = real_inc
+
+    def test_runtime_e1c_fallback_survives_blocked_import(self):
+        """E1c 运行时：屏蔽 loading import 后四条回退路径仍返回同形结果。
+
+        证明「外层 except 触发时降级链仍完整」—— 返回结构、降级标记均与正常态一致，
+        调用方从返回值看不出指标丢失。
+        """
+        import asyncio
+        import builtins
+        import importlib
+
+        fallback = importlib.import_module("app.core.model_engine.fallback")
+        fb = fallback.FallbackMixin()
+
+        class _Analyzer:
+            def analyze(self, text: str):
+                return {"heuristic_sentiment_score": -0.3}
+
+        fb.text_analyzer = _Analyzer()  # type: ignore[attr-defined]
+        fb._score_to_level = lambda s: "low"  # type: ignore[attr-defined]
+        fb._incr_fallback = lambda: None  # type: ignore[attr-defined]
+
+        real_import = builtins.__import__
+
+        def _blocked(name, *a, **k):
+            if name == "app.core.model_engine.loading":
+                raise ImportError("b28: loading blocked")
+            return real_import(name, *a, **k)
+
+        builtins.__import__ = _blocked
+        try:
+            out = fb._text_heuristic_fallback("我今天心情很好")
+        finally:
+            builtins.__import__ = real_import
+
+        assert out["prediction"] in (0, 1), f"返回结构应与正常态同形，实际={out}"
+        assert out["model_used"] == "text_heuristic_fallback", "降级标记应保留"
+        # 对照：正常态仍能算（证明不是「一律返回 None」的退化实现）
+        normal = fb._text_heuristic_fallback("我今天心情很好")
+        assert normal["model_used"] == out["model_used"]
+        assert normal["sentiment_score"] == out["sentiment_score"]
+
+    def test_runtime_e2_backoff_does_not_lose_counter_delta(self):
+        """E2 运行时：退避重试期间新增的告警不会永久丢失（R 型判据的硬证据）。
+
+        `_safe_set_alert_total` 失败时**不推进** `_prev_total_fired`，故下轮
+        delta = total_fired - prev 把跳过期间一并计入。这是第二十四批 R 型
+        判据（「自愈是否丢失外部输入」）在 exporter 上的应用。
+        """
+        import asyncio
+        import importlib
+        import importlib.util
+
+        obs = importlib.import_module("app.services.observability")
+        # conftest 的 autouse fixture 把模块属性 ObservabilityExporter 换成了
+        # MagicMock（避免真实 60s 调度）⇒ 按文件路径重新加载一份拿真类。
+        spec = importlib.util.spec_from_file_location(
+            "_b28_exporter_real",
+            BEPKG / "app" / "services" / "observability_exporter.py",
+        )
+        assert spec is not None and spec.loader is not None
+        real_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(real_mod)
+        from app.core.metrics import observability_alert_total
+
+        def cval(**labels: str) -> float:
+            for got, value in observability_alert_total.collect():
+                if got == labels:
+                    return value
+            return 0.0
+
+        exp = real_mod.ObservabilityExporter()
+        exp._counter_initialized = True
+        exp._prev_total_fired = 100
+        real_trend = obs._compute_trend
+
+        async def _boom(*a, **k):
+            raise RuntimeError("b28: trend failed")
+
+        obs._compute_trend = _boom
+        try:
+            before = cval(severity="total")
+            asyncio.run(exp._safe_set_alert_total(None, None, None))  # type: ignore[arg-type]
+            assert exp._prev_total_fired == 100, (
+                f"失败轮不应推进基线，实际={exp._prev_total_fired} —— "
+                "若推进了，退避期间的告警增量将永久丢失，R 型判定需推翻"
+            )
+            assert cval(severity="total") == before, "失败轮不应递增 Counter"
+        finally:
+            obs._compute_trend = real_trend
+
+        async def _ok(*a, **k):
+            return {"by_status": {"firing": 130, "resolved": 0}}
+
+        obs._compute_trend = _ok
+        try:
+            before = cval(severity="total")
+            asyncio.run(exp._safe_set_alert_total(None, None, None))  # type: ignore[arg-type]
+            delta = cval(severity="total") - before
+            assert delta == 30, (
+                f"恢复轮 delta={delta}，应为 30 —— 小于 30 说明退避期间新增告警丢失"
+            )
+        finally:
+            obs._compute_trend = real_trend
+            exp._counter_initialized = False
+
+    def test_exporter_backoff_and_no_advance_baseline_pinned(self):
+        """结构钉：`_safe_set_alert_total` 的基线推进必须在失败点之后（E2 的源码形态）。
+
+        若有人把 `self._prev_total_fired = total_fired` 提到 `_compute_trend` 之前，
+        失败轮会推进基线 ⇒ 退避期间的告警增量永久丢失（本钉会红）。
+        """
+        src = self._read(self.OE_REL)
+        tree = ast.parse(src)
+        fn = None
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.AsyncFunctionDef)
+                and node.name == "_safe_set_alert_total"
+            ):
+                fn = node
+                break
+        assert fn is not None, "_safe_set_alert_total 函数消失"
+        trend_line = None
+        assign_line = None
+        for node in ast.walk(fn):
+            if isinstance(node, ast.Call):
+                func = node.func
+                name = getattr(func, "attr", None) or getattr(func, "id", None)
+                if name == "_compute_trend" and trend_line is None:
+                    trend_line = node.lineno
+            if isinstance(node, ast.Assign):
+                for tgt in node.targets:
+                    if (
+                        isinstance(tgt, ast.Attribute)
+                        and tgt.attr == "_prev_total_fired"
+                        and assign_line is None
+                    ):
+                        assign_line = node.lineno
+        assert trend_line is not None, "找不到 _compute_trend 调用"
+        assert assign_line is not None, "找不到 _prev_total_fired 赋值"
+        assert trend_line < assign_line, (
+            f"_compute_trend（L{trend_line}）应早于基线赋值（L{assign_line}）—— "
+            "顺序颠倒会让失败轮推进基线"
+        )
+        # 失败计数走专用计数器 observability_export_errors_total（S 型自报）
+        seg = ast.get_source_segment(src, fn) or ""
+        assert "self._record_export_failure(" in seg, "失败计数落点消失"
+        rec = self._read(self.OE_REL)
+        assert 'metrics.observability_export_errors_total.inc(metric=metric)' in rec, (
+            "专用失败计数器 observability_export_errors_total 调用消失"
+        )
+
+    def test_runtime_e3_notifier_failure_is_explicit_and_audited(
+        self, monkeypatch
+    ):
+        """E3 运行时：通道失败既进 results（False）又落 alert_channel_failed 审计。
+
+        这是 notifier.py 5 条复核的 V 型判据（③）与 C 型判据（⑤）的硬证据：
+        失败被如实呈现给调用方，不是静默。
+
+        注意必须用 monkeypatch 替换 `notifier.record_audit`：直接赋值不还原会
+        污染同进程后续测试（实测会让 tests/test_notifier.py 四条通道审计用例红）。
+        """
+        import asyncio
+        import importlib
+
+        notifier = importlib.import_module("app.monitoring.notifier")
+
+        calls: list[dict] = []
+
+        async def _fake_record_audit(db, **kw):
+            calls.append(kw)
+
+        monkeypatch.setattr(notifier, "record_audit", _fake_record_audit)
+
+        class _Boom:
+            name = "probe"
+
+            def is_configured(self) -> bool:
+                return True
+
+            def send(self, payload) -> bool:
+                raise RuntimeError("b28: channel boom")
+
+        payload = notifier.AlertPayload(
+            rule="B28Rule", severity="P1", status="firing", message="probe"
+        )
+        results = asyncio.run(
+            notifier.CompositeNotifier([_Boom()]).send(payload, db=object())  # type: ignore[arg-type]
+        )
+
+        assert results == {"probe": False}, f"results 应显式携带失败，实际={results}"
+        assert len(calls) == 1, f"应写 1 条通道审计，实际={len(calls)}"
+        assert calls[0]["action"] == "alert_channel_failed", (
+            f"审计动作漂移为 {calls[0]['action']}"
+        )
+        detail = calls[0]["detail"]
+        assert detail["channel"] == "probe"
+        assert detail["error"] == "b28: channel boom", "错误信息未落审计 detail"
+
+    def test_notifier_review_keeps_callers_explicit(self):
+        """复核钉：notifier 两个调用点仍显式处理失败（不因本批复核而被改写）。
+
+        - `escalation._escalate_alert` 的 send except 已接
+          `record_silent_degradation("monitoring.escalation.notify_failed")`
+          （第二十四批接线），本批复核确认该接线仍在；
+        - `alerts._handle_active_alert` 的 send except 返回 `notify_failed=1`
+          并由 webhook 响应 `notify_failed` 字段承载（V 型）。
+        """
+        esc = self._read("app/monitoring/escalation.py")
+        assert (
+            'record_silent_degradation("monitoring.escalation.notify_failed")' in esc
+        ), "escalation.notify_failed 接线消失（第二十四批已接，本批复核）"
+        al = self._read("app/api/v1/alerts/__init__.py")
+        assert "notify_failed" in al, "webhook notify_failed 显式计数消失"
+        assert "return 1, 0, 1" in al, "_handle_active_alert 的失败返回形态漂移"
+        nt = self._read(self.NT_REL)
+        assert 'action_type = "alert_channel_sent" if success else "alert_channel_failed"' in nt, (
+            "通道审计的成功/失败二态消失"
+        )
+
+    def test_document_registration(self):
+        """文档登记：P2_13「一之二十九」节 + P2_11 附录第二十八批条目。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之二十九、" in doc13, "P2_13 缺少「一之二十九」节标题"
+        for token in (
+            "model_engine/fallback.py",
+            "observability_exporter.py",
+            "monitoring/notifier.py",
+            "P 型",
+            "E1b",
+            "E2",
+        ):
+            assert token in doc13, f"P2_13 第二十八批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第二十八批" in doc11, "P2_11 附录缺少第二十八批条目"
+        assert "fallback.py" in doc11, "P2_11 附录第二十八批条目缺少文件名"
+        assert "W=97 / X=119" in doc13, "第二十八批为纯裁定批，累计状态应维持 W=97 / X=119"
