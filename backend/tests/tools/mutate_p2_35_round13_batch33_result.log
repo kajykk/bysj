@@ -1,0 +1,44 @@
+========================================================================
+P2-35 第三十三批变异验证（user_upload._validate_mime_type 接线批）
+========================================================================
+  [baseline] 变异前闸门应为绿…
+    gate: 11 passed, 4 warnings in 4.36s
+  [baseline] GREEN-OK
+
+  [M1 删接线] 变异注入…
+    gate: 2 failed, 9 passed, 4 warnings in 4.96s
+  [M1 删接线] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 4.41s
+  [M1 删接线] GREEN-OK（还原后 returncode=0）
+  [M2 给 fire_forget 接线] 变异注入…
+    gate: 2 failed, 9 passed, 4 warnings in 5.13s
+  [M2 给 fire_forget 接线] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 4.35s
+  [M2 给 fire_forget 接线] GREEN-OK（还原后 returncode=0）
+  [M3 location typo] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 4.72s
+  [M3 location typo] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 4.54s
+  [M3 location typo] GREEN-OK（还原后 returncode=0）
+  [M4 降级态改抛异常] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 4.77s
+  [M4 降级态改抛异常] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 4.38s
+  [M4 降级态改抛异常] GREEN-OK（还原后 returncode=0）
+  [M5 continue→break] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 4.75s
+  [M5 continue→break] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 4.35s
+  [M5 continue→break] GREEN-OK（还原后 returncode=0）
+  [M6 删 raise last_exc] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 4.77s
+  [M6 删 raise last_exc] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 4.42s
+  [M6 删 raise last_exc] GREEN-OK（还原后 returncode=0）
+  [M7 删节标题] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 4.80s
+  [M7 删节标题] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 4.40s
+  [M7 删节标题] GREEN-OK（还原后 returncode=0）
+
+7 条变异全部 RED → 还原后 GREEN。

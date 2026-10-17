@@ -20,6 +20,7 @@ except ImportError as exc:  # pragma: no cover - dependency requirement enforcem
 from app.api.v1.uploads import _resolve_upload_dir
 from app.core.audit import record_audit
 from app.core.database import get_db
+from app.core.degradation import record_silent_degradation
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.rate_limit import limiter
@@ -161,6 +162,12 @@ async def _validate_mime_type(file_content: bytes, category: str | None = None) 
     except (magic.MagicException, OSError) as exc:
         # 环境缺少 libmagic 数据库时降级: 仅依赖扩展名白名单校验 (与 ClamAV 降级策略一致)
         logger.warning("SEC-UPLOAD: libmagic unavailable, skipping MIME check: %s", exc)
+        # P2-35 第三十三批：MIME 校验被跳过与「校验通过」对调用方完全同形 ——
+        # `_process_batch_file` 两种情况下都返回带 url 的成功结果，上传方无法
+        # 察觉内容类型其实没被验证（只剩扩展名白名单）。与第十一批
+        # `services.file_security.clamav_dependency_missing_fail_open` 同族：
+        # 同为「安全校验 fail-open 跳过，未校验按已校验处理」，必须计数。
+        record_silent_degradation("api.user_upload.validate_mime_type")
         return
 
     # 确定允许的MIME类型

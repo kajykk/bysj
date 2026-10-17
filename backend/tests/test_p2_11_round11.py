@@ -409,10 +409,12 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 98,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+            "W": 99,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
                        # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
                        # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1，
-                       # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1）
+                       # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1，
+                       # 第三十三批 user_upload `_validate_mime_type` libmagic 不可用
+                       # ⇒ MIME 校验被静默跳过（与校验通过完全同形）+1）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 35,   # 自报失败（metrics/sentry/otel/gauge；第三十二批
@@ -423,7 +425,9 @@ class TestP235SilentDegradationRatchet:
             "K": 11,   # 任务取消
             "R": 3,    # 自恢复（第二十四批把 ws pubsub 循环崩溃从 R 改判接线：见下）
             "M": 6,    # 已有专用计数器
-            "G": 8,    # fail-closed 安全
+            "G": 7,    # fail-closed 安全（第三十三批：user_upload `_validate_mime_type`
+                       # 原被分类器粗判 G，但它是**fail-open 放行**（跳过校验继续
+                       # 上传）而非 fail-closed 拒绝，故改判接线 ⇒ G 8→7）
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
             "X": 119,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
@@ -6922,3 +6926,398 @@ class TestP235Round13Batch32Wiring:
             assert token in doc13, f"P2_13 第三十二批登记缺少关键标识: {token}"
         doc11 = AUDIT.read_text(encoding="utf-8")
         assert "第十三轮第三十二批" in doc11, "P2_11 附录缺少第三十二批条目"
+
+
+class TestP235Round13Batch33Wiring:
+    """第三十三批：12 个文件 15 条 —— 1 条接线 + 14 条不接线。
+
+    挑簇口径（本批**换信号**）：第二十九批确立的「函数名级零记载」只是粗排 ——
+    它把大量已裁残留也算进来（`tasks/pdf_report.py` 的三个函数在第三十二批
+    仍报函数名零记载，但该文件早在 §1.9 就被整簇裁过）。本批改用更硬的信号：
+    候选文件名的 basename 在 P2_10/P2_11/P2_13 全文**出现 0 次** ⇒ 该文件
+    从未被点名裁定过。命中该口径的正好 12 个文件 15 条。
+
+    裁定（分类器现场重算见 `verify_p2_35_batch33_candidates.py`，MISSING=0）：
+      - `user_upload.py:162` `_validate_mime_type` —— **G → W（本批唯一接线）**。
+        判据是**同形性实测**：libmagic 抛异常时 MIME 校验被跳过，与「校验通过」
+        对调用方完全同形（`_process_batch_file` 两种情况下都返回带 url 的
+        成功结果），只剩扩展名白名单在兜底。对照组（MIME 与扩展名不匹配）
+        会返回 error ⇒ 该同形性断言有区分力，不是恒真。
+        **同族互锁**：第十一批已为 `services.file_security.
+        clamav_dependency_missing_fail_open` 接线，语义完全相同（安全校验
+        fail-open 跳过 = 「未校验按已校验处理」），本处不接即自相矛盾。
+        **注意分类器误判**：它按「handler 返回 None」把本条粗判 G（fail-closed），
+        实际这是 **fail-open 放行**，与 `_schemas.py:68` 那种真正的
+        fail-closed 置 None 截然相反。
+      - `fire_forget_metrics.py` 2 条 —— **S 型**。失败的是**可观测设施自身**；
+        且 `record_silent_degradation` 同样走 `app.core.metrics`
+        （degradation.py:30），metrics 不可用时**两者同时失效** ⇒ 接线即恒 0
+        假设施（同源失效实测：阻断后计数 0 → 0）。
+      - `db_breaker` 2 / `smtp_breaker` 1 / `ml_breaker` 1 / `drift_detector` 1
+        —— **P 型不可达**。sqlalchemy / asyncpg / fastapi / scipy 在交付形态下
+        齐备（requirements.txt 顶层 + lock 硬锁 + compose 用 postgresql+asyncpg）。
+        与第三十二批 celery_breaker 同族、方向一致。
+      - `email_service.py:164` `_send_smtp` —— 分类器按 sleep+retry 粗判 **R**，
+        人工裁定 **V**：重试耗尽后 `raise last_exc` 向上传播，上层再转
+        `ValueError` ⇒ 失败态与正常态**不同形**。桶计数仍按分类器口径（R 不变），
+        分歧在审计文档登记。
+      - `logging_config.py:235` —— **S 型**（可观测设施自身启动失败，warning
+        文案已显式自报「降级为仅控制台输出」；第二十七批 sentry.py #1 同型）。
+      - `_schemas.py` 2 条 / `deps.py:184` —— **G 型 fail-closed**（置 None /
+        返回 None ⇒ 上层拒绝）。其中 `_schemas.py:63` 的 `except ValueError:
+        pass` 其实是**正常控制流**（域名不是 IP 格式），非降级路径。
+      - 两个 job_store 的 `_cleanup_expired` —— **D 型**（混合输入实测：脏
+        `created_at` 只跳过自己，其余过期条目照常清理）。
+
+    桶计数：W 98→99、G 8→7，总数 334 不变。
+    """
+
+    UU_REL = "app/api/v1/user_upload.py"
+    SCHEMAS_REL = "app/api/v1/alerts/_schemas.py"
+    DEPS_REL = "app/core/deps.py"
+    FFM_REL = "app/core/fire_forget_metrics.py"
+    LOG_REL = "app/core/logging_config.py"
+    DBB_REL = "app/core/db_breaker.py"
+    MLB_REL = "app/core/ml_breaker.py"
+    SMB_REL = "app/core/smtp_breaker.py"
+    DRIFT_REL = "app/ml/drift_detector.py"
+    MAIL_REL = "app/services/email_service.py"
+    XJS_REL = "app/services/excel_job_store.py"
+    PJS_REL = "app/services/pdf_job_store.py"
+
+    # (文件, 行号, 所属函数, 裁定桶)
+    CANDIDATES = [
+        (SCHEMAS_REL, 63, "_validate_url_safety", "G"),
+        (SCHEMAS_REL, 68, "_validate_url_safety", "G"),
+        (UU_REL, 162, "_validate_mime_type", "W"),
+        (DBB_REL, 100, "_check_exception_is_connection_failure", "P"),
+        (DBB_REL, 109, "_check_exception_is_connection_failure", "P"),
+        (DEPS_REL, 184, "_role_for_request", "G"),
+        (FFM_REL, 41, "record_scheduled", "S"),
+        (FFM_REL, 77, "_callback", "S"),
+        (LOG_REL, 235, "configure_logging", "S"),
+        (MLB_REL, 107, "_is_ml_failure", "P"),
+        (SMB_REL, 113, "_is_smtp_failure", "P"),
+        (DRIFT_REL, 128, "compute_ks_test", "P"),
+        (MAIL_REL, 164, "_send_smtp", "R"),
+        (XJS_REL, 131, "_cleanup_expired", "D"),
+        (PJS_REL, 129, "_cleanup_expired", "D"),
+    ]
+
+    WIRED_FUNCS = ("_validate_mime_type",)
+
+    LOCATION = "api.user_upload.validate_mime_type"
+    CLAMAV_SIBLING = "services.file_security.clamav_dependency_missing_fail_open"
+
+    def _read(self, rel: str) -> str:
+        return (BEPKG / rel).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _handler_at(rel_path: pathlib.Path, line: int) -> ast.ExceptHandler:
+        tree = ast.parse(rel_path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        raise AssertionError(f"{rel_path.name}:{line} 处没有 except handler（行号漂移）")
+
+    @staticmethod
+    def _enclosing(rel_path: pathlib.Path, line: int) -> str:
+        tree = ast.parse(rel_path.read_text(encoding="utf-8"))
+        best: tuple[int, str] | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.lineno <= line <= (node.end_lineno or node.lineno):
+                    if best is None or node.lineno > best[0]:
+                        best = (node.lineno, node.name)
+        assert best is not None, f"{rel_path.name}:{line} 不在任何函数内"
+        return best[1]
+
+    def test_candidates_present_and_enclosing_func(self):
+        """15 条候选全部在位且所属函数未漂移。"""
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            p = BEPKG / rel
+            handler = self._handler_at(p, line)
+            actual = self._enclosing(p, line)
+            assert actual == fn_name, (
+                f"{rel}:{line} 所属函数漂移：期望 {fn_name}，实际 {actual}"
+            )
+            assert handler.type is not None, f"{rel}:{line} 裸 except"
+
+    def test_wiring_only_at_validate_mime_type(self):
+        """接线点唯一：`_validate_mime_type`。
+
+        反向钉：其余 14 条的 handler 内**不得**出现 `record_silent_degradation`
+        —— 可观测设施自身故障（S）/ 不可达（P）/ fail-closed（G）/ 脏数据（D）
+        接线即假设施。
+        """
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            src = self._read(rel)
+            handler = self._handler_at(BEPKG / rel, line)
+            seg = ast.get_source_segment(src, handler) or ""
+            has = "record_silent_degradation" in seg
+            if fn_name in self.WIRED_FUNCS:
+                assert has, f"{rel}:{line} ({fn_name}) 接线消失"
+            else:
+                assert not has, (
+                    f"{rel}:{line} ({fn_name}) 出现了接线 —— "
+                    "不可达/自报/脏数据/fail-closed 路径接线即假设施，裁定需重估"
+                )
+
+    def test_mime_wiring_location_literal_pinned(self):
+        """接线 location 字面量带引号完整匹配（第二十六批 `_typo` 教训）。"""
+        src = self._read(self.UU_REL)
+        assert f'record_silent_degradation("{self.LOCATION}")' in src, (
+            f"`{self.LOCATION}` 接线 location 消失或被改写"
+        )
+
+    def test_clamav_sibling_interlock(self):
+        """同族互锁：第十一批的 ClamAV fail-open 接线仍在。
+
+        它与本批接线语义完全相同（安全校验被跳过 ⇒ 「未校验按已校验处理」）。
+        若它消失，本批接线的互锁锚点就没了，裁定需重估。
+        """
+        fss = self._read("app/services/file_security_service.py")
+        assert f'record_silent_degradation(\n                "{self.CLAMAV_SIBLING}"' in fss or (
+            f'"{self.CLAMAV_SIBLING}"' in fss
+        ), f"同族互锁锚点 {self.CLAMAV_SIBLING} 消失"
+
+    def test_degradation_and_fire_forget_share_metrics_source(self):
+        """结构钉：`record_silent_degradation` 与 fire_forget 同走 app.core.metrics。
+
+        degradation.py 内部就是 `from app.core.metrics import
+        silent_degradation_total` ⇒ 当 metrics 子系统不可用时，用它去观测
+        「metrics 采集失败」是同源失效（第二十九批禁止的假设施）。
+        """
+        src = self._read("app/core/degradation.py")
+        tree = ast.parse(src)
+        imported = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "app.core.metrics":
+                imported = any(alias.name == "silent_degradation_total" for alias in node.names)
+        assert imported, "degradation.py 不再从 app.core.metrics 取计数器 ⇒ S 型判据需重估"
+
+        ffm = self._read(self.FFM_REL)
+        tree2 = ast.parse(ffm)
+        ffm_imports_metrics = any(
+            isinstance(n, ast.ImportFrom) and n.module == "app.core.metrics"
+            for n in ast.walk(tree2)
+        )
+        assert ffm_imports_metrics, "fire_forget_metrics 不再依赖 app.core.metrics ⇒ 判据需重估"
+
+    def test_runtime_e1_mime_skipped_shape_is_silent(self, monkeypatch):
+        """E1 运行时：MIME 校验被跳过与「校验通过」对调用方完全同形。
+
+        对照组（MIME 与扩展名不匹配）必须被拒 —— 否则本断言是恒真的
+        （第二十九批 M3 假绿的教训：断言必须能分辨实现差异）。
+        """
+        import asyncio
+        import importlib
+        import io
+        import tempfile
+
+        mod = importlib.import_module("app.api.v1.user_upload")
+
+        class _FakeUpload:
+            def __init__(self, name: str, payload: bytes) -> None:
+                self.filename = name
+                self._buf = io.BytesIO(payload)
+
+            async def read(self, n: int = -1) -> bytes:
+                return self._buf.read(n)
+
+            async def seek(self, offset: int) -> int:
+                return self._buf.seek(offset)
+
+        async def _drive() -> dict:
+            with tempfile.TemporaryDirectory() as td:
+                base = pathlib.Path(td)
+                (base / "1").mkdir()
+                f = _FakeUpload("a.png", b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+                return await mod._process_batch_file(f, "image", base, "1", 1)
+
+        monkeypatch.setattr(
+            mod, "process_uploaded_file", lambda path, category: (True, "stub"), raising=True
+        )
+
+        monkeypatch.setattr(mod.magic, "from_buffer", lambda *a, **k: "image/png")
+        ok_shape = asyncio.run(_drive())
+
+        def _boom(*a, **k):
+            raise mod.magic.MagicException("libmagic database unavailable")
+
+        monkeypatch.setattr(mod.magic, "from_buffer", _boom)
+        degraded_shape = asyncio.run(_drive())
+
+        monkeypatch.setattr(mod.magic, "from_buffer", lambda *a, **k: "text/plain")
+        mismatch = asyncio.run(_drive())
+
+        assert "url" in ok_shape and "error" not in ok_shape, f"正常态应成功：{ok_shape}"
+        assert "url" in degraded_shape and "error" not in degraded_shape, (
+            f"降级态应同样成功（MIME 校验被静默跳过）：{degraded_shape}"
+        )
+        assert set(ok_shape) == set(degraded_shape), "两种形态返回键必须一致"
+        assert "error" in mismatch and "url" not in mismatch, (
+            f"对照组（MIME 不匹配）必须被拒，否则 E1 是恒真断言：{mismatch}"
+        )
+
+    def test_runtime_e2_fire_forget_same_source_failure(self):
+        """E2 运行时：metrics 不可用时，接线设施与 fire_forget **同时失效**。
+
+        必须清 `sys.modules` 缓存 —— 只插 `sys.meta_path` 拦截器挡不住已在
+        缓存里的 `app.core.metrics`（第三十一批屏蔽法的补充教训）。
+        """
+        import importlib
+        import sys
+
+        ffm = importlib.import_module("app.core.fire_forget_metrics")
+        metrics_mod = importlib.import_module("app.core.metrics")
+        deg = importlib.import_module("app.core.degradation")
+        counter = metrics_mod.silent_degradation_total
+
+        probe_loc = "probe.batch33.same_source"
+
+        def _read() -> float:
+            for labels, value in counter.collect():
+                if labels.get("location") == probe_loc:
+                    return float(value)
+            return 0.0
+
+        before = _read()
+
+        class _Blocker:
+            def find_spec(self, fullname, path=None, target=None):  # noqa: ANN001
+                if fullname == "app.core.metrics":
+                    raise ImportError("metrics subsystem unavailable (simulated)")
+                return None
+
+        saved = {
+            k: v
+            for k, v in sys.modules.items()
+            if k == "app.core.metrics" or k.startswith("app.core.metrics.")
+        }
+        blocker = _Blocker()
+        for k in saved:
+            del sys.modules[k]
+        sys.meta_path.insert(0, blocker)
+        try:
+            try:
+                importlib.import_module("app.core.metrics")
+            except ImportError:
+                pass
+            else:
+                raise AssertionError("阻断未生效 ⇒ E2 是假证据")
+
+            ffm.record_scheduled("probe")  # 静默（可观测设施自身故障）
+            deg.record_silent_degradation(probe_loc)  # 静默（同源失效）
+        finally:
+            sys.meta_path.remove(blocker)
+            sys.modules.update(saved)
+
+        after = _read()
+        assert after == before, (
+            f"metrics 不可用时接线设施不应产生计数（{before} -> {after}）—— "
+            "它与 fire_forget 同走 app.core.metrics，接线即恒 0 假设施"
+        )
+
+    def test_runtime_e3_optional_deps_delivered(self):
+        """E3 结构钉 + 运行时：P 型五条的可选依赖在交付形态下齐备。"""
+        import importlib
+
+        for modname, attr in (
+            ("sqlalchemy.exc", "DBAPIError"),
+            ("asyncpg", "PostgresConnectionError"),
+            ("fastapi", "HTTPException"),
+            ("scipy.stats", "ks_2samp"),
+        ):
+            mod = importlib.import_module(modname)
+            assert hasattr(mod, attr), f"{modname}.{attr} 缺失 ⇒ P 型裁定需重估"
+
+        req = self._read("requirements.txt")
+        compose = (REPO / "docker-compose.yml").read_text(encoding="utf-8")
+        for token in ("asyncpg>=", "sqlalchemy[asyncio]>=", "scipy>="):
+            assert token in req, f"requirements.txt 缺 {token} ⇒ P 型判据需重估"
+        assert "postgresql+asyncpg://" in compose, "交付形态不用 asyncpg ⇒ 判据需重估"
+
+    def test_runtime_e4_job_store_dirty_skips_only_itself(self):
+        """E4 运行时：脏 `created_at` 只跳过自己（D 型，混合输入实测）。"""
+        import importlib
+        from datetime import datetime, timedelta, timezone
+
+        for modname, job_cls in (
+            ("app.services.pdf_job_store", "PdfJob"),
+            ("app.services.excel_job_store", "ExcelJob"),
+        ):
+            mod = importlib.import_module(modname)
+            store = mod.__dict__[modname.rsplit(".", 1)[-1] + "_store"] if (
+                modname.rsplit(".", 1)[-1] + "_store" in mod.__dict__
+            ) else mod.__dict__[modname.rsplit(".", 1)[-1]]
+            job = mod.__dict__[job_cls]
+            old = (
+                datetime.now(timezone.utc) - timedelta(seconds=mod.JOB_TTL_SECONDS + 60)
+            ).isoformat()
+            fresh = datetime.now(timezone.utc).isoformat()
+            store._jobs = {
+                "dirty": job("dirty", "completed", "u", 1, "not-a-timestamp"),
+                "expired1": job("expired1", "completed", "u", 1, old),
+                "expired2": job("expired2", "completed", "u", 1, old),
+                "alive": job("alive", "running", "u", 1, fresh),
+            }
+            store._cleanup_expired()
+            left = sorted(store._jobs)
+            assert "dirty" in left, f"{modname}: 脏条目应保留"
+            assert "expired1" not in left and "expired2" not in left, (
+                f"{modname}: 正常过期条目必须被清理，实际剩余={left}"
+            )
+            assert "alive" in left, f"{modname}: 未过期条目不应被清理"
+
+    def test_runtime_e5_smtp_retry_exhausted_raises(self, monkeypatch):
+        """E5 运行时：`_send_smtp` 重试耗尽后**抛**异常（V 型，非自愈后继续）。
+
+        分类器按 sleep+retry 把它粗判 R；但函数末尾 `raise last_exc` 使失败
+        显式传播到上层（`send_password_reset_email` 转 `ValueError`）⇒
+        失败态与正常态**不同形**，不满足接线判据。
+        """
+        import asyncio
+        import importlib
+        import smtplib
+        import time
+        from email.message import EmailMessage
+
+        mod = importlib.import_module("app.services.email_service")
+        svc = mod.EmailService.__new__(mod.EmailService)
+
+        monkeypatch.setattr(mod, "_get_thread_smtp", lambda: None, raising=True)
+        monkeypatch.setattr(mod, "_close_thread_smtp", lambda: None, raising=True)
+
+        def _boom():
+            raise smtplib.SMTPServerDisconnected("smtp down")
+
+        monkeypatch.setattr(mod, "_create_thread_smtp", _boom, raising=True)
+        monkeypatch.setattr(time, "sleep", lambda _s: None, raising=True)
+
+        raised = None
+        try:
+            svc._send_smtp(EmailMessage())
+        except BaseException as exc:  # noqa: BLE001 - 探针
+            raised = exc
+        assert isinstance(raised, smtplib.SMTPException), (
+            f"_send_smtp 重试耗尽后必须把异常抛给上层（V 型），实际={raised!r}"
+        )
+        asyncio.run(asyncio.sleep(0))  # 保持本用例为同步语义下的事件循环无残留
+
+    def test_document_registration(self):
+        """文档登记：P2_13「一之三十四」节 + P2_11 附录第三十三批条目。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之三十四、" in doc13, "P2_13 缺少「一之三十四」节标题"
+        for token in (
+            "user_upload.py",
+            "fire_forget_metrics.py",
+            "db_breaker.py",
+            "drift_detector.py",
+            "email_service.py",
+            self.LOCATION,
+            "W=99 / X=119",
+        ):
+            assert token in doc13, f"P2_13 第三十三批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第三十三批" in doc11, "P2_11 附录缺少第三十三批条目"

@@ -2241,6 +2241,139 @@ HEAD `48c6410`（第三十一批）的 `backend-coverage` **failure**，
 
 ---
 
+## 一之三十四、#35 X 桶第三十三批：1 接线（`user_upload._validate_mime_type`），W=98→99 / G=8→7 / X=119 不变
+
+### 1. 本批范围与挑簇信号（15 条：1 接线 + 14 不接）
+
+**挑簇信号本批换了一个**。第二十九批确立的「函数名级零记载」被证明只是粗排：
+第三十二批的四簇里，`tasks/pdf_report.py` 的三个函数（`_notify_progress` /
+`save_pdf_bytes_to_redis` / `get_pdf_bytes_from_redis`）至今仍报函数名零记载，
+但该文件早在 §1.9 就被**整簇裁定**过（5 条接线）。也就是说裁定文档的登记单位
+在文件级与函数级之间并不一致，光看函数名会把已裁残留重新挑一遍。
+
+本批改用更硬的信号：候选文件名的 **basename 在 P2_10/P2_11/P2_13 全文出现
+0 次** ⇒ 该文件从未被点名裁定过。命中该口径的正好是 12 个文件 15 条：
+
+| 簇 | 条数 | 裁定 |
+|---|---|---|
+| `app/api/v1/user_upload.py` | 1 | **W 1（本批唯一接线）** |
+| `app/core/fire_forget_metrics.py` | 2 | S 2 |
+| `app/core/db_breaker.py` | 2 | P 2 |
+| `app/core/smtp_breaker.py` / `ml_breaker.py` | 2 | P 2 |
+| `app/ml/drift_detector.py` | 1 | P 1 |
+| `app/services/email_service.py` | 1 | R（人工裁定 **V**，见 §3） |
+| `app/core/logging_config.py` | 1 | S 1 |
+| `app/api/v1/alerts/_schemas.py` | 2 | G 2 |
+| `app/core/deps.py` | 1 | G 1 |
+| `excel_job_store.py` / `pdf_job_store.py` | 2 | D 2 |
+
+存在性核查 `verify_p2_35_batch33_candidates.py`：**MISSING=0，无 FUNC-DRIFT**。
+桶计数 **W 98→99、G 8→7，总数 334 不变**；累计状态 **W=99 / X=119**。
+
+### 2. 接线项：`user_upload.py:162` `_validate_mime_type`（G → W）
+
+**判据是同形性实测**（`probe_p2_35_batch33_runtime.py` E1），不是软理由：
+
+| 情形 | `_validate_mime_type` | `_process_batch_file` 返回 | 上传方可见？ |
+|---|---|---|---|
+| libmagic 正常、MIME 匹配 | 通过 | `{"url": "/uploads/1/xxx.png", ...}` | — |
+| **libmagic 抛 MagicException/OSError** | **静默 return（跳过校验）** | **`{"url": "/uploads/1/yyy.png", ...}`** | **完全看不出** |
+| 对照组：MIME 与扩展名不匹配 | 抛 400 | `{"error": "文件内容类型(text/plain)与扩展名不匹配"}` | 被拒 |
+
+前两行**响应键集合完全相同（都带 `url`）**——内容类型其实没被验证，只剩扩展名
+白名单在兜底，而上传方拿到的是"上传成功"。第三行是对照组：它证明这条同形性
+断言**有区分力**，不是恒真（第二十九批 M3 假绿的教训：断言必须能分辨实现差异）。
+
+**同族互锁（决定性）**：第十一批已为
+`services.file_security.clamav_dependency_missing_fail_open` 接线，当时的裁定
+理由原话是「依赖缺失时的 fail-open 跳过同样是『未扫描按已扫描处理』，必须计数」。
+本条的语义**完全相同**：安全校验被 fail-open 跳过 = 未校验按已校验处理。同一条
+上传安全链路（SEC-P2-003）上 ClamAV 侧已计数、MIME 侧不计数，即自相矛盾。
+
+**分类器误判值得单列**：它把本条粗判为 **G（fail-closed）**，因为 handler 返回
+`None`。但这里的 `None` 是**放行**（函数提前 return，调用方继续走保存+返回 url），
+与 `_schemas.py:68` 那种「解析失败 ⇒ 置 None 中性化」的 fail-closed 截然相反。
+⇒ **分类器按「返回值形态」粗排会把 fail-open 与 fail-closed 混为一谈**，
+这是继第二十九批「函数级归类误并」之后的又一类粗排缺陷，最终裁定仍以逐条
+文档核对 + 运行时实测为准。
+
+接线 location：`"api.user_upload.validate_mime_type"`。接线后 E6 实测
+`silent_degradation_total{location=...}` **0 → 1**（不是「源码字面量在」就算数）。
+> 附带：实测时发现本仓 `app.core.metrics.Counter` 是**自研**实现（无 `.labels()`、
+> 读值走 `collect()`）。第二十二批正是把 prometheus 形态的 `.labels(x).inc()`
+> 用在它上面导致恒 0；本批探针按自研形态读数，避免重演。
+
+### 3. 不接项判据
+
+**`fire_forget_metrics.py` 2 条 —— S 型（可观测设施自身故障 + 同源失效）**
+
+两条保护的都是 `app.core.metrics` 的 Counter 自增。不接的理由有两条，第二条是
+硬判据：
+
+1. 模块 docstring 明示设计原则「优雅降级：指标采集失败仅 debug 日志，不影响主
+   流程」；任务失败另有 `failed` 状态计数与各模块 `_log_*_exception` 覆盖。
+2. **同源失效**：`record_silent_degradation`（`degradation.py:30-32`）内部同样
+   是 `from app.core.metrics import silent_degradation_total` + `.inc()`。
+   实测（E2）阻断 `app.core.metrics` 后，`record_scheduled` 静默返回，
+   `record_silent_degradation` 也静默返回，探针 location 计数 **0 → 0**。
+   ⇒ 用它去观测「metrics 采集失败」等于用一个会在同一故障下一起失效的设施去
+   观测该故障，正是第二十九批禁止的「看起来有降级观测、实际永不触发」。
+
+> 探针写法教训：阻断依赖时必须**同时清 `sys.modules` 缓存** —— 只插
+> `sys.meta_path` 拦截器挡不住已在缓存里的 `app.core.metrics`，那样跑出来的是
+> 假证据（第三十一批 meta_path 屏蔽法的补充）。
+
+**`db_breaker` 2 / `smtp_breaker` 1 / `ml_breaker` 1 / `drift_detector` 1 —— P 型不可达**
+
+- `sqlalchemy[asyncio]`（txt:16 / lock:343）、`asyncpg`（txt:17 / lock:57）、
+  `fastapi`、`scipy`（txt:35 / lock:316）在交付形态下齐备；`docker-compose.yml`
+  的 `DATABASE_URL` 用的是 `postgresql+asyncpg://`。
+- 与第三十二批 celery_breaker 同族、方向一致：被「依赖已交付」挡住。
+- `drift_detector.py:128` 的降级分支是 `self._approximate_ks_test(...)`（近似
+  KS 检验），若可达则**同形性成立**（都返回 statistic/p_value/is_drift，但算法
+  不同）会是本批第二个接线候选；但 scipy 已交付 ⇒ 不可达 ⇒ 判 P。
+
+**`email_service.py:164` `_send_smtp` —— 分类器判 R，人工裁定 V**
+
+分类器按「sleep + retry」把它粗判为 R（自恢复）。但函数末尾有
+`raise last_exc`（L182-183）：重试耗尽后异常**向上传播**，
+`send_password_reset_email` 的 `except Exception`（L132）再 `logger.exception`
++ `raise ValueError("重置邮件发送失败，请稍后重试")`。实测（E5）注入
+`SMTPServerDisconnected` 后 `_send_smtp` **抛出** `SMTPException`。
+⇒ 失败态（抛异常）与正常态（静默返回）**不同形**，不满足接线判据。
+桶计数仍按分类器口径（R 不变），本条分歧在此登记。
+
+**`logging_config.py:235` —— S 型**：日志设施**自身**启动失败（第二十七批
+sentry.py #1 同型），且 warning 文案已显式自报「降级为仅控制台输出」，
+`enable_file=False` 之后链路继续。**边界如实记账**：若同时 `LOG_CONSOLE=false`，
+则该降级彻底无痕；修它属行为变更（不在 #35 接线范围）。
+
+**`_schemas.py` 2 条 / `deps.py:184` —— G 型 fail-closed**：`_schemas.py:68`
+解析异常 ⇒ 置 `None` 中性化（AUDIT-2026-10-06 P1-9 由裸 `pass` 改来的
+fail-closed）；`deps.py:184` token 解码失败 ⇒ `return None` ⇒ 上层拒绝。
+另：`_schemas.py:63` 的 `except ValueError: pass` 是**正常控制流**（域名不是
+IP 格式 ⇒ 走后续域名分支），根本不是降级路径。
+
+**两个 job_store 的 `_cleanup_expired` —— D 型**：混合输入实测（1 条脏
+`created_at` + 2 条过期 + 1 条未过期）⇒ 脏条目只跳过自己，两条过期条目照常
+清理、未过期条目保留（第二十九批混合输入纪律）。
+
+### 4. 闸门与变异
+
+- 新增 `TestP235Round13Batch33Wiring`（**11 条**）：15 处 handler 存在性 + 所属
+  函数未漂移 + **块级反向钉**（14 条不得接线路径内禁现
+  `record_silent_degradation`）+ location 完整字面量 + **ClamAV 同族互锁**
+  （第十一批接线仍在）+ 同源结构钉（degradation 与 fire_forget 同走
+  `app.core.metrics`）+ 运行时 E1/E2/E3/E4/E5 + 文档登记。
+- 变异 **7 条**全部 RED-OK / 还原后 GREEN-OK（见
+  `mutate_p2_35_round13_batch33_result.log`）：M1 删接线（2 红）/ M2 给同源
+  失效路径接线（2 红）/ M3 location typo（1 红）/ M4 降级态改 `raise`
+  —— 破坏同形性、反证接线判据（1 红）/ M5 `continue`→`break`（1 红）/
+  M6 删 `raise last_exc`（1 红）/ M7 删节标题（1 红）。
+- 变异见 `mutate_p2_35_round13_batch33_result.log`。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：

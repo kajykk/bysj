@@ -20,63 +20,21 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 223,
+      "line": 231,
       "func": "collect_ml_quality_metrics",
       "bucket": "W"
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 249,
+      "line": 257,
       "func": "collect_drift_metrics",
       "bucket": "W"
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 275,
+      "line": 283,
       "func": "collect_canary_metrics",
       "bucket": "W"
-    },
-    {
-      "file": "app/api/v1/metrics_helpers.py",
-      "line": 116,
-      "func": "_load_json",
-      "bucket": "S"
-    },
-    {
-      "file": "app/api/v1/model_predict/_common.py",
-      "line": 184,
-      "func": "_save_assessment_sync",
-      "bucket": "W"
-    },
-    {
-      "file": "app/api/v1/model_predict/_common.py",
-      "line": 261,
-      "func": "_generate_structured_factors",
-      "bucket": "D"
-    },
-    {
-      "file": "app/api/v1/model_predict/_common.py",
-      "line": 317,
-      "func": "_generate_physio_factors",
-      "bucket": "D"
-    },
-    {
-      "file": "app/api/v1/model_predict/_common.py",
-      "line": 333,
-      "func": "_generate_physio_factors",
-      "bucket": "D"
-    },
-    {
-      "file": "app/api/v1/model_predict/_common.py",
-      "line": 349,
-      "func": "_generate_physio_factors",
-      "bucket": "D"
-    },
-    {
-      "file": "app/api/v1/model_predict/_common.py",
-      "line": 365,
-      "func": "_generate_physio_factors",
-      "bucket": "D"
     },
     {
       "file": "app/api/v1/model_predict/predict.py",
@@ -337,48 +295,6 @@
       "bucket": "P"
     },
     {
-      "file": "app/core/otel.py",
-      "line": 133,
-      "func": "init_otel",
-      "bucket": "S"
-    },
-    {
-      "file": "app/core/otel.py",
-      "line": 205,
-      "func": "instrument_app",
-      "bucket": "S"
-    },
-    {
-      "file": "app/core/otel.py",
-      "line": 228,
-      "func": "shutdown_otel",
-      "bucket": "S"
-    },
-    {
-      "file": "app/core/otel.py",
-      "line": 151,
-      "func": "_instrument_fastapi",
-      "bucket": "P"
-    },
-    {
-      "file": "app/core/otel.py",
-      "line": 166,
-      "func": "_instrument_sqlalchemy",
-      "bucket": "P"
-    },
-    {
-      "file": "app/core/otel.py",
-      "line": 180,
-      "func": "_instrument_redis",
-      "bucket": "P"
-    },
-    {
-      "file": "app/core/otel.py",
-      "line": 203,
-      "func": "instrument_app",
-      "bucket": "P"
-    },
-    {
       "file": "app/core/rate_limit.py",
       "line": 142,
       "func": "decorator",
@@ -589,30 +505,6 @@
       "bucket": "X"
     },
     {
-      "file": "app/services/user_data_service.py",
-      "line": 165,
-      "func": "_generate_physio_factors",
-      "bucket": "D"
-    },
-    {
-      "file": "app/services/user_data_service.py",
-      "line": 180,
-      "func": "_generate_physio_factors",
-      "bucket": "D"
-    },
-    {
-      "file": "app/services/user_data_service.py",
-      "line": 197,
-      "func": "_generate_physio_factors",
-      "bucket": "D"
-    },
-    {
-      "file": "app/services/user_data_service.py",
-      "line": 212,
-      "func": "_generate_physio_factors",
-      "bucket": "D"
-    },
-    {
       "file": "app/tasks/anomaly_detection.py",
       "line": 140,
       "func": "_detect_impl",
@@ -646,12 +538,12 @@
   "counts": {
     "X": 17,
     "G": 4,
-    "W": 35,
-    "S": 15,
-    "D": 12,
+    "W": 34,
+    "S": 11,
     "V": 2,
+    "D": 3,
     "C": 4,
-    "P": 14,
+    "P": 10,
     "K": 3,
     "R": 1
   }

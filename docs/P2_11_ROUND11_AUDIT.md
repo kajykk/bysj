@@ -1458,3 +1458,36 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   **读数**：见 `verify_p2_35_batch32_candidates.py`（MISSING=0）与
   `probe_p2_35_batch32_runtime.py`（四项证据全成立）；变异四条见
   `mutate_p2_35_round13_batch32_result.log`。
+
+- **第十三轮第三十三批（1 接线，W=98→99 / G 8→7 / X=119 不变，总数 334 不变）**：
+
+  **挑簇信号本批更换**：函数名级零记载只是粗排（`tasks/pdf_report.py` 的三个
+  函数至今报零记载，但该文件早在 §1.9 就整簇裁过）。改用「候选文件 basename
+  在三份审计文档全文出现 **0 次**」⇒ 12 个文件 15 条。
+
+  **接线 1 条**：`user_upload.py:162` `_validate_mime_type` →
+  `"api.user_upload.validate_mime_type"`（G → W）。判据是**同形性实测**：
+  libmagic 抛异常时 MIME 校验被静默跳过，`_process_batch_file` 仍返回带 `url`
+  的成功结果，只剩扩展名白名单兜底；对照组（MIME 不匹配）会返回 error ⇒
+  断言有区分力。**同族互锁**：第十一批已为
+  `services.file_security.clamav_dependency_missing_fail_open` 接线，语义完全
+  相同（安全校验 fail-open 跳过 = 未校验按已校验处理）。分类器按「返回 None」
+  把它粗判 G 属误判 —— 这里的 `None` 是**放行**不是拒绝。
+
+  **不接 14 条**：`fire_forget_metrics.py` 2 条 S 型（可观测设施自身故障；且
+  `record_silent_degradation` 与它**同走** `app.core.metrics`，实测阻断后计数
+  0→0 ⇒ 接线即恒 0 假设施）；`db_breaker` 2 / `smtp_breaker` 1 / `ml_breaker` 1
+  / `drift_detector` 1 共 5 条 P 型（sqlalchemy/asyncpg/fastapi/scipy 交付形态
+  齐备）；`email_service.py:164` 分类器判 R、**人工裁定 V**（重试耗尽后
+  `raise last_exc` 向上传播，实测抛 `SMTPException`）；`logging_config.py:235`
+  S 型（日志设施自身启动失败，warning 已自报）；`_schemas.py` 2 / `deps.py` 1
+  共 3 条 G 型 fail-closed（其中 `_schemas.py:63` 实为正常控制流）；两个
+  job_store 的 `_cleanup_expired` 2 条 D 型（混合输入实测脏条目只跳过自己）。
+
+  **闸门**：新增 `TestP235Round13Batch33Wiring`（11 条），含 15 处存在性 + 块级
+  反向钉 + location 完整字面量 + **ClamAV 同族互锁** + 同源结构钉 + 运行时
+  E1~E5 + 文档登记。桶计数棘轮断言同步 W 98→99、G 8→7。
+
+  **读数**：见 `verify_p2_35_batch33_candidates.py`（MISSING=0）与
+  `probe_p2_35_batch33_runtime.py`（E1~E6 六项证据全成立，含 E6 计数 0→1）；
+  变异见 `mutate_p2_35_round13_batch33_result.log`。
