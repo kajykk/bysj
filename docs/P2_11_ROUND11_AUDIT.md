@@ -1532,4 +1532,4 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   变异 7 条全 RED-OK/GREEN-OK（M1 4红 / M2 2红 / M3 1红 / M4 3红 /
   M5 1红 / M6 1红 / M7 2红），见
   `mutate_p2_35_round13_batch34_result.log`；受影响 19 个测试文件 504 passed。
-  桶计数 **W=100 / X=118**。
+  桶计数 **W=100 / X=118**。CI 10/10 success（含 backend-coverage）。
