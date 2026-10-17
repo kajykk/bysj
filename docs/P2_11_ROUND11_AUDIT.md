@@ -1630,3 +1630,12 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   FUNC-DRIFT=0、接线=2）与 `probe_p2_35_batch36_runtime.py`（E1~E5
   共 8 项断言全成立）；变异见
   `mutate_p2_35_round13_batch36_result.log`。
+
+  **CI 结论（`bc34da2`，2026-10-17）**：check-runs total_count=10，9 项
+  completed/success，**backend-coverage failure**。失败项身份：
+  `tests/performance/test_observability_perf.py::test_response_time_7d_under_300ms`
+  （AssertionError: response_time 7d took 594.7ms，target <300ms）——
+  与第三十一批首次登记的 flake **同一断言**，本批 0 生产代码改动、
+  零涉其路径 ⇒ 非本批引入，属共享 runner 计时抖动。维持独立待办
+  （该断言无容差/重试），**不在本批改断言掩盖**；第四/五批连续未复现
+  后本批复现，flaky 特征不变（计时型断言在共享 runner 上的偶发超时）。
