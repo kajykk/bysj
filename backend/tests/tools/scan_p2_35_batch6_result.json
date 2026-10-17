@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 97,
+  "real_wired": 98,
   "import_probe": 16,
   "real_list": [
     {
@@ -2581,13 +2581,13 @@
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "{}"
     },
     {
       "file": "app/services/observability/aggregate.py",
-      "line": 474,
+      "line": 484,
       "handled": [
         "Exception"
       ],

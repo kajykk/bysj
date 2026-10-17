@@ -1491,3 +1491,45 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   **读数**：见 `verify_p2_35_batch33_candidates.py`（MISSING=0）与
   `probe_p2_35_batch33_runtime.py`（E1~E6 六项证据全成立，含 E6 计数 0→1）；
   变异见 `mutate_p2_35_round13_batch33_result.log`。
+  桶计数 **W=99 / X=119**。CI 10/10 success（含 backend-coverage）。
+
+- **第十三轮第三十四批（1 接线，W=99→100 / X=119→118，总数 334 不变）**：
+
+  **挑簇信号本批再换**：第三十三批的 basename 零记载口径**已耗尽**（剔除当批
+  12 文件后剩 0 条），且它是**反向失效**——`cache.py`/`reports.py`/
+  `inference.py` 这类短名被文档别处的同名串命中 ⇒ 假负。改用**函数名级
+  零记载 − 第二十至三十三批已处理簇**并逐簇人工核对，剔除
+  `core/model_engine/predict.py`（9 条，第十二批 + 第二十一批已裁）与
+  `services/canary_fallback_monitor.py`（5 条，第九批已裁）⇒ 10 文件 12 条。
+
+  **接线 1 条**：`aggregate.py:38` `_parse_detail_json` →
+  `"services.observability.aggregate.detail_json_parse_failed"`（X → W）。
+  判据：① **同形性（源码明文）** L37 `if detail_json else {}` ⇒ 损坏与
+  「本来就没有 detail」返回完全相同的 `{}`；② **假数据**——脏条目**进入
+  输出**而非被跳过（与 D 型的分水岭），实测 1 坏+2 好+1 空 ⇒ 输出 4 条、
+  `totals.acquired` 只统计到 10；③ **可达性**——`OperationLog.detail` 是
+  `Text, nullable=True` 且无 JSON 合法性 CHECK（同表其他四列都有 CHECK
+  作对照）⇒ 非 JSON 可入库，**对称于第二十一批 scaler**；④ **同族互锁**——
+  同文件 `_fetch_lock_memory_stats`（第六批）语义相同。
+
+  **不接 11 条**：`aggregate.py:484` W 复核；`dedup.py:95` **M 型**（专用
+  计数器 `alert_detail_parse_failed_total.inc(1, stage="dedup")` **实测真涨**
+  0→1）；`dedup.py:103` **S 型**（保护该计数器自身，且与之同源）；
+  `inference.py:348` **P 型**（九个 Gauge 全部定义在 `metrics.py` L538-567，
+  交付形态齐备）；`inference.py:362` 与 `registry_auto_rollback.py:136` K 型；
+  `kill_switch.py:109` S 型（可观测设施自身）；`registry_auto_rollback.py:138`
+  C 型（清理路径已有 `exc_info=True` 自报）；`admin.py:619` S 型（
+  `logger.exception` + `log_id=` 可追溯）；`rate_limit.py:142` F 型（回退原始
+  签名是保守行为）；`rate_limit.py:198` 正常控制流（限流生效 → 429）。
+
+  **闸门**：新增 `TestP235Round13Batch34Wiring`（13 条），含 12 处存在性 +
+  块级反向钉 + location 完整字面量 + 同族互锁 + 结构钉（detail 列无 JSON
+  约束 / 九个 Gauge 齐备 / 自研 Counter 形态）+ 运行时 E1~E5 + 文档登记。
+  桶计数棘轮断言同步 W 99→100、X 119→118。
+
+  **读数**：见 `verify_p2_35_batch34_candidates.py`（MISSING=0、FUNC-DRIFT=0）与
+  `probe_p2_35_batch34_runtime.py`（E1~E6 全成立，E5 计数 3→4）；
+  变异 7 条全 RED-OK/GREEN-OK（M1 4红 / M2 2红 / M3 1红 / M4 3红 /
+  M5 1红 / M6 1红 / M7 2红），见
+  `mutate_p2_35_round13_batch34_result.log`；受影响 19 个测试文件 504 passed。
+  桶计数 **W=100 / X=118**。

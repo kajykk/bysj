@@ -40,6 +40,16 @@ def _parse_detail_json(detail_json: Any) -> dict[str, Any]:
             "observability: detail_json parse failed, using empty dict",
             exc_info=True,
         )
+        # P2-35 第三十四批：损坏与「本来就没有 detail」都返回 {}（见 L37 的
+        # `if detail_json else {}`）⇒ 下面两个消费点都会把它当作一条真实记录
+        # 渲染出来：flush 统计里是一条 acquired=0 的假记录（且 totals 被静默
+        # 低估），AM 同步里是一条 operation=unknown/duration_ms=0 的假行。
+        # 运维据此会以为"这次 flush 一把锁都没拿到""有个 unknown 操作失败了"，
+        # 无从分辨这是数据损坏 —— 假数据比缺数据更危险（与第六批
+        # `_fetch_lock_memory_stats` 同型）。
+        record_silent_degradation(
+            "services.observability.aggregate.detail_json_parse_failed"
+        )
         return {}
 
 

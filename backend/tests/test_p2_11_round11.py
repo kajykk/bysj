@@ -409,12 +409,14 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 99,   # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+            "W": 100,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
                        # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
                        # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1，
                        # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1，
                        # 第三十三批 user_upload `_validate_mime_type` libmagic 不可用
-                       # ⇒ MIME 校验被静默跳过（与校验通过完全同形）+1）
+                       # ⇒ MIME 校验被静默跳过（与校验通过完全同形）+1，
+                       # 第三十四批 observability `_parse_detail_json` 审计详情
+                       # JSON 损坏⇒渲染成 0 值假记录（与「无 detail」同形）+1）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 35,   # 自报失败（metrics/sentry/otel/gauge；第三十二批
@@ -430,12 +432,15 @@ class TestP235SilentDegradationRatchet:
                        # 上传）而非 fail-closed 拒绝，故改判接线 ⇒ G 8→7）
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 119,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
+            "X": 118,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
                        # 告警 history detail JSON 解析失败 → 空壳 item 照常入列表；
                        # 故 X 120→119、W 95→96；总数 334 不变。
                        # 第二十三批纯裁定不变；第二十四批接线的 ws pubsub 循环
                        # 崩溃原分类为 R（sleep+restart 自愈启发式），非 X，
                        # 故 X 维持 119、W 96→97、R 4→3。
+                       # 第三十二/三十三批接线的两条原分类为 S/G，非 X，
+                       # 故 X 维持 119；第三十四批接线的
+                       # `_parse_detail_json` 原分类为 X ⇒ X 119→118、W 99→100。
                        # 前序口径：第十八批 3 处 X→W（金丝雀检查失败洗白 /
                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败），
                        # X 126→123→120、W 89→92→95；
@@ -7321,3 +7326,410 @@ class TestP235Round13Batch33Wiring:
             assert token in doc13, f"P2_13 第三十三批登记缺少关键标识: {token}"
         doc11 = AUDIT.read_text(encoding="utf-8")
         assert "第十三轮第三十三批" in doc11, "P2_11 附录缺少第三十三批条目"
+
+
+class TestP235Round13Batch34Wiring:
+    """第三十四批：10 个文件 12 条 —— 1 条接线 + 11 条不接线。
+
+    挑簇口径（本批**再换信号**）：第三十三批用的「basename 在裁定文档 0 次」
+    口径已耗尽（剔除当批 12 文件后剩 0 条），且它这次是**反向失效**：
+    `cache.py`/`reports.py`/`inference.py` 这类短名被文档别处的同名串命中 ⇒
+    假负。本批改用 **函数名级零记载 − 第二十至三十三批已处理簇**，并逐簇
+    人工核对，剔除两个大簇（它们函数名级都零记载，但早已整簇裁过）：
+      * `core/model_engine/predict.py` 9 条 —— 第十二批接线 3 + 第二十一批
+        剩余 6 条全部裁定不接（其中 8 条本来就是 W）。
+      * `services/canary_fallback_monitor.py` 5 条 —— 第九批整簇裁过。
+    （与第三十三批那次同向验证：`tasks/pdf_report.py` 的三个函数在文档中
+    确有记载，故它不应进候选。）
+
+    裁定（分类器现场重算见 `verify_p2_35_batch34_candidates.py`，MISSING=0）：
+      - `aggregate.py:38` `_parse_detail_json` —— **X → W（本批唯一接线）**。
+        判据全部是可客断言的：
+        ① **同形性**：L37 明文 `return _json_loads(detail_json) if detail_json
+        else {}` ⇒ 损坏与「本来就没有 detail」返回**完全相同的 `{}`**；
+        ② **假数据**：脏条目**没有被跳过**，而是被两个消费点渲染成一条真实
+        记录（flush 里是 acquired=0 的假记录、AM 同步里是
+        operation=unknown/duration_ms=0 的假行），且 `totals` 被静默低估；
+        ③ **可达性**：`OperationLog.detail` 是 `Text, nullable=True` 且**没有
+        JSON 合法性 CHECK 约束**（同表其他四列都有 CHECK 作对照）⇒ 非 JSON
+        文本可入库（与第二十一批 scaler「模型文件有意不入库」相反）；
+        ④ **同族互锁**：同文件 `_fetch_lock_memory_stats` 已于第六批接线，
+        语义相同（读失败 ⇒ 0 值假数据被当真实展示）。
+      - `aggregate.py:484` `_fetch_lock_memory_stats` —— **W 复核**（第六批）。
+      - `dedup.py:95` —— **M 型**：已有专用计数器
+        `alert_detail_parse_failed_total.inc(1, stage="dedup")`，且实测真涨
+        （第二十五批纪律：M 型裁定前必须运行时实测计数器活着）。
+      - `dedup.py:103` —— **S 型**：它保护的是那个专用计数器本身，且该计数器
+        走 `app.core.metrics`，与 `record_silent_degradation` **同源** ⇒
+        接线即恒 0 假设施。
+      - `inference.py:348` `_publish_to_prometheus` —— **P 型不可达**：九个
+        Gauge 全部定义在 `metrics.py`（交付形态齐备），唯一残留触发路径是
+        「Gauge 被改名/删除」这类代码缺陷；且它内部 `from app.core import
+        metrics` 与接线设施同源（第二十九条「环境状态 ≠ 交付形态」的对称用法）。
+      - `kill_switch.py:109` `_record_degraded` —— **S 型**：可观测设施自身
+        （`kill_switch_degraded_total`），与主判定路径同源。
+      - `stop_persist:362` / `stop_auto_rollback_monitor:136` —— **K 型**
+        （CancelledError 是预期控制流）。
+      - `stop_auto_rollback_monitor:138` —— **C 型**（停止监控的清理路径，
+        已有 `logger.warning(..., exc_info=True)` 自报）。
+      - `admin.py:619` `_stream_csv` —— **S 型**：审计日志回填失败有
+        `logger.exception` + `log_id=` 定位键 ⇒ 服务端有可追溯痕迹。
+      - `rate_limit.py:142` —— **F 型**：回退到原始签名是**保守**行为（不是
+        「未校验按已校验」的放行），且有 debug 自报。
+      - `rate_limit.py:198` —— **正常控制流**：限流正常生效 → 统一 429 响应，
+        不是降级。
+
+    桶计数：W 99→100、X 119→118，总数 334 不变。
+    """
+
+    AGG_REL = "app/services/observability/aggregate.py"
+    DEDUP_REL = "app/monitoring/dedup.py"
+    INF_REL = "app/core/model_engine/inference.py"
+    KS_REL = "app/core/kill_switch.py"
+    RAR_REL = "app/services/registry_auto_rollback.py"
+    ADMIN_REL = "app/api/v1/admin.py"
+    RL_REL = "app/core/rate_limit.py"
+
+    # (文件, 行号, 所属函数, 裁定桶)
+    CANDIDATES = [
+        (AGG_REL, 38, "_parse_detail_json", "W"),
+        (AGG_REL, 484, "_fetch_lock_memory_stats", "W"),
+        (DEDUP_REL, 95, "should_send", "M"),
+        (DEDUP_REL, 103, "should_send", "S"),
+        (INF_REL, 348, "_publish_to_prometheus", "P"),
+        (INF_REL, 362, "stop_persist", "K"),
+        (KS_REL, 109, "_record_degraded", "S"),
+        (RAR_REL, 136, "stop_auto_rollback_monitor", "K"),
+        (RAR_REL, 138, "stop_auto_rollback_monitor", "C"),
+        (ADMIN_REL, 619, "_stream_csv", "S"),
+        (RL_REL, 142, "decorator", "F"),
+        (RL_REL, 198, "__call__", "F"),
+    ]
+
+    # 两个 W 项：本批接线 + 第六批复核
+    WIRED_LINES = {(AGG_REL, 38), (AGG_REL, 484)}
+
+    LOCATION = "services.observability.aggregate.detail_json_parse_failed"
+    SIBLING = "services.observability.aggregate.lock_stats_unavailable"
+
+    # `_publish_to_prometheus` 里被 `set()` 的九个 Gauge（P 型判据的前提）
+    INFERENCE_GAUGES = (
+        "model_cache_size",
+        "model_uptime_seconds",
+        "model_high_critical_ratio",
+        "model_high_critical_count",
+        "model_fallback_count",
+        "model_fallback_rate",
+        "model_experimental_hit_count",
+        "model_experimental_miss_count",
+        "model_structured_total",
+    )
+
+    # ---- 辅助 ----------------------------------------------------------
+
+    @staticmethod
+    def _tree(rel: str) -> ast.AST:
+        return ast.parse((BEPKG / rel).read_text(encoding="utf-8"))
+
+    @staticmethod
+    def _handler_at(rel: str, line: int) -> ast.ExceptHandler:
+        tree = ast.parse((BEPKG / rel).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        raise AssertionError(f"{rel}:{line} 处没有 except handler（行号漂移）")
+
+    @staticmethod
+    def _enclosing(rel: str, line: int) -> str:
+        tree = ast.parse((BEPKG / rel).read_text(encoding="utf-8"))
+        best: tuple[int, str] | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.lineno <= line <= (node.end_lineno or node.lineno):
+                    if best is None or node.lineno > best[0]:
+                        best = (node.lineno, node.name)
+        assert best is not None, f"{rel}:{line} 不在任何函数内"
+        return best[1]
+
+    # ---- 存在性 / 反向钉 ------------------------------------------------
+
+    def test_candidates_present_and_enclosing_func(self):
+        """12 条候选全部在位且所属函数未漂移。"""
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            handler = self._handler_at(rel, line)
+            actual = self._enclosing(rel, line)
+            assert actual == fn_name, (
+                f"{rel}:{line} 所属函数漂移：期望 {fn_name}，实际 {actual}"
+            )
+            assert handler.type is not None, f"{rel}:{line} 裸 except"
+
+    def test_wiring_only_at_the_two_aggregate_handlers(self):
+        """块级反向钉：接线只允许出现在本文件这两个 handler 内。
+
+        其余 10 条（M/S/P/K/C/F/正常控制流）接线即假设施或重复计数。
+        """
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            src = (BEPKG / rel).read_text(encoding="utf-8")
+            handler = self._handler_at(rel, line)
+            seg = ast.get_source_segment(src, handler) or ""
+            has = "record_silent_degradation" in seg
+            if (rel, line) in self.WIRED_LINES:
+                assert has, f"{rel}:{line} ({fn_name}) 接线消失"
+            else:
+                assert not has, (
+                    f"{rel}:{line} ({fn_name}) 出现了接线 —— "
+                    "M/S/P/K/C/F 路径接线即假设施或重复计数，裁定需重估"
+                )
+
+    def test_wiring_location_literal_pinned(self):
+        """接线 location 字面量带引号完整匹配（第二十六批 `_typo` 教训）。"""
+        src = (BEPKG / self.AGG_REL).read_text(encoding="utf-8")
+        assert f'"{self.LOCATION}"' in src, f"`{self.LOCATION}` 接线 location 消失或被改写"
+
+    def test_sibling_interlock_lock_stats_still_wired(self):
+        """同族互锁：第六批接线的 `_fetch_lock_memory_stats` 仍在。
+
+        它与本批接线语义完全相同（读失败 ⇒ 0 值假数据被当真实数据展示）。
+        """
+        src = (BEPKG / self.AGG_REL).read_text(encoding="utf-8")
+        assert f'"{self.SIBLING}"' in src, f"同族互锁锚点 {self.SIBLING} 消失"
+
+    # ---- 结构钉（裁定前提）----------------------------------------------
+
+    def test_detail_column_is_unconstrained_text(self):
+        """E3 结构钉：`OperationLog.detail` 是无 JSON 约束的 Text 列。
+
+        若有朝一日给它加了 JSON 合法性 CHECK，损坏就不再可达，本批 X→W 的
+        判据前提消失 ⇒ 该断言会红，裁定必须重估（对称于第二十一批 scaler）。
+        """
+        src = (BEPKG / "app/models/admin.py").read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        annotation = None
+        checks: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == "OperationLog":
+                for stmt in node.body:
+                    if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                        if stmt.target.id == "detail":
+                            annotation = ast.unparse(stmt.annotation)
+                    if isinstance(stmt, ast.Assign) and any(
+                        isinstance(t, ast.Name) and t.id == "__table_args__"
+                        for t in stmt.targets
+                    ):
+                        for elt in ast.walk(stmt.value):
+                            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                                if "ck_operation_logs" in elt.value:
+                                    checks.append(elt.value)
+        assert annotation is not None and "str | None" in annotation, (
+            f"detail 列类型变了：{annotation}"
+        )
+        assert len(checks) >= 3, f"OperationLog 的 CHECK 约束消失 ⇒ 对照失效：{checks}"
+        assert not any("detail" in c.lower() for c in checks), (
+            f"detail 列已被 CHECK 约束 ⇒ 损坏不可达，接线判据需重估：{checks}"
+        )
+
+    def test_inference_gauges_all_defined_in_metrics(self):
+        """P 型结构钉：`_publish_to_prometheus` 依赖的九个 Gauge 全部齐备。
+
+        这是「不可达」判据的**前提**：若某个 Gauge 从 metrics.py 消失，
+        `_publish_to_prometheus` 就会抛 AttributeError，P 型裁定必须重估。
+        """
+        src = (BEPKG / "app/core/metrics.py").read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        defined = {
+            t.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            for t in node.targets
+            if isinstance(t, ast.Name)
+        }
+        missing = [g for g in self.INFERENCE_GAUGES if g not in defined]
+        assert not missing, (
+            f"metrics.py 缺少 Gauge {missing} ⇒ `_publish_to_prometheus` 的 "
+            "except 变为可达，P 型裁定需重估"
+        )
+
+    def test_dedup_uses_dedicated_counter(self):
+        """M 型结构钉：dedup 走专用计数器且形态正确（`inc(1, stage=...)`）。
+
+        自研 Counter 没有 `.labels()` 链式 API；写错会被 except 静默吞掉
+        （第二十二批死计数器事故）。
+        """
+        tree = self._tree(self.DEDUP_REL)
+        ok = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if node.func.attr == "inc" and isinstance(node.func.value, ast.Name):
+                    if node.func.value.id == "alert_detail_parse_failed_total":
+                        ok = True
+        assert ok, "dedup 不再使用专用计数器 ⇒ M 型裁定需重估"
+
+    # ---- 运行时证据 ------------------------------------------------------
+
+    @staticmethod
+    def _session(rows):
+        class _Result:
+            def __init__(self, r):
+                self._r = r
+
+            def all(self):
+                return self._r
+
+        class _Session:
+            def __init__(self, r):
+                self._r = r
+
+            async def execute(self, stmt):  # noqa: ANN001 - 桩
+                return _Result(self._r)
+
+        return _Session(rows)
+
+    def test_runtime_e1_flush_records_are_fake_and_totals_undercounted(self):
+        """E1 运行时：损坏条目 = 0 值假记录 + 累计低估（不是被跳过）。
+
+        对照组（正常条目）必须产出真实值 —— 否则本断言是恒真的
+        （第二十九批 M3 假绿教训）。
+        """
+        import asyncio
+        import importlib
+        import json as _json
+        from datetime import datetime, timezone
+
+        mod = importlib.import_module("app.services.observability.aggregate")
+        good = _json.dumps(
+            {"acquired": 7, "skipped": 1, "fallback": 2, "errors": 0, "instance_id": "i-1"}
+        )
+        good2 = _json.dumps(
+            {"acquired": 3, "skipped": 0, "fallback": 0, "errors": 1, "instance_id": "i-2"}
+        )
+        now = datetime.now(timezone.utc)
+        flushes, totals = asyncio.run(
+            mod._fetch_recent_flushes(
+                self._session([("{broken", now), (good, now), (good2, now), (None, now)])
+            )
+        )
+
+        # (a) 脏条目与「无 detail」条目逐字段同形
+        cmp_keys = ("acquired", "skipped", "fallback", "errors", "instance_id")
+        blanks = [r for r in flushes if r["instance_id"] is None]
+        assert len(blanks) == 2, f"应有损坏+缺失两条 0 值记录，实际 {len(blanks)}"
+        for k in cmp_keys:
+            assert blanks[0][k] == blanks[1][k], f"损坏/缺失在 {k} 上不同形"
+
+        # (b) 脏条目没有被跳过（D 型反例的分水岭）
+        assert len(flushes) == 4, f"脏条目被跳过了？实际 {len(flushes)} 条"
+
+        # (c) 假数据：totals 只统计到正常的两条
+        assert totals["acquired"] == 10, f"累计 acquired 应为 10，实际 {totals['acquired']}"
+
+        # (d) 对照组：正常条目输出真实值 ⇒ 断言有区分力
+        real = [r for r in flushes if r["instance_id"] == "i-1"][0]
+        assert real["acquired"] == 7 and real["fallback"] == 2, f"对照组失真：{real}"
+
+    def test_runtime_e2_failure_rows_are_unknown_fakes(self):
+        """E2 运行时：AM 同步消费点渲染出 unknown/0 假行。"""
+        import asyncio
+        import importlib
+        import json as _json
+        from datetime import datetime, timezone
+
+        from app.models.admin import OperationLog
+
+        mod = importlib.import_module("app.services.observability.aggregate")
+        cond = [OperationLog.action_type == "am_sync_failed"]
+        good = _json.dumps(
+            {"operation": "sync", "error": "timeout", "duration_ms": 120, "am_silence_id": 9}
+        )
+        now = datetime.now(timezone.utc)
+        out = asyncio.run(
+            mod._fetch_am_sync_failures(
+                self._session([("{broken", now), (good, now)]), cond, OperationLog.action_type
+            )
+        )
+
+        fake = [r for r in out if r["operation"] == "unknown"][0]
+        assert fake["error"] == "unknown" and fake["duration_ms"] == 0
+        real = [r for r in out if r["operation"] == "sync"][0]
+        assert real["duration_ms"] == 120 and real["am_silence_id"] == 9
+
+        # 与「本来就没 detail」同形
+        only_bad = asyncio.run(
+            mod._fetch_am_sync_failures(
+                self._session([("{broken", now)]), cond, OperationLog.action_type
+            )
+        )
+        only_none = asyncio.run(
+            mod._fetch_am_sync_failures(
+                self._session([(None, now)]), cond, OperationLog.action_type
+            )
+        )
+        for k in ("operation", "error", "duration_ms", "am_silence_id"):
+            assert only_bad[0][k] == only_none[0][k], f"损坏/缺失在 {k} 上不同形"
+
+    def test_runtime_e3_parser_really_raises_on_broken_input(self):
+        """E3 运行时：解析器确实对损坏输入抛 ⇒ except 可达。"""
+        import importlib
+
+        common = importlib.import_module("app.services.observability._common")
+        raised = None
+        try:
+            common._json_loads("{broken json")
+        except Exception as exc:  # noqa: BLE001 - 探针
+            raised = exc
+        assert raised is not None, "解析器对损坏输入不抛 ⇒ except 不可达"
+
+    def test_runtime_e4_dedup_counter_really_increments(self):
+        """E4 运行时：dedup 的专用计数器真的会涨（M 型的硬前提）。"""
+        import importlib
+
+        counter = importlib.import_module("app.core.metrics").alert_detail_parse_failed_total
+
+        def _read() -> float:
+            for labels, value in counter.collect():
+                if labels.get("stage") == "dedup":
+                    return float(value)
+            return 0.0
+
+        before = _read()
+        counter.inc(1, stage="dedup")
+        assert _read() == before + 1, "专用计数器没涨 ⇒ 死计数器，M 型裁定需重估"
+
+    def test_runtime_e5_wiring_counter_really_increments(self):
+        """E5 运行时：接线后 `silent_degradation_total` 真的 +1。
+
+        自研 Counter 读值走 `collect()`（无 `.labels()`），按自研形态读。
+        """
+        import importlib
+
+        metrics = importlib.import_module("app.core.metrics")
+        agg = importlib.import_module("app.services.observability.aggregate")
+        counter = metrics.silent_degradation_total
+
+        def _read() -> float:
+            for labels, value in counter.collect():
+                if labels.get("location") == self.LOCATION:
+                    return float(value)
+            return 0.0
+
+        before = _read()
+        assert agg._parse_detail_json("{broken json") == {}
+        assert _read() == before + 1, "接线后计数没涨 ⇒ 假设施"
+
+    def test_document_registration(self):
+        """文档登记：P2_13「一之三十五」节 + P2_11 附录第三十四批条目。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "## 一之三十五、" in doc13, "P2_13 缺少「一之三十五」节标题"
+        for token in (
+            "observability/aggregate.py",
+            "monitoring/dedup.py",
+            "model_engine/inference.py",
+            "core/kill_switch.py",
+            "registry_auto_rollback.py",
+            "api/v1/admin.py",
+            "core/rate_limit.py",
+            self.LOCATION,
+            "W=100 / X=118",
+        ):
+            assert token in doc13, f"P2_13 第三十四批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第三十四批" in doc11, "P2_11 附录缺少第三十四批条目"

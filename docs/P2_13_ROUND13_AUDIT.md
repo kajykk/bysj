@@ -2371,6 +2371,97 @@ IP 格式 ⇒ 走后续域名分支），根本不是降级路径。
   —— 破坏同形性、反证接线判据（1 红）/ M5 `continue`→`break`（1 红）/
   M6 删 `raise last_exc`（1 红）/ M7 删节标题（1 红）。
 - 变异见 `mutate_p2_35_round13_batch33_result.log`。
+- **CI 10/10 success（含 backend-coverage）** ⇒ 第三十三批完整收口。
+
+---
+
+## 一之三十五、#35 X 桶第三十四批：1 接线（`observability._parse_detail_json`），W=99→100 / X=119→118
+
+### 1. 挑簇口径（本批**再换信号**）
+
+第三十三批用的「候选文件 basename 在裁定文档 0 次」口径**已耗尽**（剔除当批
+12 个文件后剩余 0 条）。而且它这次是**反向失效**：
+
+- `cache.py` / `reports.py` / `inference.py` 这类短名会被文档里**别处的同名串**
+  命中（如 `api/v1/reports.py` 命中 `v1/reports.py`、`model_predict/inference.py`
+  命中 `model_engine/inference.py`）⇒ 产生**假负**。
+
+本批改用：**函数名级零记载 − 第二十至三十三批已处理簇**，并逐簇人工核对。
+人工核对剔除掉两个大簇（它们函数名级都零记载，但早已整簇裁过）：
+
+| 剔除的簇 | 条数 | 裁定出处 |
+|---|---|---|
+| `core/model_engine/predict.py` | 9 | 第十二批接线 3（§1.12）+ 第二十一批剩余 6 条全部裁定不接（§1.21） |
+| `services/canary_fallback_monitor.py` | 5 | 第九批整簇裁过（§1.9） |
+
+同向验证：`tasks/pdf_report.py` 的三个函数在文档中**确有记载**，故它不应进候选
+（印证第三十三批「函数名级零记载只是粗排」的判断）。
+
+### 2. 接线清单（1 处）
+
+| location | 文件:行 | 降级语义 |
+|---|---|---|
+| `services.observability.aggregate.detail_json_parse_failed` | `app/services/observability/aggregate.py:38`（`_parse_detail_json`） | 审计详情 JSON 损坏 ⇒ 回退 `{}`，两个消费点都把它渲染成一条**真实记录**：flush 统计里是一条 `acquired=0` 的 0 值假记录（且 `totals` 被静默低估），AM 同步里是一条 `operation=unknown` / `duration_ms=0` 的假行 |
+
+判据全部是可客断言的（无一条依赖「日志不够响」这类软理由）：
+
+1. **同形性（源码明文）**：L37 就是
+   `return _json_loads(detail_json) if detail_json else {}` ⇒
+   **损坏**与「**本来就没有 detail**」返回完全相同的 `{}`，
+   下游（`_fetch_recent_flushes` L509、`_fetch_am_sync_failures` L346）
+   无从分辨。运行时实测：损坏行 `[0, 0, 0, 0, None]` == 无 detail 行
+   `[0, 0, 0, 0, None]`（逐字段）。
+2. **假数据（不是被跳过）**：脏条目**进入输出**，不是被 `continue` 跳过 ——
+   这是与 D 型的分水岭（第三十二批 `user_data_service` 是「脏字段只跳过自己」）。
+   实测混合输入 1 坏 + 2 好 + 1 空 ⇒ 输出 4 条，`totals.acquired` 只统计到 10
+   （损坏条目的贡献被静默吞掉）。
+3. **可达性（正向实测 + 对称于第二十一批）**：`OperationLog.detail` 是
+   `Text, nullable=True`，且同表四列（`operator_role`/`action_type`/
+   `target_type`/`ip_address`）都有长度 CHECK，**唯独 detail 没有任何 JSON
+   合法性约束** ⇒ 非 JSON 文本可入库。运行时：`json.loads("{broken json")`
+   抛 `JSONDecodeError`。**与第二十一批 scaler 相反**（那次是模型文件有意不入库
+   ⇒ 不可达）。
+4. **同族互锁**：同文件 `_fetch_lock_memory_stats`（L484）已于**第六批**接线
+   （`services.observability.aggregate.lock_stats_unavailable`），语义完全相同
+   ——「读失败 ⇒ 下面回填的 0 会被观测页当作真实数据展示」。本处不接即自相矛盾。
+
+### 3. 不接线清单（11 条）
+
+| 文件:行（函数） | 裁定 | 硬判据 |
+|---|---|---|
+| `app/services/observability/aggregate.py:484`（`_fetch_lock_memory_stats`） | **W 复核** | 第六批接线，location 字面量齐全 |
+| `app/monitoring/dedup.py:95`（`should_send`） | **M** | 已有专用计数器 `alert_detail_parse_failed_total.inc(1, stage="dedup")`，**实测真涨** 0→1（第二十五批纪律：M 型裁定前必须实测计数器活着） |
+| `app/monitoring/dedup.py:103`（`should_send`） | **S** | 它保护的是那个专用计数器本身，且该计数器走 `app.core.metrics`，与 `record_silent_degradation` **同源** ⇒ 接线即恒 0 假设施 |
+| `app/core/model_engine/inference.py:348`（`_publish_to_prometheus`） | **P** | 九个 Gauge 全部定义在 `metrics.py`（L538-567）⇒ 交付形态齐备；唯一残留触发路径是「Gauge 被改名/删除」这类代码缺陷。附加同源理由（内部 `from app.core import metrics`） |
+| `app/core/model_engine/inference.py:362`（`stop_persist`） | **K** | `CancelledError` 是预期控制流 |
+| `app/core/kill_switch.py:109`（`_record_degraded`） | **S** | 可观测设施自身（`kill_switch_degraded_total`），与主判定路径同源 |
+| `app/services/registry_auto_rollback.py:136` | **K** | `CancelledError` 预期 |
+| `app/services/registry_auto_rollback.py:138` | **C** | 停止监控的清理路径，已有 `logger.warning(..., exc_info=True)` 自报 |
+| `app/api/v1/admin.py:619`（`_stream_csv`） | **S** | 审计日志回填失败有 `logger.exception` + `log_id=` 定位键 ⇒ 服务端有可追溯痕迹 |
+| `app/core/rate_limit.py:142`（`decorator`） | **F** | 回退到原始签名是**保守**行为（不是「未校验按已校验」的放行），且有 debug 自报 |
+| `app/core/rate_limit.py:198`（`__call__`） | 正常控制流 | 限流正常生效 → 统一 429 响应，不是降级 |
+
+### 4. 闸门与变异
+
+- 新增 `TestP235Round13Batch34Wiring`（**13 条**）：12 处 handler 存在性 +
+  所属函数未漂移 + **块级反向钉**（10 条不得接线路径内禁现
+  `record_silent_degradation`）+ location 完整字面量 + **同族互锁**
+  （第六批 `_fetch_lock_memory_stats` 仍在）+ 结构钉 E3（detail 列无 JSON
+  约束）/ P 型前提钉（九个 Gauge 齐备）/ M 型形态钉（自研 Counter 的
+  `inc(1, stage=...)`）+ 运行时 E1/E2/E3/E4/E5 + 文档登记。
+- 变异 **7 条**全部 RED-OK / 还原后 GREEN-OK（见
+  `mutate_p2_35_round13_batch34_result.log`）：M1 删接线（**4 红** ——
+  location 钉 + 块级钉 + E5 计数）/ M2 location typo（2 红）/ M3 给同源失效
+  路径接线（1 红）/ M4 降级态改 `raise` —— 破坏同形性、反证接线判据
+  （3 红：E1/E2/E5）/ M5 给 detail 列加 JSON 约束 —— 移除可达性前提
+  （1 红）/ M6 删节标题（1 红）/ M7 删同族互锁锚点（2 红）。
+- 变异见 `mutate_p2_35_round13_batch34_result.log`。
+- 受影响 19 个测试文件 504 passed。
+
+### 5. 本批结论一句话
+
+10 个文件 12 条候选逐条实测后**接线 1 条**（`_parse_detail_json`），
+桶计数 **W=100 / X=118**（总数 334 不变）。
 
 ---
 
