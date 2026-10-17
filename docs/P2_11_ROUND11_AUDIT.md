@@ -1679,3 +1679,6 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   **读数**：见 `verify_p2_35_batch37_candidates.py`（MISSING=0、
   FUNC-DRIFT=0、接线=1）与 `probe_p2_35_batch37_runtime.py`（E1~E6
   全成立）；变异见 `mutate_p2_35_round13_batch37_result.log`。
+
+  **CI 结论（`fbe7f54`，2026-10-18）**：check-runs total_count=10，全部
+  completed/success（含 backend-coverage）。第三十七批完整收口。
