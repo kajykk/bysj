@@ -1576,3 +1576,57 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   变异 8 条全 RED-OK/GREEN-OK，见
   `mutate_p2_35_round13_batch35_result.log`。
   桶计数 **W=100 / X=118 不变**。
+
+- **第十三轮第三十六批（2 接线，W=102 / X=117 / S=34 / 总数 334 不变）**：
+
+  **挑簇**：第四代信号（location 登记表零收录）第二次使用。本批实测抓到
+  新坑：第三十五批起的裁定表用「路径:行号」登记候选，第一版挑簇正则只
+  匹配纯路径 ⇒ 第三十五批刚处理的两个文件漏排进候选（zero-mention
+  自我覆盖的变体）。修复：正则允许 `path.py:行号` 形式。命中 15 文件
+  18 条，逐簇人工核对后 2 接 16 不接。
+
+  **接线 2 处**：
+  ① `core/text_m2_bert_predictor.py:162` `predict` —— 推理失败
+     `return None` ⇒ 调用方 `shadow_mode_service._shadow_predict`
+     「不计入统计」静默 return，对拍样本从一致率统计中消失
+     （`get_stats` 消费方与「未采样到」不可分辨）。与第十六批
+     `services.shadow_mode.compare_failed` 同链同语义（范式互锁）；
+     不同源（predict 失败与 app.core.metrics 无关）；可达性为
+     **条件结论**（`shadow_mode_text_enabled` 默认 False、部署零覆盖，
+     开启时可达）。
+  ② `core/log_sanitizer.py:451` `SanitizingFilter.filter` —— 脱敏失败
+     ⇒ 未脱敏 PII 无痕放行。**实测可达**：`exc_info` 是异常实例（非
+     tuple）时 L443 `len(record.exc_info)` 抛 TypeError，整个 exc_info
+     脱敏被跳过；本仓 5 处 `exc_info=<实例>` 用法（含 pii_crypto PII
+     解密失败）都会走到。filter 永远返回 True ⇒ 同形；仅 debug 级
+     信号（生产不可见）；不同源。
+
+  **对第十六批的补记（非改判）**：本批核实部署形态时发现
+  `shadow_mode_text_enabled` 默认 False 且部署零覆盖 ⇒ 第十六批两处
+  shadow_mode 接线与本批接线 ① 的可达性均为**条件结论**。第十六批
+  当时只核实调用链可达、未核实配置默认值；判据本身在开启时完全
+  成立，故不是改判，而是把共同前提补记入档。
+
+  **不接 16 条**：instance.py:25 V / model_registry.py:351 V /
+  startup_status.py:100 S 同源（实测阻断后 0→0）/ text_tokenizer.py:37 F /
+  hyperparameter_tuning.py:38 V+D（返回 [] ⇒ 重算而非假数据）/
+  hyperparameter_tuning.py:51 V / model_loader.py:46 V /
+  model_validation.py:122 V（degenerate_samples 显式暴露）/
+  scaler.py:47 P（第二十八批不可达形态**第三次实锤**：被调函数内层
+  全捕获，外层唯一可达路径是 import 失败）/
+  auth_service.py:277 V/F（上层显式抛「当前密码错误」，fail-closed
+  有意）/ auth_service.py:436 C/V（SEC-FIX P2-4 有意设计）/
+  experiment_evaluator.py:126 V（error 字段显式）/
+  experiment_metrics.py:43 V（auc_reliable=False 显式）/
+  pdf_report_service.py:295/450 V（success=False 显式）/
+  tasks/observability.py:79 V+R（task 层 success 显式 + R 型自愈）。
+
+  **闸门**：新增 `TestP235Round13Batch36Wiring`（12 条），含 18 条
+  存在性 + 块级反向钉（16 禁接/2 必接）+ 双 location 字面量钉 + 第十六批
+  同族互锁 + 结构钉 ×2 + 运行时 E1~E3 + 桶计数钉 + 文档登记。
+  **棘轮期望同步 W=102 / X=117 / S=34**（总数 334 不变）。
+
+  **读数**：见 `verify_p2_35_batch36_candidates.py`（MISSING=0、
+  FUNC-DRIFT=0、接线=2）与 `probe_p2_35_batch36_runtime.py`（E1~E5
+  共 8 项断言全成立）；变异见
+  `mutate_p2_35_round13_batch36_result.log`。

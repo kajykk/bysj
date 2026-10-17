@@ -20,6 +20,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from app.core.degradation import record_silent_degradation
+
 logger = logging.getLogger(__name__)
 
 # M2 训练产物路径
@@ -159,6 +161,12 @@ class TextM2BertPredictor:
             }
         except Exception as e:
             logger.warning("[M2-BERT] 推理失败: %s", str(e)[:200])
+            # P2-35 第三十六批：推理失败 → return None → 调用方
+            # （shadow_mode_service._shadow_predict）「不计入统计」静默 return，
+            # 该样本从一致率统计中消失，影子期切换决策依据出现无痕缺口
+            # —— 与第十六批已接线的 services.shadow_mode.compare_failed
+            # （同链同语义：单次对拍样本静默丢失）互为同族。
+            record_silent_degradation("core.text_m2_bert_predictor.predict_failed")
             return None
 
 

@@ -409,18 +409,24 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 100,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+            "W": 102,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
                        # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
                        # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1，
                        # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1，
                        # 第三十三批 user_upload `_validate_mime_type` libmagic 不可用
                        # ⇒ MIME 校验被静默跳过（与校验通过完全同形）+1，
                        # 第三十四批 observability `_parse_detail_json` 审计详情
-                       # JSON 损坏⇒渲染成 0 值假记录（与「无 detail」同形）+1）
+                       # JSON 损坏⇒渲染成 0 值假记录（与「无 detail」同形）+1，
+                       # 第三十六批 2 处：text_m2_bert_predictor 推理失败⇒对拍
+                       # 样本静默消失（与第十六批 compare_failed 同链同语义）
+                       # +1、log_sanitizer 脱敏失败⇒未脱敏 PII 无痕放行
+                       # （exc_info=实例 ⇒ len() TypeError 实测可达）+1）
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
-            "S": 35,   # 自报失败（metrics/sentry/otel/gauge；第三十二批
-                       # metrics_helpers `_load_json` 由 S 改判接线 ⇒ 36→35）
+            "S": 34,   # 自报失败（metrics/sentry/otel/gauge；第三十二批
+                       # metrics_helpers `_load_json` 由 S 改判接线 ⇒ 36→35；
+                       # 第三十六批 log_sanitizer 脱敏失败实测可达（exc_info=实例）
+                       # ⇒ 35→34）
             "D": 22,   # 脏数据探测
             "C": 7,    # 清理路径
             "H": 6,    # 检查型
@@ -432,7 +438,7 @@ class TestP235SilentDegradationRatchet:
                        # 上传）而非 fail-closed 拒绝，故改判接线 ⇒ G 8→7）
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 118,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
+            "X": 117,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
                        # 告警 history detail JSON 解析失败 → 空壳 item 照常入列表；
                        # 故 X 120→119、W 95→96；总数 334 不变。
                        # 第二十三批纯裁定不变；第二十四批接线的 ws pubsub 循环
@@ -441,6 +447,8 @@ class TestP235SilentDegradationRatchet:
                        # 第三十二/三十三批接线的两条原分类为 S/G，非 X，
                        # 故 X 维持 119；第三十四批接线的
                        # `_parse_detail_json` 原分类为 X ⇒ X 119→118、W 99→100。
+                       # 第三十六批 text_m2_bert_predictor 推理失败原分类为 X
+                       # ⇒ X 118→117、W 100→101（同批 log_sanitizer 原分类为 S）。
                        # 前序口径：第十八批 3 处 X→W（金丝雀检查失败洗白 /
                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败），
                        # X 126→123→120、W 89→92→95；
@@ -8266,3 +8274,416 @@ class TestP235Round13Batch35Declined:
             assert token in doc13, f"P2_13 第三十五批登记缺少关键标识: {token}"
         doc11 = AUDIT.read_text(encoding="utf-8")
         assert "第十三轮第三十五批" in doc11, "P2_11 附录缺少第三十五批条目"
+
+
+class TestP235Round13Batch36Wiring:
+    """第三十六批：15 个文件 18 条 —— 2 条接线 + 16 条不接。
+
+    挑簇口径（第三十五批起第四代信号：location 登记表零收录，本批沿用）：
+    排除集 = 三份审计文档的 location 登记表行 + 全部批章节登记的候选路径
+    （**允许 `path.py:行号` 形式**——第三十五批起的裁定表用带行号登记，
+    挑簇时实测抓到「不剥行号会漏排已处理文件」的坑并修复正则）+ scan
+    已接线候选。命中 15 文件 18 条，逐簇人工核对后 2 接 16 不接。
+
+    接线 1：`core/text_m2_bert_predictor.py:162` `predict` 推理失败
+      → return None。判据：① 同形性——成功返回 dict / 失败返回 None，
+      调用方 `shadow_mode_service._shadow_predict` L98-99
+      `if m2_result is None: return` 不记统计，该样本从一致率统计中静默
+      消失，`get_stats` 消费方与「未采样到」不可分辨；② 范式互锁——
+      第十六批已接线的 `services.shadow_mode.compare_failed` 是同链
+      同语义（单次对拍样本静默丢失，影子期切换决策依据出现无痕缺口）；
+      ③ 不同源——predict 失败（torch/scaler/classifier）与
+      `app.core.metrics` 无关；④ 可达性为**条件结论**——唯一调用链
+      `fire_shadow_predict` 受 `settings.shadow_mode_text_enabled`
+      （默认 False，部署零覆盖）闸门，开启时可达（与第十六批两处
+      shadow_mode 接线同构，本批在文档补记该共同前提）。
+
+    接线 2：`core/log_sanitizer.py:451` `SanitizingFilter.filter`
+      脱敏失败。判据：① 可达性**实测**——`exc_info` 是异常实例（非
+      tuple）时 L443 `len(record.exc_info)` 抛 TypeError ⇒ 本行触发；
+      本仓 5 处 `exc_info=<实例>` 用法（含 `pii_crypto` PII 解密失败）
+      都会走到；② 同形性——`filter` 永远返回 True（docstring 明示
+      「总是返回 True (不丢弃任何记录, 仅修改内容)」），logging 框架
+      无从分辨；③ 信号弱——仅 debug 级（生产默认级别不可见）；
+      ④ 不同源——脱敏器与 `app.core.metrics` 无关。
+
+    不接 16 条（逐条硬判据见 P2_13「一之三十七」节）：
+      instance.py:25 V（warning+exc_info，降级值语义明确，无业务后果）/
+      model_registry.py:351 V（warning，有意设计「不应阻断推理」）/
+      startup_status.py:100 S 同源（被保护计数器就在 app.core.metrics，
+      实测阻断后接线设施同样失效）/
+      text_tokenizer.py:37 F（jieba 版本兼容，无业务后果）/
+      hyperparameter_tuning.py:38 V+D（warning；返回 [] ⇒ 重算而非
+      假数据进输出，不满足第三十四批假数据判据）/
+      hyperparameter_tuning.py:51 V（warning；写失败仅损失缓存）/
+      model_loader.py:46 V（warning+exc_info；fallback 路径后续失败显式）/
+      model_validation.py:122 V（返回值第 4 元素 degenerate_samples
+      显式暴露 + 汇总 warning）/
+      scaler.py:47 P（try 体只有 import+调用，被调
+      `_resolve_artifacts_dir` 内层 `except Exception` 全捕获 ⇒ 外层
+      唯一可达路径是 import 失败，第二十八批形态第三次实锤）/
+      auth_service.py:277 V/F（warning+exc_info；上层显式抛
+      「当前密码错误」，fail-closed 有意设计 P1-E）/
+      auth_service.py:436 C/V（SEC-FIX P2-4 有意设计：refresh 无效时
+      降级为撤销全部会话，更保守；warning）/
+      experiment_evaluator.py:126 V（logger.exception + 结果带
+      "error" 字段显式可分辨）/
+      experiment_metrics.py:43 V（`auc_reliable=False` 显式标记，
+      L-Svc-3 修复自述「避免误导调用方」）/
+      pdf_report_service.py:295/450 V（logger.exception +
+      success=False + error_message 显式）/
+      tasks/observability.py:79 V+R（rollback+error；task 层
+      `return {"success": False}` 显式；docstring 明示 R 型自愈）
+
+    桶计数：W 100→102、X 118→117、S 35→34，总数 334 不变。
+    """
+
+    PRED_REL = "app/core/text_m2_bert_predictor.py"
+    LS_REL = "app/core/log_sanitizer.py"
+
+    # (文件, 行号, 所属函数, 裁定桶)
+    CANDIDATES = [
+        ("app/core/instance.py", 25, "get_instance_id", "V"),
+        ("app/core/model_registry.py", 351, "resolve_model_path", "V"),
+        ("app/core/startup_status.py", 100, "record", "S"),
+        (PRED_REL, 162, "predict", "W"),
+        ("app/core/text_tokenizer.py", 37, "_get_jieba", "F"),
+        ("app/ml/hyperparameter_tuning.py", 38, "_load_tuning_cache", "V"),
+        ("app/ml/hyperparameter_tuning.py", 51, "_append_tuning_cache", "V"),
+        ("app/ml/model_loader.py", 46, "_resolve_artifacts_dir", "V"),
+        ("app/ml/model_validation.py", 122, "_bootstrap_auc_ci_with_count", "V"),
+        ("app/ml/scaler.py", 47, "__getattr__", "P"),
+        ("app/services/auth_service.py", 277, "change_password", "V"),
+        ("app/services/auth_service.py", 436, "logout", "V"),
+        ("app/services/experiment_evaluator.py", 126, "compare", "V"),
+        ("app/services/experiment_metrics.py", 43, "metrics", "V"),
+        (LS_REL, 451, "filter", "W"),
+        ("app/services/pdf_report_service.py", 295, "generate_pdf", "V"),
+        ("app/services/pdf_report_service.py", 450, "generate_pdf_stream", "V"),
+        ("app/tasks/observability.py", 79, "_flush_lock_stats_impl", "V"),
+    ]
+
+    # 两个 W 项：本批接线
+    WIRED_LINES = {(PRED_REL, 162), (LS_REL, 451)}
+
+    LOCATION_PRED = "core.text_m2_bert_predictor.predict_failed"
+    LOCATION_LS = "core.log_sanitizer.filter_failed"
+    # 第十六批同链互锁锚点（单次对拍样本静默丢失，同语义已接线）
+    SIBLING = "services.shadow_mode.compare_failed"
+    # `exc_info=<实例>` 用法所在文件（log_sanitizer 接线可达性的事实基础）
+    EXC_INFO_USAGE_FILES = (
+        "app/core/celery_app.py",
+        "app/ml/hyperparameter_tuning.py",
+        "app/core/exceptions.py",
+        "app/core/pii_crypto.py",
+        "app/services/risk_service.py",
+    )
+
+    # ---- 辅助 ----------------------------------------------------------
+
+    @staticmethod
+    def _handler_at(rel: str, line: int) -> ast.ExceptHandler:
+        tree = ast.parse((BEPKG / rel).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.lineno == line:
+                return node
+        raise AssertionError(f"{rel}:{line} 处没有 except handler（行号漂移）")
+
+    @staticmethod
+    def _enclosing(rel: str, line: int) -> str:
+        tree = ast.parse((BEPKG / rel).read_text(encoding="utf-8"))
+        best: tuple[int, str] | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.lineno <= line <= (node.end_lineno or node.lineno):
+                    if best is None or node.lineno > best[0]:
+                        best = (node.lineno, node.name)
+        assert best is not None, f"{rel}:{line} 不在任何函数内"
+        return best[1]
+
+    # ---- 存在性 / 反向钉 ------------------------------------------------
+
+    def test_candidates_present_and_enclosing_func(self):
+        """18 条候选全部在位且所属函数未漂移。"""
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            handler = self._handler_at(rel, line)
+            actual = self._enclosing(rel, line)
+            assert actual == fn_name, (
+                f"{rel}:{line} 所属函数漂移：期望 {fn_name}，实际 {actual}"
+            )
+            assert handler.type is not None, f"{rel}:{line} 裸 except"
+
+    def test_wiring_only_at_the_two_batch36_handlers(self):
+        """块级反向钉：接线只允许出现在本批这两个 handler 内。
+
+        其余 16 条（V/S/F/P）接线即假设施、重复计数或自相矛盾。
+        """
+        for rel, line, fn_name, _bucket in self.CANDIDATES:
+            src = (BEPKG / rel).read_text(encoding="utf-8")
+            handler = self._handler_at(rel, line)
+            seg = ast.get_source_segment(src, handler) or ""
+            has = "record_silent_degradation" in seg
+            if (rel, line) in self.WIRED_LINES:
+                assert has, f"{rel}:{line} ({fn_name}) 接线消失"
+            else:
+                assert not has, (
+                    f"{rel}:{line} ({fn_name}) 出现了接线 —— "
+                    "V/S/F/P 路径接线即假设施或重复计数，裁定需重估"
+                )
+
+    def test_location_literals_pinned(self):
+        """两个 location 字面量带引号完整匹配（第二十六批 `_typo` 教训）。"""
+        src_pred = (BEPKG / self.PRED_REL).read_text(encoding="utf-8")
+        assert f'"{self.LOCATION_PRED}"' in src_pred, (
+            f"`{self.LOCATION_PRED}` 接线 location 消失或被改写"
+        )
+        src_ls = (BEPKG / self.LS_REL).read_text(encoding="utf-8")
+        assert f'"{self.LOCATION_LS}"' in src_ls, (
+            f"`{self.LOCATION_LS}` 接线 location 消失或被改写"
+        )
+
+    def test_sibling_interlock_compare_failed_still_wired(self):
+        """同族互锁：第十六批 `services.shadow_mode.compare_failed` 仍在。
+
+        它与本批 `predict` 失败接线是同链同语义（单次对拍样本静默丢失）。
+        """
+        src = (BEPKG / "app/services/shadow_mode_service.py").read_text(
+            encoding="utf-8"
+        )
+        assert f'"{self.SIBLING}"' in src, f"同族互锁锚点 {self.SIBLING} 消失"
+
+    # ---- 结构钉（裁定前提）----------------------------------------------
+
+    def test_exc_info_instance_usages_exist(self):
+        """log_sanitizer 接线可达性的事实基础：本仓确有 `exc_info=<实例>` 用法。
+
+        若这些用法全部消失，「exc_info 是异常实例 ⇒ len() TypeError」路径
+        失去现实触发源，接线判据需重估（对称于第二十一批 scaler）。
+        """
+        for rel in self.EXC_INFO_USAGE_FILES:
+            src = (BEPKG / rel).read_text(encoding="utf-8")
+            tree = ast.parse(src)
+            ok = False
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                for kw in node.keywords:
+                    # Name / Attribute / BoolOp（`exc.__cause__ or exc` 形态）
+                    if kw.arg == "exc_info" and isinstance(
+                        kw.value,
+                        (ast.Name, ast.Attribute, ast.BoolOp),
+                    ):
+                        ok = True
+            assert ok, f"{rel} 不再有 exc_info=<实例> 用法 ⇒ 可达性前提消失"
+
+    def test_scaler_outer_except_is_defensive(self):
+        """scaler.py:47 P 型结构钉：try 体只有 import+调用且被调函数内层全捕获。
+
+        这是「外层唯一可达路径是 import 失败」判据的源码形态。若被调函数
+        的内层 `except Exception` 被移除，P 型裁定必须重估。
+        """
+        src = (BEPKG / "app/ml/scaler.py").read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        try_body: list[ast.stmt] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Try):
+                for h in node.handlers:
+                    if h.lineno == 47:
+                        try_body = node.body
+        kinds = [type(s).__name__ for s in try_body]
+        assert kinds == ["ImportFrom", "Assign"], (
+            f"scaler.py try 体形态变为 {kinds} ⇒ P 型裁定需重估"
+        )
+        ml_src = (BEPKG / "app/ml/model_loader.py").read_text(encoding="utf-8")
+        ml_tree = ast.parse(ml_src)
+        callee_has_catch = False
+        for node in ast.walk(ml_tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_resolve_artifacts_dir":
+                callee_has_catch = any(
+                    isinstance(s, ast.Try)
+                    and any(
+                        h.type is not None
+                        and getattr(h.type, "id", "") == "Exception"
+                        for h in s.handlers
+                    )
+                    for s in node.body
+                )
+        assert callee_has_catch, (
+            "_resolve_artifacts_dir 的内层全捕获消失 ⇒ 外层 except 变为可达，"
+            "P 型裁定需重估"
+        )
+
+    # ---- 运行时证据 ------------------------------------------------------
+
+    def test_runtime_e1_predict_failure_increments(self):
+        """E1：predict 失败 → return None 且接线计数 +1。"""
+        import asyncio
+        import importlib
+
+        from app.core.metrics import silent_degradation_total
+
+        mod = importlib.import_module("app.core.text_m2_bert_predictor")
+
+        class _Boom:
+            def __call__(self, *a, **k):
+                raise RuntimeError("tokenizer boom")
+
+        def loc_count() -> int:
+            return sum(
+                v
+                for labels, v in silent_degradation_total.collect()
+                if labels.get("location") == self.LOCATION_PRED
+            )
+
+        p = mod.TextM2BertPredictor()
+        p._initialized = True
+        p._tokenizer = _Boom()
+        p._device = "cpu"
+        p._threshold = 0.5
+        before = loc_count()
+        out = asyncio.run(p.predict("测试文本"))
+        assert out is None, f"失败路径应返回 None，实际 {out!r}"
+        assert loc_count() == before + 1, (
+            f"接线计数未 +1：{before}→{loc_count()}"
+        )
+
+    def test_runtime_e2_predict_success_does_not_increment(self):
+        """E2 防假绿：predict 成功返回完整 dict 且计数不涨。"""
+        import asyncio
+        import importlib
+
+        from app.core.metrics import silent_degradation_total
+
+        mod = importlib.import_module("app.core.text_m2_bert_predictor")
+
+        class _FakeTensor:
+            def to(self, device):
+                return self
+
+            def cpu(self):
+                return self
+
+            def numpy(self):
+                return [[0.1, 0.2, 0.3]]
+
+        class _FakeHS:
+            def __getitem__(self, idx):
+                return _FakeTensor()
+
+        class _FakeOut:
+            last_hidden_state = _FakeHS()
+
+        class _Tok:
+            def __call__(self, *a, **k):
+                return {"input_ids": _FakeTensor()}
+
+        class _Bert:
+            def __call__(self, **k):
+                return _FakeOut()
+
+        class _Scaler:
+            def transform(self, x):
+                return [[0.1, 0.2, 0.3]]
+
+        class _Clf:
+            def predict_proba(self, x):
+                return [[0.2, 0.8]]
+
+        def loc_count() -> int:
+            return sum(
+                v
+                for labels, v in silent_degradation_total.collect()
+                if labels.get("location") == self.LOCATION_PRED
+            )
+
+        p = mod.TextM2BertPredictor()
+        p._initialized = True
+        p._tokenizer = _Tok()
+        p._bert_model = _Bert()
+        p._scaler = _Scaler()
+        p._classifier = _Clf()
+        p._device = "cpu"
+        p._threshold = 0.5
+        before = loc_count()
+        out = asyncio.run(p.predict("正常文本"))
+        assert isinstance(out, dict) and out["prediction"] == 1, (
+            f"成功路径应返回完整 dict，实际 {out!r}"
+        )
+        assert loc_count() == before, f"成功路径计数不得涨：{before}→{loc_count()}"
+
+    def test_runtime_e3_log_sanitizer_exc_info_instance_increments(self):
+        """E3：exc_info=异常实例 → filter 仍 True 且接线计数 +1；对照组不涨。"""
+        import importlib
+        import logging
+
+        from app.core.metrics import silent_degradation_total
+
+        ls = importlib.import_module("app.core.log_sanitizer")
+
+        def loc_count() -> int:
+            return sum(
+                v
+                for labels, v in silent_degradation_total.collect()
+                if labels.get("location") == self.LOCATION_LS
+            )
+
+        def make(msg, args=None, exc_info=None):
+            return logging.LogRecord(
+                name="t",
+                level=logging.INFO,
+                pathname="x.py",
+                lineno=1,
+                msg=msg,
+                args=args,
+                exc_info=exc_info,
+            )
+
+        f = ls.SanitizingFilter()
+        # (a) 触发：exc_info 是异常实例（非 tuple）
+        try:
+            raise ValueError("boom password=secret")
+        except ValueError as e:
+            exc_obj = e
+        before = loc_count()
+        out = f.filter(make("failed", (), exc_obj))
+        assert out is True, "filter 必须仍返回 True（不丢弃记录）"
+        assert loc_count() == before + 1, (
+            f"exc_info=实例路径接线计数未 +1：{before}→{loc_count()}"
+        )
+        # (b) 对照组①：合法 tuple（logger.exception 形态）不触发
+        try:
+            raise ValueError("boom password=secret")
+        except ValueError as e:
+            tup = (type(e), e, e.__traceback__)
+        before2 = loc_count()
+        f.filter(make("failed", (), tup))
+        assert loc_count() == before2, (
+            f"合法 tuple 不得触发：{before2}→{loc_count()}"
+        )
+        # (c) 对照组②：无 exc_info 的正常 record 不触发
+        before3 = loc_count()
+        f.filter(make("login ok password=%s", ("secret",)))
+        assert loc_count() == before3, (
+            f"正常 record 不得触发：{before3}→{loc_count()}"
+        )
+
+    # ---- 桶计数 / 文档登记 ----------------------------------------------
+
+    def test_bucket_counts_updated_by_this_batch(self):
+        """本批 2 接线 ⇒ W=102 / X=117 / S=34，总数 334 不变。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        assert "W=102 / X=117" in doc13, "P2_13 第三十六批登记的桶计数不见了"
+        assert "S 35→34" in doc13, "P2_13 第三十六批登记的 S 桶变化不见了"
+
+    def test_document_registration(self):
+        """P2_13「一之三十七」节 + P2_11 附录第三十六批条目均在。"""
+        doc13 = (DOCS / "P2_13_ROUND13_AUDIT.md").read_text(encoding="utf-8")
+        for token in (
+            "## 一之三十七、",
+            self.LOCATION_PRED,
+            self.LOCATION_LS,
+            "W=102 / X=117",
+        ):
+            assert token in doc13, f"P2_13 第三十六批登记缺少关键标识: {token}"
+        doc11 = AUDIT.read_text(encoding="utf-8")
+        assert "第十三轮第三十六批" in doc11, "P2_11 附录缺少第三十六批条目"

@@ -45,6 +45,8 @@ import logging
 import re
 from typing import Any
 
+from app.core.degradation import record_silent_degradation
+
 # OPT-P3-002：脱敏器自身故障需要可观测（原实现完全静默）
 logger = logging.getLogger(__name__)
 
@@ -451,6 +453,13 @@ class SanitizingFilter(logging.Filter):
             # OPT-P3-002：静默放行可能让未脱敏 PII 进入日志且无迹可查，
             # 至少记录 debug 级别便于排查脱敏器自身缺陷
             logger.debug("log sanitizer failed; record passed through unsanitized", exc_info=True)
+            # P2-35 第三十六批：实测本条 except **生产可达** —— `exc_info` 是
+            # 异常实例（非 tuple）时 L443 `len(record.exc_info)` 抛 TypeError，
+            # 整个 exc_info 脱敏被跳过，异常消息里的敏感值未脱敏放行；本仓
+            # 5 处 `exc_info=<实例>` 用法（含 pii_crypto PII 解密失败）都会
+            # 走到。filter 恒定返回 True，logging 框架无从分辨；debug 级在
+            # 生产默认级别不可见 ⇒ 同形性成立，接线观测。
+            record_silent_degradation("core.log_sanitizer.filter_failed")
 
         return True
 

@@ -1,0 +1,46 @@
+==============================================================================
+第三十六批变异验证（2 接线 + 16 不接，8 条）
+==============================================================================
+  [M1] 变异注入…
+    gate: 3 failed, 8 passed, 4 warnings in 8.76s
+  [M1] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 8.46s
+  [M1] GREEN-OK（还原后 returncode=0）
+  [M2] 变异注入…
+    gate: 2 failed, 9 passed, 4 warnings in 8.91s
+  [M2] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 8.06s
+  [M2] GREEN-OK（还原后 returncode=0）
+  [M3] 变异注入…
+    gate: 3 failed, 8 passed, 4 warnings in 8.84s
+  [M3] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 8.45s
+  [M3] GREEN-OK（还原后 returncode=0）
+  [M4] 变异注入…
+    gate: 2 failed, 9 passed, 4 warnings in 8.26s
+  [M4] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 9.02s
+  [M4] GREEN-OK（还原后 returncode=0）
+  [M5] 变异注入…
+    gate: 3 failed, 8 passed, 4 warnings in 8.71s
+  [M5] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 7.70s
+  [M5] GREEN-OK（还原后 returncode=0）
+  [M6] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 7.59s
+  [M6] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 7.63s
+  [M6] GREEN-OK（还原后 returncode=0）
+  [M7] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 7.69s
+  [M7] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 7.31s
+  [M7] GREEN-OK（还原后 returncode=0）
+  [M8] 变异注入…
+    gate: 1 failed, 10 passed, 4 warnings in 7.72s
+  [M8] RED-OK（returncode=1）
+    gate: 11 passed, 4 warnings in 7.48s
+  [M8] GREEN-OK（还原后 returncode=0）
+==============================================================================
+8 条变异全部 RED-OK / 还原后 GREEN-OK
+==============================================================================

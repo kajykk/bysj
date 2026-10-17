@@ -2521,6 +2521,94 @@ IP 格式 ⇒ 走后续域名分支），根本不是降级路径。
 
 ---
 
+## 一之三十七、#35 X 桶第三十六批：2 接线（text_m2_bert_predictor + log_sanitizer），W=102 / X=117 / S=34
+
+### 1. 挑簇：第四代信号（location 登记表零收录）第二次使用，抓到「带行号登记」坑
+
+沿用第三十五批的 location 登记表结构信号，排除集 = 三份审计文档
+（P2_11/P2_12/P2_13）的 location 登记表行 + 全部批章节登记的候选路径
++ scan 已接线候选。**本批实测抓到一个新坑**：第三十五批起的裁定表用
+「路径:行号」形式登记候选（如 `api/v1/observability/__init__.py:228`），
+第一版挑簇正则只匹配纯路径 ⇒ 第三十五批刚处理的
+`observability/__init__.py` 与 `risk_service.py` **漏排进候选**
+（zero-mention 自我覆盖的变体）。修复：正则改为
+`` `([a-zA-Z0-9_/]+\.py)(?::\d+)?` ``，允许行号后缀。
+
+命中 15 个文件 18 条，逐簇人工核对后 **2 接 16 不接**。
+
+### 2. 接线清单（2 处，X 118→117、S 35→34、W 100→102）
+
+| location | 文件 | 降级形状 |
+|---|---|---|
+| `core.text_m2_bert_predictor.predict_failed` | `core/text_m2_bert_predictor.py` `predict` L162 | M2 BERT 推理失败 → `return None` → 调用方 `shadow_mode_service._shadow_predict` L98-99「不计入统计」静默 return，该样本从一致率统计中消失，影子期切换决策依据出现无痕缺口 |
+| `core.log_sanitizer.filter_failed` | `core/log_sanitizer.py` `SanitizingFilter.filter` L451 | 脱敏失败 → 未脱敏 PII 无痕放行。**实测可达**：`exc_info` 是异常实例（非 tuple）时 L443 `len(record.exc_info)` 抛 `TypeError` ⇒ 整个 exc_info 脱敏被跳过；本仓 5 处 `exc_info=<实例>` 用法（含 `pii_crypto` PII 解密失败）都会走到 |
+
+**接线 1 的四条判据**：
+① 同形性——成功返回 dict / 失败返回 None，调用方对拍样本静默消失，
+   `get_stats` 消费方与「未采样到」不可分辨；
+② 范式互锁——第十六批 `services.shadow_mode.compare_failed` 是同链
+   同语义（单次对拍样本静默丢失）；
+③ 不同源——predict 失败（torch/scaler/classifier）与 `app.core.metrics`
+   无关，实测阻断 metrics 后本路径照常触发；
+④ 可达性为**条件结论**——唯一调用链 `fire_shadow_predict` 受
+   `settings.shadow_mode_text_enabled`（默认 False，部署配置零覆盖）
+   闸门，开启时可达。
+
+**对第十六批的补记（非改判）**：本批核实部署形态时发现
+`shadow_mode_text_enabled` 默认 False 且全仓部署配置零覆盖 ⇒ 第十六批
+两处 shadow_mode 接线（`predictor_unavailable` / `compare_failed`）
+与本批接线的可达性**均为条件结论**（开关开启时成立）。第十六批当时
+只核实了「调用链可达（`main._init_shadow_sink`）」，未核实配置默认值；
+判据本身（对拍断流无信号）在开启时完全成立，故**不是改判**，而是
+把共同前提补记入档。
+
+**接线 2 的四条判据**：
+① 可达性实测——`exc_info=<异常实例>` ⇒ L443 `len()` TypeError ⇒
+   L451 触发（探针 E3 + 闸门运行时 E3 双重坐实；对照组：合法 tuple
+   与无 exc_info 的正常 record 均不触发）；
+② 同形性——`filter` 永远返回 True（docstring 明示「总是返回 True
+   (不丢弃任何记录, 仅修改内容)」），logging 框架无从分辨；
+③ 信号弱——仅 debug 级（生产默认级别不可见）；
+④ 不同源——脱敏器与 `app.core.metrics` 无关。
+
+### 3. 不接线 16 条（逐条硬判据）
+
+| # | 位置 | 类型 | 理由 |
+|---|---|---|---|
+| 1 | `core/instance.py:25` | V | warning+exc_info；降级值 `unknown-<pid>` 语义明确；无业务后果 |
+| 2 | `core/model_registry.py:351` | V | warning 显式；注释明示有意设计「注册表异常不应阻断推理」，回落 V1 静态路径 |
+| 3 | `core/startup_status.py:100` | S 同源 | 被保护的 `startup_component_failures_total` 就在 `app.core.metrics`；实测阻断后 `record_silent_degradation` 同样失效 ⇒ 恒 0 |
+| 4 | `core/text_tokenizer.py:37` | F | jieba 旧版无 `setLogLevel` 的版本兼容降级，无业务后果 |
+| 5 | `ml/hyperparameter_tuning.py:38` | V+D | warning；返回 `[]` ⇒ **重算**而非假数据进输出（不满足第三十四批假数据判据） |
+| 6 | `ml/hyperparameter_tuning.py:51` | V | warning；缓存写失败仅损失缓存收益，正确性不受影响 |
+| 7 | `ml/model_loader.py:46` | V | warning+exc_info；fallback 路径若不存在，后续加载失败会显式上报 |
+| 8 | `ml/model_validation.py:122` | V | 返回值第 4 元素 `degenerate_samples` **显式暴露**给调用方 + L126 汇总 warning |
+| 9 | `ml/scaler.py:47` | P | try 体只有 `import`+一次调用，被调 `_resolve_artifacts_dir` 内层 `except Exception` 全捕获 ⇒ 外层唯一可达路径是 import 失败（第二十八批不可达形态**第三次实锤**） |
+| 10 | `services/auth_service.py:277` | V/F | warning+exc_info；`password_valid=False` ⇒ 上层显式抛「当前密码错误」；fail-closed 有意设计（P1-E 注释） |
+| 11 | `services/auth_service.py:436` | C/V | SEC-FIX P2-4 有意设计：refresh 无效时降级为撤销**全部**会话（更保守）；warning |
+| 12 | `services/experiment_evaluator.py:126` | V | logger.exception + 结果带 `"error"` 字段显式可分辨 |
+| 13 | `services/experiment_metrics.py:43` | V | `auc_reliable=False` 显式标记（L-Svc-3 修复自述「避免误导调用方」）+ warning |
+| 14 | `services/pdf_report_service.py:295` | V | logger.exception + `success=False` + `error_message` 显式 |
+| 15 | `services/pdf_report_service.py:450` | V | 同上 |
+| 16 | `tasks/observability.py:79` | V+R | rollback + logger.error；task 层 `return {"success": False}` 显式；docstring 明示 R 型自愈（内存计数不重置，下次 flush 恢复） |
+
+### 4. 闸门与读数
+
+- 新增 `TestP235Round13Batch36Wiring`（12 条）：18 条存在性 + 块级反向钉
+  （16 条禁接 / 2 条必接）+ 两个 location 字面量钉 + 第十六批同族互锁
+  + 结构钉 ×2（`exc_info=<实例>` 用法存在性 / scaler P 型源码形态）+
+  运行时 E1~E3（失败 +1、成功不涨、exc_info 实例触发 + 合法 tuple
+  与正常 record 不涨）+ 桶计数钉 + 文档登记。
+- 棘轮期望同步：**W=102 / X=117 / S=34**（总数 334 不变）。
+- 变异见 `mutate_p2_35_round13_batch36_result.log`。
+
+### 5. 本批结论一句话
+
+15 个文件 18 条候选逐条实测后 **2 接 16 不接**；
+桶计数 **W=102 / X=117 / S=34**（总数 334 不变）。
+
+---
+
 ## 二、prettier 最终决议（提示词第 3 项：不允许第三次原样记账）
 
 本轮实测（HEAD `3e5969d`，frontend 3.9.9）：

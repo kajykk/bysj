@@ -1,6 +1,6 @@
 {
   "real_total": 318,
-  "real_wired": 98,
+  "real_wired": 100,
   "import_probe": 16,
   "real_list": [
     {
@@ -833,11 +833,11 @@
     },
     {
       "file": "app/core/log_sanitizer.py",
-      "line": 449,
+      "line": 451,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -1567,11 +1567,11 @@
     },
     {
       "file": "app/core/text_m2_bert_predictor.py",
-      "line": 160,
+      "line": 162,
       "handled": [
         "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": "None"
     },
