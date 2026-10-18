@@ -1,0 +1,115 @@
+{
+  "purpose": "P2-R15 进入临床前（NMPA SaMD 路径）差距分析报告 的文献证据底稿。仅收录经 Europe PMC REST API 回查核验的条目，供报告引用复核。",
+  "collected_at": "2026-10-19",
+  "retrieval_interface": "Europe PMC REST API v6.9 (https://www.ebi.ac.uk/europepmc/webservices/rest/search)",
+  "date_window": "FIRST_PDATE:[2024-01-01 TO 2026-12-31]",
+  "verification_note": "每条 items[].pmid 均可通过 https://europepmc.org/article/MED/{pmid} 打开核对标题/期刊/年份；未通过核验的候选条目已剔除，不作转引。",
+  "queries": [
+    {
+      "id": "q1_ml_mh_suicide",
+      "query_string": "(TITLE:\"suicide risk\" OR TITLE:\"mental health\") AND TITLE:\"machine learning\" AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 227,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q2_llm_genai_mental_health",
+      "query_string": "(TITLE:\"large language model\" OR TITLE:\"LLM\" OR TITLE:\"generative AI\") AND (TITLE:\"mental health\" OR TITLE:\"psychiatry\" OR TITLE:\"suicide\") AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 120,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q3_cdss_trust_alert_fatigue",
+      "query_string": "(TITLE:\"alert fatigue\" OR TITLE:\"clinician trust\" OR TITLE:\"clinical decision support\" OR TITLE:\"human-in-the-loop\") AND (TITLE:\"artificial intelligence\" OR TITLE:\"machine learning\" OR \"mental health\") AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 329,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q4_risk_prediction_implementation",
+      "query_string": "(TITLE:\"risk prediction\" OR TITLE:\"risk model\" OR \"predictive model\") AND (\"suicide\" OR \"mental health\") AND (\"implementation\" OR \"clinical workflow\" OR \"electronic health record\" OR \"deployment\") AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 2007,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q5_phq9_china_adolescent",
+      "query_string": "(TITLE:\"PHQ-9\" OR TITLE:\"PHQ-9 and GAD-7\") AND (\"Chinese\" OR \"China\") AND (\"adolescent\" OR \"student\" OR \"screening\") AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 33,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q6_tripod_reporting",
+      "query_string": "(TITLE:\"TRIPOD+AI\" OR TITLE:\"TRIPOD-LLM\" OR (TITLE:\"TRIPOD\" AND TITLE:\"reporting\")) AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 26,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q7_fairness_clinical_prediction",
+      "query_string": "(TITLE:\"fairness\" OR TITLE:\"bias\") AND (TITLE:\"clinical risk prediction\" OR TITLE:\"clinical prediction\" OR TITLE:\"prediction model\") AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 24,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q8_privacy_llm_suicidality",
+      "query_string": "(\"privacy-preserving\" AND \"large language models\" AND (\"suicid\" OR \"medical text\")) AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 105,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q9_student_prevalence",
+      "query_string": "(TITLE:\"depression\" OR TITLE:\"mental health\" OR TITLE:\"mental disorders\") AND (\"Chinese university students\" OR \"first-year university students\" OR \"college students in China\") AND (TITLE:\"prevalence\" OR TITLE:\"meta-analysis\") AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 22,
+      "sort": "CITED desc"
+    },
+    {
+      "id": "q10_ai_mental_health_review",
+      "query_string": "(TITLE:\"artificial intelligence\" OR TITLE:\"machine learning\") AND TITLE:\"mental health\" AND (TITLE:\"systematic review\" OR TITLE:\"scoping review\" OR TITLE:\"meta-analysis\") AND (FIRST_PDATE:[2024-01-01 TO 2026-12-31])",
+      "hit_count": 48,
+      "sort": "CITED desc"
+    }
+  ],
+  "items": [
+    {"topic": "reporting_standard", "pmid": "38626948", "doi": "10.1136/bmj-2023-078378", "title": "TRIPOD+AI statement: updated guidance for reporting clinical prediction models that use regression or machine learning methods.", "journal": "BMJ", "year": 2024, "cited_by": 3117},
+    {"topic": "reporting_standard", "pmid": "39779929", "doi": "10.1038/s41591-024-03425-5", "title": "The TRIPOD-LLM reporting guideline for studies using large language models.", "journal": "Nat Med", "year": 2025, "cited_by": 411},
+    {"topic": "reporting_standard", "pmid": "41448505", "doi": "10.1016/j.jclinepi.2025.112118", "title": "Adherence to TRIPOD+AI guideline: an updated reporting assessment tool.", "journal": "J Clin Epidemiol", "year": 2026, "cited_by": 6},
+    {"topic": "risk_of_bias_tool", "pmid": "40010583", "doi": "10.1016/j.jclinepi.2025.111732", "title": "Assessing the quality of prediction models in health care using PROBAST: an evaluation of its use and practical application.", "journal": "J Clin Epidemiol", "year": 2025, "cited_by": 10},
+    {"topic": "fairness_reporting", "pmid": "39962044", "doi": "10.2196/66598", "title": "Reporting of Fairness Metrics in Clinical Risk Prediction Models Used for Precision Health: Scoping Review.", "journal": "Online J Public Health Inform", "year": 2025, "cited_by": 7},
+    {"topic": "ai_mh_landscape", "pmid": "39911020", "doi": "10.1017/s0033291724003295", "title": "Artificial intelligence in mental health care: a systematic review of diagnosis, monitoring, and intervention applications.", "journal": "Psychol Med", "year": 2025, "cited_by": 89},
+    {"topic": "ai_mh_landscape", "pmid": "39953464", "doi": "10.1186/s12888-025-06483-2", "title": "The application of artificial intelligence in the field of mental health: a systematic review.", "journal": "BMC Psychiatry", "year": 2025, "cited_by": 52},
+    {"topic": "ai_mh_landscape", "pmid": "39523628", "doi": "10.1017/neu.2024.50", "title": "Use of generative artificial intelligence (AI) in psychiatry and mental health care: a systematic review.", "journal": "Acta Neuropsychiatr", "year": 2024, "cited_by": 44},
+    {"topic": "ai_mh_landscape", "pmid": "40948070", "doi": "10.1002/wps.21352", "title": "Charting the evolution of artificial intelligence mental health chatbots from rule-based systems to large language models: a systematic review.", "journal": "World Psychiatry", "year": 2025, "cited_by": 45},
+    {"topic": "suicide_risk_ml", "pmid": "38802823", "doi": "10.1186/s12911-024-02524-0", "title": "Role of machine learning algorithms in suicide risk prediction: a systematic review-meta analysis of clinical studies.", "journal": "BMC Med Inform Decis Mak", "year": 2024, "cited_by": 35},
+    {"topic": "transportability", "pmid": "39251868", "doi": "10.1038/s41746-024-01203-8", "title": "Transatlantic transferability and replicability of machine-learning algorithms to predict mental health crises.", "journal": "NPJ Digit Med", "year": 2024, "cited_by": 10},
+    {"topic": "equity_subgroup", "pmid": "39401036", "doi": "10.1001/jamanetworkopen.2024.39269", "title": "Performance of Machine Learning Suicide Risk Models in an American Indian Population.", "journal": "JAMA Netw Open", "year": 2024, "cited_by": 11},
+    {"topic": "university_clinic_model", "pmid": "40263508", "doi": "10.1038/s41598-025-97387-4", "title": "Machine learning based identification of suicidal ideation using non-suicidal predictors in a university mental health clinic.", "journal": "Sci Rep", "year": 2025, "cited_by": 5},
+    {"topic": "privacy_preserving_llm", "pmid": "39497458", "doi": "10.1192/bjp.2024.134", "title": "Detection of suicidality from medical text using privacy-preserving large language models.", "journal": "Br J Psychiatry", "year": 2024, "cited_by": 22},
+    {"topic": "privacy_preserving_llm", "pmid": "39304709", "doi": "10.1038/s41746-024-01233-2", "title": "Privacy-preserving large language models for structured medical information retrieval.", "journal": "NPJ Digit Med", "year": 2024, "cited_by": 86},
+    {"topic": "llm_vs_human_suicide", "pmid": "41213985", "doi": "10.1038/s41598-025-22402-7", "title": "Large language model performance versus human expert ratings in automated suicide risk assessment.", "journal": "Sci Rep", "year": 2025, "cited_by": 3},
+    {"topic": "gold_standard_validity", "pmid": "40158158", "doi": "10.1186/s12888-025-06754-y", "title": "Poor performance of PHQ-9 and GAD-7 in screening clinical depression and anxiety among a large sample of Chinese children and adolescents.", "journal": "BMC Psychiatry", "year": 2025, "cited_by": 9},
+    {"topic": "gold_standard_validity", "pmid": "38263122", "doi": "10.1186/s12991-024-00492-3", "title": "Analyzing the psychometric properties of the PHQ-9 using item response theory in a Chinese adolescent population.", "journal": "Ann Gen Psychiatry", "year": 2024, "cited_by": 20},
+    {"topic": "gold_standard_validity", "pmid": "40195248", "doi": "10.1007/s44192-025-00181-x", "title": "Charting the course of depression care: a meta-analysis of reliability generalization of the patient health questionnaire (PHQ-9) as the measure.", "journal": "Discov Ment Health", "year": 2025, "cited_by": 17},
+    {"topic": "screening_cluster_rct", "pmid": "38408790", "doi": "10.3399/bjgp.2023.0539", "title": "Depression follow-up monitoring with the PHQ-9: an open cluster-randomised controlled trial.", "journal": "Br J Gen Pract", "year": 2024, "cited_by": 8},
+    {"topic": "prevalence_baseline", "pmid": "40010072", "doi": "10.1016/j.jpsychires.2025.02.016", "title": "Prevalence, age-of-onset, and course of mental disorders among 72,288 first-year university students from 18 countries in the WMH-ICS initiative.", "journal": "J Psychiatr Res", "year": 2025, "cited_by": 46},
+    {"topic": "prevalence_baseline", "pmid": "40217329", "doi": "10.1186/s40359-025-02688-y", "title": "Prevalence of depression among university students in China: a systematic review and meta-analysis.", "journal": "BMC Psychol", "year": 2025, "cited_by": 40},
+    {"topic": "fairness", "pmid": "41107862", "doi": "10.1186/s12916-025-04340-3", "title": "Navigating fairness aspects of clinical prediction models.", "journal": "BMC Med", "year": 2025, "cited_by": 17},
+    {"topic": "fairness", "pmid": "42209328", "doi": "10.1016/j.landig.2026.101001", "title": "Critical appraisal of fairness metrics for artificial intelligence-based clinical prediction models: a scoping review.", "journal": "Lancet Digit Health", "year": 2026, "cited_by": 1},
+    {"topic": "fairness_net_benefit", "pmid": "41512215", "doi": "10.1097/ede.0000000000001949", "title": "Understanding Algorithmic Fairness for Clinical Prediction in Terms of Subgroup Net Benefit and Health Equity.", "journal": "Epidemiology", "year": 2026, "cited_by": 3},
+    {"topic": "calibration_deployed", "pmid": "38844546", "doi": "10.1038/s41746-024-01141-5", "title": "Assessing calibration and bias of a deployed machine learning malnutrition prediction model within a large healthcare system.", "journal": "NPJ Digit Med", "year": 2024, "cited_by": 18},
+    {"topic": "generalizability", "pmid": "40139775", "doi": "10.1136/bmjqs-2024-018328", "title": "False hope of a single generalisable AI sepsis prediction model: bias and proposed mitigation strategies for improving performance based on a retrospective multisite cohort study.", "journal": "BMJ Qual Saf", "year": 2025, "cited_by": 5},
+    {"topic": "explainability", "pmid": "40038704", "doi": "10.1186/s12911-025-02944-6", "title": "The role of explainable artificial intelligence in disease prediction: a systematic literature review and future research directions.", "journal": "BMC Med Inform Decis Mak", "year": 2025, "cited_by": 95},
+    {"topic": "clinician_trust", "pmid": "40772775", "doi": "10.2196/69678", "title": "Trust in Artificial Intelligence-Based Clinical Decision Support Systems Among Health Care Workers: Systematic Review.", "journal": "J Med Internet Res", "year": 2025, "cited_by": 45},
+    {"topic": "alert_fatigue", "pmid": "38641410", "doi": "10.1093/jamia/ocae076", "title": "The use of artificial intelligence to optimize medication alerts generated by clinical decision support systems: a scoping review.", "journal": "J Am Med Inform Assoc", "year": 2024, "cited_by": 42},
+    {"topic": "cdss_implementation", "pmid": "40199296", "doi": "10.1055/s-0044-1800729", "title": "Bridging the Gap: Challenges and Strategies for the Implementation of Artificial Intelligence-based Clinical Decision Support Systems in Clinical Practice.", "journal": "Yearb Med Inform", "year": 2024, "cited_by": 20},
+    {"topic": "clinician_views", "pmid": "38261403", "doi": "10.2196/49577", "title": "Health Care Professionals' Views on the Use of Passive Sensing, AI, and Machine Learning in Mental Health Care: Systematic Review With Meta-Synthesis.", "journal": "JMIR Ment Health", "year": 2024, "cited_by": 27},
+    {"topic": "passive_sensing", "pmid": "38257440", "doi": "10.3390/s24020348", "title": "Machine Learning for Multimodal Mental Health Detection: A Systematic Review of Passive Sensing Approaches.", "journal": "Sensors (Basel)", "year": 2024, "cited_by": 42},
+    {"topic": "passive_sensing", "pmid": "40811794", "doi": "10.2196/77066", "title": "Passive Sensing for Mental Health Monitoring Using Machine Learning With Wearables and Smartphones: Scoping Review.", "journal": "J Med Internet Res", "year": 2025, "cited_by": 29},
+    {"topic": "wearable_biosensor", "pmid": "40277515", "doi": "10.3390/bios15040202", "title": "Fusing Wearable Biosensors with Artificial Intelligence for Mental Health Monitoring: A Systematic Review.", "journal": "Biosensors (Basel)", "year": 2025, "cited_by": 22},
+    {"topic": "minimum_sample_size", "pmid": "39695276", "doi": "10.1038/s41746-024-01360-w", "title": "Estimation of minimal data sets sizes for machine learning predictions in digital mental health interventions.", "journal": "NPJ Digit Med", "year": 2024, "cited_by": 60},
+    {"topic": "wearable_imminent_risk", "pmid": "40017279", "doi": "10.30773/pi.2024.0257", "title": "Machine Learning Models to Identify Individuals With Imminent Suicide Risk Using a Wearable Device: A Pilot Study.", "journal": "Psychiatry Investig", "year": 2025, "cited_by": 8},
+    {"topic": "genai_capability", "pmid": "40373033", "doi": "10.2196/70014", "title": "Evaluating Generative AI in Mental Health: Systematic Review of Capabilities and Limitations.", "journal": "JMIR Ment Health", "year": 2025, "cited_by": 36},
+    {"topic": "genai_safety", "pmid": "42194487", "doi": "10.3390/healthcare14101395", "title": "Safety Mechanisms and Risk Mitigation in Generative AI Mental Health Chatbots: A Systematic Scoping Review.", "journal": "Healthcare (Basel)", "year": 2026, "cited_by": 3},
+    {"topic": "label_nocebo", "pmid": "40815809", "doi": "10.2196/78663", "title": "Placebo, Nocebo, and Machine Learning: How Generative AI Could Shape Patient Perception in Mental Health Care.", "journal": "JMIR Ment Health", "year": 2025, "cited_by": 6},
+    {"topic": "responsible_design", "pmid": "39864170", "doi": "10.2196/70439", "title": "Responsible Design, Integration, and Use of Generative AI in Mental Health.", "journal": "JMIR Ment Health", "year": 2025, "cited_by": 13},
+    {"topic": "genai_ethics", "pmid": "40577783", "doi": "10.2196/70610", "title": "The Application and Ethical Implication of Generative AI in Mental Health: Systematic Review.", "journal": "JMIR Ment Health", "year": 2025, "cited_by": 25},
+    {"topic": "genai_suicide_inquiry", "pmid": "40811811", "doi": "10.2196/73623", "title": "An Examination of Generative AI Response to Suicide Inquires: Content Analysis.", "journal": "JMIR Ment Health", "year": 2025, "cited_by": 27},
+    {"topic": "mental_llm_benchmark", "pmid": "39925940", "doi": "10.1145/3643540", "title": "Mental-LLM: Leveraging Large Language Models for Mental Health Prediction via Online Text Data.", "journal": "Proc ACM Interact Mob Wearable Ubiquitous Technol", "year": 2024, "cited_by": 56}
+  ]
+}
