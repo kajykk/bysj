@@ -25,12 +25,67 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.admin import OperationLog
+
+# ===== 计时容差机制 (PERF-P2-002) =====
+
+# 背景: 本文件 8 项基准断言的都是**墙钟耗时**。本机实测 `_compute_response_time`
+# 查询本体仅 ~10ms，而阈值 300ms 有 30x 余量；但 backend-coverage 与 e2e /
+# contract-test / frontend-coverage 等作业在同一台 runner 上并行抢 CPU/IO，
+# 进程被调度出去几百毫秒就会踩线（第三十一批实测 `assert 421.86 < 300`，
+# 第三十五批复现一次；两次本机单跑均 passed）。
+#
+# 处置: **不改阈值**（改阈值会把真实回归一起放过），而是给测量本身加容差——
+# 先 warmup 若干次让 SQLite page cache / 解释器 JIT 稳定，再取 best-of-N 的
+# **最小值**。最小值对单次调度尖峰免疫，而持续性的慢查询仍会稳定超标。
+#
+# 为便于确定性自测，`clock` 可注入：闸门用假时钟喂 [warmup=200ms, 100/900/20ms]
+# 这类序列，直接断言"取的是最小值且 warmup 被消费"，不依赖真实耗时分布。
+#
+# 附注: `_compute_*` 全是只读聚合（SELECT + Python 后处理，无写入），重复调用
+# 幂等且不改变断言对象，故可安全重复执行。
+MEASURE_BEST_OF = 3
+MEASURE_WARMUP = 1
+
+
+async def measure_ms(
+    fn: Callable[[], Awaitable[Any]],
+    *,
+    best_of: int = MEASURE_BEST_OF,
+    warmup: int = MEASURE_WARMUP,
+    clock: Callable[[], float] | None = None,
+) -> tuple[float, Any]:
+    """测量 `fn` 的耗时，返回 (最小耗时毫秒, 最后一次调用的返回值).
+
+    先跑 `warmup` 次（结果丢弃，仅用于让缓存/JIT 稳定），再跑 `best_of` 次
+    记录耗时，取其中最小值作为断言依据——最贴近"这条查询本身有多快"，
+    而不是"这台机器当时有多挤"。
+
+    `clock` 仅供自测注入假时钟；默认用 `time.perf_counter`。用 `None` 哨兵
+    而非把 `time.perf_counter` 写进签名默认值，避免默认参数在定义时被求值成
+    一个固定函数对象（那样 monkeypatch `time.perf_counter` 不会生效）。
+    """
+    if clock is None:
+        clock = time.perf_counter
+    assert best_of >= 1, "best_of 至少为 1，否则无样本可取"
+    assert warmup >= 0, "warmup 不能为负"
+    result: Any = None
+    for _ in range(warmup):
+        result = await fn()
+    samples: list[float] = []
+    for _ in range(best_of):
+        t0 = clock()
+        result = await fn()
+        samples.append((clock() - t0) * 1000)
+    return min(samples), result
+
 
 # ===== 辅助: 批量插入 OperationLog =====
 
@@ -255,9 +310,11 @@ async def test_trend_7d_under_500ms(db_session: AsyncSession) -> None:
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
-    t0 = time.perf_counter()
-    result = await _compute_trend(db_session, start, end, "1h", None, None, "severity")
-    elapsed_ms = (time.perf_counter() - t0) * 1000
+
+
+    elapsed_ms, result = await measure_ms(
+        lambda: _compute_trend(db_session, start, end, "1h", None, None, "severity")
+    )
 
     assert result["total"] > 0
     assert len(result["buckets"]) > 0
@@ -276,9 +333,9 @@ async def test_trend_30d_under_500ms(db_session: AsyncSession) -> None:
     start = datetime(2026, 5, 4, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
-    t0 = time.perf_counter()
-    result = await _compute_trend(db_session, start, end, "6h", None, None, "severity")
-    elapsed_ms = (time.perf_counter() - t0) * 1000
+    elapsed_ms, result = await measure_ms(
+        lambda: _compute_trend(db_session, start, end, "6h", None, None, "severity")
+    )
 
     assert result["total"] > 0
     # 30d 6h 桶 ≈ 120 桶
@@ -298,18 +355,125 @@ async def test_response_time_7d_under_300ms(db_session: AsyncSession) -> None:
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
-    t0 = time.perf_counter()
-    result = await _compute_response_time(db_session, start, end, None)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
+    elapsed_ms, result = await measure_ms(
+        lambda: _compute_response_time(db_session, start, end, None)
+    )
 
     assert "response_time" in result
     assert "p99" in result["response_time"]
     assert result["total_fired"] == 5000
     assert result["total_acked"] == 5000
     assert result["total_pending"] == 0
+    # PERF-P2-002: 阈值仍是 300ms（不放宽），只是测量改为 warmup + best-of-N 最小值，
+    # 以区分"查询本身慢"与"CI runner 被并行作业挤顿"。
     assert (
         elapsed_ms < 300
     ), f"response_time 7d took {elapsed_ms:.1f}ms (target: <300ms)"
+
+
+# ===== 计时容差机制的自测 (PERF-P2-002 闸门) =====
+#
+# 这一组不测查询性能，而是钉住 `measure_ms` 的**语义**：断言依据必须是
+# best-of-N 的**最小值**（而不是首次/均值/末次），且 warmup 必须被消费掉。
+# 用假时钟喂确定性序列，故断言本身不受机器负载影响——正是被测机制要解决的问题。
+
+
+@pytest.mark.performance
+async def test_measure_ms_uses_min_of_best_of_and_consumes_warmup() -> None:
+    """闸门：取 best-of-N 最小值；warmup 的耗时不计入样本。
+
+    `measure_ms` 只在 best_of 段调 `clock()`（warmup 段不碰时钟），每段 = clock()
+    后减 clock()，故消耗 2 个读数/段。序列只排 3 段样本：
+    (0.0→0.1)=100ms、(0.2→1.1)=900ms、(1.2→1.22)=20ms → 取最小 20ms。
+    """
+    ticks = iter([0.0, 0.1, 0.2, 1.1, 1.2, 1.22])
+    calls = {"n": 0}
+
+    async def _fn() -> str:
+        calls["n"] += 1
+        return f"r{calls['n']}"
+
+    elapsed_ms, result = await measure_ms(_fn, clock=lambda: next(ticks))
+
+    assert calls["n"] == 1 + 3, "warmup(1) + best_of(3) 必须恰好调用 4 次"
+    assert elapsed_ms == pytest.approx(20.0), "断言依据必须是三条样本里的最小值 20ms"
+    assert result == "r4", "返回最后一次调用的结果"
+
+@pytest.mark.performance
+async def test_measure_ms_not_fooled_by_single_spike() -> None:
+    """闸门：一次调度尖峰(999ms)不应掩盖真实水平(5ms) —— 这正是 CI flake 的形态。"""
+    # 两段：999ms 与 5ms → 取最小 5ms
+    ticks = iter([0.0, 0.999, 1.0, 1.005])
+
+    async def _fn() -> None:
+        return None
+
+    elapsed_ms, _ = await measure_ms(_fn, best_of=2, warmup=0, clock=lambda: next(ticks))
+
+    assert elapsed_ms == pytest.approx(5.0), "尖峰 999ms 应被最小值过滤，剩 5ms"
+
+
+@pytest.mark.performance
+async def test_measure_ms_threshold_still_catches_real_regression() -> None:
+    """闸门：取最小值**不**等于放水——持续性超阈值仍会红。"""
+    # 三段都 ~400ms（远超 300ms 阈值）→ 最小值仍 400 → 断言会红
+    ticks = iter([0.0, 0.4, 1.0, 1.4, 2.0, 2.4])
+
+    async def _fn() -> None:
+        return None
+
+    elapsed_ms, _ = await measure_ms(_fn, clock=lambda: next(ticks))
+    assert elapsed_ms == pytest.approx(400.0)
+    assert not (elapsed_ms < 300), "真实回归必须仍被判红，机制不得掩盖"
+
+
+@pytest.mark.performance
+async def test_measure_ms_rejects_degenerate_params() -> None:
+    """闸门：best_of<1 / warmup<0 直接拒绝（否则无样本或负数等待）。"""
+
+    async def _fn() -> None:
+        return None
+
+    with pytest.raises(AssertionError):
+        await measure_ms(_fn, best_of=0)
+    with pytest.raises(AssertionError):
+        await measure_ms(_fn, warmup=-1)
+
+
+@pytest.mark.performance
+def test_perf_file_has_no_bare_wallclock_assertions() -> None:
+    """闸门：本文件的耗时断言必须统一走 measure_ms，禁止回退到裸 perf_counter 差值。
+
+    反向钉：任何新增的性能用例若直接 `perf_counter()` 差值与阈值比较，会绕开
+    warmup/best-of-N 容差，重新引入 CI 抖动（第三十一/三十五批的 flake 根因）。
+    """
+    import inspect
+
+    import tests.performance.test_observability_perf as mod
+
+    src = inspect.getsource(mod)
+    # 反向钉：禁止出现「perf_counter() 前后相减」的裸墙钟计量模式。这种写法绕开
+    # warmup + best-of-N 容差，正是第三十一/三十五批 CI flake 的根因。新用例请走
+    # measure_ms。逐行扫描并跳过注释行，避免把说明文字当成代码命中。
+    import re
+
+    bare = []
+    for line in src.splitlines():
+        code = line.split("#", 1)[0]
+        if re.search(r"time\.perf_counter\(\)\s*-\s*\w", code):
+            bare.append(line.strip())
+    assert not bare, (
+        f"检测到裸墙钟差值计量：{bare}。请改用 measure_ms 以继承 warmup + "
+        "best-of-N 容差"
+    )
+    # 7 个带阈值的性能用例（`*_under_*`）必须逐个走 measure_ms
+    threshold_tests = re.findall(r"(?:async )?def (test_\w*under_\w*)\(", src)
+    assert len(threshold_tests) == 7, f"阈值用例数变了: {threshold_tests}"
+    for name in threshold_tests:
+        body = inspect.getsource(getattr(mod, name))
+        assert "await measure_ms(" in body, (
+            f"{name} 未走 measure_ms（绕开了 warmup + best-of-N 容差）"
+        )
 
 
 @pytest.mark.performance
@@ -345,9 +509,9 @@ async def test_channel_stats_7d_under_200ms(db_session: AsyncSession) -> None:
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
-    t0 = time.perf_counter()
-    result = await _compute_channel_stats(db_session, start, end, None)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
+    elapsed_ms, result = await measure_ms(
+        lambda: _compute_channel_stats(db_session, start, end, None)
+    )
 
     assert "channels" in result
     assert "total_sent" in result
@@ -368,9 +532,9 @@ async def test_silence_hit_rate_under_100ms(db_session: AsyncSession) -> None:
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
-    t0 = time.perf_counter()
-    result = await _compute_silence_hit_rate(db_session, start, end)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
+    elapsed_ms, result = await measure_ms(
+        lambda: _compute_silence_hit_rate(db_session, start, end)
+    )
 
     assert "total_fired" in result
     assert "hit_rate" in result
@@ -392,9 +556,9 @@ async def test_am_sync_under_100ms(db_session: AsyncSession) -> None:
     start = datetime(2026, 5, 27, tzinfo=timezone.utc)
     end = datetime(2026, 6, 3, tzinfo=timezone.utc)
 
-    t0 = time.perf_counter()
-    result = await _compute_am_sync(db_session, start, end, None)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
+    elapsed_ms, result = await measure_ms(
+        lambda: _compute_am_sync(db_session, start, end, None)
+    )
 
     assert "total_success" in result
     assert "by_operation" in result
@@ -414,9 +578,7 @@ async def test_lock_stats_under_50ms(db_session: AsyncSession) -> None:
     base = datetime(2026, 5, 27, 0, 0, 0, tzinfo=timezone.utc)
     await _bulk_insert_lock_logs(db_session, 500, base=base)
 
-    t0 = time.perf_counter()
-    result = await _compute_lock_stats(db_session)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
+    elapsed_ms, result = await measure_ms(lambda: _compute_lock_stats(db_session))
 
     assert "recent_flushes" in result
     assert "historical_recent" in result
