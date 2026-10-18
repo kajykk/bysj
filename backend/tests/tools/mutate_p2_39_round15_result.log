@@ -1,0 +1,50 @@
+========================================================================
+P2 ROUND_15（方向 C：纵向早期检测）闸门变异验证日志
+基线：tests/test_p2_39_early_detection_guard.py 22 passed
+（G1 分组划分×4 / G2 特征零泄漏×3 / G3 标签零泄漏×2 / G4 synthetic×3 /
+  G5 指标口径×7 / G6 基准不变量×3）
+执行方式：手动序列（Edit 应用变异 → pytest → Edit 还原），逐个独立 basetemp
+========================================================================
+
+[M1] .split() 调用去掉 groups= 实参（用户级分组 ⇒ 退化为随机划分）
+     强度自审：强 —— AST 上 groups keyword 从「有」到「无」，真值空间翻转
+[M1] ✓ 变异后闸门变红 (1 failed, 21 passed)
+        FAILED TestG1GroupwiseSplitDiscipline::test_split_call_passes_groups
+[M1] ✓ 还原后恢复绿 (22 passed)
+
+[M2] 引入 TfidfVectorizer（跨 fold 词频统计泄漏）
+     强度自审：强 —— import 符号集翻转
+[M2] ✓ 变异后闸门变红 (1 failed, 21 passed)
+        FAILED TestG2NoCrossFoldFeatureStats::test_no_tfidf
+[M2] ✓ 还原后恢复绿 (22 passed)
+
+[M3] manifest "synthetic": True → False
+     强度自审：强 —— dict value 常量翻转；另有一条 fail-closed（拒跑）防护在
+     ede.load_users() 的运行时检查中（G4::test_evaluator_refuses_unsigned_manifest
+     为源码级断言；运行期拒跑由 load_users 保证，CI 无数据故未实跑）
+[M3] ✓ 变异后闸门变红 (1 failed, 21 passed)
+        FAILED TestG4SyntheticMarking::test_manifest_writes_synthetic_true
+[M3] ✓ 还原后恢复绿 (22 passed)
+
+[M4] 重引入开发期 bug：decide_fixed 未报警返回 len(probs)+1 而非 None
+     强度自审：强 —— 返回类型翻转（None vs int），正是报告 §六.1 记录的真 bug
+[M4] ✓ 变异后闸门变红 (1 failed, 21 passed)
+        FAILED TestG5MetricSemantics::test_decision_helpers_return_none_when_no_alarm
+[M4] ✓ 还原后恢复绿 (22 passed)
+
+========================================================================
+RESULT: ALL PASS（M1 红1 / M2 红1 / M3 红1 / M4 红1，还原后均 22 passed）
+附带：既有棘轮复跑 28 passed（新闸门 22 + 全称注释 + 桶计数家族）
+========================================================================
+
+## 闸门自身的两处修正留档（断言写法的假阴性，已修）
+首版 4 failed，其中 2 条是**源码真问题**、2 条是**断言写法缺陷**：
+- 源码：`.split()` 用位置参数传 groups（AST 查不到 keyword）⇒ 改为显式
+  `groups=groups`；
+- 源码：`fit_pointwise` 里留了 `vec.fit_transform(...) if False else ...`
+  死分支 ⇒ 闸门当场抓到，删除；
+- 断言：`test_manifest_writes_synthetic_true` 按 `ast.keyword` 查找，但源码是
+  dict 字面量（key 不是 keyword）⇒ 假阴性，改为查 `ast.Dict` 的 key/value；
+- 断言：`test_evaluator_never_reads_phq9_columns` 按裸字符串包含查 "phq9"，**命中
+  自己写的 docstring** ⇒ 假阳性（B 轮「文本断言命中 docstring」教训的又一次
+  复现），改为只查 Subscript 下标与 Attribute 属性访问。
