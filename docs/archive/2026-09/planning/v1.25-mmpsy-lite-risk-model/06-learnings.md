@@ -27,6 +27,18 @@ mmpsy 数据集的 9 列中，全部标签（phq9_binary, phq9_level, gad7_binar
 
 12 个 v1.23 特征中，6 个可由 PHQ-9/GAD-7 线性派生（stress_level, anxiety 等），6 个完全缺失（social_support, financial_pressure, family_history 等）。继续做特征映射已无意义。
 
+> ⚠️ **更正（B.5，2026-10-19）：本节把「可由量表派生」记为一种**能力**，漏判了其中
+> 最严重的一层——`stress_level` 派生自**标签所用的那份量表**。**
+> - `v1_24/01_build_mmpsy_features.py:66`：`derive_stress(phq9) = round(phq9/27.0*5.0, 4)`；
+>   标签 `phq9_binary = (phq9_score >= 10)`。实测 `corr(stress_level, phq9_score)=1.0`、
+>   **`stress_level` 单特征 AUC = 1.0000** ⇒ **L4 目标泄漏**，而非「可用的特征映射」。
+> - `anxiety` 派生自 **GAD-7**（`derive_anxiety(gad7)=round(gad7/21*5,4)`），非标签同源，
+>   但实测 `corr(anxiety, phq9_score)=0.7987`、单特征 AUC=0.9200 ⇒ 属**强代理**，
+>   须声明后使用，不能与 `stress_level` 同等对待。
+> - **「继续做特征映射已无意义」这一结论反而被强化**：真正的问题不是「派生可行」，
+>   而是派生出来的特征与标签同源 ⇒ 映射做得越「成功」，评估越无效。
+> 详见 `docs/ML_LEAKAGE_REMEDIATION.md`。
+
 ---
 
 ## 2. 待 Round 2 修复的问题

@@ -217,6 +217,15 @@ Phase 0 验收: 所有资产路径可解析，delta 基线可复现。
 | 覆盖率 < 50% 或 AUC < 0.80 | `mmpsy feature compatibility insufficient` | 受限验证 — 非模型泛化失败 |
 | 覆盖率 < 50% 且 AUC < 0.65 | `mmpsy feature compatibility insufficient` + 回归均值主导 | 无法得出有效结论 |
 
+> ⚠️ **更正（B.5，2026-10-19）：本行「回归均值主导」的归因无效（原文保留作历史快照）。**
+> 该归因的证据链是 `02-architecture.md` Step 7 的 `AUC gap = -0.3744`，而该 gap
+> ①两侧口径不同（冻结跨域推理 vs 域内重训）、②3f 侧被 L4 污染（`stress_level`
+> 与标签 `corr=1.0`、单特征 AUC=1.0000）⇒ 既不能证明填充引入噪声，也不能证明回归均值。
+> **未更正部分**：「覆盖率 < 50% 且 AUC < 0.65 ⇒ 无法得出有效结论」这一**处置结论仍然成立**
+> ——因为 0.6249 经实测未被 L4 污染（同款模型在 mmpsy 上重训 12f 可得 0.9997，
+> 冻结模型未吃到泄漏红利），作为「跨域迁移性能」读数有效。
+> 详见 `docs/ML_LEAKAGE_REMEDIATION.md`。
+
 **交付物**:
 - `mmpsy_external_validation_metrics.json`
 - `mmpsy_external_validation_report.md` (含受限声明)

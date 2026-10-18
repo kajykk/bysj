@@ -98,3 +98,38 @@ CI 干净 checkout 只有入库的 39 个 ⇒ 清单棘轮必红。
 - 未定位「从 tests/tools/ 内 subprocess 调 pytest 挂起」的底层原因。
 - 未验证 mutate_p2_38_round14.py 在 CI（Linux）环境能否跑通；
   若 CI 环境正常，应以其输出为准并回填本日志。
+
+########################################################################
+# 第三轮（B.5 补救轮）：T3 目标泄漏提交期闸门，3 个变异
+# 基线：16 passed（G1×2 + G2×4 + G4×3 + G5×7）
+########################################################################
+
+[M6] 新增 stealth_leak = phq9_score * 0.37 但不登记进 LABEL_DERIVED_FEATURES
+     强度自审：强 —— 真值空间翻转（AST 差集 derived−declared：空 → 非空）
+[M6] ✓ 变异后闸门变红 (1 failed, 15 passed)
+        RED TestG5TargetLeakageCommitGate::test_every_label_derived_feature_is_declared
+        （只红预期那一条，精准非无脑报警）
+[M6] ✓ 还原后恢复绿 (16 passed)
+
+[M7] `if repro:` 改为 `if True:` —— 默认路径改回派生，泄漏特征重新进入默认产出
+     强度自审：强 —— 默认产出形态翻转（NaN/unavailable → 从 phq9_score 派生）
+[M7] ✗ 首次假绿 (16 passed) —— 闸门被自己的变异骗过
+        根因：该用例用**文本断言**（'stress_level_source"] = "unavailable"' in src），
+        只要字符串还在源码里就绿，与它在哪个分支无关。
+        这正是「断言必须钉结构、不能钉字面量」的实锤。
+[M7] 修复：改为 AST 分支断言（解析 if 语句、比较 cond 与 body 里的赋值目标）
+[M7] ✓ 修复后重跑：变红 (1 failed, 15 passed)
+        RED TestG5TargetLeakageCommitGate::test_default_path_does_not_emit_stress
+[M7] ✓ 还原后恢复绿 (16 passed)
+
+[M8] 从 LABEL_DERIVED_FEATURES 删掉 stress_level 登记
+     强度自审：强 —— 登记集合翻转（declared 少一个 ⇒ 差集非空）
+[M8] ✓ 变异后闸门变红 (2 failed, 14 passed)
+        RED TestG5TargetLeakageCommitGate::test_stress_level_is_declared_as_label_derived
+        RED TestG5TargetLeakageCommitGate::test_every_label_derived_feature_is_declared
+[M8] ✓ 还原后恢复绿 (16 passed)
+
+========================================================================
+第三轮 RESULT: ALL PASS（M6 红1 / M7 修复后红1 / M8 红2，还原后均 16 passed）
+附带教训留档：M7 首跑假绿 ⇒ 文本断言改 AST 分支断言后才有效
+========================================================================

@@ -2,6 +2,28 @@
 
 Derives or imputes the 12 v1.23 model features from the mmpsy dataset
 (which contains only PHQ-9 / GAD-7 scores and audio transcripts).
+
+⛔⛔⛔ 禁止用于模型评估（2026-10-19 B.5 补救轮加注） ⛔⛔⛔
+
+本脚本产出的 `stress_level` 曾是 **L4 目标泄漏**的载体：
+
+    derive_stress(phq9) = round(phq9 / 27.0 * 5.0, 4)
+
+而 mmpsy 的标签 `phq9_binary = (phq9_score >= 10)`。实测
+`corr(stress_level, phq9_score) = 1.0`、`stress_level` **单特征 AUC = 1.0000**
+⇒ 任何把该列当输入的「模型性能」读数都是同义反复，**换任何 CV 都修不好**。
+据此得出的 `v1.24` 外部验证结论（3-feature AUC 0.9993、AUC gap -0.3744
+及其「插补引入噪声 → 回归均值」解释）**均已就地更正**，见
+`docs/ML_LEAKAGE_REMEDIATION.md`。
+
+当前行为（默认安全）：
+  * `stress_level` 置为**缺失**（`stress_level_source = "unavailable"`），
+    并在 `mmpsy_feature_mapping_report.md` 显式声明「该特征在 mmpsy 不可得」。
+  * 需要**复现历史产出**时须显式传 `--allow-historical-repro`；
+    该模式会打印醒目警告并在报告中标注 `label_derived: true`。
+
+本文件是**归档历史脚本**：历史已落盘的产出与读数一律不改，只加护栏。
+L4 检测现由 `tests/test_p2_38_leakage_audit_guard.py` 在提交期强制。
 """
 
 from __future__ import annotations
@@ -63,11 +85,42 @@ def derive_sleep_duration(text: str, default: float) -> float:
     return min(values) if values else default
 
 
+# ── 标签同源 / 强代理特征显式登记（B.5 补救轮新增） ──────────────────
+# 供 L4 闸门与 mapping report 消费。**新增派生特征必须同步登记**，否则
+# tests/test_p2_38_leakage_audit_guard.py 的登记完整性断言会红。
+LABEL_DERIVED_FEATURES: dict[str, str] = {
+    "stress_level": (
+        "⛔ 标签同源：round(phq9_score / 27.0 * 5.0, 4)，而标签 "
+        "phq9_binary = (phq9_score >= 10)。实测 corr=1.0、单特征 AUC=1.0000 "
+        "⇒ L4 目标泄漏，禁止进入任何评估。"
+    ),
+}
+# 非同源但强相关（派生自另一量表 GAD-7），须声明后使用
+PROXY_DERIVED_FEATURES: dict[str, str] = {
+    "anxiety": (
+        "⚠️ 派生自另一量表 GAD-7（round(gad7_score / 21.0 * 5.0, 4)），"
+        "非 phq9_binary 同源，但实测 corr(anxiety, phq9_score)=0.7987、"
+        "单特征 AUC=0.9200 ⇒ 属强代理，须声明后使用。"
+    ),
+}
+
+
 def derive_stress(phq9: float) -> float:
+    """⛔ 标签同源派生 —— **默认不可用于建模**，仅 `--allow-historical-repro` 调用。
+
+    `phq9 / 27 * 5` 是标签源 `phq9_score` 的确定性线性变换，而标签
+    `phq9_binary = (phq9_score >= 10)` ⇒ 单特征 AUC = 1.0000（L4 目标泄漏）。
+    保留此函数仅为复现已归档的历史产出；默认路径下 `stress_level` 置缺失。
+    """
     return round(phq9 / 27.0 * 5.0, 4)
 
 
 def derive_anxiety(gad7: float) -> float:
+    """⚠️ 派生自**另一量表 GAD-7**，非标签同源（标签来自 PHQ-9）。
+
+    但实测 corr(anxiety, phq9_score)=0.7987、单特征 AUC=0.9200 ⇒ **强代理**。
+    允许使用，但必须在特征映射报告中声明其来源量表与相关性。
+    """
     return round(gad7 / 21.0 * 5.0, 4)
 
 
@@ -93,6 +146,31 @@ def load_schema_medians() -> dict[str, float]:
 
 
 def main() -> None:
+    import argparse
+    import sys
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--allow-historical-repro",
+        action="store_true",
+        help=(
+            "⛔ 复现已归档的历史产出：恢复 stress_level 的标签同源派生。 "
+            "**仅用于比对历史读数**，产出物禁止用于任何模型评估。"
+        ),
+    )
+    args = ap.parse_args()
+    repro = bool(args.allow_historical_repro)
+
+    if repro:
+        print(
+            "\n" + "⛔" * 30
+            + "\n⛔ --allow-historical-repro 已启用：正在复现**含 L4 目标泄漏**的历史产出。\n"
+            "⛔ stress_level = round(phq9_score/27*5, 4)，与标签 phq9_binary 同源\n"
+            "⛔ （corr=1.0、单特征 AUC=1.0000）。产出物**禁止用于模型评估**。\n"
+            + "⛔" * 30 + "\n",
+            file=sys.stderr,
+        )
+
     mmpsy_path = PROJECT_ROOT / "data" / "external" / "mmpsy_scores.csv"
     output_dir = PROJECT_ROOT / "data" / "processed"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -127,8 +205,15 @@ def main() -> None:
     df_out["family_history_source"] = "imputed"
 
     # -- derived features --
-    df_out["stress_level"] = df["phq9_score"].apply(derive_stress)
-    df_out["stress_level_source"] = "derived"
+    # ⛔ stress_level：默认的**安全路径**——mmpsy 无真实 stress 字段，
+    #    而 phq9 派生版本与标签同源（L4）⇒ 置缺失并显式声明不可得。
+    #    仅 --allow-historical-repro 时恢复历史（泄漏）行为。
+    if repro:
+        df_out["stress_level"] = df["phq9_score"].apply(derive_stress)
+        df_out["stress_level_source"] = "derived"
+    else:
+        df_out["stress_level"] = float("nan")
+        df_out["stress_level_source"] = "unavailable"
 
     df_out["sleep_duration"] = df["audio_transcript"].apply(
         lambda t: derive_sleep_duration(t, medians["sleep_duration"])
@@ -150,6 +235,7 @@ def main() -> None:
 
     df_out["panic_attack"] = df["audio_transcript"].apply(check_crisis)
     df_out["panic_attack_source"] = "derived"
+
 
     # -- save --
     feature_order = [
@@ -183,6 +269,29 @@ def main() -> None:
         strategy = df_out[f"{f}_source"].iloc[0]
         mapping_lines.append(f"| {f} | {strategy} |")
     mapping_lines.append("")
+
+    # ⛔ 标签同源 / 强代理特征显式声明（B.5 补救轮新增）
+    mapping_lines.append("## ⛔ 标签同源与强代理特征声明")
+    mapping_lines.append("")
+    if repro:
+        mapping_lines.append(
+            "> **本产出由 `--allow-historical-repro` 生成，含标签同源特征，"
+            "禁止用于模型评估。**"
+        )
+        mapping_lines.append("")
+    for feat, note in LABEL_DERIVED_FEATURES.items():
+        present = df_out[f"{feat}_source"].iloc[0] == "derived"
+        state = "**已派生（泄漏）**" if present else "已置缺失（unavailable）✅"
+        mapping_lines.append(f"- `{feat}`：{state} — {note}")
+    for feat, note in PROXY_DERIVED_FEATURES.items():
+        mapping_lines.append(f"- `{feat}`：⚠️ 强代理（非同源） — {note}")
+    mapping_lines.append("")
+    mapping_lines.append(
+        "判据来源：`tests/test_p2_38_leakage_audit_guard.py`（L4 目标泄漏闸门，"
+        "|corr| 与单特征 AUC 双阈值 0.99）。"
+    )
+    mapping_lines.append("")
+
     mapping_lines.append(
         f"⚠️ Feature coverage ({coverage_pct}%) is below the 80% threshold. "
         "External validation will be **constrained**."

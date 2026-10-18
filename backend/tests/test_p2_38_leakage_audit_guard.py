@@ -27,6 +27,7 @@
 """
 from __future__ import annotations
 
+import ast as ast_module
 import importlib.util
 import pathlib
 
@@ -311,3 +312,247 @@ class TestG4InventoryCoverageRatchet:
         findings = [f for f in findings if not f["in_test"]]
         unknown = {f["risk"] for f in findings} - known
         assert unknown == set(), f"存在未分类风险标签：{unknown}"
+
+
+# ── G5：L4 目标泄漏的**提交期**闸门（B.5 补救轮新增） ────────────────────
+#
+# 与 G2 的分工：
+#   G2 = 检测器**能力**验证（合成数据上 detect_target_leakage 能检出泄漏）
+#   G5 = 提交期**拦截**（特征构建脚本里新增标签派生特征而未登记 ⇒ 直接红）
+#
+# 为什么必须是 AST 源码断言而不是数据断言：CI 是干净 checkout，
+# `data/processed/mmpsy_structured_features.csv` / `data/external/mmpsy_scores.csv`
+# **都不在版本库内**（实测 `git ls-files` 查无）⇒ 依赖真实数据的断言在 CI 上
+# 只能 skip（G2 的 test_real_mmpsy_stress_is_leaky 即如此）。
+# 提交期闸门不能有这种盲区，故全部走 AST + 合成数据。
+
+MMPSY_BUILDER = (
+    BACKEND / "scripts" / "modeling" / "v1_24" / "01_build_mmpsy_features.py"
+)
+
+# mmpsy 的标签 phq9_binary 及其**唯一来源**列。凡以这些列为输入的派生特征，
+# 都是标签的（近似）确定性函数 ⇒ 必须显式登记，否则视为未申报的 L4。
+LABEL_SOURCE_COLUMNS = frozenset(
+    {"phq9_score", "phq9_binary", "phq9_level", "phq9_total"}
+)
+
+
+def _subscript_const(node: ast_module.expr) -> str | None:
+    """取 `X["literal"]` 形式订阅的字面量键名，非该形式返回 None。"""
+    if not isinstance(node, ast_module.Subscript):
+        return None
+    sl = node.slice
+    if isinstance(sl, ast_module.Constant) and isinstance(sl.value, str):
+        return sl.value
+    return None
+
+
+def _declared_names(tree: ast_module.Module, const_name: str) -> set[str]:
+    """AST 取模块级常量 `<const_name>: dict[str, str] = {...}` 的字符串键集合。
+
+    用 AST 取 `ast.Constant` 实参而非文本匹配：文本断言会命中注释/docstring，
+    且 `ast.unparse()` 输出单引号、文本用双引号会假红。
+    """
+    for node in tree.body:
+        targets: list[ast_module.expr] = []
+        if isinstance(node, ast_module.Assign):
+            targets = list(node.targets)
+        elif isinstance(node, ast_module.AnnAssign):
+            targets = [node.target]
+        else:
+            continue
+        for t in targets:
+            if isinstance(t, ast_module.Name) and t.id == const_name:
+                value = node.value
+                if not isinstance(value, ast_module.Dict):
+                    continue
+                return {
+                    k.value
+                    for k in value.keys
+                    if isinstance(k, ast_module.Constant)
+                    and isinstance(k.value, str)
+                }
+    return set()
+
+
+def _label_derived_assignments(tree: ast_module.Module) -> list[tuple[str, str]]:
+    """AST 提取 `df_out["<feat>"] = ... 含 df["<label_src>"] ...` 的赋值。
+
+    返回 [(feature, label_source_column), ...]。
+    用 AST 而非文本：文本扫描会命中本文件自己的注释/文档字符串，产出假证据。
+    """
+    out: list[tuple[str, str]] = []
+    for node in ast_module.walk(tree):
+        if not isinstance(node, ast_module.Assign):
+            continue
+        for tgt in node.targets:
+            if not isinstance(tgt, ast_module.Subscript):
+                continue
+            base = tgt.value
+            if not (isinstance(base, ast_module.Name) and base.id == "df_out"):
+                continue
+            sl = tgt.slice
+            if not (
+                isinstance(sl, ast_module.Constant) and isinstance(sl.value, str)
+            ):
+                continue
+            feat = sl.value
+            # 在右侧表达式里找 df["..."] 形式的订阅
+            for sub in ast_module.walk(node.value):
+                if not isinstance(sub, ast_module.Subscript):
+                    continue
+                sub_base = sub.value
+                if not (
+                    isinstance(sub_base, ast_module.Name) and sub_base.id == "df"
+                ):
+                    continue
+                s2 = sub.slice
+                if isinstance(s2, ast_module.Constant) and isinstance(s2.value, str):
+                    if s2.value in LABEL_SOURCE_COLUMNS:
+                        out.append((feat, s2.value))
+    return out
+
+
+class TestG5TargetLeakageCommitGate:
+    """L4 目标泄漏提交期闸门：新增标签派生特征必须显式登记，否则直接红。"""
+
+    def test_builder_file_exists(self):
+        assert MMPSY_BUILDER.exists(), f"特征构建脚本缺失：{MMPSY_BUILDER}"
+
+    def test_every_label_derived_feature_is_declared(self):
+        """核心闸门：凡从标签源列派生的特征，必须登记进 LABEL_DERIVED_FEATURES。
+
+        变异 M6 专门用于验证这条是活的：在脚本里新增一个未登记的
+        `df_out["x"] = df["phq9_score"].apply(...)` ⇒ 本条必须红。
+        """
+        tree = ast_module.parse(MMPSY_BUILDER.read_text(encoding="utf-8"))
+        derived = _label_derived_assignments(tree)
+        assert derived, (
+            "未找到任何从标签源列派生的赋值 ⇒ 扫描逻辑失效（假绿），"
+            f"请检查 LABEL_SOURCE_COLUMNS={sorted(LABEL_SOURCE_COLUMNS)}"
+        )
+
+        declared = _declared_names(tree, "LABEL_DERIVED_FEATURES")
+        undeclared = sorted({f for f, _ in derived} - declared)
+        assert undeclared == [], (
+            f"以下特征派生自标签源列但未登记进 LABEL_DERIVED_FEATURES：{undeclared}。"
+            "L4 目标泄漏换任何 CV 都修不好，必须先登记再评估。"
+        )
+
+    def test_stress_level_is_declared_as_label_derived(self):
+        """历史锚定：`stress_level`（corr=1.0、单特征 AUC=1.0000）必须被登记。"""
+        tree = ast_module.parse(MMPSY_BUILDER.read_text(encoding="utf-8"))
+        declared = _declared_names(tree, "LABEL_DERIVED_FEATURES")
+        assert "stress_level" in declared, (
+            f"stress_level 未登记为标签同源特征；当前登记：{sorted(declared)}"
+        )
+
+    def test_anxiety_is_declared_as_proxy(self):
+        """`anxiety` 派生自 GAD-7（非标签同源），但须声明为强代理。
+
+        实测 corr(anxiety, phq9_score)=0.7987、单特征 AUC=0.9200。
+        """
+        tree = ast_module.parse(MMPSY_BUILDER.read_text(encoding="utf-8"))
+        declared = _declared_names(tree, "PROXY_DERIVED_FEATURES")
+        assert "anxiety" in declared, (
+            f"anxiety 未登记为强代理特征；当前登记：{sorted(declared)}"
+        )
+
+    def test_default_path_does_not_emit_stress(self):
+        """默认（非 repro）路径必须把 stress_level 置缺失，不得派生。
+
+        存在意义：这是 T2 护栏的核心。若有人把默认值改回 derived，
+        本条立刻红 ⇒ 泄漏特征不会重新进入默认产出。
+
+        ⚠️ 本条**必须用 AST 断言分支条件，不能用文本断言**：
+        初版写的是文本断言（`'"unavailable"' in src`），实测变异 M7
+        （把 `if repro:` 改成 `if True:`）**仍然全绿**——因为该字符串
+        还留在 else 分支里，文本断言看不出分支条件被改。
+        ⇒ 判定「哪条分支生效」只能靠 AST。变异 M7 用于验证本条已修好。
+        """
+        tree = ast_module.parse(MMPSY_BUILDER.read_text(encoding="utf-8"))
+
+        found = False
+        for node in ast_module.walk(tree):
+            if not isinstance(node, ast_module.If):
+                continue
+            # 该 if 的 body 里必须有对 df_out["stress_level"] 的赋值
+            body_assigns = {
+                _subscript_const(t)
+                for stmt in node.body
+                if isinstance(stmt, ast_module.Assign)
+                for t in stmt.targets
+            }
+            if "stress_level" not in body_assigns:
+                continue
+            found = True
+
+            # 分支条件必须是**变量**（repro），不能是常量 True/False
+            test = node.test
+            assert isinstance(test, ast_module.Name), (
+                "stress_level 的派生分支条件是常量而非变量 ⇒ 默认路径被写死为"
+                f"派生，泄漏特征会进入默认产出：{ast_module.dump(test)}"
+            )
+            assert test.id == "repro", (
+                f"stress_level 派生分支条件应为 `repro`，实际为 `{test.id}`"
+            )
+
+            # else 分支必须置 unavailable
+            else_assigns = {
+                _subscript_const(t)
+                for stmt in node.orelse
+                if isinstance(stmt, ast_module.Assign)
+                for t in stmt.targets
+            }
+            assert "stress_level_source" in else_assigns, (
+                "else 分支未把 stress_level_source 置为 unavailable ⇒ "
+                "默认路径仍会产出泄漏特征"
+            )
+        assert found, (
+            "未找到控制 stress_level 派生的 if 分支 ⇒ 护栏结构已被移除"
+        )
+
+        src = MMPSY_BUILDER.read_text(encoding="utf-8")
+        assert "allow-historical-repro" in src, (
+            "缺少 --allow-historical-repro 显式开关 ⇒ 历史产出无法复现，"
+            "可追溯性受损"
+        )
+
+    def test_prohibition_banner_present(self):
+        """脚本必须带 ⛔ 禁止用于模型评估的醒目横幅。"""
+        src = MMPSY_BUILDER.read_text(encoding="utf-8")
+        assert "禁止用于模型评估" in src, (
+            "脚本缺少「禁止用于模型评估」横幅 ⇒ 后续使用者可能误用其产出"
+        )
+        assert "ML_LEAKAGE_REMEDIATION.md" in src, (
+            "脚本横幅未指向补救文档 ⇒ 排查链路断裂"
+        )
+
+    def test_detector_catches_new_label_derived_feature(self, probe):
+        """端到端：构造一个「从标签派生」的新特征，检测器必须判 leaky。
+
+        这条把 G5 与 G2 串起来：即使有人绕过 AST 登记直接产出特征，
+        数据层的检测器仍然能抓到（双层防线）。
+        """
+        rng = np.random.default_rng(2026)
+        n = 500
+        phq9 = rng.integers(0, 28, size=n)
+        y = (phq9 >= 10).astype(int)
+        df = pd.DataFrame(
+            {
+                # 新增的、未在脚本中登记的标签派生特征（不同的线性变换）
+                "stealth_feature": np.round(phq9 * 0.37 + 1.2, 4),
+                "legit_feature": rng.normal(size=n),
+            }
+        )
+        df["y"] = y
+        res = probe.detect_target_leakage(
+            df, ["stealth_feature", "legit_feature"], "y"
+        )
+        flagged = {r["feature"] for r in res["leaky"]}
+        assert "stealth_feature" in flagged, (
+            f"未登记的标签派生特征未被检出 ⇒ 数据层防线失效：{res}"
+        )
+        assert "legit_feature" not in flagged, (
+            f"正常特征被误报 ⇒ 检测器无脑报警：{res}"
+        )
