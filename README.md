@@ -2,7 +2,7 @@
 
 一个面向高校场景的心理健康筛查与预警平台。项目围绕问卷、文本与生理信号的多模态风险评估展开，并补齐了异步任务、实时告警、模型治理、可观测性与安全合规等工程能力，适合作为“AI + 全栈 + DevOps”综合型个人作品集展示。
 
-[架构文档](docs/architecture.md) · [审计报告](docs/FULL_AUDIT_REPORT.md) · [部署指南](docs/DEPLOYMENT_GUIDE.md) · [变更日志](CHANGELOG.md) · [Issues](https://github.com/kajykk/bysj/issues)
+[架构文档](docs/architecture.md) · [审计报告](docs/FULL_AUDIT_REPORT.md) · [评估可信度报告](docs/EVALUATION_INTEGRITY_REPORT.md) · [部署指南](docs/DEPLOYMENT_GUIDE.md) · [变更日志](CHANGELOG.md) · [Issues](https://github.com/kajykk/bysj/issues)
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)](https://fastapi.tiangolo.com/)
@@ -33,6 +33,7 @@
 - 可观测性完整：Prometheus、Grafana、Sentry、OpenTelemetry、请求追踪
 - 安全合规考虑充分：PII 加密、CSP/XSS 防护、限流、审计与导出/删除支持
 - 测试覆盖全面：单元、集成、契约、E2E、性能与稳定性测试均已纳入
+- 评估可信度治理：全仓 ML 评估入口审计（39 文件 / 87 入口）、泄漏红利量化与补救、目标泄漏提交期闸门（[评估可信度报告](docs/EVALUATION_INTEGRITY_REPORT.md)）
 
 ## 适合谁
 
