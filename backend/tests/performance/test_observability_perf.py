@@ -384,9 +384,11 @@ async def test_measure_ms_uses_min_of_best_of_and_consumes_warmup() -> None:
 
     `measure_ms` 只在 best_of 段调 `clock()`（warmup 段不碰时钟），每段 = clock()
     后减 clock()，故消耗 2 个读数/段。序列只排 3 段样本：
-    (0.0→0.1)=100ms、(0.2→1.1)=900ms、(1.2→1.22)=20ms → 取最小 20ms。
+    (0.0→0.02)=20ms、(0.1→1.0)=900ms、(1.1→1.2)=100ms → 取最小 20ms。
+    **最小值刻意不排在末尾**：末段(100ms) > 最小(20ms)，这样「取最小」与「取末次/
+    首段/均值」在断言上可区分（否则末次恰等于最小，M1 变异无法被捕获）。
     """
-    ticks = iter([0.0, 0.1, 0.2, 1.1, 1.2, 1.22])
+    ticks = iter([0.0, 0.02, 0.1, 1.0, 1.1, 1.2])
     calls = {"n": 0}
 
     async def _fn() -> str:
@@ -402,8 +404,9 @@ async def test_measure_ms_uses_min_of_best_of_and_consumes_warmup() -> None:
 @pytest.mark.performance
 async def test_measure_ms_not_fooled_by_single_spike() -> None:
     """闸门：一次调度尖峰(999ms)不应掩盖真实水平(5ms) —— 这正是 CI flake 的形态。"""
-    # 两段：999ms 与 5ms → 取最小 5ms
-    ticks = iter([0.0, 0.999, 1.0, 1.005])
+    # 两段：5ms 与 999ms(尖峰刻意排末段) → 取最小 5ms。末段=尖峰才能区分
+    # 「取最小」与「取末次」（否则末次恰等于最小，M1 变异无法被捕获）。
+    ticks = iter([0.0, 0.005, 1.0, 1.999])
 
     async def _fn() -> None:
         return None
