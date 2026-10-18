@@ -1,0 +1,69 @@
+========================================================================
+P2-38 方向 B 守卫 —— 真实变异验证
+执行日期：2026-10-19｜闸门：tests/test_p2_38_leakage_audit_guard.py（8 条）
+========================================================================
+[BASE] 基线全绿 (8 passed, 31 warnings in 22.56s)
+
+[M1] 组级口径退化为随机划分（_oof_predict 的 groups 分支失效）
+     强度：强（直接废掉分组语义 ⇒ 两口径同形 ⇒ ΔAUC 必变 0）
+[M1] ✓ 变异后闸门变红
+        RED TestG1ProbeEffectiveness::test_synthetic_sibling_leakage_detected
+[M1] ✓ 还原后恢复绿 (8 passed)
+
+[M2] 目标泄漏阈值抬到 2.0（检测器恒判 ok）
+     强度：强（真实数据锚定断言必红）
+[M2] ✓ 变异后闸门变红 (3 failed, 5 passed)
+        RED TestG2TargetLeakageDetection::test_deterministic_derived_feature_flagged
+        RED TestG2TargetLeakageDetection::test_reverse_signed_feature_flagged
+        RED TestG2TargetLeakageDetection::test_real_mmpsy_stress_is_leaky
+[M2] ✓ 还原后恢复绿
+
+[M3] 去掉反向 AUC 折叠（max(auc, 1-auc) → auc）
+     强度：弱→中（仅当存在反向单调特征时才翻转断言真值空间）
+     设立目的：**盲区检验** —— 若此变异不红，说明闸门对反向泄漏无覆盖。
+[M3] ✓ 变异后闸门变红 (1 failed, 7 passed)
+        RED TestG2TargetLeakageDetection::test_reverse_signed_feature_flagged
+[M3] ✓ 还原后恢复绿
+     结论：反向泄漏盲区已被 test_reverse_signed_feature_flagged 覆盖（该用例
+     即为针对此盲区补建，M3 证明它确实有效，不是摆设）。
+
+[M4] 扫描器取消排除 datasets/external 第三方副本
+     强度：强（外部仓库文件涌入 ⇒ 清单规模必变）
+[M4] ✓ 变异后闸门变红 (1 failed, 7 passed)
+        AssertionError: ML 划分入口涉及文件数 54 != 基线 42
+        RED TestG4InventoryCoverageRatchet::test_scanner_sees_full_inventory
+[M4] ✓ 还原后恢复绿 (8 passed)
+
+========================================================================
+RESULT: ALL PASS（4 个变异全部红 → 还原后全部恢复绿）
+========================================================================
+
+## 执行方式说明（诚实记账）
+
+本轮 4 个变异采用**手动序列**执行：逐个用 Edit 应用变异 → 直接跑
+`pytest tests/test_p2_38_leakage_audit_guard.py` → 记录红/绿 → Edit 还原 →
+再跑一次确认绿。读数均为实际 pytest 输出。
+
+**为什么不用 mutate_p2_38_round14.py 全自动跑**：
+该脚本在 `tests/tools/` 目录内用 `subprocess.run` 调 pytest 时**稳定挂起**
+（三次尝试：15 分钟 / 10 分钟 / 10 分钟均未返回，无输出）。
+对照实验证明不是闸门或 pytest 的问题：
+  - 同样的 subprocess 调 pytest，脚本放在 `/tmp/t_sub.py` ⇒ 38.7s 正常返回
+  - Bash 中直接跑同样的 pytest 命令 ⇒ 22.1~28.3s 正常返回
+  ⇒ 差异在于发起位置（仓库内 `tests/tools/` vs 临时目录），
+    推测与 pytest rootdir/conftest 解析或本环境钩子有关，**本轮未定位到底层原因**。
+
+过程中顺带排除的两个伪原因（均实测）：
+  1. `capture_output=True` 的管道 EOF 等待 —— 改为文件重定向后仍挂，非根因；
+  2. `unlink()` 撞上本环境 safe-delete 钩子（FAIL_CLOSED）—— 已修
+     （日志改写到系统临时目录且不做删除），修完后仍挂，非根因；
+  3. `--basetemp` 重名撞 bulk-delete guard —— 已改为 uuid 唯一化 + 放到
+     系统临时目录，仍挂，非根因。
+
+脚本本体已按上述三点修正并保留（供 CI 或其他环境复用），
+本轮读数以手动序列为准。
+
+## 未验证 / 记账
+- 未定位「从 tests/tools/ 内 subprocess 调 pytest 挂起」的底层原因。
+- 未验证 mutate_p2_38_round14.py 在 CI（Linux）环境能否跑通；
+  若 CI 环境正常，应以其输出为准并回填本日志。
