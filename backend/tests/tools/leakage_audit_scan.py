@@ -19,8 +19,9 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
@@ -100,13 +101,38 @@ def _rel(p: Path) -> str:
 
 
 def _iter_py_files() -> list[Path]:
+    """只扫 **git 跟踪的** .py 文件。
+
+    为什么不用 `rglob`（2026-10-19 CI 红的实锤）：
+    `rglob` 扫的是**本机工作树**，会把未入库的 .py 也算进候选。
+    本机 42 个候选中有 3 个未入库（`models/train_tabular_depression.py`、
+    `models/train_text_depression_classifier.py`、`scripts/deep_analysis_fix.py`），
+    而 CI 的干净 checkout 只有入库的 39 个 ⇒ 清单棘轮在 CI 上必红。
+
+    审计的对象是**交付形态**（入库脚本），不是本机碰巧存在的文件，
+    因此以 `git ls-files` 为唯一事实源。
+    """
+    proc = subprocess.run(
+        ["git", "ls-files"],
+        cwd=str(REPO),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"git ls-files 失败（审计清单必须以 git 跟踪文件为准）：{proc.stderr[:200]}"
+        )
+
     out: list[Path] = []
-    for base in (REPO, BE):
-        for p in base.rglob("*.py"):
-            if any(part in EXCLUDE_PARTS for part in p.parts):
-                continue
-            if p in out:
-                continue
+    for line in proc.stdout.splitlines():
+        rel = line.strip()
+        if not rel.endswith(".py"):
+            continue
+        parts = PurePosixPath(rel).parts
+        if any(part in EXCLUDE_PARTS for part in parts):
+            continue
+        p = REPO / PurePosixPath(rel)
+        if p.exists():
             out.append(p)
     return sorted(set(out))
 

@@ -27,16 +27,47 @@ P2-38 方向 B 守卫 —— 真实变异验证
      结论：反向泄漏盲区已被 test_reverse_signed_feature_flagged 覆盖（该用例
      即为针对此盲区补建，M3 证明它确实有效，不是摆设）。
 
-[M4] 扫描器取消排除 datasets/external 第三方副本
-     强度：强（外部仓库文件涌入 ⇒ 清单规模必变）
-[M4] ✓ 变异后闸门变红 (1 failed, 7 passed)
-        AssertionError: ML 划分入口涉及文件数 54 != 基线 42
+[M4] 扫描器范围被缩小为只扫 backend/
+     强度：强（清单规模必变）
+[M4] ✓ 变异后闸门变红 (1 failed, 8 passed)
+        AssertionError: ML 划分入口涉及文件数 12 != 基线 39
+        （差异诊断已修：明确列出被移除的 27 个 scripts/ 文件）
         RED TestG4InventoryCoverageRatchet::test_scanner_sees_full_inventory
-[M4] ✓ 还原后恢复绿 (8 passed)
+[M4] ✓ 还原后恢复绿 (9 passed)
+
+[M5] 扫描器 git 子命令改成无效命令 `ls-files-typo`（破坏 git 事实源）
+     强度：强（AST 源码断言 + 规模断言双红）
+[M5] ✓ 变异后闸门变红 (3 failed, 6 passed)
+        RED TestG4InventoryCoverageRatchet::test_scanner_sees_full_inventory
+        RED TestG4InventoryCoverageRatchet::test_scanner_sources_from_git_tracked_files
+        RED TestG4InventoryCoverageRatchet::test_every_entry_has_a_risk_label
+[M5] ✓ 还原后恢复绿 (9 passed)
 
 ========================================================================
-RESULT: ALL PASS（4 个变异全部红 → 还原后全部恢复绿）
+RESULT: ALL PASS（5 个变异全部红 → 还原后全部恢复绿）
 ========================================================================
+
+## 第二轮修正（CI 红之后补做，2026-10-19）
+
+首版提交 `f7be1b7` 在 CI 上 backend-coverage 失败（`1 failed, 6985 passed`）：
+  AssertionError: ML 划分入口涉及文件数 39 != 基线 42
+原因：扫描器用 `rglob` 扫**本机工作树**，把 3 个未入库 .py 计入候选；
+CI 干净 checkout 只有入库的 39 个 ⇒ 清单棘轮必红。
+（未入库的三个：models/train_tabular_depression.py、
+  models/train_text_depression_classifier.py、scripts/deep_analysis_fix.py）
+
+修正：
+  1. 扫描源改为 `git ls-files`，只认交付形态 ⇒ 本机与 CI 均为 39 文件 / 87 入口
+  2. 基线 BASELINE_FILES 42→39、BASELINE_ENTRIES 92→87，并新增 BASELINE_FILE_SET
+  3. 新增 AST 源码级断言 test_scanner_sources_from_git_tracked_files
+     （钉住「必须用 git ls-files、不得用 rglob」）
+  4. 修错误信息：原 `sorted(files - set())` 恒等于 files、失败时全量重列无诊断价值，
+     改为输出真实的新增/移除差异
+  5. M4 原设计「取消排除 datasets/external」已失效（datasets/ 下 581 个 py
+     全部未入库，取消排除也不改变结果 ⇒ 假绿），重设计为「扫描范围缩小」
+  6. 新增 M5 守护 git 事实源不变量
+
+本轮 M1/M2/M3 为第一轮读数（基线 8 条）；M4/M5 为第二轮读数（基线 9 条）。
 
 ## 执行方式说明（诚实记账）
 

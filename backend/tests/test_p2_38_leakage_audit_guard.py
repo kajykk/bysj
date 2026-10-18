@@ -39,8 +39,60 @@ BACKEND = REPO / "backend"
 TOOLS = pathlib.Path(__file__).resolve().parent / "tools"
 
 # G4 棘轮基线：2026-10-19 实测（排除 tests/ 与 datasets/external/ 第三方副本）
-BASELINE_FILES = 42
-BASELINE_ENTRIES = 92
+#
+# ⚠️ 基线口径以 **git 跟踪文件** 为准（扫描器 _iter_py_files 走 `git ls-files`）。
+# 初版曾钉 42 文件 / 92 入口，那是 `rglob` 扫本机工作树的结果，其中包含
+# 3 个未入库脚本（models/train_tabular_depression.py、
+# models/train_text_depression_classifier.py、scripts/deep_analysis_fix.py）
+# ⇒ CI 干净 checkout 只有 39 ⇒ 闸门在 CI 上必红（2026-10-19 实测）。
+# 教训：断言必须钉交付形态下不变的事实，不是本机碰巧成立的状态。
+BASELINE_FILES = 39
+BASELINE_ENTRIES = 87
+
+# 基线的文件级快照（用于失败时输出真实新增/移除差异，而不是把全量重列一遍）
+BASELINE_FILE_SET: frozenset[str] = frozenset(
+    {
+        "backend/app/ml/hyperparameter_tuning.py",
+        "backend/app/services/experiment_data.py",
+        "backend/scripts/modeling/v1_23/01_prepare_external_dataset.py",
+        "backend/scripts/modeling/v1_24/02_validate_mmpsy.py",
+        "backend/scripts/modeling/v1_25/02_train_lite_model.py",
+        "backend/scripts/modeling/v1_25/03_ablation_study.py",
+        "backend/scripts/modeling/v1_26/00_reproduce_baseline.py",
+        "backend/scripts/modeling/v1_26/01_threshold_sweep.py",
+        "backend/scripts/modeling/v1_27/01_calibrate_lite_lr.py",
+        "backend/scripts/modeling/v1_27/03_groupwise_leakage_free_eval.py",
+        "backend/scripts/modeling/v1_27/04_retrain_bilingual_text_groupwise.py",
+        "backend/scripts/modeling/verify_current_models.py",
+        "scripts/data_prep/structured_feature_engineering.py",
+        "scripts/deep_analysis.py",
+        "scripts/eval_model.py",
+        "scripts/evaluation/evaluate_model.py",
+        "scripts/lib/fusion_pipeline.py",
+        "scripts/m1_structured_gbdt.py",
+        "scripts/m2_group_cv_eval.py",
+        "scripts/m2_text_bert.py",
+        "scripts/m2_text_bert_retrain.py",
+        "scripts/m5_calibration_thresholds.py",
+        "scripts/ml_training/data_utils.py",
+        "scripts/ml_training/evaluate_models.py",
+        "scripts/ml_training/train_bilingual_text.py",
+        "scripts/ml_training/train_fusion.py",
+        "scripts/ml_training/train_text.py",
+        "scripts/multi_model_compare.py",
+        "scripts/optimize_fusion_weights.py",
+        "scripts/p2_bert_onnx_quantize.py",
+        "scripts/p2_bert_quantization.py",
+        "scripts/t1_bert_grid.py",
+        "scripts/t1_group_cv_tool.py",
+        "scripts/t1_sentence_embedding_eval.py",
+        "scripts/train_and_eval.py",
+        "scripts/train_physiological.py",
+        "scripts/train_physiological_xgboost.py",
+        "scripts/train_structured_fallback.py",
+        "scripts/train_text_bert.py",
+    }
+)
 
 
 def _load(name: str, path: pathlib.Path):
@@ -194,13 +246,55 @@ class TestG4InventoryCoverageRatchet:
         findings = [f for f in findings if not f["in_test"]]
 
         files = {f["file"] for f in findings}
-        assert len(files) == BASELINE_FILES, (
-            f"ML 划分入口涉及文件数 {len(files)} != 基线 {BASELINE_FILES}。"
-            f"新增文件（若有）: {sorted(files - set())[:5]} —— 必须同步 docs/ML_LEAKAGE_AUDIT.md"
-        )
+        if len(files) != BASELINE_FILES:
+            # 输出真实差异，而不是把全部文件列一遍（初版的 files - set() 是空集，毫无诊断价值）
+            added = sorted(files - BASELINE_FILE_SET)
+            removed = sorted(BASELINE_FILE_SET - files)
+            raise AssertionError(
+                f"ML 划分入口涉及文件数 {len(files)} != 基线 {BASELINE_FILES}。"
+                f"新增: {added}；移除: {removed} —— "
+                "必须同步 docs/ML_LEAKAGE_AUDIT.md 并更新 BASELINE_FILES"
+            )
         assert len(findings) == BASELINE_ENTRIES, (
             f"ML 划分入口总数 {len(findings)} != 基线 {BASELINE_ENTRIES}；"
             "新增/删除入口必须同步审计清单"
+        )
+
+    def test_scanner_sources_from_git_tracked_files(self):
+        """扫描器必须以 `git ls-files` 为事实源，不得用 rglob 扫工作树。
+
+        存在意义：初版用 `rglob` 扫工作树，把本机 3 个未入库 .py 混入候选
+        （42 文件），而 CI 干净 checkout 只有 39 ⇒ 清单棘轮在 CI 上必红。
+        本条把「只扫交付形态」钉成源码级不变量（AST 断言，非文本匹配）。
+        变异 M5 专门用于验证这条覆盖是活的。
+        """
+        import ast
+
+        src = (TOOLS / "leakage_audit_scan.py").read_text(encoding="utf-8")
+        tree = ast.parse(src)
+
+        target = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_iter_py_files":
+                target = node
+                break
+        assert target is not None, "_iter_py_files 函数不存在"
+
+        constants = {
+            n.value
+            for n in ast.walk(target)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+        }
+        assert "ls-files" in constants, (
+            f"_iter_py_files 未调用 git ls-files；当前字符串常量: {sorted(constants)}"
+        )
+        rglob_calls = [
+            n.attr
+            for n in ast.walk(target)
+            if isinstance(n, ast.Attribute) and n.attr == "rglob"
+        ]
+        assert rglob_calls == [], (
+            f"_iter_py_files 仍在使用 rglob（会把未入库文件混入 ⇒ CI 必红）: {rglob_calls}"
         )
 
     def test_every_entry_has_a_risk_label(self, scanner):

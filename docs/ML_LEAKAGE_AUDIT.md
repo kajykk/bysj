@@ -22,7 +22,8 @@
 
 ## 二、方法
 
-1. **AST 扫描**（不是文本匹配）：遍历全仓 `.py`，提取 `ast.Call` 中属于
+1. **AST 扫描**（不是文本匹配）：遍历 **git 跟踪的** `.py`（`git ls-files`），
+   提取 `ast.Call` 中属于
    `train_test_split / KFold / GroupKFold / StratifiedKFold / StratifiedGroupKFold /
    ShuffleSplit / GroupShuffleSplit / LeaveOneGroupOut / LeavePGroupsOut /
    TimeSeriesSplit / cross_val_score / cross_validate / cross_val_predict` 的调用点，
@@ -30,7 +31,20 @@
    *用 AST 的理由：文本扫描会命中扫描器自己的 docstring 与字符串，产出假证据。*
 2. **排除范围**：`tests/`（测试代码不是评估口径）、
    `datasets/external/`（第三方仓库副本，含 `archive/`，不属本仓自研口径）。
+   > 补记：`datasets/` 下的 581 个 py **全部未入库**，改用 `git ls-files` 后本就
+   > 不会被扫到；`external` 排除项保留作双保险，但已不是唯一防线。
 3. **工具只做粗排**——每条候选仍需人工核对后才进清单（见 §五的裁定表）。
+
+> ⚠️ **第二处工具缺陷（CI 实锤，比第一处更值得记）**：
+> 扫描器初版用 `rglob` 扫**本机工作树**，把 3 个**未入库**的脚本也计入候选，
+> 得到 42 文件 / 92 入口；而 CI 的干净 checkout 只有 **39 文件 / 87 入口**
+> ⇒ 清单棘轮（`test_scanner_sees_full_inventory`）在 CI 上必红。
+> 未入库的三个是：`models/train_tabular_depression.py`、
+> `models/train_text_depression_classifier.py`、`scripts/deep_analysis_fix.py`。
+> **修正**：扫描源改为 `git ls-files`（只认交付形态），基线改钉 39 / 87，
+> 并新增 AST 源码级断言 `test_scanner_sources_from_git_tracked_files`
+> 钉住「不得再用 rglob」。这正是「断言必须钉**交付形态下不变的事实**，
+> 而不是本机碰巧成立的状态」这条纪律的第四次实锤。
 
 > ⚠️ 过程中发现并修正了一个真实的工具缺陷：扫描器的路径常量
 > `parents[2]` 实际指向 `backend/` 而非仓库根，导致根目录 `scripts/`
@@ -49,7 +63,7 @@
 
 **L4 是本轮最严重的发现**，见 §五。
 
-## 四、全量清单（42 文件 / 92 入口）
+## 四、全量清单（39 文件 / 87 入口）
 
 区域划分：`A` 生产服务 / `B` v1.27 建模 / `C` v1.23~26 建模 / `D` 后端脚本 / `E` ML 训练 / `F` 历史实验
 
@@ -72,11 +86,8 @@
 | E | `scripts/ml_training/train_bilingual_text.py` | 2 | `train_test_split`×2 | L1 |
 | E | `scripts/ml_training/train_fusion.py` | 1 | `train_test_split`×1 | L1 |
 | E | `scripts/ml_training/train_text.py` | 1 | `train_test_split`×1 | L1 |
-| F | `models/train_tabular_depression.py` | 1 | `train_test_split`×1 | L1 |
-| F | `models/train_text_depression_classifier.py` | 1 | `train_test_split`×1 | L1 |
 | F | `scripts/data_prep/structured_feature_engineering.py` | 5 | `train_test_split`×4, `StratifiedKFold`×1 | L1+L2 |
 | F | `scripts/deep_analysis.py` | 4 | `train_test_split`×2, `cross_validate`×1, `StratifiedKFold`×1 | L1 |
-| F | `scripts/deep_analysis_fix.py` | 3 | `train_test_split`×1, `cross_validate`×1, `StratifiedKFold`×1 | L1 |
 | F | `scripts/eval_model.py` | 1 | `best_threshold`×1 | L3 |
 | F | `scripts/evaluation/evaluate_model.py` | 2 | `cross_validate`×1, `StratifiedKFold`×1 | L1 |
 | F | `scripts/lib/fusion_pipeline.py` | 8 | `StratifiedKFold`×8 | L1 |
@@ -98,7 +109,12 @@
 | F | `scripts/train_structured_fallback.py` | 3 | `train_test_split`×1, `best_score`×2 | L1+L2 |
 | F | `scripts/train_text_bert.py` | 1 | `train_test_split`×1 | L1 |
 
-**区域汇总**：A 2 文件/7 入口｜B 3/8｜C 6/11｜D 1/1｜E 5/8｜F 25/57｜**合计 42 文件 / 92 入口**
+**区域汇总**：A 2 文件/7 入口｜B 3/8｜C 6/11｜D 1/1｜E 5/8｜F 22/52｜**合计 39 文件 / 87 入口**
+
+> 口径说明：本清单只含 **git 跟踪（已交付）** 的脚本。初版曾列 42 文件/92 入口，
+> 其中 `models/train_tabular_depression.py`、`models/train_text_depression_classifier.py`、
+> `scripts/deep_analysis_fix.py` 三个**未入库**，已按交付形态剔除（详见 §二补记）。
+> 这三个若将来入库，清单棘轮会红并强制重新审计。
 
 ## 五、关键发现（按严重度排序）
 
@@ -174,8 +190,8 @@ def derive_stress(phq9: float) -> float:
 |---|---|
 | `backend/tests/tools/leakage_audit_scan.py` | AST 扫描全仓划分入口，输出候选 JSON |
 | `backend/tests/tools/leakage_delta_probe.py` | 同数据双口径对照 + 目标泄漏检测；`--self-test` 自检 |
-| `backend/tests/test_p2_38_leakage_audit_guard.py` | 8 条闸门（G1 探针有效性 / G2 目标泄漏 / G3 反弱化 / G4 清单棘轮） |
-| `backend/tests/tools/mutate_p2_38_round14.py` | 4 个真实变异，验证闸门能红且能还原 |
+| `backend/tests/test_p2_38_leakage_audit_guard.py` | 9 条闸门（G1 探针有效性 / G2 目标泄漏 / G3 反弱化 / G4 清单棘轮 + git 事实源不变量） |
+| `backend/tests/tools/mutate_p2_38_round14.py` | 5 个真实变异，验证闸门能红且能还原 |
 
 **判据为何用 ΔAUC 而非 ΔF1**（自检实测得出，非臆断）：
 固定阈值 0.3 下，组级 held-out 令测试组 token 全部 OOV ⇒ TF-IDF 向量近似全零
@@ -191,7 +207,11 @@ def derive_stress(phq9: float) -> float:
    （占比 0.2%，预估可忽略，但未实测）。
 3. **未改动任何脚本口径**：本轮只检测不整改，所有发现均为新增记账，
    不构成对既有读数的修正，也不推翻 P2-1/P2-2 的任何结论。
-4. `datasets/external/` 第三方副本已排除在审计范围外，
-   若将来它们被纳入本仓评估链路，**必须重新纳入扫描**。
+4. `datasets/external/` 第三方副本已排除在审计范围外（且全部未入库），
+   若将来它们被纳入本仓评估链路并入库，**必须重新纳入扫描**。
+5. **三个未入库脚本未纳入本轮清单**（`models/train_tabular_depression.py`、
+   `models/train_text_depression_classifier.py`、`scripts/deep_analysis_fix.py`）。
+   它们在本机工作树中存在且各含 1 处 `train_test_split`，但**未交付**，
+   按交付形态口径不计入；若将来入库，G4 棘轮会红并强制补审。
 5. 本轮**未**执行方向 A（逐症状证据链）与方向 C（隐私 LLM 编码），
    方向 A 的可行性结论见立项文档（受限于「文本」与「逐条目标签」落在不相交数据上）。

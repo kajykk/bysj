@@ -84,14 +84,28 @@ MUTATIONS: tuple[Mutation, ...] = (
             "TestG2TargetLeakageDetection::test_reverse_signed_feature_flagged",
         ),
     ),
+    # M4 原设计「取消排除 datasets/external」已失效：
+    # 扫描源改为 `git ls-files` 后，datasets/ 下的 581 个第三方 py **全部未入库**，
+    # 本来就不会被扫到 ⇒ 取消排除也不会改变结果 ⇒ 假绿（无效变异）。
+    # 因此改为「扫描范围被缩小」，这才是真正能被闸门捕捉的破坏。
     Mutation(
         mid="M4",
-        desc="扫描器取消排除 datasets/external 第三方副本",
+        desc="扫描器范围被缩小为只扫 backend/",
         target=SCAN,
-        old='    # 第三方仓库副本（datasets/external/...），不属本仓自研评估口径\n    "external",\n',
-        new="",
+        old='["git", "ls-files"],\n        cwd=str(REPO),',
+        new='["git", "ls-files", "backend/"],\n        cwd=str(REPO),',
         expect_red_gates=(
             "TestG4InventoryCoverageRatchet::test_scanner_sees_full_inventory",
+        ),
+    ),
+    Mutation(
+        mid="M5",
+        desc="扫描器 git 子命令改成无效命令（破坏 git 事实源）",
+        target=SCAN,
+        old='["git", "ls-files"],\n        cwd=str(REPO),',
+        new='["git", "ls-files-typo"],\n        cwd=str(REPO),',
+        expect_red_gates=(
+            "TestG4InventoryCoverageRatchet::test_scanner_sources_from_git_tracked_files",
         ),
     ),
 )

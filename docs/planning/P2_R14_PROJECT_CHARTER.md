@@ -51,7 +51,8 @@
 
 完整清单与裁定见 **`docs/ML_LEAKAGE_AUDIT.md`**。摘要：
 
-- 全仓本仓自研 ML 划分入口：**42 文件 / 92 处**（AST 扫描，排除 `tests/` 与第三方副本）
+- 全仓本仓自研 ML 划分入口：**39 文件 / 87 处**
+  （AST 扫描 **git 跟踪文件**，排除 `tests/` 与第三方副本）
 - 建立三类问题定义：L1 随机划分不守恒 / L2 逐层挑优 / L3 阈值在评估集上选 / **L4 目标泄漏**
 - 实证「泄漏前后指标差」（核心产出）：
 
@@ -88,7 +89,7 @@ mmpsy 那份数据重复率高达 55.9%，但实测 Δ≈0。原因不是没泄�
 
 | 提示词要求（方向 B） | 达成 | 证据 |
 |---|---|---|
-| 审计清单 100% 覆盖既有 ML 评估脚本 | ✅ | 42 文件 / 92 入口全量 AST 扫描 + 逐条人工核对 |
+| 审计清单 100% 覆盖既有 ML 评估脚本 | ✅ | 39 文件 / 87 入口全量 AST 扫描（git 跟踪口径）+ 逐条人工核对 |
 | 每条给出「泄漏前后指标差」实证 | ⚠️ 部分 | 两条主线已实测落盘（见 §二表）；**4 处阈值挑优未逐条核实**——见 §五记账 |
 
 ⚠️ 为何是「部分」：扫描器只能识别「存在 `best_threshold`/`best_f1` 赋值」这一**形态信号**，
@@ -99,12 +100,12 @@ mmpsy 那份数据重复率高达 55.9%，但实测 Δ≈0。原因不是没泄�
 
 | 文件 | 说明 |
 |---|---|
-| `docs/ML_LEAKAGE_AUDIT.md` | 审计清单（42 文件 / 92 入口，含裁定与实证） |
+| `docs/ML_LEAKAGE_AUDIT.md` | 审计清单（39 文件 / 87 入口，含裁定与实证） |
 | `docs/planning/P2_R14_PROJECT_CHARTER.md` | 本立项文档 |
 | `backend/tests/tools/leakage_audit_scan.py` | AST 扫描器（粗排），输出候选 JSON |
 | `backend/tests/tools/leakage_delta_probe.py` | 双口径对照 + 目标泄漏检测 + `--self-test` |
-| `backend/tests/test_p2_38_leakage_audit_guard.py` | 8 条闸门 |
-| `backend/tests/tools/mutate_p2_38_round14.py` | 4 个真实变异 |
+| `backend/tests/test_p2_38_leakage_audit_guard.py` | 9 条闸门 |
+| `backend/tests/tools/mutate_p2_38_round14.py` | 5 个真实变异 |
 | `backend/tests/tools/mutate_p2_38_round14_result.log` | 变异日志 |
 
 ## 五、未验证 / 记账（不得省略）
@@ -121,6 +122,16 @@ mmpsy 那份数据重复率高达 55.9%，但实测 Δ≈0。原因不是没泄�
    若要推进须先解决「文本 × 条目标签不相交」（见 §六出路）。
 5. **方向 C 未执行**。
 6. 工具缺陷已修但值得留档：扫描器路径常量曾漏扫 4 倍入口（见 §〇注）。
+7. **首版 CI 红了一次（已修，如实记录）**：`f7be1b7` 的 backend-coverage 失败
+   （`1 failed, 6985 passed`），原因是清单棘轮钉了 **42 文件 / 92 入口**——
+   那是扫描器用 `rglob` 扫**本机工作树**的结果，含 3 个未入库脚本
+   （`models/train_tabular_depression.py`、`models/train_text_depression_classifier.py`、
+   `scripts/deep_analysis_fix.py`），而 CI 干净 checkout 只有 **39**。
+   修正：扫描源改为 `git ls-files`（只认交付形态），基线改钉 39 / 87，
+   并新增 AST 源码级断言 `test_scanner_sources_from_git_tracked_files`
+   钉住「不得再用 rglob」。这是「断言必须钉**交付形态下不变的事实**」的第四次实锤。
+   顺带修掉一处无诊断价值的错误信息：原断言写 `sorted(files - set())`（恒等于 files），
+   失败时把全量重列一遍；现已改为输出真实的新增/移除差异。
 
 ## 六、方向 A 的合规出路（供下一轮决策，本轮不执行）
 
