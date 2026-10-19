@@ -47,12 +47,20 @@ TOOLS = pathlib.Path(__file__).resolve().parent / "tools"
 # models/train_text_depression_classifier.py、scripts/deep_analysis_fix.py）
 # ⇒ CI 干净 checkout 只有 39 ⇒ 闸门在 CI 上必红（2026-10-19 实测）。
 # 教训：断言必须钉交付形态下不变的事实，不是本机碰巧成立的状态。
-BASELINE_FILES = 39
-BASELINE_ENTRIES = 87
+#
+# ROUND_16 更新（2026-10-20 实测，扫描器复跑 readings：files_touched=40 /
+# total_findings=88）：T2 融合消融新增 `backend/app/ml/fusion_ablation.py`，
+# 其中 `groupwise_kfold_indices` 用 `StratifiedGroupKFold`，扫描器 AST 层只查
+# 构造器 kwargs 里的 `groups=`，而本实现把 `groups` 传给 `.split()` 并在返回前
+# 逐折实测「同组不跨折」（重叠即 raise）⇒ 人工核对为**合规入口**，
+# `group_aware_without_groups` 标签是 AST 层误报，记账为合规。
+BASELINE_FILES = 40
+BASELINE_ENTRIES = 88
 
 # 基线的文件级快照（用于失败时输出真实新增/移除差异，而不是把全量重列一遍）
 BASELINE_FILE_SET: frozenset[str] = frozenset(
     {
+        "backend/app/ml/fusion_ablation.py",
         "backend/app/ml/hyperparameter_tuning.py",
         "backend/app/services/experiment_data.py",
         "backend/scripts/modeling/v1_23/01_prepare_external_dataset.py",

@@ -63,12 +63,13 @@
 
 **L4 是本轮最严重的发现**，见 §五。
 
-## 四、全量清单（39 文件 / 87 入口）
+## 四、全量清单（40 文件 / 88 入口）
 
 区域划分：`A` 生产服务 / `B` v1.27 建模 / `C` v1.23~26 建模 / `D` 后端脚本 / `E` ML 训练 / `F` 历史实验
 
 | 区域 | 文件 | 入口数 | 调用 | 风险标签 |
 |---|---|---|---|---|
+| A | `backend/app/ml/fusion_ablation.py` | 1 | `StratifiedGroupKFold`×1 | 合规（groups 传 `.split()`，AST 误报已核） |
 | A | `backend/app/ml/hyperparameter_tuning.py` | 5 | `best_f1`×5 | L2 |
 | A | `backend/app/services/experiment_data.py` | 2 | `train_test_split`×2 | L1 |
 | B | `backend/scripts/modeling/v1_27/01_calibrate_lite_lr.py` | 2 | `train_test_split`×2 | L1 |
@@ -109,12 +110,20 @@
 | F | `scripts/train_structured_fallback.py` | 3 | `train_test_split`×1, `best_score`×2 | L1+L2 |
 | F | `scripts/train_text_bert.py` | 1 | `train_test_split`×1 | L1 |
 
-**区域汇总**：A 2 文件/7 入口｜B 3/8｜C 6/11｜D 1/1｜E 5/8｜F 22/52｜**合计 39 文件 / 87 入口**
+**区域汇总**：A 3 文件/8 入口｜B 3/8｜C 6/11｜D 1/1｜E 5/8｜F 22/52｜**合计 40 文件 / 88 入口**
 
 > 口径说明：本清单只含 **git 跟踪（已交付）** 的脚本。初版曾列 42 文件/92 入口，
 > 其中 `models/train_tabular_depression.py`、`models/train_text_depression_classifier.py`、
 > `scripts/deep_analysis_fix.py` 三个**未入库**，已按交付形态剔除（详见 §二补记）。
 > 这三个若将来入库，清单棘轮会红并强制重新审计。
+
+> ROUND_16 补记（2026-10-20 实测扫描：files_touched=40 / total_findings=88）：
+> T2 融合消融新增 `backend/app/ml/fusion_ablation.py` 的
+> `groupwise_kfold_indices`。扫描器 AST 层只查划分器**构造器** kwargs 中的
+> `groups=`，而本实现把 `groups` 传给 `.split()`，并在返回前逐折实测
+> 「同组不跨折」（重叠即 raise）⇒ 标签 `group_aware_without_groups` 为
+> **AST 层误报**，人工逐条核对后记账为合规入口（已登记守卫基线
+> BASELINE_FILES=40 / BASELINE_ENTRIES=88）。
 
 ## 五、关键发现（按严重度排序）
 
