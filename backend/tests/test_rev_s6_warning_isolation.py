@@ -87,13 +87,53 @@ async def _seed_bad_template_context(factory) -> int:
 
 async def test_fire_and_forget_keeps_warning_when_intervention_fails(
     real_session_factory,
+    monkeypatch,
 ):
     from app.services.risk_service import _trigger_warning_and_intervention
 
     risk_id = await _seed_bad_template_context(real_session_factory)
 
+    # REV-2026-10-20：加**方言无关**的顺序断言。
+    #
+    # 背景：本用例原只断言「预警行最终还在」。但它跑在**独立 SQLite 引擎**上，
+    # 而预警的 INSERT 是在 ``begin_nested()``（SAVEPOINT）里 flush 的 ——
+    # SQLAlchemy 退出 savepoint 时发 ``RELEASE SAVEPOINT``，在 SQLite（pysqlite
+    # legacy 模式不显式 BEGIN）下这等同 COMMIT ⇒ 预警**已经被落库**，后续那次
+    # rollback 撤不掉它。于是「把预警的独立 commit 删掉」这个变异在本用例上
+    # **照样绿**（实测：session 调用序从 ['commit','rollback'] 变成 ['rollback']，
+    # 预警数仍是 1）—— 假绿。
+    #
+    # 而生产是 PostgreSQL：``RELEASE SAVEPOINT`` **不**提交外层事务，删掉预警的
+    # 独立 commit 就会真的丢预警。⇒ 本用例在 SQLite 上**测不出**它声称的不变式。
+    #
+    # 修法：断言「预警提交**早于**干预生成」这个**机制**，与方言无关。
+    order: list[str] = []
+
+    from app.services.risk_service import RiskService
+
+    orig_gen = RiskService.generate_intervention_for_risk
+
+    async def _gen(self, risk):  # noqa: ANN001, ANN202
+        order.append("intervention")
+        return await orig_gen(self, risk)
+
+    orig_commit = AsyncSession.commit
+
+    async def _commit(self, *a, **k):  # noqa: ANN001, ANN002, ANN003
+        order.append("commit")
+        return await orig_commit(self, *a, **k)
+
+    monkeypatch.setattr(RiskService, "generate_intervention_for_risk", _gen)
+    monkeypatch.setattr(AsyncSession, "commit", _commit)
+
     # 改前：ValueError 从这里冒出去（调用方只有 done-callback 日志）
     await _trigger_warning_and_intervention(701, risk_id, 3)
+
+    assert "commit" in order, f"预警未发生独立提交：{order}"
+    assert "intervention" in order, f"干预生成未被观测：{order}"
+    assert order.index("commit") < order.index("intervention"), (
+        f"预警提交必须早于干预生成（否则干预失败会连带回滚预警），实际顺序 {order}"
+    )
 
     async with real_session_factory() as db:
         warnings = (
