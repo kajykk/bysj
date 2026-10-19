@@ -219,6 +219,40 @@ UNFILTERED_QUERY_ALLOWLIST: set[str] = {
 }
 
 
+# REV-2026-10-20：识别「惯用租户过滤形式」。
+# 本仓的惯用写法是调用 ``tenant_scoped_filter(Model, tenant_id)`` /
+# ``tenant_scoped_query(Model, tenant_id)``（见 app/core/tenant_query.py）。
+# 旧判据只认「语句里出现 X.tenant_id 属性」这一**字面量**形式 ⇒ 惯用 helper
+# 调用被误判成"无 tenant 过滤"（假阳性：S3 把 counselor_service_user.py 的
+# db.get(User, ...) 改成 select(User).where(..., tenant_scoped_filter(...)) 后
+# 立刻被误报）。这正是「断言钉结构不钉字面量」的反面教材：闸门认的是写法，
+# 不是语义。
+# 收紧点：helper 的第一个实参必须确实是**本语句所查的**租户敏感模型 ——
+# 防止拿别的模型的过滤条件顶包，把真漏网的查询蒙混过关。
+_TENANT_FILTER_HELPERS = {"tenant_scoped_filter", "tenant_scoped_query"}
+
+
+def _statement_has_tenant_filter(node: ast.stmt, model_names: set[str]) -> bool:
+    """判断语句是否带租户过滤：字面量形式（X.tenant_id）或惯用 helper 形式。"""
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Attribute) and sub.attr == "tenant_id":
+            return True
+    for sub in ast.walk(node):
+        if not (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)):
+            continue
+        if sub.func.id not in _TENANT_FILTER_HELPERS:
+            continue
+        for arg in sub.args:
+            name = None
+            if isinstance(arg, ast.Name):
+                name = arg.id
+            elif isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name):
+                name = arg.value.id
+            if name in model_names:
+                return True
+    return False
+
+
 def _unfiltered_tenant_queries() -> set[str]:
     """返回「未带 tenant 过滤的租户敏感表查询」所在文件集合。
 
@@ -237,7 +271,7 @@ def _unfiltered_tenant_queries() -> set[str]:
         for node in ast.walk(tree):
             if not isinstance(node, ast.stmt):
                 continue
-            has_select = False
+            selected_models: set[str] = set()
             for sub in ast.walk(node):
                 if (
                     isinstance(sub, ast.Call)
@@ -252,14 +286,10 @@ def _unfiltered_tenant_queries() -> set[str]:
                     elif isinstance(first, ast.Attribute) and isinstance(first.value, ast.Name):
                         name = first.value.id
                     if name in TENANT_SENSITIVE_MODELS:
-                        has_select = True
-                        break
-            if not has_select:
+                        selected_models.add(name)
+            if not selected_models:
                 continue
-            has_tenant = any(
-                isinstance(s, ast.Attribute) and s.attr == "tenant_id" for s in ast.walk(node)
-            )
-            if not has_tenant:
+            if not _statement_has_tenant_filter(node, selected_models):
                 found.add(rel)
     return found
 

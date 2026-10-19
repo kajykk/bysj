@@ -776,6 +776,16 @@ class TestWarningInterventionFireAndForget:
             mock_service.generate_intervention_for_risk = AsyncMock(return_value=None)
             mock_service_cls.return_value = mock_service
 
+            # REV-2026-10-20 (S6)：预警必须**先于**干预生成提交 —— 这才是
+            # 「坏模板不会带走预警」这个不变式。旧断言只数 commit 次数（==1），
+            # S6 引入第二次 commit（干预独立提交）后即失效，而且它**根本测不到
+            # 顺序**（顺序错乱时旧断言照样绿）。改为断言调用顺序。
+            manager = MagicMock()
+            manager.attach_mock(mock_db.commit, "commit")
+            manager.attach_mock(
+                mock_service.generate_intervention_for_risk, "intervention"
+            )
+
             await _trigger_warning_and_intervention(user_id=1, risk_id=10, risk_level=3)
 
             # 验证使用了独立 session
@@ -785,8 +795,14 @@ class TestWarningInterventionFireAndForget:
             mock_service.generate_intervention_for_risk.assert_called_once_with(
                 mock_risk
             )
-            # 验证 commit
-            mock_db.commit.assert_awaited_once()
+            # 验证顺序：预警提交早于干预生成
+            order = [c[0] for c in manager.mock_calls]
+            assert "commit" in order and "intervention" in order, (
+                f"缺少预期调用：{order}"
+            )
+            assert order.index("commit") < order.index("intervention"), (
+                f"预警提交必须早于干预生成（否则干预失败会连带回滚预警），实际顺序 {order}"
+            )
 
     async def test_trigger_handles_risk_not_found(self):
         """_trigger_warning_and_intervention: RiskAssessment 不存在时安全返回."""

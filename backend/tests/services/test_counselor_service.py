@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.core.contracts import DEFAULT_TENANT_ID
 from app.core.pii_crypto import compute_blind_index
 from app.core.states import BindingStatus
 from app.models.assessment import StructuredAssessment
@@ -143,7 +144,7 @@ class TestCounselorService:
     async def test_get_user_detail_no_binding(self, db_session, seeded_user_id):
         """TC-COV-COUN-006: Get user detail without binding returns None."""
         service = CounselorService(db_session)
-        result = await service.get_user_detail(2, 1)
+        result = await service.get_user_detail(2, 1, tenant_id=DEFAULT_TENANT_ID)
         assert result is None
 
     @pytest.mark.asyncio
@@ -632,7 +633,7 @@ class TestGetUserDetailExtended:
         await db_session.commit()
 
         service = CounselorService(db_session)
-        result = await service.get_user_detail(2, 1)
+        result = await service.get_user_detail(2, 1, tenant_id=DEFAULT_TENANT_ID)
         assert result is not None
         assert result["id"] == 1
         assert result["username"] == "seed_user"
@@ -686,7 +687,7 @@ class TestGetUserDetailExtended:
         await db_session.commit()
 
         service = CounselorService(db_session)
-        result = await service.get_user_detail(2, 1)
+        result = await service.get_user_detail(2, 1, tenant_id=DEFAULT_TENANT_ID)
         assert result is not None
         assert len(result["risk_history"]) == 1
         assert result["risk_history"][0]["risk_level"] == 3
@@ -704,7 +705,7 @@ class TestGetUserDetailExtended:
             db_session, 1, 2, "B001", BindingStatus.ACTIVE, bound_at=_now()
         )
         service = CounselorService(db_session)
-        result = await service.get_user_detail(2, 1)
+        result = await service.get_user_detail(2, 1, tenant_id=DEFAULT_TENANT_ID)
         assert result is not None
         assert result["latest_risk_level"] is None
         assert result["latest_risk_label"] == "none"
