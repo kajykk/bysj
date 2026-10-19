@@ -4889,6 +4889,8 @@ class TestP235Round13Batch25Declined:
         ws = importlib.import_module("app.core.ws")
         sched = importlib.import_module("app.tasks.scheduler")
 
+        import sys
+
         generic_calls: list[tuple] = []
         probe_calls: list[int] = []
 
@@ -4896,7 +4898,24 @@ class TestP235Round13Batch25Declined:
             probe_calls.append(1)
             raise RuntimeError("probe: notify boom")
 
-        monkeypatch.setattr(metrics.silent_degradation_total, "inc", lambda *a, **k: generic_calls.append((a, k)))
+        # REV-2026-10-20：断言必须钉「本路径」而非「全局」。
+        # silent_degradation_total 是**全局**计数器 —— 前序测试泄漏的后台任务
+        # （典型：Redis 不可用时 core.cache._get_redis_url 走降级分支）会在本
+        # 用例的 await 窗口内 inc 它，与本用例无关 ⇒ 旧实现断言
+        # ``generic_calls == []`` 会偶发假红（已观察到一次不可复现的 flake）。
+        # 改为按**调用栈归属**判定：只有栈上出现本路径所属模块
+        # （scheduler / ws）时才算违规。
+        _OWNER_MODULES = ("app/tasks/scheduler.py", "app/core/ws.py")
+
+        def _record_if_owned(*a, **k):
+            frame = sys._getframe(1)
+            while frame is not None:
+                if any(owner in frame.f_code.co_filename for owner in _OWNER_MODULES):
+                    generic_calls.append((a, k))
+                    return
+                frame = frame.f_back
+
+        monkeypatch.setattr(metrics.silent_degradation_total, "inc", _record_if_owned)
         monkeypatch.setattr(ws, "notify_warning", _boom)
         monkeypatch.setattr(ws, "notify_counselor", _boom)
 
@@ -4912,7 +4931,7 @@ class TestP235Round13Batch25Declined:
             f"专用计数器增量 {after - before}，期望 1（死计数器/假接线）"
         )
         assert generic_calls == [], (
-            "通用静默降级计数器被调用 —— 说明已接线或接了别处，M/S 裁定须重审"
+            "通用静默降级计数器被**本路径**调用 —— 说明已接线或接了别处，M/S 裁定须重审"
         )
 
     def test_runtime_resolve_failure_conservative_skip(self, tmp_path):
