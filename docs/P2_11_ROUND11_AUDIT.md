@@ -1728,7 +1728,7 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 
 - 同轮 raise 分类重扫（同口径 ast.Raise + Call）：HTTPException=214（211→214：
   `deps.get_current_user` 新增租户暂停 403、`uploads.serve_upload` 新增
-  admin 跨租户 404 ×2）；other_raise=349（345→349：本轮新增 2 处
+  admin 跨租户 404 ×2）；other_raise=350（345→350：P0 轮新增 2 处 + ROUND_17 T2 新增 1 处（reset_password 的"租户已暂停"）
   `counselor_service_binding.bind_by_code` 的 ValueError——用户不存在 / 跨租户；
   另 2 处为上文附录生成后到当前 HEAD 的既有增量，未逐条追溯）；ServiceError=37（不变）。
 

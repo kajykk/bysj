@@ -340,6 +340,22 @@ class AuthService:
             # 为了防止邮箱枚举，即使邮箱不存在也返回成功
             return
 
+        # ROUND_17 T2：找回密码入口同样受租户封禁约束。
+        # 静默返回（与"邮箱不存在"同形）避免泄露租户状态；兑换端
+        # reset_password 另有一道校验，形成双保险。
+        from app.core.tenant_status import is_tenant_suspended
+
+        if await is_tenant_suspended(
+            self.db, user.tenant_id or DEFAULT_TENANT_ID
+        ):
+            logger.warning(
+                "Password reset request suppressed for suspended tenant: "
+                "tenant_id=%s user_id=%s",
+                user.tenant_id,
+                user.id,
+            )
+            return
+
         # 生成密码重置令牌（仅用于邮件发送，不通过 API 返回）
         reset_token = create_password_reset_token({"sub": str(user.id), "email": email})
         # 重置令牌仅通过电子邮件发送，绝不通过 API 响应返回
@@ -409,6 +425,21 @@ class AuthService:
             payload.email, "email"
         ):
             raise ValueError("用户信息不匹配")
+
+        # ROUND_17 T2：暂停租户不得兑换重置令牌改密。
+        # 放在令牌/邮箱都核验之后：持有效链接的主体才能得知租户状态。
+        from app.core.tenant_status import is_tenant_suspended
+
+        if await is_tenant_suspended(
+            self.db, user.tenant_id or DEFAULT_TENANT_ID
+        ):
+            logger.warning(
+                "Password reset rejected for suspended tenant: tenant_id=%s user_id=%s",
+                user.tenant_id,
+                user.id,
+            )
+            raise ValueError("租户已暂停，请联系平台管理员")
+
         user.password_hash = await get_password_hash_async(payload.new_password)
         # P1-SEC-003 修复：密码重置后撤销所有 refresh token，防止旧 token 继续使用
         await self._revoke_all_user_refresh_tokens(user_id)

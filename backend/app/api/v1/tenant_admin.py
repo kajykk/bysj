@@ -291,10 +291,13 @@ async def suspend_tenant(
     REV-2026-10-20 (S7)：暂停立即生效。该租户的
     - 新登录（``AuthService.login``）、
     - token 刷新（``AuthService.refresh``）、
+    - 找回/重置密码（``AuthService.request_password_reset`` / ``reset_password``，
+      ROUND_17 T2 补齐）、
     - 所有已认证 HTTP 请求（``deps.get_current_user`` 校验 tenant.status）、
     - 新 WebSocket 连接（``core.ws`` handshake 校验）
     都会返回 403/拒绝。已签发的 access token 无需等待过期即失效，
-    因此不需要额外做 token 批量吊销。
+    因此不需要额外做 token 批量吊销。入口清单与覆盖闸门见
+    ``tests/test_p2_41_round17_auth_gate.py``。
     """
     tenant = await _get_tenant_or_404(db, tenant_id)
 

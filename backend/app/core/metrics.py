@@ -757,7 +757,10 @@ error_sanitized_total = Counter(
 silent_degradation_total = Counter(
     "silent_degradation_total",
     "Total silent degradations (caught exception, degraded path taken), labeled by location.",
-    labelnames=("location",),
+    # ROUND_17 T1：新增 tenant_id 标签，供「租户缺行」这类必须带主体维度
+    # 的降级路径定位到具体租户；非租户上下文沿用空串（见 degradation.py），
+    # 既有 `sum by (location)` 查询不受影响。
+    labelnames=("location", "tenant_id"),
 )
 
 

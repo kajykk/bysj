@@ -1,0 +1,32 @@
+[head] 9b8fb25
+[baseline] 未变异 returncode=0（0=全绿）
+[baseline] 12 passed, 4 warnings in 11.42s
+
+[T1] tenant_status 缺租户行不再记 silent_degradation
+    returncode=1 | 失败 1 项 | 目标 ['test_missing_tenant_counts_with_tenant_label']: RED-OK
+      FAILED tests/test_p2_41_round17_tenant_status.py::test_missing_tenant_counts_with_tenant_label
+
+[T2a] AuthService.refresh 去掉 is_tenant_suspended 调用
+    returncode=1 | 失败 1 项 | 目标 ['test_enforced_entries_have_ban_check']: RED-OK
+      FAILED tests/test_p2_41_round17_auth_gate.py::TestAuthEntryCoverage::test_enforced_entries_have_ban_check
+
+[T2b] 新增未登记的 decode_token 入口（发现集应报红）
+    returncode=1 | 失败 1 项 | 目标 ['test_every_token_operation_function_is_registered']: RED-OK
+      FAILED tests/test_p2_41_round17_auth_gate.py::TestAuthEntryCoverage::test_every_token_operation_function_is_registered
+
+[final] 全部还原后复跑两个门禁
+[final] returncode=0 | 12 passed, 4 warnings in 9.16s
+
+[residual-check] 变异标志串计数（全部应为 0）:
+    OK  T1/T2b 标志串: 0
+    OK  T2a 跳过校验: 0
+    OK  T2b 未登记探针: 0
+
+[integrity-check] 字节级快照比对（须与变异前完全一致）:
+    OK  tenant_status.py: 一致
+    OK  auth_service.py: 一致
+
+[summary] RED-OK 3/3 | final GREEN-OK=True | residual-clean=True | integrity-clean=True
+    T1: RED-OK
+    T2a: RED-OK
+    T2b: RED-OK

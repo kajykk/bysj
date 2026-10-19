@@ -7790,7 +7790,7 @@ class TestP235Round13Batch35Declined:
         人工按**同形性不成立**不接：降级态返回 0 键 `{}`，而任何正常态（含
         「真实空数据」）都是固定 6 键结构化字典 ⇒ **键集合可分辨**。
         这是第三十四批 `_parse_detail_json`（`{}` == `{}` ⇒ 接）的**反面对照**。
-      - `core/metrics.py:868` `track_model_inference` —— **S + V**：被保护的两个
+      - `core/metrics.py:871` `track_model_inference` —— **S + V**：被保护的两个
         计数器就定义在 `metrics.py` 本模块内（同源）；且业务异常**照常向上抛**
         （实测 `ValueError` 传播）⇒ 失败态对调用方可见。
       - `ml/canary_controller.py:235` `_log_comparison` —— **死代码**：
@@ -7833,7 +7833,7 @@ class TestP235Round13Batch35Declined:
     # (文件, 行号, 所属函数, 本批人工裁定)
     CANDIDATES = [
         (OBS_REL, 228, "cached_or_compute", "X-键可分辨"),
-        (METRICS_REL, 868, "track_model_inference", "S-同源/V"),
+        (METRICS_REL, 871, "track_model_inference", "S-同源/V"),
         (CANARY_REL, 235, "_log_comparison", "DEAD"),
         (ESC_REL, 59, "_observe_escalation_latency", "S-同源"),
         (OBSVC_REL, 135, "_flush_loop", "DEAD"),
@@ -8382,7 +8382,7 @@ class TestP235Round13Batch36Wiring:
         ("app/ml/model_validation.py", 135, "_bootstrap_auc_ci_with_count", "V"),
         ("app/ml/scaler.py", 47, "__getattr__", "P"),
         ("app/services/auth_service.py", 307, "change_password", "V"),
-        ("app/services/auth_service.py", 466, "logout", "V"),
+        ("app/services/auth_service.py", 497, "logout", "V"),
         ("app/services/experiment_evaluator.py", 126, "compare", "V"),
         ("app/services/experiment_metrics.py", 43, "metrics", "V"),
         (LS_REL, 451, "filter", "W"),

@@ -553,7 +553,7 @@
     },
     {
       "file": "app/core/cache.py",
-      "line": 308,
+      "line": 310,
       "handled": [
         "Exception"
       ],
@@ -623,7 +623,7 @@
     },
     {
       "file": "app/core/degradation.py",
-      "line": 33,
+      "line": 46,
       "handled": [
         "Exception"
       ],
@@ -863,7 +863,7 @@
     },
     {
       "file": "app/core/metrics.py",
-      "line": 868,
+      "line": 871,
       "handled": [
         "Exception"
       ],
@@ -2180,7 +2180,7 @@
     },
     {
       "file": "app/services/auth_service.py",
-      "line": 466,
+      "line": 497,
       "handled": [
         "PyJWTError",
         "ValueError",

@@ -304,7 +304,9 @@ def _get_redis_url() -> str | None:
         try:
             from app.core.metrics import silent_degradation_total
 
-            silent_degradation_total.inc(location="core.cache._get_redis_url")
+            silent_degradation_total.inc(
+                location="core.cache._get_redis_url", tenant_id=""
+            )
         except Exception:
             pass
     env_url = os.getenv("REDIS_URL")

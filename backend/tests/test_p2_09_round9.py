@@ -97,14 +97,14 @@ class TestP235Degradation:
     def test_counter_exposed_in_exposition(self):
         from app.core.metrics import render_exposition, silent_degradation_total
 
-        silent_degradation_total.inc(location="test.p2_35_probe")
+        silent_degradation_total.inc(location="test.p2_35_probe", tenant_id="")
         out = render_exposition()
         assert "silent_degradation_total" in out
         assert "test.p2_35_probe" in out
 
     def test_cache_silent_path_wired(self):
         t = (REPO / "backend/app/core/cache.py").read_text(encoding="utf-8")
-        assert 'silent_degradation_total.inc(location="core.cache._get_redis_url")' in t
+        assert 'location="core.cache._get_redis_url", tenant_id=""' in t
 
     def test_alert_tasks_raise(self):
         t = (REPO / "backend/app/tasks/alerts.py").read_text(encoding="utf-8")
@@ -130,8 +130,8 @@ class TestP240Contract:
     def test_exposition_parses(self):
         from app.core.metrics import render_exposition, silent_degradation_total
 
-        silent_degradation_total.inc(location="test.p2_40_probe")
-        silent_degradation_total.inc(location="test.p2_40_probe_b")
+        silent_degradation_total.inc(location="test.p2_40_probe", tenant_id="")
+        silent_degradation_total.inc(location="test.p2_40_probe_b", tenant_id="")
         text = render_exposition()
         try:
             from prometheus_client.parser import text_string_to_metric_families
