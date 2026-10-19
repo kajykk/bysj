@@ -9,6 +9,14 @@
   },
   "threshold": 0.3,
   "threshold_rationale": "Recall≥0.75 且 Specificity≥0.65 的阈值中 F1 最高者 (t=0.3)",
+  "headline_eval_threshold": 0.5,
+  "threshold_governance": {
+    "decision_threshold": 0.3,
+    "decision_threshold_source": "settings.text_bilingual_decision_threshold (SSOT: app/core/ml_decision_thresholds.py)",
+    "headline_eval_threshold": 0.5,
+    "headline_eval_threshold_source": "v1_27 脚本 _evaluate 硬编码 p>=0.5（历史事实，不回改）",
+    "annotation": "ROUND_16 (P1-8, 2026-10-19): 本文件历史缺口——顶层 threshold=0.3 与 headline 块 groupwise_ooF 的实际计算阈值(0.5)不一致，headline 曾被误读为 0.3 阈值下的读数。实测复现（tests/tools/probe_p2_40_round16_text.py）：headline 混淆矩阵 tn=6031/fp=536/fn=838/tp=974 精确对应 threshold_sweep_groupwise 的 t=0.5 行；t=0.3 行应为 tn=4773/fp=1794/fn=368/tp=1444（recall=0.7969）。历史数字一律不动，仅追加本口径登记。"
+  },
   "go_decision": "go",
   "groupwise_ooF": {
     "n": 8379,

@@ -8322,7 +8322,7 @@ class TestP235Round13Batch36Wiring:
       假数据进输出，不满足第三十四批假数据判据）/
       hyperparameter_tuning.py:51 V（warning；写失败仅损失缓存）/
       model_loader.py:46 V（warning+exc_info；fallback 路径后续失败显式）/
-      model_validation.py:122 V（返回值第 4 元素 degenerate_samples
+      model_validation.py:135 V（返回值第 4 元素 degenerate_samples
       显式暴露 + 汇总 warning）/
       scaler.py:47 P（try 体只有 import+调用，被调
       `_resolve_artifacts_dir` 内层 `except Exception` 全捕获 ⇒ 外层
@@ -8356,7 +8356,7 @@ class TestP235Round13Batch36Wiring:
         ("app/ml/hyperparameter_tuning.py", 38, "_load_tuning_cache", "V"),
         ("app/ml/hyperparameter_tuning.py", 51, "_append_tuning_cache", "V"),
         ("app/ml/model_loader.py", 46, "_resolve_artifacts_dir", "V"),
-        ("app/ml/model_validation.py", 122, "_bootstrap_auc_ci_with_count", "V"),
+        ("app/ml/model_validation.py", 135, "_bootstrap_auc_ci_with_count", "V"),
         ("app/ml/scaler.py", 47, "__getattr__", "P"),
         ("app/services/auth_service.py", 277, "change_password", "V"),
         ("app/services/auth_service.py", 436, "logout", "V"),

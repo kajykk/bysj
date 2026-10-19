@@ -140,3 +140,25 @@
 - 同批另两条注释（main.py 侧车审计、inference.py 模型指纹）经副本差分复核
   **零命中**，非漏账。
 - 闸门 `test_inventory_ratchet_be` 同步 99→100。
+
+## 附录：全称注释清单同步（100→102，ROUND_16 模型验证证据补强）
+
+- 新增 2 条，无删除，净 +2（100→102）。均为 ROUND_16 新增模块的行为断言注释：
+- ① `backend/app/ml/fusion_ablation.py`（配对 bootstrap 内）
+  `# 成对重采样：两臂用同一套索引，保证配对结构`。
+  含全称词“保证”。行为依据：实现为**同一组** `rng.choice` 索引同时施加于两臂
+  （`paired_delta_auc_ci`），配对结构是 ΔAUROC 配对 CI 的定义性要求；行为闸门
+  `tests/test_p2_40_model_validation_round16.py::TestT2FusionAblationGuards`
+  （`test_paired_delta_zero_when_arms_identical` 同臂 Δ 恒 0 +
+  `test_paired_delta_excludes_zero_on_consistent_gap` 一致缺口 CI 不覆盖 0）。
+- ② `backend/app/ml/model_validation.py`（DCA 区间过滤）
+  `# 区间判定用**原始 t**（不被 round 扰动），自定义网格的边界点才不会被
+  四舍五入挤出临床区间`。
+  含全称词“不会”。行为依据：区间过滤改用循环内原始 `t` 而非 curve 行的
+  round 后值（ROUND_16 修复的舍入边界缺陷）；行为闸门
+  `TestT1DcaEce::test_dca_bad_clinical_range_raises`（区间非法显式抛错）
+  与 `test_dca_empty_range_reports_false_not_pass`（无点可查时汇总为 False，
+  不默认放行）。
+- 变异见证：上述两条所属闸门族在 `mutate_p2_40_round16.py` 中被真实变异
+  打红（M6 DCA 公式符号翻转、M8 ΔCI 判据恒真均 RED-OK）。
+- 闸门 `test_inventory_ratchet_be` 同步 100→102。

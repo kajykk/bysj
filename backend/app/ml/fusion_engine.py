@@ -27,12 +27,14 @@ DEFAULT_WEIGHTS = {
     "physiological": 0.15,
 }
 
-# Confidence thresholds
-CONFIDENCE_THRESHOLDS = {
-    "high": 0.8,
-    "medium": 0.5,
-    "low": 0.3,
-}
+# ROUND_16 (P1-8)：原 CONFIDENCE_THRESHOLDS = {"high": 0.8, "medium": 0.5, "low": 0.3}
+# 是**死副本**——全仓无任何生产消费方（仅 tests/test_fusion_engine_extended.py
+# 的 test_confidence_thresholds 断言键名存在，属自我引用式空转测试），且与
+# SSOT（app/core/confidence.py 的 MODALITY_PRIMARY_CONFIDENCE_THRESHOLD=0.8 /
+# MODALITY_LOW_CONFIDENCE_THRESHOLD=0.5，语义为模态质量分档）语义不同、
+# 值域重叠，正是「口径散落多地」缺口的活样本。已删除；
+# 置信阈值唯一事实源 = app/core/confidence.py（一致性闸门
+# test_p2_40 TestThresholdSsot 钉死本文件不得再定义同名常量）。
 
 
 class FusionEngine:

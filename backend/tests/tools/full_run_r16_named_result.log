@@ -1,0 +1,1013 @@
+........................................................................ [  0%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+............................................................ssssssssss.. [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+..................................................................ssssss [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+.......F................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+..............F......................................................... [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+............................................................F........... [ 67%]
+.......................F................................................ [ 68%]
+.....................F.................................................. [ 69%]
+.......................................FF............................... [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 71%]
+................................................E.EE.................... [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+..................ssss.................................................. [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+......E................................................................. [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+E............................................EE......................... [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+...........................................FFF.......................... [ 99%]
+.........................................................                [100%]
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  E:\code\bysj\backend\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_pytest\config\__init__.py:1434
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\config\__init__.py:1434: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481
+  E:\code\bysj\backend\.venv\Lib\site-packages\_hypothesis_pytestplugin.py:481: UserWarning: Skipping collection of '.hypothesis' directory - this usually means you've explicitly set the `norecursedirs` pytest config option, replacing rather than extending the default ignores.
+    warnings.warn(
+
+tests/api/test_crisis_audit.py::TestCrisisAuditAPI::test_crisis_event_recorded_on_text_prediction
+  E:\code\bysj\backend\.venv\Lib\site-packages\jieba\_compat.py:18: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    import pkg_resources
+
+tests/api/test_csp_report.py::TestCSPReport::test_csp_report_empty_body
+tests/api/test_csp_report.py::TestCSPReport::test_csp_report_invalid_json
+tests/test_csp_report_smoke.py::TestCSPReport::test_empty_body
+tests/test_csp_report_smoke.py::TestCSPReport::test_invalid_json
+tests/test_monitoring_api.py::TestFrontendMetricsEndpoint::test_invalid_json_returns_400
+  E:\code\bysj\backend\.venv\Lib\site-packages\httpx\_models.py:408: DeprecationWarning: Use 'content=<...>' to upload raw bytes/text content.
+    headers, stream = encode_request(
+
+tests/api/test_model_predict_v116.py::TestStructuredPredictionV116::test_structured_data_quality
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-101 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/api/test_upload_security.py::TestUploadSecurity::test_upload_valid_image
+tests/test_upload_counselor_audit_log.py::TestUserFileUploadAuditLog::test_upload_writes_audit_log
+tests/test_upload_counselor_audit_log.py::TestUserFileUploadBatchAuditLog::test_batch_upload_writes_audit_log
+tests/test_upload_counselor_audit_log.py::TestUserFileUploadBatchAuditLog::test_batch_upload_writes_audit_log
+tests/test_upload_counselor_audit_log.py::TestUserFileUploadBatchAuditLog::test_batch_upload_mixed_success_records_counts
+tests/test_upload_security_p1.py::TestDecompressionBombGuard::test_normal_image_still_processed
+  E:\code\bysj\backend\app\services\file_security_service.py:94: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+    data = list(img.getdata())
+
+tests/api/test_user_data.py::TestStructuredDataCollect::test_collect_structured_boundary_values
+  sys:1: SAWarning: nested transaction already deassociated from connection
+
+tests/contract/test_model_interfaces.py::TestFusionModelContract::test_fusion_input_structure
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-166 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_model_interfaces.py::TestFusionModelContract::test_fusion_empty_input
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-171 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_model_interfaces.py::TestModelFallbackBehavior::test_fallback_indicator_in_response
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-173 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_model_interfaces.py::TestModelFallbackBehavior::test_all_models_return_consistent_format
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-175 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_model_interfaces.py::TestModelFallbackBehavior::test_all_models_return_consistent_format
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-179 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_other_predictions.py::TestFusionPredictionContract::test_fusion_with_text_only
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-228 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_other_predictions.py::TestFusionPredictionContract::test_fusion_with_structured_only
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-230 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_other_predictions.py::TestPredictionResponseSchema::test_prediction_response_has_required_fields
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-233 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_structured_prediction.py::TestStructuredPredictionContract::test_valid_structured_input_returns_prediction
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-241 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/contract/test_structured_prediction.py::TestStructuredPredictionContract::test_response_schema_compliance
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-259 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "E:\zy\python\Lib\threading.py", line 1052, in _bootstrap_inner
+      self.run()
+    File "E:\zy\python\Lib\threading.py", line 989, in run
+      self._target(*self._args, **self._kwargs)
+    File "E:\code\bysj\backend\.venv\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 817, in call_soon_threadsafe
+      self._check_closed()
+    File "E:\zy\python\Lib\asyncio\base_events.py", line 519, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/ml/test_data_cleaner.py::TestHandleMissingValues::test_fill_numeric_median
+  E:\code\bysj\backend\tests\ml\test_data_cleaner.py:44: DeprecationWarning: handle_missing_values 在全量数据上计算中位数，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df) 替代。此函数将在 v2.0 移除。
+    result = handle_missing_values(df)
+
+tests/ml/test_data_cleaner.py::TestHandleMissingValues::test_no_missing
+  E:\code\bysj\backend\tests\ml\test_data_cleaner.py:51: DeprecationWarning: handle_missing_values 在全量数据上计算中位数，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df) 替代。此函数将在 v2.0 移除。
+    result = handle_missing_values(df)
+
+tests/ml/test_data_cleaner.py::TestWinsorizeFeatures::test_winsorize
+  E:\code\bysj\backend\tests\ml\test_data_cleaner.py:127: DeprecationWarning: winsorize_features 在全量数据上计算百分位，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df) 替代。此函数将在 v2.0 移除。
+    result = winsorize_features(df)
+
+tests/ml/test_data_cleaner.py::TestWinsorizeFeatures::test_no_numeric
+  E:\code\bysj\backend\tests\ml\test_data_cleaner.py:138: DeprecationWarning: winsorize_features 在全量数据上计算百分位，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df) 替代。此函数将在 v2.0 移除。
+    result = winsorize_features(df)
+
+tests/ml/test_data_cleaner.py::TestCleanDataset::test_full_pipeline
+  E:\code\bysj\backend\tests\ml\test_data_cleaner.py:156: DeprecationWarning: clean_dataset 在全量数据上计算统计量，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df/test_df) 替代。此函数将在 v2.0 移除。
+    result = clean_dataset(df)
+
+tests/ml/test_data_cleaner.py::TestCleanDataset::test_full_pipeline
+tests/test_ml_utils.py::TestDataCleaner::test_clean_dataset_pipeline
+  E:\code\bysj\backend\app\ml\data_cleaner.py:443: DeprecationWarning: handle_missing_values 在全量数据上计算中位数，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df) 替代。此函数将在 v2.0 移除。
+    df_clean = handle_missing_values(df_clean)
+
+tests/ml/test_data_cleaner.py::TestCleanDataset::test_full_pipeline
+tests/test_ml_utils.py::TestDataCleaner::test_clean_dataset_pipeline
+  E:\code\bysj\backend\app\ml\data_cleaner.py:445: DeprecationWarning: winsorize_features 在全量数据上计算百分位，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df) 替代。此函数将在 v2.0 移除。
+    df_clean = winsorize_features(df_clean)
+
+tests/ml/test_ml_module_suites.py::TestComputeCorrelationMatrix::test_constant_column
+  E:\code\bysj\backend\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:3023: RuntimeWarning: invalid value encountered in divide
+    c /= stddev[:, None]
+
+tests/ml/test_ml_module_suites.py::TestComputeCorrelationMatrix::test_constant_column
+  E:\code\bysj\backend\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:3024: RuntimeWarning: invalid value encountered in divide
+    c /= stddev[None, :]
+
+tests/ml/test_scaler.py::TestScaleFeatures::test_scale_features_without_scaler
+  E:\code\bysj\backend\tests\ml\test_scaler.py:181: UserWarning: scale_features 在 scaler=None 时会在传入的 X 上 fit，若 X 是验证集或测试集将造成数据泄漏。请始终传入在训练集上 fit 的 scaler。
+    result = scale_features(X)
+
+tests/ml/test_scaler.py::TestScaleFeatures::test_scale_features_with_dataframe
+  E:\code\bysj\backend\tests\ml\test_scaler.py:188: UserWarning: scale_features 在 scaler=None 时会在传入的 X 上 fit，若 X 是验证集或测试集将造成数据泄漏。请始终传入在训练集上 fit 的 scaler。
+    result = scale_features(df)
+
+tests/services/test_experiment_metrics.py::TestExperimentMetrics::test_metrics_roc_auc_exception
+tests/test_experiment_metrics_smoke.py::TestExperimentMetrics::test_metrics_auc_fallback
+  E:\code\bysj\backend\.venv\Lib\site-packages\sklearn\metrics\_ranking.py:442: UndefinedMetricWarning: Only one class is present in y_true. ROC AUC score is not defined in that case.
+    warnings.warn(
+
+tests/services/test_risk_service.py::TestWarningInterventionFireAndForget::test_schedule_does_not_raise_on_error
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py:190: RuntimeWarning: coroutine '_trigger_warning_and_intervention' was never awaited
+    result = context.switch(*args, **kwargs)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_observability.py::test_flush_lock_stats_task_returns_false_on_impl_failure
+tests/tasks/test_observability.py::test_flush_lock_stats_task_max_retries_logs_error
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine '_flush_lock_stats_impl' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_observability.py::test_flush_lock_stats_task_retries_on_exception
+  E:\zy\python\Lib\linecache.py:179: RuntimeWarning: coroutine '_flush_lock_stats_impl' was never awaited
+    get_lines = functools.partial(get_source, name)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_observability.py::test_flush_lock_stats_impl_success_commits
+  E:\zy\python\Lib\_weakrefset.py:49: RuntimeWarning: coroutine '_flush_lock_stats_impl' was never awaited
+    self._iterating = set()
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_pdf_report.py::test_task_decorator_options
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\fixtures.py:767: RuntimeWarning: coroutine '_flush_lock_stats_impl' was never awaited
+    def _check_scope(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_pdf_report.py::test_notify_progress_no_created_by_skips_ws
+  E:\zy\python\Lib\unittest\mock.py:439: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    def __init__(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_pdf_report.py::test_generate_pdf_report_success_path
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestStaleWarningReminder::test_task_runs
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine '_daily_risk_scan_impl' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestWeeklyLogArchive::test_task_runs
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine '_daily_intervention_check_impl' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestCanaryAutoRollbackCheck::test_task_runs
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py:3270: RuntimeWarning: coroutine '_weekly_log_archive_impl' was never awaited
+    def connect(self) -> Connection:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestToAwareUtc::test_aware_datetime_unchanged
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine '_canary_auto_rollback_check_impl' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestNotifyWarning::test_notify_warning_reports_failure
+  E:\code\bysj\backend\.venv\Lib\site-packages\sentry_sdk\envelope.py:310: RuntimeWarning: coroutine '_stale_warning_reminder_impl' was never awaited
+    @classmethod
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestTaskRetryPaths::test_canary_auto_rollback_check_retries_on_failure
+  E:\zy\python\Lib\logging\__init__.py:1651: RuntimeWarning: coroutine '_daily_risk_scan_impl' was never awaited
+    rv = _logRecordFactory(name, level, fn, lno, msg, args, exc_info, func,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestTaskRetryPaths::test_canary_auto_rollback_check_retries_on_failure
+  E:\zy\python\Lib\logging\__init__.py:1651: RuntimeWarning: coroutine '_stale_warning_reminder_impl' was never awaited
+    rv = _logRecordFactory(name, level, fn, lno, msg, args, exc_info, func,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestTaskRetryPaths::test_canary_auto_rollback_check_retries_on_failure
+  E:\zy\python\Lib\logging\__init__.py:1651: RuntimeWarning: coroutine '_daily_intervention_check_impl' was never awaited
+    rv = _logRecordFactory(name, level, fn, lno, msg, args, exc_info, func,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestTaskRetryPaths::test_canary_auto_rollback_check_retries_on_failure
+  E:\zy\python\Lib\logging\__init__.py:1651: RuntimeWarning: coroutine '_weekly_log_archive_impl' was never awaited
+    rv = _logRecordFactory(name, level, fn, lno, msg, args, exc_info, func,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestStaleWarningReminderImpl::test_stale_warning_with_counselor_logs
+tests/tasks/test_scheduler.py::TestStaleWarningReminderImpl::test_stale_warning_without_counselor_no_log
+tests/test_escalation.py::TestEscalationLatencyInstrumentation::test_apply_escalation_reports_cycle_metric
+tests/test_escalation.py::TestEscalationLatencyInstrumentation::test_notify_failure_still_records_failure_label
+tests/test_gdpr_pii.py::TestGDPRServiceAnonymize::test_anonymize_succeeds_with_correct_password
+  E:\code\bysj\backend\app\core\audit.py:83: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    db.add(log)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/tasks/test_scheduler.py::TestDailyInterventionCheckImpl::test_daily_task_creates_execution
+tests/tasks/test_scheduler.py::TestDailyInterventionPartialCommit::test_commits_per_plan_not_only_at_end
+tests/tasks/test_scheduler.py::TestDailyInterventionPartialCommit::test_partial_progress_survives_later_failure
+tests/tasks/test_scheduler.py::TestDailyInterventionPartialCommit::test_progress_counts_only_daily_tasks
+  E:\code\bysj\backend\app\tasks\scheduler.py:588: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    db.add(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_alert_tasks.py::test_escalate_task_handles_empty
+tests/test_alert_tasks.py::test_escalate_task_returns_error_on_retry_exceeded
+tests/test_alert_tasks.py::test_escalate_impl_empty_decisions
+tests/test_am_sync.py::test_push_silence_no_am_url
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine '_escalate_impl' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_alert_tasks.py::test_archive_task_executes
+  E:\zy\python\Lib\asyncio\base_events.py:613: RuntimeWarning: coroutine '_archive_impl' was never awaited
+    sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_alert_tasks.py::test_get_loop_caches_singleton
+tests/test_alert_tasks.py::test_archive_impl_skips_already_archived_records
+tests/test_alert_tasks.py::test_escalate_task_invokes_run_async
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine '_archive_impl' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_alert_tasks.py::test_archive_impl_inserts_and_deletes_new_records
+tests/test_alert_tasks.py::test_archive_impl_resolved_status
+tests/test_alert_tasks.py::test_archive_impl_skips_already_archived_records
+tests/test_alert_tasks.py::test_archive_impl_invalid_detail_json_uses_defaults
+tests/test_alert_tasks.py::test_archive_impl_null_detail_uses_defaults
+tests/test_alert_tasks.py::test_archive_impl_transaction_failure_rolls_back_and_reraises
+tests/test_p1d_celery_idempotency_dlq.py::TestArchiveIdempotency::test_archive_skips_already_archived_records
+tests/test_p1d_celery_idempotency_dlq.py::TestArchiveIdempotency::test_archive_all_new_records
+  E:\code\bysj\backend\app\tasks\alerts.py:198: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    db.add(archive_row)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_anomaly_detection.py::TestDetectAnomalyAccessTask::test_task_max_retries_exceeded_reraises
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine '_detect_impl' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_anomaly_detection.py::TestBasicFunctions::test_get_loop_caches_singleton
+  E:\zy\python\Lib\unittest\mock.py:767: RuntimeWarning: coroutine '_detect_impl' was never awaited
+    def __setattr__(self, name, value):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_celery_breaker.py::TestCallWithCeleryBreaker::test_disabled_breaker_skips_check
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine 'TestCallWithCeleryBreaker.test_open_breaker_rejects_without_executing.<locals>._would_execute' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_celery_breaker.py::TestCheckCeleryWorkerBreakerIntegration::test_circuit_open_returns_false
+tests/test_celery_breaker.py::TestCheckCeleryWorkerBreakerIntegration::test_circuit_open_sets_heartbeat_to_zero
+tests/test_celery_breaker.py::TestCeleryBreakerEndToEnd::test_check_celery_worker_e2e_circuit_open
+  E:\code\bysj\backend\app\core\health.py:129: RuntimeWarning: coroutine 'to_thread' was never awaited
+    return False
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_celery_breaker.py::TestCeleryBreakerEndToEnd::test_five_consecutive_failures_open_breaker
+  E:\code\bysj\backend\tests\test_celery_breaker.py:660: RuntimeWarning: coroutine 'TestCeleryBreakerEndToEnd.test_five_consecutive_failures_open_breaker.<locals>._would_execute' was never awaited
+    with pytest.raises(CircuitBreakerOpenError):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_feature_maps.py::TestLiteFeatureOrder::test_keyword_features_aligned_with_extractor
+  E:\zy\python\Lib\enum.py:1207: RuntimeWarning: coroutine '_canary_auto_rollback_check_impl' was never awaited
+    @classmethod
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_celery_breaker.py::TestCallWithCeleryBreaker::test_closed_success_calls_on_success
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\event\base.py:187: RuntimeWarning: coroutine '_coro' was never awaited
+    def _join(self, other: _DispatchCommon[_ET]) -> _JoinedDispatcher[_ET]:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_escalate_success
+  E:\code\bysj\backend\app\tasks\alerts.py:51: RuntimeWarning: coroutine '_escalate_impl' was never awaited
+    executed = _run_async(_escalate_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_archive_success
+  E:\zy\python\Lib\asyncio\base_events.py:393: RuntimeWarning: coroutine '_escalate_impl' was never awaited
+    self._ready = collections.deque()
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_archive_success
+  E:\code\bysj\backend\app\tasks\alerts.py:111: RuntimeWarning: coroutine '_archive_impl' was never awaited
+    count = _run_async(_archive_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_flush_success
+  E:\code\bysj\backend\app\tasks\observability.py:39: RuntimeWarning: coroutine '_flush_lock_stats_impl' was never awaited
+    success = _run_async(_flush_lock_stats_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_flush_success
+  E:\zy\python\Lib\asyncio\coroutines.py:13: RuntimeWarning: coroutine '_archive_impl' was never awaited
+    bool(os.environ.get('PYTHONASYNCIODEBUG')))
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_detect_success
+  E:\code\bysj\backend\app\tasks\anomaly_detection.py:59: RuntimeWarning: coroutine '_detect_impl' was never awaited
+    result = _run_async(_detect_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_success[daily_risk_scan]
+  E:\code\bysj\backend\app\tasks\scheduler.py:148: RuntimeWarning: coroutine '_daily_risk_scan_impl' was never awaited
+    _run_async(_daily_risk_scan_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_success[stale_warning_reminder]
+  E:\code\bysj\backend\app\tasks\scheduler.py:409: RuntimeWarning: coroutine '_stale_warning_reminder_impl' was never awaited
+    _run_async(_stale_warning_reminder_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_success[daily_intervention_check]
+  E:\code\bysj\backend\app\tasks\scheduler.py:520: RuntimeWarning: coroutine '_daily_intervention_check_impl' was never awaited
+    _run_async(_daily_intervention_check_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_success[weekly_log_archive]
+  E:\code\bysj\backend\app\tasks\scheduler.py:628: RuntimeWarning: coroutine '_weekly_log_archive_impl' was never awaited
+    _run_async(_weekly_log_archive_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_success[mask_old_ips_task]
+  E:\code\bysj\backend\app\tasks\scheduler.py:656: RuntimeWarning: coroutine '_mask_old_ips_impl' was never awaited
+    _run_async(_mask_old_ips_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_success[weekly_risk_assessment_archive]
+  E:\code\bysj\backend\app\tasks\scheduler.py:687: RuntimeWarning: coroutine '_weekly_risk_assessment_archive_impl' was never awaited
+    _run_async(_weekly_risk_assessment_archive_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_success[weekly_monitoring_logs_archive]
+  E:\code\bysj\backend\app\tasks\scheduler.py:719: RuntimeWarning: coroutine '_weekly_monitoring_logs_archive_impl' was never awaited
+    _run_async(_weekly_monitoring_logs_archive_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_success[canary_auto_rollback_check]
+  E:\code\bysj\backend\app\tasks\scheduler.py:745: RuntimeWarning: coroutine '_canary_auto_rollback_check_impl' was never awaited
+    _run_async(_canary_auto_rollback_check_impl())
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[stale_warning_reminder]
+  E:\zy\python\Lib\asyncio\base_events.py:613: RuntimeWarning: coroutine '_daily_risk_scan_impl' was never awaited
+    sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[daily_intervention_check]
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py:3270: RuntimeWarning: coroutine '_flush_lock_stats_impl' was never awaited
+    def connect(self) -> Connection:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[daily_intervention_check]
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py:3270: RuntimeWarning: coroutine '_detect_impl' was never awaited
+    def connect(self) -> Connection:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[daily_intervention_check]
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py:3270: RuntimeWarning: coroutine '_stale_warning_reminder_impl' was never awaited
+    def connect(self) -> Connection:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[weekly_log_archive]
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\event\attr.py:632: RuntimeWarning: coroutine '_daily_intervention_check_impl' was never awaited
+    def __init__(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[mask_old_ips_task]
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\pool\base.py:707: RuntimeWarning: coroutine '_weekly_log_archive_impl' was never awaited
+    @classmethod
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[weekly_risk_assessment_archive]
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py:3270: RuntimeWarning: coroutine '_mask_old_ips_impl' was never awaited
+    def connect(self) -> Connection:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[weekly_monitoring_logs_archive]
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py:3270: RuntimeWarning: coroutine '_weekly_risk_assessment_archive_impl' was never awaited
+    def connect(self) -> Connection:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_scheduler_wrapper_error_raises[canary_auto_rollback_check]
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py:3270: RuntimeWarning: coroutine '_weekly_monitoring_logs_archive_impl' was never awaited
+    def connect(self) -> Connection:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_iss02_tasks_celery_wrappers.py::test_cleanup_training_jobs_success
+  E:\code\bysj\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py:3270: RuntimeWarning: coroutine '_canary_auto_rollback_check_impl' was never awaited
+    def connect(self) -> Connection:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_middlewares.py::test_endpoint
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_middlewares.py::test_endpoint returned <class 'dict'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_ml_breaker.py::TestCallWithMlBreaker::test_disabled_breaker_timeout_still_raises
+E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: RuntimeWarning: coroutine 'to_thread' was never awaited
+  gc.collect()
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+  E:\code\bysj\backend\.venv\Lib\site-packages\_pytest\fixtures.py:1132: RuntimeWarning: coroutine 'TestCallWithMlBreaker.test_open_breaker_rejects_without_executing.<locals>._would_execute' was never awaited
+    def __init__(self, request: FixtureRequest) -> None:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_ml_loss.py::TestBinaryCrossEntropyLoss::test_epsilon_prevents_log_zero
+  E:\zy\python\Lib\_weakrefset.py:49: RuntimeWarning: coroutine 'PredictMixin.predict_structured' was never awaited
+    self._iterating = set()
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_ml_model.py::TestScalerFunctions::test_scale_features_without_scaler
+  E:\code\bysj\backend\tests\test_ml_model.py:660: UserWarning: scale_features 在 scaler=None 时会在传入的 X 上 fit，若 X 是验证集或测试集将造成数据泄漏。请始终传入在训练集上 fit 的 scaler。
+    X_scaled = scale_features(X)
+
+tests/test_ml_utils.py::TestDataCleaner::test_handle_missing_values
+  E:\code\bysj\backend\tests\test_ml_utils.py:199: DeprecationWarning: handle_missing_values 在全量数据上计算中位数，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df) 替代。此函数将在 v2.0 移除。
+    result = handle_missing_values(df)
+
+tests/test_ml_utils.py::TestDataCleaner::test_winsorize_features
+  E:\code\bysj\backend\tests\test_ml_utils.py:243: DeprecationWarning: winsorize_features 在全量数据上计算百分位，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df) 替代。此函数将在 v2.0 移除。
+    result = winsorize_features(df)
+
+tests/test_ml_utils.py::TestDataCleaner::test_clean_dataset_pipeline
+  E:\code\bysj\backend\tests\test_ml_utils.py:257: DeprecationWarning: clean_dataset 在全量数据上计算统计量，存在数据泄漏风险。请使用 DataCleaner.fit_transform(train_df) + DataCleaner.transform(val_df/test_df) 替代。此函数将在 v2.0 移除。
+    result = clean_dataset(df)
+
+tests/test_p2_11_round11.py::TestP235Round13Batch10Wiring::test_all_four_shadow_failures_increment
+tests/test_shadow_comparison.py::TestShadowComparisonStats::test_fire_shadow_skips_when_no_candidate
+tests/test_shadow_comparison.py::TestShadowComparisonStats::test_fire_shadow_skips_when_production_fallback
+  E:\code\bysj\backend\app\services\shadow_comparison_service.py:80: RuntimeWarning: coroutine 'ShadowComparisonService._shadow_check' was never awaited
+    record_silent_degradation(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_p2_38_leakage_audit_guard.py: 20 warnings
+  E:\code\bysj\backend\.venv\Lib\site-packages\sklearn\feature_extraction\text.py:526: UserWarning: The parameter 'token_pattern' will not be used since 'tokenizer' is not None'
+    warnings.warn(
+
+tests/test_p2_38_leakage_audit_guard.py::TestG4InventoryCoverageRatchet::test_scanner_sees_full_inventory
+tests/test_p2_38_leakage_audit_guard.py::TestG4InventoryCoverageRatchet::test_every_entry_has_a_risk_label
+  E:\code\bysj\backend\tests\tools\pick_p2_35_batch36_candidates.py:1: SyntaxWarning: invalid escape sequence '\`'
+    """第三十六批挑簇：location 登记表结构信号的延续（第三十五批同款口径）。
+
+tests/test_p2_38_leakage_audit_guard.py::TestG4InventoryCoverageRatchet::test_scanner_sees_full_inventory
+tests/test_p2_38_leakage_audit_guard.py::TestG4InventoryCoverageRatchet::test_every_entry_has_a_risk_label
+  E:\code\bysj\backend\tests\tools\pick_p2_35_batch37_candidates.py:1: SyntaxWarning: invalid escape sequence '\`'
+    """第三十六批挑簇：location 登记表结构信号的延续（第三十五批同款口径）。
+
+tests/test_p2_38_leakage_audit_guard.py::TestG4InventoryCoverageRatchet::test_scanner_sees_full_inventory
+tests/test_p2_38_leakage_audit_guard.py::TestG4InventoryCoverageRatchet::test_every_entry_has_a_risk_label
+  E:\code\bysj\infra\grafana\scripts\build_dashboard.py:1: SyntaxWarning: invalid escape sequence '\c'
+    """v1.37 Grafana Dashboard JSON 生成脚本.
+
+tests/test_predict_fusion_fire_forget.py::TestCreateReviewTaskSync::test_does_not_raise_on_scheduling_error
+  E:\zy\python\Lib\_weakrefset.py:88: RuntimeWarning: coroutine '_create_review_task' was never awaited
+    self.data.add(ref(item, self._remove))
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_predict_fusion_fire_forget.py::TestLogTaskException::test_no_log_when_task_cancelled
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine 'save_assessment_result' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_predict_fusion_fire_forget.py::TestLogTaskException::test_no_log_when_task_cancelled
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine '_create_review_task' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_smtp_breaker.py::TestCallWithSmtpBreaker::test_disabled_breaker_skips_check
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine 'TestCallWithSmtpBreaker.test_open_breaker_rejects_without_executing.<locals>._would_execute' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_smtp_breaker.py::TestInitSmtpBreaker::test_init_uses_settings_values
+  E:\zy\python\Lib\unittest\mock.py:2185: RuntimeWarning: coroutine 'to_thread' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_smtp_breaker.py::TestSmtpBreakerEndToEnd::test_five_consecutive_failures_open_breaker
+  E:\code\bysj\backend\tests\test_smtp_breaker.py:517: RuntimeWarning: coroutine 'TestSmtpBreakerEndToEnd.test_five_consecutive_failures_open_breaker.<locals>._would_execute' was never awaited
+    with pytest.raises(CircuitBreakerOpenError):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_upload_security_p1.py::TestDecompressionBombGuard::test_oversized_image_rejected
+  E:\code\bysj\backend\.venv\Lib\site-packages\PIL\Image.py:3574: DecompressionBombWarning: Image size (49000000 pixels) exceeds limit of 25000000 pixels, could be decompression bomb DOS attack.
+    warnings.warn(
+
+tests/unit/test_stale_warning_reminder_not_noop.py::TestStaleWarningReminderIsNotANoOp::test_writes_audit_log_for_stale_warning
+tests/unit/test_stale_warning_reminder_not_noop.py::TestStaleWarningReminderIsNotANoOp::test_unassigned_warning_also_leaves_trace
+tests/unit/test_stale_warning_reminder_not_noop.py::TestStaleWarningReminderIsNotANoOp::test_does_not_flip_handled_flag
+tests/unit/test_stale_warning_reminder_not_noop.py::TestStaleWarningReminderIsNotANoOp::test_sentry_reported_when_reminders_exist
+  E:\code\bysj\backend\tests\unit\test_stale_warning_reminder_not_noop.py:49: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - timedelta(hours=48),
+
+tests/unit/test_stale_warning_reminder_not_noop.py::TestStaleWarningReminderIsNotANoOp::test_handled_warning_is_not_reminded
+  E:\code\bysj\backend\tests\unit\test_stale_warning_reminder_not_noop.py:127: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - timedelta(hours=48),
+
+tests/unit/test_stale_warning_reminder_not_noop.py::TestStaleWarningReminderIsNotANoOp::test_low_level_warning_is_not_reminded
+  E:\code\bysj\backend\tests\unit\test_stale_warning_reminder_not_noop.py:159: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - timedelta(hours=48),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_importlinter_config.py::TestLintImportsExecution::test_lint_imports_passes
+FAILED tests/test_model_registry_atomicity.py::TestAtomicWrite::test_write_is_all_or_nothing
+FAILED tests/test_p2_11_round11.py::TestP235SilentDegradationRatchet::test_batch6_bucket_counts_pinned
+FAILED tests/test_p2_11_round11.py::TestP234RaiseClassificationSynced::test_classification_counts_synced_with_doc
+FAILED tests/test_p2_11_round11.py::TestP235Round13Batch25Declined::test_runtime_resolve_failure_conservative_skip
+FAILED tests/test_p2_11_round11.py::TestP235Round13Batch36Wiring::test_candidates_present_and_enclosing_func
+FAILED tests/test_p2_11_round11.py::TestP235Round13Batch36Wiring::test_wiring_only_at_the_two_batch36_handlers
+FAILED tests/unit/test_scheduler_artifact_cleanup.py::test_active_directory_model_is_not_deleted
+FAILED tests/unit/test_scheduler_artifact_cleanup.py::test_active_file_model_is_not_deleted
+FAILED tests/unit/test_scheduler_artifact_cleanup.py::test_unprotected_old_artifacts_are_cleaned
+10 failed, 7364 passed, 20 skipped, 167 warnings, 7 errors in 2050.65s (0:34:10)
+Sentry is attempting to send 2 pending events
+Waiting up to 2 seconds
+Press Ctrl-Break to quit

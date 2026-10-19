@@ -86,6 +86,15 @@ TFIDF_KWARGS = dict(
 )
 LR_KWARGS = dict(C=1.0, class_weight="balanced", max_iter=3000, random_state=RANDOM_STATE)
 
+# ROUND_16 (P1-8, 2026-10-19)：headline 指标块（groupwise_ooF 等）的**计算阈值**。
+# 历史事实：本脚本自 v1.27 起 _evaluate 就硬编码 p>=0.5，而生产决策阈值
+# （settings.text_bilingual_decision_threshold）为 0.30——两者是**不同口径**。
+# 修复方式不是回改历史数字，而是：①阈值显式化为具名常量；②写入 metrics JSON 的
+# headline_eval_threshold / threshold_governance 字段；③一致性闸门
+# （test_p2_40 TestThresholdSsot）钉死本常量 == SSOT
+# app/core/ml_decision_thresholds.py::BILINGUAL_HEADLINE_EVAL_THRESHOLD。
+HEADLINE_EVAL_THRESHOLD: float = 0.5
+
 
 def _write_sha256(path: Path) -> str:
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -94,8 +103,14 @@ def _write_sha256(path: Path) -> str:
     return digest
 
 
-def _evaluate(y_true: np.ndarray, p: np.ndarray) -> dict:
-    y_pred = (p >= 0.5).astype(int)
+def _evaluate(y_true: np.ndarray, p: np.ndarray, threshold: float = HEADLINE_EVAL_THRESHOLD) -> dict:
+    """headline 指标块按 `threshold` 计算.
+
+    ⚠️ 默认 `HEADLINE_EVAL_THRESHOLD=0.5` 是**历史口径**（v1.27 起的既成事实），
+    与生产决策阈值 0.30 不同。调用方若按生产阈值出读数，须显式传 0.30，
+    不得静默沿用默认值——ROUND_16 P1-8 的教训正是「标称 0.3、实算 0.5」。
+    """
+    y_pred = (p >= threshold).astype(int)
     cm = confusion_matrix(y_true, y_pred)
     tn = fp = fn = tp = 0
     if cm.size == 4:
@@ -318,6 +333,15 @@ def main() -> None:
         },
         "threshold": selected_threshold,
         "threshold_rationale": threshold_rationale,
+        # ROUND_16 (P1-8)：口径分离显式化——selected_threshold 是生产决策阈值，
+        # headline_eval_threshold 是 headline 指标块的实际计算阈值，两者不同值。
+        "headline_eval_threshold": HEADLINE_EVAL_THRESHOLD,
+        "threshold_governance": {
+            "decision_threshold": selected_threshold,
+            "decision_threshold_source": "settings.text_bilingual_decision_threshold (SSOT: app/core/ml_decision_thresholds.py)",
+            "headline_eval_threshold": HEADLINE_EVAL_THRESHOLD,
+            "headline_eval_threshold_source": "本脚本 _evaluate 默认阈值（历史口径；SSOT 常量 BILINGUAL_HEADLINE_EVAL_THRESHOLD 钉死）",
+        },
         "go_decision": go,
         "groupwise_ooF": group_metrics,
         "textwise_ooF": text_metrics,

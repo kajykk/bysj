@@ -27,7 +27,7 @@
   instance.py:25 V / model_registry.py:351 V / startup_status.py:100 S 同源 /
   text_tokenizer.py:37 F / hyperparameter_tuning.py:38 V+D /
   hyperparameter_tuning.py:51 V / model_loader.py:46 V /
-  model_validation.py:122 V / scaler.py:47 P / auth_service.py:277 V/F /
+  model_validation.py:135 V / scaler.py:47 P / auth_service.py:277 V/F /
   auth_service.py:436 C/V / experiment_evaluator.py:126 V /
   experiment_metrics.py:43 V / pdf_report_service.py:295 V /
   pdf_report_service.py:450 V / tasks/observability.py:79 V+R
@@ -56,7 +56,7 @@ TARGETS = [
     ("app/ml/hyperparameter_tuning.py", 38, "_load_tuning_cache", "V+D"),
     ("app/ml/hyperparameter_tuning.py", 51, "_append_tuning_cache", "V"),
     ("app/ml/model_loader.py", 46, "_resolve_artifacts_dir", "V"),
-    ("app/ml/model_validation.py", 122, "_bootstrap_auc_ci_with_count", "V"),
+    ("app/ml/model_validation.py", 135, "_bootstrap_auc_ci_with_count", "V"),
     ("app/ml/scaler.py", 47, "__getattr__", "P"),
     ("app/services/auth_service.py", 277, "change_password", "V/F"),
     ("app/services/auth_service.py", 436, "logout", "C/V"),

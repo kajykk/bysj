@@ -1,0 +1,739 @@
+{
+  "title": "TRIPOD+AI 对照附录（ROUND_16 导出）",
+  "guideline": {
+    "citation": "Collins GS, et al. TRIPOD+AI. BMJ 2024;385:e078378. PMID 38626948",
+    "items": 27,
+    "sections": [
+      "Title",
+      "Abstract",
+      "Introduction",
+      "Methods",
+      "Open science",
+      "Patient and public involvement",
+      "Results",
+      "Discussion"
+    ]
+  },
+  "generated_at": "2026-10-19T12:01:32.962040+00:00",
+  "status_counts": {
+    "partial": 13,
+    "missing": 3,
+    "evidence": 28,
+    "na": 6
+  },
+  "items": [
+    {
+      "item": "1",
+      "section": "Title",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "研究类型/目标人群/结局可从模型卡读出，但无 TRIPOD+AI 式标题陈述",
+      "evidence": "backend/models/v1.23_external_lr/model_card.md",
+      "note": "注册资料撰写时按 checklist 重组标题",
+      "improved_by": ""
+    },
+    {
+      "item": "2",
+      "section": "Abstract",
+      "dev_eval": "D;E",
+      "status": "missing",
+      "summary": "无结构化摘要（TRIPOD+AI for Abstracts 13 项）",
+      "evidence": "-",
+      "note": "留待论文/注册资料阶段",
+      "improved_by": ""
+    },
+    {
+      "item": "3a",
+      "section": "Introduction",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "医疗情境与立项理由（心理健康预警）+ 既有模型引用",
+      "evidence": "docs/planning/P2_R15_CLINICAL_READINESS.md",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "3b",
+      "section": "Introduction",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "目标人群 = 学生群体；用途 = 风险预警辅助决策",
+      "evidence": "backend/models/v1.23_external_lr/model_card.md",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "3c",
+      "section": "Introduction",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "人群健康不平等：性别分组差距已量化（ROUND_16 T3）",
+      "evidence": "probe_p2_40_round16_struct_result.json#t3_fairness_assessment",
+      "note": "ROUND_16 补齐",
+      "improved_by": "ROUND_16"
+    },
+    {
+      "item": "4",
+      "section": "Objectives",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "目标：外部验证 + 临床效用证据（R14/R15/R16 章程）",
+      "evidence": "docs/planning/P2_R14_PROJECT_CHARTER.md",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "5a",
+      "section": "Methods: Data",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "三队列数据源分别登记（结构化/文本/生理互不相交）",
+      "evidence": "docs/ML_LEAKAGE_AUDIT.md；probe_p2_40_round16_struct_result.json#t2_cohort_disjointness",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "5b",
+      "section": "Methods: Data",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "采集日期未在库内登记（reddit/中文语料仅版本名）",
+      "evidence": "datasets/text/*.csv",
+      "note": "日期链待补",
+      "improved_by": ""
+    },
+    {
+      "item": "6a",
+      "section": "Participants",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "场景=高校学生心理健康筛查；中心数=不适用（多源公开数据）",
+      "evidence": "docs/planning/P2_R15_CLINICAL_READINESS.md",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "6b",
+      "section": "Participants",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "入组标准：PHQ-9 量表标注 / 文本长度>=5（v1_27 脚本明示）",
+      "evidence": "backend/scripts/modeling/v1_27/04_retrain_bilingual_text_groupwise.py",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "6c",
+      "section": "Participants",
+      "dev_eval": "D;E",
+      "status": "na",
+      "summary": "无治疗干预变量",
+      "evidence": "-",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "7",
+      "section": "Data preparation",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "预处理与质检：imputer 兼容(S-02)/cleaner 统计量/特征工程函数化",
+      "evidence": "backend/app/core/model_engine/loading.py；backend/app/ml/feature_engineering.py",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "8a",
+      "section": "Outcome",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "结局=depression_binary（PHQ-9 派生，阈值口径已登记）",
+      "evidence": "data/processed/v1_23_external/test.csv；ml_decision_thresholds.py",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "8b",
+      "section": "Outcome",
+      "dev_eval": "D;E",
+      "status": "na",
+      "summary": "量表自评，无第三方评定者",
+      "evidence": "-",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "8c",
+      "section": "Outcome",
+      "dev_eval": "D;E",
+      "status": "na",
+      "summary": "无盲法要求（自评量表）",
+      "evidence": "-",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "9a",
+      "section": "Predictors",
+      "dev_eval": "D",
+      "status": "evidence",
+      "summary": "预测因子选择=12 项结构化特征（schema 登记 + 文献来源）",
+      "evidence": "backend/models/v1.23_external_lr/feature_schema.json",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "9b",
+      "section": "Predictors",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "全部预测因子定义/量纲/范围在 schema 内登记",
+      "evidence": "backend/models/v1.23_external_lr/feature_schema.json",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "9c",
+      "section": "Predictors",
+      "dev_eval": "D;E",
+      "status": "na",
+      "summary": "无主观解释型预测因子",
+      "evidence": "-",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "10",
+      "section": "Sample size",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "样本量已报（n=8379 语料/n=4318 外部留出/21 消融场景），无功效计算",
+      "evidence": "probe_p2_40_round16_text_result.json#t1_text_dca_ece",
+      "note": "功效分析缺位",
+      "improved_by": ""
+    },
+    {
+      "item": "11",
+      "section": "Missing data",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "缺失策略：median 填充（schema default_strategy）+ SimpleImputer",
+      "evidence": "backend/models/v1.23_external_lr/feature_schema.json",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "12a",
+      "section": "Analytical methods",
+      "dev_eval": "D",
+      "status": "evidence",
+      "summary": "数据用途与划分：groupwise 分层 K 折（按用户分组，禁跨用户泄漏）",
+      "evidence": "backend/app/ml/fusion_ablation.py:groupwise_kfold_indices；docs/ML_LEAKAGE_AUDIT.md",
+      "note": "R14 起持续强化",
+      "improved_by": ""
+    },
+    {
+      "item": "12b",
+      "section": "Analytical methods",
+      "dev_eval": "D",
+      "status": "evidence",
+      "summary": "预测因子处理：标准化/编码由 preprocessor Pipeline 固化",
+      "evidence": "backend/models/v1.23_external_lr/preprocessor.pkl",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "12c",
+      "section": "Analytical methods",
+      "dev_eval": "D",
+      "status": "evidence",
+      "summary": "模型类型+超参+内部验证：LR(C=1.0, class_weight=balanced)/MLP(BN)",
+      "evidence": "backend/scripts/modeling/v1_27/04_retrain_bilingual_text_groupwise.py；backend/models/artifacts/physiological/model.json",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "12d",
+      "section": "Analytical methods",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "簇异质性：数据源异质性已记账；TRIPOD-Cluster 未做",
+      "evidence": "probe_p2_40_round16_struct_result.json#t2_cohort_disjointness",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "12e",
+      "section": "Analytical methods",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "性能度量全家桶：AUROC+CI/Brier/ECE/校准曲线/**DCA 净获益**",
+      "evidence": "probe_p2_40_round16_struct_result.json#t1_structured；probe_p2_40_round16_text_result.json#t1_text_dca_ece",
+      "note": "ROUND_16 T1 补齐 DCA/ECE",
+      "improved_by": "ROUND_16"
+    },
+    {
+      "item": "12f",
+      "section": "Analytical methods",
+      "dev_eval": "E",
+      "status": "na",
+      "summary": "评估未触发模型更新（无 recalibration 决策）",
+      "evidence": "-",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "12g",
+      "section": "Analytical methods",
+      "dev_eval": "E",
+      "status": "partial",
+      "summary": "预测计算路径已文档化（predict_text/predict_lite/settings 阈值）",
+      "evidence": "backend/app/core/model_engine/predict.py",
+      "note": "端到端公式复现件待补",
+      "improved_by": ""
+    },
+    {
+      "item": "13",
+      "section": "Class imbalance",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "类别不平衡处置：class_weight='balanced'（LR）",
+      "evidence": "backend/scripts/modeling/v1_27/04_retrain_bilingual_text_groupwise.py:LR_KWARGS",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "14",
+      "section": "Fairness",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "公平性：分组指标+差距量化（TPR/FPR/FNR/EOC）+缓解分账（建议未启用）",
+      "evidence": "backend/app/ml/fairness_mitigation.py；probe_p2_40_round16_struct_result.json#t3_*",
+      "note": "ROUND_16 T3 补齐（评估）",
+      "improved_by": "ROUND_16"
+    },
+    {
+      "item": "15",
+      "section": "Model output",
+      "dev_eval": "D",
+      "status": "evidence",
+      "summary": "输出=概率/风险分；阈值口径 SSOT 化（0.30 决策 + 0.50 headline 分离登记）",
+      "evidence": "backend/app/core/ml_decision_thresholds.py；models/text/improved_bilingual_metrics.json",
+      "note": "ROUND_16 T5 补齐",
+      "improved_by": "ROUND_16"
+    },
+    {
+      "item": "16",
+      "section": "Methods: other",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "开发/评估数据差异：三模态队列不相交已如实登记（增量无法量化）",
+      "evidence": "probe_p2_40_round16_struct_result.json#t2_fusion_fixture_ablation",
+      "note": "ROUND_16 T2 阴性立项",
+      "improved_by": "ROUND_16"
+    },
+    {
+      "item": "17",
+      "section": "Ethics",
+      "dev_eval": "D;E",
+      "status": "missing",
+      "summary": "伦理审批信息未入库（公开数据集二次使用）",
+      "evidence": "-",
+      "note": "留待决策项",
+      "improved_by": ""
+    },
+    {
+      "item": "18a",
+      "section": "Open science",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "经费来源：无（毕业设计自筹）",
+      "evidence": "docs/planning/P2_R16_MODEL_VALIDATION_EVIDENCE.md",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "18b",
+      "section": "Open science",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "利益冲突：无",
+      "evidence": "docs/planning/P2_R16_MODEL_VALIDATION_EVIDENCE.md",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "18c",
+      "section": "Open science",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "方案/章程在库（ROUND 提示词链），无预注册",
+      "evidence": "docs/planning/",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "18d",
+      "section": "Open science",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "数据共享：含隐私语料受限，公开源可指认",
+      "evidence": "datasets/",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "18e",
+      "section": "Open science",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "代码共享：本仓库（含探针/变异/闸门）",
+      "evidence": "backend/tests/tools/",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "18f",
+      "section": "Open science",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "软件版本锁定：requirements.lock + sklearn 兼容补丁登记",
+      "evidence": "backend/requirements.lock；backend/app/core/model_engine/loading.py",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "19",
+      "section": "PPI",
+      "dev_eval": "D;E",
+      "status": "missing",
+      "summary": "无患者/公众参与记录",
+      "evidence": "-",
+      "note": "留待补充",
+      "improved_by": ""
+    },
+    {
+      "item": "20a",
+      "section": "Results",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "受试者流转：语料过滤（len>=5）/去重/分组规则可复现",
+      "evidence": "probe_p2_40_round16_text.py",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "20b",
+      "section": "Results",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "受试者特征：性别/来源分布已报",
+      "evidence": "probe_p2_40_round16_struct_result.json#t3",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "21",
+      "section": "Results",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "各分析集的阳性率与事件数：positive_rate 全域登记",
+      "evidence": "probe_p2_40_round16_text_result.json#t1",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "22",
+      "section": "Results",
+      "dev_eval": "D",
+      "status": "evidence",
+      "summary": "完整模型规格：特征系数/权重/特征名落档",
+      "evidence": "backend/models/v1.23_external_lr/feature_coefficients.csv",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "23",
+      "section": "Results",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "性能估计带 CI（bootstrap）+ 关键亚组（性别）+ DCA 净获益",
+      "evidence": "probe_p2_40_round16_struct_result.json；test_p2_40_model_validation_round16.py",
+      "note": "ROUND_16 强化",
+      "improved_by": "ROUND_16"
+    },
+    {
+      "item": "24",
+      "section": "Results",
+      "dev_eval": "E",
+      "status": "na",
+      "summary": "无模型更新",
+      "evidence": "-",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "25",
+      "section": "Discussion",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "解读含公平性与泄漏教训（R14/B.5 更正链）",
+      "evidence": "docs/ML_LEAKAGE_REMEDIATION.md",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "26",
+      "section": "Discussion",
+      "dev_eval": "D;E",
+      "status": "evidence",
+      "summary": "局限性：阴性结论如实立项（融合增量/纵向早期检测）",
+      "evidence": "docs/planning/P2_R15_EARLY_DETECTION_RESULT.md；P2_R16 本档 T2",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "27a",
+      "section": "Discussion",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "低质/缺失输入：NaN 拦截+安全网存在，端到端降级行为未逐条文档化",
+      "evidence": "backend/app/core/risk_thresholds.py",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "27b",
+      "section": "Discussion",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "所需专业技能：心理测评解读+AI 输出复核（报告已述）",
+      "evidence": "backend/models/v1.23_external_lr/model_card.md",
+      "note": "",
+      "improved_by": ""
+    },
+    {
+      "item": "27c",
+      "section": "Discussion",
+      "dev_eval": "D;E",
+      "status": "partial",
+      "summary": "后续步骤：NEXT_RELEASE 提案链在库",
+      "evidence": "docs/planning/P2_NEXT_RELEASE_PROPOSALS.md",
+      "note": "",
+      "improved_by": ""
+    }
+  ],
+  "validation_readings": {
+    "bilingual_groupwise_ooF": {
+      "n": 8379,
+      "recall": 0.5375,
+      "precision": 0.645,
+      "f1": 0.5864,
+      "roc_auc": 0.8437,
+      "brier": 0.128
+    },
+    "threshold_governance": {
+      "decision_threshold": 0.3,
+      "decision_threshold_source": "settings.text_bilingual_decision_threshold (SSOT: app/core/ml_decision_thresholds.py)",
+      "headline_eval_threshold": 0.5,
+      "headline_eval_threshold_source": "v1_27 脚本 _evaluate 硬编码 p>=0.5（历史事实，不回改）",
+      "annotation": "ROUND_16 (P1-8, 2026-10-19): 本文件历史缺口——顶层 threshold=0.3 与 headline 块 groupwise_ooF 的实际计算阈值(0.5)不一致，headline 曾被误读为 0.3 阈值下的读数。实测复现（tests/tools/probe_p2_40_round16_text.py）：headline 混淆矩阵 tn=6031/fp=536/fn=838/tp=974 精确对应 threshold_sweep_groupwise 的 t=0.5 行；t=0.3 行应为 tn=4773/fp=1794/fn=368/tp=1444（recall=0.7969）。历史数字一律不动，仅追加本口径登记。"
+    },
+    "t1_structured_dca_ece": {
+      "data": "data/processed/v1_23_external/test.csv (external holdout)",
+      "pipeline": "model.pkl (full Pipeline)",
+      "n": 4318,
+      "positive_rate": 0.5813,
+      "auroc": 0.9131,
+      "brier": 0.1152,
+      "ece": 0.0139,
+      "dca_summary": {
+        "net_benefit_min_in_range": 0.450517,
+        "treat_all_nb_in_range": [
+          0.302146,
+          0.534764
+        ],
+        "model_dominates_treat_all_in_range": true,
+        "model_dominates_treat_none_in_range": true,
+        "model_dominates_extremes_in_range": true
+      },
+      "dca_prevalence": 0.5813
+    },
+    "t2_fusion_ablation": {
+      "ablation": {
+        "arms": {
+          "structured": {
+            "auc": 1.0,
+            "auc_ci": [
+              1.0,
+              1.0
+            ],
+            "n": 21,
+            "degenerate_samples": 0
+          },
+          "text": {
+            "auc": 0.8287,
+            "auc_ci": [
+              0.6204,
+              0.9769
+            ],
+            "n": 21,
+            "degenerate_samples": 0
+          },
+          "physiological": {
+            "auc": 0.963,
+            "auc_ci": [
+              0.8843,
+              1.0
+            ],
+            "n": 21,
+            "degenerate_samples": 0
+          },
+          "fusion": {
+            "auc": 1.0,
+            "auc_ci": [
+              1.0,
+              1.0
+            ],
+            "n": 21,
+            "degenerate_samples": 0
+          }
+        },
+        "delta_vs_base": {
+          "text": {
+            "delta": -0.1713,
+            "ci": [
+              -0.3847,
+              -0.0192
+            ],
+            "ci_covers_zero": false,
+            "n_bootstrap_valid": 2000
+          },
+          "physiological": {
+            "delta": -0.037,
+            "ci": [
+              -0.1251,
+              0.0
+            ],
+            "ci_covers_zero": true,
+            "n_bootstrap_valid": 2000
+          },
+          "fusion": {
+            "delta": 0.0,
+            "ci": [
+              0.0,
+              0.0
+            ],
+            "ci_covers_zero": true,
+            "n_bootstrap_valid": 2000
+          }
+        },
+        "nri": -0.2043,
+        "idi": -0.2043,
+        "provenance": {
+          "source": "datasets/fusion/fusion_test_scenarios_v2.json (49 条设计场景; 融合权重历史上于同文件 in-sample 挑选, optimize_fusion_weights.py)",
+          "n": 21,
+          "positive_rate": 0.5714,
+          "base_arm": "structured",
+          "in_sample": true,
+          "grouping": "ungrouped",
+          "n_groups": null,
+          "n_bootstrap": 2000,
+          "confidence": 0.95,
+          "random_state": 42
+        }
+      },
+      "physio_failures": 0,
+      "scenarios_total": 49,
+      "scenarios_used": 21,
+      "scenarios_dropped_single_modality": 28,
+      "caveat": "fixture 为设计样本(非自然队列); 权重 in-sample; CI 覆盖 0 即无显著增量, 如实报"
+    },
+    "t3_fairness_disparities": {
+      "sensitivity_gap": 0.0208,
+      "tpr_gap": 0.0208,
+      "specificity_gap": 0.0093,
+      "fpr_gap": 0.0093,
+      "fnr_gap": 0.0208,
+      "ppv_gap": 0.0097,
+      "equalized_odds_gap": 0.0208
+    },
+    "t1_text_dca_ece": {
+      "n": 8379,
+      "positive_rate": 0.2163,
+      "auroc": 0.8437,
+      "ece": 0.0855,
+      "dca_summary": {
+        "net_benefit_min_in_range": 0.05836,
+        "treat_all_nb_in_range": [
+          -0.306242,
+          0.129172
+        ],
+        "model_dominates_treat_all_in_range": true,
+        "model_dominates_treat_none_in_range": true,
+        "model_dominates_extremes_in_range": true
+      },
+      "dca_at_0.3": {
+        "threshold": 0.3,
+        "pt": 0.4286,
+        "net_benefit_model": 0.080576,
+        "net_benefit_treat_all": -0.119636,
+        "net_benefit_treat_none": 0.0
+      },
+      "dca_at_0.5": {
+        "threshold": 0.5,
+        "pt": 1.0,
+        "net_benefit_model": 0.052274,
+        "net_benefit_treat_all": -0.56749,
+        "net_benefit_treat_none": 0.0
+      }
+    },
+    "t5_threshold_repro": {
+      "metrics_json_top_level_threshold": 0.3,
+      "metrics_json_threshold_rationale": "Recall≥0.75 且 Specificity≥0.65 的阈值中 F1 最高者 (t=0.3)",
+      "production_settings_threshold": 0.3,
+      "script_hardcoded_eval_threshold": 0.5,
+      "headline_cm_in_json": {
+        "tn": 6031,
+        "fp": 536,
+        "fn": 838,
+        "tp": 974
+      },
+      "recomputed_cm_at_0.5": {
+        "tn": 6031,
+        "fp": 536,
+        "fn": 838,
+        "tp": 974
+      },
+      "recomputed_cm_at_0.3": {
+        "tn": 4773,
+        "fp": 1794,
+        "fn": 368,
+        "tp": 1444
+      },
+      "headline_matches_at_0.5": true,
+      "headline_matches_at_0.3": false,
+      "metrics_at_0.5_full": {
+        "threshold": 0.5,
+        "tn": 6031,
+        "fp": 536,
+        "fn": 838,
+        "tp": 974,
+        "recall": 0.5375,
+        "precision": 0.645,
+        "f1": 0.5864
+      },
+      "metrics_at_0.3_full": {
+        "threshold": 0.3,
+        "tn": 4773,
+        "fp": 1794,
+        "fn": 368,
+        "tp": 1444,
+        "recall": 0.7969,
+        "precision": 0.446,
+        "f1": 0.5719
+      }
+    }
+  },
+  "disclaimer": "本导出为工程侧自评映射：status=evidence 仅代表仓内有对应材料，不等于通过 PROBAST+AI 评审；missing/partial 项如实留档，待注册资料/论文阶段补齐。"
+}

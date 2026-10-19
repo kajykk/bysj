@@ -8,6 +8,8 @@ from pathlib import Path
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.ml_decision_thresholds import TEXT_BILINGUAL_DECISION_THRESHOLD
+
 # P1-E 修复：使用 logger 替代 print()，便于生产环境统一日志收集
 logger = logging.getLogger(__name__)
 
@@ -500,7 +502,9 @@ class Settings(BaseSettings):
     # 组级去泄漏评估 (scripts/modeling/v1_27/03_groupwise_leakage_free_eval.py)
     # 显示真口径最佳点约在 0.30 (Recall≈0.80 / Specificity≈0.73 / F1≈0.57);
     # 该阈值只作用于 text_improved_bilingual_model, 英文主模型保持默认 0.50。
-    text_bilingual_decision_threshold: float = 0.30
+    # ROUND_16 (P1-8)：默认值引用 SSOT 常量（口径单一事实源），环境变量仍可覆盖；
+    # 一致性闸门 test_p2_40 TestThresholdSsot 钉死二者相等。
+    text_bilingual_decision_threshold: float = TEXT_BILINGUAL_DECISION_THRESHOLD
 
     # ── v1.26 轻特征模型召回优化配置 ──
     lite_decision_threshold: float = 0.40

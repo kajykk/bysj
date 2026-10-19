@@ -118,3 +118,62 @@ def should_fallback(confidence: float | None, availability: bool) -> bool:
     if confidence is None:
         return False
     return confidence < 0.5
+
+
+# ── ROUND_16 (P1-4)：漏报（假阴性）安全网 ──────────────────────────────
+# 缺口实证：`score_to_level` 是**纯分数**函数——总分低于 mild 阈值即返回 0 级
+# （"none"）。若上游存在「总分低但含高危信号」的输入（危机词命中但其余模态
+# 分数被拉低、单模态漏检等），现有链路会把它呈现为「无风险 / 免复核」，
+# 与本文件 P0-3 修复的「NaN→无风险」同属最危险的失效方向。
+#
+# 既有两条生产路径各自内联合成过该逻辑（`model_engine/predict.py` 的 text 与
+# mmpsy-lite 路径：危机命中 ⇒ risk_level=4），但**没有可复用、可断言的统一
+# 安全网**；纯分数入口（`score_to_level` / `FusionEngine._score_to_level` /
+# `RiskMixin._score_to_level`）没有任何安全维度。
+#
+# 本安全网把该逻辑集中并可断言。等级下限取值与既有 crisis_override 行为一致
+# （危机 ⇒ 4），不是新引入的临床判定。
+
+#: 危机信号（危机词命中等）的强制风险等级下限。
+CRISIS_FORCED_RISK_LEVEL: int = 4
+#: 其他需人工复核信号的风险等级下限——不得因总分低而落 0 级（"none"）。
+FN_SAFETY_MIN_LEVEL: int = 1
+
+
+def apply_false_negative_safety_net(
+    risk_level: int,
+    *,
+    crisis_signal: bool = False,
+    review_signal: bool = False,
+) -> tuple[int, bool]:
+    """漏报安全网：高危信号输入不得被判 0 级 / 免复核。
+
+    返回 ``(adjusted_risk_level, requires_human_review)``：
+
+    - ``crisis_signal=True``（危机词命中等）：等级下限
+      :data:`CRISIS_FORCED_RISK_LEVEL`（=4，critical），并强制人工复核；
+    - ``review_signal=True``（其他需人工复核信号，如低置信高风险）：
+      等级下限 :data:`FN_SAFETY_MIN_LEVEL`（=1，mild），并强制人工复核；
+    - 两者皆无：原样返回 ``(risk_level, False)``（行为不变）。
+
+    ⚠️ **未接入生产主路径**——ROUND_16 边界声明：新增能力走离线/评估层，
+    接入 `model_engine/predict.py` 两条危机路径前需单独评审（当前二者行为
+    与本安全网的 crisis 分支等价，接入是行为保持的等价重构）。
+
+    Args:
+        risk_level: 由 `score_to_level` 等给出的 0~4 风险等级
+        crisis_signal: 是否命中危机信号（危机词/高危模式）
+        review_signal: 是否存在其他需人工复核信号
+
+    Returns:
+        ``(调整后等级, 是否需人工复核)``
+    """
+    level = int(risk_level)
+    requires_review = False
+    if crisis_signal:
+        level = max(level, CRISIS_FORCED_RISK_LEVEL)
+        requires_review = True
+    if review_signal:
+        level = max(level, FN_SAFETY_MIN_LEVEL)
+        requires_review = True
+    return level, requires_review

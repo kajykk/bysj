@@ -1,0 +1,67 @@
+[baseline] 未变异 returncode=0（0=全绿）
+[baseline] 38 passed, 4 warnings in 22.24s
+
+[M1] metrics.json headline_eval_threshold 0.5 → 0.3（口径漂移）
+    returncode=1 | 失败 2 项 | 含目标 'headline_matches_stated_eval_threshold': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT5ThresholdSsot::test_metrics_json_headline_matches_stated_eval_threshold
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT5ThresholdSsot::test_metrics_json_threshold_governance_block_present
+
+[M2] v1_27 脚本 HEADLINE_EVAL_THRESHOLD 0.5 → 0.3
+    returncode=1 | 失败 1 项 | 含目标 'script_headline_threshold_pinned_by_ast': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT5ThresholdSsot::test_script_headline_threshold_pinned_by_ast
+
+[M3] fusion_engine 复活 CONFIDENCE_THRESHOLDS 死副本
+    returncode=1 | 失败 1 项 | 含目标 'no_confidence_thresholds_constant': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT5ThresholdSsot::test_fusion_engine_has_no_confidence_thresholds_constant
+
+[M4] SSOT TEXT_BILINGUAL_DECISION_THRESHOLD 0.30 → 0.31
+    returncode=1 | 失败 1 项 | 含目标 'decision_threshold_matches_production': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT5ThresholdSsot::test_metrics_json_decision_threshold_matches_production
+
+[M5] apply_false_negative_safety_net 中性化（恒返回原等级+免复核=False）
+    returncode=1 | 失败 3 项 | 含目标 'crisis_signal_never_drops_to_level_zero': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT4FalseNegativeSafetyNet::test_crisis_signal_never_drops_to_level_zero
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT4FalseNegativeSafetyNet::test_review_signal_floors_at_mild_and_forces_review
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT4FalseNegativeSafetyNet::test_score_to_level_zero_is_not_a_death_sentence
+
+[M6] DCA 公式 nb_model = TP/n − FP/n·pt 的减号改加号
+    returncode=1 | 失败 2 项 | 含目标 'net_benefit_matches_vickers_formula': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT1DcaEce::test_dca_net_benefit_matches_vickers_formula
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT1DcaEce::test_dca_random_scores_do_not_dominate_negative_control
+
+[M7] compute_fairness_metrics 移除 fnr_gap 读数
+    returncode=1 | 失败 1 项 | 含目标 'include_standard_fairness_gaps': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT3FairnessAssessmentAndMitigation::test_disparity_keys_include_standard_fairness_gaps
+
+[M8] paired_delta_auc_ci 恒 ci_covers_zero=True（判据失效）
+    returncode=1 | 失败 1 项 | 含目标 'excludes_zero_on_consistent_gap': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT2FusionAblationGuards::test_paired_delta_excludes_zero_on_consistent_gap
+
+[M9] groupwise_kfold_indices 的 StratifiedGroupKFold → KFold（组跨折泄漏）
+    returncode=1 | 失败 2 项 | 含目标 'never_splits_a_group': RED-OK
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT2FusionAblationGuards::test_groupwise_kfold_never_splits_a_group
+      FAILED tests/test_p2_40_model_validation_round16.py::TestT2FusionAblationGuards::test_threshold_selected_on_train_fold_only
+
+[final] 全部还原后 returncode=0（0=GREEN-OK）
+
+[residual-check] 变异标志串计数（全部应为 0；文件本含本轮合法改动，故不用 hash 对比 HEAD。注意标记须防子串误报）:
+    OK  M3 死副本定义（注释内引用不算，故加换行前缀）: 0
+    OK  M1 JSON 口径漂移: 0
+    OK  M2 脚本常量漂移: 0
+    OK  M4 SSOT 单边漂移: 0
+    OK  M5 安全网中性化: 0
+    OK  M6 DCA 公式符号翻转: 0
+    OK  M7 fnr_gap 移除: 0
+    OK  M8 ΔCI 判据恒真: 0
+    OK  M9 分组退化为 KFold（防 StratifiedGroupKFold 子串误报）: 0
+
+[summary] RED-OK 9/9 | final GREEN-OK=True | residual-clean=True
+    M1: RED-OK
+    M2: RED-OK
+    M3: RED-OK
+    M4: RED-OK
+    M5: RED-OK
+    M6: RED-OK
+    M7: RED-OK
+    M8: RED-OK
+    M9: RED-OK

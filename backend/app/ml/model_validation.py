@@ -1,9 +1,14 @@
-"""Phase 3 模型验证基础设施：临床指标 + 置信区间 + 公平性检查.
+"""Phase 3 模型验证基础设施：临床指标 + 置信区间 + 公平性检查 + 决策效用.
 
 按 Phase 3 计划要求实现：
 - 按风险层级报告 sensitivity、specificity、PPV、NPV、AUROC、校准度及置信区间
 - 按性别、年级等允许且合规的群体检查偏差
 - 不输出可重新识别的小样本切片（min_group_size 保护）
+
+ROUND_16（P1-1 补齐）：新增**决策曲线分析（DCA）/净获益**与 **ECE / 可靠性** 指标。
+此前校准证据只有 calibration curve + 自设 Brier≤0.20，无法回答临床效用问题
+「在这个阈值上干预，比『全治』与『全不治』哪个更好」。DCA 直接给出净获益对比，
+ECE 给校准误差的单一汇总数，二者共同构成比自设目标更强的临床效用证据。
 """
 
 from __future__ import annotations
@@ -15,10 +20,18 @@ from typing import Any
 import numpy as np
 from scipy import stats as scipy_stats
 
+from app.core.ml_decision_thresholds import DCA_CLINICAL_RANGE
+
 logger = logging.getLogger(__name__)
 
 # 小样本保护：低于此数量的群体不输出指标，防止可重新识别
 _DEFAULT_MIN_GROUP_SIZE = 30
+
+# ROUND_16 (P1-1)：DCA 临床合理阈值区间（筛查式预警：不漏报优先，取中低阈值段）。
+# 该区间只用于**汇总判定**（净获益是否压过极端线），不改变逐阈值曲线本身。
+# SSOT：app/core/ml_decision_thresholds.py::DCA_CLINICAL_RANGE（单一事实源，
+# 不由调用方随意搬区间凑门槛）。
+_DEFAULT_CLINICAL_RANGE = DCA_CLINICAL_RANGE
 
 
 @dataclass
@@ -165,6 +178,152 @@ def compute_brier_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
     if len(y_true) == 0:
         return 0.0
     return float(np.mean((y_score - y_true) ** 2))
+
+
+def compute_ece(y_true: np.ndarray, y_score: np.ndarray, n_bins: int = 10) -> float:
+    """Expected Calibration Error（等宽分箱）.
+
+    ECE = Σ_b (n_b / n) · |acc_b − conf_b|，其中 acc_b 为箱 b 内正例比例、
+    conf_b 为箱 b 内平均预测概率。值域 [0, 1]，0 = 完美校准。
+
+    与 calibration curve 互补：curve 给逐箱细节，ECE 给可比较的单一汇总数。
+    ROUND_16 (P1-1)：替换「只有曲线、没有汇总误差」的证据缺口。
+    """
+    y_true = np.asarray(y_true).astype(float)
+    y_score = np.asarray(y_score, dtype=float)
+    if len(y_true) == 0 or n_bins <= 0:
+        return 0.0
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    # 预测恰为 1.0 的样本归入最后一箱（np.digitize 右开区间会漏掉）
+    bin_idx = np.clip(np.digitize(y_score, edges[1:-1], right=False), 0, n_bins - 1)
+    n = len(y_true)
+    ece = 0.0
+    for b in range(n_bins):
+        mask = bin_idx == b
+        n_b = int(np.sum(mask))
+        if n_b == 0:
+            continue
+        acc_b = float(np.mean(y_true[mask]))
+        conf_b = float(np.mean(y_score[mask]))
+        ece += (n_b / n) * abs(acc_b - conf_b)
+    return float(ece)
+
+
+def decision_curve_analysis(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    thresholds: np.ndarray | list[float] | None = None,
+    clinical_range: tuple[float, float] = _DEFAULT_CLINICAL_RANGE,
+) -> dict[str, Any]:
+    """决策曲线分析（DCA）：逐阈值比较模型净获益与两条极端策略线.
+
+    净获益定义（Vickers & Elkin 2006 口径）：
+        NB_model(t)    = TP/n − FP/n · pt(t),  pt(t) = t/(1−t)（阈值几率）
+        NB_treat_all(t)= π − (1−π) · pt(t),  π 为患病率（阳性率）
+        NB_treat_none  = 0（任何阈值下都不干预）
+
+    「全治」线随 t 增大而下降，t = π 时穿过 0；模型只有在其工作区间内持续位于
+    两条极端线**上方**才具备临床效用——这是比单一阈值 F1 更接近临床问题的证据。
+
+    Args:
+        y_true: 真实标签 (0/1)
+        y_score: 预测概率 [0, 1]
+        thresholds: 阈值网格，None 默认 0.05~0.95 步长 0.05
+        clinical_range: 临床合理阈值区间（汇总判定用），默认 (0.1, 0.4)
+
+    Returns:
+        {
+          "prevalence": float,
+          "clinical_range": [lo, hi],
+          "curve": [{threshold, pt, net_benefit_model,
+                     net_benefit_treat_all, net_benefit_treat_none}, ...],
+          "summary": {
+            "net_benefit_min_in_range": float,       # 区间内模型 NB 最小值
+            "treat_all_nb_in_range": [min, max],     # 区间内全治线 NB 范围
+            "model_dominates_treat_all_in_range": bool,
+            "model_dominates_treat_none_in_range": bool,
+            "model_dominates_extremes_in_range": bool,  # 同时压过两条极端线
+          },
+        }
+
+    ROUND_16 (P1-1) 门槛先定：clinical_range 内模型净获益须 **≥ 全治线且 ≥ 全不治线**；
+    达不到则如实报 ``model_dominates_extremes_in_range=False``，**不得靠移阈值区间凑**
+    （区间本身是固定的临床先验，不是可调参数）。
+    """
+    y_true = np.asarray(y_true).astype(float)
+    y_score = np.asarray(y_score, dtype=float)
+    if len(y_true) == 0:
+        raise ValueError("decision_curve_analysis 需要非空样本")
+    if np.any((y_score < 0) | (y_score > 1)):
+        raise ValueError("decision_curve_analysis 的 y_score 必须在 [0,1]")
+
+    n = len(y_true)
+    prevalence = float(np.mean(y_true))
+    pos = float(np.sum(y_true))
+    neg = float(n - pos)
+
+    if thresholds is None:
+        grid = np.round(np.arange(0.05, 1.0, 0.05), 4)
+    else:
+        grid = np.asarray(thresholds, dtype=float)
+
+    lo_c, hi_c = float(clinical_range[0]), float(clinical_range[1])
+    if not (0.0 <= lo_c < hi_c < 1.0):
+        raise ValueError(f"clinical_range 须满足 0 <= lo < hi < 1，得到 {clinical_range!r}")
+
+    curve: list[dict[str, float]] = []
+    in_range: list[dict[str, float]] = []
+    for t in grid:
+        t = float(t)
+        if not (0.0 <= t < 1.0):
+            raise ValueError(f"DCA 阈值须在 [0,1)，得到 {t}")
+        pt = t / (1.0 - t)
+        y_pred = (y_score >= t).astype(float)
+        tp = float(np.sum((y_true == 1) & (y_pred == 1)))
+        fp = float(np.sum((y_true == 0) & (y_pred == 1)))
+        nb_model = tp / n - fp / n * pt
+        nb_treat_all = pos / n - neg / n * pt
+        row = {
+            "threshold": round(t, 4),
+            "pt": round(pt, 4),
+            "net_benefit_model": round(nb_model, 6),
+            "net_benefit_treat_all": round(nb_treat_all, 6),
+            "net_benefit_treat_none": 0.0,
+        }
+        curve.append(row)
+        # 区间判定用**原始 t**（不被 round 扰动），自定义网格的边界点才不会被
+        # 四舍五入挤出临床区间
+        if lo_c <= t <= hi_c:
+            in_range.append(row)
+    if in_range:
+        nb_min = min(row["net_benefit_model"] for row in in_range)
+        ta_vals = [row["net_benefit_treat_all"] for row in in_range]
+        dominates_all = all(
+            row["net_benefit_model"] >= row["net_benefit_treat_all"] for row in in_range
+        )
+        dominates_none = all(row["net_benefit_model"] >= 0.0 for row in in_range)
+        summary = {
+            "net_benefit_min_in_range": round(nb_min, 6),
+            "treat_all_nb_in_range": [round(min(ta_vals), 6), round(max(ta_vals), 6)],
+            "model_dominates_treat_all_in_range": bool(dominates_all),
+            "model_dominates_treat_none_in_range": bool(dominates_none),
+            "model_dominates_extremes_in_range": bool(dominates_all and dominates_none),
+        }
+    else:
+        summary = {
+            "net_benefit_min_in_range": 0.0,
+            "treat_all_nb_in_range": [0.0, 0.0],
+            "model_dominates_treat_all_in_range": False,
+            "model_dominates_treat_none_in_range": False,
+            "model_dominates_extremes_in_range": False,
+        }
+
+    return {
+        "prevalence": round(prevalence, 4),
+        "clinical_range": [lo_c, hi_c],
+        "curve": curve,
+        "summary": summary,
+    }
 
 
 def compute_binary_metrics(
@@ -373,13 +532,29 @@ def compute_fairness_metrics(
         group_ppvs[str(g)] = metrics.ppv
 
     # 计算群体间差异（max - min）
+    # ROUND_16 (P1-3)：原有 sensitivity/specificity/ppv gap 之外，补齐文献标准
+    # 公平性差距读数：TPR 差（=机会均等差距 equal-opportunity difference）、
+    # FPR 差、FNR 差，以及 equalized odds 合成差距 max(tpr_gap, fpr_gap)。
+    # 缺口量化是「评估」；缓解另有独立模块（fairness_mitigation，未接入生产）。
     disparities: dict[str, float] = {}
     if len(group_sensitivities) >= 2:
-        disparities["sensitivity_gap"] = round(max(group_sensitivities.values()) - min(group_sensitivities.values()), 4)
+        tpr_gap = max(group_sensitivities.values()) - min(group_sensitivities.values())
+        disparities["sensitivity_gap"] = round(tpr_gap, 4)
+        disparities["tpr_gap"] = round(tpr_gap, 4)
     if len(group_specificities) >= 2:
+        fpr_gap = max(1 - v for v in group_specificities.values()) - min(
+            1 - v for v in group_specificities.values()
+        )
         disparities["specificity_gap"] = round(max(group_specificities.values()) - min(group_specificities.values()), 4)
+        disparities["fpr_gap"] = round(fpr_gap, 4)
+    if len(group_sensitivities) >= 2:
+        disparities["fnr_gap"] = round(tpr_gap, 4)  # FNR = 1 − TPR，组间差与 TPR 差相同
     if len(group_ppvs) >= 2:
         disparities["ppv_gap"] = round(max(group_ppvs.values()) - min(group_ppvs.values()), 4)
+    if "tpr_gap" in disparities and "fpr_gap" in disparities:
+        disparities["equalized_odds_gap"] = round(
+            max(disparities["tpr_gap"], disparities["fpr_gap"]), 4
+        )
 
     return {
         "per_group": per_group,
@@ -446,6 +621,13 @@ def generate_clinical_validation_report(
 
     y_score_flat = y_score if y_score.ndim == 1 else y_score[:, -1]
     report["calibration"] = compute_calibration_curve(y_true.astype(int), y_score_flat)
+
+    # ROUND_16 (P1-1)：决策曲线 / 净获益 + ECE（仅二分类有意义；多类不强行套用）
+    if n_classes <= 2:
+        report["decision_curve"] = decision_curve_analysis(
+            y_true.astype(int), y_score_flat
+        )
+        report["ece"] = round(compute_ece(y_true.astype(int), y_score_flat), 4)
 
     # 公平性检查
     if groups is not None:

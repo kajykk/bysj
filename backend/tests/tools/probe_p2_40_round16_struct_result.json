@@ -1,0 +1,267 @@
+{
+  "probe": "p2_40_round16_struct",
+  "sections": {
+    "t1_structured": {
+      "data": "data/processed/v1_23_external/test.csv (external holdout)",
+      "pipeline": "model.pkl (full Pipeline)",
+      "n": 4318,
+      "positive_rate": 0.5813,
+      "auroc": 0.9131,
+      "brier": 0.1152,
+      "ece": 0.0139,
+      "dca_summary": {
+        "net_benefit_min_in_range": 0.450517,
+        "treat_all_nb_in_range": [
+          0.302146,
+          0.534764
+        ],
+        "model_dominates_treat_all_in_range": true,
+        "model_dominates_treat_none_in_range": true,
+        "model_dominates_extremes_in_range": true
+      },
+      "dca_prevalence": 0.5813
+    },
+    "t3_fairness_assessment": {
+      "group_by": "gender",
+      "per_group": {
+        "female": {
+          "sensitivity": 0.8852,
+          "specificity": 0.7829,
+          "ppv": 0.8505,
+          "npv": 0.8301,
+          "auc": 0.9176,
+          "brier_score": 0.1124,
+          "sensitivity_ci": [
+            0.8648,
+            0.9028
+          ],
+          "specificity_ci": [
+            0.7525,
+            0.8106
+          ],
+          "ppv_ci": [
+            0.8285,
+            0.8702
+          ],
+          "npv_ci": [
+            0.8012,
+            0.8556
+          ],
+          "auc_ci": [
+            0.9052,
+            0.9296
+          ],
+          "confusion_matrix": {
+            "tp": 956,
+            "fp": 168,
+            "tn": 606,
+            "fn": 124
+          },
+          "auc_reliable": true,
+          "degenerate_samples": 0
+        },
+        "male": {
+          "sensitivity": 0.8643,
+          "specificity": 0.7737,
+          "ppv": 0.8408,
+          "npv": 0.8048,
+          "auc": 0.9094,
+          "brier_score": 0.1173,
+          "sensitivity_ci": [
+            0.8456,
+            0.8811
+          ],
+          "specificity_ci": [
+            0.7472,
+            0.7982
+          ],
+          "ppv_ci": [
+            0.8212,
+            0.8586
+          ],
+          "npv_ci": [
+            0.779,
+            0.8283
+          ],
+          "auc_ci": [
+            0.8985,
+            0.9208
+          ],
+          "confusion_matrix": {
+            "tp": 1236,
+            "fp": 234,
+            "tn": 800,
+            "fn": 194
+          },
+          "auc_reliable": true,
+          "degenerate_samples": 0
+        }
+      },
+      "disparities": {
+        "sensitivity_gap": 0.0208,
+        "tpr_gap": 0.0208,
+        "specificity_gap": 0.0093,
+        "fpr_gap": 0.0093,
+        "fnr_gap": 0.0208,
+        "ppv_gap": 0.0097,
+        "equalized_odds_gap": 0.0208
+      },
+      "suppressed_groups": []
+    },
+    "t3_fairness_mitigation": {
+      "group_thresholds": {
+        "status": "recommended_not_enabled",
+        "criterion": "youden",
+        "per_group_thresholds": {
+          "female": 0.6,
+          "male": 0.6
+        },
+        "suppressed_groups": [],
+        "uniform_threshold": 0.6,
+        "min_group_size": 30,
+        "cost": {
+          "uniform_baseline": {
+            "accuracy": 0.8358,
+            "balanced_accuracy": 0.8372,
+            "f1": 0.8544,
+            "tpr": 0.8287,
+            "fpr": 0.1543
+          },
+          "group_thresholds_applied": {
+            "accuracy": 0.8358,
+            "balanced_accuracy": 0.8372,
+            "f1": 0.8544,
+            "tpr": 0.8287,
+            "fpr": 0.1543
+          },
+          "accuracy_cost": 0.0,
+          "f1_cost": 0.0,
+          "tpr_gap_grouped": 0.0244,
+          "fpr_gap_grouped": 0.0035
+        },
+        "caveats": [
+          "同分不同组 ⇒ 不同等级，需产品与合理论证后方可启用",
+          "小样本/单类组沿用统一阈值，且不输出其单独读数（min_group_size 保护）",
+          "代价读数必须连同建议一起评审；只报改善不报代价视为无效建议"
+        ]
+      },
+      "sample_reweights": {
+        "status": "recommended_not_enabled",
+        "group_weights": {
+          "female": 1.164509,
+          "male": 0.876218
+        },
+        "class_weights": {
+          "0": 1.194137,
+          "1": 0.860159
+        },
+        "combined_example": {
+          "female|0": 1.390583,
+          "female|1": 1.001663,
+          "male|0": 1.046324,
+          "male|1": 0.753687
+        },
+        "cost_note": [
+          "只对重训模型有效；不重训则无意义（当前基线模型不适用）",
+          "改变训练分布 ⇒ 改变校准分布，需重估 DCA/ECE 后另行评审"
+        ]
+      }
+    },
+    "t2_fusion_fixture_ablation": {
+      "ablation": {
+        "arms": {
+          "structured": {
+            "auc": 1.0,
+            "auc_ci": [
+              1.0,
+              1.0
+            ],
+            "n": 21,
+            "degenerate_samples": 0
+          },
+          "text": {
+            "auc": 0.8287,
+            "auc_ci": [
+              0.6204,
+              0.9769
+            ],
+            "n": 21,
+            "degenerate_samples": 0
+          },
+          "physiological": {
+            "auc": 0.963,
+            "auc_ci": [
+              0.8843,
+              1.0
+            ],
+            "n": 21,
+            "degenerate_samples": 0
+          },
+          "fusion": {
+            "auc": 1.0,
+            "auc_ci": [
+              1.0,
+              1.0
+            ],
+            "n": 21,
+            "degenerate_samples": 0
+          }
+        },
+        "delta_vs_base": {
+          "text": {
+            "delta": -0.1713,
+            "ci": [
+              -0.3847,
+              -0.0192
+            ],
+            "ci_covers_zero": false,
+            "n_bootstrap_valid": 2000
+          },
+          "physiological": {
+            "delta": -0.037,
+            "ci": [
+              -0.1251,
+              0.0
+            ],
+            "ci_covers_zero": true,
+            "n_bootstrap_valid": 2000
+          },
+          "fusion": {
+            "delta": 0.0,
+            "ci": [
+              0.0,
+              0.0
+            ],
+            "ci_covers_zero": true,
+            "n_bootstrap_valid": 2000
+          }
+        },
+        "nri": -0.2043,
+        "idi": -0.2043,
+        "provenance": {
+          "source": "datasets/fusion/fusion_test_scenarios_v2.json (49 条设计场景; 融合权重历史上于同文件 in-sample 挑选, optimize_fusion_weights.py)",
+          "n": 21,
+          "positive_rate": 0.5714,
+          "base_arm": "structured",
+          "in_sample": true,
+          "grouping": "ungrouped",
+          "n_groups": null,
+          "n_bootstrap": 2000,
+          "confidence": 0.95,
+          "random_state": 42
+        }
+      },
+      "physio_failures": 0,
+      "scenarios_total": 49,
+      "scenarios_used": 21,
+      "scenarios_dropped_single_modality": 28,
+      "caveat": "fixture 为设计样本(非自然队列); 权重 in-sample; CI 覆盖 0 即无显著增量, 如实报"
+    },
+    "t2_cohort_disjointness": {
+      "structured": "aligned_features.csv / Student Depression Dataset (PHQ-9 条目, 无文本无生理)",
+      "text": "chinese_depression_corpus_v1.csv + reddit cleaned (文本, 无结构/生理测量)",
+      "physiological": "WESAD 风格 13 维可穿戴特征 (第三方队列)",
+      "finding": "三个模态训练队列受试者不相交 ⇒ 自然队列上的融合增量 ΔAUROC 无法量化; fixture 结果仅证明消融机制可用"
+    }
+  }
+}

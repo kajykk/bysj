@@ -1682,3 +1682,36 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 
   **CI 结论（`fbe7f54`，2026-10-18）**：check-runs total_count=10，全部
   completed/success（含 backend-coverage）。第三十七批完整收口。
+
+---
+
+## 附：ROUND_16 同步（模型验证证据补强，追加，不改上文历史快照）
+
+- 2026-10-19，ROUND_16（DCA/ECE、融合消融、公平性、漏报安全网、阈值 SSOT）
+  新增/修改源码后重扫（同口径 ast.Raise + Call）：
+
+    HTTPException=211
+    other_raise=345
+    ServiceError=37
+
+- 变化解释：HTTPException 与 ServiceError 均不变；other_raise 335→345（+10
+  全部来自本轮新模块的入参校验 raise，属响亮失败语义，非降级路径）：
+  - `app/ml/model_validation.py` +4：`decision_curve_analysis` 空样本 /
+    y_score 越界 [0,1] / clinical_range 非法 / 阈值越界 [0,1) 四条 ValueError；
+  - `app/ml/fusion_ablation.py` +4：`groupwise_kfold_indices` 跨折组重叠
+    泄漏 ValueError、`paired_delta_auc_ci` 双臂长度不等等输入校验；
+  - `app/ml/fairness_mitigation.py` +2：`suggest_group_thresholds` 的
+    criterion 参数只许 'youden'/'f1'、`suggest_sample_reweights` 空样本
+    两条 ValueError。
+- 连带修正（location 登记表行号漂移，非行为变化）：`app/ml/model_validation.py`
+  的 batch36 候选 `_bootstrap_auc_ci_with_count` except 由 122 行移到 135 行
+  （本轮在文件头新增 docstring/import/常量共 13 行）；`TestP235Round13Batch36Wiring`
+  与 `tests/tools/verify_p2_35_batch36_candidates.py` 的四处钉（CANDIDATES +
+  docstring）同步 122→135，行为断言不变。
+- 候选池变化：本轮曾引入 1 个未接线 X 候选（`fusion_ablation.py` bootstrap
+  循环内的 `except Exception: continue`），实测该路径**运行期不可达**——
+  NaN/inf 输入会在同函数未包裹的 `roc_auc_score` 调用（原 106/107 行）先行
+  抛出，循环内吞掉 bootstrap 样本还会腐蚀 CI ⇒ 按「不可达路径不接线」纪律
+  **移除该 except**（保留退化重采样的 pre-check 计数），X 桶回到 116、
+  总数 334 不变，桶计数与上文一致无需改判。
+- TestP234RaiseClassificationSynced 按本附录新 token 同步。

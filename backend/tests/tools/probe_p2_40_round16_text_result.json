@@ -1,0 +1,79 @@
+{
+  "probe": "p2_40_round16_text",
+  "t5_threshold_repro": {
+    "metrics_json_top_level_threshold": 0.3,
+    "metrics_json_threshold_rationale": "Recall≥0.75 且 Specificity≥0.65 的阈值中 F1 最高者 (t=0.3)",
+    "production_settings_threshold": 0.3,
+    "script_hardcoded_eval_threshold": 0.5,
+    "headline_cm_in_json": {
+      "tn": 6031,
+      "fp": 536,
+      "fn": 838,
+      "tp": 974
+    },
+    "recomputed_cm_at_0.5": {
+      "tn": 6031,
+      "fp": 536,
+      "fn": 838,
+      "tp": 974
+    },
+    "recomputed_cm_at_0.3": {
+      "tn": 4773,
+      "fp": 1794,
+      "fn": 368,
+      "tp": 1444
+    },
+    "headline_matches_at_0.5": true,
+    "headline_matches_at_0.3": false,
+    "metrics_at_0.5_full": {
+      "threshold": 0.5,
+      "tn": 6031,
+      "fp": 536,
+      "fn": 838,
+      "tp": 974,
+      "recall": 0.5375,
+      "precision": 0.645,
+      "f1": 0.5864
+    },
+    "metrics_at_0.3_full": {
+      "threshold": 0.3,
+      "tn": 4773,
+      "fp": 1794,
+      "fn": 368,
+      "tp": 1444,
+      "recall": 0.7969,
+      "precision": 0.446,
+      "f1": 0.5719
+    }
+  },
+  "t1_text_dca_ece": {
+    "n": 8379,
+    "positive_rate": 0.2163,
+    "auroc": 0.8437,
+    "ece": 0.0855,
+    "dca_summary": {
+      "net_benefit_min_in_range": 0.05836,
+      "treat_all_nb_in_range": [
+        -0.306242,
+        0.129172
+      ],
+      "model_dominates_treat_all_in_range": true,
+      "model_dominates_treat_none_in_range": true,
+      "model_dominates_extremes_in_range": true
+    },
+    "dca_at_0.3": {
+      "threshold": 0.3,
+      "pt": 0.4286,
+      "net_benefit_model": 0.080576,
+      "net_benefit_treat_all": -0.119636,
+      "net_benefit_treat_none": 0.0
+    },
+    "dca_at_0.5": {
+      "threshold": 0.5,
+      "pt": 1.0,
+      "net_benefit_model": 0.052274,
+      "net_benefit_treat_all": -0.56749,
+      "net_benefit_treat_none": 0.0
+    }
+  }
+}

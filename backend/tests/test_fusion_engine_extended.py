@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from app.ml.fusion_engine import CONFIDENCE_THRESHOLDS, DEFAULT_WEIGHTS, FusionEngine
+from app.ml.fusion_engine import DEFAULT_WEIGHTS, FusionEngine
 
 
 class TestFusionEngine:
@@ -152,7 +152,16 @@ class TestFusionEngine:
             assert loaded.weights == engine.weights
 
     def test_confidence_thresholds(self):
-        """TC-COV-ML-046: Confidence thresholds constants."""
-        assert "high" in CONFIDENCE_THRESHOLDS
-        assert "medium" in CONFIDENCE_THRESHOLDS
-        assert "low" in CONFIDENCE_THRESHOLDS
+        """TC-COV-ML-046: 置信阈值唯一事实源 = app/core/confidence.py.
+
+        ROUND_16 (P1-8)：原断言对象是 fusion_engine 内的死副本
+        CONFIDENCE_THRESHOLDS（无生产消费方、与 SSOT 语义重叠），已删除。
+        现改为钉 SSOT 的两个真实常量——键名断言是空转，值断言才有口径意义。
+        """
+        from app.core.confidence import (
+            MODALITY_LOW_CONFIDENCE_THRESHOLD,
+            MODALITY_PRIMARY_CONFIDENCE_THRESHOLD,
+        )
+
+        assert MODALITY_PRIMARY_CONFIDENCE_THRESHOLD == 0.8
+        assert MODALITY_LOW_CONFIDENCE_THRESHOLD == 0.5
