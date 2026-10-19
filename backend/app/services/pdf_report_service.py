@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from xml.sax.saxutils import escape as _xml_escape
 
+from app.core.degradation import record_silent_degradation
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,6 +34,66 @@ def _para_text(value: Any) -> str:
     if value is None:
         return ""
     return _xml_escape(str(value))
+
+
+# ── REV-2026-10-20 (S5)：CJK 字体 ────────────────────────────────────
+# reportlab 的默认样式（Helvetica）不含 CJK 字形。本服务的标题、副标题
+# （"User: 张三"）、section 正文、建议列表全部是中文，改前导出结果为空白/方块，
+# 而 _validate_pdf 只检查 "%PDF" 头仍返回 success=True，故障完全静默。
+#
+# 选用 reportlab 内置的 CID 字体 STSong-Light：无需随包携带字体文件，
+# 也不需要目标机器安装中文字体；PDF 通过 Identity-H + ToUnicode CMap
+# 引用该字体，文本可提取（测试用它做真实产物断言）。
+_CJK_FONT_NAME = "STSong-Light"
+_CJK_FONT_STATE: bool | None = None  # None=未尝试, True=可用, False=不可用
+
+
+def _ensure_cjk_font() -> str | None:
+    """注册 STSong-Light，返回字体名；不可用时返回 None（降级 Helvetica）。
+
+    注册失败属环境/依赖异常：记录自定义指标后降级，不阻断报告导出
+    （宁可出方块也不能让整个导出功能 500），但绝不再"静默成功"。
+    """
+    global _CJK_FONT_STATE
+    if _CJK_FONT_STATE is True:
+        return _CJK_FONT_NAME
+    if _CJK_FONT_STATE is False:
+        return None
+    try:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+
+        pdfmetrics.registerFont(UnicodeCIDFont(_CJK_FONT_NAME))
+        _CJK_FONT_STATE = True
+        return _CJK_FONT_NAME
+    except Exception:
+        _CJK_FONT_STATE = False
+        record_silent_degradation("services.pdf_report_service.cjk_font_unavailable")
+        logger.warning(
+            "PDF CJK font %s registration failed; falling back to Helvetica "
+            "(Chinese text will render as blanks)",
+            _CJK_FONT_NAME,
+            exc_info=True,
+        )
+        return None
+
+
+def _apply_cjk_font(styles: Any) -> str:
+    """把 CJK 字体写入样板样式，返回表格/正文应使用的字体名。"""
+    font = _ensure_cjk_font() or "Helvetica"
+    for style_name in (
+        "Title",
+        "Heading1",
+        "Heading2",
+        "Heading3",
+        "Heading4",
+        "BodyText",
+        "Normal",
+    ):
+        style = styles.get(style_name) if hasattr(styles, "get") else None
+        if style is not None:
+            style.fontName = font
+    return font
 
 
 @dataclass
@@ -184,6 +246,8 @@ class PDFReportService:
                 )
 
                 styles = getSampleStyleSheet()
+                # REV-2026-10-20 (S5)：中文字体必须显式注册/应用
+                cjk_font = _apply_cjk_font(styles)
                 story = []
 
                 # Title
@@ -247,6 +311,9 @@ class PDFReportService:
                                     ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                                     ("FONTSIZE", (0, 0), (-1, 0), 12),
+                                    # S5：整表（含中文单元格）统一用 CJK 字体；
+                                    # 放在表头规则之后，覆盖有限范围的 Helvetica-Bold
+                                    ("FONTNAME", (0, 0), (-1, -1), cjk_font),
                                     ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
                                     ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
                                     ("GRID", (0, 0), (-1, -1), 1, colors.black),
@@ -351,6 +418,8 @@ class PDFReportService:
             )
 
             styles = getSampleStyleSheet()
+            # REV-2026-10-20 (S5)：流式路径与主路径必须用同一套字体
+            cjk_font = _apply_cjk_font(styles)
             story = []
 
             # Title
@@ -414,6 +483,8 @@ class PDFReportService:
                                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                                 ("FONTSIZE", (0, 0), (-1, 0), 12),
+                                # S5：整表统一 CJK 字体（覆盖上面的表头规则）
+                                ("FONTNAME", (0, 0), (-1, -1), cjk_font),
                                 ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
                                 ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
                                 ("GRID", (0, 0), (-1, -1), 1, colors.black),

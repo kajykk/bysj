@@ -307,15 +307,21 @@ class TestCounselorFileAccessBinding:
     """
 
     @staticmethod
-    def _make_uploads(tmp_path):
-        """构造 uploads 目录：user 1 有私有文件。"""
+    def _make_uploads(tmp_path, monkeypatch):
+        """构造 uploads 目录：user 1 有私有文件。
+
+        REV-2026-10-20：这里必须用 ``monkeypatch.setattr``，不能裸赋值。
+        裸赋值会永久改写 ``app.api.v1.uploads._resolve_upload_dir``，
+        污染后续测试（本轮回溯时 ``test_rev_s3`` 因此在全量运行下 404，
+        单独运行却全绿）。
+        """
         from app.api.v1 import uploads as uploads_mod
 
         upload_dir = tmp_path / "uploads"
         user_dir = upload_dir / "1"
         user_dir.mkdir(parents=True)
         (user_dir / "assessment.mp3").write_bytes(b"private-audio")
-        uploads_mod._resolve_upload_dir = lambda: upload_dir
+        monkeypatch.setattr(uploads_mod, "_resolve_upload_dir", lambda: upload_dir)
         return upload_dir
 
     @staticmethod
@@ -341,7 +347,7 @@ class TestCounselorFileAccessBinding:
         from app.api.v1 import uploads as uploads_mod
         from app.core.contracts import USER_ROLE_COUNSELOR
 
-        self._make_uploads(tmp_path)
+        self._make_uploads(tmp_path, monkeypatch)
         monkeypatch.setattr(uploads_mod, "_resolve_upload_dir", lambda: tmp_path / "uploads")
 
         # 绑定确实存在于 fixture 中（counselor 2 <-> user 1, active）
@@ -378,7 +384,7 @@ class TestCounselorFileAccessBinding:
 
         from app.api.v1 import uploads as uploads_mod
 
-        self._make_uploads(tmp_path)
+        self._make_uploads(tmp_path, monkeypatch)
         monkeypatch.setattr(uploads_mod, "_resolve_upload_dir", lambda: tmp_path / "uploads")
 
         counselor = (await db_session.execute(select(User).where(User.id == 2))).scalar_one()
@@ -412,7 +418,7 @@ class TestCounselorFileAccessBinding:
 
         from app.api.v1 import uploads as uploads_mod
 
-        self._make_uploads(tmp_path)
+        self._make_uploads(tmp_path, monkeypatch)
         monkeypatch.setattr(uploads_mod, "_resolve_upload_dir", lambda: tmp_path / "uploads")
 
         counselor = (await db_session.execute(select(User).where(User.id == 2))).scalar_one()
@@ -464,7 +470,7 @@ class TestCounselorFileAccessBinding:
         """admin 的跨用户读取能力**不受本次收紧影响**（平台管理职责）。"""
         from app.api.v1 import uploads as uploads_mod
 
-        self._make_uploads(tmp_path)
+        self._make_uploads(tmp_path, monkeypatch)
         monkeypatch.setattr(uploads_mod, "_resolve_upload_dir", lambda: tmp_path / "uploads")
 
         admin = (await db_session.execute(select(User).where(User.id == 3))).scalar_one_or_none()
@@ -498,7 +504,7 @@ class TestCounselorFileAccessBinding:
 
         from app.api.v1 import uploads as uploads_mod
 
-        self._make_uploads(tmp_path)
+        self._make_uploads(tmp_path, monkeypatch)
         monkeypatch.setattr(uploads_mod, "_resolve_upload_dir", lambda: tmp_path / "uploads")
 
         counselor = (await db_session.execute(select(User).where(User.id == 2))).scalar_one()

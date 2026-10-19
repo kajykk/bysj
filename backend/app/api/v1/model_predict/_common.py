@@ -142,7 +142,24 @@ async def save_assessment_result(
         await session.flush()
         risk_service = RiskService(session)
         warning = await risk_service.trigger_warning_for_risk(risk)
-        await risk_service.generate_intervention_for_risk(risk)
+        # REV-2026-10-20 (S6)：干预计划生成失败必须降级，不能拖垮已 flush 的
+        # RiskAssessment + WarningNotification。原实现直接 await，
+        # _create_plan_from_template 对坏模板抛 ValueError → 整个请求 500、
+        # 事务回滚 ⇒ 学生刚提交的评估/日记一并丢失、预警也没了。
+        # 用 savepoint 隔离：即使失败是 DB 层异常，外层事务仍可继续 commit。
+        try:
+            async with session.begin_nested():
+                await risk_service.generate_intervention_for_risk(risk)
+        except Exception:
+            record_silent_degradation(
+                "api.model_predict.intervention_generation_failed"
+            )
+            logger.exception(
+                "intervention generation failed (assessment kept) "
+                "user_id=%s assessment_type=%s",
+                user_id,
+                assessment_type,
+            )
         if auto_commit:
             await session.commit()
         logger.info(

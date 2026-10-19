@@ -158,6 +158,26 @@ async def get_current_user(
             detail="Token角色与当前用户角色不匹配",
         )
 
+    # REV-2026-10-20 (S7)：租户封禁必须在认证入口生效。
+    # 原实现中仅 tenant_context.get_current_tenant 校验 status，而该依赖在
+    # app/api 下 Depends 命中 0 次；tenant_admin.suspend 写入 suspended 后
+    # 没有任何读取点 ⇒ "暂停租户"是假回执：该租户用户仍可登录（login 只看
+    # user.status）、旧 access/refresh token 继续有效、全部业务接口照常读写。
+    # 这里对每个已认证请求校验一次（一次主键查询，FastAPI 依赖缓存使其每请求一次）。
+    from app.core.tenant_status import is_tenant_suspended
+
+    effective_tenant_id = user.tenant_id or DEFAULT_TENANT_ID
+    if await is_tenant_suspended(db, effective_tenant_id):
+        logger.warning(
+            "Rejecting request for suspended tenant: tenant_id=%s user_id=%s",
+            effective_tenant_id,
+            user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="租户已暂停，请联系平台管理员",
+        )
+
     return user
 
 

@@ -213,7 +213,13 @@ async def get_user_detail(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     service = CounselorService(db)
-    data = await service.get_user_detail(current_user.id, user_id)
+    # REV-2026-10-20 (S3)：详情查询必须在数据层再校验一次租户，
+    # 不能只依赖绑定关系（历史绑定可能是跨租户的）。
+    data = await service.get_user_detail(
+        current_user.id,
+        user_id,
+        tenant_id=get_request_tenant_id(request),
+    )
     if data is None:
         raise HTTPException(status_code=404, detail="用户不存在或未绑定")
     # P2-33 第二批：改调统一审计 helper SSOT（同上）

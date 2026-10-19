@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_COUNSELOR
+from app.core.degradation import record_silent_degradation
 from app.core.event_bus import event_bus
 from app.core.tenant_query import tenant_scoped_filter, user_tenant_scoped_query
 from app.models.review import CrisisEvent, ReviewTask
@@ -40,6 +41,40 @@ _CRISIS_STATE_TRANSITIONS: dict[str, frozenset[str]] = {
     "escalated": frozenset({"reviewed", "resolved"}),
     "resolved": frozenset(),  # 终态
 }
+
+
+def _parse_crisis_keywords(raw: str | None, event_id: int | None = None) -> list:
+    """容错解析 ``CrisisEvent.crisis_keywords``（JSON 数组文本列）。
+
+    REV-2026-10-20 (S2)：该列历史上可能残留非 JSON 文本（旧版匿名化写入
+    ``[ANONYMIZED]``）。原实现直接 ``json.loads`` 且无 try/except，
+    单条坏数据会让整页危机事件抛 JSONDecodeError（列表推导一起失败）。
+    这里个别坏行降级为 ``[]`` 并计数，不让一行业务数据打挂整页。
+
+    注意：这不替代写入侧修复（gdpr_service_anonymize 已改为写合法 JSON），
+    只保证存量脏数据可读、可清理。
+    """
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        record_silent_degradation("services.review_service.crisis_keywords_parse")
+        logger.warning(
+            "crisis_event.crisis_keywords.invalid_json event_id=%s raw_prefix=%r",
+            event_id,
+            raw[:32],
+        )
+        return []
+    if not isinstance(parsed, list):
+        record_silent_degradation("services.review_service.crisis_keywords_not_list")
+        logger.warning(
+            "crisis_event.crisis_keywords.not_list event_id=%s type=%s",
+            event_id,
+            type(parsed).__name__,
+        )
+        return []
+    return parsed
 
 
 class ReviewService:
@@ -757,7 +792,7 @@ class CrisisEventService:
             "user_id": event.user_id,
             "report_id": event.report_id,
             "trigger_source": event.trigger_source,
-            "crisis_keywords": json.loads(event.crisis_keywords or "[]"),
+            "crisis_keywords": _parse_crisis_keywords(event.crisis_keywords, event.id),
             "crisis_score": event.crisis_score,
             "input_summary": event.input_summary,
             "review_task_id": event.review_task_id,

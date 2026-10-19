@@ -139,6 +139,21 @@ class AuthService:
         if user.status != "active":
             raise ValueError("用户已被禁用")
 
+        # REV-2026-10-20 (S7)：租户封禁必须在登录入口生效。
+        # 放在密码校验之后：已证明身份的主体才能得知"租户已暂停"，
+        # 不给未认证者提供租户状态探测 oracle。
+        from app.core.tenant_status import is_tenant_suspended
+
+        if await is_tenant_suspended(
+            self.db, user.tenant_id or DEFAULT_TENANT_ID
+        ):
+            logger.warning(
+                "Login rejected for suspended tenant: tenant_id=%s user_id=%s",
+                user.tenant_id,
+                user.id,
+            )
+            raise ValueError("租户已暂停，请联系平台管理员")
+
         # tenant_id 进 JWT：下游 get_current_user 用它比对"token 签发时的租户"
         # 与"用户当前租户"，使跨租户迁移/改租户立即生效，不必等 token 过期。
         claims = {"sub": str(user.id), "role": user.role, "tenant_id": user.tenant_id or DEFAULT_TENANT_ID}
@@ -211,6 +226,21 @@ class AuthService:
         user = await self.db.get(User, user_id)
         if not user or user.status != "active":
             raise ValueError("用户不存在或已被禁用")
+
+        # REV-2026-10-20 (S7)：暂停租户不得通过刷新续命。
+        # 没有这一层，封禁后 refresh_token 仍可换出新 access token，
+        # 最长 7 天都"封不住"。
+        from app.core.tenant_status import is_tenant_suspended
+
+        if await is_tenant_suspended(
+            self.db, user.tenant_id or DEFAULT_TENANT_ID
+        ):
+            logger.warning(
+                "Refresh rejected for suspended tenant: tenant_id=%s user_id=%s",
+                user.tenant_id,
+                user.id,
+            )
+            raise ValueError("租户已暂停，请联系平台管理员")
 
         stmt = select(RefreshTokenSession).where(RefreshTokenSession.jti == jti)
         token_session = (await self.db.execute(stmt)).scalar_one_or_none()

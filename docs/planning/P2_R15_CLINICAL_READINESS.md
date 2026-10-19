@@ -91,7 +91,7 @@
 
 ### 3.3 工程层
 
-- 多轮审计与"棘轮闸门"：第 #35 轮闭环，棘轮全称注释数=100，桶计数 W=103/X=116/P=15/S=34/R=3（`P2_R14_PROJECT_CHARTER.md` §〇.3）。
+- 多轮审计与"棘轮闸门"：第 #35 轮闭环，棘轮全称注释数=100，桶计数 W=103/X=116/P=15/S=34/R=3（`P2_R14_PROJECT_CHARTER.md` §〇.3；REV-2026-10-20 P0 修复后 W=109／总数 340）。
 - 模型治理链路（真实代码）：加权融合与缺失模态权重重分配、危机词优先、KS/PSI 漂移、金丝雀流量分配与自动回滚、SMOTE、McNemar/Bonferroni、SHAP 近似（`backend/models/MODEL_REGISTRY.md` §5）。
 - 人工复核闭环与危机升级：`backend/app/services/review_service.py`、危机升级 SOP（`docs/archive/2026-09/planning/phase2-research-preparation/02-compliance-and-safety.md` §二）。
 - 规模（README，2026-09-23 实测）：50 个路由文件（191 REST + 3 WebSocket）、62 个业务服务、40 张数据表、9 个 Docker 服务、后端 6,160 例 / 前端 1,119 例测试。

@@ -11,6 +11,7 @@ from jwt import PyJWTError
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.contracts import DEFAULT_TENANT_ID
 from app.core.database import AsyncSessionLocal
 from app.core.degradation import record_silent_degradation
 from app.core.security import decode_token
@@ -450,6 +451,15 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
             async with AsyncSessionLocal() as db:
                 stmt = select(User).where(User.id == user_id)
                 user = (await db.execute(stmt)).scalar_one_or_none()
+                # REV-2026-10-20 (S7)：长连接同样受租户封禁约束。
+                # HTTP 侧在 get_current_user 校验；WS 在 handshake 时校验一次即可
+                # （封禁后新连接立即被拒，已有连接断开后重连同样被拒）。
+                from app.core.tenant_status import is_tenant_suspended
+
+                tenant_suspended = (
+                    user is not None
+                    and await is_tenant_suspended(db, user.tenant_id or DEFAULT_TENANT_ID)
+                )
         except Exception as exc:
             await db_breaker.on_failure(exc)
             raise
@@ -466,6 +476,11 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
     if user is None or user.status != "active":
         _inc_ws_auth_failure("user_inactive")
         await ws.close(code=4003, reason="用户不存在或已被禁用")
+        return
+
+    if tenant_suspended:
+        _inc_ws_auth_failure("tenant_suspended")
+        await ws.close(code=4003, reason="租户已暂停，请联系平台管理员")
         return
 
     if not await ws_manager.connect(user_id, ws):

@@ -191,7 +191,20 @@ class UserMixin:
             "critical": int(row.critical or 0),
         }
 
-    async def get_user_detail(self, counselor_id: int, user_id: int) -> dict | None:
+    async def get_user_detail(
+        self,
+        counselor_id: int,
+        user_id: int,
+        *,
+        tenant_id: int,
+    ) -> dict | None:
+        """获取绑定用户详情。
+
+        REV-2026-10-20 (S3)：``tenant_id`` 为**必填**关键字参数，并参与
+        ``User`` 查询过滤。原实现只校验绑定关系存在，不看租户 —— 绑定表里若
+        存在历史跨租户行（本轮回溯修复前创建的），咨询师仍可一路读到详情。
+        设默认值会让「调用方忘记传租户」静默退化为全租户可见，故不设默认值。
+        """
         binding_stmt = select(UserCounselorBinding).where(
             UserCounselorBinding.counselor_id == counselor_id,
             UserCounselorBinding.user_id == user_id,
@@ -200,7 +213,11 @@ class UserMixin:
         binding = (await self.db.execute(binding_stmt)).scalar_one_or_none()
         if not binding:
             return None
-        user = await self.db.get(User, user_id)
+        user_stmt = select(User).where(
+            User.id == user_id,
+            tenant_scoped_filter(User, tenant_id),
+        )
+        user = (await self.db.execute(user_stmt)).scalar_one_or_none()
         if not user:
             return None
         # PERF-P2-002: 使用 is_latest 标志替代 ORDER BY created_at DESC LIMIT 1

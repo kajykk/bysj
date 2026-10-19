@@ -1715,3 +1715,43 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   **移除该 except**（保留退化重采样的 pre-check 计数），X 桶回到 116、
   总数 334 不变，桶计数与上文一致无需改判。
 - TestP234RaiseClassificationSynced 按本附录新 token 同步。
+
+## 附：REV-2026-10-20 源码审查 P0 修复同步（追加，不改上文历史快照）
+
+- 2026-10-20，按《全量源码审查报告》（`outputs/CODE_REVIEW_2026-10-20.md`）
+  修复 S1–S7 七条 P0。其中 S2/S5/S6 新增 6 处降级接线，重扫（同口径
+  `scan_p2_35_batch6.py` + `classify_p2_35_batch6.py`）后桶计数为：
+
+    W=109 / X=116 / S=34 / P=15 / R=3 / D=22 / C=7 / F=2 / G=7 / H=6 / K=11 / M=6 / V=2
+
+  总数 334 → 340（新增 6 个 except 候选），其余桶不变。
+
+- 同轮 raise 分类重扫（同口径 ast.Raise + Call）：HTTPException=214（211→214：
+  `deps.get_current_user` 新增租户暂停 403、`uploads.serve_upload` 新增
+  admin 跨租户 404 ×2）；other_raise=349（345→349：本轮新增 2 处
+  `counselor_service_binding.bind_by_code` 的 ValueError——用户不存在 / 跨租户；
+  另 2 处为上文附录生成后到当前 HEAD 的既有增量，未逐条追溯）；ServiceError=37（不变）。
+
+- 新增 6 处 W 的来源（均为「坏数据/故障被静默吞掉、调用方从返回值看不出」）：
+  - `services/review_service._parse_crisis_keywords`：存量脏 JSON 行降级为 `[]`
+    （S2 读取侧容错；写入侧已改为合法 JSON）；
+  - `services/pdf_report_service._ensure_cjk_font`：CJK 字体注册失败降级 Helvetica
+    （S5，报告仍产出但不再"静默宣称中文可用"）；
+  - `services/risk_service` ×2：预警独立提交失败、干预生成失败（S6，
+    fire-and-forget 路径原本只有 done-callback 日志）；
+  - `api/v1/model_predict/_common.save_assessment_result`：干预生成失败降级（S6）；
+  - `services/user_data_service._save_assessment_result`：同上（S6，文本/生理链路）。
+
+- 连带修正（location 登记表行号漂移，非行为变化）：
+  - `_common.py` 184→201、261→278、317→334、333→350、349→366、365→382；
+  - `user_data_service.py` 165→182、180→197、197→214、212→229；
+  - `deps.py` 184→204；`risk_service.py` 138→185；
+  - `auth_service.py` 277→307、436→466；
+  - `pdf_report_service.py` 295→362、450→521。
+  `TestP235Round13Batch29/32/33/35/36` 的 CANDIDATES 与 docstring 同步，
+  行为断言（桶裁定、完整 location 字面量）不变。
+
+- 测试基建修复：`tests/test_tenant_isolation_p1.py::_make_uploads` 原先把
+  `uploads._resolve_upload_dir` **裸赋值**（不经 monkeypatch），永久污染后续
+  测试；本轮 `test_rev_s3` 因此在全量运行下 404、单跑全绿。改为
+  `monkeypatch.setattr`，泄漏消失。

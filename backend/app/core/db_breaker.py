@@ -235,7 +235,27 @@ class CircuitBreaker:
             exc: 触发失败的异常。若提供且非连接级失败, 则忽略 (不计数)。
         """
         if exc is not None and not self._failure_classifier(exc):
-            # 业务异常不触发熔断器
+            # 业务异常不触发熔断器。
+            #
+            # REV-2026-10-20 (S4)：但**必须归还 HALF_OPEN 探针令牌**。
+            # before_request 在 HALF_OPEN 下先 ``_half_open_calls += 1`` 才放行，
+            # 原实现在这里直接 return，令牌永不释放。half_open_max_calls 默认 1，
+            # 于是"DB 恢复后的第一个探针请求恰好抛 404/403"就会把状态永久钉在
+            # HALF_OPEN：on_success 不执行，OPEN→HALF_OPEN 的恢复检查也不再走
+            # （它只在 OPEN 分支调用），除重启外无恢复路径 —— 一次抖动 + 一个 404
+            # 就是全站 get_db 永久 503（WebSocket 鉴权同一路径一起被打死）。
+            #
+            # 语义：业务异常说明"连接是通的"，探针结论不是失败而是"无结论"，
+            # 因此保持 HALF_OPEN 并允许下一次请求继续探测。
+            async with self._lock:
+                if self._state == CircuitState.HALF_OPEN:
+                    self._half_open_calls = 0
+                    logger.info(
+                        "circuit_breaker.%s.half_open_probe_released "
+                        "(non-connection failure: %s)",
+                        self.name,
+                        type(exc).__name__ if exc is not None else "None",
+                    )
             return
 
         async with self._lock:

@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.degradation import record_silent_degradation
 from app.core.risk_thresholds import (
     RISK_LEVEL_THRESHOLDS as SHARED_RISK_LEVEL_THRESHOLDS,
 )
@@ -101,9 +102,55 @@ async def _trigger_warning_and_intervention(
             )
             return
         service = RiskService(db)
-        await service.trigger_warning_for_risk(risk)
-        await service.generate_intervention_for_risk(risk)
-        await db.commit()
+        warning = await service.trigger_warning_for_risk(risk)
+        # REV-2026-10-20 (S6)：先取出 id 再用。
+        # rollback() 会让 session 内的 ORM 对象过期，之后再访问 warning.id
+        # 会触发惰性加载并在 async 上下文抛 MissingGreenlet —— 恰好发生在
+        # 异常处理路径上，会把一次可降级的失败放大成未捕获异常。
+        warning_id = warning.id if warning else None
+
+        # REV-2026-10-20 (S6)：预警必须先独立落库。
+        # 原实现把 trigger_warning + generate_intervention + commit 放在同一事务：
+        # 管理员在后台把一个干预模板配错（空 task_list / duration<=0），
+        # _validate_and_normalize_template_tasks 在**运行时读取模板**时抛
+        # ValueError，异常冒泡后未 commit ⇒ 已 flush 的 WarningNotification
+        # 与 RiskAssessment 一并回滚。结果是中高风险学生"无预警、无记录"，
+        # 而且仅留一条 done-callback 日志 —— 对抑郁预警系统属安全级故障。
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            record_silent_degradation("services.risk_service.warning_commit_failed")
+            logger.exception(
+                "warning commit failed async user_id=%s risk_id=%s", user_id, risk_id
+            )
+            return
+
+        logger.info(
+            "warning persisted async user_id=%s risk_id=%s warning_id=%s",
+            user_id,
+            risk_id,
+            warning_id,
+        )
+
+        # 干预计划生成是"锦上添花"，失败不得吞掉刚提交的预警。
+        try:
+            await service.generate_intervention_for_risk(risk)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            record_silent_degradation(
+                "services.risk_service.intervention_generation_failed"
+            )
+            logger.exception(
+                "intervention generation failed (warning already persisted) "
+                "user_id=%s risk_id=%s warning_id=%s",
+                user_id,
+                risk_id,
+                warning_id,
+            )
+            return
+
         logger.info(
             "warning/intervention completed async user_id=%s risk_id=%s risk_level=%s",
             user_id,

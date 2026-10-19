@@ -8,6 +8,10 @@ pytest-cov>=6.0.0
 pytest-timeout>=2.3.0
 httpx>=0.27.0,<0.29.0  # For FastAPI TestClient; 上界 0.29 与本地实测兼容版本对齐
 
+# REV-2026-10-20 (S5): PDF 中文字体回归测试需要解析真实产物、提取文本。
+# 不能用"断言 success=True / %PDF 头"替代（附录 C：测试替身不得作为集成证据）。
+pypdf>=5.0,<7
+
 # Version compatibility checks
 packaging>=24.0  # For sklearn/model version parsing
 

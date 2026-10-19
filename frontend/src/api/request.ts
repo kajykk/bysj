@@ -9,7 +9,7 @@ import { normalizePageResult, type UnifiedPageResult } from '@/types/contracts'
 import { clearStoredAuth, getStoredToken, setStoredAuth } from '@/utils/authStorage'
 import { getNetworkErrorMessage, normalizeHttpErrorInfo } from '@/utils/httpError'
 import { logger } from '@/utils/logger'
-import { API_BASE_URL, buildApiUrl } from './base'
+import { API_BASE_URL } from './base'
 import i18n from '@/i18n'
 
 const t = i18n.global.t.bind(i18n.global)
@@ -89,7 +89,13 @@ export async function refreshAccessToken(): Promise<string | null> {
     // 原实现发送空字符串 Authorization 头，部分后端将空值视为非法 token 返回 401，
     // 导致刷新永远失败。_retry=true 已让请求拦截器跳过 token 注入（见上方 if (config._retry) return config），
     // 无需再手动清空头。refresh_token 仅通过 HttpOnly Cookie 传递。
-    const { data } = await request.post(buildApiUrl('/auth/refresh'), {}, {
+    //
+    // REV-2026-10-20 (S1)：这里必须传**相对路径**。request 实例已配置 baseURL='/api/v1'，
+    // axios 会对非绝对 URL 再拼一次 baseURL；原写法 buildApiUrl('/auth/refresh')
+    // 返回 '/api/v1/auth/refresh'，最终请求 URL 变成 '/api/v1/api/v1/auth/refresh'，
+    // 后端无此路由 ⇒ 每次静默续期 404，access token 到期后用户必被踢回登录页。
+    // 还原为 '/auth/refresh' 后由 axios 拼接出唯一一层前缀。
+    const { data } = await request.post('/auth/refresh', {}, {
       _retry: true,
       timeout: 10000,
       withCredentials: true, // 确保发送 HttpOnly Cookie

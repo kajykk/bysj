@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.contracts import (
+    DEFAULT_TENANT_ID,
     USER_ROLE_ADMIN,
     USER_ROLE_COUNSELOR,
     USER_ROLE_SUPER_ADMIN,
@@ -258,9 +259,11 @@ async def serve_upload(
     # 收紧为「仅限已建立有效咨询绑定的用户」，与
     # ``CounselorService.get_user_detail`` 的绑定校验同源同口径。
     #
-    # 租户隔离由绑定关系隐含保证：绑定两端（counselor_id / user_id）都指向本租户
-    # 的用户，而跨租户绑定本身在绑定接口层已被拒绝。故此处不再叠加 tenant_id
-    # 比较 —— 那会要求 users JOIN，而此端点是 ``FileResponse`` 直出热路径。
+    # 租户隔离：绑定两端都必须在同一租户。REV-2026-10-20 (S3) 之前，绑定接口
+    # 只校验角色/状态、不比对 tenant_id，所以"跨租户绑定在接口层已被拒绝"的
+    # 前提并不成立；现在绑定接口与详情接口都已补上租户校验（双层）：
+    # 1) BindingMixin.bind_by_code 拒绝跨租户绑定；
+    # 2) 本端点对 counselor 走绑定校验、对 admin 走下方租户比对。
     if current_user.role == USER_ROLE_COUNSELOR and current_user.id != user_id:
         # db 为 None 说明该端点被以无 DB 依赖的方式调用（仅测试构造签名），
         # 此时无法验证绑定 —— 对 counselor 而言这是fail-closed 的正确方向。
@@ -274,6 +277,32 @@ async def serve_upload(
         bound = (await db.execute(binding_stmt)).scalar_one_or_none()
         if bound is None:
             # 统一 404：不区分「无绑定」与「文件不存在」，避免探测绑定关系
+            raise HTTPException(status_code=404, detail="文件不存在")
+
+    # REV-2026-10-20 (S3)：admin 分支补租户比对。
+    # 原实现 admin 直接放行到 ``_secure_file_response`` —— 租户 B 的 admin
+    # 知道 user_id 与文件名即可下载他租户的量表/音频（文件名是 UUID，故列为
+    # 中等而非严重，但口径缺口与 ``tenant_export.py`` 的写法不一致）。
+    # super_admin 是平台角色（require_platform_admin 语义），跨租户读取是其
+    # 设计用途，不在此收紧。
+    if current_user.role == USER_ROLE_ADMIN and current_user.id != user_id:
+        if db is None:
+            # 与 counselor 分支同向 fail-closed：无 DB 无法验租户 ⇒ 不暴露存在性
+            raise HTTPException(status_code=404, detail="文件不存在")
+        target_tenant = (
+            await db.execute(select(User.tenant_id).where(User.id == user_id))
+        ).scalar_one_or_none()
+        if (target_tenant or DEFAULT_TENANT_ID) != (
+            current_user.tenant_id or DEFAULT_TENANT_ID
+        ):
+            logger.warning(
+                "private_upload.cross_tenant_blocked admin_id=%s admin_tenant=%s "
+                "target_user=%s target_tenant=%s",
+                current_user.id,
+                current_user.tenant_id,
+                user_id,
+                target_tenant,
+            )
             raise HTTPException(status_code=404, detail="文件不存在")
 
     # filename 安全校验：私有文件的 filename 必须是单段 UUID.ext

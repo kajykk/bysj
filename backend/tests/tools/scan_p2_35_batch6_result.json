@@ -1,6 +1,6 @@
 {
-  "real_total": 318,
-  "real_wired": 101,
+  "real_total": 324,
+  "real_wired": 107,
   "import_probe": 16,
   "real_list": [
     {
@@ -186,7 +186,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 184,
+      "line": 201,
       "handled": [
         "Exception"
       ],
@@ -196,7 +196,17 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 261,
+      "line": 153,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/api/v1/model_predict/_common.py",
+      "line": 278,
       "handled": [
         "TypeError",
         "ValueError"
@@ -207,7 +217,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 317,
+      "line": 334,
       "handled": [
         "TypeError",
         "ValueError"
@@ -218,7 +228,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 333,
+      "line": 350,
       "handled": [
         "TypeError",
         "ValueError"
@@ -229,7 +239,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 349,
+      "line": 366,
       "handled": [
         "TypeError",
         "ValueError"
@@ -240,7 +250,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 365,
+      "line": 382,
       "handled": [
         "TypeError",
         "ValueError"
@@ -623,7 +633,7 @@
     },
     {
       "file": "app/core/deps.py",
-      "line": 184,
+      "line": 204,
       "handled": [
         "Exception"
       ],
@@ -1597,7 +1607,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 32,
+      "line": 33,
       "handled": [
         "Exception"
       ],
@@ -1607,7 +1617,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 436,
+      "line": 437,
       "handled": [
         "Exception"
       ],
@@ -1617,7 +1627,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 461,
+      "line": 471,
       "handled": [
         "Exception"
       ],
@@ -1627,7 +1637,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 515,
+      "line": 530,
       "handled": [
         "Exception"
       ],
@@ -1637,7 +1647,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 199,
+      "line": 200,
       "handled": [
         "Exception"
       ],
@@ -1647,7 +1657,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 224,
+      "line": 225,
       "handled": [
         "Exception"
       ],
@@ -1657,7 +1667,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 247,
+      "line": 248,
       "handled": [
         "CancelledError"
       ],
@@ -1667,7 +1677,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 249,
+      "line": 250,
       "handled": [
         "Exception"
       ],
@@ -1677,7 +1687,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 322,
+      "line": 323,
       "handled": [
         "JSONDecodeError",
         "TypeError"
@@ -1688,7 +1698,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 84,
+      "line": 85,
       "handled": [
         "Exception"
       ],
@@ -1698,7 +1708,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 130,
+      "line": 131,
       "handled": [
         "Exception"
       ],
@@ -1708,7 +1718,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 169,
+      "line": 170,
       "handled": [
         "Exception"
       ],
@@ -1718,7 +1728,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 290,
+      "line": 291,
       "handled": [
         "CancelledError"
       ],
@@ -1728,7 +1738,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 293,
+      "line": 294,
       "handled": [
         "Exception"
       ],
@@ -1738,7 +1748,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 344,
+      "line": 345,
       "handled": [
         "ValueError"
       ],
@@ -1748,7 +1758,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 285,
+      "line": 286,
       "handled": [
         "Exception"
       ],
@@ -1758,7 +1768,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 306,
+      "line": 307,
       "handled": [
         "Exception"
       ],
@@ -2160,7 +2170,7 @@
     },
     {
       "file": "app/services/auth_service.py",
-      "line": 277,
+      "line": 307,
       "handled": [
         "Exception"
       ],
@@ -2170,7 +2180,7 @@
     },
     {
       "file": "app/services/auth_service.py",
-      "line": 436,
+      "line": 466,
       "handled": [
         "PyJWTError",
         "ValueError",
@@ -2668,7 +2678,17 @@
     },
     {
       "file": "app/services/pdf_report_service.py",
-      "line": 295,
+      "line": 69,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "None"
+    },
+    {
+      "file": "app/services/pdf_report_service.py",
+      "line": 362,
       "handled": [
         "Exception"
       ],
@@ -2678,7 +2698,7 @@
     },
     {
       "file": "app/services/pdf_report_service.py",
-      "line": 450,
+      "line": 521,
       "handled": [
         "Exception"
       ],
@@ -2718,7 +2738,18 @@
     },
     {
       "file": "app/services/review_service.py",
-      "line": 125,
+      "line": 61,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "[]"
+    },
+    {
+      "file": "app/services/review_service.py",
+      "line": 160,
       "handled": [
         "Exception"
       ],
@@ -2728,11 +2759,31 @@
     },
     {
       "file": "app/services/risk_service.py",
-      "line": 138,
+      "line": 185,
       "handled": [
         "Exception"
       ],
       "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/risk_service.py",
+      "line": 121,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/risk_service.py",
+      "line": 140,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
@@ -2828,18 +2879,17 @@
     },
     {
       "file": "app/services/user_data_service.py",
-      "line": 165,
+      "line": 139,
       "handled": [
-        "TypeError",
-        "ValueError"
+        "Exception"
       ],
-      "wired": false,
+      "wired": true,
       "fire_and_forget": false,
       "returns": null
     },
     {
       "file": "app/services/user_data_service.py",
-      "line": 180,
+      "line": 182,
       "handled": [
         "TypeError",
         "ValueError"
@@ -2861,7 +2911,18 @@
     },
     {
       "file": "app/services/user_data_service.py",
-      "line": 212,
+      "line": 214,
+      "handled": [
+        "TypeError",
+        "ValueError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/user_data_service.py",
+      "line": 229,
       "handled": [
         "TypeError",
         "ValueError"

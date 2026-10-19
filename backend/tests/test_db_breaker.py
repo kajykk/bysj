@@ -130,6 +130,56 @@ class TestCircuitBreakerStates:
         with pytest.raises(CircuitBreakerOpenError):
             await breaker.before_request()
 
+    async def test_half_open_business_error_releases_probe_token(
+        self, breaker: CircuitBreaker
+    ):
+        """REV-2026-10-20 S4：业务异常必须归还 HALF_OPEN 探针令牌。
+
+        改前 ``on_failure`` 在分类器判定"非连接失败"后直接 return，
+        ``_half_open_calls`` 停在 1（默认上限 1），状态永久钉在 HALF_OPEN：
+        后续请求全部 503，且除重启外无恢复路径。
+        """
+        from fastapi import HTTPException
+
+        for _ in range(3):
+            await breaker.on_failure(OSError("connection refused"))
+        # 确定性跨过 recovery_timeout，避免 sleep(1.1) 拖慢测试
+        breaker._last_failure_time -= 5
+
+        await breaker.before_request()  # OPEN → HALF_OPEN，占走唯一探针令牌
+        assert breaker.state == CircuitState.HALF_OPEN
+
+        # 业务异常（404）：连接是通的，不计故障，但必须释放令牌
+        await breaker.on_failure(HTTPException(status_code=404, detail="not found"))
+        assert breaker.state == CircuitState.HALF_OPEN
+
+        # 改前这里抛 CircuitBreakerOpenError（令牌未释放）→ 全站永久 503
+        await breaker.before_request()
+
+        # 探针成功 → 恢复正常
+        await breaker.on_success()
+        assert breaker.state == CircuitState.CLOSED
+        assert breaker.failure_count == 0
+
+    async def test_half_open_repeated_business_errors_stay_recoverable(
+        self, breaker: CircuitBreaker
+    ):
+        """连续业务异常不累积故障计数，也不消耗恢复能力。"""
+        from fastapi import HTTPException
+
+        for _ in range(3):
+            await breaker.on_failure(OSError("connection refused"))
+        breaker._last_failure_time -= 5
+        await breaker.before_request()
+        assert breaker.state == CircuitState.HALF_OPEN
+
+        for _ in range(3):
+            await breaker.on_failure(HTTPException(status_code=403, detail="forbidden"))
+            await breaker.before_request()  # 每次都应有可用令牌
+            assert breaker.state == CircuitState.HALF_OPEN
+
+        assert breaker.failure_count == 3  # 业务异常不计数
+
     async def test_success_resets_failure_count_in_closed(
         self, breaker: CircuitBreaker
     ):

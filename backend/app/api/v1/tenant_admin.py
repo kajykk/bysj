@@ -288,7 +288,13 @@ async def suspend_tenant(
 ) -> dict[str, Any]:
     """暂停租户.
 
-    暂停后该租户所有请求将被拒绝（get_current_tenant 抛 403）。
+    REV-2026-10-20 (S7)：暂停立即生效。该租户的
+    - 新登录（``AuthService.login``）、
+    - token 刷新（``AuthService.refresh``）、
+    - 所有已认证 HTTP 请求（``deps.get_current_user`` 校验 tenant.status）、
+    - 新 WebSocket 连接（``core.ws`` handshake 校验）
+    都会返回 403/拒绝。已签发的 access token 无需等待过期即失效，
+    因此不需要额外做 token 批量吊销。
     """
     tenant = await _get_tenant_or_404(db, tenant_id)
 

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.degradation import record_silent_degradation
 from app.core.model_engine import model_engine
 from app.core.risk_thresholds import MODALITY_RISK_THRESHOLDS
 from app.models.assessment import (
@@ -127,7 +128,23 @@ class UserDataService:
         await self.db.flush()
         risk_service = RiskService(self.db)
         await risk_service.trigger_warning_for_risk(risk)
-        await risk_service.generate_intervention_for_risk(risk)
+        # REV-2026-10-20 (S6)：坏干预模板不得让整个请求回滚。
+        # 原实现直接 await generate_intervention_for_risk；_create_plan_from_template
+        # 对空 task_list / 非 list / duration<=0 抛 ValueError，异常冒泡后
+        # 文本/生理链路的端点直接 500 —— 用户刚写的日记正文与评估一起丢失。
+        # 用 savepoint 隔离，失败只降级干预计划（预警与评估保留），并计数上报。
+        try:
+            async with self.db.begin_nested():
+                await risk_service.generate_intervention_for_risk(risk)
+        except Exception:
+            record_silent_degradation(
+                "services.user_data_service.intervention_generation_failed"
+            )
+            logger.exception(
+                "intervention generation failed (assessment kept) user_id=%s type=%s",
+                risk.user_id,
+                assessment_type,
+            )
 
     @staticmethod
     def _generate_physio_factors(

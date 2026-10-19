@@ -8,7 +8,7 @@
 |---|---|---|
 | 1 | HEAD = origin/main | ✅ 同为 `f1c4b4e1771faebad37573c1e9be557ac9eede44`，分支 `main` |
 | 2 | `git diff` = 0 | ✅ 内容 diff **0 字节**。`git status` 报 61 个 `M` **全是假报**（CRLF 转换 + stat 缓存陈旧）；另有 2 个未跟踪运行时产物（`backend/pool93.json`、`backend/tests/tools/verify_p2_35_batch34_result.json`），按入库惯例不入库 |
-| 3 | #35 棘轮 | ✅ 全称注释数 = 100（`test_inventory_ratchet_be` passed）；桶计数 **W=103 / X=116 / P=15 / S=34 / R=3，总数 334 不变**（`test_batch6_bucket_counts_pinned` passed） |
+| 3 | #35 棘轮 | ✅ 全称注释数 = 100（`test_inventory_ratchet_be` passed）；桶计数 **W=103 / X=116 / P=15 / S=34 / R=3，总数 334 不变**（`test_batch6_bucket_counts_pinned` passed）；**REV-2026-10-20 起 W=109／总数 340**（P0 修复新增 6 处降级接线，见 `P2_11_ROUND11_AUDIT.md` 同名附录） |
 | 4 | 数据可用性 | 见 §一（**结论推翻了提示词的降级前提，但结论方向一致**） |
 | 5 | P2-1 / P2-2 口径 | ✅ 已读。P2-1：groupwise F1 **0.5864** 为泛化口径；样本内 `full_model_eval_on_zh` F1 0.9972 **不可当泛化引用**。P2-2：中性字段 **kappa 0.00 / 一致率 0.50** |
 

@@ -387,6 +387,25 @@ describe('request module - 响应拦截器与辅助函数', () => {
       const stored = JSON.parse(localStorage.getItem('user') || 'null')
       expect(stored).toEqual({ id: 1, username: 'u' })
     })
+
+    // REV-2026-10-20 (S1)：回归锚点。axios 1.x 的 buildFullPath 发生在适配器**之后**
+    // （自定义 adapter 收到的 config.url 仍未拼接），因此不能只断言“发出了 POST /auth/refresh”，
+    // 必须让真实 axios 做一次 path 合并再断言最终 URL。原实现传 buildApiUrl(...) 时
+    // 本断言会得到 /api/v1/api/v1/auth/refresh。
+    it('最终请求 URL 只有一层 /api/v1 前缀（真实 axios 路径合并）', async () => {
+      let captured: any
+      request.defaults.adapter = async (config) => {
+        captured = config
+        return makeResponse({ data: { access_token: 'fresh-token' } })
+      }
+
+      await refreshAccessToken()
+
+      expect(captured).toBeDefined()
+      const finalUrl = request.getUri(captured)
+      expect(finalUrl).toBe('/api/v1/auth/refresh')
+      expect(finalUrl).not.toContain('/api/v1/api/v1')
+    })
   })
 
   describe('requestData', () => {

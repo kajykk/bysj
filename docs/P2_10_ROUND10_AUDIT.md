@@ -162,3 +162,18 @@
 - 变异见证：上述两条所属闸门族在 `mutate_p2_40_round16.py` 中被真实变异
   打红（M6 DCA 公式符号翻转、M8 ΔCI 判据恒真均 RED-OK）。
 - 闸门 `test_inventory_ratchet_be` 同步 100→102。
+
+## 附录：全称注释清单同步（102→101，REV-2026-10-20 S3 删除失效论证）
+
+- 删除 1 条、新增 0 条，净 −1（102→101）。
+- 删除项：`backend/app/api/v1/uploads.py`（counselor 私有文件分支上方）
+  `# 租户隔离由绑定关系隐含保证：绑定两端（counselor_id / user_id）都指向本租户`。
+  含全称词“保证”。**删除理由：该论证本身为假** —— 审查实测发现
+  `BindingMixin.bind_by_code` 只校验角色与状态、不比对 `tenant_id`，
+  跨租户绑定在接口层并未被拒绝（S3）。新增的租户校验才是事实来源，
+  原注释会误导后续维护者跳过必要的 `tenant_id` 比对，故整段重写为
+  “绑定接口与详情接口双层校验”的描述，不再保留这条全称断言。
+- 行为闸门：`tests/test_rev_s3_binding_tenant.py`
+  （跨租户绑定被拒 / 历史跨租户绑定读不到详情 / admin 下载跨租户 404）
+  与 `tests/test_tenant_isolation_p1.py`（既有 counselor 绑定校验）共同把守。
+- 闸门 `test_inventory_ratchet_be` 同步 102→101。

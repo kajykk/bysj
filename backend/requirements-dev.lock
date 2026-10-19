@@ -292,6 +292,8 @@ pyparsing==3.3.3
     # via pip-requirements-parser
 pyrate-limiter==4.5.0
     # via schemathesis
+pypdf==6.21.1
+    # via -r backend/requirements-dev.txt  (REV-2026-10-20 S5 手工补钉；下次 uv 重生成时以编译结果为准)
 pytest==9.1.1
     # via
     #   -r backend/requirements-dev.txt

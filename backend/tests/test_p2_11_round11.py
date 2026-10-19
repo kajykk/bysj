@@ -409,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 103,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+            "W": 109,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
                        # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
                        # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1，
                        # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1，
@@ -424,6 +424,9 @@ class TestP235SilentDegradationRatchet:
                        # 第三十七批 1 处：model_predict.fusion canary 事件落库
                        # 失败⇒回滚率判据缺样本（生产中唯一落库的 INFERENCE/
                        # FALLBACK 写入方）+1）
+            # REV-2026-10-20：S2/S5/S6 修复新增 6 处降级接线（review 关键词容错解析、
+            # PDF CJK 字体注册失败、预警提交失败、干预生成失败 ×3 调用链），
+            # W 103→109、总数 334→340。
             "P": 15,   # ImportError 特性探测（第十一批首次把探针记录本身接线：file_security
                         # 的 ImportError 探针分支 wired=True → W，P 16→15；总数 334 不变）
             "S": 34,   # 自报失败（metrics/sentry/otel/gauge；第三十二批
@@ -5956,16 +5959,16 @@ class TestP235Round13Batch29Declined:
         (OTEL_REL, 203, "instrument_app", "P"),
         (OTEL_REL, 205, "instrument_app", "S"),
         (OTEL_REL, 228, "shutdown_otel", "S"),
-        (COMMON_REL, 184, "_save_assessment_sync", "W"),  # 第六批已接，复核
-        (COMMON_REL, 261, "_generate_structured_factors", "D"),
-        (COMMON_REL, 317, "_generate_physio_factors", "D"),
-        (COMMON_REL, 333, "_generate_physio_factors", "D"),
-        (COMMON_REL, 349, "_generate_physio_factors", "D"),
-        (COMMON_REL, 365, "_generate_physio_factors", "D"),
+        (COMMON_REL, 201, "_save_assessment_sync", "W"),  # 第六批已接，复核（REV-2026-10-20 S6 后 +17 行）
+        (COMMON_REL, 278, "_generate_structured_factors", "D"),
+        (COMMON_REL, 334, "_generate_physio_factors", "D"),
+        (COMMON_REL, 350, "_generate_physio_factors", "D"),
+        (COMMON_REL, 366, "_generate_physio_factors", "D"),
+        (COMMON_REL, 382, "_generate_physio_factors", "D"),
     )
 
     # 复核维持「已接线」的 1 处（第六批）
-    WIRED_TARGET = (COMMON_REL, 184)
+    WIRED_TARGET = (COMMON_REL, 201)
 
     def _read(self, rel: str) -> str:
         return (BEPKG / rel).read_text(encoding="utf-8")
@@ -6441,7 +6444,8 @@ class TestP235Round13Batch29Declined:
         调用方从返回值看不出。这是第二十九批 M3 变异暴露的假绿，必须钉住。
         """
         src = self._read(self.COMMON_REL)
-        handler = self._handler_at(src, 261)
+        # REV-2026-10-20 S6：_common.py 新增 17 行后，L261 → L278
+        handler = self._handler_at(src, 278)
         assert handler is not None, "_generate_structured_factors 的 L261 handler 消失"
         seg = ast.get_source_segment(src, handler) or ""
         assert ast.unparse(handler.type) == "(TypeError, ValueError)", (
@@ -6722,10 +6726,10 @@ class TestP235Round13Batch32Wiring:
         (CB_REL, 97, "_collect_infra_exceptions", "P"),
         (CB_REL, 107, "_collect_infra_exceptions", "P"),
         (CB_REL, 153, "_is_celery_failure", "P"),
-        (UDS_REL, 165, "_generate_physio_factors", "D"),
-        (UDS_REL, 180, "_generate_physio_factors", "D"),
+        (UDS_REL, 182, "_generate_physio_factors", "D"),
         (UDS_REL, 197, "_generate_physio_factors", "D"),
-        (UDS_REL, 212, "_generate_physio_factors", "D"),
+        (UDS_REL, 214, "_generate_physio_factors", "D"),
+        (UDS_REL, 229, "_generate_physio_factors", "D"),
         (IDM_REL, 76, "begin_idempotent_call", "W"),
         (IDM_REL, 98, "settle_idempotent_call", "W"),
         (IDM_REL, 112, "dismiss_idempotent_call", "W"),
@@ -7010,7 +7014,7 @@ class TestP235Round13Batch33Wiring:
         (UU_REL, 162, "_validate_mime_type", "W"),
         (DBB_REL, 100, "_check_exception_is_connection_failure", "P"),
         (DBB_REL, 109, "_check_exception_is_connection_failure", "P"),
-        (DEPS_REL, 184, "_role_for_request", "G"),
+        (DEPS_REL, 204, "_role_for_request", "G"),
         (FFM_REL, 41, "record_scheduled", "S"),
         (FFM_REL, 77, "_callback", "S"),
         (LOG_REL, 235, "configure_logging", "S"),
@@ -7814,7 +7818,7 @@ class TestP235Round13Batch35Declined:
         (CANARY_REL, 235, "_log_comparison", "DEAD"),
         (ESC_REL, 59, "_observe_escalation_latency", "S-同源"),
         (OBSVC_REL, 135, "_flush_loop", "DEAD"),
-        (RISK_REL, 138, "_schedule_warning_and_intervention", "P-内层全捕获"),
+        (RISK_REL, 185, "_schedule_warning_and_intervention", "P-内层全捕获"),
         (RISKW_REL, 136, "_check_warning_trigger", "P-内层全捕获"),
         (ANOM_REL, 140, "_detect_impl", "P-跨进程"),
     ]
@@ -8358,13 +8362,13 @@ class TestP235Round13Batch36Wiring:
         ("app/ml/model_loader.py", 46, "_resolve_artifacts_dir", "V"),
         ("app/ml/model_validation.py", 135, "_bootstrap_auc_ci_with_count", "V"),
         ("app/ml/scaler.py", 47, "__getattr__", "P"),
-        ("app/services/auth_service.py", 277, "change_password", "V"),
-        ("app/services/auth_service.py", 436, "logout", "V"),
+        ("app/services/auth_service.py", 307, "change_password", "V"),
+        ("app/services/auth_service.py", 466, "logout", "V"),
         ("app/services/experiment_evaluator.py", 126, "compare", "V"),
         ("app/services/experiment_metrics.py", 43, "metrics", "V"),
         (LS_REL, 451, "filter", "W"),
-        ("app/services/pdf_report_service.py", 295, "generate_pdf", "V"),
-        ("app/services/pdf_report_service.py", 450, "generate_pdf_stream", "V"),
+        ("app/services/pdf_report_service.py", 362, "generate_pdf", "V"),
+        ("app/services/pdf_report_service.py", 521, "generate_pdf_stream", "V"),
         ("app/tasks/observability.py", 79, "_flush_lock_stats_impl", "V"),
     ]
 

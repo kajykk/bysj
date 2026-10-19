@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import UTC, datetime
 
@@ -7,9 +8,11 @@ from fastapi import Request
 from sqlalchemy import select
 
 from app.core.audit import record_audit
-from app.core.contracts import USER_ROLE_COUNSELOR, USER_ROLE_USER
+from app.core.contracts import DEFAULT_TENANT_ID, USER_ROLE_COUNSELOR, USER_ROLE_USER
 from app.core.states import BindingStatus
 from app.models.user import User, UserCounselorBinding
+
+logger = logging.getLogger(__name__)
 
 
 class BindingMixin:
@@ -234,7 +237,9 @@ class BindingMixin:
 
         # H-01 修复：锁定用户行防止并发绑定（TOCTOU 竞态）
         user_lock = select(User).where(User.id == user_id).with_for_update()
-        await self.db.execute(user_lock)
+        bound_user = (await self.db.execute(user_lock)).scalar_one_or_none()
+        if bound_user is None:
+            raise ValueError("用户不存在")
 
         active_stmt = (
             select(UserCounselorBinding)
@@ -258,6 +263,25 @@ class BindingMixin:
             or counselor.role != USER_ROLE_COUNSELOR
             or counselor.status != "active"
         ):
+            raise ValueError("绑定的咨询师不存在或已停用")
+
+        # REV-2026-10-20 (S3)：绑定必须同租户。
+        # 原实现只校验角色与状态，不比对两端 tenant_id ⇒ 租户 B 的用户拿到
+        # 租户 A 咨询师的绑定码即可建立 ACTIVE 绑定；此后 A 的咨询师能通过
+        # /counselor/users/{id} 读到 B 用户的抑郁风险评分/评估历史/问卷，
+        # 并通过 /uploads/{user_id}/{file} 下载其量表 PDF 与音频。
+        # 错误信息与"咨询师不存在"保持一致，不泄露他租户咨询师是否存在。
+        if (bound_user.tenant_id or DEFAULT_TENANT_ID) != (
+            counselor.tenant_id or DEFAULT_TENANT_ID
+        ):
+            logger.warning(
+                "counselor.bind.cross_tenant_blocked user_id=%s user_tenant=%s "
+                "counselor_id=%s counselor_tenant=%s",
+                user_id,
+                bound_user.tenant_id,
+                counselor_id,
+                counselor.tenant_id,
+            )
             raise ValueError("绑定的咨询师不存在或已停用")
 
         previous_status = binding.status

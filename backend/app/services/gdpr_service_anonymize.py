@@ -27,6 +27,7 @@ OPT-A7（重构）：原 ``anonymize_user`` 为单个约 352 行的巨型函数�
 
 from __future__ import annotations
 
+import json
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -254,7 +255,8 @@ class AnonymizeMixin:
             rec.notes = ANON_TEXT
         counts["consultation_records"] = len(consultation_records)
 
-        # CrisisEvent（crisis_keywords 默认 "[]"，统一替换为 ANON_TEXT）
+        # CrisisEvent（crisis_keywords 语义是 JSON 数组文本，正常写入见 review_service
+        # 的 ``json.dumps(keywords)``）
         # P2-31：匿名化按数据主体 user_id 取数（Article 17 履行），显式豁免。
         crisis_events = (
             (
@@ -268,11 +270,18 @@ class AnonymizeMixin:
             .all()
         )
         for ev in crisis_events:
-            ev.crisis_keywords = ANON_TEXT
+            # REV-2026-10-20 (S2)：原实现写 ANON_TEXT（"[ANONYMIZED]"），不是合法 JSON。
+            # 读取侧 review_service 用 json.loads 解析该列，一行业务数据被写成裸字符串
+            # 就让该租户危机事件列表整页 500，且已落库、重启不自愈。
+            # 这里写空数组：既保持列语义（JSON 数组），也不残留任何危机关键词
+            # （关键词本身属健康数据，应随被遗忘权一并擦除）。
+            ev.crisis_keywords = json.dumps([])
             if ev.input_summary is not None:
                 ev.input_summary = ANON_TEXT
             if ev.handled_action is not None:
-                ev.handled_action = ANON_TEXT
+                # handled_action 受 _ALLOWED_CRISIS_ACTIONS 枚举约束；写占位符会让
+                # 后续状态流转校验拒绝该行。置空表示"处置动作已擦除"，字段本身可空。
+                ev.handled_action = None
         counts["crisis_events"] = len(crisis_events)
 
         # WarningNotification（trigger_reason NOT NULL，handle_note 可空）
