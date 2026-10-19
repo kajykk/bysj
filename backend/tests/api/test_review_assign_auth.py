@@ -154,13 +154,34 @@ class TestGuardNecessity:
         本用例的价值不在"验证现有实现"，而在于给出**改前/改后对照证据**：
         同一个请求，守卫存在时是 403 且任务纹丝不动；守卫消失时是 200 且
         ``assigned_to`` 变成调用者 —— 说明 P1-1 的越权确实源于缺失该校验。
+
+        ROUND_18（M8）之后，服务层新增了受派人存在性/角色/租户校验。本元测试
+        要隔离的是**绑定守卫**这一个变量，故先把 ``COUNSELOR_UNBOUND`` 建成
+        真实的同租户咨询师行 —— 否则请求会被新增的受派人校验以 400 提前拦下，
+        因果就混成了"两个守卫哪一个在起作用"。
         """
         from app.api.v1 import review as review_module
+        from app.core.pii_crypto import compute_blind_index
+        from app.core.security import get_password_hash
 
         async def _noop(db: object, counselor_id: int, student_id: int) -> None:
             return None
 
         monkeypatch.setattr(review_module, "_ensure_counselor_bound_to_student", _noop)
+
+        email = "unbound_counselor@test.com"
+        db_session.add(
+            User(
+                id=COUNSELOR_UNBOUND,
+                username="unbound_counselor",
+                email=email,
+                email_hash=compute_blind_index(email, "email"),
+                password_hash=get_password_hash("testpass123"),
+                role="counselor",
+                status="active",
+            )
+        )
+        await db_session.commit()
 
         task_id = await _seed_pending_task(db_session)
 
