@@ -5,11 +5,16 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import Request
-from sqlalchemy import desc, func, select, text
+from sqlalchemy import Select, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
-from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_COUNSELOR
+from app.core.contracts import (
+    DEFAULT_TENANT_ID,
+    USER_ROLE_ADMIN,
+    USER_ROLE_COUNSELOR,
+    USER_ROLE_SUPER_ADMIN,
+)
 from app.core.degradation import record_silent_degradation
 from app.core.event_bus import event_bus
 from app.core.tenant_query import tenant_scoped_filter, user_tenant_scoped_query
@@ -75,6 +80,34 @@ def _parse_crisis_keywords(raw: str | None, event_id: int | None = None) -> list
         )
         return []
     return parsed
+
+
+class ReviewStateConflict(ValueError):
+    """复核任务状态冲突（并发已被他人处置 / 对终态再次操作）。
+
+    M7 修复（ROUND_18）：沿用 ``ValueError`` 的捕获约定（既有调用方与用例都按
+    ``ValueError`` 处理），但独立成类，供 API 层映射 409 —— "你读到的是旧状态"
+    与"参数不合法"对客户端是两种处置，混用 400 会让调用方重试而不是重取。
+    """
+
+
+def _locked_review_stmt(review_id: int) -> Select:
+    """按主键取复核任务并加 ``FOR UPDATE``（M7 行锁）。
+
+    与 ``assign_review`` 同构：租户归属先由同事务的
+    ``_ensure_review_in_tenant`` 校验，故这里不 JOIN users ——
+    ``JOIN + FOR UPDATE`` 会在 PostgreSQL 上连带锁住 users 行，把复核处置
+    变成用户表上的锁竞争（而 SQLite 下 FOR UPDATE 本就被忽略）。
+
+    独立成模块级函数，是为了让闸门能编译**真实语句**并断言其带行锁，
+    而不是在测试里重抄一份 SELECT。
+    """
+    return (
+        select(ReviewTask)
+        .where(ReviewTask.id == review_id)
+        .with_for_update()
+        .execution_options(tenant_exempt="tenant_checked_upstream_same_transaction")
+    )
 
 
 class ReviewService:
@@ -254,6 +287,40 @@ class ReviewService:
             )
             raise ValueError(f"Review task {review_id} not found")
 
+    async def _ensure_assignee(self, assignee_id: int, tenant_id: int) -> User:
+        """校验复核受派人（M8）。
+
+        四道判据：**存在**、**同租户**、**有处置角色**、**未停用**。
+        ``admin / super_admin`` 在允许集合内 —— 分配端点文档写明管理员
+        "不传 assignee 则接管给自己"，若只认 counselor，这条既有行为会 400。
+        普通用户（``role=user``）被拒：任务一旦转 in_review，普通用户既无
+        ``review.handle`` 权限、也不在咨询师列表里，任务就锁死了。
+
+        抛 ``ValueError``（400 语义）：这是"你给的参数不成立"，不是状态冲突。
+        """
+        assignee = await self.db.get(User, assignee_id)
+        if assignee is None:
+            raise ValueError(f"受派的咨询师不存在: {assignee_id}")
+        if (assignee.tenant_id or DEFAULT_TENANT_ID) != (
+            tenant_id or DEFAULT_TENANT_ID
+        ):
+            logger.warning(
+                "跨租户分配复核任务被拒绝: assignee_id=%s assignee_tenant=%s tenant_id=%s",
+                assignee_id,
+                assignee.tenant_id,
+                tenant_id,
+            )
+            raise ValueError("受派的咨询师不属于当前租户")
+        if assignee.role not in {
+            USER_ROLE_COUNSELOR,
+            USER_ROLE_ADMIN,
+            USER_ROLE_SUPER_ADMIN,
+        }:
+            raise ValueError("受派人不具备处置复核任务的角色")
+        if assignee.status != "active":
+            raise ValueError("受派的咨询师已停用")
+        return assignee
+
     async def assign_review(
         self, review_id: int, counselor_id: int, *, tenant_id: int
     ) -> ReviewTask:
@@ -263,6 +330,11 @@ class ReviewService:
         # 连带锁住 users 行（增加锁竞争），且 SQLite 下 FOR UPDATE 本就被忽略。
         # 租户归属不随并发变化，先校验再按主键加锁是安全的。
         await self._ensure_review_in_tenant(review_id, tenant_id)
+        # M8 修复（ROUND_18）：受派人必须真实存在、同租户、有处置角色。
+        # 原实现直接 ``task.assigned_to = counselor_id`` ⇒ 管理员可把危机复核
+        # 分配给不存在的 id / 普通用户 / 他租户咨询师；任务随即变 in_review，
+        # 而合法咨询师按租户 JOIN 看不到它 —— 危机复核被锁进无人可见的状态。
+        await self._ensure_assignee(counselor_id, tenant_id)
 
         # ISS-061 修复：使用 with_for_update() 行级锁，防止并发分配同一复核任务
         # P2-31：本语句按主键加锁取行，租户归属由上方同事务的
@@ -298,25 +370,61 @@ class ReviewService:
         *,
         is_admin: bool = False,
         tenant_id: int,
+        request: Request | None = None,
     ) -> ReviewTask:
-        """处理复核任务（**必须**限定租户范围）"""
-        task = await self.get_review_by_id(review_id, tenant_id=tenant_id)
+        """处理复核任务（**必须**限定租户范围）。
+
+        M7 修复（ROUND_18），三处补齐：
+
+        1. **行锁**：写路径与 ``assign_review`` 同构 —— 先同事务校验租户归属，
+           再按主键 ``FOR UPDATE`` 取行。原实现是普通 SELECT，两个并发请求都能
+           通过 ``status in (pending, in_review)``，后提交者静默覆盖
+           ``resolution_note / resolved_by``，第一份临床处置结论与处置人永久丢失。
+        2. **审计**：处置结论落 ``operation_logs``（``review.resolved``）。原实现
+           是本服务里唯一不写审计的写操作（assign / escalate / 危机事件都写了）。
+           审计只记 ``previous_status`` 与备注**长度** —— 处置备注是临床内容，
+           不复制进审计表，避免二次扩散。
+        3. **状态冲突**：对终态再操作抛 ``ReviewStateConflict``（API 映射 409），
+           与 400 参数错误区分开。
+        """
+        await self._ensure_review_in_tenant(review_id, tenant_id)
+
+        task = (await self.db.execute(_locked_review_stmt(review_id))).scalar_one_or_none()
         if not task:
             raise ValueError(f"Review task {review_id} not found")
 
         if task.status not in ["pending", "in_review"]:
-            raise ValueError(f"Cannot resolve review with status {task.status}")
+            raise ReviewStateConflict(
+                f"Cannot resolve review with status {task.status}"
+            )
 
         # P1-SEC-007 修复：越权检查 - 仅分配的咨询师或管理员可处理
         if not is_admin and task.assigned_to is not None and task.assigned_to != counselor_id:
             raise ValueError("无权处理此复核任务：任务已分配给其他咨询师")
 
+        previous_status = task.status
         task.resolved_by = counselor_id
         task.resolution_note = resolution_note
         task.status = "resolved"
         # ISS-041 修复：统一 naive UTC
         task.resolved_at = datetime.now(timezone.utc).replace(tzinfo=None)
         task.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        await record_audit(
+            self.db,
+            actor_id=counselor_id,
+            actor_role=USER_ROLE_ADMIN if is_admin else USER_ROLE_COUNSELOR,
+            action="review.resolved",
+            target_type="review_task",
+            target_id=review_id,
+            detail={
+                "resolved_by": counselor_id,
+                "previous_status": previous_status,
+                # 只记长度，不落处置备注原文（临床内容不进审计表）
+                "resolution_note_chars": len(resolution_note or ""),
+            },
+            request=request,
+            tenant_id=tenant_id,
+        )
         await self.db.commit()
         await self.db.refresh(task)
         return task

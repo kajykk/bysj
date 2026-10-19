@@ -235,9 +235,38 @@ class WarningMixin:
         tenant_id: int | None = None,
     ) -> bool:
         # ISS-058: 升级预警 - 更新状态为 escalated，记录升级原因到 handled_note，写入审计日志
-        warning = await self.db.get(WarningNotification, warning_id)
+        #
+        # M9 修复（ROUND_18）：补齐行锁 + 幂等 + 状态前置，与同 mixin 的
+        # handle_warning 对齐。原实现仅做"取行 + 校验归属 + 无条件改写"：
+        # 一条已 ignored（咨询师判断无需干预）的预警可被再次升级，
+        # handle_action 被改写、原 handle_note 被覆盖，且每次调用都写一条审计。
+        result = await self.db.execute(
+            select(WarningNotification)
+            .where(WarningNotification.id == warning_id)
+            .with_for_update()
+        )
+        warning = result.scalar_one_or_none()
         if warning is None or warning.counselor_id != counselor_id:
             return False
+
+        if warning.is_handled:
+            if warning.handle_action == WARNING_ACTION_ESCALATE:
+                # 重复升级幂等：状态与审计在首次调用已落地，这里仅回 True。
+                # 不追加第二条审计，也不覆盖首次升级原因（事故复盘以首次为准）。
+                logger.info(
+                    "escalate_warning idempotent replay: warning_id=%s counselor_id=%s",
+                    warning_id,
+                    counselor_id,
+                )
+                return True
+            # ignored / handled 之后不允许再升级（防"已判定无需干预"被悄悄改写）
+            logger.warning(
+                "escalate_warning rejected: warning_id=%s already handled with action=%s",
+                warning_id,
+                warning.handle_action,
+            )
+            return False
+
         warning.is_handled = True
         warning.handled_at = datetime.now(UTC).replace(tzinfo=None)
         warning.handle_action = WARNING_ACTION_ESCALATE

@@ -11,7 +11,17 @@ from app.services.risk_service import RiskService
 from tests.conftest import run
 
 
-def test_ws_accepts_access_token(client: TestClient, seeded_user_id: int) -> None:
+def test_ws_accepts_access_token(client: TestClient, seeded_user_id: int, monkeypatch) -> None:
+    # M2 修复（ROUND_18）：WS 握手现在校验 jti 撤销，撤销检查不可用时失败关闭
+    # （4503）。本用例只验证"有效 token 能建连"，故把缓存切成内存后端
+    # （``_get_redis_url → None``，单进程部署形态），避免被"Redis 连不上"这个
+    # 与本用例无关的环境条件判红。fail-closed 本身由
+    # ``tests/unit/test_websocket_auth.py::test_websocket_fails_closed_when_blocklist_unavailable``
+    # 单独把守。
+    from app.core import cache as cache_module
+
+    monkeypatch.setattr(cache_module, "_get_redis_url", lambda: None)
+
     token = create_access_token({"sub": str(seeded_user_id), "role": "user"})
 
     with client.websocket_connect(f"/ws/{seeded_user_id}") as ws:
@@ -59,7 +69,9 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     assert refresh_resp.status_code == 200
     refresh_body = refresh_resp.json()["data"]
     assert refresh_body["access_token"]
-    assert refresh_body["refresh_token"]
+    # M1 修复（ROUND_18）：refresh_token 只在 httpOnly Cookie，响应体不再回传。
+    assert "refresh_token" not in refresh_body
+    assert refresh_resp.cookies.get("refresh_token")
     assert refresh_body["token_type"] == "bearer"
 
     profile_resp = client.put(
@@ -73,7 +85,9 @@ def test_login_refresh_and_logout_flow(client: TestClient) -> None:
     logout_resp = client.post(
         "/api/v1/auth/logout",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"refresh_token": refresh_body["refresh_token"]},
+        # M1 修复（ROUND_18）：换发后的 refresh_token 只在 Cookie 里，
+        # 故登出载荷改从 Cookie 取（与前端 authStore 现行行为一致）。
+        json={"refresh_token": refresh_resp.cookies.get("refresh_token")},
     )
     # logout 在 refresh token 未登记时会返回 400 (业务逻辑: session 不存在).
     # 测试验证 logout 端点可调用且不抛 500; 200=成功撤销, 400=token 已失效/未登记.

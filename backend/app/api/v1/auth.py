@@ -9,6 +9,7 @@ from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.exceptions import ServiceError
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
 from app.core.pii_crypto import mask_pii
 from app.core.rate_limit import get_real_client_ip, limiter
@@ -32,7 +33,6 @@ from app.schemas.auth import (
 )
 from app.schemas.common import ApiResponse, ErrorResponse
 from app.services.auth_service import AuthService
-from app.core.exceptions import ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +240,15 @@ async def refresh_token(
     # SEC-002/003 修复：阶段1 双轨模式 - 同时更新 Cookie
     _set_refresh_cookie(response, tokens["refresh_token"])
 
-    return ok(tokens)
+    # M1 修复（ROUND_18）：Cookie 是 refresh_token 的唯一出网载体。
+    # 响应体只回 access_token（模型也不再声明 refresh_token，双保险）。
+    # 前端实测不消费该字段（全仓 grep 仅 Cookie 路径），故为纯收敛。
+    return ok(
+        {
+            "access_token": tokens["access_token"],
+            "token_type": tokens.get("token_type", "bearer"),
+        }
+    )
 
 
 @router.put("/change-password", response_model=ApiResponse[MessageResponse], responses=COMMON_ERROR_RESPONSES)

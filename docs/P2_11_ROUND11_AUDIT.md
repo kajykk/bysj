@@ -1755,3 +1755,17 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   `uploads._resolve_upload_dir` **裸赋值**（不经 monkeypatch），永久污染后续
   测试；本轮 `test_rev_s3` 因此在全量运行下 404、单跑全绿。改为
   `monkeypatch.setattr`，泄漏消失。
+
+## 附：ROUND_18（审查报告 M 批 1）计数同步
+
+- #35 桶计数：G 7→8（`core/ws.py::websocket_endpoint` 在撤销检查基础设施不可用时
+  关闭 4503 —— fail-closed **拒绝**，不是降级），总数 340→341；W/P/S/D/C/H/K/R/M/V/F/X
+  均不变（本轮新增的 6 处 W 已在上一节记入，本轮无新增 W）。
+- #34 raise 分类重扫（同口径 `ast.Raise + Call`）：HTTPException=214（不变）；
+  other_raise=354（350→354：`review_service._ensure_assignee` 新增 4 处 ValueError
+  —— 受派人不存在 / 跨租户 / 无处置角色 / 已停用；`ReviewStateConflict` 替换了
+  resolve 原有的状态 ValueError，属同桶替换，不改总数）；ServiceError=38
+  （37→38：`api/v1/review.py` 把状态冲突映射为 409 的那一处）。
+- #36 位置漂移：`api/v1/validation.py` `_execute_validation` 的 handler 478→481
+  （`_deserialize_dict` 的 created_by 分支改为字符串口径后 +3 行）；
+  `TestP235Round13Batch37Wiring` 的 CANDIDATES 同步。

@@ -31,7 +31,10 @@ def test_login_refresh_and_logout_flow(client, seeded_user_id: int) -> None:
     assert refresh_resp.status_code == 200
     refresh_data = refresh_resp.json()["data"]
     assert refresh_data["access_token"]
-    assert refresh_data["refresh_token"]
+    # M1 修复（ROUND_18）：换发后的 refresh_token 只在 httpOnly Cookie 里，
+    # 响应体不再回传（原断言要求 body 含该字段，等于把缺陷写成契约）。
+    assert "refresh_token" not in refresh_data
+    assert refresh_resp.cookies.get("refresh_token")
 
     from app.core.deps import get_current_user
     from app.main import app

@@ -439,9 +439,12 @@ class TestP235SilentDegradationRatchet:
             "K": 11,   # 任务取消
             "R": 3,    # 自恢复（第二十四批把 ws pubsub 循环崩溃从 R 改判接线：见下）
             "M": 6,    # 已有专用计数器
-            "G": 7,    # fail-closed 安全（第三十三批：user_upload `_validate_mime_type`
+            "G": 8,    # fail-closed 安全（第三十三批：user_upload `_validate_mime_type`
                        # 原被分类器粗判 G，但它是**fail-open 放行**（跳过校验继续
-                       # 上传）而非 fail-closed 拒绝，故改判接线 ⇒ G 8→7）
+                       # 上传）而非 fail-closed 拒绝，故改判接线 ⇒ G 8→7。
+                       # ROUND_18 M2：core/ws.py `websocket_endpoint` 撤销检查
+                       # 基础设施不可用 ⇒ 关闭码 4503 拒绝建连（fail-closed 拒绝，
+                       # 非降级）⇒ G 7→8，总数 340→341）
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
             "X": 116,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
@@ -8783,7 +8786,7 @@ class TestP235Round13Batch37Wiring:
         ("app/api/v1/reports.py", 355, "_notify", "P"),
         ("app/api/v1/reports.py", 403, "_execute_pdf_generation", "V"),
         ("app/api/v1/validation.py", 254, "_cleanup_memory_expired", "D"),
-        ("app/api/v1/validation.py", 478, "_execute_validation", "V"),
+        ("app/api/v1/validation.py", 481, "_execute_validation", "V"),
         ("app/services/model_predict/inference.py", 150, "_fire_shadow_check", "P"),
         (FUSION_REL, 229, "_log_canary_event", "W"),
     ]

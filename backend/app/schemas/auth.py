@@ -73,9 +73,17 @@ class RegisterResponse(BaseModel):
 
 
 class TokenResponse(BaseModel):
+    """``/auth/refresh`` 的响应体（**只含** access token）。
+
+    M1 修复（ROUND_18）：原模型带 ``refresh_token``，端点 ``return ok(tokens)``
+    会把轮换后的长效令牌明文回传，抵消 httpOnly Cookie 的保护 —— 任何 XSS 只需
+    ``fetch('/auth/refresh', {credentials:'include'})`` 即可拿到它并外带。
+    现模型层不再声明该字段：即便处理函数误传，FastAPI 的响应模型也会把它过滤掉
+    （契约由结构保证，不依赖调用方自觉）。
+    """
+
     access_token: str
     token_type: str = "bearer"
-    refresh_token: str | None = None
 
 
 class LoginResponse(BaseModel):

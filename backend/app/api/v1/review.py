@@ -36,7 +36,11 @@ from app.schemas.review import (
     ReviewStatus,
     ReviewTaskFilter,
 )
-from app.services.review_service import CrisisEventService, ReviewService
+from app.services.review_service import (
+    CrisisEventService,
+    ReviewService,
+    ReviewStateConflict,
+)
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -447,8 +451,16 @@ async def resolve_review(
             payload.resolution_note,
             is_admin=current_user.role in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN),
             tenant_id=current_user.tenant_id,
+            # M7 修复（ROUND_18）：处置审计需要 request（ip / request-id 落列）
+            request=request,
         )
         return ok(service.to_response(task).model_dump())
+    except ReviewStateConflict as e:
+        # M7 修复（ROUND_18）：并发/重复处置是 409 而非 400 —— 客户端该重取
+        # 最新状态，而不是当作参数错误重试同一请求。
+        raise ServiceError(
+            str(e), status_code=409, tenant_id=current_user.tenant_id
+        ) from e
     except ValueError as e:
         # P2-34 统一错误方言（同上）：client_message 保持服务层业务原文。
         raise ServiceError(str(e), tenant_id=current_user.tenant_id) from e

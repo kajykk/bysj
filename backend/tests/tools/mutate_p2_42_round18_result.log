@@ -1,0 +1,46 @@
+[head] 5c60b05
+[baseline] 未变异 returncode=0（0=全绿）
+[baseline] 27 passed, 4 warnings in 34.06s
+
+[T1] TokenResponse 重新声明 refresh_token
+    returncode=1 | 失败 2 项 | 目标 ['test_refresh_response_exposes_only_access_token', 'test_refresh_response_schema_does_not_declare_refresh_token']: RED-OK
+      FAILED tests/test_p2_42_round18_refresh_body.py::test_refresh_response_exposes_only_access_token
+      FAILED tests/test_p2_42_round18_refresh_body.py::test_refresh_response_schema_does_not_declare_refresh_token
+
+[T2] WS 握手把 `if revoked:` 改成 `if False:`
+    returncode=1 | 失败 1 项 | 目标 ['test_websocket_rejects_jti_revoked_after_logout']: RED-OK
+      FAILED tests/unit/test_websocket_auth.py::test_websocket_rejects_jti_revoked_after_logout
+
+[T3] _deserialize_dict 把 created_by 转回 int
+    returncode=1 | 失败 3 项 | 目标 ['test_deserialize_keeps_created_by_as_str', 'test_redis_mode_job_stays_visible_to_its_creator']: RED-OK
+      FAILED tests/test_p2_43_round18_validation_created_by.py::test_deserialize_keeps_created_by_as_str
+      FAILED tests/test_p2_43_round18_validation_created_by.py::test_deserialize_decodes_created_by_bytes
+      FAILED tests/test_p2_43_round18_validation_created_by.py::test_redis_mode_job_stays_visible_to_its_creator
+
+[T4a] _locked_review_stmt 去掉 with_for_update()
+    returncode=1 | 失败 1 项 | 目标 ['test_locked_statement_compiles_with_for_update']: RED-OK
+      FAILED tests/test_p2_44_round18_review_state.py::test_locked_statement_compiles_with_for_update
+
+[T4b] resolve_review 整段删除 record_audit(...)
+    returncode=1 | 失败 2 项 | 目标 ['test_resolve_writes_audit_without_clinical_note_text']: RED-OK
+      FAILED tests/test_p2_44_round18_review_state.py::test_resolve_writes_audit_without_clinical_note_text
+      FAILED tests/test_p2_44_round18_review_state.py::test_second_resolve_is_rejected_and_writes_no_extra_audit
+
+[T5] assign_review 删除 _ensure_assignee 调用
+    returncode=1 | 失败 4 项 | 目标 ['test_assign_rejects_missing_assignee', 'test_assign_rejects_plain_user', 'test_assign_rejects_cross_tenant_counselor', 'test_assign_rejects_disabled_counselor']: RED-OK
+      FAILED tests/test_p2_44_round18_review_state.py::test_assign_rejects_missing_assignee
+      FAILED tests/test_p2_44_round18_review_state.py::test_assign_rejects_plain_user
+      FAILED tests/test_p2_44_round18_review_state.py::test_assign_rejects_cross_tenant_counselor
+      FAILED tests/test_p2_44_round18_review_state.py::test_assign_rejects_disabled_counselor
+
+[T6] escalate_warning 删除 is_handled 幂等/状态前置分支
+    returncode=1 | 失败 2 项 | 目标 ['test_escalate_twice_is_idempotent', 'test_escalate_after_ignore_is_rejected']: RED-OK
+      FAILED tests/test_p2_45_round18_warning_escalate.py::test_escalate_twice_is_idempotent
+      FAILED tests/test_p2_45_round18_warning_escalate.py::test_escalate_after_ignore_is_rejected
+
+[residual] 残留文件: 无
+[final] 还原后 returncode=0（0=全绿）
+[final] 27 passed, 4 warnings in 33.55s
+
+[summary] T1=RED-OK | T2=RED-OK | T3=RED-OK | T4a=RED-OK | T4b=RED-OK | T5=RED-OK | T6=RED-OK
+[summary] residual_clean=True final_green=True

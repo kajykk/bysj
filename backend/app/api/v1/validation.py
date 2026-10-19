@@ -287,10 +287,13 @@ class ValidationJobStore:
                 except (ValueError, TypeError):
                     result[key] = 0
             elif key in ("created_by",):
-                try:
-                    result[key] = int(value)
-                except (ValueError, TypeError):
-                    result[key] = value
+                # M6 修复（ROUND_18）：写入侧是 ``str(current_user.id)``（见 run 端点），
+                # 消费侧是 ``job.get("created_by") != str(current_user.id)``。
+                # 原实现在这里把值转成 int，Redis 模式下 ``5 != "5"`` 恒真 ⇒ 创建者
+                # 创建者始终查不到自己的任务，错误信息还是误导性的"任务不存在"。
+                # 该字段只做身份等值比较与展示，不做算术 —— 统一保持字符串。
+                # （兼容 bytes：hgetall 在 decode_responses=False 的客户端下会返回 bytes）
+                result[key] = value.decode() if isinstance(value, bytes) else str(value)
             else:
                 result[key] = value
         return result

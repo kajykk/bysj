@@ -172,8 +172,12 @@ class TestTokenRefresh:
         body = resp.json()
         assert body["code"] == 200
         assert "access_token" in body["data"]
-        assert "refresh_token" in body["data"]
-        assert body["data"]["refresh_token"] != refresh_token
+        # M1 修复（ROUND_18）：refresh_token 只走 httpOnly Cookie，绝不进响应体。
+        # 原断言（`"refresh_token" in body["data"]` 且 != 旧值）恰好把缺陷钉成了契约，
+        # 此处按新契约反向钉住；Cookie 侧仍验证已轮换（见下）。
+        assert "refresh_token" not in body["data"]
+        rotated = client.cookies.get("refresh_token")
+        assert rotated and rotated != refresh_token
 
     def test_refresh_replay_old_token_rejected(self, client: TestClient, clean_db):
         client.post(

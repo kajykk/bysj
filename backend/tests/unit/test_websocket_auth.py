@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.core import tenant_status
@@ -152,3 +154,118 @@ async def test_websocket_rejects_suspended_tenant(monkeypatch):
 
     assert ws.accepted is True
     assert ws.closed == (4003, "租户已暂停，请联系平台管理员")
+
+
+# ── M2（ROUND_18）：握手阶段校验 jti 撤销 ────────────────────────────────
+
+
+def _stub_ws_backend(monkeypatch, tenant_id: int = 1) -> None:
+    """把握手后续依赖（DB / 租户状态 / 连接管理）换成最小可用桩。
+
+    M2 的判据在 jti 检查上，撤销通过与否决定了是否走到这里；桩只负责让
+    "通过撤销检查"的用例能走完全流程，不参与撤销语义。
+    """
+
+    class _Result:
+        def scalar_one_or_none(self):
+            return type("User", (), {"status": "active", "tenant_id": tenant_id})()
+
+    class _Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def execute(self, _stmt):
+            return _Result()
+
+    monkeypatch.setattr(ws_module, "AsyncSessionLocal", lambda: _Session())
+
+    async def _not_suspended(db, tid):
+        return False
+
+    monkeypatch.setattr(tenant_status, "is_tenant_suspended", _not_suspended)
+
+    async def _connect(user_id, websocket):
+        return True
+
+    async def _disconnect(user_id, websocket):
+        return None
+
+    monkeypatch.setattr(ws_module.ws_manager, "connect", _connect)
+    monkeypatch.setattr(ws_module.ws_manager, "disconnect", _disconnect)
+
+
+@pytest.mark.asyncio
+async def test_websocket_rejects_jti_revoked_after_logout(monkeypatch):
+    """M2：登出撤销 access jti 后，同一 token 不得再建长连接。
+
+    走真实链路：``create_access_token`` 签发 → ``revoke_token``（登出端点调用的
+    同一原语，见 ``AuthService.logout``）写入 blocklist → 真实
+    ``websocket_endpoint`` 在握手阶段读回。仅把缓存后端切成内存
+    （``_get_redis_url → None``，单进程部署形态），**不替换**
+    ``is_token_revoked`` —— 缺陷就在"少调一次撤销检查"，替身会把这一层抹掉。
+    """
+    from app.core import cache as cache_module
+    from app.core.security import create_access_token, decode_token
+    from app.core.token_blocklist import revoke_token
+
+    monkeypatch.setattr(cache_module, "_get_redis_url", lambda: None)
+
+    token = create_access_token({"sub": "1", "role": "user", "tenant_id": 1})
+    jti = decode_token(token)["jti"]
+    assert await revoke_token(jti, ttl=60) is True
+
+    ws = FakeWebSocket(messages=[json.dumps({"type": "auth", "token": token})])
+    await ws_module.websocket_endpoint(ws, user_id=1)
+
+    assert ws.accepted is True
+    assert ws.closed == (4001, "Token已被撤销")
+
+
+@pytest.mark.asyncio
+async def test_websocket_accepts_token_with_live_jti(monkeypatch):
+    """反向对照：同一路径下未被撤销的 jti 仍然放行。
+
+    与上一条配对，证明 4001 是**由撤销状态驱动**，而不是加了检查就无条件拒。
+    """
+    from app.core import cache as cache_module
+    from app.core.security import create_access_token
+
+    monkeypatch.setattr(cache_module, "_get_redis_url", lambda: None)
+    _stub_ws_backend(monkeypatch)
+
+    token = create_access_token({"sub": "1", "role": "user", "tenant_id": 1})
+    ws = FakeWebSocket(messages=[json.dumps({"type": "auth", "token": token})])
+    await ws_module.websocket_endpoint(ws, user_id=1)
+
+    assert ws.accepted is True
+    assert ws.closed is None
+
+
+@pytest.mark.asyncio
+async def test_websocket_fails_closed_when_blocklist_unavailable(monkeypatch):
+    """撤销检查基础设施不可用 ⇒ 4503（与 HTTP 侧 503 同语义）。
+
+    若这里放宽成"查不到就放行"，登出撤销会在 Redis 抖动期间整体失效，
+    而长连接正是危机预警的推送通道 —— 这是本任务要求 fail-closed 的原因。
+    """
+    from app.core import token_blocklist
+    from app.core.cache import CacheUnavailableError
+
+    async def _boom(_jti: str) -> bool:
+        raise CacheUnavailableError("[cache] redis down")
+
+    monkeypatch.setattr(token_blocklist, "is_token_revoked", _boom)
+    monkeypatch.setattr(
+        ws_module,
+        "decode_token",
+        lambda token: {"type": "access", "sub": "1", "jti": "j-r18-boom"},
+    )
+
+    ws = FakeWebSocket(messages=[json.dumps({"type": "auth", "token": "Bearer t"})])
+    await ws_module.websocket_endpoint(ws, user_id=1)
+
+    assert ws.accepted is True
+    assert ws.closed == (4503, "认证服务暂时不可用，请稍后重试")

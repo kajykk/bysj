@@ -440,6 +440,32 @@ async def websocket_endpoint(ws: WebSocket, user_id: int) -> None:
         await ws.close(code=4001, reason="WebSocket认证失败")
         return
 
+    # M2 修复（ROUND_18）：长连接与 HTTP 侧同口径校验 jti 撤销。
+    # 原实现仅做 decode + type + sub + user.status，登出（access jti 进 blocklist）
+    # 之后同一 token 仍能建连并继续订阅 warning 推送 —— 撤销在 WS 通道上失效。
+    # 撤销检查基础设施不可用（Redis 已配置但连不上）时失败关闭 4503，与 deps.py
+    # 的 503 语义对齐：宁可拒连，也不放行"已登出但仍在收危机预警"的长连接。
+    # 无 jti 的历史/测试 token 跳过该检查（与 deps.py 的 ``if jti:`` 同构）。
+    jti = token_data.get("jti")
+    if jti:
+        from app.core.cache import CacheUnavailableError
+        from app.core.token_blocklist import is_token_revoked
+
+        try:
+            revoked = await is_token_revoked(jti)
+        except CacheUnavailableError:
+            logger.error(
+                "websocket.auth.blocklist_unavailable user_id=%s (fail-closed)",
+                user_id,
+            )
+            _inc_ws_auth_failure("blocklist_unavailable")
+            await ws.close(code=4503, reason="认证服务暂时不可用，请稍后重试")
+            return
+        if revoked:
+            _inc_ws_auth_failure("token_revoked")
+            await ws.close(code=4001, reason="Token已被撤销")
+            return
+
     # OPT-A3（M-4 修复）：鉴权查库接入 db_breaker。原实现直接 AsyncSessionLocal()
     # 查询，绕过 get_db 的熔断保护 —— DB 故障时每个新 WS 连接都会直连连接池等待，
     # 加速雪崩；现在 OPEN 状态下快速失败（4503），与 HTTP 路径行为对齐。

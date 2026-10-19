@@ -1,5 +1,5 @@
 {
-  "real_total": 324,
+  "real_total": 325,
   "real_wired": 107,
   "import_probe": 16,
   "real_list": [
@@ -412,7 +412,7 @@
     },
     {
       "file": "app/api/v1/validation.py",
-      "line": 478,
+      "line": 481,
       "handled": [
         "Exception"
       ],
@@ -1627,7 +1627,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 471,
+      "line": 497,
       "handled": [
         "Exception"
       ],
@@ -1637,7 +1637,7 @@
     },
     {
       "file": "app/core/ws.py",
-      "line": 530,
+      "line": 556,
       "handled": [
         "Exception"
       ],
@@ -1691,6 +1691,16 @@
       "handled": [
         "JSONDecodeError",
         "TypeError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/ws.py",
+      "line": 456,
+      "handled": [
+        "CacheUnavailableError"
       ],
       "wired": false,
       "fire_and_forget": false,
@@ -2738,7 +2748,7 @@
     },
     {
       "file": "app/services/review_service.py",
-      "line": 61,
+      "line": 66,
       "handled": [
         "TypeError",
         "ValueError"
@@ -2749,7 +2759,7 @@
     },
     {
       "file": "app/services/review_service.py",
-      "line": 160,
+      "line": 193,
       "handled": [
         "Exception"
       ],
