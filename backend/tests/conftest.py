@@ -433,6 +433,26 @@ def client() -> TestClient:
 
 
 @pytest.fixture
+def memory_blocklist(monkeypatch):
+    """让 token 撤销检查走内存后端（单进程部署形态）。
+
+    ROUND_18（审查报告 M2）之后，WebSocket 握手会校验 jti 是否已被撤销。
+    测试环境的 ``redis_url`` 指向 localhost，而跑测试时通常没有 Redis 实例，
+    于是 ``is_token_revoked`` 抛 ``CacheUnavailableError``、握手按 fail-closed
+    关闭 4503 —— 这会把"应当建连成功"的协议用例判红，失败原因却与本用例要
+    验证的行为无关。
+
+    本 fixture 只改「缓存后端选型」，不替换 ``is_token_revoked`` 本身；
+    fail-closed 语义由
+    ``tests/unit/test_websocket_auth.py::test_websocket_fails_closed_when_blocklist_unavailable``
+    单独把守。
+    """
+    from app.core import cache as cache_module
+
+    monkeypatch.setattr(cache_module, "_get_redis_url", lambda: None)
+
+
+@pytest.fixture
 def as_role():
     def _set(role: str, user_id: int = 1, tenant_id: int = 1) -> None:
         CURRENT_USER["role"] = role

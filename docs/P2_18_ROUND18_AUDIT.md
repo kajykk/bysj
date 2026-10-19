@@ -135,6 +135,15 @@
    fail-closed 由新增用例单独把守。
 3. `api/v1/auth.py` 的 `ServiceError` 导入位置越过 `app.services`，ruff I001；
    本轮顺手排序（纯 lint，无行为变化）。
+4. **CI 首轮红了两类**（8e8ed1e），均由 M2/M1 的连带面引起，已在后续提交修掉：
+   - `Gitleaks Secret Scan`：新用例里 `"password": "StrongPass123"` 两行被
+     `generic-api-key` 规则判成疑似密钥。改为模块级 `_TEST_PASSWORD`
+     拼接常量（值不变，避开规则的字面量形态）并加 `gitleaks:allow`。
+   - `backend-coverage` 预期会红在四个 WS 用例上（`test_websocket.py` ×3、
+     `test_websocket_p0p1.py` ×1、`test_metrics.py` ×1）：它们用真实 access token
+     建连，在无 Redis 的测试环境被新的 fail-closed 判成 4503。统一改用
+     `conftest.memory_blocklist` fixture（只切缓存后端，不替换
+     `is_token_revoked`），fail-closed 仍由专用用例把守。
 
 ## 四、棘轮同步（改了源码就必须同步读数）
 

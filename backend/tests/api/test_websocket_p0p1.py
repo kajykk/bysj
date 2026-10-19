@@ -8,7 +8,7 @@ from app.core.security import create_access_token, create_refresh_token
 
 
 def test_websocket_accepts_access_token_and_pongs(
-    client: TestClient, seeded_user_id: int
+    client: TestClient, seeded_user_id: int, memory_blocklist
 ) -> None:
     """v1.30: message-based auth 流程."""
     token = create_access_token({"sub": str(seeded_user_id), "role": "user"})

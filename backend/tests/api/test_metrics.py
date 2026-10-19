@@ -106,8 +106,14 @@ def test_metrics_excludes_metrics_endpoint_itself(client: TestClient) -> None:
             assert 'path="/api/v1/metrics"' not in line
 
 
-def test_websocket_gauge(client: TestClient, seeded_user_id: int) -> None:
-    """建立 WebSocket 连接应增加 websocket_connections_active."""
+def test_websocket_gauge(
+    client: TestClient, seeded_user_id: int, memory_blocklist
+) -> None:
+    """建立 WebSocket 连接应增加 websocket_connections_active.
+
+    ``memory_blocklist``：M2（ROUND_18）之后 WS 握手校验 jti 撤销，测试环境
+    没有 Redis 时会被 fail-closed 拒绝（4503），与本用例要验证的 gauge 无关。
+    """
     from app.core.security import create_access_token
 
     token = create_access_token({"sub": "1", "role": "user"})

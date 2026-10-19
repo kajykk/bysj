@@ -33,7 +33,9 @@ def _ping_message() -> str:
 class TestWebSocketConnection:
     """WebSocket连接测试 (v1.30 message-based auth)"""
 
-    def test_ws_accepts_access_token(self, client: TestClient, seeded_user_id: int):
+    def test_ws_accepts_access_token(
+        self, client: TestClient, seeded_user_id: int, memory_blocklist
+    ):
         """测试有效 access_token 可建立连接并 ping/pong"""
         token = create_access_token({"sub": str(seeded_user_id), "role": "user"})
 
@@ -119,7 +121,7 @@ class TestWebSocketQueryParamRoute:
     """
 
     def test_ws_query_param_accepts_access_token(
-        self, client: TestClient, seeded_user_id: int
+        self, client: TestClient, seeded_user_id: int, memory_blocklist
     ):
         """query 路由走与路径路由相同的 message-based 认证流"""
         token = create_access_token({"sub": str(seeded_user_id), "role": "user"})
@@ -160,7 +162,9 @@ class TestWebSocketQueryParamRoute:
 class TestWebSocketBearerNormalization:
     """验证 bearer 前缀和空白在 auth 消息中可被容忍"""
 
-    def test_ws_accepts_bearer_prefix(self, client: TestClient, seeded_user_id: int):
+    def test_ws_accepts_bearer_prefix(
+        self, client: TestClient, seeded_user_id: int, memory_blocklist
+    ):
         token = create_access_token({"sub": str(seeded_user_id), "role": "user"})
         with client.websocket_connect(f"/ws/{seeded_user_id}") as ws:
             ws.send_text('{"type":"auth","token":"Bearer %s"}' % token)
