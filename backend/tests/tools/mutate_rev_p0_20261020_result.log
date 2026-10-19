@@ -1,0 +1,106 @@
+[baseline] 后端 P0 回归集（未变异）
+[baseline] returncode=0 | 66 passed, 4 warnings in 18.44s
+[baseline] 前端 S1 回归（未变异）
+[baseline] returncode=0
+
+[S1] 前端 refresh 改回 buildApiUrl('/auth/refresh')（URL 二次拼接）
+    returncode=1 | 失败行 1 条 | 命中目标 全部 => RED-OK
+      FAIL  src/api/request.interceptors.test.ts > request module - 响应拦截器与辅助函数 > refreshAccessToken > 最终请求 URL 只有一层 /api/v1 前缀（真实 axios 路径合并）
+    note: 该用例用 request.getUri(captured) 走真实 buildFullPath，断言最终 URL 只有一层 /api/v1 前缀
+
+[S2a] 匿名化 crisis_keywords 写回裸串 ANON_TEXT（非法 JSON）
+    returncode=1 | 失败行 1 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s2_anonymize_json.py::test_anonymize_writes_valid_json_and_clear_action
+
+[S2b] _parse_crisis_keywords 不再捕获 ValueError（JSONDecodeError 冒泡）
+    returncode=1 | 失败行 1 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s2_anonymize_json.py::test_legacy_dirty_row_is_tolerated
+    note: JSONDecodeError 是 ValueError 子类，放开 ValueError 即恢复原 500 缺陷
+
+[S3a] bind_by_code 去掉咨询师/用户租户比对
+    returncode=1 | 失败行 1 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s3_binding_tenant.py::test_bind_by_code_rejects_cross_tenant_counselor
+
+[S3b] get_user_detail 去掉 tenant_scoped_filter(User, tenant_id)
+    returncode=1 | 失败行 2 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s3_binding_tenant.py::test_get_user_detail_rejects_dangling_cross_tenant_binding
+      FAILED tests/test_isolation_wiring_gate.py::TestTenantQueryRatchet::test_no_new_unfiltered_tenant_queries
+    note: 同一次变异应同时打红「跨租户详情」用例与「租户查询棘轮」（后者证明我修的字面量判据确实在承重）
+
+[S3c] uploads admin 分支去掉目标用户租户比对
+    returncode=1 | 失败行 1 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s3_binding_tenant.py::test_uploads_admin_branch_is_tenant_scoped
+
+[S4] db_breaker.on_failure 不再归还 HALF_OPEN 探针令牌
+    returncode=1 | 失败行 2 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_db_breaker.py::TestCircuitBreakerStates::test_half_open_business_error_releases_probe_token
+      FAILED tests/test_db_breaker.py::TestCircuitBreakerStates::test_half_open_repeated_business_errors_stay_recoverable
+
+[S5] pdf_report_service 不注册 STSong-Light（回落 Helvetica）
+    returncode=1 | 失败行 2 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s5_pdf_cjk.py::test_generate_pdf_renders_chinese - Asse...
+      FAILED tests/test_rev_s5_pdf_cjk.py::test_generate_pdf_stream_renders_chinese
+
+[S6] risk_service 预警不再先独立 commit（与干预同事务）
+    returncode=1 | 失败行 1 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s6_warning_isolation.py::test_fire_and_forget_keeps_warning_when_intervention_fails
+
+[S7a] is_tenant_suspended 恒返回 False（封禁永不生效）
+    returncode=1 | 失败行 3 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s7_tenant_suspend.py::test_suspended_tenant_blocks_authenticated_request
+      FAILED tests/test_rev_s7_tenant_suspend.py::test_suspended_tenant_blocks_login
+      FAILED tests/test_rev_s7_tenant_suspend.py::test_suspended_tenant_blocks_refresh
+
+[S7b] deps.get_current_user 跳过租户封禁校验
+    returncode=1 | 失败行 1 条 | 命中目标 全部 => RED-OK
+      FAILED tests/test_rev_s7_tenant_suspend.py::test_suspended_tenant_blocks_authenticated_request
+
+[W1] ws.py 握手不拒绝 suspended 租户（我补的用例应打红）
+    returncode=1 | 失败行 1 条 | 命中目标 全部 => RED-OK
+      FAILED tests/unit/test_websocket_auth.py::test_websocket_rejects_suspended_tenant
+
+[final] 全部还原后复跑后端回归集
+[final] returncode=0 | 66 passed, 4 warnings in 18.12s
+
+[residual-check] 变异标志串计数（全部应为 0）:
+    OK  S1 URL 双拼: 0
+    OK  S1 临时 import 残留: 0
+    OK  S2a 裸串写入: 0
+    OK  S2b 去掉 ValueError 容错: 0
+    OK  S3a 去掉绑定租户比对: 0
+    OK  S3b 去掉详情租户过滤: 0
+    OK  S3c 去掉 uploads 租户比对: 0
+    OK  S4 不归还半开令牌: 0
+    OK  S5 不注册 CJK 字体: 0
+    OK  S6 预警未独立提交: 0
+    OK  S7a 封禁恒 False: 0
+    OK  S7b 跳过封禁校验: 0
+    OK  W1 WS 不校验封禁: 0
+
+[integrity-check] 变异目标文件字节级快照比对（须与变异前完全一致）:
+    OK  request.ts: 一致
+    OK  gdpr_service_anonymize.py: 一致
+    OK  review_service.py: 一致
+    OK  counselor_service_binding.py: 一致
+    OK  counselor_service_user.py: 一致
+    OK  uploads.py: 一致
+    OK  db_breaker.py: 一致
+    OK  pdf_report_service.py: 一致
+    OK  risk_service.py: 一致
+    OK  tenant_status.py: 一致
+    OK  deps.py: 一致
+    OK  ws.py: 一致
+
+[summary] RED-OK 12/12 | final GREEN-OK=True | residual-clean=True | integrity-clean=True
+    S1: RED-OK
+    S2a: RED-OK
+    S2b: RED-OK
+    S3a: RED-OK
+    S3b: RED-OK
+    S3c: RED-OK
+    S4: RED-OK
+    S5: RED-OK
+    S6: RED-OK
+    S7a: RED-OK
+    S7b: RED-OK
+    W1: RED-OK
