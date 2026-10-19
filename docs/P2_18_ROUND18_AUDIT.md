@@ -145,6 +145,14 @@
      建连，在无 Redis 的测试环境被新的 fail-closed 判成 4503。统一改用
      `conftest.memory_blocklist` fixture（只切缓存后端，不替换
      `is_token_revoked`），fail-closed 仍由专用用例把守。
+5. **第三轮 CI（f4bced1）backend-coverage 唯一红项**：
+   `test_review_assign_auth.py::test_removing_guard_reproduces_pre_fix_escalation`
+   —— 该元测试用 `COUNSELOR_UNBOUND=99`（原注释写明"无需真实用户"），靠 no-op
+   掉绑定守卫复现改前越权。M8 的受派人存在性校验把它变成 400，因果被第二个
+   守卫遮蔽。修法：用例内先把 99 建成真实的同租户咨询师行，让唯一缺失的条件
+   回到"没有绑定关系"。
+   **教训**：新增服务层校验时，"monkeypatch 掉某守卫做对照"的元测试必须纳入
+   受影响集 —— 它们正是最容易被第二道守卫打乱因果的地方。
 
 ## 四、棘轮同步（改了源码就必须同步读数）
 
