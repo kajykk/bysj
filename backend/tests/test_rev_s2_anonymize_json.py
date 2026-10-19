@@ -23,7 +23,7 @@ import json
 from app.models.review import CrisisEvent
 from app.models.user import User
 from app.schemas.review import CrisisEventFilter
-from app.services.review_service import CrisisEventService, _ALLOWED_CRISIS_ACTIONS
+from app.services.review_service import _ALLOWED_CRISIS_ACTIONS, CrisisEventService
 
 
 def _mk_user() -> User:
