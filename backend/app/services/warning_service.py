@@ -68,8 +68,14 @@ class WarningService:
                 WarningNotification.current_level == risk_level
             )
 
+        # ROUND_23 修复（与 counselor_service_warning.list_warnings 同型）：
+        # created_at 相同（同秒产生）的多条告警在单键排序下顺序由 DB 决定，
+        # 配 LIMIT/OFFSET 会重复/漏行；加 id 降序作确定性 tie-break。
         stmt = (
-            stmt.order_by(WarningNotification.created_at.desc())
+            stmt.order_by(
+                WarningNotification.created_at.desc(),
+                WarningNotification.id.desc(),
+            )
             .offset(offset)
             .limit(page_size)
         )

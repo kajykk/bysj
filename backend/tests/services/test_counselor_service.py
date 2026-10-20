@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -79,7 +79,16 @@ async def _make_warning(
     is_handled: bool = False,
     handle_action: str | None = None,
     is_read: bool = False,
+    created_at: datetime | None = None,
 ) -> WarningNotification:
+    """
+    造一条告警；`created_at` 可显式指定。
+
+    ROUND_23 补漏：list_warnings 按 `created_at DESC, id DESC` 排序。同一事务内
+    连续造多条时 created_at 可能**完全相同**，此时顺序由 id 决定（后造的在前，
+    符合"最新在前"语义）。需要断言特定顺序的用例必须显式给不同的
+    created_at，否则断言依赖的是 DB 的实现细节（本机与 CI 可能不同）。
+    """
     warning = WarningNotification(
         user_id=user_id,
         counselor_id=counselor_id,
@@ -89,6 +98,7 @@ async def _make_warning(
         is_handled=is_handled,
         handle_action=handle_action,
         is_read=is_read,
+        **({"created_at": created_at} if created_at is not None else {}),
     )
     db_session.add(warning)
     await db_session.commit()
@@ -216,9 +226,17 @@ class TestListWarningsExtended:
 
     async def test_with_warnings(self, db_session, seeded_user_id):
         """TC-COV-COUN-101: 返回告警列表 + 字段映射 (覆盖 49-68)."""
-        await _make_warning(db_session, 1, 2, current_level=3, trigger_reason="risk up")
+        # ROUND_23 补漏：显式给不同的 created_at，消除「同秒创建 ⇒ 顺序由
+        # id 决定」的歧义（修前本用例依赖 SQLite 恰好按插入序返回，CI 上偶发
+        # 翻面 ⇒ flake）。列表语义是"最新在前"，故 high 那条给更晚的时间。
+        base = datetime.now(UTC).replace(tzinfo=None)
         await _make_warning(
-            db_session, 1, 2, current_level=1, is_handled=True, handle_action="handle", is_read=True
+            db_session, 1, 2, current_level=3, trigger_reason="risk up",
+            created_at=base,
+        )
+        await _make_warning(
+            db_session, 1, 2, current_level=1, is_handled=True, handle_action="handle", is_read=True,
+            created_at=base - timedelta(minutes=5),
         )
         service = CounselorService(db_session)
         result = await service.list_warnings(2, 1, 10, False)

@@ -228,3 +228,14 @@
 
 - 另有 1 条存量注释行号漂移（非新增）：`risk_service_warning.py` 的「threshold_level=1 的用户永远收不到 1 级预警」（ROUND_19 M12a）因本轮文件头新增 import 与 docstring，由 :53 平移到 :55，内容未变。
 - 闸门 `test_inventory_ratchet_be` 同步 107→112。
+
+### 附三：ROUND_23 补漏（预警列表确定性排序）全称注释同步（112→113）
+
+| # | 位置 | 全称词 | 行为依据 |
+|---|---|---|---|
+| 1 | `app/services/counselor_service_warning.py:54` | 不保证 | ROUND_23 补漏：`created_at` 非唯一键，同秒产生的多条告警在单键排序下顺序由 DB 决定（SQLite/PG **都不保证**），配 LIMIT/OFFSET 会重复/漏行 ⇒ 加 `id.desc()` 作确定性 tie-break |
+
+- 另有 3 条存量注释**行号漂移**（内容未变）：`counselor_service_warning.py` 的
+  「已读/未读标签恒为未读」（:72→:80）、`warning_service.py` 的两条
+  （:317→:323、:352→:358）——因本轮在文件前部插入注释块所致。
+- 闸门 `test_inventory_ratchet_be` 同步 112→113。

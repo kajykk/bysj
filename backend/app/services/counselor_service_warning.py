@@ -50,8 +50,16 @@ class WarningMixin:
             stmt = stmt.where(WarningNotification.is_handled.is_(False))
             count_stmt = count_stmt.where(WarningNotification.is_handled.is_(False))
 
+        # ROUND_23 修复：created_at 不是唯一键——同一秒内产生的多条告警
+        # created_at 相同，单键排序下顺序由 DB 决定（SQLite/PG 都不保证），
+        # 配 LIMIT/OFFSET 会让同一条告警在相邻两页**重复出现或被整页跳过**。
+        # 加 id 降序作确定性的 tie-break（与 gdpr_service_export 的
+        # "LIMIT/OFFSET 必须有确定性 ORDER BY" 同一纪律）。
         stmt = (
-            stmt.order_by(WarningNotification.created_at.desc())
+            stmt.order_by(
+                WarningNotification.created_at.desc(),
+                WarningNotification.id.desc(),
+            )
             .offset(offset)
             .limit(page_size)
         )
