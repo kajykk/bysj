@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
-from app.core.contracts import (USER_ROLE_COUNSELOR)
+from app.core.contracts import USER_ROLE_COUNSELOR, USER_STATUS_DELETED
 from app.models.intervention import InterventionTemplate
 from app.models.risk import RiskAssessment, WarningNotification
 from app.models.user import User
@@ -21,7 +21,15 @@ class StatsMixin:
     用户/咨询师数、今日告警、高风险用户、模板数及昨日环比快照 (H-9 修复)。
 
     依赖主类 AdminService 提供 `self.db`。
+
+    M15 修复（ROUND_19）：**所有人数口径显式排除已匿名化用户**
+    （``User.status == 'deleted'``）。匿名化只置状态不删行
+    （``gdpr_service_anonymize``），原口径让仪表盘人数只增不减、
+    高风险数包含已行使被遗忘权的主体。
     """
+
+    #: 已匿名化（被遗忘权）用户状态 —— 人数口径一律排除
+    _DELETED_STATUS = USER_STATUS_DELETED
 
     async def get_stats(self) -> dict:
         # H-Svc-2 修复：DateTime 列为 naive，统一生成 naive UTC datetime 进行比较，避免 aware/naive 混用抛 TypeError
@@ -39,14 +47,17 @@ class StatsMixin:
         # 语义完全等价(PG 对无 where 的 count 走全表扫描, 合并后一次扫描
         # 即可算出全部计数, 比 12 次全表扫描快一个数量级)。
         stmt = select(
-            # 基础计数
+            # 基础计数（M15：排除已匿名化用户，匿名化只置 status='deleted' 不删行）
             select(func.count())
             .select_from(User)
+            .where(User.status != USER_STATUS_DELETED)
             .scalar_subquery()
             .label("total_users"),
             select(func.count())
             .select_from(User)
-            .where(User.role == USER_ROLE_COUNSELOR)
+            .where(
+                User.role == USER_ROLE_COUNSELOR, User.status != USER_STATUS_DELETED
+            )
             .scalar_subquery()
             .label("total_counselors"),
             # 今日告警
@@ -69,8 +80,12 @@ class StatsMixin:
             .scalar_subquery()
             .label("total_assessments"),
             # H-15 修复：high_risk_users 应统计高风险用户数（DISTINCT user_id），而非评估记录数
+            # M15 修复：JOIN users 排除已匿名化主体 —— 其 RiskAssessment 行因
+            # keep_legal_records 仍可能在库（合规审计用途），但不能再计入"高风险人数"
             select(func.count(func.distinct(RiskAssessment.user_id)))
-            .where(RiskAssessment.risk_level >= 3)
+            .select_from(RiskAssessment)
+            .join(User, User.id == RiskAssessment.user_id)
+            .where(RiskAssessment.risk_level >= 3, User.status != USER_STATUS_DELETED)
             .scalar_subquery()
             .label("high_risk_users"),
             # 模板
@@ -83,10 +98,11 @@ class StatsMixin:
             .where(InterventionTemplate.status == "active")
             .scalar_subquery()
             .label("active_templates"),
-            # H-9 修复：yesterday_* 快照
+            # H-9 修复：yesterday_* 快照（M15：同样排除已匿名化用户，
+            # 否则"昨日累计用户"会把行使被遗忘权的人一直算在里面）
             select(func.count())
             .select_from(User)
-            .where(User.created_at < today_start)
+            .where(User.created_at < today_start, User.status != USER_STATUS_DELETED)
             .scalar_subquery()
             .label("yesterday_users"),
             select(func.count())

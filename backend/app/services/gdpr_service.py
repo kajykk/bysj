@@ -32,7 +32,18 @@ from app.core.pii_crypto import (
     decrypt_field,
 )
 from app.models.admin import OperationLog
-from app.models.intervention import InterventionPlan, InterventionTask
+from app.models.assessment import (
+    DataDraft,
+    PhysiologicalRecord,
+    StructuredAssessment,
+    TextEntry,
+)
+from app.models.counselor import ConsultationRecord
+from app.models.intervention import (
+    InterventionPlan,
+    InterventionTask,
+    TaskExecution,
+)
 from app.models.review import CrisisEvent
 from app.models.risk import RiskAssessment, WarningNotification
 from app.models.user import EmergencyContact, UserCounselorBinding, UserProfile
@@ -181,4 +192,94 @@ def _log_to_dict(o: OperationLog) -> dict:
         "resource_type": o.target_type,
         "resource_id": o.target_id,
         "created_at": o.created_at.isoformat() if o.created_at else None,
+    }
+
+
+# ── M16 修复（ROUND_19）：补齐漏导出的核心个人数据 ──────────────────
+# 原导出清单漏掉的表，恰好都是匿名化流程会擦掉的表 ⇒ 用户"导出时拿不到、
+# 删除后永远拿不到"。新增 6 个序列化函数与 6 个 section，并与匿名化覆盖面
+# 一起被 tests/test_p2_47_round19_m_batch2.py 锁死。
+
+
+def _structured_to_dict(s: StructuredAssessment) -> dict:
+    """结构化问卷逐题作答（``data_payload`` 即问卷原文，不是汇总分）。"""
+    return {
+        "id": s.id,
+        "assessment_type": s.assessment_type,
+        "score": s.score,
+        "severity": s.severity,
+        "data_payload": s.data_payload,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+
+
+def _text_entry_to_dict(t: TextEntry) -> dict:
+    """情绪日记正文（``content``）。"""
+    return {
+        "id": t.id,
+        "entry_type": t.entry_type,
+        "content": t.content,
+        "emotion_tags": t.emotion_tags,
+        "mood_score": t.mood_score,
+        "sentiment_score": t.sentiment_score,
+        "sentiment_label": t.sentiment_label,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+    }
+
+
+def _physiological_to_dict(p: PhysiologicalRecord) -> dict:
+    """生理指标记录（含 ``data_payload`` 里的自由文本备注）。"""
+    return {
+        "id": p.id,
+        "source": p.source,
+        "sleep_hours": p.sleep_hours,
+        "sleep_quality": p.sleep_quality,
+        "exercise_minutes": p.exercise_minutes,
+        "heart_rate": p.heart_rate,
+        "systolic_bp": p.systolic_bp,
+        "diastolic_bp": p.diastolic_bp,
+        "steps": p.steps,
+        "data_payload": p.data_payload,
+        "recorded_at": p.recorded_at.isoformat() if p.recorded_at else None,
+    }
+
+
+def _consultation_to_dict(c: ConsultationRecord) -> dict:
+    """咨询记录自由文本（main_topics/client_status/interventions/next_plan/notes）。"""
+    return {
+        "id": c.id,
+        "appointment_id": c.appointment_id,
+        "warning_id": c.warning_id,
+        "counselor_id": c.counselor_id,
+        "main_topics": c.main_topics,
+        "client_status": c.client_status,
+        "interventions": c.interventions,
+        "next_plan": c.next_plan,
+        "notes": c.notes,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+    }
+
+
+def _task_execution_to_dict(e: TaskExecution) -> dict:
+    """干预任务执行记录（``feedback_note`` 为用户自由文本）。"""
+    return {
+        "id": e.id,
+        "task_id": e.task_id,
+        "scheduled_date": str(e.scheduled_date) if e.scheduled_date else None,
+        "status": e.status,
+        "feedback_score": e.feedback_score,
+        "feedback_note": e.feedback_note,
+        "completed_at": e.completed_at.isoformat() if e.completed_at else None,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+
+def _data_draft_to_dict(d: DataDraft) -> dict:
+    """表单草稿（``data_payload`` 可能是尚未提交的问卷作答）。"""
+    return {
+        "id": d.id,
+        "draft_type": d.draft_type,
+        "data_payload": d.data_payload,
+        "created_at": d.created_at.isoformat() if d.created_at else None,
+        "updated_at": d.updated_at.isoformat() if d.updated_at else None,
     }

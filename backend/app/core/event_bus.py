@@ -109,6 +109,14 @@ class EventBus:
             event_type: 事件类型
             data: 事件数据 (必须 JSON 可序列化)
         """
+        self.publish_sync(event_type, data)
+
+    def publish_sync(self, event_type: str, data: dict[str, Any]) -> None:
+        """同步发布事件 —— 供 ``after_commit`` 等同步钩子使用（M14 修复）。
+
+        ``publish`` 的 body 本身就是同步的（``put_nowait`` + 计数器），
+        抽成 sync 版本后，事务提交钩子（同步上下文，无法 await）也能发布事件。
+        """
         event: dict[str, Any] = {"type": event_type, "data": data}
         try:
             self._ensure_queue().put_nowait(event)

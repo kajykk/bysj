@@ -64,12 +64,20 @@ class TestWarningService:
 
     @pytest.mark.asyncio
     async def test_update_setting_threshold_clamping(self, db_session, seeded_user_id):
-        """TC-COV-WRN-007: Update setting clamps threshold to valid range."""
+        """TC-COV-WRN-007: Update setting clamps threshold to valid range.
+
+        M12 修复（ROUND_19）：上限从 4 改为 **10**，与 schema
+        （``ge=0, le=10``）及模型 CheckConstraint（0..10）对齐。
+        改前设 10 会被静默存成 4 —— 阈值现在真正参与预警判定，
+        这个静默改写等于把"永不预警"偷偷改成"4 级就预警"。
+        """
         service = WarningService(db_session)
         result = await service.update_setting(1, {"threshold_level": -1})
         assert result.threshold_level == 0
         result = await service.update_setting(1, {"threshold_level": 10})
-        assert result.threshold_level == 4
+        assert result.threshold_level == 10
+        result = await service.update_setting(1, {"threshold_level": 99})
+        assert result.threshold_level == 10
 
     @pytest.mark.asyncio
     async def test_list_warnings_with_data(self, db_session, seeded_user_id):

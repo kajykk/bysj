@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.datetime_params import parse_range_params
 from app.core.deps import require_role
 from app.core.exceptions import ServiceError
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
@@ -143,23 +143,18 @@ async def history(
     end_date: str | None = Query(default=None),
 ) -> dict:
     try:
-        start_dt = datetime.fromisoformat(start_date) if start_date else None
-        end_dt = datetime.fromisoformat(end_date) if end_date else None
+        # M10 修复（ROUND_19）：日期型 end_date 扩张到当天 23:59:59.999999。
+        # 原实现直接 `datetime.fromisoformat(end_date)` 得到当天 00:00:00，
+        # `created_at <= end_dt` 把当日数据整体排除（用户选 10-01~10-20 实际只到 10-19）。
+        start_dt, end_dt = parse_range_params(start_date, end_date)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail="日期格式必须为 ISO8601") from exc
-
-    # M-19 修复：统一时区处理，避免 aware datetime 与数据库 naive datetime 比较出错
-    # 数据库 created_at 为 timestamp without time zone（naive，UTC）
-    # 若用户传入带时区的 datetime，转换为 UTC 后去掉时区信息
-    def _normalize_dt(dt: datetime | None) -> datetime | None:
-        if dt is None:
-            return None
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-        return dt
-
-    start_dt = _normalize_dt(start_dt)
-    end_dt = _normalize_dt(end_dt)
+        # detail 用固定文案：异常原文可能带内部细节，不进响应体
+        # （P2_12 TestP234LeakConvergence 闸门盯着这一点）。
+        raise HTTPException(
+            status_code=422,
+            detail="start_date/end_date 必须为 ISO 8601 格式"
+            "（YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS）",
+        ) from exc
 
     service = UserDataService(db)
     result = await service.get_history(

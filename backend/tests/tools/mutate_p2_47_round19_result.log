@@ -1,0 +1,53 @@
+========================================================================
+ROUND_19 M 批 2 —— 真实变异验证（M10–M16 六条修复）
+套件：tests/test_p2_47_round19_m_batch2.py
+========================================================================
+
+[M11] intervention_service.py：'if rate < 0 or rate > 100:' → 'if False:  # MUTATION: 钳制与记账被绕过'
+     强度：强（完成率钳制 + record_silent_degradation 是 M11 的纵深防御，绕过它必须红）
+[M11] ✓ 变异后变红，且指名 test_out_of_range_is_clamped_and_counted
+     实际失败用例：['FAILED tests/test_p2_47_round19_m_batch2.py::TestM11CompletionRate::test_out_of_range_is_clamped_and_counted']
+[M11] ✓ 还原（字节一致=True）
+
+[M12a] risk_service_warning.py：'threshold = (\n            setting.threshold_level\n            if setting and setting.threshold_level is not None\n            else DEFAULT_WARNING_THRESHOLD\n        )' → 'threshold = (\n            DEFAULT_WARNING_THRESHOLD\n            if setting and setting.threshold_level is not None\n            else DEFAULT_WARNING_THRESHOLD\n        )'
+     强度：强（threshold_level 是 M12 的核心：写死默认值=配置项重新变成死配置，必须红）
+[M12a] ✓ 变异后变红，且指名 test_threshold_1_warns_at_level_1
+     实际失败用例：['FAILED tests/test_p2_47_round19_m_batch2.py::TestM12ThresholdLevelEffective::test_threshold_1_warns_at_level_1']
+[M12a] ✓ 还原（字节一致=True）
+
+[M12b] warning_service.py：'_NOT_EFFECTIVE_KEYS: frozenset[str] = frozenset(\n    {"quiet_hours_start", "quiet_hours_end", "notify_channels"}\n)' → '_NOT_EFFECTIVE_KEYS: frozenset[str] = frozenset(\n    set()  # MUTATION: 声明集合被掏空\n)'
+     强度：强（免打扰/渠道三项的显式不生效声明是 M12 的交付物，掏空必须红）
+[M12b] ✓ 变异后变红，且指名 test_update_warns_and_audits_not_effective
+     实际失败用例：['FAILED tests/test_p2_47_round19_m_batch2.py::TestM12NotEffectiveDeclared::test_update_warns_and_audits_not_effective']
+[M12b] ✓ 还原（字节一致=True）
+
+[M14] pending_events.py：'_PENDING.setdefault(sync_session, []).append((event_type, data))' → 'event_bus.publish_sync(event_type, data)  # MUTATION: 提交前即发布'
+     强度：强（M14 的判据是事件计数：提交前发布=事务失败也会带出事件，必须红）
+[M14] ✓ 变异后变红，且指名 test_event_published_only_after_commit
+     实际失败用例：['FAILED tests/test_p2_47_round19_m_batch2.py::TestM14EventAfterCommit::test_event_published_only_after_commit']
+[M14] ✓ 还原（字节一致=True）
+
+[M15] admin_service_stats.py：'.where(User.status != USER_STATUS_DELETED)\n            .scalar_subquery()\n            .label("total_users"),' → '.scalar_subquery()\n            .label("total_users"),'
+     强度：强（匿名化用户必须同步退出统计口径，去掉过滤必须红）
+[M15] ✓ 变异后变红，且指名 test_anonymized_user_drops_out_of_totals
+     实际失败用例：['FAILED tests/test_p2_47_round19_m_batch2.py::TestM15StatsExcludeAnonymized::test_anonymized_user_drops_out_of_totals']
+[M15] ✓ 还原（字节一致=True）
+
+[M16] gdpr_service_export.py：'"text_entries": [_text_entry_to_dict(t) for t in text_entries],' → '# MUTATION: text_entries section 被移除'
+     强度：强（导出清单与匿名化覆盖面对齐是 M16 的判据，少一个 section 必须红）
+[M16] ✓ 变异后变红，且指名 test_export_contains_previously_missing_sections
+     实际失败用例：['FAILED tests/test_p2_47_round19_m_batch2.py::TestM16GdprExportCoverage::test_export_contains_previously_missing_sections']
+[M16] ✓ 还原（字节一致=True）
+
+[M10] datetime_params.py：'parse_datetime_param(end_value, field=end_field, inclusive_end=True),' → 'parse_datetime_param(end_value, field=end_field, inclusive_end=False),'
+     强度：强（date-only 的 end 必须扩张到当天 23:59:59.999999，否则当日数据被整体排除）
+[M10] ✓ 变异后变红，且指名 test_date_only_end_expands_to_end_of_day
+     实际失败用例：['FAILED tests/test_p2_47_round19_m_batch2.py::TestM10EndDateInclusive::test_date_only_end_expands_to_end_of_day']
+[M10] ✓ 还原（字节一致=True）
+
+[residual] 残留文件: 无
+[final] 还原后 returncode=0（0=全绿）
+[final] 26 passed, 4 warnings in 14.48s
+
+[summary] M11=RED-OK | M12a=RED-OK | M12b=RED-OK | M14=RED-OK | M15=RED-OK | M16=RED-OK | M10=RED-OK
+[summary] residual_clean=True final_green=True all_red_ok=True

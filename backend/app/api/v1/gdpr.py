@@ -103,6 +103,13 @@ async def _stream_user_data(service: GDPRService, user_id: int, export_id: str):
         ("intervention_plans", service.iter_intervention_plans),
         ("intervention_tasks", service.iter_intervention_tasks),
         ("operation_logs", service.iter_operation_logs),
+        # M16 修复（ROUND_19）：补齐漏导出的核心个人数据（与 export_user_data 同清单）
+        ("structured_assessments", service.iter_structured_assessments),
+        ("text_entries", service.iter_text_entries),
+        ("physiological_records", service.iter_physiological_records),
+        ("consultation_records", service.iter_consultation_records),
+        ("task_executions", service.iter_task_executions),
+        ("data_drafts", service.iter_data_drafts),
     ]
 
     summary_counts: dict[str, int] = {"profile": 1 if profile_dict else 0}

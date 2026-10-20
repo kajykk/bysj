@@ -29,7 +29,7 @@ from app.models.intervention import (
     InterventionTemplate,
 )
 from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
-from app.models.user import UserCounselorBinding
+from app.models.user import User, UserCounselorBinding
 from app.services.risk_service import RiskService
 
 _normalize = RiskService._validate_and_normalize_template_tasks
@@ -354,35 +354,82 @@ class TestCheckWarningTrigger:
 
     @pytest.mark.asyncio
     async def test_warning_created_event_published(self, db_session, seeded_user_id):
-        risk = _make_risk(seeded_user_id, level=3)
-        db_session.add(risk)
-        await db_session.flush()
+        """M14 修复（ROUND_19）：事件改为**事务提交后**发布。
 
-        service = RiskService(db_session)
-        with patch("app.services.risk_service_warning.event_bus") as mock_bus:
-            mock_bus.publish = AsyncMock()
-            warning = await service.trigger_warning_for_risk(risk)
+        改前：``_check_warning_trigger`` 内 flush 之后立即 publish，测试用
+        ``db_session``（commit 被 fixture 换成 flush）即可观察到发布。
+        改后：发布走 ``after_commit`` 钩子，必须真的 commit 才发 ——
+        故本测试自带一条可控 session，并在 commit 前后各断言一次计数。
+        """
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-        assert warning is not None
-        mock_bus.publish.assert_awaited_once()
-        event_type, payload = mock_bus.publish.await_args.args
-        assert event_type == "warning.created"
-        assert payload["warning_id"] == warning.id
-        assert payload["user_id"] == seeded_user_id
-        assert payload["current_level"] == 3
+        from app.core.pii_crypto import compute_blind_index
+        from app.models import Base
+
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        # expire_on_commit=False：commit 后仍要读 warning 的字段做断言，
+        # 默认的过期刷新会触发隐式 IO（MissingGreenlet）
+        session = AsyncSession(engine, expire_on_commit=False)
+        try:
+            session.add(
+                User(
+                    id=1,
+                    username="m14_existing",
+                    email="m14e@test.com",
+                    email_hash=compute_blind_index("m14e@test.com", "email"),
+                    password_hash="x",
+                    role="user",
+                    status="active",
+                )
+            )
+            await session.commit()
+
+            risk = _make_risk(1, level=3)
+            session.add(risk)
+            await session.flush()
+
+            service = RiskService(session)
+            with patch(
+                "app.core.pending_events.event_bus.publish_sync"
+            ) as mock_publish:
+                warning = await service.trigger_warning_for_risk(risk)
+                assert warning is not None
+                mock_publish.assert_not_called(), "提交前不应发布事件（M14）"
+
+                await session.commit()
+                mock_publish.assert_called_once()
+                event_type, payload = mock_publish.call_args.args
+                assert event_type == "warning.created"
+                assert payload["warning_id"] == warning.id
+                assert payload["user_id"] == 1
+                assert payload["current_level"] == 3
+            # 注：events_published 计数器此处不断言 —— publish_sync 已被
+            # mock 替换，真实计数由 test_p2_47_round19_m_batch2 的
+            # TestM14EventAfterCommit 用未打桩的计数器验证。
+        finally:
+            await session.close()
+            await engine.dispose()
 
     @pytest.mark.asyncio
     async def test_event_publish_failure_does_not_break_flow(
         self, db_session, seeded_user_id
     ):
-        """事件总线异常被吞掉, 告警仍需正常返回。"""
+        """事件总线异常被吞掉, 告警仍需正常返回。
+
+        M14 后发布点移到 after_commit 钩子；钩子内部已 try/except 兜住
+        （见 ``pending_events._publish_after_commit``），业务流程不受影响。
+        """
         risk = _make_risk(seeded_user_id, level=3)
         db_session.add(risk)
         await db_session.flush()
 
         service = RiskService(db_session)
-        with patch("app.services.risk_service_warning.event_bus") as mock_bus:
-            mock_bus.publish = AsyncMock(side_effect=RuntimeError("bus down"))
+        with patch(
+            "app.core.pending_events.event_bus.publish_sync",
+            side_effect=RuntimeError("bus down"),
+        ):
             warning = await service.trigger_warning_for_risk(risk)
 
         assert warning is not None

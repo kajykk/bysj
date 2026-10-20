@@ -95,6 +95,11 @@ async def get_warning_setting(
 ) -> dict:
     service = WarningService(db)
     setting = await service.get_setting(current_user.id)
+    # M12 修复（ROUND_19）：**生效状态显式声明**。
+    # quiet_hours_* 与 notify_channels 此前"能存、能读、能回显，但没有任何
+    # 分发链路消费"，用户会以为免打扰/渠道过滤已经生效。现在 API 直接告诉
+    # 调用方每一项是否生效 —— 与文档、日志告警三处一致，不再让状态隐形。
+    # threshold_level 已真正参与预警判定（risk_service_warning），故为 True。
     return ok(
         {
             "notify_channels": setting.notify_channels,
@@ -106,6 +111,16 @@ async def get_warning_setting(
             ),
             "quiet_hours_end": (
                 setting.quiet_hours_end.isoformat() if setting.quiet_hours_end else None
+            ),
+            "effective": {
+                "threshold_level": True,
+                "quiet_hours": False,
+                "notify_channels": False,
+            },
+            "not_effective_notice": (
+                "quiet_hours_start/quiet_hours_end 与 notify_channels 在当前版本"
+                "不参与预警分发（免打扰与渠道过滤未接线），仅存储与回显；"
+                "threshold_level 已生效。"
             ),
         }
     )

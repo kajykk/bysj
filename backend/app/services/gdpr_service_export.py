@@ -7,7 +7,9 @@
 - fetch_user_account / fetch_profile: 流式导出基础方法
 - iter_emergency_contacts / iter_counselor_bindings / iter_risk_assessments /
   iter_warnings / iter_crisis_events / iter_intervention_plans /
-  iter_intervention_tasks / iter_operation_logs: 流式迭代器 (OFFSET 分页)
+  iter_intervention_tasks / iter_operation_logs / iter_structured_assessments /
+  iter_text_entries / iter_physiological_records / iter_consultation_records /
+  iter_task_executions / iter_data_drafts: 流式迭代器 (OFFSET 分页)
 
 依赖主类 GDPRService 提供 `self.db`，以及主模块 gdpr_service 提供的模块级工具:
 - `_safe_decrypt` / `_profile_to_dict` / `_contact_to_dict` / `_binding_to_dict` /
@@ -27,7 +29,18 @@ from typing import Any
 from sqlalchemy import select
 
 from app.models.admin import OperationLog
-from app.models.intervention import InterventionPlan, InterventionTask
+from app.models.assessment import (
+    DataDraft,
+    PhysiologicalRecord,
+    StructuredAssessment,
+    TextEntry,
+)
+from app.models.counselor import ConsultationRecord
+from app.models.intervention import (
+    InterventionPlan,
+    InterventionTask,
+    TaskExecution,
+)
 from app.models.review import CrisisEvent
 from app.models.risk import RiskAssessment, WarningNotification
 from app.models.user import EmergencyContact, User, UserCounselorBinding, UserProfile
@@ -55,14 +68,20 @@ class ExportMixin:
         # 延迟导入模块级辅助函数，避免与主模块 gdpr_service.py 形成循环导入
         from app.services.gdpr_service import (
             _binding_to_dict,
+            _consultation_to_dict,
             _contact_to_dict,
             _crisis_to_dict,
+            _data_draft_to_dict,
             _log_to_dict,
+            _physiological_to_dict,
             _plan_to_dict,
             _profile_to_dict,
             _risk_to_dict,
             _safe_decrypt,
+            _structured_to_dict,
+            _task_execution_to_dict,
             _task_to_dict,
+            _text_entry_to_dict,
             _warning_to_dict,
         )
 
@@ -177,6 +196,75 @@ class ExportMixin:
             .all()
         )
 
+        # 9~14. M16 修复（ROUND_19）：补齐此前漏导出的核心个人数据。
+        # 这些表**全部**在匿名化流程里被擦除（gdpr_service_anonymize 的
+        # _step_anonymize_pii_texts / _step_anonymize_intervention_chain /
+        # _step_clear_json_payloads）⇒ 漏导出 = 用户"导出时拿不到、
+        # 删除后永远拿不到"，可携权（Article 20）形同虚设。
+        structured_assessments = (
+            (
+                await self.db.execute(
+                    select(StructuredAssessment).where(
+                        StructuredAssessment.user_id == user_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        text_entries = (
+            (
+                await self.db.execute(
+                    select(TextEntry).where(TextEntry.user_id == user_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        physiological_records = (
+            (
+                await self.db.execute(
+                    select(PhysiologicalRecord).where(
+                        PhysiologicalRecord.user_id == user_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        consultation_records = (
+            (
+                await self.db.execute(
+                    select(ConsultationRecord).where(
+                        ConsultationRecord.user_id == user_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        task_ids = [t.id for t in tasks]
+        task_executions: list[Any] = []
+        if task_ids:
+            task_executions = (
+                (
+                    await self.db.execute(
+                        select(TaskExecution).where(TaskExecution.task_id.in_(task_ids))
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        data_drafts = (
+            (
+                await self.db.execute(
+                    select(DataDraft).where(DataDraft.user_id == user_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
         return {
             "export_metadata": {
                 "export_id": str(uuid.uuid4()),
@@ -205,12 +293,32 @@ class ExportMixin:
             "intervention_plans": [_plan_to_dict(p) for p in plans],
             "intervention_tasks": [_task_to_dict(t) for t in tasks],
             "operation_logs": [_log_to_dict(o) for o in op_logs],
+            # M16 修复（ROUND_19）：新增 6 个 section（与匿名化覆盖面对齐）
+            "structured_assessments": [
+                _structured_to_dict(s) for s in structured_assessments
+            ],
+            "text_entries": [_text_entry_to_dict(t) for t in text_entries],
+            "physiological_records": [
+                _physiological_to_dict(p) for p in physiological_records
+            ],
+            "consultation_records": [
+                _consultation_to_dict(c) for c in consultation_records
+            ],
+            "task_executions": [_task_execution_to_dict(e) for e in task_executions],
+            "data_drafts": [_data_draft_to_dict(d) for d in data_drafts],
             "summary": {
                 "risk_assessments_count": len(risk_assessments),
                 "warnings_count": len(warnings),
                 "crisis_events_count": len(crisis_events),
                 "intervention_plans_count": len(plans),
                 "operation_logs_count": len(op_logs),
+                # M16：summary 同步补 6 项，避免"数组里有、摘要里没有"的口径分裂
+                "structured_assessments_count": len(structured_assessments),
+                "text_entries_count": len(text_entries),
+                "physiological_records_count": len(physiological_records),
+                "consultation_records_count": len(consultation_records),
+                "task_executions_count": len(task_executions),
+                "data_drafts_count": len(data_drafts),
             },
         }
 
@@ -493,4 +601,183 @@ class ExportMixin:
                 break
             for o in rows:
                 yield json.dumps(_log_to_dict(o), ensure_ascii=False, default=str)
+            offset += batch_size
+
+    # ── M16 修复（ROUND_19）：流式导出补齐 6 个漏掉的 section ──────────
+    # 一次性导出（export_user_data）与流式导出必须同清单，否则两条路径
+    # 给用户的东西不一样；coverage 闸门同时盯两张清单。
+
+    async def iter_structured_assessments(self, user_id: int, batch_size: int = 200):
+        """流式输出结构化问卷逐题作答（含 ``data_payload`` 原文）。"""
+        from app.services.gdpr_service import _structured_to_dict
+
+        offset = 0
+        while True:
+            rows = (
+                (
+                    await self.db.execute(
+                        select(StructuredAssessment)
+                        .where(StructuredAssessment.user_id == user_id)
+                        .order_by(StructuredAssessment.id.asc())
+                        .offset(offset)
+                        .limit(batch_size)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not rows:
+                break
+            for s in rows:
+                yield json.dumps(
+                    _structured_to_dict(s), ensure_ascii=False, default=str
+                )
+            offset += batch_size
+
+    async def iter_text_entries(self, user_id: int, batch_size: int = 200):
+        """流式输出情绪日记正文。"""
+        from app.services.gdpr_service import _text_entry_to_dict
+
+        offset = 0
+        while True:
+            rows = (
+                (
+                    await self.db.execute(
+                        select(TextEntry)
+                        .where(TextEntry.user_id == user_id)
+                        .order_by(TextEntry.id.asc())
+                        .offset(offset)
+                        .limit(batch_size)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not rows:
+                break
+            for t in rows:
+                yield json.dumps(_text_entry_to_dict(t), ensure_ascii=False, default=str)
+            offset += batch_size
+
+    async def iter_physiological_records(self, user_id: int, batch_size: int = 200):
+        """流式输出生理指标记录。"""
+        from app.services.gdpr_service import _physiological_to_dict
+
+        offset = 0
+        while True:
+            rows = (
+                (
+                    await self.db.execute(
+                        select(PhysiologicalRecord)
+                        .where(PhysiologicalRecord.user_id == user_id)
+                        .order_by(PhysiologicalRecord.id.asc())
+                        .offset(offset)
+                        .limit(batch_size)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not rows:
+                break
+            for p in rows:
+                yield json.dumps(
+                    _physiological_to_dict(p), ensure_ascii=False, default=str
+                )
+            offset += batch_size
+
+    async def iter_consultation_records(self, user_id: int, batch_size: int = 200):
+        """流式输出咨询记录自由文本。"""
+        from app.services.gdpr_service import _consultation_to_dict
+
+        offset = 0
+        while True:
+            rows = (
+                (
+                    await self.db.execute(
+                        select(ConsultationRecord)
+                        .where(ConsultationRecord.user_id == user_id)
+                        .order_by(ConsultationRecord.id.asc())
+                        .offset(offset)
+                        .limit(batch_size)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not rows:
+                break
+            for c in rows:
+                yield json.dumps(
+                    _consultation_to_dict(c), ensure_ascii=False, default=str
+                )
+            offset += batch_size
+
+    async def iter_task_executions(self, user_id: int, batch_size: int = 200):
+        """流式输出干预任务执行记录（基于该用户的 plans 关联）。"""
+        from app.services.gdpr_service import _task_execution_to_dict
+
+        plan_ids_result = (
+            (
+                await self.db.execute(
+                    select(InterventionPlan.id).where(
+                        InterventionPlan.user_id == user_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not plan_ids_result:
+            return
+        offset = 0
+        while True:
+            rows = (
+                (
+                    await self.db.execute(
+                        select(TaskExecution)
+                        .join(
+                            InterventionTask,
+                            TaskExecution.task_id == InterventionTask.id,
+                        )
+                        .where(InterventionTask.plan_id.in_(plan_ids_result))
+                        .order_by(TaskExecution.id.asc())
+                        .offset(offset)
+                        .limit(batch_size)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not rows:
+                break
+            for e in rows:
+                yield json.dumps(
+                    _task_execution_to_dict(e), ensure_ascii=False, default=str
+                )
+            offset += batch_size
+
+    async def iter_data_drafts(self, user_id: int, batch_size: int = 200):
+        """流式输出表单草稿。"""
+        from app.services.gdpr_service import _data_draft_to_dict
+
+        offset = 0
+        while True:
+            rows = (
+                (
+                    await self.db.execute(
+                        select(DataDraft)
+                        .where(DataDraft.user_id == user_id)
+                        .order_by(DataDraft.id.asc())
+                        .offset(offset)
+                        .limit(batch_size)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not rows:
+                break
+            for d in rows:
+                yield json.dumps(_data_draft_to_dict(d), ensure_ascii=False, default=str)
             offset += batch_size

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -14,6 +14,7 @@ from app.core.contracts import (
     USER_STATUS_ACTIVE,
 )
 from app.core.database import get_db
+from app.core.datetime_params import parse_datetime_param
 from app.core.deps import require_permission
 from app.core.exceptions import ServiceError
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
@@ -53,17 +54,18 @@ def _parse_date_param(value: str | None) -> datetime | None:
     """M-API-2 修复：将日期字符串解析为 naive UTC datetime，用于 DB 比较.
 
     支持 ISO 8601 格式（含 'Z' 后缀）。aware datetime 转为 naive UTC。
+
+    M10 修复（ROUND_19）：**日期型参数扩张到当天结束**。原实现
+    `datetime.fromisoformat("2026-10-20")` 得到 `2026-10-20 00:00:00`，
+    服务层 `created_at <= end` 把当日 00:00 之后的危机事件整体排除
+    （管理员选「10-01 ~ 10-20」实际只到 10-19 23:59）。
     """
-    if not value:
-        return None
     try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parse_datetime_param(value, field="end_date", inclusive_end=True)
     except ValueError as exc:
+        # 与 M-API-2 原行为一致：非法日期返回 400，不把 ValueError 泄成 500。
+        # detail 用固定文案（不带异常原文；P2_12 泄漏闸门盯着这一点）。
         raise HTTPException(status_code=400, detail=f"无效的日期格式: {value}") from exc
-    # 统一为 naive UTC 用于与 naive DB 列比较
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-    return dt
 
 
 async def _ensure_counselor_bound_to_student(

@@ -643,7 +643,7 @@
     },
     {
       "file": "app/core/event_bus.py",
-      "line": 116,
+      "line": 124,
       "handled": [
         "QueueFull"
       ],
@@ -653,7 +653,7 @@
     },
     {
       "file": "app/core/event_bus.py",
-      "line": 141,
+      "line": 149,
       "handled": [
         "CancelledError"
       ],
@@ -663,7 +663,7 @@
     },
     {
       "file": "app/core/event_bus.py",
-      "line": 174,
+      "line": 182,
       "handled": [
         "Exception"
       ],
@@ -673,7 +673,7 @@
     },
     {
       "file": "app/core/event_bus.py",
-      "line": 164,
+      "line": 172,
       "handled": [
         "Exception"
       ],
@@ -1364,6 +1364,16 @@
     {
       "file": "app/core/otel.py",
       "line": 228,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/pending_events.py",
+      "line": 69,
       "handled": [
         "Exception"
       ],
@@ -2804,16 +2814,6 @@
         "Exception"
       ],
       "wired": true,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/services/risk_service_warning.py",
-      "line": 136,
-      "handled": [
-        "Exception"
-      ],
-      "wired": false,
       "fire_and_forget": false,
       "returns": null
     },

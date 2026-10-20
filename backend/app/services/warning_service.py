@@ -25,6 +25,17 @@ logger = logging.getLogger(__name__)
 # 保留 _ALLOWED_NOTIFY_CHANNELS 别名向后兼容 (test_contracts_aggregation 护栏测试仍可校验)
 _ALLOWED_NOTIFY_CHANNELS: frozenset[str] = NOTIFY_CHANNELS
 
+# M12 修复（ROUND_19）：**存储了但在当前版本不生效**的配置项。
+# 全仓只有写入与回显，没有任何分发链路读取它们：
+# - quiet_hours_start / quiet_hours_end：免打扰时段未接入分发（预警照发）；
+# - notify_channels：渠道过滤未接入分发（关闭的渠道照发）。
+# 阈值 threshold_level **不在此列** —— 它已被 risk_service_warning 真正消费。
+# 这三个字段若未来接线，必须同步从本集合移除并补生效路径用例；
+# 闸门 tests/test_p2_47_round19_m_batch2.py 会盯着这个集合。
+_NOT_EFFECTIVE_KEYS: frozenset[str] = frozenset(
+    {"quiet_hours_start", "quiet_hours_end", "notify_channels"}
+)
+
 
 class WarningService:
     def __init__(self, db: AsyncSession) -> None:
@@ -280,11 +291,16 @@ class WarningService:
             setting.notify_channels = channels
             changed_keys.append("notify_channels")
         if "threshold_level" in payload and payload["threshold_level"] is not None:
+            # M12 修复（ROUND_19）：钳制区间与 schema / CheckConstraint 对齐
+            # （`schemas/warning.py` ge=0 le=10，`models/risk.py`
+            # ck_warning_settings_threshold_level 0..10）。原实现静默压到 4，
+            # 而阈值现在真正参与预警判定：压到 4 会把"设 10 = 永不预警"
+            # 偷偷改成"4 级就预警"——属于改用户意图。
             threshold = int(payload["threshold_level"])
             if threshold < 0:
                 threshold = 0
-            if threshold > 4:
-                threshold = 4
+            if threshold > 10:
+                threshold = 10
             setting.threshold_level = threshold
             changed_keys.append("threshold_level")
         if "quiet_hours_start" in payload and payload["quiet_hours_start"] is not None:
@@ -297,6 +313,19 @@ class WarningService:
             changed_keys.append("quiet_hours_end")
 
         if changed_keys:
+            # M12 修复（ROUND_19）：显式声明"存储了但不生效"的配置项。
+            # 免打扰时段与通知渠道在当前版本没有任何分发链路读取（全仓只有
+            # 写入与回显），若不声明就是"能存能读能回显但没人消费"——
+            # 管理员/用户会以为已经生效。这里：日志告警 + 审计 detail 双落。
+            not_effective = sorted(_NOT_EFFECTIVE_KEYS.intersection(changed_keys))
+            if not_effective:
+                logger.warning(
+                    "warning_setting.not_effective user_id=%s fields=%s —— "
+                    "这些配置当前版本不参与预警分发（免打扰/渠道过滤未接线），"
+                    "仅存储与回显；threshold_level 已生效",
+                    user_id,
+                    not_effective,
+                )
             try:
                 await record_audit(
                     self.db,
@@ -305,7 +334,12 @@ class WarningService:
                     action="update_warning_setting",
                     target_type="warning_setting",
                     target_id=setting.id,
-                    detail={"changed": changed_keys},
+                    detail={
+                        "changed": changed_keys,
+                        # M12：把"哪些字段不生效"写进审计，
+                        # 让"用户以为配了其实没配"在审计链上可追溯
+                        "not_effective": not_effective,
+                    },
                     request=request,
                     tenant_id=tenant_id,
                 )

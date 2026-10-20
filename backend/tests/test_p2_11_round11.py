@@ -2625,7 +2625,12 @@ class TestP235Round13Batch16Wiring:
         ("core/token_blocklist.py", "token_blocklist: redis unavailable"),
         ("utils/checksum.py", "无法解析侧车校验文件"),
         ("utils/checksum.py", "RES-P3-005: failed to remove stale sidecar"),
-        ("services/risk_service_warning.py", "Failed to publish warning.created event"),
+        # ROUND_19 M14（2026-10-21）：该 handler 随"提交后再发布"重构从
+        # risk_service_warning.py 搬至 core/pending_events.py 的 after_commit
+        # 钩子（日志文案随之改为「after_commit 发布事件失败」）；"不接线"
+        # 裁定不变 —— 队列满路径仍由 event_bus.publish_sync 内层接线，
+        # 本层只兜可观测设施自身故障（S 型，登记于 ROUND_19 审计文档）。
+        ("core/pending_events.py", "after_commit 发布事件失败"),
     )
 
     def test_declined_handlers_not_wired(self):
@@ -7776,6 +7781,7 @@ class TestP235Round13Batch34Wiring:
 
 class TestP235Round13Batch35Declined:
     """第三十五批：8 个文件 8 条候选 —— **全部裁定不接线，本批 0 接线**。
+    （ROUND_19 M14 后其中 1 条 handler 被重构消除，现存候选 7 条，见下。）
 
     挑簇口径（本批**第三次换信号**）：
     - 第三十三批「basename 零记载」：第三十四批初耗尽，**反向失效**（短名被
@@ -7816,6 +7822,13 @@ class TestP235Round13Batch35Declined:
         **P 型不可达**：`event_bus.publish` 自身内层 `except asyncio.QueueFull`
         全捕获，且**已在第一批接线** `core.event_bus.publish` ⇒ 唯一真实
         失败路径既不外抛、也已被观测。
+        **ROUND_19 M14 更新（2026-10-21）**：该 handler 已**不存在** ——
+        事件发布改为事务提交后经 `app/core/pending_events.py` 的
+        `after_commit` 钩子发出（服务层只登记、不再自带 try/except）。
+        同形防御层随之搬到 `pending_events._publish_after_commit`，其
+        QueueFull 现实路径仍由 `event_bus.publish_sync` 内层捕获并接线，
+        外层仅剩"可观测设施自身故障"的兜底（logger.warning + exc_info），
+        按 S 型登记于 ROUND_19 审计文档；本批候选随之改为 7 条。
       - `tasks/anomaly_detection.py:140` `_detect_impl` —— **P 型**：跑在
         `celery_worker` **独立容器**（`docker-compose.yml`），`/metrics` 由
         backend 容器暴露，且全仓无 `PROMETHEUS_MULTIPROC_DIR` /
@@ -7834,6 +7847,10 @@ class TestP235Round13Batch35Declined:
     ANOM_REL = "app/tasks/anomaly_detection.py"
 
     # (文件, 行号, 所属函数, 本批人工裁定)
+    # ROUND_19 M14（2026-10-21）：原第 8 条 (RISKW_REL, 136, ...) 的 handler
+    # 已随"提交后再发布"重构消失（发布搬至 pending_events.after_commit），
+    # 故本批候选由 8 条改为 7 条；新位置的同形防御层按 S 型登记在
+    # ROUND_19 审计文档，不占本批名额。
     CANDIDATES = [
         (OBS_REL, 228, "cached_or_compute", "X-键可分辨"),
         (METRICS_REL, 871, "track_model_inference", "S-同源/V"),
@@ -7841,7 +7858,6 @@ class TestP235Round13Batch35Declined:
         (ESC_REL, 59, "_observe_escalation_latency", "S-同源"),
         (OBSVC_REL, 135, "_flush_loop", "DEAD"),
         (RISK_REL, 185, "_schedule_warning_and_intervention", "P-内层全捕获"),
-        (RISKW_REL, 136, "_check_warning_trigger", "P-内层全捕获"),
         (ANOM_REL, 140, "_detect_impl", "P-跨进程"),
     ]
 
@@ -7894,7 +7910,7 @@ class TestP235Round13Batch35Declined:
     # ---- 存在性 / 反向钉 -------------------------------------------------
 
     def test_candidates_present_and_enclosing_func(self):
-        """8 条候选全部在位且所属函数未漂移。"""
+        """7 条候选全部在位且所属函数未漂移（M14 移除 1 条，原 8 条）。"""
         for rel, line, fn_name, _verdict in self.CANDIDATES:
             tree = self._parse(rel)
             handler = self._handler_at(tree, line)
@@ -8116,7 +8132,12 @@ class TestP235Round13Batch35Declined:
             sys.modules.update(saved)
 
     def test_runtime_e5_event_publish_outer_except_unreachable(self):
-        """E5：`publish` 内层已捕获 QueueFull 并已接线 ⇒ 外层 P 型不可达。"""
+        """E5：`publish_sync` 内层已捕获 QueueFull 并已接线 ⇒ 外层 P 型不可达。
+
+        ROUND_19 M14 更新：`publish` 的 body 抽成 `publish_sync` 后，
+        QueueFull 捕获随之下沉；外层（`pending_events._publish_after_commit`）
+        仍被该内层挡住队列满这条唯一现实路径。
+        """
         import asyncio
         import importlib
 
@@ -8129,12 +8150,15 @@ class TestP235Round13Batch35Declined:
         tree = ast.parse(src)
         inner = False
         for fn in ast.walk(tree):
-            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and fn.name == "publish":
+            if (
+                isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and fn.name in ("publish", "publish_sync")
+            ):
                 for node in ast.walk(fn):
                     if isinstance(node, ast.ExceptHandler) and node.type is not None:
                         if ast.unparse(node.type) == "asyncio.QueueFull":
                             inner = True
-        assert inner, "publish 内的 QueueFull 捕获消失 ⇒ 外层变为可达"
+        assert inner, "publish/publish_sync 内的 QueueFull 捕获消失 ⇒ 外层变为可达"
 
         async def _drive() -> None:
             small = bus_mod.EventBus(max_queue_size=1)
@@ -8750,7 +8774,8 @@ class TestP235Round13Batch37Wiring:
       health L375 同型）/
       canary_fallback_monitor.py:234 C（停机清理，任务已终止，
       warning+exc_info，单例照旧重置）/
-      event_bus.py:141 K（同上）/
+      event_bus.py:149 K（同上；141→149 为 M14/ROUND_19 抽出 publish_sync
+      后的行号平移，handler 本身未动）/
       observability_service.py:121 K（同上，且 stop 仍执行 final flush）/
       cache.py:241/247 C（停机 aclose 失败，warning，单例照旧重置）/
       kill_switch.py:119 V（调用方 `_degrade` 显式写 degraded=True +
@@ -8777,7 +8802,7 @@ class TestP235Round13Batch37Wiring:
         ("app/core/celery_app.py", 254, "on_task_failure", "S"),
         ("app/services/canary_fallback_monitor.py", 232, "stop_canary_fallback_monitor", "K"),
         ("app/services/canary_fallback_monitor.py", 234, "stop_canary_fallback_monitor", "C"),
-        ("app/core/event_bus.py", 141, "stop", "K"),
+        ("app/core/event_bus.py", 149, "stop", "K"),  # M14 前为 141（publish_sync 抽出致平移）
         ("app/services/observability_service.py", 121, "stop", "K"),
         ("app/core/cache.py", 241, "close_redis_client", "C"),
         ("app/core/cache.py", 247, "close_redis_client", "C"),

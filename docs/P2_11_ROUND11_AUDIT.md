@@ -1769,3 +1769,26 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 - #36 位置漂移：`api/v1/validation.py` `_execute_validation` 的 handler 478→481
   （`_deserialize_dict` 的 created_by 分支改为字符串口径后 +3 行）；
   `TestP235Round13Batch37Wiring` 的 CANDIDATES 同步。
+
+## 附：ROUND_19（审查报告 M 批 2）计数同步
+
+- #34 raise 分类重扫（同口径 `ast.Raise + Call`）：HTTPException=214（不变——
+  `api/v1/user_data.py` 把 `raise HTTPException(422, "日期格式必须为 ISO8601")`
+  换成 400 + 固定文案，同桶替换，未增删站点）；ServiceError=38（不变）；
+  other_raise=355（354→355：M10 修复新增模块 `app/core/datetime_params.py`
+  的 `parse_datetime_param` 在格式非法时 `raise ValueError` 1 处 —— 由
+  `api/v1/review.py::_parse_date_param` 的 try/except 转译为 400，
+  detail 为固定文案不带异常原文）。
+- #35 桶计数：本轮 M 批 2 六条修复不新增 except 降级点（M12 的三项配置为
+  消费面收窄、M14 改发布时机、M15/M16 为查询与导出补全）；M14 把
+  `risk_service_warning` 原有的 publish try/except（X 候选）替换为
+  `pending_events._publish_after_commit` 的同形 handler（同为 X 桶），
+  一撤一增净 0，W/X/总数均不变，仍为 W=109 / X=116 / 总数 341
+  （ROUND_18 起口径）。
+- #36 位置漂移：`TestP235Round13Batch37Wiring` 的 CANDIDATES 中
+  `event_bus.py` 141→149（`publish_sync` 自 `publish` 抽出致行号平移）；
+  `TestP235Round13Batch35Wiring` 删除 `(RISKW_REL, 136, ...)` 候选
+  （M14 后 `risk_service_warning` 不再保留该 handler，删除理由见
+  `docs/P2_10_ROUND10_AUDIT.md` 附录 ROUND_19 段）；
+  `TestP235Round13Batch16` 的 DECLINED_MARKERS 锚点搬迁至
+  `core/pending_events.py`。三处均为登记面同步，行为断言不变。

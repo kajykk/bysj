@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import Select, select
 
-from app.core.event_bus import event_bus
+from app.core.pending_events import schedule_after_commit
 from app.core.states import BindingStatus
 from app.models.intervention import (
     InterventionPlan,
@@ -16,6 +16,10 @@ from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
 from app.models.user import UserCounselorBinding
 
 logger = logging.getLogger(__name__)
+
+# M12 修复（ROUND_19）：预警阈值默认值抽成常量。
+# 无 WarningSetting 行时按"中风险及以上"（2 级）预警，与产品口径一致。
+DEFAULT_WARNING_THRESHOLD = 2
 
 
 class WarningInterventionMixin:
@@ -42,36 +46,40 @@ class WarningInterventionMixin:
         previous_level = (
             previous.risk_level if previous and previous.risk_level is not None else 0
         )
-        should_warn = current_risk.risk_level >= 2
-        # L-08 修复：复用 should_warn 变量，避免重复计算 current_risk.risk_level >= 2
-        if should_warn:
-            if current_risk.risk_level > previous_level:
-                reason = f"风险等级从{previous_level}级上升到{current_risk.risk_level}级，已达到中风险及以上"
-            else:
-                reason = f"当前风险等级为{current_risk.risk_level}级，已达到中风险及以上，需要咨询师关注"
-        else:
-            reason = ""
 
-        logger.info(
-            "risk.judgement user_id=%s current_level=%s previous_level=%s should_warn=%s reason=%s",
-            user_id,
-            current_risk.risk_level,
-            previous_level,
-            should_warn,
-            reason or "-",
-        )
-
-        if not should_warn:
-            return None
-
+        # M12 修复（ROUND_19）：预警阈值**先读设置再判定**。
+        # 原实现先硬编码 `risk_level >= 2`、读完 threshold_level 后又拿它做一次
+        # 上限比较 —— 结果是"只能把阈值调高、不能调低"：seed 里
+        # threshold_level=1 的用户永远收不到 1 级预警，该配置是死配置。
+        # 现在阈值唯一地来自用户设置（无设置时回落默认值），
+        # 判定与文案都基于同一个 threshold。
         setting_stmt = select(WarningSetting).where(WarningSetting.user_id == user_id)
         setting = (await self.db.execute(setting_stmt)).scalar_one_or_none()
         threshold = (
             setting.threshold_level
             if setting and setting.threshold_level is not None
-            else 2
+            else DEFAULT_WARNING_THRESHOLD
         )
-        if current_risk.risk_level < threshold:
+        should_warn = current_risk.risk_level >= threshold
+        if should_warn:
+            if current_risk.risk_level > previous_level:
+                reason = f"风险等级从{previous_level}级上升到{current_risk.risk_level}级，已达到预警阈值（{threshold}级）"
+            else:
+                reason = f"当前风险等级为{current_risk.risk_level}级，已达到预警阈值（{threshold}级），需要咨询师关注"
+        else:
+            reason = ""
+
+        logger.info(
+            "risk.judgement user_id=%s current_level=%s previous_level=%s threshold=%s should_warn=%s reason=%s",
+            user_id,
+            current_risk.risk_level,
+            previous_level,
+            threshold,
+            should_warn,
+            reason or "-",
+        )
+
+        if not should_warn:
             return None
 
         duplicate_stmt = select(WarningNotification).where(
@@ -116,26 +124,25 @@ class WarningInterventionMixin:
             warning.counselor_id = binding.counselor_id
 
         # R-C: 发布 warning.created 事件到 EventBus, 实时更新 Prometheus 指标.
-        # 仅在新建 WarningNotification 成功 (flush 通过) 后发布;
-        # 重复 warning (IntegrityError 路径) 提前 return, 不发布事件.
-        # 事件发布非阻塞 (put_nowait), 不影响业务主流程.
-        try:
-            await event_bus.publish(
-                "warning.created",
-                {
-                    "warning_id": warning.id,
-                    "user_id": warning.user_id,
-                    "risk_assessment_id": warning.risk_assessment_id,
-                    "previous_level": warning.previous_level,
-                    "current_level": warning.current_level,
-                    "trigger_reason": warning.trigger_reason,
-                    "counselor_id": warning.counselor_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                },
-            )
-        except Exception:
-            # EventBus 发布失败不应影响业务主流程
-            logger.warning("Failed to publish warning.created event", exc_info=True)
+        # M14 修复（ROUND_19）：改为**事务提交后**发布。原实现在 flush() 之后、
+        # 调用方 commit() 之前发布，订阅方用独立 session 回查会读到空行；
+        # 若事务随后回滚（同评估流程后续步骤失败），则"事件已发、数据不存在"。
+        # 现在只登记，after_commit 钩子负责发布；回滚则事件随事务消失。
+        # 事件发布非阻塞 (put_nowait)，不影响业务主流程。
+        schedule_after_commit(
+            self.db,
+            "warning.created",
+            {
+                "warning_id": warning.id,
+                "user_id": warning.user_id,
+                "risk_assessment_id": warning.risk_assessment_id,
+                "previous_level": warning.previous_level,
+                "current_level": warning.current_level,
+                "trigger_reason": warning.trigger_reason,
+                "counselor_id": warning.counselor_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
         return warning
 

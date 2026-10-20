@@ -256,7 +256,7 @@ python -m pytest tests/e2e/test_grafana_e2e.py -v
 
 - 49 个 API 路由文件（`backend/app/api/**/*.py`）
 - 66 个业务服务文件（`backend/app/services/**/*.py`）
-- 69 个核心模块文件（`backend/app/core/**/*.py`）
+- 71 个核心模块文件（`backend/app/core/**/*.py`）
 - 29 个 ML 模块文件（`backend/app/ml/**/*.py`）
 - 39 张数据表声明（AST 统计 `__tablename__`）
 - 运行时 206 个 REST 端点 + 3 个 WebSocket（**独立解释器**里 import 一次 `app.main`，沿 include 标记递归展开后数**有效路由**；进程内数会受测试会话的模块装载顺序影响，fastapi ≥ 0.151 的 `include_router` 也不再扁平化 `app.routes`，两版依赖下展开读数同为 206/3，2026-10-21 实测见 `docs/P2_22_ROUND22_PORTFOLIO_AUDIT.md` §八）

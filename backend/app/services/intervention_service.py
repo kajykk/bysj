@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 from datetime import UTC, date, datetime
 
@@ -10,7 +11,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.contracts import USER_ROLE_USER
+from app.core.degradation import record_silent_degradation
 from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
+
+logger = logging.getLogger(__name__)
+
+# M11 修复（ROUND_19）：完成率口径的唯一事实来源。
+#
+# 原口径：分子 = 该计划下**所有日期**的已完成 TaskExecution 条数，
+# 分母 = InterventionTask 条数。TaskExecution 唯一键是
+# ``(task_id, user_id, scheduled_date)`` —— 一个 daily 任务连续打卡 3 天即 3 条
+# 执行记录，完成率算出 300%。咨询师据"依从性"判断会得到相反结论。
+#
+# 新口径（分子分母同源，均按**任务**计数）：
+#   完成率 = 至少完成过一次的任务数 / 该计划任务总数 × 100
+# 结构性保证 ∈ [0, 100]：分子是分母集合的子集计数。
+# 仍保留钳制 + 记账作为纵深防御（见 _completion_rate_percent）。
+COMPLETION_RATE_LOCATION = "services.intervention_service.completion_rate"
 
 
 class InterventionRecommendation:
@@ -47,6 +64,29 @@ class InterventionRecommendation:
 class InterventionService:
     TERMINAL_STATUSES = {"completed", "missed", "skipped"}
     MUTABLE_STATUSES = {"pending", "postponed"}
+
+    @staticmethod
+    def _completion_rate_percent(completed_tasks: int, total_tasks: int) -> float:
+        """完成率（百分比）= 至少完成过一次的任务数 / 任务总数 × 100。
+
+        M11 修复（ROUND_19）：口径见模块顶部 ``COMPLETION_RATE_LOCATION`` 注释。
+        分子分母同源（都按 InterventionTask 计数）⇒ 数学上必然 ∈ [0, 100]；
+        这里仍做钳制 + ``record_silent_degradation`` 记账，属于纵深防御：
+        真被触发说明上游计数逻辑被改坏，仪表盘会看到计数而不是静默的 300%。
+        """
+        if total_tasks <= 0:
+            return 0.0
+        rate = completed_tasks / total_tasks * 100
+        if rate < 0 or rate > 100:
+            record_silent_degradation(COMPLETION_RATE_LOCATION)
+            logger.warning(
+                "intervention.completion_rate.out_of_range completed=%s total=%s rate=%s",
+                completed_tasks,
+                total_tasks,
+                rate,
+            )
+            rate = min(max(rate, 0.0), 100.0)
+        return round(rate, 1)
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -225,12 +265,15 @@ class InterventionService:
         for row in rows:
             executions = execution_map.get(row.id, [])
             total_tasks_in_plan = task_count_map.get(row.id, len(executions))
-            completed = len([x for x in executions if x.status == "completed"])
-            rate = (
-                round((completed / total_tasks_in_plan * 100), 1)
-                if total_tasks_in_plan
-                else 0
-            )
+            # M11 修复（ROUND_19）：分子改为"至少完成过一次的任务数"。
+            # 原实现数的是执行记录条数（completed executions），一个 daily 任务
+            # 连续打卡 3 天即 3 条记录 ⇒ 完成率 300%。新口径与 get_stats 的
+            # ``count(distinct task_id)`` 逐字同源，两条路径给同一个数。
+            completed_task_ids = {
+                x.task_id for x in executions if x.status == "completed"
+            }
+            completed = len(completed_task_ids)
+            rate = self._completion_rate_percent(completed, total_tasks_in_plan)
             items.append(
                 {
                     "plan_id": row.id,
@@ -259,8 +302,9 @@ class InterventionService:
         统计结果错误；且每页打开都传输 200 条完整计划记录。改为 SQL 层聚合。
 
         口径与 ``get_history`` 逐条计算严格一致：
-        - 完成率 = 该计划下已完成 TaskExecution 数 / InterventionTask 总数 × 100，
+        - 完成率 = 该计划下**至少完成过一次的任务数** / InterventionTask 总数 × 100，
           无任务的计划记 0（``get_history`` 的 ``total_tasks_in_plan`` 为 0 分支）；
+          M11 修复前分子是"执行记录条数"，daily 任务连续打卡 3 天即算出 300%。
         - 均值为**全部计划**的算术平均（含 0 值计划），四舍五入口径与前端
           ``Math.round`` 对齐（half-up，非 Python 银行家舍入）。
         """
@@ -273,12 +317,13 @@ class InterventionService:
             .group_by(InterventionTask.plan_id)
             .subquery()
         )
-        # 每计划已完成执行数（子查询）；execution 同样按 user_id 限定，
-        # 与 get_history 的 TaskExecution.user_id == user_id 一致
+        # 每计划已完成**任务数**（子查询）：distinct task_id，与 get_history 的
+        # `len({x.task_id for x in executions if x.status == "completed"})` 同源；
+        # execution 同样按 user_id 限定，与 get_history 的过滤一致
         exec_counts = (
             select(
                 InterventionTask.plan_id.label("plan_id"),
-                func.count().label("exec_count"),
+                func.count(func.distinct(TaskExecution.task_id)).label("exec_count"),
             )
             .select_from(
                 TaskExecution.__table__.join(

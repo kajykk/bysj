@@ -177,3 +177,41 @@
   （跨租户绑定被拒 / 历史跨租户绑定读不到详情 / admin 下载跨租户 404）
   与 `tests/test_tenant_isolation_p1.py`（既有 counselor 绑定校验）共同把守。
 - 闸门 `test_inventory_ratchet_be` 同步 102→101。
+
+## 附录：全称注释清单同步（101→107，ROUND_19 M 批 2 六条修复）
+
+- 新增 6 条、删除 0 条，净 +6（101→107）。全部来自审查报告 M 批 2 的修复注释，
+  逐条的行为依据与闸门如下：
+- ① `backend/app/services/intervention_service.py`
+  `# 结构性保证 ∈ [0, 100]：分子是分母集合的子集计数。`
+  含全称词"保证"。行为依据（M11）：完成率分子由"执行记录行数"改为
+  **distinct task_id** 计数，与分母（任务总数）同源 ⇒ 数学上必然 ∈ [0, 100]；
+  钳制 + `record_silent_degradation` 只是纵深防御。闸门
+  `tests/test_p2_47_round19_m_batch2.py::TestM11CompletionRate`
+  （3 次打卡 = 100 非 300 / 2 任务 1 完成 = 50 / stats 与 history 同数 /
+  无任务 = 0 / 越界钳制且计数）。
+- ② `backend/app/services/risk_service_warning.py`
+  `# threshold_level=1 的用户永远收不到 1 级预警，该配置是死配置。`
+  含全称词"永远"。行为依据（M12a）：修复前 `should_warn = risk_level >= 2`
+  硬编码，读完 threshold_level 后又拿它做上限比较 ⇒ 只能调高不能调低；
+  修复后阈值唯一来自用户设置（无设置回落 `DEFAULT_WARNING_THRESHOLD`）。
+  闸门 `TestM12ThresholdLevelEffective`（threshold=1 在 1 级预警 /
+  threshold=3 压掉 2 级 / 默认 2 / 越界钳制到 10）。
+- ③④ `backend/app/services/warning_service.py` 两条
+  `# 全仓只有写入与回显，没有任何分发链路读取它们：` 与
+  `# 免打扰时段与通知渠道在当前版本没有任何分发链路读取（全仓只有`
+  含全称词"只有"（`只[有会]` 模式）。行为依据（M12b）：免打扰时段与通知
+  渠道三项确实没有任何分发链路消费，故按"显式标注不生效"交付 —— 日志告警
+  + 审计 `detail["not_effective"]` + API `effective` 声明三处一致；阈值项
+  **不在**该集合（已真正消费）。闸门 `TestM12NotEffectiveDeclared`
+  （GET 声明 / update 告警与审计 / 登记表不含 threshold_level）。
+- ⑤ `backend/app/services/gdpr_service.py`
+  `# 删除后永远拿不到"。新增 6 个序列化函数与 6 个 section，并与匿名化覆盖面`
+  含全称词"永远"。行为依据（M16）：原导出清单漏掉的 6 类表恰好都是匿名化
+  流程会擦掉的表 ⇒ 漏导出 = 导出时拿不到、删除后永远拿不到，可携权
+  （GDPR Article 20）形同虚设。闸门 `TestM16GdprExportCoverage`
+  （6 个 section 实存实导出 / 匿名化触及模型 ⊆ 对照表 / 流式与一次性同清单）。
+- ⑥ `backend/app/services/gdpr_service_export.py`
+  `# 删除后永远拿不到"，可携权（Article 20）形同虚设。`
+  含全称词"永远"，同 ⑤ 的行为依据与闸门（一次性导出与流式导出两条路径）。
+- 闸门 `test_inventory_ratchet_be` 同步 101→107。
