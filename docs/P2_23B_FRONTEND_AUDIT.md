@@ -186,7 +186,29 @@ gitleaks 扫已入库历史且未配 allowlist，本闸门断言源码结构。
   `components.d.ts`）
 - 数字自检（check_portfolio_numbers）：**21/21**
 
-## 七、未验证记账
+## 七、CI 抓到的补漏：预警列表分页确定性排序（commit `2d2eb38`）
+
+23b 提交后 CI `backend-coverage` 红了
+`tests/services/test_counselor_service.py::TestListWarningsExtended::test_with_warnings`
+（`assert 'low' == 'high'`）。根因**不在本轮改动**，而是存量生产缺陷：
+
+`list_warnings` 只按 `created_at.desc()` 单键排序，而 `created_at`
+**不是唯一键**——同一秒内产生的多条告警值相同，此时顺序由 DB 决定
+（SQLite/PG 都不保证），配 `LIMIT/OFFSET` 会让同一条告警在相邻两页
+**重复出现或被整页跳过**。
+
+修复：咨询师端（`counselor_service_warning`）与用户端（`warning_service`）
+两处同型实现加 `id.desc()` 作确定性 tie-break；测试侧给两条告警显式不同的
+`created_at`，消除「同秒谁在前」的歧义（修前该用例依赖 SQLite 恰好按插入序
+返回，CI 上偶发翻面）。新增闸门 `test_p2_50_round23b_warning_order_stability.py`
+（5 用例）钉住二级排序键的存在——**结构性见证**，因为本机 SQLite 恰好按插入序
+返回，去掉二级排序时行为断言不会红（无效变异）。连跑 3 次均稳定通过。
+
+同型风险记账：全仓另有 10+ 处 `order_by(<created_at>.desc())` 的单键分页
+（`admin_service_config` / `content_service` / `counselor_service_consultation` /
+`counselor_service_user` ×3 / `crisis_export_service` 等）属同一风险，**本轮不动**。
+
+## 八、未验证记账
 
 - **M27 三态是源码结构见证，不是挂载级渲染验证**：`CounselorDashboard.vue` 依赖
   i18n / element-plus / 多个 api，挂载成本高，本轮未做 `mount()` 级断言。
