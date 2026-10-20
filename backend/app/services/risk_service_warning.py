@@ -4,7 +4,9 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import Select, select
+from sqlalchemy.exc import IntegrityError as SAIntegrityError
 
+from app.core.degradation import record_silent_degradation
 from app.core.pending_events import schedule_after_commit
 from app.core.states import BindingStatus
 from app.models.intervention import (
@@ -89,8 +91,6 @@ class WarningInterventionMixin:
         if existing_warning is not None:
             return existing_warning
 
-        from sqlalchemy.exc import IntegrityError as SAIntegrityError
-
         warning = WarningNotification(
             user_id=user_id,
             risk_assessment_id=current_risk.id,
@@ -164,7 +164,14 @@ class WarningInterventionMixin:
     async def _auto_generate_intervention(
         self, user_id: int, risk_level: int
     ) -> InterventionPlan | None:
-        # ISS-014 修复：添加 with_for_update() 行级锁，防止并发产生重复干预计划
+        # ISS-014 修复：with_for_update() 行级锁，降低同一用户重复生成计划的概率。
+        # M13 修复（ROUND_23）：注意这把锁**不是唯一性保证**——它只锁已存在的
+        # 行，空表（或历史计划都已 cancelled）时两个并发事务都查不到行、都无
+        # 行可锁（文本/生理两路各自独立 AsyncSessionLocal，见
+        # services/risk_service.py 的 _trigger_warning_and_intervention）。
+        # 唯一性由 uq_intervention_plans_active_per_user 约束兜底（下方
+        # _create_plan_from_template 的 except SAIntegrityError 分支），
+        # 本 select 保留 for_update 只是把冲突窗口从"秒级"缩到"毫秒级"。
         stmt = (
             select(InterventionPlan)
             .where(
@@ -179,10 +186,27 @@ class WarningInterventionMixin:
 
         if existing_plan:
             if risk_level > existing_plan.risk_level:
-                # M17 修复：先创建新计划，确认成功后再取消旧计划，避免无模板时用户失去所有干预
-                new_plan = await self._create_plan_from_template(user_id, risk_level)
-                if new_plan is not None:
+                # M17 + M13 修复（ROUND_23）：取消旧计划与插入新计划放在同一
+                # savepoint 内。唯一约束（uq_intervention_plans_active_per_user）
+                # 要求旧 active 先让位、新 active 才能插入；两步必须原子——
+                #   - 插入失败（并发冲突/DB 错误）⇒ savepoint 自动回滚，旧计划
+                #     恢复 active，不会"升级失败反而失去所有干预"；
+                #   - 无模板（_create_plan_from_template 返回 None）⇒ 撤销让位
+                #     （内存改回 + flush，**不 rollback savepoint**——rollback 会
+                #     剥离子查询对象，异步上下文访问属性即 DetachedInstanceError），
+                #     保持 M17 的语义（旧计划不被取消、原样返回）。
+                async with self.db.begin_nested():
                     existing_plan.status = "cancelled"
+                    # 让位先生效：savepoint 内 UPDATE 后再 INSERT，
+                    # 同一连接按语句序执行，新插入才不会撞自己的唯一约束。
+                    await self.db.flush()
+                    new_plan = await self._create_plan_from_template(
+                        user_id, risk_level
+                    )
+                    if new_plan is None:
+                        existing_plan.status = "active"
+                        await self.db.flush()
+                if new_plan is not None:
                     return new_plan
             return existing_plan
 
@@ -239,8 +263,48 @@ class WarningInterventionMixin:
             start_date=date.today(),
             end_date=date.today() + timedelta(weeks=template.estimated_weeks or 4),
         )
-        self.db.add(plan)
-        await self.db.flush()
+        # M13 修复（ROUND_23）：约束兜底。并发评估都查不到 active ⇒ 都走到
+        # 这里插入，第二条撞 uq_intervention_plans_active_per_user
+        # （model __table_args__ + 迁移 r2a3b4c5d6e7 双声明）。
+        # savepoint 隔离冲突插入（C-2 同款范式：避免单个计划冲突把整个
+        # 评估事务拖进"必须回滚"状态），except 后回查已存在的那条返回——
+        # 并发冲突不是错误，但不能无痕：记 silent_degradation 供 /metrics 观测。
+        # 回查带 for_update：若另一事务尚未提交，等其提交后即可见
+        # （PG 下插入方在唯一索引上等待，flush 抛错时对方已提交；
+        # SQLite 下写锁串行化，同理）。
+        try:
+            async with self.db.begin_nested():
+                self.db.add(plan)
+                await self.db.flush()
+        except SAIntegrityError:
+            existing = (
+                await self.db.execute(
+                    select(InterventionPlan)
+                    .where(
+                        InterventionPlan.user_id == user_id,
+                        InterventionPlan.status == "active",
+                    )
+                    .order_by(InterventionPlan.id.desc())
+                    .limit(1)
+                    .with_for_update()
+                )
+            ).scalars().first()
+            if existing is not None:
+                record_silent_degradation(
+                    "services.risk_service_warning.active_plan_conflict_recovered"
+                )
+                logger.info(
+                    "intervention.active_plan_conflict_recovered user_id=%s "
+                    "existing_plan_id=%s risk_level=%s",
+                    user_id,
+                    existing.id,
+                    risk_level,
+                )
+                return existing
+            # 回查仍为空 ⇒ 冲突并非来自本唯一约束（或对方已回滚），
+            # 原样上抛，由调用方的降级分支记账（services.risk_service
+            # 的 intervention_generation_failed）。
+            raise
 
         for i, task_def in enumerate(normalized_tasks):
             task = InterventionTask(

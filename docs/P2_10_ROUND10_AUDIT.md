@@ -215,3 +215,16 @@
   `# 删除后永远拿不到"，可携权（Article 20）形同虚设。`
   含全称词"永远"，同 ⑤ 的行为依据与闸门（一次性导出与流式导出两条路径）。
 - 闸门 `test_inventory_ratchet_be` 同步 101→107。
+
+### 附二：ROUND_23（23a M13）全称注释同步（107→112）
+
+| # | 位置 | 全称词 | 行为依据 |
+|---|---|---|---|
+| 1 | `app/models/intervention.py:37` | 只能 | M13：部分唯一索引 `uq_intervention_plans_active_per_user` 是唯一性保证的唯一来源；`with_for_update()` 行锁锁不到「不存在的行」（空表并发两次评估都查不到 active），应用层先查再插即原 bug 的另一种写法 |
+| 2 | `app/models/intervention.py:41` | 不会 | 同一条：model `__table_args__` 与 alembic 迁移双声明，口径一致才不出现「测试库（create_all）无约束、生产库（upgrade）有约束」的假绿 |
+| 3 | `app/services/risk_service_warning.py:168` | 不是 | M13 A2：显式声明 `with_for_update()` 不是唯一性保证——它仍有价值（缩小竞态窗口、与既有 ISS-014 语义衔接），但唯一性由 DB 约束兜底 |
+| 4 | `app/services/risk_service_warning.py:193` | 不会 | M13 升级路径（M17 语义保持）：「取消旧 active + 插新 active」收进同一 savepoint，插入失败即撤销取消，不会「升级失败反而失去所有干预」 |
+| 5 | `app/services/risk_service_warning.py:201` | 才不会 | 同一条：savepoint 内先 UPDATE（旧计划让位）再 INSERT，同一连接按语句序执行，新插入才不会撞自己的唯一约束 |
+
+- 另有 1 条存量注释行号漂移（非新增）：`risk_service_warning.py` 的「threshold_level=1 的用户永远收不到 1 级预警」（ROUND_19 M12a）因本轮文件头新增 import 与 docstring，由 :53 平移到 :55，内容未变。
+- 闸门 `test_inventory_ratchet_be` 同步 107→112。

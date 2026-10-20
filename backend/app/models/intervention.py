@@ -12,6 +12,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,6 +27,26 @@ class InterventionPlan(Base):
         CheckConstraint("progress >= 0 AND progress <= 100", name="ck_intervention_plans_progress"),
         # P1-D-5 修复：复合索引 - 用户活跃干预计划查询
         Index("ix_intervention_plans_user_status", "user_id", "status"),
+        # M13 修复（ROUND_23）：每用户至多一条 active 干预计划的部分唯一索引。
+        #
+        # 并发入口是真实的：文本/生理两路评估各自起**独立 AsyncSessionLocal**
+        # （app/services/risk_service.py 的 _trigger_warning_and_intervention），
+        # 两个事务都执行 `SELECT ... WHERE status='active'` → 都查不到 →
+        # 都 INSERT。ISS-014 的 with_for_update() 只能锁**已存在**的行，
+        # 空表（或两条都已 cancelled）时无行可锁，先查再插照样竞态。
+        # 唯一性只能由数据库约束保证，应用层检查只是减亏。
+        #
+        # 与迁移 r2a3b4c5d6e7（uq_intervention_plans_active_per_user）双声明：
+        # 测试库走 Base.metadata.create_all（conftest setup_schema），
+        # 生产库走 alembic upgrade；两边口径一致才不会出现
+        # "测试库无约束、生产库有约束"（或反之）的假绿。
+        Index(
+            "uq_intervention_plans_active_per_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+            sqlite_where=text("status = 'active'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

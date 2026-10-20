@@ -1,0 +1,20 @@
+# ROUND_23a（M13）变异见证 — tests/test_p2_48_round23a_m13_intervention_unique.py
+# 用例函数数 4（含参数化展开后以 [final] 行为准）
+
+[baseline] returncode=0
+10 passed, 4 warnings in 10.06s
+[T1] RED-OK 指名用例 test_concurrent_assessments_yield_single_active_plan 变红
+  FAILED tests/test_p2_48_round23a_m13_intervention_unique.py::TestM13ConcurrentUniqueness::test_concurrent_assessments_yield_single_active_plan
+  FAILED tests/test_p2_48_round23a_m13_intervention_unique.py::TestM13ConcurrentUniqueness::test_second_writer_recovers_from_unique_conflict
+  FAILED tests/test_p2_48_round23a_m13_intervention_unique.py::TestM13ConcurrentUniqueness::test_second_active_plan_violates_unique_index
+[T2] RED-OK 指名用例 test_second_writer_recovers_from_unique_conflict 变红
+  FAILED tests/test_p2_48_round23a_m13_intervention_unique.py::TestM13ConcurrentUniqueness::test_concurrent_assessments_yield_single_active_plan
+  FAILED tests/test_p2_48_round23a_m13_intervention_unique.py::TestM13ConcurrentUniqueness::test_second_writer_recovers_from_unique_conflict
+[T3] RED-OK 指名用例 test_upgrade_aborts_on_conflicts_without_creating_index 变红
+  FAILED tests/test_p2_48_round23a_m13_intervention_unique.py::TestM13MigrationAbortsOnDuplicate::test_upgrade_aborts_on_conflicts_without_creating_index
+[T4] RED-OK 指名用例 test_level_elevation_without_template_keeps_old_plan 变红
+  FAILED tests/test_p2_48_round23a_m13_intervention_unique.py::TestM13ConcurrentUniqueness::test_level_elevation_without_template_keeps_old_plan
+
+[final] returncode=0
+10 passed, 4 warnings in 9.29s
+[summary] 4/4 RED-OK; residual_clean=True; final_green=True
