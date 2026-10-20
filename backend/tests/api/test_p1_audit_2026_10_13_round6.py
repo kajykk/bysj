@@ -367,16 +367,25 @@ def test_user_assessment_history_stats_buckets_match_thresholds(
 
 
 def _seed_intervention(db_session: AsyncSession, user_id: int) -> None:
+    """
+    60 条窗口外计划 + 100 条窗口内计划。
+
+    M13 修复（ROUND_23）后同一用户**至多一条 active 干预计划**
+    （部分唯一索引 uq_intervention_plans_active_per_user），因此"窗口内 100 条
+    全是 active"这种数据形态已不可能存在。本辅助改为：
+      - 窗口外 60 条：cancelled（只有窗口外才有 cancelled）
+      - 窗口内 100 条：1 条 active + 99 条 completed
+    判据语义不变：仍用 status 区分窗口内外，仍测"分页不截断到窗口外"。
+    """
     async def _seed() -> None:
         plans: list[InterventionPlan] = []
-        # 60 条已完成计划（旧，窗口外）+ 100 条活跃计划（新，窗口内）
         for i in range(_FEATURE):
             plans.append(
                 InterventionPlan(
                     user_id=user_id,
                     plan_name=f"old-plan-{i}",
                     risk_level=2,
-                    status="completed",
+                    status="cancelled",
                     start_date=date(2026, 1, 1),
                     created_at=_OLD + timedelta(minutes=i),
                 )
@@ -387,7 +396,8 @@ def _seed_intervention(db_session: AsyncSession, user_id: int) -> None:
                     user_id=user_id,
                     plan_name=f"new-plan-{i}",
                     risk_level=2,
-                    status="active",
+                    # 首条 active（新契约下唯一允许的 active），其余 completed
+                    status="active" if i == 0 else "completed",
                     start_date=date(2026, 10, 1),
                     created_at=_NEW + timedelta(minutes=i),
                 )
@@ -408,13 +418,15 @@ def test_intervention_stats_not_truncated_beyond_window(
     ).json()["data"]
     assert first_page["total"] == 160
     assert len(first_page["items"]) == _WINDOW_100
-    assert all(item["status"] == "active" for item in first_page["items"])
+    # 窗口证明：cancelled 只存在于窗口外的 60 条，返回的必须一条都没有
+    assert all(item["status"] != "cancelled" for item in first_page["items"])
 
     body = client.get("/api/v1/user/intervention/stats").json()["data"]
     assert "items" not in body
-    assert body["active"] == 100
-    assert body["completed"] == 60
-    assert body["cancelled"] == 0
+    # M13 新契约：同用户至多一条 active ⇒ 1 / 99 / 60
+    assert body["active"] == 1
+    assert body["completed"] == 99
+    assert body["cancelled"] == 60
 
 
 def test_intervention_stats_avg_completion_includes_zero_task_plans(
@@ -431,18 +443,22 @@ def test_intervention_stats_avg_completion_includes_zero_task_plans(
             status="active",
             start_date=date(2026, 5, 1),
         )
+        # M13 修复（ROUND_23）：同用户至多一条 active，B/C 改为非 active。
+        # 均值口径是**全部计划**的算术平均（不分 status，见
+        # intervention_service.get_stats docstring），因此改 status 不影响
+        # (100 + 50 + 0) / 3 = 50 这条判据。
         plan_b = InterventionPlan(
             user_id=seeded_user_id,
             plan_name="B",
             risk_level=1,
-            status="active",
+            status="completed",
             start_date=date(2026, 5, 1),
         )
         plan_c = InterventionPlan(
             user_id=seeded_user_id,
             plan_name="C",
             risk_level=1,
-            status="active",
+            status="cancelled",
             start_date=date(2026, 5, 1),
         )
         db_session.add_all([plan_a, plan_b, plan_c])
@@ -484,7 +500,7 @@ def test_intervention_stats_avg_completion_includes_zero_task_plans(
     run(_seed())
 
     body = client.get("/api/v1/user/intervention/stats").json()["data"]
-    assert body["active"] == 3
+    assert body["active"] == 1
     assert body["avg_completion"] == 50
 
 
