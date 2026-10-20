@@ -2,7 +2,7 @@
 
 一个面向高校场景的心理健康筛查与预警平台。项目围绕问卷、文本与生理信号的多模态风险评估展开，并补齐了异步任务、实时告警、模型治理、可观测性与安全合规等工程能力，适合作为“AI + 全栈 + DevOps”综合型个人作品集展示。
 
-[架构文档](docs/architecture.md) · [审计报告](docs/FULL_AUDIT_REPORT.md) · [评估可信度报告](docs/EVALUATION_INTEGRITY_REPORT.md) · [部署指南](docs/DEPLOYMENT_GUIDE.md) · [变更日志](CHANGELOG.md) · [Issues](https://github.com/kajykk/bysj/issues)
+[架构文档](docs/architecture.md) · [评估可信度一页摘要](docs/EVALUATION_TRUST_SUMMARY.md) · [审计报告](docs/FULL_AUDIT_REPORT.md) · [部署指南](docs/DEPLOYMENT_GUIDE.md) · [变更日志](CHANGELOG.md) · [Issues](https://github.com/kajykk/bysj/issues)
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)](https://fastapi.tiangolo.com/)
@@ -15,31 +15,97 @@
 
 ---
 
-## 一眼看懂
+## 60 秒概览
 
-- 面向高校心理健康筛查、预警与干预管理
-- 前后端分离：FastAPI + Vue 3 + TypeScript
-- 多模态评估：结构化问卷、文本分析、生理信号融合
-- 事件驱动：WebSocket + Redis pubsub + Celery 异步任务
-- 可观测性：Prometheus、Grafana、Sentry、OpenTelemetry
-- 安全合规：PII 加密、CSP/XSS 防护、限流、审计与导出/删除支持
+**是什么**：面向高校场景的多模态心理健康风险评估系统。问卷、文本、生理三类信号汇成一次评估，
+输出风险等级，再走「预警 → 咨询师复核 → 危机升级 → 复盘」的闭环；学生 / 咨询师 / 管理员三套工作台。
 
-## 项目亮点
+**难在哪**：这类系统最危险的不是"模型不够准"，而是"**指标很好看但不成立**"——
+评估口径泄漏、故障被静默吞掉、新加的鉴权入口绕过租户封禁，这三件事**都不会报错**，
+只会安静地给出乐观结果。项目很大一部分工作量，花在把这三件事变成机器可检的不变式上。
 
-- 面向真实场景：围绕高校心理健康筛查、预警与干预闭环设计
-- 多模态融合：结构化问卷、文本分析与生理信号协同评估
-- 工程化完善：WebSocket、Redis pubsub、Celery、异步任务链路完整
-- 模型治理到位：漂移检测、金丝雀发布、回滚与回退策略齐备
-- 可观测性完整：Prometheus、Grafana、Sentry、OpenTelemetry、请求追踪
-- 安全合规考虑充分：PII 加密、CSP/XSS 防护、限流、审计与导出/删除支持
-- 测试覆盖全面：单元、集成、契约、E2E、性能与稳定性测试均已纳入
-- 评估可信度治理：全仓 ML 评估入口审计（39 文件 / 87 入口）、泄漏红利量化与补救、目标泄漏提交期闸门（[评估可信度报告](docs/EVALUATION_INTEGRITY_REPORT.md)）
+**怎么证明**：下面四个亮点各配一个可复现数字。`backend/tests/tools/check_portfolio_numbers.py`
+会把本文的数字与仓库内产物逐条比对——**写错一个数字它就红**（CI 同跑）。
+
+| # | 亮点 | 可验证数字 | 怎么复现 |
+|---|---|---|---|
+| 1 | 完整闭环，不是 Demo 页面 | 运行时 **206** 个 REST 端点 + **3** 个 WebSocket 长连接、**39** 张数据表 | `cd backend && python tests/tools/check_portfolio_numbers.py --show` |
+| 2 | 评估可信度治理 | **40 个交付脚本 / 88 处划分与挑优调用点**，逐条人工读码裁定；文本模态泛化口径 **F1 0.5864**（同一模型随机划分 0.9964） | `cd backend && python tests/tools/leakage_audit_scan.py` |
+| 3 | 静默降级全部裁定 | **341 处 except 候选**全部裁定：已接线 109 / 真降级留档 116 / fail-closed 8 | `cd backend && pytest tests/test_p2_11_round11.py -k batch6_bucket_counts` |
+| 4 | 认证入口机器可检 | **8 个 token 操作入口**（6 强制 + 2 显式豁免）AST 全等覆盖，变异 3/3 红 | `cd backend && pytest tests/test_p2_41_round17_auth_gate.py` |
+
+### 一次评估的流向
+
+```mermaid
+flowchart LR
+    A["问卷 / 文本 / 生理信号"] --> B["多模态融合评估"]
+    B --> C["风险分级"]
+    C --> D["预警通知"]
+    D --> E["咨询师人工复核"]
+    E -->|升级| F["危机干预 SOP"]
+    E -->|关闭| G["复盘与审计留痕"]
+    B -.-> H["模型治理：漂移 / 金丝雀 / 回滚"]
+    C -.-> I["可观测性：指标 / 告警 / 链路追踪"]
+    C -.-> J["模型验证：敏感性 / 校准 / 公平性"]
+```
+
+### 最短跑起来
+
+```bash
+docker run -d --name bysj-redis -p 6379:6379 redis:7-alpine   # 后端测试依赖本地 Redis
+cd backend && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
+.venv\Scripts\python.exe -m uvicorn app.main:app --reload      # API 文档 http://localhost:8000/docs
+cd ../frontend && npm install && npm run dev                   # 前端 http://localhost:5173
+```
+
+账号需先注入 `E2E_ADMIN_PASSWORD` / `E2E_COUNSELOR_PASSWORD` / `E2E_USER_PASSWORD`（见[默认账号](#默认账号)）；
+完整步骤见[部署指南](docs/DEPLOYMENT_GUIDE.md)。
+
+### 一条命令跑通「审计 → 闸门 → 变异见证」
+
+```bash
+cd backend && python tests/tools/portfolio_demo.py
+```
+
+预期输出（2026-10-20 实跑，约 85 秒）：
+
+```text
+[1/3] 审计  git ls-files + AST 扫描 ML 划分/挑优入口 ...
+      → 40 个交付脚本 / 88 处调用点（口径：排除 tests/，只认 git 跟踪文件）
+      OK
+[2/3] 闸门  泄漏守卫 + 鉴权入口 + 文档数字自检 ...
+      → 29 passed, 43 warnings in 39.29s
+      OK
+[3/3] 变异  清空 LABEL_DERIVED_FEATURES（L4 目标泄漏登记表）...
+      → 变异后：2 failed, 5 passed, 4 warnings in 5.02s
+      RED（符合预期）
+      → 还原：字节一致
+      → 还原后：7 passed, 4 warnings in 4.91s
+      OK
+--------------------------------------------------------------------
+DEMO OK（三步全部符合预期）
+```
+
+这条脚本演示的是本项目的核心方法论：**审计给出事实 → 闸门把事实钉死 → 变异证明闸门真的会红**。
+
+### 文档索引
+
+| 想了解什么 | 看哪份 |
+|---|---|
+| 系统架构与模块划分 | [docs/architecture.md](docs/architecture.md) |
+| 模型数字在什么条件下才算数 | [评估可信度一页摘要](docs/EVALUATION_TRUST_SUMMARY.md) → [完整报告](docs/EVALUATION_INTEGRITY_REPORT.md) |
+| 泄漏怎么发现、怎么量化 | [泄漏审计](docs/ML_LEAKAGE_AUDIT.md) · [补救与闸门](docs/ML_LEAKAGE_REMEDIATION.md) |
+| 阴性结论长什么样 | [纵向早期检测（阴性）](docs/planning/P2_R15_EARLY_DETECTION_RESULT.md) |
+| 临床 / 注册准入差距 | [临床准入差距分析](docs/planning/P2_R15_CLINICAL_READINESS.md) |
+| 全量审计与历史整改 | [FULL_AUDIT_REPORT](docs/FULL_AUDIT_REPORT.md) · [CHANGELOG](CHANGELOG.md) |
+| 部署与运维 | [部署指南](docs/DEPLOYMENT_GUIDE.md) · [应急手册](docs/EMERGENCY_RUNBOOK.md) |
 
 ## 适合谁
 
 - 需要做心理健康筛查、风险预警或干预管理的高校/机构
 - 想看一个“AI + 全栈 + DevOps + 可观测性”完整落地样例的人
 - 希望快速了解 FastAPI + Vue 3 + Celery + Redis + PostgreSQL 组合实践，并参考作品集表达方式的人
+- 找求职作品集 / 项目答辩材料 / 系统设计案例的人（可先读上面的 60 秒概览）
 
 ## 核心功能
 
@@ -54,7 +120,7 @@
 - 不是只有页面展示，而是把“筛查—预警—干预—复盘”流程做成了完整闭环
 - 不只是调用模型，还考虑了回退策略、漂移检测、金丝雀发布与回滚
 - 不只是开发功能，还把测试、监控、审计、部署和安全一并纳入交付范围
-- 适合作为求职作品集、项目答辩材料或系统设计案例
+- 不只报指标，还审计了指标**什么时候不成立**，并把发现固化成闸门
 
 ## 技术栈
 
@@ -186,16 +252,21 @@ python -m pytest tests/e2e/test_grafana_e2e.py -v
 - 可观测性、告警联动和仪表盘配置
 - 大量单元、集成、契约、E2E 与稳定性测试
 
-已知规模数据（2026-09-23 实测，详见评估报告 `reports/2026-09-23_项目全面评估报告.md`）：
+已知规模数据（**2026-10-20 重新实测**；括号里是复算口径，`backend/tests/tools/check_portfolio_numbers.py` 会逐项核对）：
 
-- 50 个 API 路由文件（191 个 REST 端点 + 3 个 WebSocket）
-- 62 个业务服务文件
-- 61 个核心模块
-- 40 张数据表（代码声明 39，生产库实测 40）
-- 27 个 ML 文件
-- 9 个 Docker 服务
+- 49 个 API 路由文件（`backend/app/api/**/*.py`）
+- 66 个业务服务文件（`backend/app/services/**/*.py`）
+- 69 个核心模块文件（`backend/app/core/**/*.py`）
+- 29 个 ML 模块文件（`backend/app/ml/**/*.py`）
+- 39 张数据表声明（AST 统计 `__tablename__`）
+- 运行时 206 个 REST 端点 + 3 个 WebSocket（`app.routes` 计数，含 `/api/v1` 与平台/健康检查路由）
+- 9 个 Docker 服务（`docker-compose.yml`）
 - 契约测试全部通过
-- 6,160 例后端测试 + 1,119 例前端测试（实测，非估计）
+- 7,455 例后端测试 / 1,327 例前端测试（`cd backend && pytest --collect-only -q`；
+  `cd frontend && npx vitest list | wc -l`。**这两项每次提交都会变，仅作快照，不入数字闸门**）
+
+> 上一版这里写的是 2026-09-23 的读数（50 路由 / 191 端点 / 62 服务 / 61 核心 / 27 ML / 6,160 后端用例 + 1,119 前端用例）。
+> 本轮逐项重测后按实测值更新：端点 191→206、服务 62→66、ML 27→29、后端用例 6,160→7,455；其余口径也已写进括号，不再留"某处曾测过"的模糊数字。
 
 如果你只想快速了解项目，建议优先看：架构文档、审计报告和部署指南。
 
@@ -226,6 +297,15 @@ bysj/
 - `VITE_API_BASE_URL`
 
 此外，仓库还包含后端、前端和基础设施的独立配置文件，适合按模块逐步启动和验证。
+
+## 作品集素材（问题 → 动作 → 可验证结果）
+
+面向招聘方的四条，每条都能在仓库里复算（数字出处见上面「60 秒概览」，由自检脚本统一核对）：
+
+- **评估泄漏治理**：发现同一批数据"随机划分 F1 0.9964 / 按人分组 0.5864"的落差后，用 AST 把全仓 40 个交付脚本里的 88 处评估入口逐条裁定，量化出 ΔF1 +0.3111 的泄漏红利，并把目标泄漏做成提交期闸门（7 条断言 + 3 个真实变异）。
+- **静默降级治理**：把 341 处 except 候选逐条裁定为"已接线 109 / 真降级留档 116 / fail-closed 8"，让"故障被吞掉"从口头保证变成可查询指标 + 提交期棘轮。
+- **认证入口覆盖**：用 AST 发现集与登记表全等比对，把 8 个 token 操作入口的租户封禁校验变成结构性不变式——新增入口不登记，CI 直接红。
+- **文档钉事实**：写了一个自检脚本，把 README 与摘要里的 21 个关键数字逐条对回仓库产物；改错一个数字，CI 就红（本轮已用 3 处真实变异验证）。
 
 ## 作者
 

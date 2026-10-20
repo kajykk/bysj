@@ -4,6 +4,7 @@
 > 版本口径 SSOT：`backend/app/core/config.py`（`app_version = "3.1.0"`、`RELEASE_CODENAME = "v1.33-hardening-complete"`）
 > 定位：**本报告只做分析与记账，不改动任何代码、测试、配置，也不回改任何既有文档。**
 > 交付物：本文件 + 文献证据底稿 `docs/planning/P2_R15_literature_hits.json`
+> 对外索引：[README 文档索引](../../README.md#文档索引)｜评估类材料汇总：[评估可信度 · 一页摘要](../EVALUATION_TRUST_SUMMARY.md)
 
 ---
 

@@ -5,6 +5,7 @@
 > `backend/tests/tools/leakage_delta_probe.py`（口径对照 + 目标泄漏检测）
 > 闸门：`backend/tests/test_p2_38_leakage_audit_guard.py`（8 条）
 > 变异：`backend/tests/tools/mutate_p2_38_round14.py`（4 个，红→还原绿）
+> 对外摘要：[评估可信度 · 一页摘要](EVALUATION_TRUST_SUMMARY.md)｜对外概览：[README 60 秒概览](../README.md#60-秒概览)
 
 ## 一、为什么做这次审计（三重印证，不是自说自话）
 

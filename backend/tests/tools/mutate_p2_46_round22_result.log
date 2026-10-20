@@ -1,0 +1,26 @@
+========================================================================
+ROUND_22 T4 数字自检闸门 —— 真实变异验证
+闸门：tests/test_p2_46_round22_portfolio_docs.py（5 条）
+========================================================================
+
+[T1] README.md：'**341 处 except 候选**全部裁定：已接线 109' → '**342 处 except 候选**全部裁定：已接线 109'
+     强度：强（probe 类：桶计数由 classify 产物钉住（锚点含 ** 强调符，见 §七.3 的踩坑））
+[T1] ✓ 变异后变红，且指名 readme.buckets
+[T1] ✓ 还原（字节一致=True）
+
+[T2] EVALUATION_TRUST_SUMMARY.md：'ΔF1 +0.3111 / ΔAUC +0.1573' → 'ΔF1 +0.3111 / ΔAUC +0.1574'
+     强度：强（report 类：跨文档对齐，末位改一位也必须红）
+[T2] ✓ 变异后变红，且指名 summary.delta_f1
+[T2] ✓ 还原（字节一致=True）
+
+[T3] README.md：'88 处划分与挑优调用点' → '188 处划分与挑优调用点'
+     强度：强（probe 类：扫描入口数现场复算）
+[T3] ✓ 变异后变红，且指名 readme.scan
+[T3] ✓ 还原（字节一致=True）
+
+[residual] 残留文件: 无
+[final] 还原后 returncode=0（0=全绿）
+[final] 1 passed, 7 warnings in 9.76s
+
+[summary] T1=RED-OK | T2=RED-OK | T3=RED-OK
+[summary] residual_clean=True final_green=True all_red_ok=True

@@ -3,6 +3,7 @@
 > ⚠️ **本报告全部读数来自 synthetic 仿真基准**（`synth_longitudinal_bench.py` 生成），
 > **不得解读为真实世界性能**，禁止与任何真实指标同表并列。
 > 任务与指标定义见 `docs/planning/P2_R15_EARLY_DETECTION_TASK.md`。
+> 对外摘要（本报告是其中「自查」一行的出处）：[评估可信度 · 一页摘要](../EVALUATION_TRUST_SUMMARY.md)
 
 ---
 

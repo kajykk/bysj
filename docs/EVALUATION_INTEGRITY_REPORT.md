@@ -5,6 +5,7 @@
 > 相关提交：`f1c4b4e` → `be28cae`（检测）→ `8713521`（补救）→ `221db18`（方向 C）
 > 源产物：`docs/ML_LEAKAGE_AUDIT.md`、`docs/ML_LEAKAGE_REMEDIATION.md`、
 > `docs/planning/P2_R15_EARLY_DETECTION_TASK.md` / `_RESULT.md`
+> 对外一页版：[评估可信度 · 一页摘要](EVALUATION_TRUST_SUMMARY.md)（其中数字由 `backend/tests/tools/check_portfolio_numbers.py` 与仓库产物逐条比对）
 
 ---
 

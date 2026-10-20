@@ -5,6 +5,7 @@
 >
 > 上游：`docs/ML_LEAKAGE_AUDIT.md`（检测轮，commit `be28cae`）。
 > 本轮的边界：**收回结论 + 代码护栏 + 升闸门 + 了结未验证项**，不改任何历史读数。
+> 对外摘要：[评估可信度 · 一页摘要](EVALUATION_TRUST_SUMMARY.md)｜对外概览：[README 60 秒概览](../README.md#60-秒概览)
 
 ---
 
