@@ -105,8 +105,9 @@ DEMO OK
 | 产物 | 作用 |
 |---|---|
 | `backend/tests/tools/check_portfolio_numbers.py` | 21 条检查；`--show` 可打印各探针算出的真值 |
-| `backend/tests/test_p2_46_round22_portfolio_docs.py` | 把检查接进 CI（7 条：全量核对 / 反弱化 / 3 条自证 / 2 条测量纪律） |
-| `backend/tests/tools/mutate_p2_46_round22.py` | 4 处真实变异 + 日志入库 |
+| `backend/tests/tools/route_counting.py` | 有效路由展开（跨 fastapi 0.135/0.151 同形，见 §八.2） |
+| `backend/tests/test_p2_46_round22_portfolio_docs.py` | 把检查接进 CI（11 条：全量核对 / 反弱化 / 3 条自证 / 2 条测量纪律 / 4 条展开契约） |
+| `backend/tests/tools/mutate_p2_46_round22.py` | 5 处真实变异 + 日志入库 |
 
 **两类探针**（在文档里也写明了，避免"假装能复算"）：
 
@@ -146,10 +147,12 @@ README 里以"带日期的快照 + 复现命令"呈现，并在同一行写明"�
 测试文件里带 3 条自证：把 README/摘要复制到临时目录、改坏一个数字，
 再要求 `run_checks()` **指名**报出对应检查编号。这三条保证"闸门会红"不依赖外部变异脚本。
 
-另有 2 条**测量纪律**用例（2026-10-20 CI 红项后补，见 §八）：路由计数不得读进程内
+另有 2 条**测量纪律**用例（2026-10-20 CI 红项后补，见 §八.1）：路由计数不得读进程内
 `app.routes`（污染注入后读数必须不变）、子进程失败必须抛错而不是报 0。
+2026-10-21 第二轮红项后又补 4 条**展开契约**用例（见 §八.2）：合成形状验证
+`route_counting` 对扁平/标记/嵌套/Mount/自引用五类结构的展开，不依赖本机 fastapi 版本。
 
-### 4.6 真实变异（4/4 RED-OK）
+### 4.6 真实变异（5/5 RED-OK）
 
 日志：`backend/tests/tools/mutate_p2_46_round22_result.log`
 
@@ -159,8 +162,11 @@ README 里以"带日期的快照 + 复现命令"呈现，并在同一行写明"�
 | T2 | 摘要 `ΔAUC +0.1573` → `+0.1574`（末位改一位） | 红，且指名 `[summary.delta_f1]` |
 | T3 | README `88 处划分与挑优调用点` → `188 处` | 红，且指名 `[readme.scan]` |
 | T4 | `probe_routes` 由「子进程数」翻回「进程内数」 | 红，且由隔离用例 `test_route_probe_isolated_from_in_process_app_state` 指名 |
+| T5 | `route_counting` 删掉 `original_router` 展开分支 | 红，且由展开用例 `test_route_counting_expands_include_markers` 指名 |
 
-`residual_clean=True`、`final_green=True`、`all_red_ok=True`（还原后 7 passed）。
+`residual_clean=True`、`final_green=True`、`all_red_ok=True`（还原后 11 passed）。
+T5 的判据意义：fastapi ≥0.151 的 `include_router` 不再扁平化 `app.routes`，
+不展开就只会数到 `app/main.py` 自注册的 5 条——正是 2026-10-21 CI 红项的复发闸门。
 
 ---
 
@@ -235,13 +241,15 @@ README 里以"带日期的快照 + 复现命令"呈现，并在同一行写明"�
 
 ---
 
-## 八、CI 红项复盘：`readme.routes` 在 CI 里数到 5 个 REST（2026-10-20）
+## 八、CI 红项复盘：`readme.routes` 在 CI 里数到 5 个 REST（2026-10-20 / 2026-10-21 两轮）
 
 **现象**：`2948428` 推送后 `backend-coverage` 唯一红项是
 `test_p2_46_round22_portfolio_docs.py::test_portfolio_numbers_match_repo_artifacts`，
 失败信息指名 `[readme.routes]` / `[readme.scale.routes]`：
 README 期望 `206 个 REST 端点 + 3 个 WebSocket 长连接`，CI 里探针算出的是
 `5 个 REST 端点 + 3 个 WebSocket`。
+
+### 8.1 第一轮（2026-10-20）：进程内污染
 
 **定位（实测，不是推断）**：5 = `app/main.py` 里 `@app.get` 自注册条数（实测
 `grep -c "^@app\\.\\(get\\|post\\|put\\|patch\\|delete\\)" app/main.py` → 5），
@@ -260,25 +268,59 @@ CI flake」。
 在里面 import 一次、数一次、打印哨兵行 `__ROUTE_PROBE__{json}`，父进程按哨兵行取数。
 失败一律 `RuntimeError`，**不返回 0**（数不出来就说数不出来）。
 
+### 8.2 第二轮（2026-10-21）：依赖版本换了路由的**表示**，子进程同样数到 5
+
+子进程化后（`3cabe24`）CI **仍红，且子进程同样输出 5**——排除进程内污染后，
+嫌疑只剩「CI 的干净解释器里 v1 路由真的没挂上」。逐项排除：条件路由注册
+（AST 扫 `app/api/**` 全仓 0 处）、`app/main.py` 导入区无 try/except 兜底
+（12–14 行裸导入）、注册点 390–392 行无条件执行。
+
+**根因（影子安装实测）**：CI 的 `requirements.txt` 对 fastapi **无上界**，
+装到 **fastapi 0.151.0 + starlette 1.9.0**（CI 日志 `Successfully installed`
+实证；本地 venv 为 0.135.3 / 1.7.0）。0.151 的 `include_router()` 不再把子路由
+扁平拷贝进 `app.routes`，而是往 `routes` 里挂一个 `_IncludedRouter` 标记对象
+（带 `original_router` 属性，请求匹配时递归展开）——见 wheel 源码
+`fastapi/routing.py:3415`。于是「数 `app.routes` 里 `isinstance(r, APIRoute)`」
+在新版本下只剩 `app/main.py` 自注册的 5 条。
+
+实测对照（同一份代码、两种依赖，本机影子安装复现 CI 版本）：
+
+| 环境 | `app.routes` 扁平计数 | 有效路由展开计数 |
+|---|---|---|
+| fastapi 0.135.3 / starlette 1.7.0（本地 venv） | 206 REST + 3 WS | 206 + 3（恒等，无标记可展开） |
+| fastapi 0.151.0 / starlette 1.9.0（CI 实装，影子复现） | **5** + 3（3 个 `_IncludedRouter` 标记） | **206 + 3** |
+
+即 README 声称的「运行时 206 个 REST 端点 + 3 个 WebSocket」**在两个依赖
+版本下都是事实**（CI 全量套件其余 API 用例全绿即为佐证：路由匹配走的是标记
+展开，不是扁平表）；旧指针方法只是被新表示打破。两个版本下 docs 路由
+（`/openapi.json`、`/docs`、`/redoc`、`/swagger-redirect`）都是普通
+starlette `Route`（各 4 条），不计入 REST/WS，进 `unknown` 桶留痕。
+
+**修复**：计数委托新模块 `backend/tests/tools/route_counting.py`：
+沿 `original_router`（及 Mount 的 `.routes`）递归展开出**有效路由**再分类；
+嵌套超 32 层抛错（不静默截断）；`markers` 字段在探针输出里留证
+「展开确实发生过」。子进程模板改为 `from route_counting import count_app_routes`。
+
 **复现与见证**：
 
-- `test_route_probe_isolated_from_in_process_app_state`：把进程内
-  `app.router.routes` 削成"5 条 REST + 3 条 WS"（**复刻 CI 形态**），
-  要求探针读数不变。旧实现在此必红。
-- `test_route_probe_fails_loudly_instead_of_reporting_zero`：`sys.executable`
-  指向不存在的路径 ⇒ 必须抛错。
-- 变异 T4（`mutate_p2_46_round22.py`）：把 `probe_routes` 由「子进程数」翻回
-  「进程内数」⇒ 必须由隔离用例指名变红。实测 RED-OK。
+- 4 条合成形状用例（`test_route_counting_*`）：扁平形状恒等、顶层+嵌套标记展开、
+  Mount 展开与 `unknown` 留痕、自引用 include 抛错——钉住展开契约，不依赖
+  本机 fastapi 版本；
+- `test_route_probe_isolated_from_in_process_app_state`：仍有效（钉不读进程内状态），
+  并新增读数必须带 `rest/ws/unknown/markers` 四键；
+- `test_route_probe_fails_loudly_instead_of_reporting_zero`：仍有效；
+- 变异 T5：删掉 `original_router` 展开分支 ⇒ 必须由展开用例指名变红（实测 RED-OK）。
 
-**读数**（2026-10-20 本机）：`check_portfolio_numbers.py` 21/21；闸门 7 passed；
-变异 4/4 RED-OK、`residual_clean=True`、`final_green=True`。
+**读数**（2026-10-21 本机，commit-A 等价工作树）：`check_portfolio_numbers.py`
+21/21；闸门 11 passed；变异 5/5 RED-OK、`residual_clean=True`、`final_green=True`。
 
-**未隔离项（记账）**：具体是哪个用例 / 哪次导入把 `app` 建成了空壳，
-**没有定位出来**。本地 `pytest tests/test_p2_11_round11.py + 闸门` 238 passed
-（无复现），全量 37 分钟套件本轮未跑。因此隔离用例采用**症状复刻**（把路由表削到
-CI 形态）而非"注入真凶"；子进程方案对两类污染（任何形式的进程内改动）均免疫。
-若未来再出现进程内读数漂移类问题，本条就是排查起点。
+**未隔离项（记账）**：第一轮的「哪个用例把 `app` 建成空壳」仍**未定位**
+（本地无法复现，隔离用例采用症状复刻）；第二轮根因已定位到依赖版本与
+fastapi 内部表示变更，非应用装配问题。若未来 fastapi 再改表示（如标记改名），
+`route_counting` 的展开会静默失效 → 读数塌回 5 → README 字面量检查红，
+**不会假绿**；这是把 `unknown`/`markers` 留痕的原因。
 
 **教训（与 §4.2 是一体两面）**：§4.2 的"断言钉结构、不钉孤立字面量"防的是
 **改错地方不红**；本条防的是**环境变了假红/假绿**。判据必须钉"交付形态"，
-不能钉"当前进程状态"。
+不能钉"当前进程状态"——而"交付形态"的指针本身也要随依赖演进保持同形
+（展开计数在两个大版本上读数一致，才是真的钉住了）。

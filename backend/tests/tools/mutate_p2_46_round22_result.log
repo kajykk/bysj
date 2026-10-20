@@ -1,31 +1,41 @@
 ========================================================================
 ROUND_22 T4 数字自检闸门 —— 真实变异验证
-闸门：tests/test_p2_46_round22_portfolio_docs.py（7 条）
+闸门：tests/test_p2_46_round22_portfolio_docs.py（9 个用例函数；含参数化展开后以 [final] 行为准）
 ========================================================================
 
 [T1] README.md：'**341 处 except 候选**全部裁定：已接线 109' → '**342 处 except 候选**全部裁定：已接线 109'
      强度：强（probe 类：桶计数由 classify 产物钉住（锚点含 ** 强调符，见 §七.3 的踩坑））
 [T1] ✓ 变异后变红，且指名 [readme.buckets]
+     实际失败用例：['FAILED tests/test_p2_46_round22_portfolio_docs.py::test_portfolio_numbers_match_repo_artifacts']
 [T1] ✓ 还原（字节一致=True）
 
 [T2] EVALUATION_TRUST_SUMMARY.md：'ΔF1 +0.3111 / ΔAUC +0.1573' → 'ΔF1 +0.3111 / ΔAUC +0.1574'
      强度：强（report 类：跨文档对齐，末位改一位也必须红）
 [T2] ✓ 变异后变红，且指名 [summary.delta_f1]
+     实际失败用例：['FAILED tests/test_p2_46_round22_portfolio_docs.py::test_portfolio_numbers_match_repo_artifacts']
 [T2] ✓ 还原（字节一致=True）
 
 [T3] README.md：'88 处划分与挑优调用点' → '188 处划分与挑优调用点'
      强度：强（probe 类：扫描入口数现场复算）
 [T3] ✓ 变异后变红，且指名 [readme.scan]
+     实际失败用例：['FAILED tests/test_p2_46_round22_portfolio_docs.py::test_portfolio_numbers_match_repo_artifacts']
 [T3] ✓ 还原（字节一致=True）
 
 [T4] check_portfolio_numbers.py：'measured = _measure_routes_in_child()' → 'from fastapi.routing import APIRoute\n    from starlette.routing import WebSocketRoute\n\n    from app.main import app\n\n    measured = {\n        "rest": sum(1 for r in app.routes if isinstance(r, APIRoute)),\n        "ws": sum(1 for r in app.routes if isinstance(r, WebSocketRoute)),\n    }'
      强度：强（测量位置类：把子进程计数翻回进程内计数，隔离用例必须红（2026-10-20 CI 实测 5 个 REST 的复发闸门））
 [T4] ✓ 变异后变红，且指名 test_route_probe_isolated_from_in_process_app_state
+     实际失败用例：['FAILED tests/test_p2_46_round22_portfolio_docs.py::test_route_probe_isolated_from_in_process_app_state']
 [T4] ✓ 还原（字节一致=True）
+
+[T5] route_counting.py：'marker_router = getattr(route, "original_router", None)' → 'marker_router = getattr(route, "_original_router_removed", None)'
+     强度：强（展开契约类：删掉 _IncludedRouter.original_router 展开分支，标记形状用例必须红（2026-10-21 CI 红项复发闸门：fastapi ≥0.151 不展开就只数得到 main.py 自注册的 5 条）。嵌套/自引用两条合成用例是同源旁证，本处只跑指名目标，避免与已知的 readme.scale.core 漂移混线）
+[T5] ✓ 变异后变红，且指名 test_route_counting_expands_include_markers
+     实际失败用例：['FAILED tests/test_p2_46_round22_portfolio_docs.py::test_route_counting_expands_include_markers']
+[T5] ✓ 还原（字节一致=True）
 
 [residual] 残留文件: 无
 [final] 还原后 returncode=0（0=全绿）
-[final] 7 passed, 16 warnings in 64.96s (0:01:04)
+[final] 11 passed, 16 warnings in 63.05s (0:01:03)
 
-[summary] T1=RED-OK | T2=RED-OK | T3=RED-OK | T4=RED-OK
+[summary] T1=RED-OK | T2=RED-OK | T3=RED-OK | T4=RED-OK | T5=RED-OK
 [summary] residual_clean=True final_green=True all_red_ok=True

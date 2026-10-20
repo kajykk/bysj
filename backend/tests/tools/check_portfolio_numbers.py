@@ -8,8 +8,8 @@
 两类探针
 --------
 1. **可执行复算（probe）**：从代码 / 测试 / JSON 现场算出真值，例如
-   `git ls-files + AST` 得到的划分入口数、`app.routes` 得到的端点数、
-   `classify_p2_35_batch6_result.json` 里的桶计数。
+   `git ls-files + AST` 得到的划分入口数、有效路由展开（`route_counting.py`）
+  得到的端点数、`classify_p2_35_batch6_result.json` 里的桶计数。
 2. **报告对齐（report）**：数字的源头是需要数据集才能重跑的实验报告（CI 无数据集），
    因此判据改为「概览层数字 == 权威报告里的同一字面量」——即跨文档漂移检测。
    这类检查在 `CHECKS` 里以 `report_of` 字段标注，不假装自己能复算。
@@ -64,28 +64,26 @@ COMPOSE = REPO / "docker-compose.yml"
 
 # 路由计数子进程：哨兵行前缀 + 超时。哨兵是为了在 stderr/stdout 混入
 # 无关告警时也能定位到我们那行 JSON（不假设"最后一行就是结果"）。
+# 计数逻辑在 tests/tools/route_counting.py：跨 fastapi 版本展开 include 标记，
+# 详见该模块 docstring（2026-10-21 根因：0.151 的 include_router 不再扁平化）。
 _ROUTE_PROBE_SENTINEL = "__ROUTE_PROBE__"
 _ROUTE_PROBE_TIMEOUT_S = 240
+TOOLS = BACKEND / "tests" / "tools"
 
 _ROUTE_PROBE_TEMPLATE = '''
 import json
 import sys
 
 sys.path.insert(0, %(backend)r)
+sys.path.insert(0, %(tools)r)
 
-from fastapi.routing import APIRoute
-from starlette.routing import WebSocketRoute
+from route_counting import count_app_routes
 
 from app.main import app
 
 print(
     %(sentinel)r
-    + json.dumps(
-        {
-            "rest": sum(1 for r in app.routes if isinstance(r, APIRoute)),
-            "ws": sum(1 for r in app.routes if isinstance(r, WebSocketRoute)),
-        }
-    )
+    + json.dumps(count_app_routes(app))
 )
 '''
 
@@ -207,6 +205,16 @@ def probe_routes() -> dict[str, int]:
     「运行时端点」本意是**交付形态**（干净解释器 import 一次得到的东西）。
     故改为子进程：`sys.executable -c` 里 import 一次、数一次、打印哨兵行。
 
+    为什么必须数**有效路由**而不是扁平 isinstance（2026-10-21 实测）
+    ---------------------------------------------------------------
+    子进程化之后 CI 仍红，且子进程同样数到 5：CI 的 `requirements.txt` 无上界，
+    装到 fastapi 0.151.0 + starlette 1.9.0，其 `include_router()` 不再把子路由
+    扁平拷进 `app.routes`，而是挂 `_IncludedRouter` 标记对象（请求匹配时展开）。
+    影子安装实测：flat=5/3、展开后 206/3；本地 fastapi 0.135.3 则是 flat=206/3、
+    展开恒等。即 README 的数字在两个版本下都成立，旧指针方法被新表示打破。
+    故计数委托 `tests/tools/route_counting.py`：沿 `original_router` 递归展开后
+    再分类，`markers` 字段在 CI 日志里留证「展开确实发生过」。
+
     失败一律抛错，**不返回 0** —— 数不出来就说数不出来，不拿 0 当读数。
     """
     measured = _measure_routes_in_child()
@@ -219,6 +227,7 @@ def _measure_routes_in_child() -> dict[str, int]:
     env.setdefault("PYTHONIOENCODING", "utf-8")
     source = _ROUTE_PROBE_TEMPLATE % {
         "backend": str(BACKEND),
+        "tools": str(TOOLS),
         "sentinel": _ROUTE_PROBE_SENTINEL,
     }
     try:
@@ -244,7 +253,17 @@ def _measure_routes_in_child() -> dict[str, int]:
     for line in reversed((proc.stdout or "").splitlines()):
         if line.startswith(_ROUTE_PROBE_SENTINEL):
             payload = json.loads(line[len(_ROUTE_PROBE_SENTINEL) :])
-            return {"rest": int(payload["rest"]), "ws": int(payload["ws"])}
+            try:
+                return {
+                    "rest": int(payload["rest"]),
+                    "ws": int(payload["ws"]),
+                    "unknown": int(payload["unknown"]),
+                    "markers": int(payload["markers"]),
+                }
+            except (KeyError, TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"路由计数子进程返回了无法解析的读数（不返回 0）：{exc!r}"
+                ) from exc
     raise RuntimeError(
         "路由计数子进程没有输出哨兵行 "
         f"{_ROUTE_PROBE_SENTINEL}；stdout 尾部：{(proc.stdout or '')[-400:]!r}"

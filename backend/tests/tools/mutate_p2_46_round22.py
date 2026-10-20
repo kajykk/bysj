@@ -3,14 +3,17 @@
 判据不是"变红就算过"——而是**红在正确的地方**：
 - 文档类变异，失败信息里必须出现对应的检查编号（如 `[readme.buckets]`），
   否则说明闸门是靠别的检查顺带红的；
-- 实现类变异（T4），必须由**指名的那条用例**失败（隔离用例），而不是别的用例
-  连带报错。
+- 实现类变异（T4/T5），必须由**指名的那条用例**失败（隔离用例 / 展开用例），
+  而不是别的用例连带报错。
 
-四处处变异覆盖三类判据：
+五处变异覆盖四类判据：
 - T1/T3 走 ``probe``（现场复算：桶计数、扫描入口数）；
 - T2 走 ``report``（跨文档对齐：泄漏红利在概览层写错一个末位）；
 - T4 走**测量位置**（把 `probe_routes` 从"子进程数"翻回"进程内数"，
-  钉住 2026-10-20 CI 红项不再复发）。
+  钉住 2026-10-20 CI 红项不再复发）；
+- T5 走**展开契约**（删掉 `_IncludedRouter.original_router` 展开分支，
+  钉住 2026-10-21 CI 红项不再复发：fastapi ≥0.151 的 include_router 不再
+  扁平化 `app.routes`，不展开就只会数到 main.py 自注册的 5 条）。
 
 每处变异都先存字节快照，``finally`` 还原；收尾比对字节一致、再跑一次全绿。
 日志同时写 stdout 与 ``mutate_p2_46_round22_result.log``。
@@ -18,6 +21,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -27,11 +31,19 @@ REPO = BACKEND.parent
 README = REPO / "README.md"
 SUMMARY = REPO / "docs" / "EVALUATION_TRUST_SUMMARY.md"
 CHECKER = Path(__file__).resolve().parent / "check_portfolio_numbers.py"
+ROUTE_COUNTING = Path(__file__).resolve().parent / "route_counting.py"
 LOG = Path(__file__).resolve().parent / "mutate_p2_46_round22_result.log"
 
 GATE = "tests/test_p2_46_round22_portfolio_docs.py"
+GATE_FILE = BACKEND / GATE
 NUMBERS_TEST = f"{GATE}::test_portfolio_numbers_match_repo_artifacts"
 ISOLATION_TEST = f"{GATE}::test_route_probe_isolated_from_in_process_app_state"
+EXPANSION_TEST = f"{GATE}::test_route_counting_expands_include_markers"
+GATE_TEST_COUNT = len(
+    re.findall(r"^def test_", GATE_FILE.read_text(encoding="utf-8"), re.MULTILINE)
+)
+# 参数化自证会展开成多条用例，故条数以 [final] 行的 passed 数为准，
+# 这里只报用例函数数，避免"9 个函数 vs 11 passed"的读数混淆。
 
 CASES = (
     {
@@ -83,6 +95,20 @@ CASES = (
             "（2026-10-20 CI 实测 5 个 REST 的复发闸门）"
         ),
     },
+    {
+        "cid": "T5",
+        "path": ROUTE_COUNTING,
+        "old": '        marker_router = getattr(route, "original_router", None)\n',
+        "new": '        marker_router = getattr(route, "_original_router_removed", None)\n',
+        "target": EXPANSION_TEST,
+        "expect": "test_route_counting_expands_include_markers",
+        "why": (
+            "展开契约类：删掉 _IncludedRouter.original_router 展开分支，标记形状"
+            "用例必须红（2026-10-21 CI 红项复发闸门：fastapi ≥0.151 不展开就只数"
+            "得到 main.py 自注册的 5 条）。嵌套/自引用两条合成用例是同源旁证，"
+            "本处只跑指名目标，避免与已知的 readme.scale.core 漂移混线"
+        ),
+    },
 )
 
 _lines: list[str] = []
@@ -117,7 +143,7 @@ def run_gate(target: str) -> tuple[int, str]:
 def main() -> int:
     log("=" * 72)
     log("ROUND_22 T4 数字自检闸门 —— 真实变异验证")
-    log(f"闸门：{GATE}（7 条）")
+    log(f"闸门：{GATE}（{GATE_TEST_COUNT} 个用例函数；含参数化展开后以 [final] 行为准）")
     log("=" * 72)
 
     snapshots = {case["path"]: case["path"].read_bytes() for case in CASES}
@@ -144,6 +170,11 @@ def main() -> int:
             try:
                 path.write_text(text.replace(old, new), encoding="utf-8")
                 code, out = run_gate(case["target"])
+                failed = [
+                    line.split(" - ")[0].strip()
+                    for line in out.splitlines()
+                    if line.startswith("FAILED ")
+                ]
                 targeted = case["expect"] in out
                 if code == 0:
                     log(f"[{cid}] ✗ 假绿：改坏了实现/数字，闸门仍然通过")
@@ -154,6 +185,8 @@ def main() -> int:
                 else:
                     log(f"[{cid}] ✓ 变异后变红，且指名 {case['expect']}")
                     results[cid] = "RED-OK"
+                if failed:
+                    log(f"     实际失败用例：{failed}")
             finally:
                 path.write_bytes(snapshots[path])
                 log(f"[{cid}] ✓ 还原（字节一致={path.read_bytes() == snapshots[path]}）")
