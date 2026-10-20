@@ -55,7 +55,9 @@ class ContentService:
 
         stmt = (
             stmt.order_by(
-                EducationContent.sort_order.asc(), EducationContent.created_at.desc()
+                EducationContent.sort_order.asc(),
+                EducationContent.created_at.desc(),
+                EducationContent.id.desc(),
             )
             .offset(offset)
             .limit(page_size)
@@ -150,7 +152,7 @@ class ContentService:
             select(EducationContent)
             .join(UserFavorite, UserFavorite.content_id == EducationContent.id)
             .where(UserFavorite.user_id == user_id, EducationContent.status == "active")
-            .order_by(UserFavorite.created_at.desc())
+            .order_by(UserFavorite.created_at.desc(), UserFavorite.id.desc())
             .offset(offset)
             .limit(page_size)
         )
@@ -274,6 +276,7 @@ class ContentService:
                 priority_case,
                 EducationContent.view_count.desc(),
                 EducationContent.created_at.desc(),
+                EducationContent.id.desc(),
             )
             .offset(offset)
             .limit(page_size)
@@ -286,6 +289,7 @@ class ContentService:
                 base_stmt.order_by(
                     EducationContent.view_count.desc(),
                     EducationContent.created_at.desc(),
+                    EducationContent.id.desc(),
                 )
                 .offset(offset)
                 .limit(page_size)

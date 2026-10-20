@@ -1,0 +1,24 @@
+# ROUND_24 变异见证 — tests/test_p2_51_round24_pagination_order_gate.py
+# 闸门用例数 17；行为用例数 6
+
+[baseline] returncode=0
+17 passed, 4 warnings in 7.87s
+[T1] RED-OK  去掉 get_history 的 id.desc() 次级键（分页仍在）
+       指名用例 test_no_unlisted_violations 变红；1 failed, 16 passed, 4 warnings in 8.01s
+[T2] RED-OK  白名单塞入指向不存在文件的伪造条目
+       指名用例 test_whitelist_entries_are_real 变红；1 failed, 16 passed, 4 warnings in 7.95s
+[T3] GREEN-OK 放行臂成立（无分页 ⇒ 不判违规）：同处同时去掉次级键与 offset/limit（退化为无分页）
+       17 passed, 4 warnings in 7.67s
+[T4] RED-OK  user_data_service 变量拆分形态去次级键
+       指名用例 test_no_unlisted_violations 变红；1 failed, 16 passed, 4 warnings in 8.04s
+[T5] RED-OK  白名单站点接上 offset（单页变真分页）
+       指名用例 test_whitelist_entries_are_real 变红；1 failed, 16 passed, 4 warnings in 7.97s
+
+[T1-behavior] returncode=1 target_hit=True（行为断言对并列组内 id 降序有区分力）
+  FAILED tests/test_p2_51_round24_pagination_behavior.py::test_intervention_history_pages_are_disjoint
+
+[final] returncode=0
+23 passed, 4 warnings in 9.53s
+[residual] CLEAN
+[summary] 4 RED-OK + 1 GREEN-OK / 5；residual_clean=True; final_green=True
+[exit] PASS

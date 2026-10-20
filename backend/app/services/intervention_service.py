@@ -220,7 +220,7 @@ class InterventionService:
         stmt = (
             select(InterventionPlan)
             .where(InterventionPlan.user_id == user_id)
-            .order_by(InterventionPlan.created_at.desc())
+            .order_by(InterventionPlan.created_at.desc(), InterventionPlan.id.desc())
             .offset(offset)
             .limit(page_size)
         )

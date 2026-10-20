@@ -434,7 +434,10 @@ class UserDataService:
             stmt = (
                 select(StructuredAssessment)
                 .where(StructuredAssessment.user_id == user_id)
-                .order_by(StructuredAssessment.created_at.desc())
+                .order_by(
+                    StructuredAssessment.created_at.desc(),
+                    StructuredAssessment.id.desc(),
+                )
             )
             count_stmt = (
                 select(func.count())
@@ -473,7 +476,10 @@ class UserDataService:
             stmt = (
                 select(TextEntry)
                 .where(TextEntry.user_id == user_id)
-                .order_by(TextEntry.created_at.desc())
+                .order_by(
+                    TextEntry.created_at.desc(),
+                    TextEntry.id.desc(),
+                )
             )
             count_stmt = (
                 select(func.count())

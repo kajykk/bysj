@@ -65,7 +65,7 @@ async def list_tenant_audit_logs(
     total = (await db.execute(count_stmt)).scalar_one()
 
     stmt = (
-        stmt.order_by(OperationLog.created_at.desc())
+        stmt.order_by(OperationLog.created_at.desc(), OperationLog.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
@@ -137,7 +137,7 @@ async def list_tenant_audit_logs_by_id(
     total = (await db.execute(count_stmt)).scalar_one()
 
     stmt = (
-        stmt.order_by(OperationLog.created_at.desc())
+        stmt.order_by(OperationLog.created_at.desc(), OperationLog.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )

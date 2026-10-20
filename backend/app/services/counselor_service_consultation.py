@@ -141,7 +141,7 @@ class ConsultationMixin:
                 ConsultationRecord.counselor_id == counselor_id,
                 ConsultationRecord.user_id == user_id,
             )
-            .order_by(ConsultationRecord.created_at.desc())
+            .order_by(ConsultationRecord.created_at.desc(), ConsultationRecord.id.desc())
             .offset(offset)
             .limit(page_size)
         )

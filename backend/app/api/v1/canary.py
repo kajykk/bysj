@@ -92,7 +92,9 @@ async def list_canaries(
     total = total_result.scalar() or 0
 
     # Get paginated results
-    stmt = stmt.order_by(CanaryRecord.created_at.desc()).offset(offset).limit(limit)
+    stmt = stmt.order_by(
+        CanaryRecord.created_at.desc(), CanaryRecord.id.desc()
+    ).offset(offset).limit(limit)
     result = await db.execute(stmt)
     canaries = result.scalars().all()
 

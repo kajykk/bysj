@@ -256,7 +256,9 @@ async def drift_alerts(
     total = total_result.scalar() or 0
 
     # Get paginated results
-    stmt = stmt.order_by(DriftAlert.created_at.desc()).offset(offset).limit(limit)
+    stmt = stmt.order_by(
+        DriftAlert.created_at.desc(), DriftAlert.id.desc()
+    ).offset(offset).limit(limit)
     result = await db.execute(stmt)
     alerts = result.scalars().all()
 
@@ -434,7 +436,9 @@ async def request_details_list(
     total = total_result.scalar() or 0
 
     # Get paginated results
-    stmt = stmt.order_by(MonitoringLog.created_at.desc()).offset(offset).limit(limit)
+    stmt = stmt.order_by(
+        MonitoringLog.created_at.desc(), MonitoringLog.id.desc()
+    ).offset(offset).limit(limit)
     result = await db.execute(stmt)
     logs = result.scalars().all()
 

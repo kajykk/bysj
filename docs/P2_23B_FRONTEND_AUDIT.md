@@ -208,6 +208,14 @@ gitleaks 扫已入库历史且未配 allowlist，本闸门断言源码结构。
 （`admin_service_config` / `content_service` / `counselor_service_consultation` /
 `counselor_service_user` ×3 / `crisis_export_service` 等）属同一风险，**本轮不动**。
 
+> **ROUND_24 已兑现（2026-10-21，`docs/P2_51_ROUND24_PAGINATION_ORDER_AUDIT.md`）**：
+> 上述「10+ 处」是当时的**估算**，实测口径为 AST（非字符串匹配）：
+> 含非唯一时间列的 `order_by` 站点共 **32 处**，其中带 `.offset` 的真分页 **18 处**
+> （本轮补次级键 15 处，另 3 处 ROUND_23 已修/原有）、只带 `.limit` 的单页截断
+> **11 处**（10 处经裁定入白名单、1 处原有次级键）、无分页子句 3 处。
+> 当前白名单外违规 = **0**，并由闸门 `test_p2_51_round24_pagination_order_gate.py`
+> 持续看守。
+
 ## 八、未验证记账
 
 - **M27 三态是源码结构见证，不是挂载级渲染验证**：`CounselorDashboard.vue` 依赖

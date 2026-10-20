@@ -309,6 +309,8 @@ async def list_pending_content(
                 else_=1,
             ),
             EducationContent.created_at.asc(),
+            # ROUND_24：审核队列是 FIFO（created_at 升序），次级键同向用 asc。
+            EducationContent.id.asc(),
         )
     )
 

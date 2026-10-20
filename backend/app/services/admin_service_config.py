@@ -27,7 +27,7 @@ class ConfigMixin:
         offset = (page - 1) * page_size
         stmt = (
             select(ModelFeedback)
-            .order_by(ModelFeedback.created_at.desc())
+            .order_by(ModelFeedback.created_at.desc(), ModelFeedback.id.desc())
             .offset(offset)
             .limit(page_size)
         )
