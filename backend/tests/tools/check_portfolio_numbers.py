@@ -37,7 +37,9 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -59,6 +61,33 @@ BUCKET_JSON = BACKEND / "tests" / "tools" / "classify_p2_35_batch6_result.json"
 METRICS_JSON = DOCS / "planning" / "backend_text_bilingual_v2_metrics.json"
 AUTH_GATE = BACKEND / "tests" / "test_p2_41_round17_auth_gate.py"
 COMPOSE = REPO / "docker-compose.yml"
+
+# 路由计数子进程：哨兵行前缀 + 超时。哨兵是为了在 stderr/stdout 混入
+# 无关告警时也能定位到我们那行 JSON（不假设"最后一行就是结果"）。
+_ROUTE_PROBE_SENTINEL = "__ROUTE_PROBE__"
+_ROUTE_PROBE_TIMEOUT_S = 240
+
+_ROUTE_PROBE_TEMPLATE = '''
+import json
+import sys
+
+sys.path.insert(0, %(backend)r)
+
+from fastapi.routing import APIRoute
+from starlette.routing import WebSocketRoute
+
+from app.main import app
+
+print(
+    %(sentinel)r
+    + json.dumps(
+        {
+            "rest": sum(1 for r in app.routes if isinstance(r, APIRoute)),
+            "ws": sum(1 for r in app.routes if isinstance(r, WebSocketRoute)),
+        }
+    )
+)
+'''
 
 
 # ── 文本归一化 ─────────────────────────────────────────────────────────
@@ -161,17 +190,65 @@ def probe_auth_gate() -> dict[str, int]:
 
 
 def probe_routes() -> dict[str, int]:
-    """运行时端点：FastAPI 里真实注册的 REST / WebSocket 路由数。"""
-    if str(BACKEND) not in sys.path:
-        sys.path.insert(0, str(BACKEND))
-    from fastapi.routing import APIRoute  # noqa: PLC0415 - 需先修 sys.path
-    from starlette.routing import WebSocketRoute  # noqa: PLC0415
+    """运行时端点：FastAPI 里真实注册的 REST / WebSocket 路由数。
 
-    from app.main import app  # noqa: PLC0415
+    为什么必须开**独立解释器**来数（2026-10-20 实测）
+    ------------------------------------------------
+    最初是在当前进程里 `from app.main import app` 直接数 `app.routes`。本地独立跑
+    对得上（206/3），但 CI 全量套件跑到本闸门时实测 **5 个 REST + 3 个 WS** ——
+    恰好等于 `app/main.py` 自注册的那 5 条 `@app.get` 与 3 条 `@app.websocket`，
+    也就是说那一刻的 `app` 实例**一条 include_router 进来的 v1 路由都没有**。
+    仓库里对这类现象早有记录：`tests/test_observability_api.py` 为避免同一问题
+    直接把该断言 `pytest.skip` 掉了（注释：「全量套件下 api_router 因模块加载
+    顺序为空」）。
 
-    rest = sum(1 for r in app.routes if isinstance(r, APIRoute))
-    ws = sum(1 for r in app.routes if isinstance(r, WebSocketRoute))
-    return {"rest": rest, "ws": ws}
+    结论：`app.routes` 是**进程内可变全局**，它的读数取决于前面 7000+ 个用例把
+    模块表搅成什么样。以此为判据的闸门必然随执行顺序漂移；而 README 声称的
+    「运行时端点」本意是**交付形态**（干净解释器 import 一次得到的东西）。
+    故改为子进程：`sys.executable -c` 里 import 一次、数一次、打印哨兵行。
+
+    失败一律抛错，**不返回 0** —— 数不出来就说数不出来，不拿 0 当读数。
+    """
+    measured = _measure_routes_in_child()
+    return measured
+
+
+def _measure_routes_in_child() -> dict[str, int]:
+    """实际去子进程里数（`probe_routes` 的实现细节；变异见证 T4 翻转的就是这一层）。"""
+    env = dict(os.environ)
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    source = _ROUTE_PROBE_TEMPLATE % {
+        "backend": str(BACKEND),
+        "sentinel": _ROUTE_PROBE_SENTINEL,
+    }
+    try:
+        proc = subprocess.run(  # noqa: S603 - 参数固定，无 shell，无用户输入
+            [sys.executable, "-c", source],
+            cwd=str(BACKEND),
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_ROUTE_PROBE_TIMEOUT_S,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"路由计数子进程无法执行（不返回 0）：{exc!r}") from exc
+
+    if proc.returncode != 0:
+        tail = "\n".join((proc.stderr or "").strip().splitlines()[-8:])
+        raise RuntimeError(
+            f"路由计数子进程失败（exit={proc.returncode}）；不返回 0：\n{tail}"
+        )
+    for line in reversed((proc.stdout or "").splitlines()):
+        if line.startswith(_ROUTE_PROBE_SENTINEL):
+            payload = json.loads(line[len(_ROUTE_PROBE_SENTINEL) :])
+            return {"rest": int(payload["rest"]), "ws": int(payload["ws"])}
+    raise RuntimeError(
+        "路由计数子进程没有输出哨兵行 "
+        f"{_ROUTE_PROBE_SENTINEL}；stdout 尾部：{(proc.stdout or '')[-400:]!r}"
+    )
 
 
 def probe_scale() -> dict[str, int]:

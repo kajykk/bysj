@@ -14,6 +14,14 @@
 
 变异见证（见 `tests/tools/mutate_p2_46_round22.py`）：
 直接把 README 里的桶计数 341 改成 342 ⇒ 本文件红；还原后绿。
+
+测量隔离（2026-10-20 CI 红项，见 `docs/P2_22_ROUND22_PORTFOLIO_AUDIT.md` §七）
+--------------------------------------------------------------------------
+`probe_routes` 第一版在**当前进程**里数 `app.routes`：本地 206，CI 全量套件里
+数到 5（恰好等于 `app/main.py` 自注册的路由数，即 include_router 进来的 v1 路由
+一条不剩）。`app.routes` 是进程内可变全局，读数随「前面 7000+ 用例把模块表搅成
+什么样」漂移 —— 拿它当判据的闸门必然顺序敏感。现改为子进程里 import 一次再数，
+下面两条用例分别钉住「不读进程内状态」与「数不出来时报错而不是报 0」。
 """
 
 from __future__ import annotations
@@ -100,3 +108,54 @@ def test_gate_catches_single_digit_tampering(
     assert any(item.startswith(f"[{cid}]") for item in failures), (
         f"改坏 {cid} 后闸门没有指到这一条，实际失败：{failures}"
     )
+
+
+def test_route_probe_isolated_from_in_process_app_state() -> None:
+    """路由计数不得读进程内 `app.routes`（CI 全量套件下的污染就在这里）。
+
+    做法：把进程内 `app.router.routes` 削成 `app/main.py` 自注册的那 5 条 REST
+    —— 这正是 2026-10-20 CI 实测到的形态（5 个 REST + 3 个 WS）。若探针仍在本
+    进程里数，读数会跟着塌到 5；若已改为独立解释器，读数不受影响。
+    """
+    from fastapi.routing import APIRoute
+
+    from app.main import app
+
+    checker = _load_checker()
+    baseline = checker.probe_routes()
+
+    saved = list(app.router.routes)
+    try:
+        kept = [r for r in saved if isinstance(r, APIRoute)][:5]
+        app.router.routes[:] = kept + [
+            r for r in saved if not isinstance(r, APIRoute)
+        ]
+        contaminated = sum(1 for r in app.routes if isinstance(r, APIRoute))
+        assert contaminated == 5, (
+            f"污染注入失效：进程内 REST 端点应为 5，实际 {contaminated}"
+        )
+        measured = checker.probe_routes()
+    finally:
+        app.router.routes[:] = saved
+
+    assert measured == baseline, (
+        "路由计数被进程内 app.routes 污染了："
+        f"污染前 {baseline} ≠ 污染后 {measured}。"
+        "判据必须来自独立解释器（见 probe_routes 的 docstring）"
+    )
+    assert baseline["rest"] > 100, (
+        f"独立解释器里只有 {baseline['rest']} 个 REST 端点，"
+        "说明 app 根本没有把 v1 路由挂上（不是闸门问题，是应用装配问题）"
+    )
+
+
+def test_route_probe_fails_loudly_instead_of_reporting_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """数不出来就报错 —— 绝不用 0 顶替读数。"""
+    checker = _load_checker()
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "no-such-python"))
+
+    with pytest.raises(RuntimeError, match="不返回 0"):
+        checker.probe_routes()

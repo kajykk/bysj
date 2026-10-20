@@ -1,26 +1,31 @@
 ========================================================================
 ROUND_22 T4 数字自检闸门 —— 真实变异验证
-闸门：tests/test_p2_46_round22_portfolio_docs.py（5 条）
+闸门：tests/test_p2_46_round22_portfolio_docs.py（7 条）
 ========================================================================
 
 [T1] README.md：'**341 处 except 候选**全部裁定：已接线 109' → '**342 处 except 候选**全部裁定：已接线 109'
      强度：强（probe 类：桶计数由 classify 产物钉住（锚点含 ** 强调符，见 §七.3 的踩坑））
-[T1] ✓ 变异后变红，且指名 readme.buckets
+[T1] ✓ 变异后变红，且指名 [readme.buckets]
 [T1] ✓ 还原（字节一致=True）
 
 [T2] EVALUATION_TRUST_SUMMARY.md：'ΔF1 +0.3111 / ΔAUC +0.1573' → 'ΔF1 +0.3111 / ΔAUC +0.1574'
      强度：强（report 类：跨文档对齐，末位改一位也必须红）
-[T2] ✓ 变异后变红，且指名 summary.delta_f1
+[T2] ✓ 变异后变红，且指名 [summary.delta_f1]
 [T2] ✓ 还原（字节一致=True）
 
 [T3] README.md：'88 处划分与挑优调用点' → '188 处划分与挑优调用点'
      强度：强（probe 类：扫描入口数现场复算）
-[T3] ✓ 变异后变红，且指名 readme.scan
+[T3] ✓ 变异后变红，且指名 [readme.scan]
 [T3] ✓ 还原（字节一致=True）
+
+[T4] check_portfolio_numbers.py：'measured = _measure_routes_in_child()' → 'from fastapi.routing import APIRoute\n    from starlette.routing import WebSocketRoute\n\n    from app.main import app\n\n    measured = {\n        "rest": sum(1 for r in app.routes if isinstance(r, APIRoute)),\n        "ws": sum(1 for r in app.routes if isinstance(r, WebSocketRoute)),\n    }'
+     强度：强（测量位置类：把子进程计数翻回进程内计数，隔离用例必须红（2026-10-20 CI 实测 5 个 REST 的复发闸门））
+[T4] ✓ 变异后变红，且指名 test_route_probe_isolated_from_in_process_app_state
+[T4] ✓ 还原（字节一致=True）
 
 [residual] 残留文件: 无
 [final] 还原后 returncode=0（0=全绿）
-[final] 1 passed, 7 warnings in 9.76s
+[final] 7 passed, 16 warnings in 64.96s (0:01:04)
 
-[summary] T1=RED-OK | T2=RED-OK | T3=RED-OK
+[summary] T1=RED-OK | T2=RED-OK | T3=RED-OK | T4=RED-OK
 [summary] residual_clean=True final_green=True all_red_ok=True

@@ -17,7 +17,7 @@
 2. **通读 5 份源文档**：`EVALUATION_INTEGRITY_REPORT.md`、`ML_LEAKAGE_AUDIT.md`、
    `ML_LEAKAGE_REMEDIATION.md`、`planning/P2_R15_EARLY_DETECTION_RESULT.md`、
    `planning/P2_R15_CLINICAL_READINESS.md`。
-3. **README 既有数字逐项复测**（结果见 §五，发现 6 处不一致并修正）。
+3. **README 既有数字逐项复测**（结果见 §五，发现 8 处不一致并修正）。
 
 ---
 
@@ -105,8 +105,8 @@ DEMO OK
 | 产物 | 作用 |
 |---|---|
 | `backend/tests/tools/check_portfolio_numbers.py` | 21 条检查；`--show` 可打印各探针算出的真值 |
-| `backend/tests/test_p2_46_round22_portfolio_docs.py` | 把检查接进 CI（5 条：全量核对 / 反弱化 / 3 条自证） |
-| `backend/tests/tools/mutate_p2_46_round22.py` | 3 处真实变异 + 日志入库 |
+| `backend/tests/test_p2_46_round22_portfolio_docs.py` | 把检查接进 CI（7 条：全量核对 / 反弱化 / 3 条自证 / 2 条测量纪律） |
+| `backend/tests/tools/mutate_p2_46_round22.py` | 4 处真实变异 + 日志入库 |
 
 **两类探针**（在文档里也写明了，避免"假装能复算"）：
 
@@ -146,7 +146,10 @@ README 里以"带日期的快照 + 复现命令"呈现，并在同一行写明"�
 测试文件里带 3 条自证：把 README/摘要复制到临时目录、改坏一个数字，
 再要求 `run_checks()` **指名**报出对应检查编号。这三条保证"闸门会红"不依赖外部变异脚本。
 
-### 4.6 真实变异（3/3 RED-OK）
+另有 2 条**测量纪律**用例（2026-10-20 CI 红项后补，见 §八）：路由计数不得读进程内
+`app.routes`（污染注入后读数必须不变）、子进程失败必须抛错而不是报 0。
+
+### 4.6 真实变异（4/4 RED-OK）
 
 日志：`backend/tests/tools/mutate_p2_46_round22_result.log`
 
@@ -155,12 +158,13 @@ README 里以"带日期的快照 + 复现命令"呈现，并在同一行写明"�
 | T1 | README `**341 处 except 候选**全部裁定` → `342`（锚点含强调符，故整句唯一） | 红，且指名 `[readme.buckets]` |
 | T2 | 摘要 `ΔAUC +0.1573` → `+0.1574`（末位改一位） | 红，且指名 `[summary.delta_f1]` |
 | T3 | README `88 处划分与挑优调用点` → `188 处` | 红，且指名 `[readme.scan]` |
+| T4 | `probe_routes` 由「子进程数」翻回「进程内数」 | 红，且由隔离用例 `test_route_probe_isolated_from_in_process_app_state` 指名 |
 
-`residual_clean=True`、`final_green=True`、`all_red_ok=True`（还原后 1 passed）。
+`residual_clean=True`、`final_green=True`、`all_red_ok=True`（还原后 7 passed）。
 
 ---
 
-## 五、README 既有数字核对与修正（发现 6 处不一致）
+## 五、README 既有数字核对与修正（发现 8 处不一致）
 
 | 项 | 旧读数（2026-09-23） | 本轮实测（2026-10-20） | 口径 |
 |---|---|---|---|
@@ -208,10 +212,10 @@ README 里以"带日期的快照 + 复现命令"呈现，并在同一行写明"�
 |---|---|
 | `README.md`（改） | 新增 60 秒概览 / 流向图 / 最短跑起来 / demo / 文档索引；规模数字按实测更新 |
 | `docs/EVALUATION_TRUST_SUMMARY.md`（新） | T2 一页摘要 |
-| `backend/tests/tools/check_portfolio_numbers.py`（新） | T4 数字自检（17 条） |
-| `backend/tests/test_p2_46_round22_portfolio_docs.py`（新） | T4 CI 闸门（5 条，含 3 条自证） |
+| `backend/tests/tools/check_portfolio_numbers.py`（新） | T4 数字自检（21 条） |
+| `backend/tests/test_p2_46_round22_portfolio_docs.py`（新） | T4 CI 闸门（7 条，含 3 条自证 + 2 条测量纪律） |
 | `backend/tests/tools/portfolio_demo.py`（新） | T3 最小闭环演示 |
-| `backend/tests/tools/mutate_p2_46_round22.py` + `_result.log`（新） | 3 处变异见证 |
+| `backend/tests/tools/mutate_p2_46_round22.py` + `_result.log`（新） | 4 处变异见证 |
 | 5 份源文档（各 +1 行） | 只加指向概览/摘要的链接，数字与结论未动 |
 
 ### 附：本轮踩到的两个坑（写进来是因为它们都是"口径"问题）
@@ -228,3 +232,53 @@ README 里以"带日期的快照 + 复现命令"呈现，并在同一行写明"�
    `**341 …**` 而 0 次命中。最终锚点取 `**341 处 except 候选**全部裁定：已接线 109`。
    教训：**变异锚点必须钉原文形态（含排版符），而判据可以归一化**——两者目的不同，
    不能共用一套字符串。
+
+---
+
+## 八、CI 红项复盘：`readme.routes` 在 CI 里数到 5 个 REST（2026-10-20）
+
+**现象**：`2948428` 推送后 `backend-coverage` 唯一红项是
+`test_p2_46_round22_portfolio_docs.py::test_portfolio_numbers_match_repo_artifacts`，
+失败信息指名 `[readme.routes]` / `[readme.scale.routes]`：
+README 期望 `206 个 REST 端点 + 3 个 WebSocket 长连接`，CI 里探针算出的是
+`5 个 REST 端点 + 3 个 WebSocket`。
+
+**定位（实测，不是推断）**：5 = `app/main.py` 里 `@app.get` 自注册条数（实测
+`grep -c "^@app\\.\\(get\\|post\\|put\\|patch\\|delete\\)" app/main.py` → 5），
+3 = `@app.websocket` 条数。也就是说 **CI 那一刻的 `app` 实例里，
+`app.include_router(api_router)` 进来的 v1 路由一条都没有**。仓库对这类现象早有
+记录：`tests/test_observability_api.py::test_observability_registered_in_api_router`
+为避免它直接 `pytest.skip`，注释原文「全量套件下 api_router 因模块加载顺序为空导致的
+CI flake」。
+
+**根因**：`app.routes` 是**进程内可变全局**。首版探针在 pytest 进程里
+`from app.main import app` 直接数 —— 7000+ 个用例跑完之后，模块表早已被搅成
+某个顺序相关的状态，读数随之漂移。README 里「运行时端点」的本意是**交付形态**
+（干净解释器 import 一次得到的东西），用会话内状态去代表它，必然顺序敏感。
+
+**修复**：`probe_routes()` 改为 `sys.executable -c <脚本>` 起**独立解释器**，
+在里面 import 一次、数一次、打印哨兵行 `__ROUTE_PROBE__{json}`，父进程按哨兵行取数。
+失败一律 `RuntimeError`，**不返回 0**（数不出来就说数不出来）。
+
+**复现与见证**：
+
+- `test_route_probe_isolated_from_in_process_app_state`：把进程内
+  `app.router.routes` 削成"5 条 REST + 3 条 WS"（**复刻 CI 形态**），
+  要求探针读数不变。旧实现在此必红。
+- `test_route_probe_fails_loudly_instead_of_reporting_zero`：`sys.executable`
+  指向不存在的路径 ⇒ 必须抛错。
+- 变异 T4（`mutate_p2_46_round22.py`）：把 `probe_routes` 由「子进程数」翻回
+  「进程内数」⇒ 必须由隔离用例指名变红。实测 RED-OK。
+
+**读数**（2026-10-20 本机）：`check_portfolio_numbers.py` 21/21；闸门 7 passed；
+变异 4/4 RED-OK、`residual_clean=True`、`final_green=True`。
+
+**未隔离项（记账）**：具体是哪个用例 / 哪次导入把 `app` 建成了空壳，
+**没有定位出来**。本地 `pytest tests/test_p2_11_round11.py + 闸门` 238 passed
+（无复现），全量 37 分钟套件本轮未跑。因此隔离用例采用**症状复刻**（把路由表削到
+CI 形态）而非"注入真凶"；子进程方案对两类污染（任何形式的进程内改动）均免疫。
+若未来再出现进程内读数漂移类问题，本条就是排查起点。
+
+**教训（与 §4.2 是一体两面）**：§4.2 的"断言钉结构、不钉孤立字面量"防的是
+**改错地方不红**；本条防的是**环境变了假红/假绿**。判据必须钉"交付形态"，
+不能钉"当前进程状态"。
