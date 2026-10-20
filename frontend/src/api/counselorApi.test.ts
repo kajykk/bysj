@@ -232,10 +232,24 @@ describe('api/counselorApi', () => {
       expect(count).toBe(17)
     })
 
-    it('接口异常时返回 0', async () => {
+    // M27 修复（ROUND_23）：失败返回 null（不是 0），让调用方能区分三态
+    it('接口 500 时返回 null（不是 0）', async () => {
       (requestPageData as any).mockRejectedValueOnce(new Error('500'))
       const count = await counselorApi.getCounselorUnhandledWarningCount()
+      expect(count).toBeNull()
+      expect(count).not.toBe(0)
+    })
+
+    it('网络超时同样返回 null，不抛异常', async () => {
+      (requestPageData as any).mockRejectedValueOnce(new Error('timeout'))
+      await expect(counselorApi.getCounselorUnhandledWarningCount()).resolves.toBeNull()
+    })
+
+    it('确实为 0 时返回 0（与加载失败区分）', async () => {
+      (requestPageData as any).mockResolvedValueOnce({ total: 0, items: [], page: 1, page_size: 1 })
+      const count = await counselorApi.getCounselorUnhandledWarningCount()
       expect(count).toBe(0)
+      expect(count).not.toBeNull()
     })
   })
 

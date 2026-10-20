@@ -12,7 +12,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import i18n from '@/i18n'
 import UserAssessmentsPage from './UserAssessmentsPage.vue'
-import { CACHE_KEY, readCachedAssessmentItem } from './utils/assessmentDetailCache'
+import { readCachedAssessmentItem } from './utils/assessmentDetailCache'
 
 const { listMock } = vi.hoisted(() => ({ listMock: vi.fn() }))
 
@@ -26,7 +26,8 @@ vi.mock('@/utils/mockFallback', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ role: 'user' }),
+  // M25 修复（ROUND_23）：快照键带用户后缀，测试用户 id=7
+  useAuthStore: () => ({ role: 'user', user: { id: 7 } }),
 }))
 
 vi.mock('vue-router', () => ({
@@ -129,8 +130,8 @@ describe('UserAssessmentsPage P2-36 迁移', () => {
     first.resolve({ items: [mkItem(200)], total: 1 })
     await flushPromises()
 
-    expect(readCachedAssessmentItem(CACHE_KEY, 300)).not.toBeNull()
-    expect(readCachedAssessmentItem(CACHE_KEY, 200)).toBeNull()
+    expect(readCachedAssessmentItem(7, 300)).not.toBeNull()
+    expect(readCachedAssessmentItem(7, 200)).toBeNull()
     wrapper.unmount()
   })
 })

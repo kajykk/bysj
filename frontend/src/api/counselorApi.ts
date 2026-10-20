@@ -72,12 +72,26 @@ export const counselorApi = {
   addCounselorGroupMember: (groupId: number, userId: number) =>
     requestData<{ message: string }>(request.post(`/counselor/groups/${groupId}/members`, { user_id: userId })),
 
-  getCounselorUnhandledWarningCount: async (): Promise<number> => {
+  /**
+   * 待处理预警数；**加载失败返回 null**（M27 修复，ROUND_23）。
+   *
+   * 修前 `catch { return 0 }`：接口 500 / 超时会把「加载失败」渲染成
+   * 「确实没有待处理预警」，咨询师据此判断"没人需要干预"——漏报风险。
+   * 返回 null 让调用方能区分三态：
+   *   - `0`   = 确实没有待处理
+   *   - `null` = 加载失败（渲染"加载失败/—"，**不得渲染成 0**）
+   *   - 其余数字 = 真实待处理数
+   *
+   * 这里**禁止抛异常**：唯一生产调用点在 `Promise.all([...])` 内
+   * （CounselorDashboard 的 loadStats），抛错会把同批的
+   * getCounselorUserCount 一起拖挂（Promise.all 快速失败语义）。
+   */
+  getCounselorUnhandledWarningCount: async (): Promise<number | null> => {
     try {
       const data = await requestPageData<WarningItem>(dedupedGet('/counselor/warnings', { params: { page: 1, page_size: 1, only_unhandled: true } }))
       return data.total
     } catch {
-      return 0
+      return null
     }
   },
 

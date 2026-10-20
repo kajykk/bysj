@@ -25,13 +25,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import i18n from '@/i18n'
 
-const { detailMock, routeState } = vi.hoisted(() => ({
+const { detailMock, routeState, authState } = vi.hoisted(() => ({
   detailMock: vi.fn(),
   routeState: { id: '11' },
+  // M25 修复（ROUND_23）：详情页快照按用户隔离，测试用户 id=7
+  authState: { user: { id: 7 } },
 }))
 
 vi.mock('@/api/userRiskApi', () => ({
   userRiskApi: { getAssessmentDetail: detailMock },
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authState,
 }))
 
 const pushMock = vi.fn()
@@ -180,23 +186,42 @@ describe('UserAssessmentDetailPage 本地渲染（不改后端）', () => {
   })
 
   it('新标签页打开（无 history.state）时从 sessionStorage 快照取载荷', async () => {
-    const { writeAssessmentDetailCache, CACHE_KEY } = await import('./utils/assessmentDetailCache')
-    writeAssessmentDetailCache([STRUCTURED_ITEM, TEXT_ITEM])
+    const { writeAssessmentDetailCache, assessmentDetailCacheKey } = await import(
+      './utils/assessmentDetailCache'
+    )
+    writeAssessmentDetailCache([STRUCTURED_ITEM, TEXT_ITEM], authState.user.id)
     goToDetailWithoutState(11)
 
     const wrapper = await mountDetail()
     expect(wrapper.text()).toContain('PHQ-9')
     expect(wrapper.text()).toContain('72.5')
     expect(detailMock).not.toHaveBeenCalled()
-    expect(window.sessionStorage.getItem(CACHE_KEY)).not.toBeNull()
+    expect(
+      window.sessionStorage.getItem(assessmentDetailCacheKey(authState.user.id)!)
+    ).not.toBeNull()
   })
 
   it('快照里没有该 id 时同样 fail-closed（不拿邻近记录顶替）', async () => {
     const { writeAssessmentDetailCache } = await import('./utils/assessmentDetailCache')
-    writeAssessmentDetailCache([TEXT_ITEM])
+    writeAssessmentDetailCache([TEXT_ITEM], authState.user.id)
     goToDetailWithoutState(11)
 
     const wrapper = await mountDetail()
     expect(wrapper.text()).toContain('从评估列表')
+  })
+
+  it('换用户登录后读不到上一用户的快照（M25 跨用户泄漏）', async () => {
+    const { writeAssessmentDetailCache } = await import('./utils/assessmentDetailCache')
+    // A（id=7）写入自己的快照
+    writeAssessmentDetailCache([STRUCTURED_ITEM], 7)
+    // 同标签页换成 B（id=8）登录
+    authState.user = { id: 8 }
+    goToDetailWithoutState(11)
+
+    const wrapper = await mountDetail()
+    // B 没有 A 的记录：走明路径提示回列表，绝不显示 A 的 PHQ-9 数据
+    expect(wrapper.text()).toContain('从评估列表')
+    expect(wrapper.text()).not.toContain('PHQ-9')
+    authState.user = { id: 7 }
   })
 })

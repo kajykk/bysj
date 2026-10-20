@@ -18,6 +18,10 @@ const SENSITIVE_KEY_PATTERNS: RegExp[] = [
   /^physio_history_v1_(u\d+|anon_.+)$/,
   // 结构化评估预测历史 (usePredictionHistory)
   /^prediction_history_v1_(u\d+|anon_.+)$/,
+  // M25 修复（ROUND_23）：评估详情页整页快照（assessmentDetailCache）。
+  // 该键由 historyKeyWithUser 生成（同构 `<base>_u<userId>`）；修复前是无
+  // 后缀固定键且登出无清理——同标签页换用户登录会读到上一用户的评估快照。
+  /^bysj:assessment-history-snapshot_(u\d+|anon_.+)$/,
 ]
 
 let cachedAnonSessionId: string | null = null

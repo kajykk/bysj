@@ -239,7 +239,9 @@ const {
     rawItems.value = res.raw
     // 详情页改为本地渲染（ID 空间错配修复）：把本页原始项留一份快照，
     // 供详情页在新标签页/收藏后打开时兜底取用。
-    writeAssessmentDetailCache(res.raw)
+    // M25 修复（ROUND_23）：快照键带用户后缀 + 归属校验，取不到当前
+    // 用户 id 时不写入（fail-closed，详情页会走明路径提示回列表）。
+    writeAssessmentDetailCache(res.raw, auth.user?.id)
   },
   setPage: (value) => queryState.setQuery({ page: value }),
   immediate: false,

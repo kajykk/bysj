@@ -90,16 +90,17 @@ import {
   extractScore,
 } from '@/views/user/utils/assessmentHistory'
 import {
-  CACHE_KEY,
   decodeStatePayload,
   readCachedAssessmentItem,
 } from '@/views/user/utils/assessmentDetailCache'
+import { useAuthStore } from '@/stores/auth'
 // P2-A 修复：复用 formatUtils 的 formatDate（别名 formatDateTime 保持模板兼容），避免本地重复定义
 import { formatDate as formatDateTime } from '@/utils/formatUtils'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 /**
  * FIX-2026-10-08（ID 空间错配）：本页不再请求 `/user/risk/assessments/{id}`。
@@ -127,8 +128,12 @@ function readAssessmentItemFromState(): DataHistoryItem | null {
 function resolveRecord(): DataHistoryItem | null {
   const id = Number(route.params.id)
   if (!Number.isFinite(id)) return null
+  // M25 修复（ROUND_23）：快照读取带当前用户 id——键带用户后缀且读取时
+  // 校验归属，换用户登录后读不到上一用户的快照；取不到 id 时 fail-closed
+  // （返回 null，页面走「提示回列表」明路径）。
   const candidate =
-    readAssessmentItemFromState() ?? readCachedAssessmentItem(CACHE_KEY, id)
+    readAssessmentItemFromState() ??
+    readCachedAssessmentItem(auth.user?.id, id)
   if (!candidate) return null
   // id 必须与路由一致：否则宁可什么都不显示，也不显示别人的记录。
   if (Number(candidate.id) !== id) return null

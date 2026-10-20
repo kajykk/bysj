@@ -99,6 +99,53 @@ describe('auth store', () => {
     expect(localStorage.getItem('user')).toBeNull()
   })
 
+  // ===== M25 修复（ROUND_23）：登出必须清掉按用户隔离的评估详情快照 =====
+
+  it('logout 清掉当前用户的评估详情快照（原固定键登出无清理）', async () => {
+    const { writeAssessmentDetailCache, assessmentDetailCacheKey } = await import(
+      '@/views/user/utils/assessmentDetailCache'
+    )
+    writeAssessmentDetailCache(
+      [{ id: 11, type: 'structured', created_at: '2026-10-01T08:30:00', data: { score: 72.5 } }],
+      7
+    )
+    const key = assessmentDetailCacheKey(7)!
+    expect(key).toBe('bysj:assessment-history-snapshot_u7')
+    expect(sessionStorage.getItem(key)).not.toBeNull()
+
+    sessionStorage.setItem('token', 'access-old')
+    localStorage.setItem('user', JSON.stringify({ id: 7, username: 'alice', role: 'user' }))
+    vi.mocked(authApi.logout).mockResolvedValue({ message: 'ok', revoked_count: 1 })
+
+    const store = useAuthStore()
+    await store.logout()
+
+    // 快照键已纳入 SENSITIVE_KEY_PATTERNS，登出后两种 storage 都不该残留
+    expect(sessionStorage.getItem(key)).toBeNull()
+  })
+
+  it('login 清掉上一位用户残留的评估详情快照', async () => {
+    const { writeAssessmentDetailCache } = await import(
+      '@/views/user/utils/assessmentDetailCache'
+    )
+    writeAssessmentDetailCache(
+      [{ id: 11, type: 'structured', created_at: '2026-10-01T08:30:00', data: { score: 72.5 } }],
+      7
+    )
+    expect(sessionStorage.getItem('bysj:assessment-history-snapshot_u7')).not.toBeNull()
+
+    vi.mocked(authApi.login).mockResolvedValue({
+      access_token: 'access-1',
+      refresh_token: 'refresh-1',
+      user: { id: 8, username: 'bob', role: 'user', nickname: 'Bob' },
+    })
+
+    const store = useAuthStore()
+    await store.login('bob', 'secret')
+
+    expect(sessionStorage.getItem('bysj:assessment-history-snapshot_u7')).toBeNull()
+  })
+
   // ===== 新增测试：覆盖 register / restore / sync listener / persistAuth / broadcastAuthSync =====
 
   it('register 调用 authApi.register 并传递完整 payload', async () => {

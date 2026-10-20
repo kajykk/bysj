@@ -1,6 +1,7 @@
 // 类型下沉：从 @/types/auth 引用 UserInfo，避免通过 @/api/auth 引入类型-only 循环依赖
 // （api/auth.ts -> api/request.ts -> utils/authStorage.ts 形成运行时链路）
 import type { UserInfo } from '@/types/auth'
+import { isKnownRole, type UserRole } from '@/utils/roles'
 
 const TOKEN_KEY = 'token'
 const REFRESH_TOKEN_KEY = 'refreshToken' // 保留常量用于清理旧数据，不再存储新 token
@@ -46,7 +47,13 @@ function _safeRemoveItem(key: string, useSession: boolean = false): void {
 // ISS-097 修复：解析 JWT 的 exp 字段（Unix 秒 → 毫秒时间戳）。
 // 兼容非标准 base64url 编码：缺失 padding、-/_ 与 +// 混用，以及 "Bearer x.y.z" 前缀。
 // 非 JWT 或解析失败返回 null（交由 token_expiry / 调用方判定）。
-export function parseJwtExpiry(token: string): number | null {
+/**
+ * 解码 JWT payload 段（不做签名校验——签名校验只在后端做）。
+ *
+ * 兼容非标准 base64url 编码：缺失 padding、-/_ 与 +// 混用，以及
+ * "Bearer x.y.z" 前缀。任何一步失败返回 null。
+ */
+function _decodeJwtPayload(token: string): Record<string, unknown> | null {
   const compact = token.trim().replace(/^Bearer\s+/i, '')
   const parts = compact.split('.')
   if (parts.length < 3) return null
@@ -63,13 +70,38 @@ export function parseJwtExpiry(token: string): number | null {
   if (!decoded) return null
 
   try {
-    const payload = JSON.parse(decoded) as { exp?: unknown }
-    return typeof payload.exp === 'number' && Number.isFinite(payload.exp)
-      ? payload.exp * 1000
+    const payload: unknown = JSON.parse(decoded)
+    return payload && typeof payload === 'object'
+      ? (payload as Record<string, unknown>)
       : null
   } catch {
     return null
   }
+}
+
+export function parseJwtExpiry(token: string): number | null {
+  const payload = _decodeJwtPayload(token)
+  if (!payload) return null
+  return typeof payload.exp === 'number' && Number.isFinite(payload.exp)
+    ? payload.exp * 1000
+    : null
+}
+
+/**
+ * M26 修复（ROUND_23）：从 access_token 的 JWT claims 取角色。
+ *
+ * 为什么它是「已验证来源」：access_token 由后端签发（HS256，
+ * `auth_service.py` 的 claims 含 `role`），前端改不动 payload——
+ * 改了签名校验也必在后端失败。相对地，localStorage 里的 `user`
+ * 是 DevTools 随手可改的**占位值**，不能单独支撑权限决策。
+ *
+ * 返回值经 `isKnownRole` 校验（未知角色视为无凭证，fail-closed）。
+ */
+export function parseJwtRole(token: string): UserRole | null {
+  const payload = _decodeJwtPayload(token)
+  if (!payload) return null
+  const role: unknown = payload.role
+  return isKnownRole(role) ? role : null
 }
 
 function _isTokenExpired(): boolean {
@@ -137,12 +169,45 @@ function _sanitizeUserForStorage(user: UserInfo): Record<string, unknown> {
   return safeFields
 }
 
+/**
+ * M26 修复（ROUND_23）：存储的 user 经 schema 校验后才落地为 `UserInfo`。
+ *
+ * 修前是 `JSON.parse(userRaw) as UserInfo`——`as` 只是类型断言，**不做任何
+ * 运行时校验**：DevTools 里把 localStorage 的 user 改成
+ * `{"role":"super_admin"}` 就能让前端按超管渲染（后台结构暴露）。
+ * 校验规则（任一条不过即丢弃并回落到 null，绝不抛异常）：
+ *   1. 必须是对象；
+ *   2. 字段白名单（id/username/role/nickname）——拒绝任何额外字段，
+ *      顺带挡住被塞回的 email 等 PII；
+ *   3. 必填字段类型与取值（id 正整数、username 非空串、role 须
+ *      `isKnownRole` 命中）；
+ *   4. nickname 若存在必须是字符串。
+ *
+ * 注意：这里的校验只是**前端 UI 层**的自保，真实数据仍由后端 403 拦截
+ * （见 docs/P2_23B_FRONTEND_AUDIT.md 的边界声明）。
+ */
+const USER_ALLOWED_FIELDS: readonly string[] = ['id', 'username', 'role', 'nickname']
+
+function _isValidStoredUser(value: unknown): value is UserInfo {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const obj = value as Record<string, unknown>
+  for (const key of Object.keys(obj)) {
+    if (!USER_ALLOWED_FIELDS.includes(key)) return false
+  }
+  if (typeof obj.id !== 'number' || !Number.isInteger(obj.id) || obj.id <= 0) return false
+  if (typeof obj.username !== 'string' || obj.username === '') return false
+  if (!isKnownRole(obj.role)) return false
+  if (obj.nickname !== undefined && typeof obj.nickname !== 'string') return false
+  return true
+}
+
 export function getStoredUser(): UserInfo | null {
   const userRaw = _safeGetItem(USER_KEY, false)
   if (!userRaw) return null
 
   try {
-    return JSON.parse(userRaw) as UserInfo
+    const parsed: unknown = JSON.parse(userRaw)
+    return _isValidStoredUser(parsed) ? parsed : null
   } catch {
     return null
   }

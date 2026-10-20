@@ -28,13 +28,13 @@
       <BentoCell
         hero
         shimmer
-        :live-dot="unhandledCount > 0 ? 'alert' : 'primary'"
+        :live-dot="(unhandledCount ?? 0) > 0 ? 'alert' : 'primary'"
         :title="t('counselorDashboard.heroTitle')"
         class="bento-item"
       >
         <template #actions>
           <el-tag
-            v-if="unhandledCount > 0"
+            v-if="(unhandledCount ?? 0) > 0"
             type="danger"
             size="small"
             effect="light"
@@ -52,6 +52,20 @@
             variant="text"
           />
         </div>
+        <!--
+          M27 修复（ROUND_23）：三态渲染。unhandledCount 为 null 表示
+          **加载失败**，渲染"—" + 失败文案，**绝不渲染成 0**
+          （0 会被读成"确实没有待处理预警"，是漏报信号）。
+        -->
+        <template v-else-if="unhandledCount === null">
+          <div class="stat stat--hero stat--warning tabular-nums">
+            <span aria-hidden="true">—</span>
+            <span class="stat-unit">{{ t('counselorDashboard.heroUnit') }}</span>
+          </div>
+          <p class="stat-sub stat-sub--muted">
+            {{ t('counselorDashboard.heroLoadFailed') }}
+          </p>
+        </template>
         <template v-else>
           <div class="stat stat--hero stat--warning tabular-nums">
             <CountUp
@@ -240,7 +254,8 @@ const canHandleWarnings = hasPermission(auth.role, 'counselor.warning.handle')
 const canViewConsultations = hasPermission(auth.role, 'counselor.user.consultation.view')
 
 const statsLoading = ref(true)
-const unhandledCount = ref(0)
+// M27 修复（ROUND_23）：null = 加载失败（区别于「确实为 0」）
+const unhandledCount = ref<number | null>(0)
 const userCount = ref(0)
 const bindCodeLoading = ref(false)
 const bindCode = ref('')
@@ -425,6 +440,11 @@ onMounted(() => {
   margin: 0 0 0.5rem;
   font-size: var(--font-size-extra-small);
   color: var(--text-secondary);
+}
+
+/* M27 修复（ROUND_23）：失败态副文案用警示色，避免被读成正常说明 */
+.stat-sub--muted {
+  color: var(--el-color-warning, #e6a23c);
 }
 
 .stat-loading {

@@ -261,7 +261,10 @@ router.beforeEach((to, from) => {
     meta,
     {
       isLoggedIn: auth.isLoggedIn,
-      role: auth.role
+      role: auth.role,
+      // M26 修复（ROUND_23）：角色是否来自已验证来源（token claims 与
+      // 内存角色一致）。仅凭 localStorage 占位值不放行管理端。
+      roleVerified: auth.isRoleVerified
     }
   )
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearStoredAuth, getStoredRefreshToken, getStoredToken, getStoredUser, parseJwtExpiry, setStoredAuth } from './authStorage'
+import { clearStoredAuth, getStoredRefreshToken, getStoredToken, getStoredUser, parseJwtExpiry, parseJwtRole, setStoredAuth } from './authStorage'
 
 // ISS-097 测试辅助：构造非标准 base64url JWT（无 padding、URL-safe 字符）
 function makeJwt(payload: Record<string, unknown>): string {
@@ -36,6 +36,89 @@ describe('authStorage', () => {
   it('returns null for invalid stored user payloads', () => {
     localStorage.setItem('user', '{invalid json')
     expect(getStoredUser()).toBeNull()
+  })
+
+  // ===== M26 修复（ROUND_23）：getStoredUser 落地前做 schema 校验 =====
+
+  it('篡改 localStorage 为未知角色 ⇒ 丢弃（不返回、不抛异常）', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, username: 'alice', role: 'super_admin_hacker' }))
+    expect(getStoredUser()).toBeNull()
+  })
+
+  it('role 非法形态（数字 / null / 缺失 / 数组）一律丢弃', () => {
+    const bad: unknown[] = [
+      { id: 1, username: 'a', role: 1 },
+      { id: 1, username: 'a', role: null },
+      { id: 1, username: 'a' },
+      { id: 1, username: 'a', role: ['admin'] },
+    ]
+    for (const payload of bad) {
+      localStorage.setItem('user', JSON.stringify(payload))
+      expect(getStoredUser()).toBeNull()
+    }
+  })
+
+  it('id / username 类型不对或越界时丢弃', () => {
+    const bad: unknown[] = [
+      { id: '1', username: 'a', role: 'user' },
+      { id: 0, username: 'a', role: 'user' },
+      { id: -1, username: 'a', role: 'user' },
+      { id: 1.5, username: 'a', role: 'user' },
+      { id: 1, username: '', role: 'user' },
+      { id: 1, username: 42, role: 'user' },
+    ]
+    for (const payload of bad) {
+      localStorage.setItem('user', JSON.stringify(payload))
+      expect(getStoredUser()).toBeNull()
+    }
+  })
+
+  it('额外字段一律拒绝（字段白名单，挡住被塞回的 email 等 PII）', () => {
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ id: 1, username: 'alice', role: 'user', email: 'a@b.com' })
+    )
+    expect(getStoredUser()).toBeNull()
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ id: 1, username: 'alice', role: 'user', is_admin: true })
+    )
+    expect(getStoredUser()).toBeNull()
+  })
+
+  it('合法形态照常返回（含可选 nickname，不含 email）', () => {
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ id: 1, username: 'alice', role: 'user', nickname: 'Alice' })
+    )
+    expect(getStoredUser()).toEqual({ id: 1, username: 'alice', role: 'user', nickname: 'Alice' })
+  })
+
+  it('非对象形态（数组 / 字符串 / null）一律丢弃', () => {
+    for (const raw of ['[]', '"user"', 'null', '123']) {
+      localStorage.setItem('user', raw)
+      expect(getStoredUser()).toBeNull()
+    }
+  })
+
+  // ===== M26：JWT role claim 作为「已验证来源」 =====
+
+  it('parseJwtRole 从 token claims 取角色', () => {
+    expect(parseJwtRole(makeJwt({ sub: '1', role: 'admin' }))).toBe('admin')
+    expect(parseJwtRole(makeJwt({ sub: '1', role: 'super_admin' }))).toBe('super_admin')
+  })
+
+  it('parseJwtRole 对未知/非法 role 返回 null（fail-closed）', () => {
+    expect(parseJwtRole(makeJwt({ sub: '1', role: 'root' }))).toBeNull()
+    expect(parseJwtRole(makeJwt({ sub: '1', role: 1 }))).toBeNull()
+    expect(parseJwtRole(makeJwt({ sub: '1' }))).toBeNull()
+  })
+
+  it('parseJwtRole 对非 JWT / 空串 / 畸形串返回 null（不抛异常）', () => {
+    expect(parseJwtRole('')).toBeNull()
+    expect(parseJwtRole('not-a-jwt')).toBeNull()
+    expect(parseJwtRole('a.b.c')).toBeNull()
+    expect(() => parseJwtRole('!!!.@@@.###')).not.toThrow()
   })
 
   // ===== ISS-008 修复：token 现存于 sessionStorage =====

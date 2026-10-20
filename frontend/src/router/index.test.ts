@@ -96,6 +96,10 @@ function setAuthState(isLoggedIn: boolean, role: string): void {
   vi.mocked(useAuthStore).mockReturnValue({
     get isLoggedIn() { return state.isLoggedIn },
     get role() { return state.role },
+    // M26 修复（ROUND_23）：守卫要求角色来自已验证来源（token claims 与
+    // 内存角色一致）。本测试模拟的是"正常登录后的会话"，故为 true；
+    // 未验证场景由 guard.test.ts 的专用用例覆盖。
+    get isRoleVerified() { return state.isLoggedIn && role !== '' },
     restore: () => {
       state.isLoggedIn = false
       state.role = ''

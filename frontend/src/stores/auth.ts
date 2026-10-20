@@ -7,6 +7,7 @@ import {
   getStoredRefreshToken,
   getStoredToken,
   getStoredUser,
+  parseJwtRole,
   setStoredAuth,
 } from '@/utils/authStorage'
 import { clearSensitiveLocalStorage } from '@/utils/sensitiveStorage'
@@ -26,6 +27,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!token.value)
   const role = computed(() => user.value?.role || '')
+
+  /**
+   * M26 修复（ROUND_23）：内存里的 `role` 是否与后端签发的 token claims 一致。
+   *
+   * `user` 来自 localStorage（DevTools 可改），只有与 access_token 的 JWT
+   * `role` claim 比对一致才认为「已验证」——token 由后端签名，改 payload 会
+   * 让后端直接拒绝请求，因此这条比对是前端能拿到的最强凭证。
+   * 不一致 / 解析不出 / 缺 token ⇒ false，路由守卫据此 fail-closed
+   * （见 router/guard.ts 的 isAdminArea 判定与 /login 分支）。
+   */
+  const isRoleVerified = computed(() => {
+    const claimRole = token.value ? parseJwtRole(token.value) : null
+    return claimRole !== null && claimRole === role.value
+  })
 
   function syncAuth(next: AuthSyncDetail) {
     if (next.token !== undefined) token.value = next.token
@@ -180,5 +195,5 @@ export const useAuthStore = defineStore('auth', () => {
 
   const username = computed(() => user.value?.username || '')
 
-  return { token, refreshToken, user, isLoggedIn, role, username, login, register, restore, refreshSession, logout, persistAuth, broadcastAuthSync }
+  return { token, refreshToken, user, isLoggedIn, role, isRoleVerified, username, login, register, restore, refreshSession, logout, persistAuth, broadcastAuthSync }
 })
