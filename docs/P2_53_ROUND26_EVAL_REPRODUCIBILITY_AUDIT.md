@@ -220,6 +220,18 @@ acc/prec/rec 在四位小数上与名义值不可区分，因此旧文件的「p
 | 新增文件 | 脚本 1、产物 3（csv/sha256/json）、报告 1、DATASETS.md 1、本审计 1 |
 | 修改文件 | `physio_v2_test_ci.json`（加历史标注）、`model-evaluation/README.md`、`manifest.json` + `.sha256` |
 
+### 7.1 CI 首轮红项（`6db38c1`）与修复（可归因）
+
+`backend-coverage` 在首轮报红，两处**均系本轮新增脚本被既有闸门捕获**，不是缺陷回归：
+
+| 红项 | 闸门 | 原因 | 修复 |
+|---|---|---|---|
+| `ML 划分入口涉及文件数 41 != 基线 40` | `test_p2_38_leakage_audit_guard` | 新评估脚本的 `verify_original()` 含 2 处 `train_test_split`（穷举候选切分，不产出对外指标）⇒ files 40→41、entries 88→90 | 基线 `BASELINE_FILES=41 / BASELINE_ENTRIES=90` + `BASELINE_FILE_SET` 加该文件 + 注释写明「诊断用途、不吃标签豁免」 |
+| `对外材料里找不到字面量：41 个交付脚本 / 90 处…` | `test_p2_46_round22_portfolio_docs` | 同上，对外材料的数字随之变化 | README 三处、`EVALUATION_TRUST_SUMMARY.md` 一处同步 41/90；`test_p2_46` 的自证样本 88→90 |
+| （同批）`docs/ML_LEAKAGE_AUDIT.md` 清单 | 人工同步 | 清单标题/汇总/区域表 | 标题与汇总改 41/90；D 区加一行（新脚本 2 入口，标签「诊断用途」）+ ROUND_26 补记 |
+
+修复后本地复验：`p2_38 + p2_46 + p2_10 + p2_11` = **270 passed**（44 warnings, 124.65s）。
+
 **未验证记账**：
 
 - 环境的「换机器重跑仍一致」只做到**版本指纹落盘**（未在第二台机器实跑）；

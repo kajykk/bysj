@@ -101,7 +101,7 @@ def test_checker_covers_all_portfolio_docs() -> None:
     ("cid", "original", "tampered"),
     [
         ("readme.buckets", "341 处 except 候选", "342 处 except 候选"),
-        ("readme.scan", "88 处划分与挑优调用点", "188 处划分与挑优调用点"),
+        ("readme.scan", "90 处划分与挑优调用点", "190 处划分与挑优调用点"),
         ("summary.single_auc", "单特征 AUC 1.0000", "单特征 AUC 0.9999"),
     ],
 )

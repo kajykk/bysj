@@ -54,8 +54,15 @@ TOOLS = pathlib.Path(__file__).resolve().parent / "tools"
 # 构造器 kwargs 里的 `groups=`，而本实现把 `groups` 传给 `.split()` 并在返回前
 # 逐折实测「同组不跨折」（重叠即 raise）⇒ 人工核对为**合规入口**，
 # `group_aware_without_groups` 标签是 AST 层误报，记账为合规。
-BASELINE_FILES = 40
-BASELINE_ENTRIES = 88
+#
+# ROUND_26 更新（2026-10-23 实测，扫描器复跑 readings：files_touched=41 /
+# total_findings=90）：新增 `backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py`
+# 的 `verify_original()` —— 两处 `train_test_split` 只用于**穷举候选切分、
+# 回答「139 行测试集能否复现」**（结果写入诊断报告），不产出任何对外指标；
+# 该脚本的评估口径走确定性 `stratified_split`（rs=42）并落盘逐样本预测，
+# 已人工核对为「诊断用途、非评估入口」，但 AST 计数照记（不吃标签豁免）。
+BASELINE_FILES = 41
+BASELINE_ENTRIES = 90
 
 # 基线的文件级快照（用于失败时输出真实新增/移除差异，而不是把全量重列一遍）
 BASELINE_FILE_SET: frozenset[str] = frozenset(
@@ -73,6 +80,7 @@ BASELINE_FILE_SET: frozenset[str] = frozenset(
         "backend/scripts/modeling/v1_27/03_groupwise_leakage_free_eval.py",
         "backend/scripts/modeling/v1_27/04_retrain_bilingual_text_groupwise.py",
         "backend/scripts/modeling/verify_current_models.py",
+        "backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py",
         "scripts/data_prep/structured_feature_engineering.py",
         "scripts/deep_analysis.py",
         "scripts/eval_model.py",

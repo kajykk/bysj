@@ -64,7 +64,7 @@
 
 **L4 是本轮最严重的发现**，见 §五。
 
-## 四、全量清单（40 文件 / 88 入口）
+## 四、全量清单（41 文件 / 90 入口）
 
 区域划分：`A` 生产服务 / `B` v1.27 建模 / `C` v1.23~26 建模 / `D` 后端脚本 / `E` ML 训练 / `F` 历史实验
 
@@ -83,6 +83,7 @@
 | C | `backend/scripts/modeling/v1_26/00_reproduce_baseline.py` | 1 | `train_test_split`×1 | L1 |
 | C | `backend/scripts/modeling/v1_26/01_threshold_sweep.py` | 1 | `train_test_split`×1 | L1+L3 |
 | D | `backend/scripts/modeling/verify_current_models.py` | 1 | `train_test_split`×1 | L1 |
+| D | `backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py` | 2 | `train_test_split`×2 | 诊断用途（不产出对外指标，ROUND_26 新增） |
 | E | `scripts/ml_training/data_utils.py` | 2 | `train_test_split`×2 | L1 |
 | E | `scripts/ml_training/evaluate_models.py` | 2 | `train_test_split`×2 | L1 |
 | E | `scripts/ml_training/train_bilingual_text.py` | 2 | `train_test_split`×2 | L1 |
@@ -111,7 +112,7 @@
 | F | `scripts/train_structured_fallback.py` | 3 | `train_test_split`×1, `best_score`×2 | L1+L2 |
 | F | `scripts/train_text_bert.py` | 1 | `train_test_split`×1 | L1 |
 
-**区域汇总**：A 3 文件/8 入口｜B 3/8｜C 6/11｜D 1/1｜E 5/8｜F 22/52｜**合计 40 文件 / 88 入口**
+**区域汇总**：A 3 文件/8 入口｜B 3/8｜C 6/11｜D 2/3｜E 5/8｜F 22/52｜**合计 41 文件 / 90 入口**
 
 > 口径说明：本清单只含 **git 跟踪（已交付）** 的脚本。初版曾列 42 文件/92 入口，
 > 其中 `models/train_tabular_depression.py`、`models/train_text_depression_classifier.py`、
@@ -125,6 +126,16 @@
 > 「同组不跨折」（重叠即 raise）⇒ 标签 `group_aware_without_groups` 为
 > **AST 层误报**，人工逐条核对后记账为合规入口（已登记守卫基线
 > BASELINE_FILES=40 / BASELINE_ENTRIES=88）。
+
+> ROUND_26 补记（2026-10-23 实测扫描：files_touched=41 / total_findings=90）：
+> 新增 `backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py`（G1 可复跑评估）。
+> 其中 `verify_original()` 的 **2 处 `train_test_split`** 只用于**穷举候选切分**，
+> 回答「`metrics.json` 记录的 139 行测试集能否被 sklearn 两阶段切分复现」——
+> 实测结论是**全部不命中**（见 `docs/P2_53_ROUND26_EVAL_REPRODUCIBILITY_AUDIT.md` §2.3），
+> 属**诊断用途**：不产出任何对外指标，也不参与 `test_predictions.csv` 的生成。
+> 脚本的评估口径是确定性 `stratified_split`（rs=42）+ 逐样本落盘。
+> 按「不吃标签豁免」原则，AST 计数照记，人工核对为诊断入口。
+> 守卫基线同步 BASELINE_FILES=41 / BASELINE_ENTRIES=90。
 
 ## 五、关键发现（按严重度排序）
 
