@@ -1,4 +1,12 @@
 {
+  "_status": "SUPERSEDED — 保留为历史记录；新口径见 docs/model-evaluation/physio_v2_current_data_eval.json",
+  "_superseded_at": "2026-10-23",
+  "_reproducibility": "NOT REPRODUCIBLE：139 行测试集无法用仓内代码/数据重建（仓内唯一切分函数恒给 719/153/157；artifact scaler 与仓内三份数据均不匹配）。证据见 PHYSIO_V2_EVAL_REPORT.md §一",
+  "_method_notes": [
+    "AUC 的 Hanley-McNeil SE 已被 bootstrap over persisted per-sample scores 取代；本文件的 AUC CI 不再有效",
+    "f1.point = 0.8527 是 bootstrap 均值（重采样统计量），不是全样本名义值 0.8541667（后者见 metrics.json）；两者差 0.0015 即来源",
+    "acc/prec/rec 的 point 与全样本名义值在四位小数内不可区分（0.8992/0.9318/0.7884 与名义值同）"
+  ],
   "acc": {
     "point": 0.8992,
     "ci95": [

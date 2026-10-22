@@ -1,0 +1,47 @@
+{
+  "version": "v2-experimental",
+  "status": "TRAINING_PENDING",
+  "_audit_note_round26": {
+    "date": "2026-10-23",
+    "verdict": "本文件的 status 与 description 是 v1.28 时代的历史陈述，已过期；生产实际使用本目录的模型（v2）。",
+    "evidence": [
+      "backend/app/core/model_registry.py:142-146 注册 physiological_model_v2_dl：enabled=True, lifecycle=\"default\"，path 指向本目录 model.json",
+      "backend/app/core/model_engine/predict.py:1006-1023 的 _predict_physiological_sync 直接 load_model()/load_scaler()/load_cleaner() 加载本目录；缺工件时 503 -> L4 启发式，仓内不存在「回退到 physiological(v1)」的推理路径",
+      "backend/app/api/v1/metrics_helpers.py 里对 artifacts/physiological/metrics.json 的引用只用于 dashboard 展示，不是推理"
+    ],
+    "also_stale": "model_registry.py:148-158 的 artifact_metadata 同样过期：hidden_dims 记为 [64,32,16]、dropout 0.3、test_f1 0.9530，而 model.json 实际为 [128,64,32,16]、dropout 0.2，metrics.json 的 test_f1 为 0.8541667（三套数字，均不可复现，见 docs/P2_53_ROUND26_EVAL_REPRODUCIBILITY_AUDIT.md §T4）",
+    "kept_for_history": "保留 status=TRAINING_PENDING 与 description 原文，避免篡改历史；纠正以本字段为准"
+  },
+  "description": "physiological_optimized 是 v1.6 计划中的生理信号深度学习模型 (Deep MLP),计划采用更丰富的特征工程 (HRV, sleep stages, gait) 与 L2/Dropout 正则化,目标 F1 > 0.75。该资产未在 v1.28-final 中交付,生产环境仍使用 physiological (v1) 模型并通过 graceful degradation 降级。",
+  "baseline": {
+    "physiological_v1": {
+      "f1": 0.693634741225461,
+      "accuracy": 0.6890096618357487,
+      "precision": 0.6834701055099648,
+      "recall": 0.7041062801932367
+    }
+  },
+  "target": {
+    "f1": 0.75,
+    "accuracy": 0.78,
+    "training_samples_required": 5000
+  },
+  "plan": {
+    "data_requirements": ">= 5,000 标注样本 (生理 + 抑郁评分)",
+    "feature_engineering": "HRV 时频域 + 步态 + 睡眠分期 + 多模态融合",
+    "model_architecture": "MLP (256-128-64) + BatchNorm + Dropout(0.4) + L2(1e-4)",
+    "training": "AdamW + CosineAnnealingLR + EarlyStopping(patience=10)",
+    "evaluation": "5-fold CV + bootstrap 95% CI + McNemar vs v1 baseline",
+    "rollout": "canary deploy via /api/v1/canary/deployments, 5% traffic shadow"
+  },
+  "fallback_behavior": {
+    "current": "使用 physiological (v1) + heuristic rules",
+    "trigger": "load_physiological_optimized() raises -> catch -> log -> use v1"
+  },
+  "next_steps": [
+    "收集 ≥ 5,000 标注样本 (与高校心理中心合作)",
+    "在 v1.29 开启 v2 训练 (P0)",
+    "通过 canary 5% 流量灰度,与 v1 同期运行 14 天",
+    "McNemar 检验 p<0.05 后全量切换"
+  ]
+}

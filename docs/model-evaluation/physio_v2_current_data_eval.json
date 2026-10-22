@@ -1,0 +1,89 @@
+{
+  "_note": "本文件由 backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py 生成；数据集是仓内 depresjon 当前版本的确定性切分，NOT 原 139 行测试集（不可复现，见 report）",
+  "acc": {
+    "ci95": [
+      0.802548,
+      0.910828
+    ],
+    "point": 0.859873
+  },
+  "dataset": {
+    "class_counts": {
+      "0": 670,
+      "1": 359
+    },
+    "name": "depresjon_physiological.csv",
+    "rows": 1029,
+    "split": {
+      "scheme": "stratified 0.7/0.15/0.15, random_state=42",
+      "test": 157,
+      "train": 719,
+      "val": 153
+    }
+  },
+  "diagnostic_refit_scaler": {
+    "_note": "只换 scaler（在当前训练集重拟合），其余同生产链；非生产口径，仅用于定位缺陷",
+    "f1": 0.936937,
+    "rec": 0.945455,
+    "roc_auc": 0.984135
+  },
+  "f1": {
+    "ci95": [
+      0.638282,
+      0.843137
+    ],
+    "point": 0.75
+  },
+  "inference_chain": "DataCleaner.transform -> engineer_features -> SimpleStandardScaler.transform -> PhysiologicalMLP.predict_proba (production path, predict.py::_predict_physiological_sync)",
+  "meta": {
+    "FN": 22,
+    "FP": 0,
+    "TN": 102,
+    "TP": 33,
+    "bootstrap_B": 10000,
+    "n": 157,
+    "point_estimator": "full-sample statistic (not bootstrap mean)",
+    "seed": 42
+  },
+  "method": "bootstrap over persisted per-sample scores",
+  "prec": {
+    "ci95": [
+      1.0,
+      1.0
+    ],
+    "point": 1.0
+  },
+  "rec": {
+    "ci95": [
+      0.468733,
+      0.728814
+    ],
+    "point": 0.6
+  },
+  "reproducibility": {
+    "artifacts_sha256": {
+      "cleaner_stats.json": "94122278dca56c7edad1435cbb54a4b0b5d72f22b41f800a8b7ae5d388fe0bc2",
+      "feature_names.json": "bb7a24fe8b836fa3ba7befcc0c3070212d83eb7b2d9597f94cb82fb2c3514a22",
+      "model.json": "fb81098a6c85fe4fafe82a7716d2b516efd4d6fb8242a6019226917949f9ed52",
+      "scaler.json": "02d5d36f9355850323155530b35f94f8778e464df918369cb898127d4f842a8d"
+    },
+    "env": {
+      "numpy": "2.4.4",
+      "pandas": "3.0.2",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python": "3.12.0",
+      "scikit_learn": "1.8.0"
+    },
+    "predictions_csv_sha256": "539617fb83665de4dda1e646eae35703d194c9eb87f874aa02c62cf767c81d09",
+    "recompute_command": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py --report-only",
+    "rerun": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py"
+  },
+  "roc_auc": {
+    "ci95": [
+      0.969435,
+      0.99902
+    ],
+    "point": 0.988414
+  },
+  "threshold": 0.5
+}

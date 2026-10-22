@@ -4,14 +4,35 @@
 
 ## 1. 生理 MLP v2 测试集不确定性
 
+> **⚠️ ROUND_26（2026-10-23）复核：本节 1 的旧证据已不可复现，且 AUC 口径已作废。**
+>
+> - **139 行测试集无法重建**：仓内唯一的切分函数 `stratified_split`（两个历史版本逐行相同）
+>   在 depresjon 1029 行上恒给 **719/153/157**，不是 `metrics.json` 记录的 719/171/139；
+>   且 artifact 的 `scaler.json` 统计量与仓内三份生理数据都对不上
+>   （sleep_quality 均值 5.43 超出 1-5 量表）。原训练脚本从未入库。
+>   ⇒ 旧 json 与 png 里的 139 行数字属于一份**不在仓内的数据版本**，只能作为历史记录引用，
+>   **不得**用于对外材料、也不得与新评估混用。
+> - **新证据**：`physio_v2_current_data_eval.json` + `PHYSIO_V2_EVAL_REPORT.md`
+>   （由 `backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py` 生成，
+>   逐样本分数落盘 `test_predictions.csv` + `.sha256`，一条命令可复算）。
+>   新口径点估计 = 全样本统计量；所有 CI（含 AUC）= bootstrap 分位（B=10000, seed=42）。
+> - **口径差异**：旧 `f1.point=0.8527` 是 bootstrap 均值，全样本名义值是 0.8541667
+>   （= `metrics.json`）；旧 AUC CI 的 Hanley-McNeil 近似已由 bootstrap 取代。
+> - **当前数据上的实测**（n=157，生产路径）：F1 0.7500 [0.6383, 0.8431]，
+>   AUC 0.9884 [0.9694, 0.9990]，Recall 0.6000 —— Recall 低是 artifact scaler
+>   与当前数据版本不配套所致（重拟合 scaler 的对照口径 F1 0.9369，非生产），
+>   缺陷登记见 `docs/P2_53_ROUND26_EVAL_REPRODUCIBILITY_AUDIT.md`。
+
 - `physio_v2_test_ci.json`：测试集 n=139 的 95% CI。
   阈值指标（Acc/Prec/Rec/F1）为非参数 bootstrap（B=10000，seed=42），
   混淆对由 `backend/models/artifacts/physiological_optimized/metrics.json`
   反推（TP=41, FP=3, FN=11, TN=84，已用 acc/prec/rec 交叉验证）；
   AUC 因未持久化逐样本分数，采用 Hanley-McNeil SE（保守近似，已标注方法）。
+  **→ 已被取代，仅存历史（见上方说明）。**
 - `physio_v2_test_ci.png`：论文第 4 章直接引用。关键口径：
   F1=0.854 [0.769, 0.923]，Recall=0.788 [0.672, 0.896] ——
   区间宽是 n=139 的必然结果，答辩时主动说明，不宣称高精度。
+  **→ 该图基于不可复现的 139 行切分，论文引用前须改用新证据并说明差异。**
 
 ## 2. 融合权重敏感性
 
