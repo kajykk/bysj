@@ -236,7 +236,8 @@ class ReviewService:
         total = total_result.scalar() or 0
 
         # 分页
-        query = query.order_by(desc(ReviewTask.created_at))
+        # ROUND_25 (B 摊): created_at 非唯一 ⇒ 同秒并列时翻页会重复/漏行；补 id 次级键
+        query = query.order_by(desc(ReviewTask.created_at), desc(ReviewTask.id))
         query = query.offset((filter_data.page - 1) * filter_data.page_size)
         query = query.limit(filter_data.page_size)
 
@@ -631,7 +632,8 @@ class CrisisEventService:
         total = total_result.scalar() or 0
 
         # 分页
-        query = query.order_by(desc(CrisisEvent.created_at))
+        # ROUND_25 (B 摊): created_at 非唯一 ⇒ 补 id 次级键保证翻页确定
+        query = query.order_by(desc(CrisisEvent.created_at), desc(CrisisEvent.id))
         query = query.offset((filter_data.page - 1) * filter_data.page_size)
         query = query.limit(filter_data.page_size)
 

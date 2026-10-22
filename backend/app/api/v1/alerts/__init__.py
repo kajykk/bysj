@@ -336,7 +336,10 @@ async def list_alert_history(
     count_stmt = select(func.count()).select_from(OperationLog).where(and_(*conditions))
 
     # TODO(M-API-4): 当前硬编码 order_by(desc(created_at))，后续需支持自定义排序参数
-    stmt = stmt.order_by(desc(OperationLog.created_at)).offset(offset).limit(page_size)
+    # ROUND_25 (B 摊): created_at 非唯一 ⇒ 同秒并列时翻页会重复/漏行；补 id 次级键
+    stmt = stmt.order_by(
+        desc(OperationLog.created_at), desc(OperationLog.id)
+    ).offset(offset).limit(page_size)
     rows = (await db.execute(stmt)).scalars().all()
     total = (await db.execute(count_stmt)).scalar_one()
 
@@ -546,7 +549,10 @@ async def list_alert_archive(
         stmt = stmt.where(and_(*conditions))
         count_stmt = count_stmt.where(and_(*conditions))
     # TODO(M-API-4): 当前硬编码 order_by(desc(created_at))，后续需支持自定义排序参数
-    stmt = stmt.order_by(desc(AlertArchive.original_created_at)).offset(offset).limit(page_size)
+    # ROUND_25 (B 摊): original_created_at 非唯一 ⇒ 补 id 次级键保证翻页确定
+    stmt = stmt.order_by(
+        desc(AlertArchive.original_created_at), desc(AlertArchive.id)
+    ).offset(offset).limit(page_size)
 
     rows = (await db.execute(stmt)).scalars().all()
     total = (await db.execute(count_stmt)).scalar_one()

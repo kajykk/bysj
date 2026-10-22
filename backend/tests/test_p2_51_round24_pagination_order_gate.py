@@ -6,10 +6,19 @@
 同一条记录可能在相邻两页重复出现，或者整条被跳过。
 
 本闸门**读生产源码**（AST，不做字符串匹配），对每个
-`order_by(...<非唯一时间列>...)` 站点判定三件事：
+`order_by(...<非唯一排序列>...)` 站点判定三件事：
   1. args 里有没有次级排序键（id / pk）；
   2. 该 statement 是否接了 `.offset`（真分页）或 `.limit`（单页截断）；
   3. 若前两者构成风险，是否已在白名单里逐条裁定。
+
+ROUND_25（B 摊）判据扩展（详见 tests/tools/pagination_order_lint.py 常量注释）：
+- 列名：`NON_UNIQUE_TIME_COLUMNS` → `NON_UNIQUE_SORT_COLUMNS`（低基数业务列
+  status/role/level/category）+ 时间戳族结构判据（`_at` 结尾）；
+- 形态：新增函数形态 `desc(Model.col)` 与裸列形态——ROUND_24 判据只认
+  `Model.col.desc()` 方法形态，全仓 13 处函数形态站点完全不可见
+  （含 3 处 offset 真分页）。扩展后实测 58 站点 / 29 违规，其中 19 处
+  为新暴露：14 处已补次级键（7 offset 真分页 + 5 绑定身份 + gauge + 去重窗口），
+  5 处聚合/扫描窗口进白名单。
 
 为什么不用"自建 statement 再断言"（p2_50 的 L40/L57 那种弱见证）：
 那种写法断言的是测试自己拼的 SQL，生产侧改坏了它照样绿——没有验证力。
@@ -29,6 +38,7 @@ from tests.tools.pagination_order_lint import (
     OrderBySite,
     find_order_by_sites,
     iter_python_files,
+    scan_source,
     scan_tree,
 )
 
@@ -76,11 +86,59 @@ PAGING_WHITELIST: dict[tuple[str, str, tuple[str, ...]], tuple[int, str]] = {
         1,
         "取上一条评估，.limit(1)，无分页语义",
     ),
-    ("services/crisis_export_service.py", "iter_export_crisis_csv", ("created_at",)): (
+    (
+        "services/crisis_export_service.py",
+        "iter_export_crisis_csv",
+        ("created_at",),
+    ): (
         1,
         "L20 已知项（本轮按边界只登记不动）：全量流式导出，服务端游标"
         " yield_per=1000 分块，无 offset/limit 子句；同一次查询执行内"
         "游标不跨页，不产生重复/漏行",
+    ),
+    # ---- ROUND_25 (B 摊) 新增：判据扩展后逐条裁定的单页扫描/展示窗口 ----
+    (
+        "monitoring/escalation.py",
+        "run_escalation_check",
+        ("created_at",),
+    ): (
+        1,
+        "单页扫描窗口：.limit(500) 取最近 firing 告警做升级判断；同秒并列"
+        "只影响本轮窗口构成（边界条目下轮补判），无跨页重复/漏行",
+    ),
+    (
+        "services/observability/aggregate.py",
+        "_fetch_am_sync_failures",
+        ("created_at",),
+    ): (
+        1,
+        "单页 top-10 展示样本（recent_failures 失败详情）；并列只影响样本构成",
+    ),
+    (
+        "services/observability/aggregate.py",
+        "_fetch_recent_flushes",
+        ("created_at",),
+    ): (
+        1,
+        "单页 top-10 展示样本（最近 flush 日志）；并列只影响样本构成",
+    ),
+    (
+        "services/observability/query.py",
+        "_fetch_fired_rows",
+        ("created_at",),
+    ): (
+        1,
+        "单页扫描窗口：.limit(5000) 拉 fired 行做分位数聚合；指标为抽样口径，"
+        "并列只影响窗口构成，无跨页语义",
+    ),
+    (
+        "tasks/alerts.py",
+        "_archive_impl",
+        ("created_at",),
+    ): (
+        1,
+        "单页扫描窗口：.limit(1000) 归档候选；幂等由 original_id 去重兜底"
+        "（P1-D-7），边界并列条目下轮补归档，无跨页重复/漏行",
     ),
 }
 
@@ -143,7 +201,7 @@ def unlisted_violations(
 
 class TestGateOnProduction:
     def test_no_unlisted_violations(self):
-        """全仓 order_by 站点：分页/截断 + 无非唯一时间列 tie-break 必须为 0（白名单外）。"""
+        """全仓 order_by 站点：分页/截断 + 无非唯一排序列 tie-break 必须为 0（白名单外）。"""
         sites = scan_tree(APP)
         bad = unlisted_violations(sites, PAGING_WHITELIST)
         detail = "\n".join(
@@ -178,9 +236,9 @@ class TestGateNotVacuous:
 
     def test_site_count_not_degraded(self):
         sites = scan_tree(APP)
-        assert len(sites) >= 30, (
-            f"order_by 站点数 {len(sites)} < 30：疑似 AST 判定退化"
-            "（app 实际 32 处含非唯一时间列）"
+        assert len(sites) >= 50, (
+            f"order_by 站点数 {len(sites)} < 50：疑似 AST 判定退化"
+            "（ROUND_25 判据扩展后实际 58 处含非唯一排序列）"
         )
 
     def test_sentinel_site_present(self):
@@ -252,87 +310,145 @@ async def list_things(db, offset: int, page_size: int):
     return await db.execute(stmt)
 """
 
+# ---- ROUND_25 (B 摊) 新增自证样本 ----
 
-def _scan_source(tmp_path: pathlib.Path, source: str) -> list[OrderBySite]:
-    path = tmp_path / "sample.py"
-    path.write_text(source, encoding="utf-8")
-    return find_order_by_sites(path, tmp_path)
+_FUNCTION_FORM = """
+async def list_things(db, offset: int, page_size: int):
+    stmt = select(Thing).order_by(desc(Thing.created_at)).offset(offset).limit(page_size)
+    return await db.execute(stmt)
+"""
+
+_BUSINESS_COLUMN = """
+async def list_things(db, offset: int, page_size: int):
+    stmt = select(Thing).order_by(Thing.status.desc()).offset(offset).limit(page_size)
+    return await db.execute(stmt)
+"""
+
+_TIMESTAMP_PATTERN = """
+async def list_things(db, offset: int, page_size: int):
+    stmt = select(Thing).order_by(Thing.reviewed_at.desc()).offset(offset).limit(page_size)
+    return await db.execute(stmt)
+"""
+
+_UNIQUE_COLUMN = """
+async def list_things(db, offset: int, page_size: int):
+    stmt = select(Thing).order_by(Thing.id.desc()).offset(offset).limit(page_size)
+    return await db.execute(stmt)
+"""
+
+
+def _scan_source(source: str) -> list[OrderBySite]:
+    """内存态扫描自证样本（不落盘）——避免把 tmp_path 清理抖动引进断言。
+
+    2026-10-22 实测教训：自证用例原先写临时文件再扫，固定 basetemp 复用
+    时 pytest 的 tmp_path 在 Windows 上出现非确定性 teardown ERROR，
+    15 个自证用例集体红、与判据内容无关 ⇒ 改为直接传源码字符串。
+    """
+    return scan_source(source)
 
 
 class TestGateSelfProof:
     """自证两臂：既能红，也能放行。缺任一条，闸门就可能是恒真/恒假。"""
 
-    def test_detects_paginated_without_tiebreak(self, tmp_path: pathlib.Path):
-        sites = _scan_source(tmp_path, _PAGED_NO_TIEBREAK)
+    def test_detects_paginated_without_tiebreak(self):
+        sites = _scan_source(_PAGED_NO_TIEBREAK)
         assert len(sites) == 1
         assert sites[0].has_offset is True
         assert sites[0].has_secondary_key is False
         assert sites[0].is_violation is True
         assert unlisted_violations(sites, {}), "红臂失效：违规站点没被闸门抓住"
 
-    def test_allows_no_paging_clause(self, tmp_path: pathlib.Path):
-        sites = _scan_source(tmp_path, _NO_PAGING_CLAUSE)
+    def test_allows_no_paging_clause(self):
+        sites = _scan_source(_NO_PAGING_CLAUSE)
         assert len(sites) == 1
         assert sites[0].has_offset is False
         assert sites[0].has_limit is False
         assert sites[0].is_violation is False
         assert not unlisted_violations(sites, {}), "放行臂失效：无分页也被判违规"
 
-    def test_allows_tiebreak(self, tmp_path: pathlib.Path):
-        sites = _scan_source(tmp_path, _TIEBREAK_PRESENT)
+    def test_allows_tiebreak(self):
+        sites = _scan_source(_TIEBREAK_PRESENT)
         assert len(sites) == 1
         assert sites[0].has_secondary_key is True
         assert sites[0].is_violation is False
 
-    def test_detects_limit_only(self, tmp_path: pathlib.Path):
+    def test_detects_limit_only(self):
         """单页截断也纳入裁定：N 边界可能落在并列组中间。"""
-        sites = _scan_source(tmp_path, _LIMIT_ONLY)
+        sites = _scan_source(_LIMIT_ONLY)
         assert len(sites) == 1
         assert sites[0].has_offset is False
         assert sites[0].has_limit is True
         assert sites[0].is_violation is True
 
-    def test_detects_variable_split_flow(self, tmp_path: pathlib.Path):
+    def test_detects_variable_split_flow(self):
         """`stmt = stmt.offset(...)` 拆分形态（user_data_service 的真实写法）。"""
-        sites = _scan_source(tmp_path, _VARIABLE_FLOW)
+        sites = _scan_source(_VARIABLE_FLOW)
         assert len(sites) == 1
         assert sites[0].has_offset is True, "拆分形态的 offset 未被识别"
         assert sites[0].is_violation is True
 
-    def test_detects_asc_order(self, tmp_path: pathlib.Path):
+    def test_detects_asc_order(self):
         """asc 与 desc 同为非唯一键排序，方向不影响重复/漏行。"""
-        sites = _scan_source(tmp_path, _ASC_ORDER)
+        sites = _scan_source(_ASC_ORDER)
         assert len(sites) == 1
         assert sites[0].is_violation is True
 
-    def test_ignores_non_time_column(self, tmp_path: pathlib.Path):
-        """非时间列不在本轮判据内（不误报）。"""
-        assert _scan_source(tmp_path, _NON_TIME_COLUMN) == []
+    def test_ignores_non_time_column(self):
+        """判据外的列（title）不在判据内（不误报）。"""
+        assert _scan_source(_NON_TIME_COLUMN) == []
 
-    def test_whitelist_guard_catches_removed_entry(self, tmp_path: pathlib.Path):
+    # ---- ROUND_25 (B 摊) 扩展判据自证 ----
+
+    def test_detects_function_form(self):
+        """函数形态 desc(Model.col) 必须可判（ROUND_24 判据完全看不见它）。"""
+        sites = _scan_source(_FUNCTION_FORM)
+        assert len(sites) == 1
+        assert sites[0].sort_columns == ("created_at",)
+        assert sites[0].has_offset is True
+        assert sites[0].is_violation is True
+
+    def test_detects_business_column(self):
+        """低基数业务列（status/role/level/category）纳入判据。"""
+        sites = _scan_source(_BUSINESS_COLUMN)
+        assert len(sites) == 1
+        assert sites[0].sort_columns == ("status",)
+        assert sites[0].is_violation is True
+
+    def test_detects_timestamp_suffix_pattern(self):
+        """`_at` 结构判据覆盖未显式枚举的时间戳列（如 reviewed_at）。"""
+        sites = _scan_source(_TIMESTAMP_PATTERN)
+        assert len(sites) == 1
+        assert sites[0].sort_columns == ("reviewed_at",)
+        assert sites[0].is_violation is True
+
+    def test_allows_unique_column(self):
+        """排除判据自证：id 等唯一列 + 分页也不判违规（防判据过严）。"""
+        assert _scan_source(_UNIQUE_COLUMN) == []
+
+    def test_whitelist_guard_catches_removed_entry(self):
         """防腐烂自证 1：条目指向已不存在/已改名的站点 ⇒ 红。"""
-        sites = _scan_source(tmp_path, _NO_PAGING_CLAUSE)
+        sites = _scan_source(_NO_PAGING_CLAUSE)
         fake = {("sample.py", "renamed_func", ("created_at",)): (1, "伪造条目")}
         problems = whitelist_problems(sites, fake)
         assert any("腐烂条目" in p for p in problems), problems
 
-    def test_whitelist_guard_catches_stale_entry(self, tmp_path: pathlib.Path):
+    def test_whitelist_guard_catches_stale_entry(self):
         """防腐烂自证 2：站点已补次级键却仍留在白名单 ⇒ 红（不得囤积已修站点）。"""
-        sites = _scan_source(tmp_path, _TIEBREAK_PRESENT)
+        sites = _scan_source(_TIEBREAK_PRESENT)
         key = _key(sites[0])
         problems = whitelist_problems(sites, {key: (1, "伪造条目")})
         assert any("已补次级键" in p for p in problems), problems
 
-    def test_whitelist_guard_catches_gained_offset(self, tmp_path: pathlib.Path):
+    def test_whitelist_guard_catches_gained_offset(self):
         """白名单站点若接上 offset，必须立刻失效（不得用白名单替代修复）。"""
-        sites = _scan_source(tmp_path, _PAGED_NO_TIEBREAK)
+        sites = _scan_source(_PAGED_NO_TIEBREAK)
         key = _key(sites[0])
         problems = whitelist_problems(sites, {key: (1, "伪造豁免")})
         assert any("已接 offset" in p for p in problems), problems
 
-    def test_whitelist_guard_catches_count_drift(self, tmp_path: pathlib.Path):
+    def test_whitelist_guard_catches_count_drift(self):
         """防腐烂自证 3：一个 key 下有 2 处站点但只登记 1 处 ⇒ 红（防一处掩盖多处）。"""
-        sites = _scan_source(tmp_path, _LIMIT_ONLY + _LIMIT_ONLY)
+        sites = _scan_source(_LIMIT_ONLY + _LIMIT_ONLY)
         assert len(sites) == 2
         problems = whitelist_problems(sites, {_key(sites[0]): (1, "少登记")})
         assert any("站点数不符" in p for p in problems), problems

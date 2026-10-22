@@ -239,3 +239,18 @@
   「已读/未读标签恒为未读」（:72→:80）、`warning_service.py` 的两条
   （:317→:323、:352→:358）——因本轮在文件前部插入注释块所致。
 - 闸门 `test_inventory_ratchet_be` 同步 112→113。
+
+### 附四：ROUND_25（B 摊分页判据扩展）全称注释同步（113→116）
+
+| # | 位置 | 全称词 | 行为依据 |
+|---|---|---|---|
+| 1 | `app/api/v1/alerts/__init__.py:552` | 保证 | ROUND_25 B 摊：告警归档列表按 `original_created_at` 倒序翻页，该列非唯一 ⇒ 补 `id` 次级键后，同一 ORDER BY 下行的相对顺序由 (original_created_at, id) 唯一确定，翻页确定 |
+| 2 | `app/services/content_service.py:361` | 保证 | 同摊：教育内容「最近浏览」列表按 `latest_viewed_at` 倒序翻页，同秒并列 ⇒ 补 `EducationContent.id` 次级键保证翻页确定 |
+| 3 | `app/services/review_service.py:635` | 保证 | 同摊：审核任务列表按 `created_at` 倒序翻页，同秒并列 ⇒ 补 `ReviewTask.id` 次级键保证翻页确定 |
+
+- 另有 8 条存量注释**行号漂移**（内容未变）：`alerts/__init__.py` 的两条
+  （:359→:362、:360→:363）、`silences.py` 一条（:379→:380）、
+  `review_service.py` 两条 P1-SEC-007（:401→:402、:452→:453）、
+  `risk_service_warning.py` 三条 M13（:168→:172、:193→:197、:201→:205）
+  ——因本轮在被翻页站点前插入 tie-break 注释行所致。
+- 闸门 `test_inventory_ratchet_be` 同步 113→116。

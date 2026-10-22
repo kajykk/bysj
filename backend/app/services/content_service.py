@@ -357,7 +357,11 @@ class ContentService:
                 latest_view_subq, latest_view_subq.c.content_id == EducationContent.id
             )
             .where(EducationContent.status == "active")
-            .order_by(latest_view_subq.c.latest_viewed_at.desc())
+            # ROUND_25 (B 摊): latest_viewed_at 是 group_by 聚合值，多条内容
+            # 可能同秒被浏览 ⇒ 并列；补 EducationContent.id 次级键保证翻页确定
+            .order_by(
+                latest_view_subq.c.latest_viewed_at.desc(), EducationContent.id.desc()
+            )
             .offset(offset)
             .limit(page_size)
         )

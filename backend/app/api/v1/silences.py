@@ -291,7 +291,8 @@ async def list_silences(
     if is_active is not None:
         stmt = stmt.where(AlertSilence.is_active.is_(is_active))
         count_stmt = count_stmt.where(AlertSilence.is_active.is_(is_active))
-    stmt = stmt.order_by(desc(AlertSilence.starts_at)).offset(offset).limit(page_size)
+    # ROUND_25 (B 摊): starts_at 非唯一 ⇒ 同秒并列时翻页会重复/漏行；补 id 次级键
+    stmt = stmt.order_by(desc(AlertSilence.starts_at), desc(AlertSilence.id)).offset(offset).limit(page_size)
     rows = (await db.execute(stmt)).scalars().all()
     total = (await db.execute(count_stmt)).scalar_one()
     return ok(

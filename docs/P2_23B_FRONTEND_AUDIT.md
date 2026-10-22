@@ -136,6 +136,13 @@ API 层**禁止抛异常**（返回 `number | null`），保证 `Promise.all` �
   ≥50 个文件），目录结构退化会红。
 - 本轮**不改** .gitignore 惯例、不 `add -f` 强行入库（改变仓库惯例需单独决策）。
 
+> **ROUND_25 已兑现上述「不改 .gitignore 惯例」的暂缓决策（2026-10-22）**：
+> 口令环境变量化后「含明文口令」的排除理由消失 ⇒ 4 个运维脚本经逐读后入库
+> （`.gitignore` 定向否定放行、通配规则保留），3 个一次性脚本删除；
+> 记账闸门 `KNOWN_UNTRACKED_CREDENTIAL_SCRIPTS` 双向相等 +
+> 「skip 不得代替记账」替代了原来的静默 skip。详见
+> `docs/P2_52_ROUND25_VERIFICATION_GAP_AUDIT.md`。
+
 ### 闸门：`backend/tests/test_p2_49_round23b_secret_scan.py`（9 passed，进 CI）
 
 - 扫 `scripts/**/*.py` 与 `**/*.ps1`，命中模式：`(password|passwd|pwd|token|secret|
@@ -215,6 +222,18 @@ gitleaks 扫已入库历史且未配 allowlist，本闸门断言源码结构。
 > **11 处**（10 处经裁定入白名单、1 处原有次级键）、无分页子句 3 处。
 > 当前白名单外违规 = **0**，并由闸门 `test_p2_51_round24_pagination_order_gate.py`
 > 持续看守。
+
+> **ROUND_25 已兑现（2026-10-22，`docs/P2_52_ROUND25_VERIFICATION_GAP_AUDIT.md`）**：
+> 判据从 `created_at` 扩为 `NON_UNIQUE_SORT_COLUMNS`（时间戳族 + `_at` 结构判据 +
+> 低基数业务列）并补上函数形态 `desc(Model.col)` 覆盖（ROUND_24 盲区）后，
+> 站点 32→**58**、违规 0→**29**——其中 **14 处真修复**（7 offset 真分页 +
+> 7 limit(1) 业务可见）、5 处入白名单；修复后白名单外违规 = 0。
+> L13 的 7 个脚本：4 个入库（`login_admin.py/.ps1`、`check_metrics_v2.py`、
+> `trigger_fusion_inference_v2.py`，`.gitignore` 用定向否定放行、通配规则保留）、
+> 3 个删除（`dump_errors.py`/`test_gdpr_fix.py`/`revise_download_thesis.py`，
+> 均为一次性脚本且从未入库）；剩余 2 个未入库含凭证脚本
+> （`check_tabular_v2.py`/`gen_canary_traffic_v2.py`）登记于
+> `KNOWN_UNTRACKED_CREDENTIAL_SCRIPTS` 双向相等闸门，「skip 代替记账」的行为已移除。
 
 ## 八、未验证记账
 

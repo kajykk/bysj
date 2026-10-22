@@ -517,7 +517,10 @@ class UserDataService:
             stmt = (
                 select(PhysiologicalRecord)
                 .where(PhysiologicalRecord.user_id == user_id)
-                .order_by(PhysiologicalRecord.recorded_at.desc())
+                # ROUND_25 (B 摊): recorded_at 非唯一 ⇒ 同秒并列时翻页会重复/漏行；补 id 次级键
+                .order_by(
+                    PhysiologicalRecord.recorded_at.desc(), PhysiologicalRecord.id.desc()
+                )
             )
             count_stmt = (
                 select(func.count())

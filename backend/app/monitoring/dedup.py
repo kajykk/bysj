@@ -82,7 +82,9 @@ async def should_send(
                 OperationLog.target_type == "alert",
             )
         )
-        .order_by(desc(OperationLog.created_at))
+        # ROUND_25 (B 摊): created_at 非唯一 ⇒ 窗口边界并列时"最近 50 条"集合
+        # 不确定，可能漏检边界处的重复告警；补 id 次级键
+        .order_by(desc(OperationLog.created_at), desc(OperationLog.id))
         .limit(50)
     )
     rows = (await db.execute(stmt)).scalars().all()

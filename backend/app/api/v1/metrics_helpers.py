@@ -243,7 +243,8 @@ async def collect_drift_metrics() -> None:
                 stmt = (
                     select(DriftAlert)
                     .where(DriftAlert.details["modality"].as_string() == modality)
-                    .order_by(desc(DriftAlert.created_at))
+                    # ROUND_25 (B 摊): created_at 非唯一 ⇒ 同秒并列时 gauge 读数不确定；补 id 次级键
+                    .order_by(desc(DriftAlert.created_at), desc(DriftAlert.id))
                     .limit(1)
                 )
                 result = await drift_session.execute(stmt)

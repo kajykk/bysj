@@ -1,0 +1,22 @@
+# ROUND_25 B 摊变异见证 — tests/test_p2_51_round24_pagination_order_gate.py
+# 闸门 collected 用例数（含自证与哨兵）: 21
+
+[baseline] returncode=0
+21 passed, 4 warnings in 10.92s
+[BM1] RED-OK  去掉 review_service.get_reviews 新补的 id 次级键（分页仍在）
+       指名用例 test_no_unlisted_violations 变红；1 failed, 20 passed, 4 warnings in 10.14s
+[BM2] RED-OK  从 NON_UNIQUE_SORT_COLUMNS 删掉 status（业务列判据缺员）
+       指名用例 test_detects_business_column 变红；1 failed, 20 passed, 4 warnings in 10.14s
+[BM3] RED-OK  阉割 _at 时间戳结构判据
+       指名用例 test_detects_timestamp_suffix_pattern 变红；14 failed, 7 passed, 4 warnings in 9.67s
+[BM4] RED-OK  函数形态 desc(Model.col) 重新不可见（ROUND_24 覆盖缺口复发）
+       指名用例 test_detects_function_form 变红；3 failed, 18 passed, 4 warnings in 9.54s
+[BM5] GREEN-OK 放行臂成立（无分页 ⇒ 不判违规）：反向（放行臂）：review_service 同时去掉次级键与 offset/limit
+       21 passed, 4 warnings in 9.68s
+
+[final] returncode=0
+21 passed, 4 warnings in 9.73s
+[basetemp] 7 fresh dirs kept for manual cleanup: r25_mut_bt_1, r25_mut_bt_2, r25_mut_bt_3, r25_mut_bt_4, r25_mut_bt_5, r25_mut_bt_6, r25_mut_bt_7（环境防护按 turn 累计拦截 >50 文件的删除，故不在脚本内 rmtree）
+[residual] CLEAN
+[summary] 4 RED-OK + 1 GREEN-OK / 5；residual_clean=True; final_green=True
+[exit] PASS

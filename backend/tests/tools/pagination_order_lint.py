@@ -7,13 +7,21 @@
 这些都长在语法树上：字符串匹配既认不出 `stmt = stmt.offset(...)` 这种**链式拆分**
 形态，也分不清注释/文档里的示例代码。
 
-判据（继承 ROUND_23 补漏 `2d2eb38` 的结论）：
-    违规 = `order_by(...)` 的 args 里有「非唯一时间列」（默认 created_at）
+判据（继承 ROUND_23 补漏 `2d2eb38` 的结论；ROUND_25 扩展列名与形态）：
+    违规 = `order_by(...)` 的 args 里有「非唯一排序列」（默认 created_at）
           **且** args 里没有次级排序键（id / pk）
           **且** 该 statement 确实接了分页/截断（有 .offset 或 .limit）
 无 offset/limit 的排序**不判违规**（纯"取最新一条"没有跨页语义）。
 只接 limit 的站点（单页 top-N）不自动放行——由调用方逐条裁定后进白名单，
 理由必须写明"单页、无跨页语义"，且一旦该站点接上 offset 白名单即失效。
+
+ROUND_25（B 摊）两处扩展：
+1. 列名判据 `NON_UNIQUE_TIME_COLUMNS` → `NON_UNIQUE_SORT_COLUMNS` +
+   时间戳族结构判据（`_at` 结尾）+ 低基数业务列；见常量注释的纳入/排除判据；
+2. 排序键**形态**覆盖：除方法形态 `Model.col.desc()` 外，新增函数形态
+   `desc(Model.col)`（sqlalchemy 函数式导入）与裸列形态 `Model.col`。
+   ROUND_24 判据只认方法形态 ⇒ 全仓 13 处函数形态站点完全不可见
+   （其中 3 处 offset 真分页）——这是本轮实测发现的覆盖缺口。
 
 用法：
     python -m tests.tools.pagination_order_lint            # 扫 backend/app 全仓
@@ -28,9 +36,31 @@ from dataclasses import dataclass, field
 
 # ---- 判据常量（白名单/扩展都从这里取，避免判据散落在测试里）----
 
-#: 视为「非唯一、需要 tie-break」的时间列。
-#: 同秒产生的多行在这些列上取值相同 ⇒ 单键排序下顺序由 DB 决定。
-NON_UNIQUE_TIME_COLUMNS: frozenset[str] = frozenset({"created_at"})
+#: 非唯一排序列 · 低基数业务列（ROUND_25 由 NON_UNIQUE_TIME_COLUMNS 重命名扩展）。
+#: 一个排序列需要 tie-break，当且仅当它落入以下两类之一：
+#:   ① **时间戳族**（结构判据，见 TIMESTAMP_COLUMN_SUFFIX）：列名以 `_at` 结尾。
+#:      同秒/同毫秒写入的多行在这些列上取值相同 ⇒ 单键排序下顺序由 DB 决定
+#:      （SQLite / PostgreSQL 都不保证）。模型实测 24 个 `_at` 列
+#:      （acknowledged_at / archived_at / bound_at / … / viewed_at）——用名字
+#:      结构判定而非逐个枚举：枚举会漏（P1-30 的教训是"列举必漏"），未来新增
+#:      `reviewed_at` 之类排序列 + 分页会被自动覆盖。
+#:   ② **低基数业务列**（本常量，显式枚举、逐个可审）：枚举/状态类，同一取值
+#:      大量行共享 ⇒ 并列组巨大。新增成员必须确实是低基数枚举列。
+#: 排除判据（写下来防止后人凭感觉加列、也防止白名单腐烂）：
+#:   - 主键/近似唯一列：id / pk / config_key / uuid / code / name / username /
+#:     email——天然唯一或业务唯一，单键排序本身确定；
+#:   - 高基数度量列：view_count / score / count——取值分散、并列组通常为 1，
+#:     且不属上述两类（现有站点均另有 created_at/id 兜底）；
+#:   - 分组键：group_by 后的 date_key 等——结果集内已唯一。
+NON_UNIQUE_SORT_COLUMNS: frozenset[str] = frozenset({"status", "role", "level", "category"})
+
+#: 时间戳族的结构判据：列名以该后缀结尾即视为非唯一时间列（判据①）。
+TIMESTAMP_COLUMN_SUFFIX: str = "_at"
+
+
+def is_non_unique_sort_column(col: str) -> bool:
+    """判据合并：低基数业务列（显式）∪ 时间戳族（`_at` 结构）。"""
+    return col in NON_UNIQUE_SORT_COLUMNS or col.endswith(TIMESTAMP_COLUMN_SUFFIX)
 
 #: 可接受作次级排序（tie-break）的列。主键天然唯一。
 SECONDARY_KEYS: frozenset[str] = frozenset({"id", "pk"})
@@ -78,15 +108,32 @@ class OrderBySite:
 
 
 def _col_of_sort_arg(arg: ast.expr) -> str | None:
-    """从 `Model.created_at.desc()` 抽列名 `created_at`；非该形态返回 None。"""
+    """从三种排序键形态抽列名，非该形态返回 None。
+
+    - 方法形态：`Model.created_at.desc()` / `.asc()`（ROUND_24 起支持）；
+    - 函数形态：`desc(Model.created_at)` / `asc(Model.created_at)`
+      （sqlalchemy 函数式导入——ROUND_24 判据完全看不见，ROUND_25 实测
+      全仓 13 处，其中 3 处 offset 真分页）；
+    - 裸列形态：`Model.col`（无方向词，默认 asc）。
+    模块限定形态（`sa.desc(...)`）一并覆盖：方向词是 Attribute 且首参是列。
+    """
     if not isinstance(arg, ast.Call):
+        # 裸列形态：order_by(Model.col) / order_by(subq.c.date_key)
+        if isinstance(arg, ast.Attribute):
+            return arg.attr
         return None
     func = arg.func
-    if not isinstance(func, ast.Attribute) or func.attr not in DIRECTIONS:
+    if isinstance(func, ast.Attribute):
+        if func.attr not in DIRECTIONS:
+            return None
+        if isinstance(func.value, ast.Attribute):
+            return func.value.attr  # 方法形态
+        if arg.args and isinstance(arg.args[0], ast.Attribute):
+            return arg.args[0].attr  # 模块形态 sa.desc(Model.col)
         return None
-    value = func.value
-    if isinstance(value, ast.Attribute):
-        return value.attr
+    if isinstance(func, ast.Name) and func.id in DIRECTIONS:
+        if arg.args and isinstance(arg.args[0], ast.Attribute):
+            return arg.args[0].attr  # 函数形态 desc(Model.col)
     return None
 
 
@@ -179,17 +226,9 @@ def iter_python_files(root: pathlib.Path) -> list[pathlib.Path]:
     return [p for p in sorted(root.rglob("*.py")) if "__pycache__" not in p.parts]
 
 
-def find_order_by_sites(
-    path: pathlib.Path, root: pathlib.Path
-) -> list[OrderBySite]:
-    """扫单个文件，返回所有含「非唯一时间列」排序键的 order_by 站点。"""
-    try:
-        source = path.read_text(encoding="utf-8")
-        tree = ast.parse(source, filename=str(path))
-    except (SyntaxError, UnicodeDecodeError, OSError):
-        return []
-
-    rel = path.relative_to(root).as_posix()
+def _sites_from_source(source: str, rel: str) -> list[OrderBySite]:
+    """从源码字符串扫描（不落盘）——find_order_by_sites 与 scan_source 共用。"""
+    tree = ast.parse(source, filename=rel)
     lines = source.splitlines()
     sites: list[OrderBySite] = []
 
@@ -199,8 +238,8 @@ def find_order_by_sites(
         if not (isinstance(node.func, ast.Attribute) and node.func.attr == "order_by"):
             continue
         cols = [c for c in (_col_of_sort_arg(a) for a in node.args) if c]
-        if not any(c in NON_UNIQUE_TIME_COLUMNS for c in cols):
-            continue  # 本轮只关心非唯一时间列
+        if not any(is_non_unique_sort_column(c) for c in cols):
+            continue  # 只关心非唯一排序列
         has_secondary = any(c in SECONDARY_KEYS for c in cols)
         func_name, scope = _enclosing_func(tree, node)
 
@@ -233,6 +272,32 @@ def find_order_by_sites(
     return sites
 
 
+def find_order_by_sites(
+    path: pathlib.Path, root: pathlib.Path
+) -> list[OrderBySite]:
+    """扫单个文件，返回所有含「非唯一排序列」排序键的 order_by 站点。"""
+    try:
+        source = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return []
+    rel = path.relative_to(root).as_posix()
+    try:
+        return _sites_from_source(source, rel)
+    except SyntaxError:
+        return []
+
+
+def scan_source(source: str, rel: str = "sample.py") -> list[OrderBySite]:
+    """直接从源码字符串扫描（内存态，不落盘）。
+
+    供闸门自证用例使用：自证样本是测试内嵌字符串，走文件系统除了慢，
+    还会把 tmp_path 的清理抖动引进断言（2026-10-22 实测：固定 basetemp
+    复用时 pytest 的 `<name>current` copytree 竞争导致非确定性 teardown
+    ERROR，15 个自证用例集体红，与判据内容无关）。
+    """
+    return _sites_from_source(source, rel)
+
+
 def scan_tree(root: pathlib.Path) -> list[OrderBySite]:
     sites: list[OrderBySite] = []
     for path in iter_python_files(root):
@@ -249,7 +314,7 @@ def _main() -> int:
     all_sites = scan_tree(root)
     bad = [s for s in all_sites if s.is_violation]
     print(f"scanned files: {len(iter_python_files(root))}")
-    print(f"order_by sites (non-unique time col): {len(all_sites)}")
+    print(f"order_by sites (non-unique sort col): {len(all_sites)}")
     print(f"VIOLATIONS (paged/truncated, no tie-break): {len(bad)}")
     for s in bad:
         kind = "offset" if s.has_offset else "limit-only"

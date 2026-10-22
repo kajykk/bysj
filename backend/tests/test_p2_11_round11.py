@@ -6747,8 +6747,8 @@ class TestP235Round13Batch32Wiring:
     CANDIDATES = [
         (MH_REL, 116, "_load_json", "W"),
         (MH_REL, 231, "collect_ml_quality_metrics", "W"),
-        (MH_REL, 257, "collect_drift_metrics", "W"),
-        (MH_REL, 283, "collect_canary_metrics", "W"),
+        (MH_REL, 258, "collect_drift_metrics", "W"),
+        (MH_REL, 284, "collect_canary_metrics", "W"),
         (CB_REL, 89, "_collect_infra_exceptions", "P"),
         (CB_REL, 97, "_collect_infra_exceptions", "P"),
         (CB_REL, 107, "_collect_infra_exceptions", "P"),
@@ -7400,10 +7400,10 @@ class TestP235Round13Batch34Wiring:
         ④ **同族互锁**：同文件 `_fetch_lock_memory_stats` 已于第六批接线，
         语义相同（读失败 ⇒ 0 值假数据被当真实展示）。
       - `aggregate.py:484` `_fetch_lock_memory_stats` —— **W 复核**（第六批）。
-      - `dedup.py:95` —— **M 型**：已有专用计数器
+      - `dedup.py:97` —— **M 型**：已有专用计数器
         `alert_detail_parse_failed_total.inc(1, stage="dedup")`，且实测真涨
         （第二十五批纪律：M 型裁定前必须运行时实测计数器活着）。
-      - `dedup.py:103` —— **S 型**：它保护的是那个专用计数器本身，且该计数器
+      - `dedup.py:105` —— **S 型**：它保护的是那个专用计数器本身，且该计数器
         走 `app.core.metrics`，与 `record_silent_degradation` **同源** ⇒
         接线即恒 0 假设施。
       - `inference.py:348` `_publish_to_prometheus` —— **P 型不可达**：九个
@@ -7438,8 +7438,8 @@ class TestP235Round13Batch34Wiring:
     CANDIDATES = [
         (AGG_REL, 38, "_parse_detail_json", "W"),
         (AGG_REL, 484, "_fetch_lock_memory_stats", "W"),
-        (DEDUP_REL, 95, "should_send", "M"),
-        (DEDUP_REL, 103, "should_send", "S"),
+        (DEDUP_REL, 97, "should_send", "M"),
+        (DEDUP_REL, 105, "should_send", "S"),
         (INF_REL, 348, "_publish_to_prometheus", "P"),
         (INF_REL, 362, "stop_persist", "K"),
         (KS_REL, 109, "_record_degraded", "S"),

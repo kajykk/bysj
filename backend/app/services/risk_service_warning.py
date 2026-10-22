@@ -116,7 +116,11 @@ class WarningInterventionMixin:
                 UserCounselorBinding.status == BindingStatus.ACTIVE,
                 UserCounselorBinding.counselor_id != user_id,
             )
-            .order_by(UserCounselorBinding.bound_at.desc())
+            # ROUND_25 (B 摊): bound_at 非唯一（无 (user_id,status=active) 唯一约束）
+            # ⇒ 同秒多条 ACTIVE 绑定时"取当前绑定"结果不确定；补 id 次级键
+            .order_by(
+                UserCounselorBinding.bound_at.desc(), UserCounselorBinding.id.desc()
+            )
             .limit(1)
         )
         binding = (await self.db.execute(bind_stmt)).scalars().first()
@@ -249,7 +253,11 @@ class WarningInterventionMixin:
                 UserCounselorBinding.user_id == user_id,
                 UserCounselorBinding.status == BindingStatus.ACTIVE,
             )
-            .order_by(UserCounselorBinding.bound_at.desc())
+            # ROUND_25 (B 摊): bound_at 非唯一（无 (user_id,status=active) 唯一约束）
+            # ⇒ 同秒多条 ACTIVE 绑定时"取当前绑定"结果不确定；补 id 次级键
+            .order_by(
+                UserCounselorBinding.bound_at.desc(), UserCounselorBinding.id.desc()
+            )
             .limit(1)
         )
         binding = (await self.db.execute(bind_stmt)).scalars().first()

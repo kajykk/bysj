@@ -167,8 +167,8 @@ class TestP238Comments:
         got: list[str] = []
         for p in sorted(BE.rglob("*.py")):
             got += _assertive(p)
-        assert len(got) == 113, (
-            f"BE 全称注释数 {len(got)} != 113：新增/删除全称注释必须同步更新 docs/P2_10_ROUND10_AUDIT.md 附录"
+        assert len(got) == 116, (
+            f"BE 全称注释数 {len(got)} != 116：新增/删除全称注释必须同步更新 docs/P2_10_ROUND10_AUDIT.md 附录"
         )
 
     def test_top_claims_supported(self):
