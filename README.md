@@ -262,7 +262,7 @@ python -m pytest tests/e2e/test_grafana_e2e.py -v
 - 运行时 206 个 REST 端点 + 3 个 WebSocket（**独立解释器**里 import 一次 `app.main`，沿 include 标记递归展开后数**有效路由**；进程内数会受测试会话的模块装载顺序影响，fastapi ≥ 0.151 的 `include_router` 也不再扁平化 `app.routes`，两版依赖下展开读数同为 206/3，2026-10-21 实测见 `docs/P2_22_ROUND22_PORTFOLIO_AUDIT.md` §八）
 - 9 个 Docker 服务（`docker-compose.yml`）
 - 契约测试全部通过
-- 7,548 例后端测试 / 1,327 例前端测试（`cd backend && pytest --collect-only -q`；
+- 7,552 例后端测试 / 1,327 例前端测试（`cd backend && pytest --collect-only -q`；
   `cd frontend && npx vitest list | wc -l`。**这两项每次提交都会变，仅作快照，不入数字闸门**）
 
 > 上一版这里写的是 2026-09-23 的读数（50 路由 / 191 端点 / 62 服务 / 61 核心 / 27 ML / 6,160 后端用例 + 1,119 前端用例）。
@@ -272,6 +272,10 @@ python -m pytest tests/e2e/test_grafana_e2e.py -v
 > 该数自 ROUND_22（2948428）后 ROUND_23/23b/24 各批未随提交更新，本轮一次性校准；
 > 增量含各批新增（ROUND_23a M13 唯一索引闸门、23b 前端越权与秘密扫描、24 分页闸门、
 > 25 记账闸门与判据自证）。前端 1,327 为 ROUND_22 快照，本轮无前端改动、未重测。
+
+> ROUND_28（2026-10-23）校准：后端用例 7,548→**7,552**（`pytest --collect-only -q` 实测），
+> 增量全部来自 `tests/test_p2_55_round28_thesis_numbers.py`（论文数字校验闸门接入：4 例）。
+> 前端 1,327 仍为 ROUND_22 快照，本轮无前端改动、未重测。
 
 如果你只想快速了解项目，建议优先看：架构文档、审计报告和部署指南。
 

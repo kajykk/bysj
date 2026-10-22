@@ -49,3 +49,20 @@
   （文本/生理按 0.30/0.15 比例缩放，关闭置信度加权以隔离权重效应）。
 - 结论：模态一致时 spread≈1.6（鲁棒）；模态冲突时 spread=19.3，
   即**权重只在模态打架时重要** —— 这正是保留人工复核与危机词优先规则的依据。
+
+## 3. 论文数字台账与校验闸门（ROUND_28 · P2-55）
+
+本目录的 json/csv 是「论文可引用数字」的唯一合法来源；ROUND_28 起另有一层文档台账：
+
+- `docs/thesis/CLAIMS_LEDGER.md`：36 条登记（C-01~C-22 指标、S-01~S-08 数据集规模、
+  X-01~X-06 敏感性），每条带来源产物路径 + 复算命令 + 「可否进论文」判定；
+  另立禁用黑名单 B-01~B-05（n=139 旧口径、registry 0.9530 第三套数字、
+  bootstrap 均值误记 0.8527 等），命中即视为学术不诚信。
+- `docs/thesis/RESULTS_CHAPTER.md`：可直接进论文的结果章节（实验设置 / 域内主表 /
+  P0 缺陷披露 / 跨数据集迁移 / 敏感性 / 可复现性 / 结论），样本量写每节首行。
+- `docs/thesis/REVIEWER_QA.md`、`docs/thesis/LIMITATIONS.md`：审稿问答与局限性，
+  所有数字带台账编号。
+- 机器闸门：`backend/scripts/modeling/eval/verify_thesis_numbers.py`（只读，CI 每次提交跑），
+  从**已提交** csv/json 独立复算台账每一行并与四份文档逐一比对（容差 = 展示精度），
+  任一漂移即红；测试接入 `backend/tests/test_p2_55_round28_thesis_numbers.py`，
+  变异见证 `backend/tests/tools/mutate_p2_55_round28_result.log`（8 臂 RED + 末臂 GREEN）。
