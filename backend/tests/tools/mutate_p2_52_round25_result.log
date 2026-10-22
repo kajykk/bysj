@@ -1,0 +1,21 @@
+# ROUND_25 变异见证 — tests/test_p2_49_round23b_secret_scan.py
+# 闸门 collected 用例数 14（ROUND_24 时 10：6+2×2 parametrize；本轮 +4 记账闸门）
+
+[baseline] returncode=0
+14 passed, 4 warnings in 6.94s
+[M1] RED-OK  口令字面量塞回已入库脚本 login_admin.py
+       returncode=1 target_hit=True msg_hit=True；1 failed, 13 passed, 4 warnings in 7.02s
+[M2] RED-OK  登记簿伪造一条指向不存在文件的条目
+       returncode=1 target_hit=True msg_hit=True；1 failed, 13 passed, 4 warnings in 7.14s
+[M3·本机形态] RED-OK  反向臂：已登记未入库脚本被强推进库（模拟 A2 完成忘同步清单）
+       returncode=1 target_hit=True msg_hit=True；1 failed, 13 passed, 4 warnings in 7.10s
+[M3·CI形态] RED-OK  反向臂：已登记未入库脚本被强推进库（模拟 A2 完成忘同步清单）
+       returncode=1 target_hit=True msg_hit=True；1 failed, 13 passed, 4 warnings in 8.16s
+[M4] RED-OK  新建未入库却消费凭证的脚本
+       returncode=1 target_hit=True msg_hit=True；1 failed, 13 passed, 4 warnings in 7.44s
+
+[final] returncode=0
+14 passed, 4 warnings in 7.14s
+[residual] CLEAN
+[summary] 5/5 RED-OK；residual_clean=True; final_green=True
+[exit] PASS

@@ -179,7 +179,19 @@ download_kaggle.py
 # AUDIT-2026-10-01 (P1-30): 原实现按文件名逐个列举（只写了 login_admin.py），
 # 结果漏掉同口令的 scripts/login_admin.ps1，该文件于 3a1740e 提交入库。
 # 改用通配符后，不再依赖"枚举是否列全"。
+# AUDIT-2026-10-22 (ROUND_25): L13 修复（ROUND_23）已把口令改为环境变量读取
+# ⇒ 当初"含明文口令"的排除理由消失。这两个脚本是金丝雀发布运维辅助工具，
+# 继续排除会让修复失去 CI 背书 ⇒ 下方做定向否定重新入库。
+# **通配规则本身保留**（P1-30 的教训：枚举会漏，通配防未来新文件）。
 /scripts/login_admin.*
+
+# ⑦ ROUND_25 (2026-10-22)：L13 修复后口令已环境变量化，排除理由消失。
+# 对上述通配规则做**定向否定**（保留通配、只放行已逐个读过确认无明文口令的
+# 具体文件——新增文件仍被通配挡住，不会因为"枚举漏"而漏出口）：
+!/scripts/login_admin.py
+!/scripts/login_admin.ps1
+!/scripts/check_metrics_v2.py
+!/scripts/trigger_fusion_inference_v2.py
 
 # ③ 本地运行期令牌（脚本生成，绝不可入库）
 /scripts/.admin_token.txt
