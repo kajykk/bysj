@@ -18,10 +18,14 @@
 >   新口径点估计 = 全样本统计量；所有 CI（含 AUC）= bootstrap 分位（B=10000, seed=42）。
 > - **口径差异**：旧 `f1.point=0.8527` 是 bootstrap 均值，全样本名义值是 0.8541667
 >   （= `metrics.json`）；旧 AUC CI 的 Hanley-McNeil 近似已由 bootstrap 取代。
-> - **当前数据上的实测**（n=157，生产路径）：F1 0.7500 **[0.6410, 0.8434]**，
->   AUC 0.9884 **[0.9699, 0.9990]**，Recall 0.6000 **[0.4717, 0.7292]** —— Recall 低是
->   artifact scaler 与当前数据版本不配套所致（重拟合 scaler 的对照口径 F1 0.9369，非生产），
->   缺陷登记见 `docs/P2_53_ROUND26_EVAL_REPRODUCIBILITY_AUDIT.md`。
+> - **当前数据上的实测**（n=157，生产路径，**ROUND_29 修复 D-R26-1 后**）：
+>   F1 0.8205 **[0.7387, 0.8889]**，AUC 0.9451 **[0.9064, 0.9768]**，
+>   Recall 0.8727 **[0.7800, 0.9531]**（混淆矩阵 TP=48 / FP=14 / FN=7 / TN=88）。
+>   修复前同口径为 F1 0.7500 / AUC 0.9884 / Recall 0.6000
+>   （TP=33 / FP=0 / FN=22 / TN=102，历史口径，不可比）——病根是 artifact scaler
+>   与数据版本不配套；ROUND_29 按路径 B 端到端重训（co-consistent by construction），
+>   修复记录与防复发闸门见 `docs/P2_56_ROUND29_SCALER_FIX_AUDIT.md`。
+>   **这是修标准化缺陷，不是模型变强**：修复后 AUC 由 0.9884 降至 0.9451。
 > - **ROUND_27（2026-10-23）口径修正与更强门槛**：上面这些 CI 端点相对 ROUND_26
 >   首次公布的值（F1 [0.6383, 0.8431]、AUC [0.9694, 0.9990]、Recall [0.4687, 0.7288]）
 >   有变化，**根因是行序不是精度**：ROUND_26 用 split 的 `tei` 乱序算 bootstrap，
@@ -29,8 +33,10 @@
 >   （a）csv 存 float64 往返精度（`.17g`）；（b）指标与 CI 一律按**落盘行序**计算；
 >   （c）`--report-only` **同时重写 JSON + 报告**。验收口径改为
 >   **「提交版 sha == 单命令产物 sha」**：对已提交的 `test_predictions.csv` 跑
->   `--report-only`，重写出的 JSON 与报告必须与仓库里的提交版**逐字节相等**。
->   点估计与混淆矩阵不受影响（TP=33/FP=0/FN=22/TN=102）。
+>   `--report-only`，重写出的 JSON 与报告必须与仓库里的提交版**逐字节相等**
+>   （ROUND_29 重训后已复验通过）。ROUND_27 当时点估计与混淆矩阵不受影响
+>   （彼时 TP=33/FP=0/FN=22/TN=102）；ROUND_29 更换 artifact 后混淆矩阵随重训
+>   变为 TP=48 / FP=14 / FN=7 / TN=88。
 
 - `physio_v2_test_ci.json`：测试集 n=139 的 95% CI。
   阈值指标（Acc/Prec/Rec/F1）为非参数 bootstrap（B=10000，seed=42），

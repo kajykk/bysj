@@ -1,11 +1,11 @@
 {
-  "_note": "本文件由 backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py 生成；数据集是仓内 depresjon 当前版本的确定性切分，NOT 原 139 行测试集（不可复现，见 report）。ROUND_27 起：csv 存 float64 往返精度（.17g），全量运行与 --report-only 的 JSON 逐字段一致",
+  "_note": "本文件由 backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py 生成；数据集是仓内 depresjon 当前版本的确定性切分，NOT 原 139 行测试集（不可复现，见 report）。ROUND_27 起：csv 存 float64 往返精度（.17g），全量运行与 --report-only 的 JSON 逐字段一致。ROUND_29 起：artifact 已按路径 B 端到端重训（D-R26-1 修复，04_round29_retrain_physiological.py），部署 scaler == train-only 重拟合（co-consistent by construction），修复前工件存档为 *.broken_round29",
   "acc": {
     "ci95": [
-      0.802548,
-      0.910828
+      0.808917,
+      0.917197
     ],
-    "point": 0.859873
+    "point": 0.866242
   },
   "dataset": {
     "class_counts": {
@@ -22,24 +22,24 @@
     }
   },
   "diagnostic_refit_scaler": {
-    "_note": "只换 scaler（在当前训练集重拟合），其余同生产链；非生产口径，仅用于定位缺陷",
-    "f1": 0.936937,
-    "rec": 0.945455,
-    "roc_auc": 0.984135
+    "_note": "ROUND_29 起语义变更：不再是缺陷定位列，而是 co-consistency 证明列——部署 scaler 与 train-only 重拟合逐位相等，故本块读数与主口径相同；由 csv 列 y_score_refit_scaler 复算（--report-only）。参数级判据见 tests/test_p2_56_round29_scaler_consistency.py 第一层",
+    "f1": 0.820513,
+    "rec": 0.872727,
+    "roc_auc": 0.945098
   },
   "f1": {
     "ci95": [
-      0.641026,
-      0.843373
+      0.738739,
+      0.888889
     ],
-    "point": 0.75
+    "point": 0.820513
   },
   "inference_chain": "DataCleaner.transform -> engineer_features -> SimpleStandardScaler.transform -> PhysiologicalMLP.predict_proba (production path, predict.py::_predict_physiological_sync)",
   "meta": {
-    "FN": 22,
-    "FP": 0,
-    "TN": 102,
-    "TP": 33,
+    "FN": 7,
+    "FP": 14,
+    "TN": 88,
+    "TP": 48,
     "bootstrap_B": 10000,
     "n": 157,
     "point_estimator": "full-sample statistic (not bootstrap mean)",
@@ -48,24 +48,24 @@
   "method": "bootstrap over persisted per-sample scores",
   "prec": {
     "ci95": [
-      1.0,
-      1.0
+      0.666667,
+      0.875
     ],
-    "point": 1.0
+    "point": 0.774194
   },
   "rec": {
     "ci95": [
-      0.471698,
-      0.729167
+      0.78,
+      0.953125
     ],
-    "point": 0.6
+    "point": 0.872727
   },
   "reproducibility": {
     "artifacts_sha256": {
-      "cleaner_stats.json": "94122278dca56c7edad1435cbb54a4b0b5d72f22b41f800a8b7ae5d388fe0bc2",
-      "feature_names.json": "bb7a24fe8b836fa3ba7befcc0c3070212d83eb7b2d9597f94cb82fb2c3514a22",
-      "model.json": "fb81098a6c85fe4fafe82a7716d2b516efd4d6fb8242a6019226917949f9ed52",
-      "scaler.json": "02d5d36f9355850323155530b35f94f8778e464df918369cb898127d4f842a8d"
+      "cleaner_stats.json": "234c69ff72fda0f886b8ca42ae9857a4cbc64c980f2214e07a7f80779462b0f6",
+      "feature_names.json": "1d96dca6260cab7f7e3b60d2250f65a7e84bed1d2878acb312990fe94c4fb503",
+      "model.json": "d2b0b80529a8f56484b1de1df11247775627d11b12b7bbd01fb38ffe7b78f3bd",
+      "scaler.json": "310ee08d6a061e0f1e6131099457aa6ee300d3d3edbf9aa24e11801e041946fe"
     },
     "env": {
       "numpy": "2.4.4",
@@ -74,16 +74,16 @@
       "python": "3.12.0",
       "scikit_learn": "1.8.0"
     },
-    "predictions_csv_sha256": "42824d46dc5ae344790e447a346c61aad8bb23ca1317f1ee6b9cd8aca6d22055",
+    "predictions_csv_sha256": "1853a250717e0681d5f01c06d6e9278e4449185deaf445aa4f83f025ad55cc94",
     "recompute_command": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py --report-only",
     "rerun": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py"
   },
   "roc_auc": {
     "ci95": [
-      0.969948,
-      0.998976
+      0.906416,
+      0.976758
     ],
-    "point": 0.988414
+    "point": 0.945098
   },
   "threshold": 0.5
 }

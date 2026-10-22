@@ -1,4 +1,4 @@
-# 论文数字台账（ROUND_28 · P2-55）
+# 论文数字台账（ROUND_29 · P2-56 更新；ROUND_28 · P2-55 建立）
 
 > **纪律**：论文里的每个数字必须能由**已提交产物**用一条命令复算；不得从任何 ROUND 汇报转引。
 > **机器校验**（只读，CI 每次提交都跑）：
@@ -20,25 +20,37 @@
 - **复算分层**：`01/02` 评估脚本需要原始数据集（`datasets/` 不在版本库），只能在有数据的
   机器上跑；**CI 干净 checkout 的复算层是 csv/json**——本闸门与外部审稿人复算入口
   （`--report-only`）在同一层。「提交产物 == 单命令产物」的硬闸门见 ROUND_27
-  （`docs/P2_54_ROUND27_TRANSFER_AUDIT.md`），本轮未重跑，未改动任何产物。
+  （`docs/P2_54_ROUND27_TRANSFER_AUDIT.md`）；**ROUND_29 已随 01 全量重跑复验**
+  （D-R26-1 修复更换 artifact 后，`--report-only` 与全量运行产物逐字节一致）。
 - **口径**：点估计 = 全样本统计量（不是 bootstrap 均值）；CI = 非参数 bootstrap 分位
   （B=10000，seed=42）；判定阈值 0.5。
 
 ## 一、可进论文数字
 
-### 1.1 域内（生理模态 · 生产路径 · n = 157）
+### 1.1 域内（生理模态 · 生产路径 · n = 157 · ROUND_29 修复后工件）
 
 | 编号 | 指标 | 点估计 | 95% CI | 来源产物 | 复算命令 | 类别 | 可否进论文 |
 |---|---|---|---|---|---|---|---|
-| C-01 | Accuracy | 0.8599 | [0.8025, 0.9108] | `docs/model-evaluation/physio_v2_current_data_eval.json` + `backend/models/artifacts/physiological_optimized/test_predictions.csv` | `01_reproducible_eval.py --report-only`（需数据集）；CI 层 `verify_thesis_numbers.py` | 域内 | ✅ |
-| C-02 | Precision | 1.0000 | [1.0000, 1.0000] | 同上 | 同上 | 域内 | ✅ |
-| C-03 | Recall | 0.6000 | [0.4717, 0.7292] | 同上 | 同上 | 域内 | ✅ |
-| C-04 | F1 | 0.7500 | [0.6410, 0.8434] | 同上 | 同上 | 域内 | ✅ |
-| C-05 | ROC AUC | 0.9884 | [0.9699, 0.9990] | 同上 | 同上 | 域内 | ✅ |
-| C-06 | 混淆矩阵 | TP=33 / FP=0 / FN=22 / TN=102 | — | 同上 | 同上 | 域内 | ✅ |
-| C-07 | 诊断·重拟合 scaler F1 | 0.9369 | — | 同上（csv 列 `y_score_refit_scaler`） | `01_reproducible_eval.py --report-only`；CI 层 `verify_thesis_numbers.py` | 域内·诊断 | ✅（仅用于缺陷定位，不得宣称为模型性能） |
-| C-08 | 诊断·重拟合 scaler Recall | 0.9455 | — | 同上 | 同上 | 域内·诊断 | ✅（同上） |
-| C-09 | 诊断·重拟合 scaler ROC AUC | 0.9841 | — | 同上 | 同上 | 域内·诊断 | ✅（同上） |
+| C-01 | Accuracy | 0.8662 | [0.8089, 0.9172] | `docs/model-evaluation/physio_v2_current_data_eval.json` + `backend/models/artifacts/physiological_optimized/test_predictions.csv` | `01_reproducible_eval.py --report-only`（需数据集）；CI 层 `verify_thesis_numbers.py` | 域内 | ✅ |
+| C-02 | Precision | 0.7742 | [0.6667, 0.8750] | 同上 | 同上 | 域内 | ✅ |
+| C-03 | Recall | 0.8727 | [0.7800, 0.9531] | 同上 | 同上 | 域内 | ✅ |
+| C-04 | F1 | 0.8205 | [0.7387, 0.8889] | 同上 | 同上 | 域内 | ✅ |
+| C-05 | ROC AUC | 0.9451 | [0.9064, 0.9768] | 同上 | 同上 | 域内 | ✅ |
+| C-06 | 混淆矩阵 | TP=48 / FP=14 / FN=7 / TN=88 | — | 同上 | 同上 | 域内 | ✅ |
+| C-07 | 一致性·train-only 重拟合 F1（ROUND_29 起） | 0.8205 | — | 同上（csv 列 `y_score_refit_scaler`） | `01_reproducible_eval.py --report-only`；CI 层 `verify_thesis_numbers.py` | 域内·一致性证明 | ✅（与 C-04 相等即 co-consistency 证据；ROUND_29 前为缺陷定位诊断列，历史读数见 §1.1 注） |
+| C-08 | 一致性·train-only 重拟合 Recall（ROUND_29 起） | 0.8727 | — | 同上 | 同上 | 域内·一致性证明 | ✅（同上） |
+| C-09 | 一致性·train-only 重拟合 ROC AUC（ROUND_29 起） | 0.9451 | — | 同上 | 同上 | 域内·一致性证明 | ✅（同上） |
+
+> **ROUND_29 修复记录（D-R26-1，路径 B 端到端重训）**：C-01 ~ C-06 是**修复后**生产链路
+> 读数（同一 n = 157 测试集、同一阈值 0.5、同一评估脚本）。修复前同口径为
+> Accuracy 0.8599 / Precision 1.0000 / Recall 0.6000 / F1 0.7500 / ROC AUC 0.9884 /
+> TP=33 / FP=0 / FN=22 / TN=102（历史口径，工件已存档为 `*.broken_round29`，**不可比**，
+> 不得作为现行性能引用；修复细节与防复发闸门见 `docs/P2_56_ROUND29_SCALER_FIX_AUDIT.md`）。
+> 修复是**标准化缺陷整改，不是模型能力提升**：修复后 AUC 由 0.9884 降至 0.9451。
+> C-07 ~ C-09 在 ROUND_29 前是「只换 scaler」的缺陷定位诊断列（当时读数 F1 0.9369 /
+> Recall 0.9455 / AUC 0.9841，历史口径，不得宣称为性能）；修复后部署 scaler 与
+> train-only 重拟合逐位相等，该列转为 co-consistency 证明列（csv 中与 `y_score`
+> 逐位相等，闸门第一层在参数级复判）。
 
 ### 1.2 跨数据集迁移（两个「降级」单元；其余 16 格 N/A）
 
@@ -105,9 +117,9 @@
 
 | 编号 | 数字 | 出处 | 为何禁用 | 正确替代 |
 |---|---|---|---|---|
-| B-01 | 0.8993 / 0.9318 / 0.7885 / **0.8542** / **0.9653**（优化版）与 0.6600 / 0.6091 / 0.8933 / **0.7243**（原始版），样本量 n=139 | `docs/upgrade_baseline_202607.md:19-20`、`backend/models/artifacts/physiological_optimized/metrics.json` | **不可复现**（三重证据）：仓内 `stratified_split`（rs=42）恒给 719/153/157 而非记录的 719/171/139；artifact `scaler.json` 统计量与仓内三份生理数据全不匹配（sleep_quality 均值 5.43 超出 1-5 量表）；训练脚本从未入库。只能作历史口径/变更说明 | C-01 ~ C-06（n=157 新口径） |
-| B-02 | registry `test_f1` = **0.9530** | `backend/app/core/model_registry.py:158` | **禁用**：第三套数字——`artifact_metadata` 记 hidden_dims [64,32,16] / dropout 0.3，与 `model.json` 实际 [128,64,32,16] / 0.2 不符；`manifest.json` 已自认过期 | C-04（0.7500）；引用 registry 元数据时必须显式标注过期 |
-| B-03 | **0.8527** | `docs/model-evaluation/physio_v2_test_ci.json`（已标 SUPERSEDED） | bootstrap 均值被误写入 `point` 位（名义值 0.8541667 亦属 B-01，两者差 0.0015 即来源） | C-04（0.7500，全样本统计量） |
+| B-01 | 0.8993 / 0.9318 / 0.7885 / **0.8542** / **0.9653**（优化版）与 0.6600 / 0.6091 / 0.8933 / **0.7243**（原始版），样本量 n=139 | `docs/upgrade_baseline_202607.md:19-20`、`backend/models/artifacts/physiological_optimized/metrics.json` | **不可复现**（三重证据）：仓内 `stratified_split`（rs=42）恒给 719/153/157 而非记录的 719/171/139；修复前 artifact `scaler.json` 统计量与仓内三份生理数据全不匹配（sleep_quality 均值 5.43 超出 1-5 量表，该工件已存档为 `scaler.json.broken_round29`）；训练脚本从未入库。只能作历史口径/变更说明 | C-01 ~ C-06（n=157 新口径） |
+| B-02 | registry `test_f1` = **0.9530** | `backend/app/core/model_registry.py:158` | **禁用**：第三套数字——`artifact_metadata` 记 hidden_dims [64,32,16] / dropout 0.3，与 `model.json` 实际 [128,64,32,16] / 0.2 不符；`manifest.json` 已自认过期 | C-04（0.8205）；引用 registry 元数据时必须显式标注过期 |
+| B-03 | **0.8527** | `docs/model-evaluation/physio_v2_test_ci.json`（已标 SUPERSEDED） | bootstrap 均值被误写入 `point` 位（名义值 0.8541667 亦属 B-01，两者差 0.0015 即来源） | C-04（0.8205，全样本统计量） |
 | B-04 | 融合「4 条手写场景全 1.0000」行 | `docs/upgrade_baseline_202607.md:22` | 4 条硬编码场景无统计意义；且 `1.0000` 与合法 Precision=1.0000（C-02/C-17）**撞号**，无法做 token 级闸门，仅叙事禁用 | X-01 ~ X-06（权重敏感性扫描） |
 | B-05 | 任何台账外、未复算的数字 | — | 通则：没有来源产物路径 + 复算命令的数字一律不得进论文 | 先补登记（复算通过）再引用 |
 
@@ -117,5 +129,10 @@
   顶部已标 SUPERSEDED，保留作变更记录；**不得**从中取任何数字。
 - `docs/upgrade_baseline_202607.md`：v1.3→v1.4 升级基线档案，其中生理两行（B-01）与
   融合行（B-04）仅作历史口径。
+- `backend/models/artifacts/physiological_optimized/*.broken_round29`：ROUND_29 修复
+  D-R26-1 前的生产工件存档（scaler / cleaner / model / metrics 四件，字节级保留，
+  侧车校验相符；feature_names 十三特征名两代相同，未入存档）。其中的参数（如 scaler
+  sleep_quality 均值 5.4279）只可用于论证**修复前**缺陷，修复后一切读数以
+  C-01 ~ C-09 为准。
 - `backend/app/core/model_registry.py` 的 `artifact_metadata`（B-02）：本轮**不改**
   registry（边界），只在台账与论文里标注其不可引用。
