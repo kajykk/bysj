@@ -1,0 +1,74 @@
+{
+  "_note": "ROUND_27 G2 迁移评估（降级单元）——见 TRANSFER_MATRIX.md 的裁定；本文件不是「公平基线」，指标只作下界/压力测试解读",
+  "acc": {
+    "ci95": [
+      0.99128,
+      0.997226
+    ],
+    "point": 0.994451
+  },
+  "dataset": {
+    "name": "data/external/ood_test_set_v2.csv（S2_ood_strict 子集）",
+    "note": "1275 original 全在训练语料、1175 mmpsy_augmented 全在训练增强集（均泄漏）；此处仅保留与训练语料精确不重叠的 2523 条",
+    "rows": 2523
+  },
+  "f1": {
+    "ci95": [
+      0.978261,
+      0.993049
+    ],
+    "point": 0.986166
+  },
+  "fairness": "域内压力测试（OOD 与训练语料精确去重，但仍是同源 original 的 EDA 改写）——非外迁、非公平基准",
+  "feature_mapping": {
+    "text": "TF-IDF（improved_bilingual_tfidf.pkl）"
+  },
+  "meta": {
+    "FN": 14,
+    "FP": 0,
+    "TN": 2010,
+    "TP": 499,
+    "bootstrap_B": 10000,
+    "n": 2523,
+    "point_estimator": "full-sample statistic (not bootstrap mean)",
+    "seed": 42
+  },
+  "method": "bootstrap over persisted per-sample scores",
+  "missing_handling": "不适用（文本列齐全）",
+  "prec": {
+    "ci95": [
+      1.0,
+      1.0
+    ],
+    "point": 1.0
+  },
+  "rec": {
+    "ci95": [
+      0.957447,
+      0.986193
+    ],
+    "point": 0.97271
+  },
+  "reproducibility": {
+    "env": {
+      "numpy": "2.4.4",
+      "pandas": "3.0.2",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python": "3.12.0",
+      "scikit_learn": "1.8.0"
+    },
+    "predictions_csv": "transfer_text_ood_predictions.csv",
+    "predictions_csv_sha256": "06778357a37fd7f78edff38a801d94a2187fa2883c8b58a5917e213c56dfb047",
+    "recompute_command": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/02_transfer_eval.py --unit text_ood --report-only",
+    "rerun": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/02_transfer_eval.py --unit text_ood"
+  },
+  "roc_auc": {
+    "ci95": [
+      0.995568,
+      0.999994
+    ],
+    "point": 0.99857
+  },
+  "threshold": 0.5,
+  "unit": "text_ood"
+}

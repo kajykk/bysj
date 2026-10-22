@@ -1,0 +1,80 @@
+{
+  "_note": "ROUND_27 G2 迁移评估（降级单元）——见 TRANSFER_MATRIX.md 的裁定；本文件不是「公平基线」，指标只作下界/压力测试解读",
+  "acc": {
+    "ci95": [
+      0.4701,
+      0.4898
+    ],
+    "point": 0.4801
+  },
+  "dataset": {
+    "name": "datasets/physiological/external/kaggle_wearable/mental_health_wearable_data.csv",
+    "note": "未确证未参与 v2 训练（训练脚本未入库）；标签 = Mental_Health_Condition",
+    "rows": 10000
+  },
+  "f1": {
+    "ci95": [
+      0.350733,
+      0.37715
+    ],
+    "point": 0.363881
+  },
+  "fairness": "跨数据集压力测试（4/7 原始特征为生产默认常量、3/13 派生特征真实）——下界、非公平基准",
+  "feature_mapping": {
+    "Heart_Rate_BPM": "heart_rate",
+    "Physical_Activity_Steps": "steps",
+    "Sleep_Duration_Hours": "sleep_hours",
+    "（缺）diastolic_bp": "生产默认 80.0",
+    "（缺）exercise_minutes": "生产默认 30.0",
+    "（缺）sleep_quality": "生产默认 5.0",
+    "（缺）systolic_bp": "生产默认 120.0"
+  },
+  "meta": {
+    "FN": 3670,
+    "FP": 1529,
+    "TN": 3314,
+    "TP": 1487,
+    "bootstrap_B": 10000,
+    "n": 10000,
+    "point_estimator": "full-sample statistic (not bootstrap mean)",
+    "seed": 42
+  },
+  "method": "bootstrap over persisted per-sample scores",
+  "missing_handling": "缺列按 predict.py::_predict_physiological_sync 的 raw_data 默认值填充（sleep_quality=5, exercise_minutes=30, systolic_bp=120, diastolic_bp=80），随后仍走 artifact cleaner 的 winsor 边界；不丢弃任何行",
+  "prec": {
+    "ci95": [
+      0.475606,
+      0.51083
+    ],
+    "point": 0.493037
+  },
+  "rec": {
+    "ci95": [
+      0.276241,
+      0.300754
+    ],
+    "point": 0.288346
+  },
+  "reproducibility": {
+    "env": {
+      "numpy": "2.4.4",
+      "pandas": "3.0.2",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python": "3.12.0",
+      "scikit_learn": "1.8.0"
+    },
+    "predictions_csv": "transfer_physio_kaggle_predictions.csv",
+    "predictions_csv_sha256": "19a22413a3dccbd1bb37d35ef84bfb3cf3b4f852c1563abf75b4e0335a29fc90",
+    "recompute_command": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/02_transfer_eval.py --unit physio_kaggle --report-only",
+    "rerun": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/02_transfer_eval.py --unit physio_kaggle"
+  },
+  "roc_auc": {
+    "ci95": [
+      0.500604,
+      0.523288
+    ],
+    "point": 0.512043
+  },
+  "threshold": 0.5,
+  "unit": "physio_kaggle"
+}
