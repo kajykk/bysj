@@ -1,3 +1,11 @@
 # 容器内挂载执行的脚本必须为 LF，CRLF 会导致 /bin/sh 解析失败
 # （2026-09-24：infra/grafana/init-alerting.sh 曾因 CRLF 使 dws-grafana 无限重启）
 *.sh text eol=lf
+
+# ROUND_27：评估证据产物必须跨机器字节稳定（sha256 是证据的一部分）。
+# 不加 eol=lf 时 Windows checkout 会转 CRLF ⇒ 文件 sha 与 .sha256 失配。
+backend/models/artifacts/**/*.csv text eol=lf
+backend/models/artifacts/**/*.json text eol=lf
+backend/models/artifacts/**/*.sha256 text eol=lf
+docs/model-evaluation/*.json text eol=lf
+docs/model-evaluation/*.md text eol=lf

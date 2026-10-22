@@ -15,7 +15,9 @@
 ```bash
 cd backend
 .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py
-# 只复算（不重建预测）：加 --report-only
+# 只复算（不重建预测、不推理）：加 --report-only —— 会重写 JSON + 本报告，
+# 且与全量运行的产物**逐字节一致**（ROUND_27 起 csv 存 float64 往返精度、
+# 指标与 CI 按 csv 的行序计算）
 ```
 
 ## 一、与原记录的关系（不可复现，不冒充）
@@ -38,9 +40,9 @@ cd backend
 |---|---|---|
 | Accuracy | 0.8599 | [0.8025, 0.9108] |
 | Precision | 1.0000 | [1.0000, 1.0000] |
-| Recall | 0.6000 | [0.4687, 0.7288] |
-| F1 | 0.7500 | [0.6383, 0.8431] |
-| ROC AUC | 0.9884 | [0.9694, 0.9990] |
+| Recall | 0.6000 | [0.4717, 0.7292] |
+| F1 | 0.7500 | [0.6410, 0.8434] |
+| ROC AUC | 0.9884 | [0.9699, 0.9990] |
 
 混淆矩阵：TP=33 / FP=0 / FN=22 / TN=102
 
@@ -67,19 +69,23 @@ AUC 在两个口径下都高 ⇒ **模型的排序能力没问题，问题在标
 
 ```
 backend/models/artifacts/physiological_optimized/test_predictions.csv
-  sha256 = 539617fb83665de4dda1e646eae35703d194c9eb87f874aa02c62cf767c81d09
+  sha256 = 42824d46dc5ae344790e447a346c61aad8bb23ca1317f1ee6b9cd8aca6d22055
 backend/models/artifacts/physiological_optimized/test_predictions.csv.sha256
 ```
 
 列定义：`sample_id, row_index, y_true, y_score, y_pred, y_score_refit_scaler`。
 `y_score` 是生产链输出；`y_score_refit_scaler` 是 §三 的诊断列（**不入主口径**）。
 
-复算全部数字（会重写本报告并重算 CI）：
+复算全部数字（会重写 JSON + 本报告并重算 CI）：
 
 ```bash
 cd backend
 .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py --report-only
 ```
+
+**验收口径**：对已提交的 `test_predictions.csv` 跑上面这条命令，重写出的 JSON 与本报告
+必须与仓库里的提交版**逐字节相等**（sha256 相同）。这不是「跑两次自洽」——
+比的是「提交产物 vs 单命令产物」。
 
 环境指纹（同机器两次运行产物字节一致；换机器需比对以下版本）：
 

@@ -236,17 +236,24 @@ def sha256_of(path: Path) -> str:
 def write_predictions_csv(rows: list[tuple[int, int, float, int, float]]) -> None:
     """列：sample_id,row_index,y_true,y_score,y_pred,y_score_refit_scaler。
 
-    行序按 row_index 升序（确定性）；浮点固定 6 位小数（避免平台差异）。
+    行序按 row_index 升序（确定性）；浮点用 **`.17g`（float64 往返精度）**。
+
+    ROUND_27 修正：ROUND_26 用 `.6f` 舍入，导致 `--report-only` 从 csv 复算
+    的 bootstrap CI 端点与全量运行（内存全精度）不一致（Recall 下界
+    0.468733 → 0.471698，差 ±0.003）。`.17g` 保证 `float(text) == 原值`
+    （float64 往返无损），两种模式由此逐位一致。
     """
     lines = ["sample_id,row_index,y_true,y_score,y_pred,y_score_refit_scaler"]
     for i, (row_index, y_true, y_score, y_pred, y_refit) in enumerate(rows):
         lines.append(
-            f"physio_{i:04d},{row_index},{y_true},{y_score:.6f},{y_pred},{y_refit:.6f}"
+            f"physio_{i:04d},{row_index},{y_true},{y_score:.17g},{y_pred},{y_refit:.17g}"
         )
     text = "\n".join(lines) + "\n"
     PREDICTIONS_CSV.write_text(text, encoding="utf-8", newline="\n")
     digest = sha256_of(PREDICTIONS_CSV)
-    PREDICTIONS_SHA.write_text(f"{digest}  test_predictions.csv\n", encoding="utf-8")
+    PREDICTIONS_SHA.write_text(
+        f"{digest}  test_predictions.csv\n", encoding="utf-8", newline="\n"
+    )
 
 
 def read_predictions_csv() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -318,7 +325,9 @@ def write_report(metrics: dict, ci: dict, refit_metrics: dict, extra: dict) -> N
 ```bash
 cd backend
 .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py
-# 只复算（不重建预测）：加 --report-only
+# 只复算（不重建预测、不推理）：加 --report-only —— 会重写 JSON + 本报告，
+# 且与全量运行的产物**逐字节一致**（ROUND_27 起 csv 存 float64 往返精度、
+# 指标与 CI 按 csv 的行序计算）
 ```
 
 ## 一、与原记录的关系（不可复现，不冒充）
@@ -377,12 +386,16 @@ backend/models/artifacts/physiological_optimized/test_predictions.csv.sha256
 列定义：`sample_id, row_index, y_true, y_score, y_pred, y_score_refit_scaler`。
 `y_score` 是生产链输出；`y_score_refit_scaler` 是 §三 的诊断列（**不入主口径**）。
 
-复算全部数字（会重写本报告并重算 CI）：
+复算全部数字（会重写 JSON + 本报告并重算 CI）：
 
 ```bash
 cd backend
 .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py --report-only
 ```
+
+**验收口径**：对已提交的 `test_predictions.csv` 跑上面这条命令，重写出的 JSON 与本报告
+必须与仓库里的提交版**逐字节相等**（sha256 相同）。这不是「跑两次自洽」——
+比的是「提交产物 vs 单命令产物」。
 
 环境指纹（同机器两次运行产物字节一致；换机器需比对以下版本）：
 
@@ -434,33 +447,142 @@ def verify_original(df, y: np.ndarray) -> dict:
     }
 
 
+# ────────────────────────── 产物构造（两模式共用） ──────────────────────────
+
+
+def dataset_block() -> dict:
+    """dataset 元信息（两种模式共用，保证 JSON 逐字段一致）。
+
+    `--report-only` 只从 csv 读**指标输入**；这里的行数/类别/切分尺寸仍来自
+    原始数据 + 同一个 `split_indices`（不推理），因此两模式写出的 JSON 相同。
+    """
+    df = load_depresjon_data()
+    y = df["depression_label"].values.astype(np.int64)
+    tri, vai, tei = split_indices(y)
+    return {
+        "name": "depresjon_physiological.csv",
+        "rows": int(len(y)),
+        "class_counts": {str(int(c)): int((y == c).sum()) for c in np.unique(y)},
+        "split": {
+            "train": int(len(tri)),
+            "val": int(len(vai)),
+            "test": int(len(tei)),
+            "scheme": "stratified 0.7/0.15/0.15, random_state=42",
+        },
+    }
+
+
+def build_payload(
+    metrics: dict,
+    ci: dict,
+    auc_point: float,
+    refit_metrics: dict,
+    refit_auc: float,
+    dataset: dict,
+) -> dict:
+    """两种模式共用的 JSON 构造：字段、舍入、排序完全一致。"""
+    return {
+        "_note": (
+            "本文件由 backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py 生成；"
+            "数据集是仓内 depresjon 当前版本的确定性切分，NOT 原 139 行测试集（不可复现，见 report）。"
+            "ROUND_27 起：csv 存 float64 往返精度（.17g），全量运行与 --report-only 的 JSON 逐字段一致"
+        ),
+        "dataset": dataset,
+        "method": "bootstrap over persisted per-sample scores",
+        "inference_chain": (
+            "DataCleaner.transform -> engineer_features -> SimpleStandardScaler.transform "
+            "-> PhysiologicalMLP.predict_proba (production path, predict.py::_predict_physiological_sync)"
+        ),
+        "threshold": THRESHOLD,
+        "acc": {"point": round(metrics["acc"], 6), "ci95": [round(v, 6) for v in ci["acc"]["ci95"]]},
+        "prec": {"point": round(metrics["prec"], 6), "ci95": [round(v, 6) for v in ci["prec"]["ci95"]]},
+        "rec": {"point": round(metrics["rec"], 6), "ci95": [round(v, 6) for v in ci["rec"]["ci95"]]},
+        "f1": {"point": round(metrics["f1"], 6), "ci95": [round(v, 6) for v in ci["f1"]["ci95"]]},
+        "roc_auc": {
+            "point": round(auc_point, 6),
+            "ci95": [round(v, 6) for v in ci["roc_auc"]["ci95"]],
+        },
+        "meta": {
+            "n": metrics["n"],
+            "TP": metrics["TP"],
+            "FP": metrics["FP"],
+            "FN": metrics["FN"],
+            "TN": metrics["TN"],
+            "bootstrap_B": BOOTSTRAP_B,
+            "seed": BOOTSTRAP_SEED,
+            "point_estimator": "full-sample statistic (not bootstrap mean)",
+        },
+        "diagnostic_refit_scaler": {
+            "_note": "只换 scaler（在当前训练集重拟合），其余同生产链；非生产口径，仅用于定位缺陷",
+            "f1": round(refit_metrics["f1"], 6),
+            "roc_auc": round(refit_auc, 6),
+            "rec": round(refit_metrics["rec"], 6),
+        },
+        "reproducibility": {
+            "predictions_csv_sha256": sha256_of(PREDICTIONS_CSV),
+            "artifacts_sha256": artifact_digests(),
+            "env": env_fingerprint(),
+            "rerun": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py",
+            "recompute_command": (
+                "cd backend && .venv/Scripts/python.exe "
+                "scripts/modeling/eval/v1_29/01_reproducible_eval.py --report-only"
+            ),
+        },
+    }
+
+
+def write_json(payload: dict) -> None:
+    EVAL_JSON.parent.mkdir(parents=True, exist_ok=True)
+    EVAL_JSON.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
 # ────────────────────────── main ──────────────────────────
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--verify-original", action="store_true", help="只诊断原切分能否复现")
-    ap.add_argument("--report-only", action="store_true", help="只读 csv 重算并重写报告/JSON")
+    ap.add_argument(
+        "--report-only",
+        action="store_true",
+        help="只读 csv 重算并重写 JSON + 报告（不推理）",
+    )
     args = ap.parse_args(argv)
 
     if args.report_only:
         y, score, _raw = read_predictions_csv()
+        lines = PREDICTIONS_CSV.read_text(encoding="utf-8").strip().splitlines()[1:]
+        refit = np.array([float(ln.split(",")[5]) for ln in lines], dtype=np.float64)
+
         metrics = threshold_metrics(y, score)
         ci = bootstrap_ci(y, score, BOOTSTRAP_B, BOOTSTRAP_SEED)
         auc_point = auc_score(y, score)
-        # refit 列（诊断）也从 csv 读回
-        lines = PREDICTIONS_CSV.read_text(encoding="utf-8").strip().splitlines()[1:]
-        refit = np.array([float(ln.split(",")[5]) for ln in lines], dtype=np.float64)
         refit_metrics = threshold_metrics(y, refit)
-        extra = {
-            "auc_point": auc_point,
-            "refit_auc": auc_score(y, refit),
-            "csv_sha256": sha256_of(PREDICTIONS_CSV),
-            "env": env_fingerprint(),
-        }
-        write_report(metrics, ci, refit_metrics, extra)
-        print(f"[report-only] n={metrics['n']} f1={metrics['f1']:.4f} auc={auc_point:.4f} "
-              f"rec={metrics['rec']:.4f} -> {REPORT_MD.name}")
+        refit_auc = auc_score(y, refit)
+
+        payload = build_payload(
+            metrics, ci, auc_point, refit_metrics, refit_auc, dataset_block()
+        )
+        write_json(payload)
+        write_report(
+            metrics,
+            ci,
+            refit_metrics,
+            {
+                "auc_point": auc_point,
+                "refit_auc": refit_auc,
+                "csv_sha256": sha256_of(PREDICTIONS_CSV),
+                "env": env_fingerprint(),
+            },
+        )
+        print(
+            f"[report-only] n={metrics['n']} f1={metrics['f1']:.4f} auc={auc_point:.4f} "
+            f"rec={metrics['rec']:.4f} -> {EVAL_JSON.name} + {REPORT_MD.name}"
+        )
         return 0
 
     df = load_depresjon_data()
@@ -489,84 +611,50 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = []
     for i, row_index in enumerate(tei):
-        rows.append((int(row_index), int(y_test[i]), float(score[i]), int(pred[i]), float(score_refit[i])))
+        rows.append(
+            (int(row_index), int(y_test[i]), float(score[i]), int(pred[i]), float(score_refit[i]))
+        )
     rows.sort(key=lambda r: r[0])
     write_predictions_csv(rows)
 
-    metrics = threshold_metrics(y_test, score)
-    ci = bootstrap_ci(y_test, score, BOOTSTRAP_B, BOOTSTRAP_SEED)
-    auc_point = auc_score(y_test, score)
-    refit_metrics = threshold_metrics(y_test, score_refit)
-    env = env_fingerprint()
-    digests = artifact_digests()
+    # ROUND_27 关键修正：指标/CI **必须用与 csv 完全相同的顺序**计算。
+    # ROUND_26 用 `tei` 的 shuffle 顺序算 CI，而 csv 按 row_index 升序落盘；
+    # `--report-only` 从 csv 读回后是升序 ⇒ bootstrap 的 `rng.randint` 位置索引
+    # 映射到不同的 (y, score) 对 ⇒ CI 端点系统性偏移（实测 F1 下界 0.638282 → 0.641026）。
+    # 这不是精度问题（point/混淆矩阵对顺序不敏感所以没暴露），
+    # 而是「落盘顺序 == 计算顺序」的一致性前提。
+    y_eval = np.array([r[1] for r in rows], dtype=np.int64)
+    s_eval = np.array([r[2] for r in rows], dtype=np.float64)
+    refit_eval = np.array([r[4] for r in rows], dtype=np.float64)
 
-    payload = {
-        "_note": (
-            "本文件由 backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py 生成；"
-            "数据集是仓内 depresjon 当前版本的确定性切分，NOT 原 139 行测试集（不可复现，见 report）"
-        ),
-        "dataset": {
-            "name": "depresjon_physiological.csv",
-            "rows": int(len(y)),
-            "class_counts": {str(int(c)): int((y == c).sum()) for c in np.unique(y)},
-            "split": {"train": int(len(tri)), "val": int(len(vai)), "test": int(len(tei)),
-                      "scheme": "stratified 0.7/0.15/0.15, random_state=42"},
+    metrics = threshold_metrics(y_eval, s_eval)
+    ci = bootstrap_ci(y_eval, s_eval, BOOTSTRAP_B, BOOTSTRAP_SEED)
+    auc_point = auc_score(y_eval, s_eval)
+    refit_metrics = threshold_metrics(y_eval, refit_eval)
+    refit_auc = auc_score(y_eval, refit_eval)
+
+    payload = build_payload(metrics, ci, auc_point, refit_metrics, refit_auc, dataset_block())
+    write_json(payload)
+    write_report(
+        metrics,
+        ci,
+        refit_metrics,
+        {
+            "auc_point": auc_point,
+            "refit_auc": refit_auc,
+            "csv_sha256": sha256_of(PREDICTIONS_CSV),
+            "env": env_fingerprint(),
         },
-        "method": "bootstrap over persisted per-sample scores",
-        "inference_chain": (
-            "DataCleaner.transform -> engineer_features -> SimpleStandardScaler.transform "
-            "-> PhysiologicalMLP.predict_proba (production path, predict.py::_predict_physiological_sync)"
-        ),
-        "threshold": THRESHOLD,
-        "acc": {"point": round(metrics["acc"], 6), "ci95": [round(v, 6) for v in ci["acc"]["ci95"]]},
-        "prec": {"point": round(metrics["prec"], 6), "ci95": [round(v, 6) for v in ci["prec"]["ci95"]]},
-        "rec": {"point": round(metrics["rec"], 6), "ci95": [round(v, 6) for v in ci["rec"]["ci95"]]},
-        "f1": {"point": round(metrics["f1"], 6), "ci95": [round(v, 6) for v in ci["f1"]["ci95"]]},
-        "roc_auc": {"point": round(auc_point, 6), "ci95": [round(v, 6) for v in ci["roc_auc"]["ci95"]]},
-        "meta": {
-            "n": metrics["n"],
-            "TP": metrics["TP"],
-            "FP": metrics["FP"],
-            "FN": metrics["FN"],
-            "TN": metrics["TN"],
-            "bootstrap_B": BOOTSTRAP_B,
-            "seed": BOOTSTRAP_SEED,
-            "point_estimator": "full-sample statistic (not bootstrap mean)",
-        },
-        "diagnostic_refit_scaler": {
-            "_note": "只换 scaler（在当前训练集重拟合），其余同生产链；非生产口径，仅用于定位缺陷",
-            "f1": round(refit_metrics["f1"], 6),
-            "roc_auc": round(auc_score(y_test, score_refit), 6),
-            "rec": round(refit_metrics["rec"], 6),
-        },
-        "reproducibility": {
-            "predictions_csv_sha256": sha256_of(PREDICTIONS_CSV),
-            "artifacts_sha256": digests,
-            "env": env,
-            "rerun": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py",
-            "recompute_command": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py --report-only",
-        },
-    }
-    EVAL_JSON.parent.mkdir(parents=True, exist_ok=True)
-    EVAL_JSON.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 
-    extra = {
-        "auc_point": auc_point,
-        "refit_auc": auc_score(y_test, score_refit),
-        "csv_sha256": sha256_of(PREDICTIONS_CSV),
-        "env": env,
-    }
-    write_report(metrics, ci, refit_metrics, extra)
-
     print(
-        f"[eval] n={metrics['n']} TP={metrics['TP']} FP={metrics['FP']} FN={metrics['FN']} TN={metrics['TN']}\n"
+        f"[eval] n={metrics['n']} TP={metrics['TP']} FP={metrics['FP']} "
+        f"FN={metrics['FN']} TN={metrics['TN']}\n"
         f"  f1={metrics['f1']:.4f} {ci['f1']['ci95']}\n"
         f"  auc={auc_point:.4f} {ci['roc_auc']['ci95']}\n"
         f"  rec={metrics['rec']:.4f} prec={metrics['prec']:.4f} acc={metrics['acc']:.4f}\n"
-        f"  refit-scaler diagnostic: f1={refit_metrics['f1']:.4f} auc={auc_score(y_test, score_refit):.4f}\n"
-        f"  csv sha256={extra['csv_sha256']}"
+        f"  refit-scaler diagnostic: f1={refit_metrics['f1']:.4f} auc={refit_auc:.4f}\n"
+        f"  csv sha256={sha256_of(PREDICTIONS_CSV)}"
     )
     return 0
 

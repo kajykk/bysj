@@ -1,5 +1,5 @@
 {
-  "_note": "本文件由 backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py 生成；数据集是仓内 depresjon 当前版本的确定性切分，NOT 原 139 行测试集（不可复现，见 report）",
+  "_note": "本文件由 backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py 生成；数据集是仓内 depresjon 当前版本的确定性切分，NOT 原 139 行测试集（不可复现，见 report）。ROUND_27 起：csv 存 float64 往返精度（.17g），全量运行与 --report-only 的 JSON 逐字段一致",
   "acc": {
     "ci95": [
       0.802548,
@@ -29,8 +29,8 @@
   },
   "f1": {
     "ci95": [
-      0.638282,
-      0.843137
+      0.641026,
+      0.843373
     ],
     "point": 0.75
   },
@@ -55,8 +55,8 @@
   },
   "rec": {
     "ci95": [
-      0.468733,
-      0.728814
+      0.471698,
+      0.729167
     ],
     "point": 0.6
   },
@@ -74,14 +74,14 @@
       "python": "3.12.0",
       "scikit_learn": "1.8.0"
     },
-    "predictions_csv_sha256": "539617fb83665de4dda1e646eae35703d194c9eb87f874aa02c62cf767c81d09",
+    "predictions_csv_sha256": "42824d46dc5ae344790e447a346c61aad8bb23ca1317f1ee6b9cd8aca6d22055",
     "recompute_command": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py --report-only",
     "rerun": "cd backend && .venv/Scripts/python.exe scripts/modeling/eval/v1_29/01_reproducible_eval.py"
   },
   "roc_auc": {
     "ci95": [
-      0.969435,
-      0.99902
+      0.969948,
+      0.998976
     ],
     "point": 0.988414
   },
