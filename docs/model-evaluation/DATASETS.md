@@ -17,8 +17,8 @@
 | **WESAD**（§8，本轮新增） | 生理外部验证基准 | 科研非商业署名 | 否 | **已接入**（窗口+被试特征表） |
 | **CNSocialDepress**（§9，本轮新增） | 文本外部验证（专家标注） | 原仓库条款 | 否 | 文档已本地化，**数据待取**（Google 通道） |
 | **CMDC**（§10，本轮新增） | 中文多模态外部验证 | EULA | 否 | 待取（IEEE 账号+EULA） |
-| **SWDD**（§11，本轮新增） | 大规模中文语料 | 原仓库未附 | 否 | 待取（百度风控，见手动步骤） |
-| **WU3D**（§12，本轮新增） | 大规模中文扩量 | 原仓库未附 | 否 | 待取（百度风控，见手动步骤） |
+| **SWDD**（§11，本轮新增） | 大规模中文语料 | 原仓库未附 | 否 | 待取（路径已验证：转存到自己网盘后 `--via-netdisk`，见 §11） |
+| **WU3D**（§12，本轮新增） | 大规模中文扩量 | 原仓库未附 | 否 | 待取（同 §11 路径） |
 | **eRisk 2021**（§13，本轮新增） | 英文早筛对照 | DUA | 否 | 待取（DUA 表单） |
 | **DepInter-CN**（§14，本轮新增） | 中文临床访谈 | 预印本 | 否 | 待申请 |
 | **中文文本抑郁数据集 zsfc-av84**（§15，本轮新增） | 小样本高纯度验证 | IEEE 开放获取 | 否 | 待取（IEEE 账号） |
@@ -191,8 +191,9 @@
 | 规模 / 标签 | 23,237 用户（3,711 抑郁 / 19,526 对照）/ 485 万条微博；用户级二元标签 + **17 个症状级字段**（兴趣丧失/失眠/自杀意念…）；JSONL（depressed.jsonl / control.jsonl） |
 | 许可 | 原仓库未附 LICENSE（研究用途）；作者已删用户 ID |
 | 是否已用于训练 | **否** |
-| 受阻原因（实测） | 百度 anonymous 直链被风控：`sharedownload` 返回 errno 118「违规操作」/ clienttype=12 时 9019「need verify」（2026-10-23 实测；verify/list/tplconfig 均正常，仅直链被拦） |
-| 手动步骤 | A：`fetch_external_datasets.py --dataset swdd --baidu-cookie "BDUSS=…; STOKEN=…"`（本机百度登录 Cookie，仅存进程内存）；B：浏览器打开分享链接手动下载 `SWDD.zip`（861,645,574 B）放入 `data/external/swdd/` |
+| 受阻原因（实测） | 百度分享直链风控：`sharedownload` 在 **全 UA（Chrome/安卓/iOS/netdisk）× clienttype（0/12/25）矩阵** 下均失败——ct=0 → errno 118；ct=12 → 9019「need verify」；ct=25 → 113（2026-10-24 实测，**与 UA 无关，只由 clienttype 决定**）。verify/list/tplconfig 匿名均正常（可见 `SWDD.zip` 861,645,574 B、fs_id 32964761477653） |
+| 已验证可行的取数路径 | **转存到自己网盘 + 开放 API 下载**：① 浏览器登录 pan.baidu.com，打开分享链接（提取码 gdq6），把 `SWDD.zip`「保存到我的网盘」的 `/bysj_datasets/`；② `python fetch_external_datasets.py --dataset swdd --via-netdisk --baidu-cookie-file data/external/.baidu_cookie`。<br>依据（2026-10-24 对照实测）：`rest/2.0/xpan/file?method=download` **带 BDUSS → 31066 file does not exist**（用户识别成功、文件未转存），**不带 → 31045 user not exists** —— 即下载接口认 BDUSS，只差文件已转存。<br>⚠️ 单 BDUSS 仅被开放 API 接受（`xpan/nas?method=uinfo` 返回 errno 0、账号 156\*\*\*\*\*361）；网页端接口（`api/sharedownload`、`api/gettemplatevariable`、`share/list` 带 Cookie）一律 errno -6/-9，需完整 Cookie 组（BAIDUID/STOKEN 等） |
+| 手动步骤 | 首选上行的「转存 + --via-netdisk」；兜底：浏览器手动下载 `SWDD.zip`（861,645,574 B）放入 `data/external/swdd/` |
 | 拟用于何种评估 | 大规模中文语料 + **症状级标签**（补「无逐条目 PHQ 标注」缺口）；注意其标签为规则/自报级，与临床级（CMDC/CNSD）分层引用 |
 
 ## 12. WU3D（微博用户抑郁检测数据集）— 本轮新增，待取
@@ -205,8 +206,8 @@
 | 规模 / 标签 | 10,000+ 抑郁用户 + 20,000+ 对照；论文称标签经专业人员审核；JSON（depressed.json / normal.json） |
 | 许可 | 原仓库未附 LICENSE（研究用途） |
 | 是否已用于训练 | **否** |
-| 受阻原因（实测） | 同 §11（百度 anonymous 直链风控） |
-| 手动步骤 | 同 §11 两种方案 |
+| 受阻原因（实测） | 同 §11（百度分享直链风控，全 UA×clienttype 矩阵一致） |
+| 手动步骤 | 同 §11：浏览器转存到自己网盘 `/bysj_datasets/WU3D.zip` 后 `--via-netdisk` 拉取；或浏览器手动下载 |
 | 拟用于何种评估 | SWDD 的扩量备选；两库用户可能同源（均为微博爬取），并用时须查重 |
 
 ## 13. eRisk 2021（CLEF 早筛任务）— 本轮新增，待取

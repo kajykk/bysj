@@ -89,9 +89,15 @@ DATASETS: dict[str, dict] = {
         "files": [{"name": "SWDD.zip", "size": 861645574}],
         "citation": "Wang et al., 2020；GitHub: ethan-nicholas-tsai/SWDD",
         "license": "原仓库未附 LICENSE（研究用途）；用户 ID 已由作者脱敏",
-        "manual": ("百度 anonymous 直链被风控拦截（errno 118/9019，2026-10-23 实测）。"
-                   "方案 A：本脚本加 --baidu-cookie 传入百度登录 Cookie 自动下载；"
-                   "方案 B：浏览器打开分享链接手动下载 SWDD.zip 放到 data/external/swdd/。"),
+        "netdisk_path": "/bysj_datasets/SWDD.zip",
+        "manual": ("百度 anonymous 直链被风控拦截（errno 118/9019，2026-10-24 全 UA×clienttype "
+                   "矩阵实测，与 UA 无关）。**已验证可行路径**：浏览器打开分享链接把 SWDD.zip "
+                   "「保存到我的网盘」的 /bysj_datasets/ 目录，然后 "
+                   "`python fetch_external_datasets.py --dataset swdd --via-netdisk "
+                   "--baidu-cookie-file data/external/.baidu_cookie` 用 BDUSS 从自己网盘拉取"
+                   "（实测：带 BDUSS 时 download 接口返回 31066 file does not exist，"
+                   "不带返回 31045 user not exists —— 即下载接口认 BDUSS，只差文件已转存）。"
+                   "兜底：浏览器直接手动下载到 data/external/swdd/。"),
     },
     "wu3d": {
         "title": "WU3D 微博用户抑郁检测数据集（10K+ 抑郁 / 20K+ 对照）",
@@ -101,8 +107,9 @@ DATASETS: dict[str, dict] = {
         "pwd": "yar1",
         "files": [{"name": "WU3D.zip", "size": None}],
         "citation": "arXiv:2008.11708；GitHub: aidenwang9867/Weibo-User-Depression-Detection-Dataset",
+        "netdisk_path": "/bysj_datasets/WU3D.zip",
         "license": "原仓库未附 LICENSE（研究用途）",
-        "manual": "同 SWDD：百度 anonymous 直链被风控；用 --baidu-cookie 或手动下载。",
+        "manual": "同 SWDD：先浏览器转存到自己网盘 /bysj_datasets/，再用 --via-netdisk 拉取。",
     },
     "cmdc": {
         "title": "CMDC 中文多模态抑郁语料（78 人，文本+音频+视频，PHQ-9）",
@@ -314,6 +321,71 @@ def fetch_baidu(spec: dict, cookie: str | None = None) -> bool:
     return ok
 
 
+def fetch_baidu_netdisk(spec: dict, cookie: str | None = None,
+                        netdisk_path: str | None = None) -> bool:
+    """从「自己的网盘」下载已转存的文件：method=download -> dlink -> 流式落盘。
+
+    2026-10-24 实测（本路径已验证可行）：
+      - 分享链接的 sharedownload 无论匿名还是带 BDUSS 都被风控
+        （errno 118 / 9019 need verify / 113，全 UA×clienttype 矩阵一致）。
+      - 但 `rest/2.0/xpan/file?method=download` **认 BDUSS**：带 Cookie 返回
+        31066 file does not exist（用户识别成功、文件未转存），不带 Cookie 返回
+        31045 user not exists。故只需先在浏览器把分享文件「保存到我的网盘」。
+      - 注意：单 BDUSS 只被开放 API（uinfo/download）接受；网页端接口
+        （api/sharedownload、api/gettemplatevariable、share/list）返回 errno -6，
+        需要完整 Cookie 组（BAIDUID/STOKEN 等），本函数不涉及。
+    """
+    try:
+        import requests
+    except ImportError:
+        print("  [需要] pip install requests")
+        return False
+    if not cookie:
+        print("  [错误] 需要 --baidu-cookie-file / --baidu-cookie（BDUSS）")
+        return False
+    remote = netdisk_path or spec.get("netdisk_path")
+    if not remote:
+        print("  [错误] 缺少 netdisk_path（用 --baidu-netdisk-path 指定网盘路径）")
+        return False
+    dest: Path = spec["dest"]
+    dest.mkdir(parents=True, exist_ok=True)
+    target = dest / Path(remote).name
+
+    import urllib.parse
+    s = requests.Session()
+    s.proxies.update(PROXY)
+    s.headers.update({"User-Agent": UA_CHROME, "Cookie": cookie})
+
+    r = s.get("https://pan.baidu.com/rest/2.0/xpan/file"
+              f"?method=download&app_id=250528&path={urllib.parse.quote(remote)}", timeout=60)
+    try:
+        j = r.json()
+    except Exception:
+        print(f"  [错误] 非 JSON 响应: {r.text[:120]}")
+        return False
+    if "dlink" not in j:
+        code = j.get("error_code", j.get("errno"))
+        msg = j.get("error_msg", j.get("errmsg"))
+        print(f"  [失败] 取 dlink：error_code={code} msg={msg}")
+        if code == 31066:
+            print("  → 文件还不在你的网盘里。请先在浏览器打开分享链接，点「保存到我的网盘」"
+                  f"，目标目录：{remote.rsplit('/', 1)[0] or '/'}")
+        return False
+    dlink = j["dlink"]
+    print(f"  dlink 已获取，开始下载 -> {target}")
+
+    total = 0
+    with s.get(dlink, headers={"User-Agent": "pan.baidu.com", "Cookie": cookie},
+               stream=True, timeout=120) as rr:
+        rr.raise_for_status()
+        with open(target, "wb") as fh:
+            for chunk in rr.iter_content(1 << 20):
+                fh.write(chunk)
+                total += len(chunk)
+    print(f"  OK {target.name} ({total} bytes) sha256={sha256_file(target)[:16]}…")
+    return True
+
+
 def fetch_manual(spec: dict) -> bool:
     print(f"  通道：{spec['channel']}（无法全自动，需人工步骤）")
     if spec.get("url"):
@@ -349,6 +421,10 @@ def main() -> int:
     ap.add_argument("--verify", action="store_true", help="只校验本地文件，不下载")
     ap.add_argument("--baidu-cookie", default=None,
                     help="百度登录 Cookie（BDUSS=...; STOKEN=...），仅用于百度通道")
+    ap.add_argument("--via-netdisk", action="store_true",
+                    help="百度通道改走「自己的网盘」路线（需先把分享文件保存到我的网盘）")
+    ap.add_argument("--baidu-netdisk-path", default=None,
+                    help="自己网盘里的文件路径，如 /bysj_datasets/SWDD.zip")
     ap.add_argument("--baidu-cookie-file", default=None,
                     help="从文件读取百度 Cookie（推荐：避免 Cookie 进入 shell 历史）；"
                          "文件内可为单行 Cookie 字符串，key=value 每行一条亦可")
@@ -375,7 +451,10 @@ def main() -> int:
         spec = DATASETS[key]
         print(f"\n=== {key}: {spec['title']} ===")
         fn = CHANNELS[spec["channel"]]
-        if spec["channel"] == "baidu":
+        if spec["channel"] == "baidu" and args.via_netdisk:
+            results[key] = fetch_baidu_netdisk(spec, cookie=args.baidu_cookie,
+                                               netdisk_path=args.baidu_netdisk_path)
+        elif spec["channel"] == "baidu":
             results[key] = fn(spec, cookie=args.baidu_cookie)
         else:
             results[key] = fn(spec)
