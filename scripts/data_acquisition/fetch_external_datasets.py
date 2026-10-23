@@ -9,6 +9,9 @@ hf-mirror/codeload/IEEE DataPort 页面/百度网盘可达；百度 anonymous �
     python fetch_external_datasets.py --list                 # 列出全部数据源与状态
     python fetch_external_datasets.py --dataset wesad        # 只取 WESAD（本机可全自动）
     python fetch_external_datasets.py --all                  # 尝试全部（受阻项打印手动步骤）
+    # Cookie 建议放文件（.gitignore 覆盖目录），避免进入 shell 历史
+    python fetch_external_datasets.py --dataset swdd \
+        --baidu-cookie-file data/external/.baidu_cookie
     python fetch_external_datasets.py --dataset swdd --baidu-cookie "BDUSS=xxx; STOKEN=yyy"
     python fetch_external_datasets.py --verify               # 校验本地已存在文件
 
@@ -215,6 +218,24 @@ def fetch_gdrive(spec: dict, cookie: str | None = None) -> bool:
     return ok
 
 
+def _load_cookie_file(path: Path) -> str | None:
+    """读取 Cookie 文件：支持单行 `a=1; b=2`，也支持每行 `a=1`。
+
+    文件应放在仓外或 .gitignore 覆盖目录，切勿提交到版本库（Cookie 等同密码）。
+    """
+    if not path.is_file():
+        print(f"  [错误] Cookie 文件不存在: {path}")
+        return None
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    parts = [p.strip().lstrip("-").strip()
+             for p in raw.replace("\r", "\n").split("\n")]
+    pairs = [p for p in parts if p and "=" in p and not p.startswith("#")]
+    if not pairs:
+        print(f"  [错误] Cookie 文件无 key=value 内容: {path}")
+        return None
+    return "; ".join(pairs)
+
+
 def fetch_baidu(spec: dict, cookie: str | None = None) -> bool:
     """百度网盘分享下载：verify -> list -> tplconfig -> sharedownload -> dlink。
 
@@ -328,7 +349,15 @@ def main() -> int:
     ap.add_argument("--verify", action="store_true", help="只校验本地文件，不下载")
     ap.add_argument("--baidu-cookie", default=None,
                     help="百度登录 Cookie（BDUSS=...; STOKEN=...），仅用于百度通道")
+    ap.add_argument("--baidu-cookie-file", default=None,
+                    help="从文件读取百度 Cookie（推荐：避免 Cookie 进入 shell 历史）；"
+                         "文件内可为单行 Cookie 字符串，key=value 每行一条亦可")
     args = ap.parse_args()
+
+    if args.baidu_cookie_file:
+        args.baidu_cookie = _load_cookie_file(Path(args.baidu_cookie_file))
+        if not args.baidu_cookie:
+            return 1
 
     if args.list or args.verify:
         print(f"{'数据集':<22}{'通道':<16}{'本地状态'}")
