@@ -1,7 +1,7 @@
 <template>
   <el-tour
     v-model="isOpen"
-    :current="currentStep"
+    v-model:current="currentStep"
     @finish="onTourComplete"
     @close="onTourCancel"
   >

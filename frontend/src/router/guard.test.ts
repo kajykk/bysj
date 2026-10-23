@@ -147,3 +147,40 @@ describe('resolveGuardResult', () => {
     ).toBe('/forbidden')
   })
 })
+
+describe('根路径 `/` 重定向（空白壳修复）', () => {
+  // `/` 只挂 MainLayout + children，路由表里没有 index 子路由。
+  // 修复前 guard 直接放行 ⇒ MainLayout 渲染、内容区空白（登录后 redirect 回 `/` 必现）。
+  it('已验证角色访问 `/` ⇒ 改跳各自角色首页', () => {
+    expect(
+      resolveGuardResult('/', {}, { isLoggedIn: true, role: 'admin', roleVerified: true })
+    ).toBe('/admin/dashboard')
+    expect(
+      resolveGuardResult('/', {}, { isLoggedIn: true, role: 'counselor', roleVerified: true })
+    ).toBe('/counselor/dashboard')
+    expect(
+      resolveGuardResult('/', {}, { isLoggedIn: true, role: 'user', roleVerified: true })
+    ).toBe('/user/dashboard')
+  })
+
+  it('角色未验证访问 `/` ⇒ 回登录页重走凭证校验，不按占位值决策', () => {
+    expect(
+      resolveGuardResult('/', {}, { isLoggedIn: true, role: 'super_admin', roleVerified: false })
+    ).toBe('/login')
+    // 调用方漏传 roleVerified 也按未验证处理（fail-closed）
+    expect(
+      resolveGuardResult('/', {}, { isLoggedIn: true, role: 'admin' })
+    ).toBe('/login')
+  })
+
+  it('未登录访问 `/` ⇒ 登录页（与其它受保护路由一致）', () => {
+    expect(resolveGuardResult('/', {}, { isLoggedIn: false, role: '' })).toBe('/login')
+  })
+
+  it('非根路径不受影响（回归保护：重定向只对 `/` 精确匹配）', () => {
+    expect(
+      resolveGuardResult('/admin/dashboard', { role: 'admin' }, { isLoggedIn: true, role: 'admin', roleVerified: true })
+    ).toBe(true)
+    expect(resolveGuardResult('/adminx', {}, { isLoggedIn: true, role: 'admin', roleVerified: true })).toBe(true)
+  })
+})

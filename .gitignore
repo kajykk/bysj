@@ -18,6 +18,7 @@ catboost_info/
 node_modules/
 dist/
 dist-tsc-*/
+dist-http*/
 .vite/
 
 # Env

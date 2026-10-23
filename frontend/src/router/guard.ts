@@ -66,6 +66,12 @@ export const resolveGuardResult = (toPath: string, meta: GuardRouteMeta, auth: G
 
   if (!auth.role) return '/login'
 
+  // 根路径 `/` 只挂了 MainLayout 与 children，没有 index 子路由；直接放行会
+  // 渲染出内容区全空白的壳（登录成功后 redirect 回 `/` 时必现）。
+  // 已登录用户一律改跳角色首页；角色未经验证时不按占位值决策，回登录页重走
+  // 真实凭证校验（与 M26 的 fail-closed 口径一致）。
+  if (toPath === '/') return roleVerified ? resolveRoleHome(auth.role) : '/login'
+
   // 管理端：占位 role 不能单独支撑放行，回到登录页走一次真实凭证校验。
   if (isAdminArea(toPath, meta) && !roleVerified) return '/login'
 

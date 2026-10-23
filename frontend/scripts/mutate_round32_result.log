@@ -1,0 +1,54 @@
+
+=== M1 引导步骤绑定退回单向 :current（缺陷原始形态） ===
+target = src\components\common\OnboardingTour.vue | 命中次数 = 1
+exit = 1（期望非 0 = RED）
+[31m     [31m×[31m 收到 update:current 后 currentStep 跟随（修复前：停在 0，此断言失败）[39m[32m 36[2mms[22m[39m
+[31m     [31m×[31m restartTour 会把步骤复位到 0 并重新打开[39m[32m 6[2mms[22m[39m
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (4)[39m
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[41m[1m FAIL [22m[49m src/components/common/OnboardingTour.test.ts[2m > [22mOnboardingTour 步骤绑定[2m > [22m收到 update:current 后 currentStep 跟随（修复前：停在 0，此断言
+[31m[1mAssertionError[22m: expected +0 to be 1 // Object.is equality[39m
+[41m[1m FAIL [22m[49m src/components/common/OnboardingTour.test.ts[2m > [22mOnboardingTour 步骤绑定[2m > [22mrestartTour 会把步骤复位到 0 并重新打开
+[31m[1mAssertionError[22m: expected +0 to be 1 // Object.is equality[39m
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 删除根路径重定向（登录后空白壳） ===
+target = src\router\guard.ts | 命中次数 = 1
+exit = 1（期望非 0 = RED）
+[31m     [31m×[31m 已验证角色访问 `/` ⇒ 改跳各自角色首页[39m[32m 5[2mms[22m[39m
+[31m     [31m×[31m 角色未验证访问 `/` ⇒ 回登录页重走凭证校验，不按占位值决策[39m[32m 1[2mms[22m[39m
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m17 passed[39m[22m[90m (19)[39m
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[41m[1m FAIL [22m[49m src/router/guard.test.ts[2m > [22m根路径 `/` 重定向（空白壳修复）[2m > [22m已验证角色访问 `/` ⇒ 改跳各自角色首页
+[31m[1mAssertionError[22m: expected true to be '/admin/dashboard' // Object.is equality[39m
+[41m[1m FAIL [22m[49m src/router/guard.test.ts[2m > [22m根路径 `/` 重定向（空白壳修复）[2m > [22m角色未验证访问 `/` ⇒ 回登录页重走凭证校验，不按占位值决策
+[31m[1mAssertionError[22m: expected true to be '/login' // Object.is equality[39m
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 根路径重定向去掉 roleVerified 约束（fail-closed 失效） ===
+target = src\router\guard.ts | 命中次数 = 1
+exit = 1（期望非 0 = RED）
+[31m     [31m×[31m 角色未验证访问 `/` ⇒ 回登录页重走凭证校验，不按占位值决策[39m[32m 6[2mms[22m[39m
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m18 passed[39m[22m[90m (19)[39m
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[41m[1m FAIL [22m[49m src/router/guard.test.ts[2m > [22m根路径 `/` 重定向（空白壳修复）[2m > [22m角色未验证访问 `/` ⇒ 回登录页重走凭证校验，不按占位值决策
+[31m[1mAssertionError[22m: expected '/admin/dashboard' to be '/login' // Object.is equality[39m
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照：src/components/common/OnboardingTour.test.ts ===
+exit = 0（期望 0）
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+
+=== 恢复后 GREEN 对照：src/router/guard.test.ts ===
+exit = 0（期望 0）
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m19 passed[39m[22m[90m (19)[39m
+
+===== 结论：全部通过 =====
