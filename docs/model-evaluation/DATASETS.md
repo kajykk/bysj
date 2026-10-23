@@ -14,6 +14,14 @@
 | actverse（acttrust） | 活动记录仪样例 | GPLv3 | 否 | 谨慎（GPL 传染性） |
 | MMPsy（多模态心理） | 中文文本/音频 | MIT | 否（仅派生语料参与训练） | 可用 |
 | 中文抑郁语料 v1 / v2 | 中文文本训练 | 派生自 MMPsy（MIT） | 是（v2 用于 lite/文本模型） | 可用（须标派生） |
+| **WESAD**（§8，本轮新增） | 生理外部验证基准 | 科研非商业署名 | 否 | **已接入**（窗口+被试特征表） |
+| **CNSocialDepress**（§9，本轮新增） | 文本外部验证（专家标注） | 原仓库条款 | 否 | 文档已本地化，**数据待取**（Google 通道） |
+| **CMDC**（§10，本轮新增） | 中文多模态外部验证 | EULA | 否 | 待取（IEEE 账号+EULA） |
+| **SWDD**（§11，本轮新增） | 大规模中文语料 | 原仓库未附 | 否 | 待取（百度风控，见手动步骤） |
+| **WU3D**（§12，本轮新增） | 大规模中文扩量 | 原仓库未附 | 否 | 待取（百度风控，见手动步骤） |
+| **eRisk 2021**（§13，本轮新增） | 英文早筛对照 | DUA | 否 | 待取（DUA 表单） |
+| **DepInter-CN**（§14，本轮新增） | 中文临床访谈 | 预印本 | 否 | 待申请 |
+| **中文文本抑郁数据集 zsfc-av84**（§15，本轮新增） | 小样本高纯度验证 | IEEE 开放获取 | 否 | 待取（IEEE 账号） |
 
 ---
 
@@ -120,3 +128,125 @@
 2. **「许可」只认仓内 LICENSE/CITATION 原文**；没有就写「未知/未在仓内留下证据」——G2 启动前必须补齐，不得用「公开数据集」代替许可条款。
 3. **`data/external/` 被 `.gitignore` 排除**（112MB+），clone 后需按 `data/README.md` 单独获取；本表登记的是**本机实测形态**（行数以实测为准）。
 4. G2 启动时的最小检查清单：每个拟用数据集必须满足「许可已核实 + 未参与训练（或已按分组隔离）+ 引用要求已满足」三条，缺一不得出对外数字。
+5. **§8–§15 为本轮（2026-10-23）新增的高品质外部数据**，统一经 `scripts/data_acquisition/fetch_external_datasets.py`
+   获取/登记；本机网络实测：Google / HuggingFace 官网 / uni-siegen / erisk.irlab.org 不可达，
+   hf-mirror.com / codeload.github.com / IEEE DataPort 页面 / pan.baidu.com 可达。
+   只有 WESAD 完成了全自动下载+接入（§8）；其余数据集的受阻原因与手动步骤在各节如实登记，
+   **不得**因「页面可达」推断「数据已取得」。
+
+---
+
+## 8. WESAD（可穿戴应激与情感，多模态生理金标准）— 本轮新增，已接入
+
+| 字段 | 值 |
+|---|---|
+| 名称 | WESAD（Wearable Stress and Affect Detection） |
+| 仓内路径 | `datasets/physiological/external/wesad/`（.gitignore 排除）：`wesad_4_3_120.parquet`（70,101,269 B，sha256 前缀 `80391ea6…`，全文见同目录 `wesad_manifest.json`）、`wesad_window_features.csv`（11,044 行 × 23 列）、`wesad_subject_features.csv`（45 行）、`README.md` |
+| 来源 | 原论文 Schmidt et al., ICMI 2018（doi:10.1145/3242969.3242985）；原站 uni-siegen 本机不可达，**实际经 HF 镜像 `LouisSimon/wesad-parquet` 获取**（hf-mirror.com） |
+| 版本 / 日期 | 镜像 lastModified 2024-06-14；4s 窗 / 3s 步长 |
+| 许可 | **科研非商业使用、需署名**（原站条款；镜像未附 LICENSE，对外发布以原站条款为准） |
+| 引用要求 | Schmidt, P., Reiss, A., Duerichen, R., Marberger, C., Van Laerhoven, K. (2018). WESAD. ACM ICMI. |
+| 是否已用于训练 | **否**（本轮只做数据接入：窗口/被试特征表 + manifest，未进任何训练/评估） |
+| 实测规模 | 15 被试（S2–S17，与原论文一致）；11,044 窗口；标签 baseline 5,866 / stress 3,322 / amusement 1,856 |
+| 拟用于何种评估 | G2 的**生理外部验证**（stress vs non-stress，必须按 `user` 分组）：可映射 depresjon 口径子集 `heart_rate/mean_activity/std_activity/peak_activity/autocorrelation`（映射表见 manifest `schema_map_to_depresjon`）；`sleep_*/血压/phq9_score` WESAD 不存在（`schema_gap`），**不得造列补齐** |
+| 质量备注 | 手腕 BVP 干净：按条件 HR = stress 95.5 / baseline 77.9 / amusement 77.4（应激抬升 ≈18bpm，与原论文一致）；胸部 `ctxt_bvp` 通道为高频噪声，已弃用胸部心率；4s 窗 RMSSD 峰列不稳定（NaN≈67%），G2 以 HR/EDA/ACC 为主 |
+| 纳入日期 | 2026-10-23 |
+
+## 9. CNSocialDepress（中文社交媒体抑郁风险，专家标注）— 本轮新增，文档已本地化
+
+| 字段 | 值 |
+|---|---|
+| 名称 | CNSocialDepress（CNSD） |
+| 仓内路径 | `data/external/cnsocialdepress/`（.gitignore 排除）：**上游 README.md + 海报 PDF 已 vendored**（2026-10-23，GitHub main 分支 tarball）；**数据本体未取得** |
+| 来源 | arXiv:2510.11233（2025-10）；GitHub `jytal/CNSocialDepress`；数据托管 Google Drive（file id `1QCRZJAJsESg9WB6pmLqnDtbmASNhHaaN`） |
+| 规模 / 标签 | 微博 233 用户 / 44,178 文本；心理专家标注 10,306 个抑郁相关片段；二元风险标签 + DSM-5/PHQ-9 引导的六维结构化属性；CNSD Gold 200 用户 + Test 33 用户 + Silver |
+| 许可 | 以原仓库 README 条款为准（研究用途）；上游文档随仓 vendored 作许可与口径凭据 |
+| 引用要求 | Xu, Lan, Yu, He, Zhang, Wang, Magistry, Valette, Li (2025). CNSocialDepress. arXiv:2510.11233 |
+| 是否已用于训练 | **否** |
+| 受阻原因（实测） | 本机网络不可达 Google（drive.google.com 连接失败，2026-10-23）；HF/GitHub 均无数据镜像（已搜） |
+| 手动步骤 | 在有外网的环境：`pip install gdown && gdown 1QCRZJAJsESg9WB6pmLqnDtbmASNhHaaN -O data/external/cnsocialdepress/CNSD_data.zip`（已写入 fetch 脚本 `--dataset cnsocialdepress` 分支） |
+| 拟用于何种评估 | G2 的**文本外部验证首选**：用户级（groupwise）评估，Test 33 / Gold 200 用户；直接对治当前文本模态 groupwise F1 0.5864 的口径问题；六维标签可另作可解释性分析 |
+
+## 10. CMDC（中文多模态抑郁语料）— 本轮新增，待取
+
+| 字段 | 值 |
+|---|---|
+| 名称 | Chinese Multimodal Depression Corpus（CMDC） |
+| 仓内路径 | 未落盘（待取后入 `data/external/cmdc/`） |
+| 来源 | IEEE DataPort 开放获取页（DOI 10.21227/jng1-rn06）；论文见 IEEE Trans. Affective Computing |
+| 规模 / 模态 | 78 被试（22 男 / 56 女）；半结构化访谈；文本+音频+视频；PHQ-9 量表；仅 45 人（19 MDD / 26 HC）有视频 |
+| 许可 | EULA 签署后开放；part1–8.zip 共约 6GB，**解压有密码** |
+| 是否已用于训练 | **否** |
+| 受阻原因（实测） | IEEE DataPort 页面可达（200）但下载需账号登录 + 签署 EULA；解压密码需邮件 zoubochao@ustb.edu.cn 索取（页面原文） |
+| 手动步骤 | 注册/登录 IEEE DataPort → 页面对应数据集签署 EULA → 下载 part1–8.zip → 邮件索取解压密码 → 解压入 `data/external/cmdc/` |
+| 拟用于何种评估 | G2 的**中文多模态外部验证**：与本项目三模态设计对齐；DepInter-CN 论文（rs-9258754）即用 CMDC 作外部验证并报告 question-level 平均聚合适配其结构 |
+
+## 11. SWDD（新浪微博抑郁数据集）— 本轮新增，待取
+
+| 字段 | 值 |
+|---|---|
+| 名称 | Sina Weibo Depression Dataset（SWDD） |
+| 仓内路径 | 未落盘（待取后入 `data/external/swdd/`） |
+| 来源 | GitHub `ethan-nicholas-tsai/SWDD`（Wang et al., 2020）；数据托管 Google Drive + 百度网盘（提取码 gdq6，分享码 `1V8S_a_GoFFRzRG542eRcSg`） |
+| 规模 / 标签 | 23,237 用户（3,711 抑郁 / 19,526 对照）/ 485 万条微博；用户级二元标签 + **17 个症状级字段**（兴趣丧失/失眠/自杀意念…）；JSONL（depressed.jsonl / control.jsonl） |
+| 许可 | 原仓库未附 LICENSE（研究用途）；作者已删用户 ID |
+| 是否已用于训练 | **否** |
+| 受阻原因（实测） | 百度 anonymous 直链被风控：`sharedownload` 返回 errno 118「违规操作」/ clienttype=12 时 9019「need verify」（2026-10-23 实测；verify/list/tplconfig 均正常，仅直链被拦） |
+| 手动步骤 | A：`fetch_external_datasets.py --dataset swdd --baidu-cookie "BDUSS=…; STOKEN=…"`（本机百度登录 Cookie，仅存进程内存）；B：浏览器打开分享链接手动下载 `SWDD.zip`（861,645,574 B）放入 `data/external/swdd/` |
+| 拟用于何种评估 | 大规模中文语料 + **症状级标签**（补「无逐条目 PHQ 标注」缺口）；注意其标签为规则/自报级，与临床级（CMDC/CNSD）分层引用 |
+
+## 12. WU3D（微博用户抑郁检测数据集）— 本轮新增，待取
+
+| 字段 | 值 |
+|---|---|
+| 名称 | Weibo User Depression Detection Dataset（WU3D） |
+| 仓内路径 | 未落盘（待取后入 `data/external/wu3d/`） |
+| 来源 | GitHub `aidenwang9867/Weibo-User-Depression-Detection-Dataset`（arXiv:2008.11708）；百度网盘提取码 yar1（分享码 `10xItuplkTNMmJdOEGBiXPw`） |
+| 规模 / 标签 | 10,000+ 抑郁用户 + 20,000+ 对照；论文称标签经专业人员审核；JSON（depressed.json / normal.json） |
+| 许可 | 原仓库未附 LICENSE（研究用途） |
+| 是否已用于训练 | **否** |
+| 受阻原因（实测） | 同 §11（百度 anonymous 直链风控） |
+| 手动步骤 | 同 §11 两种方案 |
+| 拟用于何种评估 | SWDD 的扩量备选；两库用户可能同源（均为微博爬取），并用时须查重 |
+
+## 13. eRisk 2021（CLEF 早筛任务）— 本轮新增，待取
+
+| 字段 | 值 |
+|---|---|
+| 名称 | eRisk 2021（Early Risk Prediction on the Internet） |
+| 仓内路径 | 未落盘（待取后入 `data/external/erisk2021/`） |
+| 来源 | https://erisk.irlab.org/2021/index.html（Parapar et al., CLEF 2021） |
+| 规模 / 标签 | Reddit 170 用户；**BDI-II 逐题作答 + 分数 + 严重度带**；早筛任务（按发文时序） |
+| 许可 | DUA 表单签署后发放 |
+| 是否已用于训练 | **否** |
+| 受阻原因（实测） | erisk.irlab.org 本机不可达（连接失败） |
+| 手动步骤 | 网站注册并签署 Usage Agreement，按邮件指引下载 |
+| 拟用于何种评估 | **英文对照实验**（BDI-II 逐题标签可与 PHQ-9 条目口径互参）；非中文场景主力 |
+
+## 14. DepInter-CN（中文临床访谈）— 本轮新增，待申请
+
+| 字段 | 值 |
+|---|---|
+| 名称 | DepInter-CN |
+| 仓内路径 | 未落盘（待取后入 `data/external/depinter-cn/`） |
+| 来源 | Research Square 预印本 rs-9258754（2025，dx.doi.org/10.21203/rs.3.rs-9258754/v1） |
+| 规模 / 标签 | 50 被试（25 抑郁 / 25 对照）/ 450 访谈单元；M.I.N.I. + PHQ-9 双量表；9 问标准化协议 |
+| 许可 | 预印本，未见公开托管 |
+| 是否已用于训练 | **否** |
+| 受阻原因 | 数据未公开托管（论文预印本阶段） |
+| 手动步骤 | 经论文通讯作者渠道申请 |
+| 拟用于何种评估 | 中文**访谈场景**外部验证（与 CMDC 的访谈结构差异可作方法对照） |
+
+## 15. 中文文本抑郁检测数据集（IEEE Dataport zsfc-av84）— 本轮新增，待取
+
+| 字段 | 值 |
+|---|---|
+| 名称 | Text-based depression detection dataset (Chinese) |
+| 仓内路径 | 未落盘（待取后入 `data/external/zsfc-av84/`） |
+| 来源 | IEEE DataPort（doi:10.21227/zsfc-av84；Gu, Zhang, Jia, Ni, 2023） |
+| 规模 / 标签 | 31 名确诊抑郁 + 33 健康对照；医院伦理审批 + 知情同意；音频（16kHz）+ 文本转写 + PHQ-9 分数 |
+| 许可 | IEEE DataPort 开放获取（需账号） |
+| 是否已用于训练 | **否** |
+| 受阻原因（实测） | IEEE DataPort 下载需账号登录 |
+| 手动步骤 | 注册/登录 IEEE DataPort 后下载 |
+| 拟用于何种评估 | **小样本高纯度**外部验证（临床确诊标签）；样本量小，只作辅助证据 |

@@ -28,3 +28,22 @@
 获取方式：与模型产物一并发布（见 `scripts/artifacts.manifest.json` 的生成方式，
 `python scripts/generate_manifest.py` 可扩展覆盖本目录）。
 论文引用口径以 `backend/models/MODEL_REGISTRY.md` 为准。
+
+## external/ 本轮新增（2026-10-23，高品质外部数据）
+
+统一获取工具：`python scripts/data_acquisition/fetch_external_datasets.py --list|--all|--verify`
+
+| 目录 | 数据集 | 状态（本机实测） | 受阻时的手动步骤 |
+|---|---|---|---|
+| `../datasets/physiological/external/wesad/` | WESAD（ICMI 2018，15 被试多模态生理） | **已下载并接入**（4s 窗 parquet + 窗口/被试特征表 + manifest） | — |
+| `cnsocialdepress/` | CNSocialDepress（专家标注中文文本） | 上游 README/海报已本地化；**数据待取** | 外网环境 `gdown 1QCRZJAJsESg9WB6pmLqnDtbmASNhHaaN` |
+| `swdd/` | SWDD（微博 23,237 用户） | **待取**：百度 anonymous 直链被风控（errno 118/9019） | fetch 脚本 `--baidu-cookie` 或浏览器手动下载 |
+| `wu3d/` | WU3D（微博 10K+ 抑郁用户） | **待取**：同上 | 同上 |
+| `cmdc/` | CMDC（中文多模态，78 人 PHQ-9） | **待取**：IEEE DataPort 需账号+EULA，解压密码邮件索取 | 见 DATASETS.md §10 |
+| `erisk2021/` | eRisk 2021（Reddit BDI-II） | **待取**：DUA 表单 + 域名不可达 | 见 DATASETS.md §13 |
+| `depinter-cn/` | DepInter-CN（临床访谈 50 人） | **待取**：预印本未公开托管 | 见 DATASETS.md §14 |
+| `zsfc-av84/` | 中文文本抑郁数据集（31+33） | **待取**：IEEE 账号 | 见 DATASETS.md §15 |
+
+许可、规模、质量分层与 G2 用途以 `docs/model-evaluation/DATASETS.md` §8–§15 为准；
+本机网络通道实测结论（Google/HF 官网/uni-siegen/erisk 不可达，hf-mirror/codeload/IEEE 页面/百度可达）
+记录在该脚本 docstring。
