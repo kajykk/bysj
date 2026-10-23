@@ -1,4 +1,4 @@
-# 结果与讨论（论文草稿 · ROUND_29 · P2-56 更新；ROUND_28 · P2-55 建立）
+﻿# 结果与讨论（论文草稿 · ROUND_29 · P2-56 更新；ROUND_28 · P2-55 建立）
 
 > **使用纪律**：本章所有数字均可由已提交产物一条命令复算，编号对应
 > `docs/thesis/CLAIMS_LEDGER.md`（下称「台账」）；机器校验闸门
@@ -123,7 +123,7 @@ Recall 0.9455 / F1 0.9369 / AUC 0.9841（旧权重下的诊断读数，仅用于
 协议为 sibling-aware 分组去泄漏：同一学生的原文与其全部增强副本（同义替换 / 回译）
 归入同一组，`StratifiedGroupKFold`×5 每折重训同规格 TF-IDF+LR、在**未见的组**上评估
 （OOF 逐样本预测已落盘 `backend/scripts/modeling/v1_27/groupwise_oof_predictions.csv`，
-sha256 `72b451e6…`）。95% CI 为**按 group 重采样**的分组级 bootstrap（抽 1277 组、
+sha256 `0dd48b4a…`）。95% CI 为**按 group 重采样**的分组级 bootstrap（抽 1277 组、
 B=10000、seed=42，非按行——组内相关，按行会低估区间；台账 C-22 ~ C-25，`groupwise_ci.json`）。
 
 | 指标 | 点估计 | 95% CI（按用户分组） |

@@ -16,7 +16,7 @@
 - 协议：sibling-aware 分组去泄漏——同一学生的原文与全部增强副本（同义/回译）同组，
   `StratifiedGroupKFold`×5 每折重训同规格 TF-IDF+LR，held-out 组评估。
 - OOF 逐样本：`backend/scripts/modeling/v1_27/groupwise_oof_predictions.csv`
-  （sha256 `72b451e6…`，已入库）。
+  （sha256 `0dd48b4a…`，已入库）。
 
 ## 三、本轮新增：分组级 bootstrap CI
 
@@ -61,7 +61,7 @@
 ## 六、变异见证（闸门真在复算，非自证）
 
 翻改 OOF 中一行的 label ⇒ 闸门 **FAIL 27 处**（oof sha 不符 + F1/AUC 点估计与 CI 全部漂移）；
-还原后 sha 回到 `72b451e6`，闸门 rc=0。见本轮运行记录。
+还原后 sha 回到 `0dd48b4a`，闸门 rc=0。见本轮运行记录。
 
 ## 七、回归与同步
 

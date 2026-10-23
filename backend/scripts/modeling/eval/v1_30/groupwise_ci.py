@@ -96,7 +96,8 @@ def main():
     f1, auc, rec, prec = _metrics(y, s)
     point = {"f1": f1, "roc_auc": auc, "rec": rec, "prec": prec}
     ci = group_bootstrap(y, s, g)
-    oof_sha = hashlib.sha256(OOF_CSV.read_bytes()).hexdigest()
+    # 行尾不敏感哈希：CRLF→LF 再 sha256（防 Windows checkout CRLF 与 Linux LF 不一致）
+    oof_sha = hashlib.sha256(OOF_CSV.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
     payload = {
         "_note": (

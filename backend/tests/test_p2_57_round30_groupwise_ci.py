@@ -36,7 +36,8 @@ def test_groupwise_ci_json_exists_and_method() -> None:
 
 def test_groupwise_ci_oof_sha_matches() -> None:
     payload = json.loads(CI_JSON.read_text(encoding="utf-8"))
-    actual = hashlib.sha256(OOF_CSV.read_bytes()).hexdigest()
+    # 行尾不敏感哈希（CRLF→LF），与 groupwise_ci.py / verify 一致
+    actual = hashlib.sha256(OOF_CSV.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
     assert payload["oof_csv_sha256"] == actual, (
         f"groupwise_ci.json 的 oof sha 与当前 csv 不符：{payload['oof_csv_sha256']} vs {actual}"
     )

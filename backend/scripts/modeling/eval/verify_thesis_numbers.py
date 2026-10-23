@@ -876,10 +876,12 @@ def check_groupwise_artifact(failures: list[str]) -> None:
     # groupwise_ci.json（ROUND_30）：分组 bootstrap CI 工件 ⇄ 独立复算（同序列）
     if GROUPWISE_CI_JSON.exists():
         ci_payload = json.loads(GROUPWISE_CI_JSON.read_text(encoding="utf-8"))
-        if ci_payload.get("oof_csv_sha256") != sha256_of(GROUPWISE_CSV):
+        # 行尾不敏感哈希（CRLF→LF），与 v1_30/groupwise_ci.py 一致
+        oof_sha_lf = hashlib.sha256(GROUPWISE_CSV.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+        if ci_payload.get("oof_csv_sha256") != oof_sha_lf:
             failures.append(
                 f"groupwise_ci.json 记录的 oof sha256 与当前 csv 不符："
-                f"{ci_payload.get('oof_csv_sha256')} vs {sha256_of(GROUPWISE_CSV)}"
+                f"{ci_payload.get('oof_csv_sha256')} vs {oof_sha_lf}"
             )
         gw_ci = recompute_groupwise_ci()
         for key in ("f1", "roc_auc", "rec", "prec"):

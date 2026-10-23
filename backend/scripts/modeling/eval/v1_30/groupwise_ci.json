@@ -5,7 +5,7 @@
   "n_groups": 1277,
   "positive_rate": 0.2163,
   "threshold": 0.5,
-  "oof_csv_sha256": "72b451e62b530daa4f31113063808389ffc573c5b527a1248be963796c2c3e21",
+  "oof_csv_sha256": "0dd48b4a9dbc93ef1e0c2e1c293e480f423c47ed880e2511e86ef03f0933dd22",
   "metrics": {
     "f1": {
       "point": 0.586394,
