@@ -9,3 +9,6 @@ backend/models/artifacts/**/*.json text eol=lf
 backend/models/artifacts/**/*.sha256 text eol=lf
 docs/model-evaluation/*.json text eol=lf
 docs/model-evaluation/*.md text eol=lf
+
+# ROUND_30：建模评估产物 json 跨机器字节稳定（groupwise_ci.json 记录 oof sha256 证据）。
+backend/scripts/modeling/**/*.json text eol=lf

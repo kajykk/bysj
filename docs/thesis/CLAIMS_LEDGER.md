@@ -73,12 +73,17 @@
 
 | 编号 | 指标 | 点估计 | 95% CI | 来源产物 | 复算命令 | 类别 | 可否进论文 |
 |---|---|---|---|---|---|---|---|
-| C-22 | groupwise F1（n=8379，阈值 0.5） | 0.5864 | — | `docs/planning/backend_text_bilingual_v2_metrics.json`（`groupwise_ooF.f1`）+ `backend/scripts/modeling/v1_27/groupwise_oof_predictions.csv` | `verify_thesis_numbers.py`（闸门内从逐样本 csv 独立复算：Precision 0.6450 / Recall 0.5375 / Accuracy 0.8360 与 json 一致） | 泛化口径 | ✅ |
+| C-22 | groupwise F1（n=8379，阈值 0.5） | 0.5864 | [0.5307, 0.6381] | `backend/scripts/modeling/eval/v1_30/groupwise_ci.json`（`metrics.f1`）+ `backend/scripts/modeling/v1_27/groupwise_oof_predictions.csv` | `v1_30/groupwise_ci.py`（生成）；`verify_thesis_numbers.py`（闸门内按 group 重采样独立复算 CI） | 泛化口径 | ✅ |
+| C-23 | groupwise ROC AUC（n=8379） | 0.8437 | [0.8170, 0.8696] | 同上（`metrics.roc_auc`） | 同上 | 泛化口径 | ✅ |
+| C-24 | groupwise Recall（n=8379） | 0.5375 | [0.4764, 0.5975] | 同上（`metrics.rec`） | 同上 | 泛化口径 | ✅ |
+| C-25 | groupwise Precision（n=8379） | 0.6450 | [0.5782, 0.7114] | 同上（`metrics.prec`） | 同上 | 泛化口径 | ✅ |
 
-> C-22 备注：该 json 顶层 `threshold: 0.3` 是**部署阈值**；`groupwise_ooF` 块的指标按
-> **阈值 0.5** 记录（复算逐项一致：Precision 0.6450 / Recall 0.5375 / F1 0.5864 /
-> Accuracy 0.8360）。同一模型在同一批数据上的随机划分读数是 0.9964——那是兄弟泄漏口径，
-> **不得**当泛化引用（见 `docs/EVALUATION_INTEGRITY_REPORT.md`）。
+> C-22 ~ C-25 备注：这些是**跨被试（按原始用户分组、组间不重叠）**的泛化读数，CI 为
+> **按 group 重采样**的分组级 bootstrap（B=10000, seed=42，抽 1277 组非按行）——
+> 同一学生的原文+增强副本在组内相关，按行 bootstrap 会低估区间。同一模型在同一批数据上的
+> 随机划分读数是 F1 0.9964 / AUC 0.9994——那是兄弟泄漏口径，**不得**当泛化引用
+> （见 `docs/EVALUATION_INTEGRITY_REPORT.md`）；分组口径相对随机口径的落差
+> F1 −0.41 / AUC −0.156 即虚高幅度。该口径为「同人群换被试」，**不外推到跨平台/跨人群**。
 
 ### 1.4 融合权重敏感性（`docs/model-evaluation/fusion_weight_sensitivity.csv`）
 

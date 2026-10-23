@@ -1,4 +1,4 @@
-# 心理健康风险评估系统（DWS）
+﻿# 心理健康风险评估系统（DWS）
 
 一个面向高校场景的心理健康筛查与预警平台。项目围绕问卷、文本与生理信号的多模态风险评估展开，并补齐了异步任务、实时告警、模型治理、可观测性与安全合规等工程能力，适合作为“AI + 全栈 + DevOps”综合型个人作品集展示。
 
@@ -262,7 +262,7 @@ python -m pytest tests/e2e/test_grafana_e2e.py -v
 - 运行时 206 个 REST 端点 + 3 个 WebSocket（**独立解释器**里 import 一次 `app.main`，沿 include 标记递归展开后数**有效路由**；进程内数会受测试会话的模块装载顺序影响，fastapi ≥ 0.151 的 `include_router` 也不再扁平化 `app.routes`，两版依赖下展开读数同为 206/3，2026-10-21 实测见 `docs/P2_22_ROUND22_PORTFOLIO_AUDIT.md` §八）
 - 9 个 Docker 服务（`docker-compose.yml`）
 - 契约测试全部通过
-- 7,557 例后端测试 / 1,327 例前端测试（`cd backend && pytest --collect-only -q`；
+- 7,562 例后端测试 / 1,327 例前端测试（`cd backend && pytest --collect-only -q`；
   `cd frontend && npx vitest list | wc -l`。**这两项每次提交都会变，仅作快照，不入数字闸门**）
 
 > 上一版这里写的是 2026-09-23 的读数（50 路由 / 191 端点 / 62 服务 / 61 核心 / 27 ML / 6,160 后端用例 + 1,119 前端用例）。

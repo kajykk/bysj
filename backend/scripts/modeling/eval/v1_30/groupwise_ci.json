@@ -1,0 +1,39 @@
+{
+  "_note": "文本模态 groupwise(sibling-aware 分组去泄漏) OOF 的 95% CI; CI 按 group 重采样(非按行), B=10000 seed=42. 来源 v1_27/groupwise_oof_predictions.csv.",
+  "method": "group-level bootstrap over OOF (resample 1277 groups with replacement), B=10000, seed=42",
+  "n_rows": 8379,
+  "n_groups": 1277,
+  "positive_rate": 0.2163,
+  "threshold": 0.5,
+  "oof_csv_sha256": "72b451e62b530daa4f31113063808389ffc573c5b527a1248be963796c2c3e21",
+  "metrics": {
+    "f1": {
+      "point": 0.586394,
+      "ci95": [
+        0.530699,
+        0.638147
+      ]
+    },
+    "roc_auc": {
+      "point": 0.843673,
+      "ci95": [
+        0.816973,
+        0.869622
+      ]
+    },
+    "rec": {
+      "point": 0.537528,
+      "ci95": [
+        0.476397,
+        0.597485
+      ]
+    },
+    "prec": {
+      "point": 0.645033,
+      "ci95": [
+        0.578216,
+        0.711375
+      ]
+    }
+  }
+}

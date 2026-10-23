@@ -89,6 +89,7 @@ UNITS: dict[str, dict] = {
 }
 
 GROUPWISE_CSV = BACKEND / "scripts" / "modeling" / "v1_27" / "groupwise_oof_predictions.csv"
+GROUPWISE_CI_JSON = BACKEND / "scripts" / "modeling" / "eval" / "v1_30" / "groupwise_ci.json"
 GROUPWISE_JSON = REPO / "docs" / "planning" / "backend_text_bilingual_v2_metrics.json"
 SENSITIVITY_CSV = EVAL_DOCS / "fusion_weight_sensitivity.csv"
 TRANSFER_MATRIX = EVAL_DOCS / "TRANSFER_MATRIX.md"
@@ -257,9 +258,7 @@ def recompute_groupwise() -> dict:
     global _GROUPWISE_CACHE
     if _GROUPWISE_CACHE is not None:
         return _GROUPWISE_CACHE
-    rows = GROUPWISE_CSV.read_text(encoding="utf-8").strip().splitlines()[1:]
-    y = np.array([int(ln.split(",")[0]) for ln in rows], dtype=np.int64)
-    s = np.array([float(ln.split(",")[2]) for ln in rows], dtype=np.float64)  # p_groupwise
+    y, s = _load_groupwise_ys()
     m = threshold_metrics(y, s)
     _GROUPWISE_CACHE = {
         "n": m["n"], "acc": m["acc"], "prec": m["prec"], "rec": m["rec"], "f1": m["f1"],
@@ -267,6 +266,68 @@ def recompute_groupwise() -> dict:
         "positive_rate": float((y == 1).mean()),
     }
     return _GROUPWISE_CACHE
+
+
+def _load_groupwise_ys() -> tuple[np.ndarray, np.ndarray]:
+    rows = GROUPWISE_CSV.read_text(encoding="utf-8").strip().splitlines()[1:]
+    y = np.array([int(ln.split(",")[0]) for ln in rows], dtype=np.int64)
+    s = np.array([float(ln.split(",")[2]) for ln in rows], dtype=np.float64)  # p_groupwise
+    return y, s
+
+
+_GROUPWISE_CI_CACHE: dict | None = None
+
+
+def recompute_groupwise_ci() -> dict:
+    """文本模态 groupwise 的**分组级** bootstrap 95% CI（按 group 重采样，B=10000, seed=42）。
+
+    与 v1_30/groupwise_ci.py 同一抽样序列（按 group 排序后逐次 rng.randint(0, G, G)），
+    只取各指标 ci95；点估计复用 recompute_groupwise。
+    """
+    global _GROUPWISE_CI_CACHE
+    if _GROUPWISE_CI_CACHE is not None:
+        return _GROUPWISE_CI_CACHE
+    from scipy.stats import rankdata
+
+    y, s = _load_groupwise_ys()
+    g = np.array([ln.split(",")[1] for ln in GROUPWISE_CSV.read_text(encoding="utf-8").strip().splitlines()[1:]])
+    order = np.argsort(g, kind="mergesort")
+    ys, ss, gs = y[order], s[order], g[order]
+    uniq = np.unique(g)
+    G = len(uniq)
+    pos = {gg: i for i, gg in enumerate(uniq)}
+    row_g = np.array([pos[gg] for gg in gs], dtype=np.int64)
+
+    def _m(yv: np.ndarray, sv: np.ndarray) -> tuple[float, float, float, float]:
+        pred = sv >= DECISION
+        posm = yv == 1
+        tp = int((pred & posm).sum()); fp = int((pred & ~posm).sum()); fn = int((~pred & posm).sum())
+        prec = tp / (tp + fp) if (tp + fp) else 0.0
+        rec = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+        npos = int(posm.sum()); nneg = len(yv) - npos
+        if npos == 0 or nneg == 0:
+            return f1, float("nan"), rec, prec
+        r = rankdata(sv, method="average")
+        auc = float((r[posm].sum() - npos * (npos + 1) / 2.0) / (npos * nneg))
+        return f1, auc, rec, prec
+
+    rng = np.random.RandomState(BOOTSTRAP_SEED)
+    samples = {k: [] for k in ("f1", "roc_auc", "rec", "prec")}
+    for _ in range(BOOTSTRAP_B):
+        pick = rng.randint(0, G, G)
+        cnt = np.bincount(pick, minlength=G)
+        idx = np.repeat(np.arange(len(ys)), cnt[row_g])
+        f1, auc, rec, prec = _m(ys[idx], ss[idx])
+        if not np.isnan(auc):
+            samples["f1"].append(f1); samples["roc_auc"].append(auc)
+            samples["rec"].append(rec); samples["prec"].append(prec)
+    out = {}
+    for k, vals in samples.items():
+        arr = np.array(vals, dtype=np.float64)
+        out[k] = [float(np.percentile(arr, 2.5)), float(np.percentile(arr, 97.5))]
+    _GROUPWISE_CI_CACHE = out
+    return out
 
 
 # ────────────────────────── 融合权重敏感性 ──────────────────────────
@@ -379,6 +440,9 @@ CHAPTER_TRANSFER = re.compile(
     r"(?P<tp>\d+)\s*/\s*(?P<fp>\d+)\s*/\s*(?P<fn>\d+)\s*/\s*(?P<tn>\d+)\s*\|"
 )
 CHAPTER_GROUPWISE = re.compile(r"groupwise[^|\n]*?(\d\.\d{4})")
+CHAPTER_GW_TABLE = re.compile(
+    r"^\|\s*(?P<label>(?:F1|ROC AUC|Recall|Precision))（跨被试）\s*\|\s*(?P<point>" + NUM + r")\s*\|\s*\[\s*(?P<lo>" + NUM + r")\s*,\s*(?P<hi>" + NUM + r")\s*\]\s*\|"
+)
 CLAIM_REF = re.compile(r"[CDSXB]-\d+")
 # 黑名单 token：n=139 那组（优化版 + 原始版整行）+ registry 0.9530 + bootstrap 均值误记 0.8527
 FORBIDDEN = [
@@ -446,6 +510,9 @@ EXPECTED: dict[str, tuple] = {
     "C-20": ("unit", "text_ood", "roc_auc", "point"),
     "C-21": ("unit", "text_ood", "cm", "cm"),
     "C-22": ("groupwise", "f1"),
+    "C-23": ("groupwise", "roc_auc"),
+    "C-24": ("groupwise", "rec"),
+    "C-25": ("groupwise", "prec"),
     "X-01": ("sens", "agree_low"),
     "X-02": ("sens", "agree_high"),
     "X-03": ("sens", "mid_all"),
@@ -589,13 +656,22 @@ def check_ledger(truth: dict, failures: list[str]) -> None:
                 failures.append(f"[{where}] 文档值 {point!r} vs 复算真值 {t!r}")
         else:
             check_equal(where, float(point), float(t), tol_for(point), failures)
-        # CI：仅 unit·point 类有 CI；其余必须写「—」
+        # CI：unit·point 与 groupwise 类有 CI；其余必须写「—」
         if spec[0] == "unit" and spec[3] == "point":
             _, unit, metric, _ = spec
             lo_truth, hi_truth = units[unit][f"{metric}_ci"]
             pair = re.findall(NUM, ci)
             if len(pair) != 2:
                 failures.append(f"[{where}] CI 单元格无法解析为两个数：{ci!r}")
+            else:
+                check_equal(f"{where} CI 下界", float(pair[0]), lo_truth, tol_for(pair[0]), failures)
+                check_equal(f"{where} CI 上界", float(pair[1]), hi_truth, tol_for(pair[1]), failures)
+        elif spec[0] == "groupwise":
+            gw_ci = recompute_groupwise_ci()
+            lo_truth, hi_truth = gw_ci[spec[1]]
+            pair = re.findall(NUM, ci)
+            if len(pair) != 2:
+                failures.append(f"[{where}] groupwise CI 单元格无法解析为两个数：{ci!r}")
             else:
                 check_equal(f"{where} CI 下界", float(pair[0]), lo_truth, tol_for(pair[0]), failures)
                 check_equal(f"{where} CI 上界", float(pair[1]), hi_truth, tol_for(pair[1]), failures)
@@ -689,6 +765,25 @@ def check_chapter(failures: list[str]) -> None:
     else:
         check_equal("章节 groupwise F1", float(gm.group(1)), gw["f1"], 5e-5, failures)
 
+    # 7) groupwise 跨被试 CI 表（F1/ROC AUC/Recall/Precision 点估计 + 分组 bootstrap CI）
+    gw_ci = recompute_groupwise_ci()
+    gw_metric = {"F1": "f1", "ROC AUC": "roc_auc", "Recall": "rec", "Precision": "prec"}
+    gw_seen: set[str] = set()
+    for line in lines:
+        m = CHAPTER_GW_TABLE.match(line)
+        if not m:
+            continue
+        label = m.group("label")
+        gw_seen.add(label)
+        key = gw_metric[label]
+        check_equal(f"章节 groupwise 表 {label}", float(m.group("point")), gw[key], tol_for(m.group("point")), failures)
+        lo, hi = gw_ci[key]
+        check_equal(f"章节 groupwise 表 {label} CI 下界", float(m.group("lo")), lo, tol_for(m.group("lo")), failures)
+        check_equal(f"章节 groupwise 表 {label} CI 上界", float(m.group("hi")), hi, tol_for(m.group("hi")), failures)
+    for label in gw_metric:
+        if label not in gw_seen:
+            failures.append(f"结果章节 groupwise 跨被试表缺少 {label}（跨被试）行")
+
 
 def check_blacklist(failures: list[str]) -> None:
     for doc in THESIS_DOCS:
@@ -778,6 +873,22 @@ def check_groupwise_artifact(failures: list[str]) -> None:
             check_equal(f"groupwise json {key}", float(block[key]), t[key_map[key]], 5e-4 + 1e-9, failures)
     if int(block.get("n", -1)) != t["n"]:
         failures.append(f"groupwise json n={block.get('n')} vs 复算 {t['n']}")
+    # groupwise_ci.json（ROUND_30）：分组 bootstrap CI 工件 ⇄ 独立复算（同序列）
+    if GROUPWISE_CI_JSON.exists():
+        ci_payload = json.loads(GROUPWISE_CI_JSON.read_text(encoding="utf-8"))
+        if ci_payload.get("oof_csv_sha256") != sha256_of(GROUPWISE_CSV):
+            failures.append(
+                f"groupwise_ci.json 记录的 oof sha256 与当前 csv 不符："
+                f"{ci_payload.get('oof_csv_sha256')} vs {sha256_of(GROUPWISE_CSV)}"
+            )
+        gw_ci = recompute_groupwise_ci()
+        for key in ("f1", "roc_auc", "rec", "prec"):
+            block_ci = ci_payload["metrics"][key]["ci95"]
+            lo, hi = gw_ci[key]
+            check_equal(f"groupwise_ci.json {key}.ci95[0]", float(block_ci[0]), lo, 1e-6 + 1e-9, failures)
+            check_equal(f"groupwise_ci.json {key}.ci95[1]", float(block_ci[1]), hi, 1e-6 + 1e-9, failures)
+            check_equal(f"groupwise_ci.json {key}.point", float(ci_payload["metrics"][key]["point"]),
+                        t[key], 1e-6 + 1e-9, failures)
 
 
 def run_all(show_only: bool = False) -> int:
