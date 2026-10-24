@@ -24,7 +24,7 @@
       ⇒ 同形；仅 debug 级信号（生产默认级别不可见）。
 
 不接 16 条（逐条硬判据见 P2_13「一之三十七」节）：
-  instance.py:25 V / model_registry.py:351 V / startup_status.py:100 S 同源 /
+  instance.py:25 V / model_registry.py:351 V / startup_status.py:118 S 同源 /
   text_tokenizer.py:37 F / hyperparameter_tuning.py:38 V+D /
   hyperparameter_tuning.py:51 V / model_loader.py:46 V /
   model_validation.py:135 V / scaler.py:47 P / auth_service.py:277 V/F /
@@ -50,7 +50,7 @@ TARGETS = [
     ("app/core/instance.py", 25, "get_instance_id", "V"),
     ("app/core/log_sanitizer.py", 451, "filter", "W-接线"),
     ("app/core/model_registry.py", 351, "resolve_model_path", "V"),
-    ("app/core/startup_status.py", 100, "record", "S-同源"),
+    ("app/core/startup_status.py", 118, "record", "S-同源"),  # ROUND_39 +18
     ("app/core/text_m2_bert_predictor.py", 162, "predict", "W-接线"),
     ("app/core/text_tokenizer.py", 37, "_get_jieba", "F"),
     ("app/ml/hyperparameter_tuning.py", 38, "_load_tuning_cache", "V+D"),

@@ -16,7 +16,7 @@ E4：scaler.py:47 P 型 —— AST 断 try 体内只有 import + 一次调用，
      （外层 except 不参与）。
 E5：startup_status S 同源 —— 阻断 silent_degradation_total.inc 后
      record_silent_degradation 同样失效（同一 app.core.metrics 源）
-     ⇒ 给 L100 接线即恒 0 假设施。
+     ⇒ 给 L118 接线即恒 0 假设施。
 """
 
 from __future__ import annotations
@@ -276,7 +276,7 @@ def e5_startup_status_homologous() -> None:
             after == before and not real_inc_ok,
             f"阻断 app.core.metrics 后：record_silent_degradation 计数 {before}→{after}"
             f"（0 增量 = 同源失效），startup_component_failures_total.inc 同样抛"
-            f"（{real_inc_ok}）⇒ L100 接线即恒 0",
+            f"（{real_inc_ok}）⇒ L118 接线即恒 0",
         )
     finally:
         metrics_mod.silent_degradation_total = type(  # type: ignore[assignment]

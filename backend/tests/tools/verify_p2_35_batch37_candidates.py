@@ -32,7 +32,7 @@
   cache.py:241/247 C（停机 aclose 失败，warning，单例照旧重置）/
   kill_switch.py:119 V（调用方 _degrade 显式 degraded=True/source=unavailable
   +fail-closed，P1-7 有意设计）/
-  main.py:371 V（启动 warning + 影响点（上传端点）显式失败）/
+  main.py:379 V（启动 warning + 影响点（上传端点）显式失败）/
   reports.py:355 P（notify_task_progress→ws send_to_user 两条内层路径
   L175/L203 均已接线，外层是防御性重复层）/
   reports.py:403 V（status=failed+error 入 job_store + notify，调用方可见）/
@@ -65,7 +65,7 @@ CANDIDATES = [
     ("app/core/cache.py", 241, "close_redis_client", "C", False),
     ("app/core/cache.py", 247, "close_redis_client", "C", False),
     ("app/core/kill_switch.py", 119, "_get_redis", "V", False),
-    ("app/main.py", 371, None, "V", False),
+    ("app/main.py", 379, None, "V", False),  # ROUND_39 +8
     ("app/api/v1/reports.py", 355, "_notify", "P", False),
     ("app/api/v1/reports.py", 403, "_execute_pdf_generation", "V", False),
     ("app/api/v1/validation.py", 254, "_cleanup_memory_expired", "D", False),

@@ -17,7 +17,7 @@ M6 删 `shadow_mode_service` 的 compare_failed 接线
    → 同族互锁钉必须红
 M7 删 P2_13「一之三十七」节标题行
    → 文档登记必须红（节标题结构钉，正文提及不算）
-M8 给 `startup_status.py:100` 的不接 handler 注入 record_silent_degradation
+M8 给 `startup_status.py:118` 的不接 handler 注入 record_silent_degradation
    → 块级反向钉必须红（S 同源路径接线即恒 0 假设施）
 
 纪律：锚点先读实际落盘文本；`mutate()` 用 try/finally 保证**无论 RED 还是
@@ -148,7 +148,7 @@ def main() -> int:
         "",
     )
 
-    # M8 —— 给 startup_status.py:100 的 S 同源 handler 注入接线
+    # M8 —— 给 startup_status.py:118 的 S 同源 handler 注入接线
     mutate(
         "M8", STARTUP,
         "            except Exception:\n"

@@ -8367,7 +8367,7 @@ class TestP235Round13Batch36Wiring:
     不接 16 条（逐条硬判据见 P2_13「一之三十七」节）：
       instance.py:25 V（warning+exc_info，降级值语义明确，无业务后果）/
       model_registry.py:351 V（warning，有意设计「不应阻断推理」）/
-      startup_status.py:100 S 同源（被保护计数器就在 app.core.metrics，
+      startup_status.py:118 S 同源（被保护计数器就在 app.core.metrics，
       实测阻断后接线设施同样失效）/
       text_tokenizer.py:37 F（jieba 版本兼容，无业务后果）/
       hyperparameter_tuning.py:38 V+D（warning；返回 [] ⇒ 重算而非
@@ -8402,7 +8402,7 @@ class TestP235Round13Batch36Wiring:
     CANDIDATES = [
         ("app/core/instance.py", 25, "get_instance_id", "V"),
         ("app/core/model_registry.py", 351, "resolve_model_path", "V"),
-        ("app/core/startup_status.py", 100, "record", "S"),
+        ("app/core/startup_status.py", 118, "record", "S"),  # ROUND_39 +18（哨兵/文档串）
         (PRED_REL, 162, "predict", "W"),
         ("app/core/text_tokenizer.py", 37, "_get_jieba", "F"),
         ("app/ml/hyperparameter_tuning.py", 38, "_load_tuning_cache", "V"),
@@ -8782,7 +8782,7 @@ class TestP235Round13Batch37Wiring:
       cache.py:241/247 C（停机 aclose 失败，warning，单例照旧重置）/
       kill_switch.py:119 V（调用方 `_degrade` 显式写 degraded=True +
       source="unavailable"，fail-closed 由 P1-7 设计）/
-      main.py:371 V（启动 warning + 影响点上传端点显式失败）/
+      main.py:379 V（启动 warning + 影响点上传端点显式失败）/
       reports.py:355 P（`notify_task_progress`→ws `send_to_user` 两条
       内层路径 L175/L203 均已接线，外层防御性重复层）/
       reports.py:403 V（status=failed+error 入 job_store + notify）/
@@ -8809,7 +8809,7 @@ class TestP235Round13Batch37Wiring:
         ("app/core/cache.py", 241, "close_redis_client", "C"),
         ("app/core/cache.py", 247, "close_redis_client", "C"),
         ("app/core/kill_switch.py", 119, "_get_redis", "V"),
-        ("app/main.py", 371, None, "V"),  # 模块级（ lifespan 装配段）
+        ("app/main.py", 379, None, "V"),  # 模块级（lifespan 装配段；ROUND_39 +8）
         ("app/api/v1/reports.py", 355, "_notify", "P"),
         ("app/api/v1/reports.py", 403, "_execute_pdf_generation", "V"),
         ("app/api/v1/validation.py", 254, "_cleanup_memory_expired", "D"),
@@ -8844,7 +8844,7 @@ class TestP235Round13Batch37Wiring:
     # ---- 存在性 / 反向钉 ------------------------------------------------
 
     def test_candidates_present_and_enclosing_func(self):
-        """15 条候选全部在位且所属函数未漂移（main.py:371 为模块级）。"""
+        """15 条候选全部在位且所属函数未漂移（main.py:379 为模块级）。"""
         for rel, line, fn_name, _bucket in self.CANDIDATES:
             handler = self._handler_at(rel, line)
             actual = self._enclosing(rel, line)
