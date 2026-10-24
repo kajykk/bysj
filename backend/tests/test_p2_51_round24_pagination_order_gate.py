@@ -56,89 +56,18 @@ APP = BACKEND / "app"
 # 白名单立即失效（见 TestWhitelistIntegrity）——必须补次级键，不得留在白名单。
 # ---------------------------------------------------------------------------
 PAGING_WHITELIST: dict[tuple[str, str, tuple[str, ...]], tuple[int, str]] = {
-    ("api/v1/content_governance.py", "get_content_history", ("created_at",)): (
-        1,
-        "单页：.limit(100) 取该内容的最近 100 条审核日志，无 offset；"
-        "同秒并列只影响第 100 条截断点，不产生跨页重复/漏行",
-    ),
-    ("api/v1/ops_dashboard.py", "_get_recent_audit_events", ("created_at",)): (
-        1,
-        "单页：.limit(10) 仪表盘最近审计事件，无 offset",
-    ),
-    ("services/counselor_service_user.py", "get_user_detail", ("created_at",)): (
-        3,
-        "单页 ×3（风险历史/评估/干预各 .limit(100)）：一次返回完整时间线，无 offset",
-    ),
     ("services/drift_monitoring_service.py", "_create_drift_alert", ("created_at",)): (
         2,
         "取最新一条做去重存在性判断，.limit(1)，无分页语义",
     ),
-    ("services/intervention_service.py", "get_active", ("created_at",)): (
-        1,
-        "取当前 active 计划，.limit(1)；ROUND_23a 后每用户至多一条 active"
-        "（部分唯一索引 uq_intervention_plans_active_per_user）⇒ 并列组大小恒为 1",
-    ),
-    ("services/risk_service_report.py", "get_risk_report", ("created_at",)): (
-        1,
-        "单页：报告用最近 20 条，.limit(20)，无 offset",
-    ),
-    ("services/risk_service_warning.py", "_check_warning_trigger", ("created_at",)): (
-        1,
-        "取上一条评估，.limit(1)，无分页语义",
-    ),
     (
-        "services/crisis_export_service.py",
-        "iter_export_crisis_csv",
-        ("created_at",),
+        "services/content_service.py",
+        "get_recommendations",
+        ("category",),
     ): (
         1,
-        "L20 已知项（本轮按边界只登记不动）：全量流式导出，服务端游标"
-        " yield_per=1000 分块，无 offset/limit 子句；同一次查询执行内"
-        "游标不跨页，不产生重复/漏行",
-    ),
-    # ---- ROUND_25 (B 摊) 新增：判据扩展后逐条裁定的单页扫描/展示窗口 ----
-    (
-        "monitoring/escalation.py",
-        "run_escalation_check",
-        ("created_at",),
-    ): (
-        1,
-        "单页扫描窗口：.limit(500) 取最近 firing 告警做升级判断；同秒并列"
-        "只影响本轮窗口构成（边界条目下轮补判），无跨页重复/漏行",
-    ),
-    (
-        "services/observability/aggregate.py",
-        "_fetch_am_sync_failures",
-        ("created_at",),
-    ): (
-        1,
-        "单页 top-10 展示样本（recent_failures 失败详情）；并列只影响样本构成",
-    ),
-    (
-        "services/observability/aggregate.py",
-        "_fetch_recent_flushes",
-        ("created_at",),
-    ): (
-        1,
-        "单页 top-10 展示样本（最近 flush 日志）；并列只影响样本构成",
-    ),
-    (
-        "services/observability/query.py",
-        "_fetch_fired_rows",
-        ("created_at",),
-    ): (
-        1,
-        "单页扫描窗口：.limit(5000) 拉 fired 行做分位数聚合；指标为抽样口径，"
-        "并列只影响窗口构成，无跨页语义",
-    ),
-    (
-        "tasks/alerts.py",
-        "_archive_impl",
-        ("created_at",),
-    ): (
-        1,
-        "单页扫描窗口：.limit(1000) 归档候选；幂等由 original_id 去重兜底"
-        "（P1-D-7），边界并列条目下轮补归档，无跨页重复/漏行",
+        "GROUP BY category 后每组一行，ORDER BY cnt DESC, category ASC 已是全序；"
+        ".limit(3) 单页，无 offset",
     ),
 }
 
