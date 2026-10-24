@@ -11,6 +11,26 @@
 
 ## [Unreleased]
 
+### ROUND_33 · P1 校准分析（Brier / ECE / MCE / calibration slope / DCA）
+
+- 新增 `backend/scripts/modeling/eval/v1_33/calibration_lib.py`（纯函数库）与
+  `calibration_analysis.py`（四单元 CLI）。**只读已落盘的逐样本 csv**，不跑模型、
+  不读 metrics.json / registry 旧值；点估计与 bootstrap CI 共用同一套实现，避免
+  「CI 一种算法、点估计另一种」的隐性不一致。
+- 口径边界按 ROUND_27/30 的裁定保持：主口径 = 文本 groupwise OOF（n=8379 / 1277 组，
+  唯一可引用泛化口径）；生理切分 n=157 为次级（小样本，引用处同句标注 n）；
+  两个 transfer 单元（文本×OOD 2523、生理×Kaggle 10000）**仍为压力测试**，
+  禁作外迁引用。
+- 主要读数：文本 groupwise Brier 0.1280 [0.1184, 0.1376]、ECE 0.0855 [0.0710, 0.1069]、
+  校准斜率 1.3466（>1 ⇒ 概率偏保守/欠自信，与阈值读数 Recall 0.5375 自洽）；
+  DCA 显示模型净获益在阈值 [0.03, 0.99] 优于「全员干预」。
+- 接入台账 C-26 ~ C-33 与论文素材包（RESULTS_CHAPTER §4ter、LIMITATIONS §3bis、
+  REVIEWER_QA Q9/Q10）；`verify_thesis_numbers.py` 增加校准/DCA 的**独立复算**
+  （ECE 用显式区间遍历、slope 用 Nelder-Mead 最小化 logloss，与库的 Newton 路径不同）。
+- 测试 `backend/tests/test_p2_59_round33_calibration.py` 16 例；变异
+  `backend/tests/tools/mutate_round33_calibration.py` **7/7 全部 RED + 恢复绿**
+  （含「DCA 符号翻转在 FP=0 时测不出」这一测试覆盖缺陷的修复记录）。
+
 - 待发布内容在此累积。
 
 ---

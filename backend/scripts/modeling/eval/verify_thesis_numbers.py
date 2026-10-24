@@ -275,6 +275,149 @@ def _load_groupwise_ys() -> tuple[np.ndarray, np.ndarray]:
     return y, s
 
 
+# ─────────────── ROUND_33 (P1 校准)：校准/DCA 数字的独立复算 ───────────────
+# 边界：只读 v1_33/calibration_analysis.json 与已提交逐样本 csv；
+# 点估计刻意用**另一套算法路径**（ECE 用显式区间遍历而非 searchsorted；
+# slope 用 Nelder-Mead 直接最小化 logloss 而非 Newton/IRLS），
+# 与 v1_33/calibration_lib.py 互为交叉验证。
+
+CALIBRATION_JSON = Path(__file__).resolve().parent / "v1_33" / "calibration_analysis.json"
+
+CALIB_UNITS: dict[str, dict] = {
+    "text_groupwise_oof": {"csv": GROUPWISE_CSV, "kind": "groupwise", "role": "citable"},
+    "physio_current_split": {
+        "csv": UNITS["physio_v2"]["csv"], "kind": "csv",
+        "role": "citable_secondary", "has_refit": UNITS["physio_v2"]["has_refit"],
+    },
+    "text_ood_strict": {
+        "csv": UNITS["text_ood"]["csv"], "kind": "csv",
+        "role": "stress_only", "has_refit": UNITS["text_ood"]["has_refit"],
+    },
+    "physio_kaggle": {
+        "csv": UNITS["physio_kaggle"]["csv"], "kind": "csv",
+        "role": "stress_only", "has_refit": UNITS["physio_kaggle"]["has_refit"],
+    },
+}
+
+CALIB_N_BINS = 10
+
+
+def _indep_brier(y: np.ndarray, p: np.ndarray) -> float:
+    return float(np.mean((p - y) ** 2))
+
+
+def _indep_ece(y: np.ndarray, p: np.ndarray, n_bins: int = CALIB_N_BINS) -> float:
+    """等宽箱 ECE，[lo, hi) 归属、末箱闭区间。
+
+    与 calibration_lib 的 searchsorted(edges, p, 'right')-1（即 (lo, hi] 归属）
+    在箱边界上数学等价：p 恰等于边界值时两者归同一箱（见下表 p=0.1 → bin 1）。
+    """
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    n = float(y.size)
+    total = 0.0
+    for k in range(n_bins):
+        lo, hi = float(edges[k]), float(edges[k + 1])
+        mask = (p >= lo) & (p < hi) if k < n_bins - 1 else (p >= lo) & (p <= hi)
+        if not mask.any():
+            continue
+        total += (float(mask.sum()) / n) * abs(float(y[mask].mean()) - float(p[mask].mean()))
+    return float(total)
+
+
+def _indep_slope_intercept(y: np.ndarray, p: np.ndarray) -> tuple[float, float]:
+    """Platt slope / intercept：Nelder-Mead 直接最小化 logloss（与库的 Newton 不同路径）。"""
+    from scipy.optimize import minimize
+
+    pc = np.clip(p, 1e-12, 1.0 - 1e-12)
+    x = np.log(pc / (1.0 - pc))
+
+    def nll(beta):
+        eta = beta[0] + beta[1] * x
+        return float(np.sum(np.logaddexp(0.0, eta) - y * eta))
+
+    res = minimize(
+        nll, x0=np.zeros(2), method="Nelder-Mead",
+        options={"xatol": 1e-12, "fatol": 1e-14, "maxiter": 20000},
+    )
+    return float(res.x[1]), float(res.x[0])
+
+
+def _load_calib_ys(unit: str) -> tuple[np.ndarray, np.ndarray]:
+    spec = CALIB_UNITS[unit]
+    if spec["kind"] == "groupwise":
+        y, s = _load_groupwise_ys()
+        return y.astype(np.float64), s.astype(np.float64)
+    y, s, _, _ = read_predictions_csv(spec["csv"], refit=spec["has_refit"])
+    return y.astype(np.float64), s.astype(np.float64)
+
+
+def _indep_net_benefit(y: np.ndarray, p: np.ndarray, thr: float) -> float:
+    """DCA 净获益（独立实现）：TP/n − (FP/n)·(t/(1−t))。"""
+    pred = p >= thr
+    pos = y == 1.0
+    n = float(y.size)
+    tp = float((pred & pos).sum())
+    fp = float((pred & ~pos).sum())
+    return tp / n - (fp / n) * (thr / (1.0 - thr))
+
+
+DCA_REPORT_THRESHOLDS = (0.05, 0.30, 0.50)
+
+
+def recompute_calibration() -> dict:
+    """从已提交 csv 独立复算四个单元的校准点估计。"""
+    out: dict[str, dict] = {}
+    for unit in CALIB_UNITS:
+        y, p = _load_calib_ys(unit)
+        slope, intercept = _indep_slope_intercept(y, p)
+        entry = {
+            "n": int(y.size),
+            "positive_rate": float(y.mean()),
+            "brier": _indep_brier(y, p),
+            "ece": _indep_ece(y, p),
+            "calibration_slope": slope,
+            "calibration_intercept": intercept,
+        }
+        for thr in DCA_REPORT_THRESHOLDS:
+            entry[f"nb_{thr:g}"] = _indep_net_benefit(y, p, thr)
+        out[unit] = entry
+    return out
+
+
+def recompute_calibration_ci(unit: str, B: int = BOOTSTRAP_B, seed: int = BOOTSTRAP_SEED) -> dict:
+    """仅对**主口径** text_groupwise_oof 独立复算 bootstrap CI（按 group 重采样）。
+
+    与 v1_33/calibration_analysis.py 同源：同 seed、同 `rng.randint(0, G, G)` 抽样逻辑。
+    其它三个单元只做结构校验（见 check_calibration_artifact），理由：
+    - physio_current_split n=157：CI 必然极宽，点估计已足以外推结论；
+    - 两个 stress_only 单元不作引用，CI 的精度无消费方。
+    """
+    if unit != "text_groupwise_oof":
+        raise ValueError(f"CI 独立复算仅限 text_groupwise_oof，收到 {unit!r}")
+    y, p = _load_calib_ys(unit)
+    groups = np.array(
+        [ln.split(",")[1] for ln in GROUPWISE_CSV.read_text(encoding="utf-8").strip().splitlines()[1:]],
+        dtype=object,
+    )
+    uniq = np.unique(groups)
+    G = len(uniq)
+    pos = {gg: i for i, gg in enumerate(uniq)}
+    row_g = np.array([pos[gg] for gg in groups], dtype=np.int64)
+    rng = np.random.RandomState(seed)
+    samples = {"brier": [], "ece": []}
+    for _ in range(B):
+        pick = rng.randint(0, G, G)
+        cnt = np.bincount(pick, minlength=G)
+        sel = np.repeat(np.arange(y.size), cnt[row_g])
+        yb, pb = y[sel], p[sel]
+        samples["brier"].append(_indep_brier(yb, pb))
+        samples["ece"].append(_indep_ece(yb, pb))
+    return {
+        k: {"ci95": [float(np.percentile(np.array(v), 2.5)), float(np.percentile(np.array(v), 97.5))]}
+        for k, v in samples.items()
+    }
+
+
 _GROUPWISE_CI_CACHE: dict | None = None
 
 
@@ -513,6 +656,16 @@ EXPECTED: dict[str, tuple] = {
     "C-23": ("groupwise", "roc_auc"),
     "C-24": ("groupwise", "rec"),
     "C-25": ("groupwise", "prec"),
+    # ROUND_33 (P1 校准)：spec[3] == "ci" 时 CI 也参与校验（主口径独立复算，其余结构校验）
+    "C-26": ("calib", "text_groupwise_oof", "brier", "ci"),
+    "C-27": ("calib", "text_groupwise_oof", "ece", "ci"),
+    "C-28": ("calib", "text_groupwise_oof", "calibration_slope", "point"),
+    "C-29": ("calib", "physio_current_split", "ece", "ci"),
+    "C-30": ("calib", "physio_kaggle", "brier", "ci"),
+    "C-31": ("calib", "text_ood_strict", "brier", "ci"),
+    # ROUND_33：DCA 代表点净获益（无 CI，method 已声明）
+    "C-32": ("calib_dca", "text_groupwise_oof", "nb_0.5", "point"),
+    "C-33": ("calib_dca", "text_groupwise_oof", "nb_0.05", "point"),
     "X-01": ("sens", "agree_low"),
     "X-02": ("sens", "agree_high"),
     "X-03": ("sens", "mid_all"),
@@ -551,6 +704,13 @@ def build_truth() -> dict:
             truth[cid] = units["physio_v2"]["refit"][spec[1]]
         elif kind == "groupwise":
             truth[cid] = gw[spec[1]]
+        elif kind == "calib":
+            calib = recompute_calibration()
+            unit, metric, part = spec[1], spec[2], spec[3]
+            truth[cid] = calib[unit][metric]
+        elif kind == "calib_dca":
+            calib = recompute_calibration()
+            truth[cid] = calib[spec[1]][spec[2]]
         elif kind == "dataset":
             field = spec[1]
             pj = json.loads(UNITS["physio_v2"]["json"].read_text(encoding="utf-8"))
@@ -675,6 +835,46 @@ def check_ledger(truth: dict, failures: list[str]) -> None:
             else:
                 check_equal(f"{where} CI 下界", float(pair[0]), lo_truth, tol_for(pair[0]), failures)
                 check_equal(f"{where} CI 上界", float(pair[1]), hi_truth, tol_for(pair[1]), failures)
+        elif spec[0] == "calib":
+            if not CALIBRATION_JSON.exists():
+                failures.append(f"缺少校准分析产物 {CALIBRATION_JSON}")
+                continue
+            calib_json = json.loads(CALIBRATION_JSON.read_text(encoding="utf-8"))
+            u = calib_json["units"][spec[1]]
+            if spec[3] == "point":
+                # slope/intercept 无 CI：单元格必须是「—」
+                if ci.strip() not in ("—", "-", ""):
+                    failures.append(f"[{where}] 点估计类登记的 CI 单元格应为「—」，实际为 {ci!r}")
+            else:
+                pair = re.findall(NUM, ci)
+                if len(pair) != 2:
+                    failures.append(f"[{where}] CI 单元格无法解析为两个数：{ci!r}")
+                else:
+                    jlo, jhi = u["metrics"][spec[2]]["ci95"]
+                    check_equal(f"{where} CI 下界", float(pair[0]), jlo, tol_for(pair[0]), failures)
+                    check_equal(f"{where} CI 上界", float(pair[1]), jhi, tol_for(pair[1]), failures)
+                    # 主口径：CI 还必须与独立复算一致（同源抽样序列 + 独立指标实现）
+                    if spec[1] == "text_groupwise_oof":
+                        indep = recompute_calibration_ci(spec[1])
+                        check_equal(
+                            f"{where} CI 下界（独立复算）", jlo, indep[spec[2]]["ci95"][0], 1e-6, failures
+                        )
+                        check_equal(
+                            f"{where} CI 上界（独立复算）", jhi, indep[spec[2]]["ci95"][1], 1e-6, failures
+                        )
+        elif spec[0] == "calib_dca":
+            # DCA 代表点净获益：与产物 dca.net_benefit_model 在对应阈值处对拍（无 CI）
+            if not CALIBRATION_JSON.exists():
+                failures.append(f"缺少校准分析产物 {CALIBRATION_JSON}")
+                continue
+            u = json.loads(CALIBRATION_JSON.read_text(encoding="utf-8"))["units"][spec[1]]
+            thr = float(spec[2].split("_")[1])
+            idx = u["dca"]["thresholds"].index(thr)
+            jval = u["dca"]["net_benefit_model"][idx]
+            if ci.strip() not in ("—", "-", ""):
+                failures.append(f"[{where}] DCA 代表点的 CI 单元格应为「—」，实际为 {ci!r}")
+            # 点估计的比对由上方 truth 分支完成（独立复算 vs 文档），此处补产物层校验
+            check_equal(f"[{where}] 产物值", float(point), float(jval), tol_for(point), failures)
         elif ci.strip() not in ("—", "-", ""):
             failures.append(f"[{where}] 非单元类登记的 CI 单元格应为「—」，实际为 {ci!r}")
 
@@ -893,6 +1093,59 @@ def check_groupwise_artifact(failures: list[str]) -> None:
                         t[key], 1e-6 + 1e-9, failures)
 
 
+def check_calibration_artifact(failures: list[str]) -> None:
+    """ROUND_33：校准分析产物的结构与口径边界校验（只读）。
+
+    1. 四个单元的 **point**（brier/ece/slope/intercept）必须与独立复算一致；
+    2. role 边界必须保持：仅 text_groupwise_oof 为 citable，
+       两个 transfer 单元必须仍是 stress_only（防口径悄悄升级）；
+    3. 每个单元的 source_sha256 必须与当前 csv 的行尾不敏感哈希一致；
+    4. slope/intercept 不得带 CI（method.not_estimated 已声明）。
+    """
+    if not CALIBRATION_JSON.exists():
+        failures.append(f"缺少校准分析产物 {CALIBRATION_JSON}")
+        return
+    doc = json.loads(CALIBRATION_JSON.read_text(encoding="utf-8"))
+    truth = recompute_calibration()
+    for unit, u in doc["units"].items():
+        if unit not in truth:
+            failures.append(f"校准产物出现未登记单元 {unit!r}")
+            continue
+        t = truth[unit]
+        if u.get("role") != CALIB_UNITS[unit]["role"]:
+            failures.append(f"[calib:{unit}] role 应为 {CALIB_UNITS[unit]['role']!r}，实际 {u.get('role')!r}")
+        for metric in ("brier", "ece", "calibration_slope", "calibration_intercept"):
+            doc_point = u["metrics"][metric]["point"] if metric in u["metrics"] else u[metric]
+            check_equal(
+                f"[calib:{unit}] {metric}（产物 vs 独立复算）",
+                float(doc_point), float(t[metric]), 1e-6, failures,
+            )
+        if u.get("n") != t["n"]:
+            failures.append(f"[calib:{unit}] n={u.get('n')} 与 csv 行数 {t['n']} 不一致")
+        if abs(u.get("positive_rate", 0.0) - t["positive_rate"]) > 5e-5:
+            failures.append(f"[calib:{unit}] positive_rate 与 csv 不一致")
+        src = REPO / u["source"]
+        if not src.exists():
+            failures.append(f"[calib:{unit}] source 不存在：{u['source']}")
+        elif u.get("source_sha256") != hashlib.sha256(src.read_bytes().replace(b"\r\n", b"\n")).hexdigest():
+            # 行尾不敏感口径：与 v1_30/groupwise_ci.py、v1_33/calibration_analysis.py 一致
+            # （Windows checkout 的 CRLF 与 Linux 的 LF 必须给出同一哈希）
+            failures.append(f"[calib:{unit}] source_sha256 与当前 csv 不一致（csv 被改过？）")
+        if "ci95" in u["metrics"].get("calibration_slope", {}):
+            failures.append(f"[calib:{unit}] calibration_slope 不得带 CI（method.not_estimated）")
+        dca = u.get("dca")
+        if dca:
+            for thr in DCA_REPORT_THRESHOLDS:
+                if thr not in dca["thresholds"]:
+                    failures.append(f"[calib:{unit}] dca.thresholds 缺少 {thr}")
+                    continue
+                idx = dca["thresholds"].index(thr)
+                check_equal(
+                    f"[calib:{unit}] DCA 净获益 NB(t={thr:g})",
+                    float(dca["net_benefit_model"][idx]), float(t[f"nb_{thr:g}"]), 1e-6, failures,
+                )
+
+
 def run_all(show_only: bool = False) -> int:
     failures: list[str] = []
     if show_only:
@@ -902,6 +1155,7 @@ def run_all(show_only: bool = False) -> int:
         return 0
     check_artifacts(failures)
     check_groupwise_artifact(failures)
+    check_calibration_artifact(failures)
     truth = build_truth()
     check_ledger(truth, failures)
     check_chapter(failures)

@@ -1,0 +1,70 @@
+=== 基线（未变异，必须绿） ===
+exit = 0
+11 passed, 4 warnings in 6.46s
+
+=== M1 Brier 公式翻转成 L1（mean|y-p|） ===
+target = calibration_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+E         comparison failed
+tests\test_p2_59_round33_calibration.py:47: AssertionError
+1 failed, 4 warnings in 6.88s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 ECE 去掉样本数加权（退化成按箱平均） ===
+target = calibration_lib.py | 命中 = 1
+exit = 4（期望非 0 = RED）
+(无关键行)
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 ECE 距离量翻成 |acc+conf|（符号翻转） ===
+target = calibration_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+E         comparison failed
+tests\test_p2_59_round33_calibration.py:58: AssertionError
+1 failed, 4 warnings in 7.69s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M4 DCA 假阳性惩罚符号翻转（加号） ===
+target = calibration_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+E         comparison failed
+tests\test_p2_59_round33_calibration.py:137: AssertionError
+1 failed, 4 warnings in 8.13s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M5 DCA 阈值放开到闭区间（接受 0/1） ===
+target = calibration_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+1 failed, 4 warnings in 7.89s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M6 概率越界检查被拆掉 ===
+target = calibration_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+1 failed, 4 warnings in 7.48s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M7 transfer 单元口径悄悄升级为 citable ===
+target = calibration_analysis.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+E       AssertionError: assert 'citable' == 'stress_only'
+tests\test_p2_59_round33_calibration.py:175: AssertionError
+1 failed, 4 warnings in 7.80s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照 ===
+exit = 0（期望 0）
+11 passed, 4 warnings in 7.61s
+
+===== 结论：全部通过 =====

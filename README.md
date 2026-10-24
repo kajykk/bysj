@@ -95,6 +95,7 @@ DEMO OK（三步全部符合预期）
 | 系统架构与模块划分 | [docs/architecture.md](docs/architecture.md) |
 | 模型数字在什么条件下才算数 | [评估可信度一页摘要](docs/EVALUATION_TRUST_SUMMARY.md) → [完整报告](docs/EVALUATION_INTEGRITY_REPORT.md) |
 | 泄漏怎么发现、怎么量化 | [泄漏审计](docs/ML_LEAKAGE_AUDIT.md) · [补救与闸门](docs/ML_LEAKAGE_REMEDIATION.md) |
+| 概率准不准、用在哪个阈值有净收益 | [校准与决策曲线](docs/model-evaluation/CALIBRATION_REPORT.md) → [台账 C-26~C-33](docs/thesis/CLAIMS_LEDGER.md) |
 | 阴性结论长什么样 | [纵向早期检测（阴性）](docs/planning/P2_R15_EARLY_DETECTION_RESULT.md) |
 | 临床 / 注册准入差距 | [临床准入差距分析](docs/planning/P2_R15_CLINICAL_READINESS.md) |
 | 全量审计与历史整改 | [FULL_AUDIT_REPORT](docs/FULL_AUDIT_REPORT.md) · [CHANGELOG](CHANGELOG.md) |
@@ -280,6 +281,11 @@ python -m pytest tests/e2e/test_grafana_e2e.py -v
 > ROUND_29（2026-10-23）校准：后端用例 7,552→**7,557**（`pytest --collect-only -q` 实测），
 > 增量全部来自 `tests/test_p2_56_round29_scaler_consistency.py`（D-R26-1 修复后的
 > scaler 一致性闸门：5 例）。前端 1,327 仍为 ROUND_22 快照，本轮无前端改动、未重测。
+
+> ROUND_33（2026-10-24）校准：后端用例 7,557→**7,582**（`pytest --collect-only -q` 实测）。
+> 差额 25 = 本轮 `tests/test_p2_59_round33_calibration.py`（校准/DCA 分析闸门：16 例）
+> + ROUND_30/31 的 `test_p2_57`/`test_p2_58` 共 9 例（该两轮未在 README 登记增量，此处一并归属）。
+> 前端 1,327 仍为 ROUND_22 快照，本轮无前端改动、未重测。
 
 如果你只想快速了解项目，建议优先看：架构文档、审计报告和部署指南。
 

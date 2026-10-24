@@ -77,6 +77,14 @@
 | C-23 | groupwise ROC AUC（n=8379） | 0.8437 | [0.8170, 0.8696] | 同上（`metrics.roc_auc`） | 同上 | 泛化口径 | ✅ |
 | C-24 | groupwise Recall（n=8379） | 0.5375 | [0.4764, 0.5975] | 同上（`metrics.rec`） | 同上 | 泛化口径 | ✅ |
 | C-25 | groupwise Precision（n=8379） | 0.6450 | [0.5782, 0.7114] | 同上（`metrics.prec`） | 同上 | 泛化口径 | ✅ |
+| C-26 | 文本 groupwise Brier 分数（n=8379） | 0.1280 | [0.1184, 0.1376] | `backend/scripts/modeling/eval/v1_33/calibration_analysis.json`（`units.text_groupwise_oof.metrics.brier`） | `v1_33/calibration_analysis.py`（生成）；`verify_thesis_numbers.py`（点估计独立实现 + CI 同源独立复算） | 泛化口径·校准 | ✅ |
+| C-27 | 文本 groupwise ECE（n=8379，10 等宽箱） | 0.0855 | [0.0710, 0.1069] | 同上（`units.text_groupwise_oof.metrics.ece`） | 同上（ECE 用显式区间遍历的独立实现） | 泛化口径·校准 | ✅ |
+| C-28 | 文本 groupwise 校准斜率（Platt slope） | 1.3466 | — | 同上（`units.text_groupwise_oof.calibration_slope`） | 同上（Nelder-Mead 最小化 logloss 的独立实现；斜率无 CI，理由见 method.not_estimated） | 泛化口径·校准 | ✅ |
+| C-29 | 生理切分 ECE（n=157） | 0.2160 | [0.1815, 0.2647] | 同上（`units.physio_current_split.metrics.ece`） | 同上 | 次级口径·小样本 | ⚠️ 必须同句标注 n=157 |
+| C-30 | 生理×Kaggle Brier（n=10000） | 0.2761 | [0.2729, 0.2793] | 同上（`units.physio_kaggle.metrics.brier`） | 同上 | 降级·跨数据集下界 | ❌ 仅压力测试，禁作外迁 |
+| C-31 | 文本×OOD(strict) Brier（n=2523） | 0.0281 | [0.0264, 0.0299] | 同上（`units.text_ood_strict.metrics.brier`） | 同上 | 降级·兄弟泄漏 | ❌ 仅压力测试，禁作外迁 |
+| C-32 | 文本 groupwise DCA 净获益 NB(t=0.50) | 0.0523 | — | 同上（`units.text_groupwise_oof.dca.net_benefit_model`，阈值 0.50 处） | 同上（独立实现 TP/n − FP/n·(t/(1−t))） | 泛化口径·决策曲线 | ✅ |
+| C-33 | 文本 groupwise DCA 净获益 NB(t=0.05) | 0.1763 | — | 同上（阈值 0.05 处） | 同上 | 泛化口径·决策曲线 | ✅ |
 
 > C-22 ~ C-25 备注：这些是**跨被试（按原始用户分组、组间不重叠）**的泛化读数，CI 为
 > **按 group 重采样**的分组级 bootstrap（B=10000, seed=42，抽 1277 组非按行）——
