@@ -31,6 +31,20 @@
   `backend/tests/tools/mutate_round33_calibration.py` **7/7 全部 RED + 恢复绿**
   （含「DCA 符号翻转在 FP=0 时测不出」这一测试覆盖缺陷的修复记录）。
 
+### ROUND_33 修复 · 跨平台路径缺陷（CI 抓出）
+
+- **缺陷**：首版提交（`09564c5`）的 `calibration_analysis.json` 的 4 个 `source`
+  字段在 Windows 上生成（`str(Path)` ⇒ 反斜杠），Linux CI checkout 下 4 个 calib
+  单元全部误报「source 不存在」⇒ `backend-coverage` **3 failed / 7224 passed**
+  （该 job 首轮被并发 push 取消，重跑后才暴露；本地 Windows 全绿是假象——
+  路径分隔符属于交付形态）。
+- **修复**：生成端 4 处改 `.as_posix()` 并重生成 json（数值零漂移，仅 4 行路径）；
+  闸门与测试的路径解析做反斜杠归一化；测试新增形态钉断
+  `assert "\\" not in u["source"]`。
+- **验证**：p2_59+p2_55 20 passed；`verify_thesis_numbers.py` rc=0；新闸门
+  变异（生成端退回 `str()`）RED→字节还原→GREEN，日志
+  `backend/tests/tools/mutate_round33_pathfix_result.log`。
+
 - 待发布内容在此累积。
 
 ---

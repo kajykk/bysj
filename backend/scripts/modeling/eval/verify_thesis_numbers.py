@@ -1124,7 +1124,10 @@ def check_calibration_artifact(failures: list[str]) -> None:
             failures.append(f"[calib:{unit}] n={u.get('n')} 与 csv 行数 {t['n']} 不一致")
         if abs(u.get("positive_rate", 0.0) - t["positive_rate"]) > 5e-5:
             failures.append(f"[calib:{unit}] positive_rate 与 csv 不一致")
-        src = REPO / u["source"]
+        # 反斜杠归一化：ROUND_33 首版 json 在 Windows 上生成，source 带 "\\"，
+        # Linux checkout 下不成分隔符 ⇒ 4 个 calib 单元在 CI 全部误报「不存在」
+        # （ROUND_33 修复提交）。防御性兼容旧产物，同时生成端已改 as_posix()。
+        src = REPO / u["source"].replace("\\", "/")
         if not src.exists():
             failures.append(f"[calib:{unit}] source 不存在：{u['source']}")
         elif u.get("source_sha256") != hashlib.sha256(src.read_bytes().replace(b"\r\n", b"\n")).hexdigest():

@@ -33,6 +33,7 @@
 | `docs/model-evaluation/CALIBRATION_REPORT.md` | 人读报告（脚本生成，非手写） |
 | `backend/tests/test_p2_59_round33_calibration.py` | 16 例（手算对拍 / 边界 / 工件一致性 / 闸门联动） |
 | `backend/tests/tools/mutate_round33_calibration.py` + `_result.log` | 变异见证 7/7 RED + 恢复绿 |
+| `backend/tests/tools/mutate_round33_pathfix.py` + `_result.log` | 修复提交的新闸门变异见证（RED→GREEN，见 §六） |
 | `backend/scripts/modeling/eval/verify_thesis_numbers.py` | +254：校准/DCA 独立复算（另一套算法路径） |
 | `docs/thesis/` 四份 + `CHANGELOG.md` + `README.md` | 台账 C-26~C-33、§4ter、§3bis、Q9/Q10、索引行 |
 
@@ -98,7 +99,30 @@ M4 显式指定该节点。基线 GREEN + 7 臂 RED + 还原 sha 一致，日志
 - ROUND_00 全轮审计文档加后记：其「ROUND_33 工作区未提交、冲突以 HEAD
   （716677d）为准」的基线声明，自本轮提交后由本审计文档接续。
 
-## 六、未验证记账
+## 六、CI 抓出的缺陷与修复（ROUND_33 修复提交）
+
+**缺陷**：首版提交（09564c5）的 `calibration_analysis.json` 的 4 个 `source` 字段
+在 Windows 上生成（`str(Path)` ⇒ 反斜杠分隔符）。本地 Windows 跑测试全绿，但
+CI 干净 Linux checkout 下 `REPO / "backend\\scripts\\..."` 把整串当文件名 ⇒
+4 个 calib 单元全部误报「source 不存在」，`backend-coverage` **3 failed /
+7224 passed**（p2_55 闸门测试 + p2_59 两例）。首轮监视该 job 被并发 push
+取消（cancelled≠失败），重跑后才暴露——**教训：本机全绿不等于交付形态成立，
+路径分隔符是交付形态的一部分**。
+
+**修复**（最小变更，数值零漂移）：
+
+| 文件 | 改动 |
+|---|---|
+| `v1_33/calibration_analysis.py` | 4 处 `str(p.relative_to(...))` → `.as_posix()` |
+| `v1_33/calibration_analysis.json` | 重生成：4 个 source 行改 posix（仅此 4 行，4/4） |
+| `verify_thesis_numbers.py` | `REPO / u["source"]` → 归一化 `replace("\\", "/")`（防御旧产物） |
+| `test_p2_59_...py` | 新增形态钉断 `assert "\\" not in u["source"]` + 同样归一化 |
+
+**验证**：json 与报告的数值 diff 为空（仅 4 行路径）；p2_59+p2_55 **20 passed**；
+闸门 **rc=0**；新闸门真实变异（生成端退回 `str()`）**RED 于形态断言**→字节级
+还原→GREEN，日志 `mutate_round33_pathfix_result.log`。
+
+## 七、未验证记账
 
 1. **全量测试套件未跑**（约 37 分钟），本轮只跑回归组 44 例 + collect 实数；
    权威验证由 CI 承担（提交后盯 `backend/tests/tools/watch_ci.py`）。

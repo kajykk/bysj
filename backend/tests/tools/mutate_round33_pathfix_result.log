@@ -1,0 +1,17 @@
+=== M1 生成端退回 str()（反斜杠路径）===
+重生成 exit = 0
+json 含反斜杠 = True
+pytest exit = 1（期望非 0 = RED）
+>           assert "\\" not in u["source"], f"{unit} source 含反斜杠：{u['source']!r}"
+E           AssertionError: text_groupwise_oof source 含反斜杠：'backend\\scripts\\modeling\\v1_27\\groupwise_oof_predictions.csv'
+tests\test_p2_59_round33_calibration.py:205: AssertionError
+1 failed, 4 warnings in 5.13s
+OK：变异被杀死（RED）
+
+=== 还原后 GREEN 对照 ===
+重生成 exit = 0；三件字节还原一致 = True
+pytest exit = 0（期望 0 = GREEN）
+1 passed, 4 warnings in 4.96s
+OK：恢复绿
+
+===== 结论：全部通过 =====

@@ -219,7 +219,7 @@ def build_units() -> dict:
         "text_groupwise_oof", y, s, groups=g,
         meta={
             "role": "citable",
-            "source": str(oof.relative_to(BACKEND.parent)),
+            "source": oof.relative_to(BACKEND.parent).as_posix(),
             "source_sha256": _sha(oof),
             "probability_column": "p_groupwise",
             "note": "sibling-aware 分组去泄漏 OOF；文本模态唯一可引用泛化口径。",
@@ -233,7 +233,7 @@ def build_units() -> dict:
         "physio_current_split", y, p,
         meta={
             "role": "citable_secondary",
-            "source": str(physio.relative_to(BACKEND.parent)),
+            "source": physio.relative_to(BACKEND.parent).as_posix(),
             "source_sha256": _sha(physio),
             "probability_column": "y_score",
             "note": "depresjon@当前版本确定性切分测试集；n=157 极小，CI 必然极宽，单独记账。",
@@ -247,7 +247,7 @@ def build_units() -> dict:
         "text_ood_strict", y, p,
         meta={
             "role": "stress_only",
-            "source": str(ood.relative_to(BACKEND.parent)),
+            "source": ood.relative_to(BACKEND.parent).as_posix(),
             "source_sha256": _sha(ood),
             "probability_column": "y_score",
             "note": "eda 对 original 的兄弟改写 ⇒ 标签/兄弟泄漏，域内压力测试，不得作外迁引用。",
@@ -261,7 +261,7 @@ def build_units() -> dict:
         "physio_kaggle", y, p,
         meta={
             "role": "stress_only",
-            "source": str(kag.relative_to(BACKEND.parent)),
+            "source": kag.relative_to(BACKEND.parent).as_posix(),
             "source_sha256": _sha(kag),
             "probability_column": "y_score",
             "note": "3/13 特征直接映射 + 4 列按生产默认值填充 ⇒ 跨数据集下界，非公平基准。",

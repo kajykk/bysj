@@ -200,7 +200,10 @@ def test_calibration_json_n_matches_csv() -> None:
 def test_calibration_json_sha_and_positive_rate() -> None:
     units = _payload()["units"]
     for unit, u in units.items():
-        src = REPO / u["source"]
+        # source 必须是 posix 分隔符：Windows 生成的 "\\" 在 Linux checkout 下
+        # 不成分隔符 ⇒ CI 干净环境 4 单元全部「不存在」（ROUND_33 修复提交钉此形态）。
+        assert "\\" not in u["source"], f"{unit} source 含反斜杠：{u['source']!r}"
+        src = REPO / u["source"].replace("\\", "/")
         assert src.exists(), f"{unit} source 不存在：{u['source']}"
         actual = hashlib.sha256(src.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
         assert u["source_sha256"] == actual, f"{unit} 的 source_sha256 与当前 csv 不符"
