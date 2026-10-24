@@ -38,7 +38,10 @@
   355→356，已按棘轮同步 `docs/P2_11_ROUND11_AUDIT.md`。
 - **边界**：`otel_enabled` 死配置（E1）保持零消费，未接线；Sentry 契约、
   `SKIPPED` 哨兵机制与 p2_63 闸门未改；instrumentation 内部 handler 裁定未动。
-- **CI 读数**：待推送后回填。
+- **CI 读数**：`b101cd7` 的 7 个 workflow 全 `success`（Secret Scan / deployment-window-check /
+  contract-tests / harness-tests / e2e-tests / Lighthouse CI / Coverage）；`backend-coverage`
+  **7318 passed / 77 skipped / 278 deselected**（与 7,673 收集数自洽），覆盖率 **86.41%**
+  （门槛 60%），job 24m40s（workflow 24m49s）；frontend-coverage 与 coverage-summary 亦 success。
 
 ### ROUND_39 · 启动自检真实性：Sentry 未启用不再谎报 ok
 
