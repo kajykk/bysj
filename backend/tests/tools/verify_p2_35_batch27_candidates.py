@@ -22,9 +22,9 @@ TOOLS = BACKEND / "tests" / "tools"
 
 TARGETS = [
     # app/core/sentry.py —— Sentry SDK 集成层（自报通道本体）
-    ("app/core/sentry.py", 103),  # init_sentry: import sentry_sdk 失败
-    ("app/core/sentry.py", 148),  # capture_exception: SDK 调用失败
-    ("app/core/sentry.py", 163),  # capture_message: SDK 调用失败
+    ("app/core/sentry.py", 107),  # init_sentry: import sentry_sdk 失败（ROUND_39 +5）
+    ("app/core/sentry.py", 153),  # capture_exception: SDK 调用失败（ROUND_39 +5）
+    ("app/core/sentry.py", 168),  # capture_message: SDK 调用失败（ROUND_39 +5）
     ("app/core/sentry.py", 27),  # _extract_status_code 路径 1 int() 失败
     ("app/core/sentry.py", 36),  # _extract_status_code 路径 2 int() 失败
     ("app/core/sentry.py", 47),  # _extract_status_code 路径 3 int() 失败

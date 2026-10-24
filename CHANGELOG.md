@@ -10,6 +10,28 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_39 · 启动自检真实性：Sentry 未启用不再谎报 ok
+
+- **背景**：ROUND_13 第二十七批审计发现 `init_sentry` 的两条降级路径（未配置 DSN、
+  `sentry_sdk` 不可导入）都是 warning + `return`，调用方 `record_step_sync(...,
+  fatal=False)` 因此把启动状态记成 **`ok`** —— `/health/startup` 无法区分「Sentry 已就绪」
+  与「Sentry 根本没启用」。该信号自第二十七批起作为独立待办挂账，本轮关闭。
+- **机制**：`app/core/startup_status.py` 新增 `SKIPPED` 哨兵（`SkippedStep` 单例）；
+  `record_step_sync` / `record_step_async` 见到哨兵即记 `skipped`
+  （不进 `failed_components`、不触发 fatal），普通返回值仍记 `ok`。
+- **契约**：`init_sentry` 返回 `bool`（True 已初始化 / False 未配置 DSN 或 SDK 不可用）；
+  `app/main.py` 的 `_init_sentry` 提到模块级（可测），False 时返回 `SKIPPED`。
+  `fatal=False` 与 R-006「监控降级不阻断启动」语义不变。
+- **闸门** `backend/tests/test_p2_63_round39_startup_truthfulness.py` 15 例：哨兵机制
+  （sync/async × skipped/ok、skipped 不进失败清单）、sentry 返回值三路径、
+  main 接线（AST 返回 SKIPPED + 运行时 False→skipped / True→ok，并经
+  `startup_check()` 验证 `/health/startup` 序列化结果）。变异脚本 8/8 RED + 恢复绿。
+- **连带**：`test_p2_11_round11.py` 第二十七批见证改名为
+  `test_runtime_init_sentry_failure_records_skipped`（原断言「记 ok」正是被修掉的缺陷），
+  `sentry.py` 行号锚点 103/148/163 → 107/153/168（docstring 增 5 行）。
+- **未覆盖如实记账**：`init_otel` 有同型缺陷（`main.py` 丢弃返回值，且 False 同时表示
+  「未配置」与「初始化失败」，语义需先拆分），留待后续单独立项。
+
 ### ROUND_38 · 排序确定性收口（ROUND_23b 同型风险清零）
 
 - **背景**：ROUND_23b 修预警分页时记账「全仓另有 10+ 处单键排序同型风险」。ROUND_24/25

@@ -147,8 +147,9 @@ activity_intensity scale 13888 超 5000）。
 3. **registry 未动**（B-02 边界）：`model_registry.py` 的 `artifact_metadata`
    （hidden_dims [64,32,16] / dropout 0.3）与实际权重仍不符，本轮只在新 metrics.json
    里记录真实超参，不在 registry 侧改数。
-4. **`/health/startup` Sentry 误记 ok**（第二十七批发现）仍开放，与论文数字无关，
-   台账 LIMITATIONS §4.3 继续记账。
+4. **`/health/startup` Sentry 误记 ok**（第二十七批发现）**已由 ROUND_39 关闭**：
+   `init_sentry` 返回 bool + `SKIPPED` 哨兵，未配置 DSN / SDK 不可用记 `skipped`；
+   与论文数字无关，台账 LIMITATIONS §4.3 同步改记。
 5. 修复后 metrics.json 记录真实切分 719/153/157（旧记录 719/171/139 不可复现，
    ROUND_26 三重证据），旧值随存档工件保留。
 

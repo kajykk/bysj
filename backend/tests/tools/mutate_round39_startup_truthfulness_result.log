@@ -1,0 +1,65 @@
+=== 基线（未变异，必须绿） ===
+exit = 0
+15 passed, 4 warnings in 0.97s
+
+=== M1 同步包装器忽略 SKIPPED 哨兵（回到一律 ok） ===
+target = app/core/startup_status.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 13 passed, 4 warnings in 0.98s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 异步包装器忽略 SKIPPED 哨兵 ===
+target = app/core/startup_status.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 1.01s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 未配置 DSN 时谎报已初始化（return True） ===
+target = app/core/sentry.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 0.92s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M4 SDK 不可用时谎报已初始化（return True） ===
+target = app/core/sentry.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 1.05s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M5 成功初始化谎报未初始化（return False） ===
+target = app/core/sentry.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 0.93s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M6 main 丢弃未初始化信号（回到 None 常态） ===
+target = app/main.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 13 passed, 4 warnings in 0.97s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M7 main 一律记为 skipped（成功也被吞） ===
+target = app/main.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 0.97s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M8 lifespan 把 init_sentry 改成 fatal=True（truthful 化变成阻断启动） ===
+target = app/main.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 0.95s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照 ===
+exit = 0（期望 0）
+15 passed, 4 warnings in 0.95s
+
+===== 结论：全部通过 =====

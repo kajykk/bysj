@@ -65,21 +65,26 @@ class TestInitSentry:
         saved_dsn = os.environ.pop("SENTRY_DSN", None)
         try:
             with caplog.at_level(logging.WARNING):
-                init_sentry(dsn=None)
+                initialized = init_sentry(dsn=None)
 
+            assert initialized is False, "未配置 DSN 应返回 False（供启动状态记 skipped）"
             assert any("SENTRY_DSN not set" in r.message for r in caplog.records)
         finally:
             if saved_dsn is not None:
                 os.environ["SENTRY_DSN"] = saved_dsn
 
-    def test_sdk_import_failure_does_not_raise(self, caplog) -> None:
-        """If sentry_sdk cannot be imported, should log warning and return gracefully."""
+    def test_sdk_import_failure_does_not_raise(self, caplog, monkeypatch) -> None:
+        """If sentry_sdk cannot be imported, should log warning and return False."""
         from app.core.sentry import init_sentry
 
         _uninstall_mock_sdk()
+        # 本机/CI 均装真 SDK，仅清 mock 不能制造「不可导入」形态；
+        # None 占位会让 import 抛 ImportError（ROUND_39 起同时断言返回 False）。
+        monkeypatch.setitem(sys.modules, "sentry_sdk", None)
         with caplog.at_level(logging.WARNING):
             # Should not raise even though sentry_sdk is unavailable
-            init_sentry(dsn="https://key@sentry.io/123")
+            initialized = init_sentry(dsn="https://key@sentry.io/123")
+        assert initialized is False, "SDK 不可用应返回 False（不得谎报已初始化）"
 
     def test_init_with_explicit_dsn_calls_sdk(self) -> None:
         """With explicit DSN and SDK available, should call sentry_sdk.init()."""
@@ -87,13 +92,14 @@ class TestInitSentry:
 
         mock_sdk, _, _ = _install_mock_sdk()
         try:
-            init_sentry(
+            initialized = init_sentry(
                 dsn="https://key@sentry.io/123",
                 environment="production",
                 release="v1.0.0",
                 traces_sample_rate=0.5,
                 profiles_sample_rate=0.2,
             )
+            assert initialized is True, "成功初始化应返回 True"
             assert mock_sdk.init.called
             call_kwargs = mock_sdk.init.call_args.kwargs
             assert call_kwargs["dsn"] == "https://key@sentry.io/123"

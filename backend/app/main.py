@@ -34,6 +34,7 @@ from app.core.pii_crypto import ensure_pii_key
 from app.core.rate_limit import install_rate_limiter, limiter
 from app.core.seed import seed_database
 from app.core.sentry import init_sentry
+from app.core.startup_status import SKIPPED, SkippedStep
 from app.core.tenant_context import tenant_context_middleware
 from app.core.ws import websocket_endpoint
 from app.models.base import Base
@@ -103,6 +104,21 @@ def _init_shadow_sink() -> None:
         "[SHADOW] 影子对拍接收端已注入 (sample_rate=%.2f)",
         getattr(settings, "shadow_mode_text_sample_rate", 1.0),
     )
+
+
+def _init_sentry() -> SkippedStep | None:
+    """R-006: sentry 初始化失败不影响启动 (仅监控降级).
+
+    ROUND_39: 未配置 DSN / SDK 不可用时返回 SKIPPED，由 record_step_sync
+    记为 skipped —— 此前这两条路径正常返回，/health/startup 谎报 ok。
+    """
+    initialized = init_sentry(
+        dsn=settings.sentry_dsn,
+        environment=settings.sentry_environment,
+        release=app.version,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+    )
+    return None if initialized else SKIPPED
 
 
 @asynccontextmanager
@@ -238,14 +254,6 @@ async def lifespan(app: FastAPI):
     app.state._model_preload_task = asyncio.create_task(_preload_models_background())
 
     # R-006: sentry 初始化失败不影响启动 (仅监控降级)
-    def _init_sentry():
-        init_sentry(
-            dsn=settings.sentry_dsn,
-            environment=settings.sentry_environment,
-            release=app.version,
-            traces_sample_rate=settings.sentry_traces_sample_rate,
-        )
-
     record_step_sync("init_sentry", _init_sentry, fatal=False)
 
     # STAB-P2-009: 初始化 OpenTelemetry 分布式追踪 (OTLP 导出)

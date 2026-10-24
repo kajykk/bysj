@@ -15,6 +15,8 @@
 - 致命与非致命区分: fatal=True 仍 raise，fatal=False 仅记录
 - 线程安全: 仅在 lifespan 启动序列中写入，运行时只读
 - 优雅降级: 即使 startup_status 写入失败也不影响启动
+- 可选组件如实区分: 未配置/依赖缺失时步骤返回 ``SKIPPED`` 哨兵，
+  状态记为 skipped 而非 ok（未启用不等于成功）
 """
 
 from __future__ import annotations
@@ -27,6 +29,22 @@ from typing import Any, Awaitable, Callable, TypeVar
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+
+class SkippedStep:
+    """启动步骤哨兵：步骤正常返回，但组件未启用（未配置/依赖缺失）。
+
+    ``record_step_sync`` / ``record_step_async`` 见到该哨兵时把组件状态记为
+    ``skipped`` 而非 ``ok``——可选组件（如 Sentry）未初始化时不得谎报成功。
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "SKIPPED"
+
+
+SKIPPED = SkippedStep()
 
 
 @dataclass(slots=True)
@@ -192,7 +210,7 @@ async def record_step_async(
         fatal: True=失败时 re-raise (致命组件)；False=失败时仅记录 (非致命组件)
 
     Returns:
-        协程结果
+        协程结果 (返回 ``SKIPPED`` 哨兵时状态记为 skipped)
 
     Raises:
         原异常 (fatal=True 时)
@@ -201,7 +219,8 @@ async def record_step_async(
     try:
         result = await coro
         duration_ms = (time.monotonic() - start) * 1000
-        startup_status.record(name, "ok", duration_ms=duration_ms, fatal=fatal)
+        status = "skipped" if isinstance(result, SkippedStep) else "ok"
+        startup_status.record(name, status, duration_ms=duration_ms, fatal=fatal)
         return result
     except BaseException as exc:
         duration_ms = (time.monotonic() - start) * 1000
@@ -236,7 +255,7 @@ def record_step_sync(
         fatal: True=失败时 re-raise (致命组件)；False=失败时仅记录 (非致命组件)
 
     Returns:
-        函数结果
+        函数结果 (返回 ``SKIPPED`` 哨兵时状态记为 skipped)
 
     Raises:
         原异常 (fatal=True 时)
@@ -245,7 +264,8 @@ def record_step_sync(
     try:
         result = func()
         duration_ms = (time.monotonic() - start) * 1000
-        startup_status.record(name, "ok", duration_ms=duration_ms, fatal=fatal)
+        status = "skipped" if isinstance(result, SkippedStep) else "ok"
+        startup_status.record(name, status, duration_ms=duration_ms, fatal=fatal)
         return result
     except BaseException as exc:
         duration_ms = (time.monotonic() - start) * 1000

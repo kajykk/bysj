@@ -5293,6 +5293,9 @@ class TestP235Round13Batch27Declined:
     Sentry 调用点」语境被裁过，metrics.py 的 5 个 _set_* 采集器从未逐条裁过），
     属真正的新库存而非行号平移。分类器现场重算 11 条全判 S（两文件均在
     SELF_REPORT_FILES 里），本批逐条独立复核后维持不接线，桶计数不变。
+
+    ROUND_39：`init_sentry` docstring 增 5 行（返回值契约），三个 sentry
+    handler 行号整体 +5（103/148/163 → 107/153/168）；接线裁定与文案不变。
     """
 
     SENTRY_REL = "app/core/sentry.py"
@@ -5300,9 +5303,9 @@ class TestP235Round13Batch27Declined:
 
     # 裁定不接线的 11 处（文件, 行号, 所属函数）
     TARGETS = (
-        (SENTRY_REL, 103, "init_sentry"),
-        (SENTRY_REL, 148, "capture_exception"),
-        (SENTRY_REL, 163, "capture_message"),
+        (SENTRY_REL, 107, "init_sentry"),
+        (SENTRY_REL, 153, "capture_exception"),
+        (SENTRY_REL, 168, "capture_message"),
         (SENTRY_REL, 27, "_extract_status_code"),
         (SENTRY_REL, 36, "_extract_status_code"),
         (SENTRY_REL, 47, "_extract_status_code"),
@@ -5343,9 +5346,9 @@ class TestP235Round13Batch27Declined:
         """sentry 三处 SDK 层 handler 的 warning 文案仍在（诊断侧留痕）。"""
         src = self._read(self.SENTRY_REL)
         for line, token in (
-            (103, '"sentry_sdk not available, skipping Sentry initialization"'),
-            (148, '"sentry_sdk not available, exception not captured"'),
-            (163, '"sentry_sdk not available, message not captured"'),
+            (107, '"sentry_sdk not available, skipping Sentry initialization"'),
+            (153, '"sentry_sdk not available, exception not captured"'),
+            (168, '"sentry_sdk not available, message not captured"'),
         ):
             handler = self._handler_at(src, line)
             assert handler is not None, f"sentry.py:{line} handler 消失"
@@ -5435,15 +5438,13 @@ class TestP235Round13Batch27Declined:
             "该 handler 应只设指标不记日志（对照范式），出现 logger 说明形态漂移"
         )
 
-    def test_runtime_init_sentry_failure_records_ok(self):
-        """运行时：SDK 不可导入时 /health/startup 把 init_sentry 记为 ok。
+    def test_runtime_init_sentry_failure_records_skipped(self):
+        """运行时：SDK 不可导入时 /health/startup 把 init_sentry 记为 skipped。
 
-        这是本批最关键的可客断言 —— 证明「不接线」不是因为信号已显式，而是
-        因为 signal 通道（startup_status）确实把它记成了成功：运维读
-        /health/startup 无法区分「Sentry 已初始化」与「SDK 根本导不进来」。
-        判据据此改写（详见审计文档）：不是 V 型，而是 S 型 —— 失败的是
-        可观测性设施自身启动，且 sentry-sdk 是 requirements.lock 硬锁依赖
-        （镜像构建期安装），生产不可达。
+        ROUND_39 关闭了第二十七批记录的独立待办信号：此前两条降级路径正常
+        return，record_step_sync 因此记 ok（运维无法区分「已初始化」与「压根
+        没启用」）；现在 init_sentry 返回 False、main._init_sentry 返回 SKIPPED，
+        状态如实降为 skipped。批次裁定（S 型、不接 silent_degradation）不变。
         """
         import builtins
         import importlib
@@ -5451,6 +5452,7 @@ class TestP235Round13Batch27Declined:
 
         ss = importlib.import_module("app.core.startup_status")
         sentry_mod = importlib.import_module("app.core.sentry")
+        main_mod = importlib.import_module("app.main")
 
         real_import = builtins.__import__
 
@@ -5466,7 +5468,7 @@ class TestP235Round13Batch27Declined:
         try:
             ss.record_step_sync(
                 "init_sentry",
-                lambda: sentry_mod.init_sentry(dsn="https://key@sentry.io/123"),
+                lambda: main_mod._init_sentry(),
                 fatal=False,
             )
         finally:
@@ -5476,11 +5478,11 @@ class TestP235Round13Batch27Declined:
             sys.modules.update(saved)
 
         rec = ss.startup_status.components["init_sentry"]
-        assert rec.status == "ok", (
-            f"init_sentry 启动状态变为 {rec.status!r} —— 若改为 failed/skipped，"
-            "说明 signal 已显式，第二十七批「S 型不接线」判据需重估"
+        assert rec.status == "skipped", (
+            f"init_sentry 启动状态为 {rec.status!r}，应为 skipped —— "
+            "若回到 ok，说明 ROUND_39 的显式降级信号被撤销"
         )
-        assert rec.error_type == "", "不应有 error_type"
+        assert rec.error_type == "", "skipped 不应有 error_type"
 
     def test_runtime_extract_status_code_non_numeric_returns_none(self):
         """运行时：非数值 status code 三条路径都返回 None（既有设计行为见证）。"""

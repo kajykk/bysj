@@ -1725,8 +1725,10 @@ P1-3）是 fail-closed 白名单，鉴权失败会显式 401/403/503——端点
   由 CI `backend-coverage` 兜底。
 - 挑簇器「文档未提及 = 未裁定」信号缺陷**第六次**实锤。工具未修，
   继续以**分类器现场重算 + 审计文档逐条核对**为准。
-- **独立待办信号**：`init_sentry` 失败时 `/health/startup` 记 `ok`
-  （见 §1），建议后续单独立项改 `skipped`；不属本轮接线范围。
+- **独立待办信号（ROUND_39 已关闭）**：`init_sentry` 失败时 `/health/startup`
+  曾记 `ok`（见 §1）；ROUND_39 引入 `SKIPPED` 哨兵 + `init_sentry` 返回 bool，
+  未配置 DSN / SDK 不可用时记 `skipped`，闸门见
+  `tests/test_p2_63_round39_startup_truthfulness.py`。
 
 ---
 

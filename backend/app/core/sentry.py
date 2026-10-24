@@ -80,7 +80,7 @@ def init_sentry(
     release: str | None = None,
     traces_sample_rate: float = 0.1,
     profiles_sample_rate: float = 0.1,
-) -> None:
+) -> bool:
     """Initialize Sentry SDK.
 
     Args:
@@ -90,11 +90,15 @@ def init_sentry(
         traces_sample_rate: Percentage of non-5xx transactions to trace (0.0~1.0).
             5xx transactions are always 100% sampled (STAB-P2-010).
         profiles_sample_rate: Percentage of transactions to profile.
+
+    Returns:
+        True 已初始化；False 未配置 DSN 或 SDK 不可用（跳过）。
+        调用方据此把启动状态记为 skipped，避免把「未启用」谎报为 ok。
     """
     dsn = dsn or os.getenv("SENTRY_DSN")
     if not dsn:
         logger.warning("SENTRY_DSN not set, skipping Sentry initialization")
-        return
+        return False
 
     try:
         import sentry_sdk
@@ -102,7 +106,7 @@ def init_sentry(
         from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
     except Exception:
         logger.warning("sentry_sdk not available, skipping Sentry initialization")
-        return
+        return False
 
     sentry_sdk.init(
         dsn=dsn,
@@ -128,6 +132,7 @@ def init_sentry(
         environment,
         traces_sample_rate,
     )
+    return True
 
 
 def capture_exception(error: Exception, **context: Any) -> None:
