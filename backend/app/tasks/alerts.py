@@ -153,7 +153,7 @@ async def _archive_impl() -> int:
                         OperationLog.created_at < threshold,
                     )
                 )
-                .order_by(desc(OperationLog.created_at))
+                .order_by(desc(OperationLog.created_at), desc(OperationLog.id))
                 .limit(1000)
             )
             rows = (await db.execute(stmt)).scalars().all()

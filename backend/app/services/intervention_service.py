@@ -97,7 +97,7 @@ class InterventionService:
             .where(
                 InterventionPlan.user_id == user_id, InterventionPlan.status == "active"
             )
-            .order_by(InterventionPlan.created_at.desc())
+            .order_by(InterventionPlan.created_at.desc(), InterventionPlan.id.desc())
             .limit(1)
         )
         plan = (await self.db.execute(stmt)).scalar_one_or_none()
@@ -117,7 +117,7 @@ class InterventionService:
         task_stmt = (
             select(InterventionTask)
             .where(InterventionTask.plan_id == plan.id)
-            .order_by(InterventionTask.sort_order)
+            .order_by(InterventionTask.sort_order, InterventionTask.id)
         )
         tasks = (await self.db.execute(task_stmt)).scalars().all()
 

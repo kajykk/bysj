@@ -39,7 +39,7 @@ class WarningInterventionMixin:
             .where(
                 RiskAssessment.user_id == user_id, RiskAssessment.id < current_risk.id
             )
-            .order_by(RiskAssessment.created_at.desc())
+            .order_by(RiskAssessment.created_at.desc(), RiskAssessment.id.desc())
             .limit(1)
         )
         previous = (await self.db.execute(stmt)).scalar_one_or_none()

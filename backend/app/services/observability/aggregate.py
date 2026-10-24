@@ -347,7 +347,7 @@ async def _fetch_am_sync_failures(
     fail_stmt = (
         select(OperationLog.detail, OperationLog.created_at)
         .where(and_(*fail_conditions))
-        .order_by(desc(OperationLog.created_at))
+        .order_by(desc(OperationLog.created_at), desc(OperationLog.id))
         .limit(10)
     )
     fail_rows = (await db.execute(fail_stmt)).all()
@@ -506,7 +506,7 @@ async def _fetch_recent_flushes(
                 OperationLog.target_type == "dedup_lock",
             )
         )
-        .order_by(desc(OperationLog.created_at))
+        .order_by(desc(OperationLog.created_at), desc(OperationLog.id))
         .limit(10)
     )
     flush_rows = (await db.execute(flush_stmt)).all()

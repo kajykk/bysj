@@ -10,6 +10,24 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_38 · 排序确定性收口（ROUND_23b 同型风险清零）
+
+- **背景**：ROUND_23b 修预警分页时记账「全仓另有 10+ 处单键排序同型风险」。ROUND_24/25
+  已把 LIMIT/OFFSET 分页补齐唯一次级键；本轮清掉剩余**非分页但影响「选哪条 / 输出顺序」**
+  的单键排序——13 个函数、16 处排序点。
+- **生产修复**（统一补 `id` 次级键）：咨询师用户详情三条时间线（风险/评估/干预）、危机事件
+  CSV 导出、活跃干预计划选取与任务顺序（`sort_order, id`）、风险报告近 20 条、预警判定
+  「上一条评估」、内容审核历史、运维看板近期审计、异常检测「每用户最新样本」窗口、
+  告警升级批处理、告警归档批处理、可观测性近期失败/flush/fired、生效静默列表、偏好品类
+  top3（并列按品类升序）。
+- **语义安全豁免**（不改，理由登记在测试）：`SystemConfig.config_key` /
+  `WarningThreshold.level` 唯一列；`review_service` / `drift` 的存在性查询；anomaly
+  扫描分组 cap。
+- **闸门** `backend/tests/test_p2_62_round38_order_determinism.py` 22 例：6 个行为型
+  （捕获生产方法真实下发的 SQL）+ 14 个 AST 结构见证（API 层难直接调用）+ 2 个豁免前提
+  锚定（唯一约束被删即红）。变异脚本 9/9 RED + 恢复绿（含 M1–M4 行为+结构双杀）。
+- 更正 ROUND_23b 测试 docstring 的「10+ 处待办」记账为「已清零」。
+
 ### ROUND_35 · B1–B5：ROUND_00 审计遗留的测试/脚本缺陷收口
 
 - **B1 跨平台写盘**：`v1_30/groupwise_ci.py` 写 json 固定 `newline="\n"`，消除

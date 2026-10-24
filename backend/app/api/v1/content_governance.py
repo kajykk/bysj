@@ -376,7 +376,7 @@ async def get_content_history(
                         ]
                     ),
                 )
-                .order_by(OperationLog.created_at.desc())
+                .order_by(OperationLog.created_at.desc(), OperationLog.id.desc())
                 .limit(100)
             )
         )

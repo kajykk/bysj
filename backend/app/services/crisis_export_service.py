@@ -95,7 +95,7 @@ class CrisisExportService:
             select(CrisisEvent)
             .where(CrisisEvent.created_at >= start_dt)
             .where(CrisisEvent.created_at <= end_dt)
-            .order_by(CrisisEvent.created_at.desc())
+            .order_by(CrisisEvent.created_at.desc(), CrisisEvent.id.desc())
             .execution_options(
                 yield_per=1000,
                 tenant_exempt="platform_admin_crisis_export",

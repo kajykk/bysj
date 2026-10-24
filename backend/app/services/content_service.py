@@ -247,7 +247,9 @@ class ContentService:
                 EducationContent.status == "active",
             )
             .group_by(EducationContent.category)
-            .order_by(func.count(ContentViewHistory.id).desc())
+            .order_by(
+                func.count(ContentViewHistory.id).desc(), EducationContent.category.asc()
+            )
             .limit(3)
         )
         preferred_categories = [

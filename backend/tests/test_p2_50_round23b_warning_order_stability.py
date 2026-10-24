@@ -15,10 +15,10 @@ ROUND_23 补漏：预警列表分页的**确定性排序**闸门。
 断言 SQL 语句**真的包含二级排序键**（编译后的 SQL 文本），变异（去掉
 id.desc）会让本闸门红。
 
-记账：全仓另有 10+ 处 `order_by(<created_at>.desc())` 的单键分页
-（admin_service_config / content_service / counselor_service_consultation /
-counselor_service_user ×3 / crisis_export_service 等），属同型风险，本轮
-**不动**，仅在审计文档记账。
+记账（ROUND_38 更新）：ROUND_23b 时列出的同型风险已由 ROUND_24/25 与
+ROUND_38 两批清零——分页查询均带唯一次级键；剩余单键排序均为语义安全项
+（唯一列 / 存在性查询 / 扫描 cap），清单与豁免理由见
+`test_p2_62_round38_order_determinism.py`。
 """
 from __future__ import annotations
 

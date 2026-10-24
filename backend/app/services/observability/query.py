@@ -253,7 +253,7 @@ async def _fetch_fired_rows(
             sev_expr.label("severity"),
         )
         .where(and_(*conditions_fired))
-        .order_by(desc(OperationLog.created_at))
+        .order_by(desc(OperationLog.created_at), desc(OperationLog.id))
         .limit(DEFAULT_LIMIT)
     )
     return (await db.execute(fired_stmt)).all()

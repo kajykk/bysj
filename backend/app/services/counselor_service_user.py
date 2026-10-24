@@ -239,7 +239,7 @@ class UserMixin:
                 RiskAssessment.created_at,
             )
             .where(RiskAssessment.user_id == user_id)
-            .order_by(RiskAssessment.created_at.desc())
+            .order_by(RiskAssessment.created_at.desc(), RiskAssessment.id.desc())
             .limit(100)
         )
         risk_history = [
@@ -254,7 +254,9 @@ class UserMixin:
         assessments_stmt = (
             select(StructuredAssessment)
             .where(StructuredAssessment.user_id == user_id)
-            .order_by(StructuredAssessment.created_at.desc())
+            .order_by(
+                StructuredAssessment.created_at.desc(), StructuredAssessment.id.desc()
+            )
             .limit(100)
         )
         assessments = [
@@ -269,7 +271,7 @@ class UserMixin:
         interventions_stmt = (
             select(InterventionPlan)
             .where(InterventionPlan.user_id == user_id)
-            .order_by(InterventionPlan.created_at.desc())
+            .order_by(InterventionPlan.created_at.desc(), InterventionPlan.id.desc())
             .limit(100)
         )
         interventions = [

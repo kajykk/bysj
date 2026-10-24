@@ -23,7 +23,7 @@ class ReportMixin:
         recent_stmt = (
             select(RiskAssessment)
             .where(RiskAssessment.user_id == user_id)
-            .order_by(RiskAssessment.created_at.desc())
+            .order_by(RiskAssessment.created_at.desc(), RiskAssessment.id.desc())
             .limit(20)
         )
         recent_rows = (await self.db.execute(recent_stmt)).scalars().all()

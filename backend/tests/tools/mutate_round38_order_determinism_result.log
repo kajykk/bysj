@@ -1,0 +1,72 @@
+=== 基线（未变异，必须绿） ===
+exit = 0
+22 passed, 4 warnings in 1.11s
+
+=== M1 去掉咨询师用户详情风险时间线的 id 次级键 ===
+target = app/services/counselor_service_user.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 13 passed, 4 warnings in 1.06s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 去掉危机导出 CSV 的 id 次级键 ===
+target = app/services/crisis_export_service.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 13 passed, 4 warnings in 1.07s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 去掉活跃干预计划选取的 id 次级键 ===
+target = app/services/intervention_service.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 13 passed, 4 warnings in 1.03s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M4 去掉预警判定「上一条评估」的 id 次级键 ===
+target = app/services/risk_service_warning.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 13 passed, 4 warnings in 1.01s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M5 去掉异常检测窗口「每用户取最新」的 id 次级键 ===
+target = app/services/anomaly_detection_service.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 13 passed, 4 warnings in 1.07s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M6 去掉内容审核历史的 id 次级键 ===
+target = app/api/v1/content_governance.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 13 passed, 4 warnings in 1.06s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M7 去掉偏好品类 top3 的并列裁决键 ===
+target = app/services/content_service.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 13 passed, 4 warnings in 1.07s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M8 去掉运维看板近期审计的 id 次级键 ===
+target = app/api/v1/ops_dashboard.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 4 warnings in 0.94s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M9 删掉 config_key 的唯一约束（豁免前提失效） ===
+target = app/models/admin.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 4 warnings in 0.85s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照 ===
+exit = 0（期望 0）
+22 passed, 4 warnings in 1.07s
+
+===== 结论：全部通过 =====

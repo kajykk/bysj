@@ -190,7 +190,7 @@ async def run_escalation_check(db: AsyncSession) -> list[EscalationDecision]:
             OperationLog.action_type == "alert_fired",
             OperationLog.target_type == "alert",
         )
-    ).order_by(desc(OperationLog.created_at)).limit(500)
+    ).order_by(desc(OperationLog.created_at), desc(OperationLog.id)).limit(500)
     rows = (await db.execute(stmt)).scalars().all()
 
     decisions: list[EscalationDecision] = []

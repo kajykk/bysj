@@ -304,7 +304,7 @@ async def detect_off_hours(db: AsyncSession) -> list[AnomalyFinding]:
         func.row_number()
         .over(
             partition_by=[OperationLog.operator_id, OperationLog.operator_role],
-            order_by=OperationLog.created_at.desc(),
+            order_by=(OperationLog.created_at.desc(), OperationLog.id.desc()),
         )
         .label("_rn")
     )

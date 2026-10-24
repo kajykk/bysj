@@ -321,7 +321,7 @@ async def list_active_silences(
                 AlertSilence.ends_at >= now,
             )
         )
-        .order_by(desc(AlertSilence.starts_at))
+        .order_by(desc(AlertSilence.starts_at), desc(AlertSilence.id))
     )
     rows = (await db.execute(stmt)).scalars().all()
     return ok({"items": [_serialize_silence(r) for r in rows], "total": len(rows)})

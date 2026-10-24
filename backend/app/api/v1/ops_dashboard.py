@@ -281,7 +281,15 @@ async def _get_feedback_stats(db: AsyncSession, last_7d: datetime) -> dict[str, 
 async def _get_recent_audit_events(db: AsyncSession, limit: int = 10) -> list[dict[str, Any]]:
     """获取近期审计事件."""
     rows = (
-        (await db.execute(select(OperationLog).order_by(OperationLog.created_at.desc()).limit(limit))).scalars().all()
+        (
+            await db.execute(
+                select(OperationLog)
+                .order_by(OperationLog.created_at.desc(), OperationLog.id.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
     )
 
     return [
