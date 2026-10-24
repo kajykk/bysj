@@ -115,7 +115,9 @@ def main():
             for k in METRIC_KEYS
         },
     }
-    OUT_JSON.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    OUT_JSON.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n"
+    )
     print(f"[groupwise_ci] n={len(y)} groups={payload['n_groups']} "
           f"F1={point['f1']:.4f} {ci['f1']['ci95']} AUC={point['roc_auc']:.4f} {ci['roc_auc']['ci95']}")
     print(f"  -> {OUT_JSON.relative_to(REPO)}")

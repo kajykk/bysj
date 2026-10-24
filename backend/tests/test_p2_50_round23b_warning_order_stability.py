@@ -23,9 +23,7 @@ counselor_service_user ×3 / crisis_export_service 等），属同型风险，�
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
 
-from app.models.risk import WarningNotification
 from app.services.counselor_service_warning import WarningMixin as CounselorWarningMixin
 from app.services.warning_service import WarningService
 
@@ -34,39 +32,66 @@ def _compiled(stmt) -> str:
     return str(stmt.compile(compile_kwargs={"literal_binds": True})).lower()
 
 
+class _CaptureResult:
+    """最小结果替身：list_warnings 只用到 scalars().all() 与 scalar_one()。"""
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return []
+
+    def scalar_one(self):
+        return 0
+
+
+class _CaptureDB:
+    """记录生产实现真正下发的语句，供编译后做结构断言。"""
+
+    def __init__(self) -> None:
+        self.statements = []
+
+    async def execute(self, stmt):
+        self.statements.append(stmt)
+        return _CaptureResult()
+
+
+class _CounselorWarningStub(CounselorWarningMixin):
+    def __init__(self, db) -> None:
+        self.db = db
+
+
 class TestWarningListDeterministicOrdering:
     """LIMIT/OFFSET 必须配确定性 ORDER BY（同 created_at  행 不得靠 DB 心情排序）。"""
 
-    def test_counselor_list_warnings_has_tie_break(self):
-        stmt = (
-            select(WarningNotification)
-            .where(WarningNotification.counselor_id == 1)
-            .order_by(
-                WarningNotification.created_at.desc(),
-                WarningNotification.id.desc(),
-            )
-            .offset(0)
-            .limit(10)
+    @pytest.mark.asyncio
+    async def test_counselor_list_warnings_has_tie_break(self):
+        db = _CaptureDB()
+        await _CounselorWarningStub(db).list_warnings(
+            counselor_id=1, page=1, page_size=10, only_unhandled=False
         )
-        sql = _compiled(stmt)
+        assert len(db.statements) == 2, "应恰好发出数据查询 + count 两条语句"
+        sql = _compiled(db.statements[0])
         assert "order by" in sql
-        assert "created_at" in sql and "id" in sql, (
+        assert "created_at desc" in sql
+        assert ".id desc" in sql, (
             "ORDER BY 必须含 id 二级排序键（created_at 非唯一）"
         )
+        assert "limit" in sql and "offset" in sql, "分页必须下推到 SQL"
 
-    def test_user_list_warnings_has_tie_break(self):
-        stmt = (
-            select(WarningNotification)
-            .where(WarningNotification.user_id == 1)
-            .order_by(
-                WarningNotification.created_at.desc(),
-                WarningNotification.id.desc(),
-            )
-            .offset(0)
-            .limit(10)
+    @pytest.mark.asyncio
+    async def test_user_list_warnings_has_tie_break(self):
+        db = _CaptureDB()
+        await WarningService(db).list_warnings(
+            user_id=1, page=1, page_size=10, is_read=None
         )
-        sql = _compiled(stmt)
-        assert "created_at" in sql and "id" in sql
+        assert len(db.statements) == 2, "应恰好发出数据查询 + count 两条语句"
+        sql = _compiled(db.statements[0])
+        assert "created_at desc" in sql
+        assert ".id desc" in sql, (
+            "ORDER BY 必须含 id 二级排序键（created_at 非唯一）"
+        )
+        assert "limit" in sql and "offset" in sql, "分页必须下推到 SQL"
 
     def test_services_declare_secondary_sort_key(self):
         """源码级见证：两个 list_warnings 的实现都声明了 id 二级排序。

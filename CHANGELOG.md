@@ -10,6 +10,26 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_35 · B1–B5：ROUND_00 审计遗留的测试/脚本缺陷收口
+
+- **B1 跨平台写盘**：`v1_30/groupwise_ci.py` 写 json 固定 `newline="\n"`，消除
+  Windows（CRLF）与已提交 LF 产物的字节差，sha256 口径恢复跨平台一致。
+- **B2 恒真断言**：`test_p2_47_round19_m_batch2.py` 的「匿名化触及模型 ⊆ 导出清单」
+  原实现拿全部 `ast.Name` 与对照表取交集，断言恒空（无效闸门）。改为从匿名化模块
+  **AST 抽取 `app.models` 导入**做对照。新断言立即暴露未登记模型
+  `RefreshTokenSession`——经查其仅含 `jti/expires_at/revoked_at`（安全凭证，无 PII），
+  匿名化吊销会话是安全动作而非擦除个人数据；以显式 `security_only` 豁免登记，
+  并加「豁免项必须真被导入」防陈旧豁免。
+- **B3 断言生产实现**：`test_p2_50_round23b_warning_order_stability.py` 前两例不再
+  自建 SQL 断言自己，改为用捕获型 DB 替身调用 `list_warnings` 生产方法，对**实际
+  下发语句**断言 `ORDER BY created_at DESC, id DESC` 与 LIMIT/OFFSET 下推。
+- **B4 显式降级**：`test_p2_56_round29_scaler_consistency.py` 的 artifacts 缺失 skip
+  改为 `reason` 明写 data-machine-only gate（CI 跳过原因可见、不静默）；审计文档同步。
+- **B5 数据不入库**：`test_p2_58_round31_eatd_scaffold.py` 新增
+  `test_eatd_raw_data_not_tracked`，断言 `git ls-files data/external/eatd` 为空
+  （预注册承诺：只登记形态、不分发数据）。
+- README 后端测试计数校准 7,582→**7,620**（ROUND_36/37 新增 37 例 + 本轮 B5 的 1 例）。
+
 ### ROUND_37 · P1 融合消融（模态缺失下的等级翻转）
 
 - 新增 `backend/scripts/modeling/eval/v1_37/fusion_ablation.py`：在**确定性分数网格**

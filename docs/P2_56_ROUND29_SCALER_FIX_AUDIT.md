@@ -140,7 +140,8 @@ activity_intensity scale 13888 超 5000）。
 1. **CI 干净 checkout 一层都跑不到**：数据集与 `physiological_optimized/` 的三个模型工件
    （`model.json` / `scaler.json` / `feature_names.json`）均不在版本库 ⇒ `test_p2_56`
    因 `skipif` 在 CI 整模块 skip。数据机器上的实测（max diff = 0.000e+00、变异 6/6）
-   仅记录在本文件，**CI 侧无证据**；该闸门实际为 data-machine gate（B4 待办）。
+   仅记录在本文件，**CI 侧无证据**；该闸门已显式降级为 data-machine-only gate
+   （B4 完成：模块级 `pytestmark` 的 `reason` 声明，CI 跳过原因可见、不静默）。
 2. **变异脚本依赖数据机器**：需要数据集 + 修复前存档 + 生产工件三者俱在，启动时逐项断言，
    缺失即拒绝运行（不产出没有依据的「绿」）。
 3. **registry 未动**（B-02 边界）：`model_registry.py` 的 `artifact_metadata`

@@ -690,22 +690,34 @@ class TestM16GdprExportCoverage:
         """对照表闸门：匿名化触及的模型 ⊆ 导出清单，且每条都真的在导出里。"""
         from app.services.gdpr_service import GDPRService
 
-        # 1) 从匿名化模块抽出它实际触及的模型名（AST，不靠文本 grep）
+        # 1) 从匿名化模块抽出它实际导入的模型名（AST，不靠文本 grep）。
+        # 不能拿全部 ast.Name 与 MODEL_TO_SECTION 取交集——交集里的名字按定义
+        # 都在表中，断言恒空（ROUND_00 审计 B2）。有效判据是：匿名化模块从
+        # app.models 导入的每个模型都必须登记在对照表里。
         anon_src = (
             BACKEND / "app" / "services" / "gdpr_service_anonymize.py"
         ).read_text(encoding="utf-8")
+        tree = ast.parse(anon_src)
         touched = {
             node.id
-            for node in ast.walk(ast.parse(anon_src))
+            for node in ast.walk(tree)
             if isinstance(node, ast.Name)
         }
-        covered_models = set(MODEL_TO_SECTION)
-        missing = sorted(
-            name
-            for name in touched & covered_models
-            if name not in MODEL_TO_SECTION
-        )
-        assert not missing, f"匿名化触及但未登记的模型: {missing}"
+        imported_models = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.module.startswith("app.models")
+            for alias in node.names
+        }
+        assert imported_models, "未能从匿名化模块解析出任何 app.models 导入（AST 结构变了？）"
+        # RefreshTokenSession 只存 jti / 过期 / 吊销时间，不含 PII；匿名化撤销它是
+        # 安全动作（登出所有会话），不是擦除个人数据 ⇒ 明确豁免可携权导出。
+        security_only = {"RefreshTokenSession"}
+        assert security_only <= imported_models, "豁免项必须真的被匿名化模块导入（防陈旧豁免）"
+        missing = sorted(imported_models - set(MODEL_TO_SECTION) - security_only)
+        assert not missing, f"匿名化模块引用但未登记的模型: {missing}"
 
         # 反向：登记表里声称"匿名化会擦"的模型，匿名化模块必须真的提到。
         # OperationLog 例外：匿名化**写**它（合规审计）而不是擦它，

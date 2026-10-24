@@ -55,3 +55,14 @@ def test_scaffold_tracked() -> None:
             cwd=REPO, capture_output=True, text=True, timeout=120,
         )
         assert r.returncode == 0, f"{p} 未入库：{r.stderr}"
+
+
+def test_eatd_raw_data_not_tracked() -> None:
+    """EATD 原始数据不得入库（预注册承诺：只登记形态、不分发数据）。"""
+    r = subprocess.run(
+        ["git", "ls-files", "--", "data/external/eatd", "backend/data/external/eatd"],
+        cwd=REPO, capture_output=True, text=True, timeout=120,
+    )
+    assert r.returncode == 0, f"git ls-files 失败：{r.stderr}"
+    tracked = [line for line in r.stdout.splitlines() if line.strip()]
+    assert not tracked, f"EATD 原始数据被 git 跟踪：{tracked[:10]}"

@@ -33,7 +33,7 @@ CI 边界（诚实记账）
 artifact（`models/artifacts/physiological_optimized/*.json`）与数据集
 （`datasets/.../depresjon_physiological.csv`）都**不在版本库**（ROUND_26
 确立的分层：CI 只能复算到 csv/json 层）。因此：
-- 工件缺失 ⇒ 整个模块按仓内惯例 skip（与其他 artifact 依赖测试一致）；
+- 工件缺失 ⇒ 整个模块按 data-machine-only gate 显式 skip（reason 注明，不静默）；
 - 工件在、数据集不在 ⇒ 只跳第一层；第二/结构层照常跑（只读工件本身）。
 - 第一层在数据机器的实测 max diff 记录在
   `docs/P2_56_ROUND29_SCALER_FIX_AUDIT.md`。
@@ -101,10 +101,14 @@ FEATURE_DOMAINS: dict[str, tuple[float, float, str]] = {
     "bp_category": (0.0, 2.0, "JNC7 三档分类：0/1/2"),
 }
 
-# 与仓内其他 artifact 依赖测试一致的跳过惯例
+# data-machine-only gate：CI 干净 checkout 无 artifacts ⇒ 整模块 skip。
+# 这是**明确的降级声明**（不是「CI 已覆盖」），机器见证即本 pytestmark 的 reason。
 pytestmark = pytest.mark.skipif(
     not (MODEL_JSON.exists() and SCALER_JSON.exists() and FEATURE_NAMES_JSON.exists()),
-    reason="生理模型 artifacts 不存在 (models/artifacts/physiological_optimized/)",
+    reason=(
+        "data-machine-only gate：生理模型 artifacts 不在版本库"
+        "（CI 干净 checkout 整模块 skip；见 docs/P2_56_ROUND29_SCALER_FIX_AUDIT.md）"
+    ),
 )
 
 
