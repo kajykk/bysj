@@ -1,0 +1,58 @@
+=== 基线（未变异，必须绿） ===
+exit = 0
+14 passed, 4 warnings in 5.59s
+
+=== M1 redistribute 不再归一化（权重和 <1 ⇒ 融合分系统性偏低） ===
+target = fusion_engine.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 1 passed, 4 warnings in 5.76s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 redistribute 不过滤缺失模态（缺失模态以全权重混入） ===
+target = fusion_engine.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 4 warnings in 4.85s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 fuse 丢掉 NaN/Inf 拦截（静默裁剪成极端临床结论） ===
+target = fusion_engine.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 4 warnings in 5.11s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M4 去掉 bool 拦截（True 会按 1.0 参与融合 ⇒ 静默算出 100 分危机） ===
+target = fusion_engine.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 1 passed, 4 warnings in 4.92s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M5 空输入不再返回安全默认值 ===
+target = fusion_engine.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 4 warnings in 5.57s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M6 消融脚本改用非生产权重（0.4/0.3/0.3） ===
+target = fusion_ablation.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 4 warnings in 5.45s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M7 产物声明去掉「合成/非性能」边界（口径悄悄升级） ===
+target = fusion_ablation.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 4 warnings in 5.07s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照 ===
+exit = 0（期望 0）
+14 passed, 4 warnings in 5.50s
+
+===== 结论：全部通过 =====

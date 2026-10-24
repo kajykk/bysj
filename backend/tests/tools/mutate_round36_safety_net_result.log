@@ -1,0 +1,58 @@
+=== 基线（未变异，必须绿） ===
+exit = 0
+12 passed, 4 warnings in 5.52s
+
+=== M1 review_burden 分子用 sn_caught 而非 sn_total（少算阴性送审） ===
+target = safety_net_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 4 warnings in 5.58s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 net_recall 分母用 n 而非阳性数 P ===
+target = safety_net_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 4 warnings in 5.72s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 工作点筛选退回 `x < target`（NaN 逃逸复发） ===
+target = safety_net_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 4 warnings in 5.46s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M4 alert_precision 把安全网样本算进分母（污染预警精确率） ===
+target = safety_net_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 4 warnings in 5.46s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M5 sn_precision 用 sn_total 而非 sn_caught（恒等于 1，掩盖无判别力） ===
+target = safety_net_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 1 passed, 4 warnings in 5.82s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M6 放开 0 < t_low < t_high 约束（退化配置可入网） ===
+target = safety_net_lib.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 4 warnings in 5.69s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M7 source 改回 str(Path)（ROUND_33 被 CI 抓出的 Windows 反斜杠缺陷形态） ===
+target = safety_net_analysis.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 4 warnings in 5.33s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照 ===
+exit = 0（期望 0）
+12 passed, 4 warnings in 5.74s
+
+===== 结论：全部通过 =====

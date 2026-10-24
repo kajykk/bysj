@@ -10,6 +10,50 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_37 · P1 融合消融（模态缺失下的等级翻转）
+
+- 新增 `backend/scripts/modeling/eval/v1_37/fusion_ablation.py`：在**确定性分数网格**
+  （三模态各 0/10/…/100，1331 组合，穷举）上用**真实生产 `FusionEngine`** 评估
+  leave-one-modality-out 的 risk_level 翻转。产物 json + 脚本生成报告
+  `docs/model-evaluation/FUSION_ABLATION_REPORT.md`。
+- **数据基础诚实记账**：三模态无对齐真实数据（文本 MMPsy 8379 / 生理 depresjon 157 /
+  结构化 PHQ-9 且即训练标签母体）⇒ 端到端融合消融**没有数据基础**，本轮明确不做；
+  合成网格只验证融合层规则行为，禁作性能/贡献度证据。
+- **三条发现**：① 三模态一致时消融稳健（翻转 ≤0.23、最大 1 级 [X-07]）；
+  ② 分歧时剧烈，仅剩生理模态冲突层翻转率 0.86、最大 **4 级** [X-08]
+  （redistribute_weights 把 0.15 权重的生理放大到 1.0）；③ worst case
+  `(0,0,90)`：完整判 0 级（无风险）、仅生理判 4 级（危机）[X-09]。
+  ⇒ 工程含义：单模态请求应降级处理，未改生产代码。
+- **实测发现（死分支）**：`redistribute_weights` 的「权重全零时均分」分支不可达——
+  `__init__` 先除零（ZeroDivisionError）。已写成钉死该事实的测试。
+- 台账新增 X-07~X-09；闸门加独立复算（调生产引擎重算 + 分层/worst case 对拍 +
+  「合成非性能」口径边界断言）。论文回填 RESULTS_CHAPTER §5bis、LIMITATIONS §3quater。
+- 测试 `backend/tests/test_p2_61_round37_fusion_ablation.py` 18 例；
+  变异 `backend/tests/tools/mutate_round37_ablation.py` **7/7 RED + 恢复绿**
+  （含 5 个**生产代码**变异：redistribute 归一化/过滤、NaN 拦截、bool 拦截、空输入默认值）。
+
+### ROUND_36 · P1 漏报安全网（双阈值规则评估）
+
+- 新增 `backend/scripts/modeling/eval/v1_36/`（`safety_net_lib.py` 纯函数 +
+  `safety_net_analysis.py` CLI）。规则：`p>=t_high` 直接预警、`t_low<=p<t_high`
+  安全网强制复核、`p<t_low` 阴性；净 Recall 把安全网捕获的阳性计入「抓到」，
+  复核负担单列，预警精确率只对直接预警负责。工作点标准**先定后扫**
+  （净 Recall ≥ 0.80 且复核负担最小）。
+- **三条结构性发现（本轮核心）**：① 漏报率与总负担只由 `t_low` 决定，
+  `t_high` 完全不参与（恒等式 `负担 = P(p>=t_low)`、`净 Recall = 1 − FN率`，
+  已数值核验）；② 因此双阈值成本与「单阈值直接下调到 t_low」**恒等**，
+  唯一增益是预警精确率更高（0.6815 vs 0.2620）而非更省钱；
+  ③ 安全网区间 `[0.11, 0.60)` 阳性率 0.1905 **低于**基准率 0.2163 ⇒ 无判别力。
+- **诚实结论**：净 Recall 0.9845 的代价是 81.25% 样本进入人工流程，
+  接近全员初筛 ⇒ **单独使用文本模态做漏报安全网在成本上不成立**；
+  根因是文本概率低分区间信息量不足，可行方向是把安全网做在融合层（未做）。
+- 台账新增 C-34~C-38；闸门 `verify_thesis_numbers.py` 加独立复算
+  （flatnonzero 路径 + 恒等式/成本等价校验 + posix 路径断言）；
+  论文回填 RESULTS_CHAPTER §4quater、LIMITATIONS §3ter、REVIEWER_QA Q11。
+- 测试 `backend/tests/test_p2_60_round36_safety_net.py` 19 例；
+  变异 `backend/tests/tools/mutate_round36_safety_net.py` **7/7 RED + 恢复绿**
+  （含「NaN 逃逸」真缺陷：`NaN < target` 为 False 会让无阳性配置混进可行集）。
+
 
 ### ROUND_33 · P1 校准分析（Brier / ECE / MCE / calibration slope / DCA）
 

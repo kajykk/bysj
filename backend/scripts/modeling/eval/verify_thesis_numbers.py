@@ -282,6 +282,7 @@ def _load_groupwise_ys() -> tuple[np.ndarray, np.ndarray]:
 # 与 v1_33/calibration_lib.py 互为交叉验证。
 
 CALIBRATION_JSON = Path(__file__).resolve().parent / "v1_33" / "calibration_analysis.json"
+SAFETY_NET_JSON = Path(__file__).resolve().parent / "v1_36" / "safety_net_analysis.json"
 
 CALIB_UNITS: dict[str, dict] = {
     "text_groupwise_oof": {"csv": GROUPWISE_CSV, "kind": "groupwise", "role": "citable"},
@@ -349,6 +350,129 @@ def _load_calib_ys(unit: str) -> tuple[np.ndarray, np.ndarray]:
         return y.astype(np.float64), s.astype(np.float64)
     y, s, _, _ = read_predictions_csv(spec["csv"], refit=spec["has_refit"])
     return y.astype(np.float64), s.astype(np.float64)
+
+
+# ─────────────── ROUND_36 (P1 漏报安全网)：双阈值规则的独立复算 ───────────────
+# 独立路径：用 flatnonzero + len 而非库的布尔 mask 求和；规则参数从 v1_36 产物读。
+
+
+def _indep_safety_net(y: np.ndarray, p: np.ndarray, t_low: float, t_high: float) -> dict:
+    i_alert = np.flatnonzero(p >= t_high)
+    i_sn = np.flatnonzero((p >= t_low) & (p < t_high))
+    i_low = np.flatnonzero(p < t_low)
+    tp = int(np.sum(y[i_alert] == 1.0))
+    fp = int(len(i_alert) - tp)
+    sn_caught = int(np.sum(y[i_sn] == 1.0))
+    sn_total = int(len(i_sn))
+    n = int(y.size)
+    P = int(np.sum(y == 1.0))
+    return {
+        "tp": tp,
+        "fp": fp,
+        "sn_total": sn_total,
+        "sn_caught": sn_caught,
+        "net_recall": (tp + sn_caught) / P if P else float("nan"),
+        "review_burden": (tp + fp + sn_total) / n,
+        "alert_precision": tp / (tp + fp) if (tp + fp) else float("nan"),
+        "sn_precision": sn_caught / sn_total if sn_total else float("nan"),
+        "burden_identity": float(len(i_alert) + len(i_sn)) / n,
+        "net_recall_identity": 1.0 - float(np.sum(y[i_low] == 1.0)) / P if P else float("nan"),
+    }
+
+
+def recompute_safety_net() -> dict:
+    """从已提交 csv + 预设标准独立复算安全网工作点（不 import v1_36 的库）。"""
+    y, p = _load_calib_ys("text_groupwise_oof")
+    best: tuple | None = None
+    best_m: dict | None = None
+    n_feasible = 0
+    t_high_grid = [round(0.05 * k, 2) for k in range(2, 13)]
+    t_low_grid = [round(0.01 * k, 2) for k in range(1, 12)]
+    for t_high in t_high_grid:
+        for t_low in t_low_grid:
+            if not (0.0 < t_low < t_high < 1.0):
+                continue
+            m = _indep_safety_net(y, p, t_low, t_high)
+            if not (m["net_recall"] >= TARGET_NET_RECALL):
+                continue
+            n_feasible += 1
+            key = (round(m["review_burden"], 12), -t_high, -t_low)
+            if best is None or key < best:
+                best = key
+                best_m = {"t_low": t_low, "t_high": t_high, **m}
+    out = {"feasible": best_m is not None, "n_feasible": n_feasible, "point": best_m}
+    if best_m is not None:
+        # 成本等价对照：单阈值直接下调到同一 t_low 的读数
+        i_alert = np.flatnonzero(p >= best_m["t_low"])
+        tp_low = int(np.sum(y[i_alert] == 1.0))
+        out["single_at_t_low"] = {
+            "threshold": best_m["t_low"],
+            "recall": (tp_low / int(np.sum(y == 1.0))) if int(np.sum(y == 1.0)) else float("nan"),
+            "precision": tp_low / len(i_alert) if len(i_alert) else float("nan"),
+            "alert_rate": len(i_alert) / y.size,
+        }
+    return out
+
+
+TARGET_NET_RECALL = 0.80
+
+
+# ─────────────── ROUND_37 (P1 融合消融)：模态缺失翻转的独立复算 ───────────────
+# 独立路径：直接调生产 FusionEngine 重算（不复用 v1_37 脚本的汇总逻辑），
+# 并核验产物的汇总统计、worst case 与分层模式。
+
+
+def recompute_ablation() -> dict:
+    """从分数网格独立重算消融翻转统计（确定性穷举，无抽样）。"""
+    import sys as _sys
+
+    if str(BACKEND) not in _sys.path:
+        _sys.path.insert(0, str(BACKEND))
+    from app.ml.fusion_engine import DEFAULT_WEIGHTS as PROD_WEIGHTS
+    from app.ml.fusion_engine import FusionEngine as ProdEngine
+
+    engine = ProdEngine()
+    grid = list(range(0, 101, 10))
+    keep = {
+        "drop_structured": ("text", "physiological"),
+        "drop_text": ("structured", "physiological"),
+        "drop_physiological": ("structured", "text"),
+        "only_structured": ("structured",),
+        "only_text": ("text",),
+        "only_physiological": ("physiological",),
+    }
+    rows = []
+    for s in grid:
+        for t in grid:
+            for p in grid:
+                scores = {"structured": float(s), "text": float(t), "physiological": float(p)}
+                full = int(engine.fuse(scores)["risk_level"])
+                row = {"full": full, "spread": max(scores.values()) - min(scores.values())}
+                for name, mods in keep.items():
+                    row[name] = int(engine.fuse({m: scores[m] for m in mods})["risk_level"])
+                rows.append(row)
+    out: dict[str, object] = {"weights": dict(engine.weights), "n": len(rows)}
+    for name in keep:
+        deltas = np.array([r[name] - r["full"] for r in rows], dtype=np.int64)
+        absd = np.abs(deltas)
+        agree = np.array([r["spread"] < 20 for r in rows])
+        conflict = np.array([r["spread"] >= 40 for r in rows])
+        out[f"{name}_flip_rate"] = float((absd >= 1).mean())
+        out[f"{name}_max_abs_delta"] = int(absd.max())
+        out[f"{name}_agree_flip_rate"] = float((absd[agree] >= 1).mean()) if agree.any() else float("nan")
+        out[f"{name}_agree_max_abs_delta"] = int(absd[agree].max()) if agree.any() else -1
+        out[f"{name}_conflict_flip_rate"] = (
+            float((absd[conflict] >= 1).mean()) if conflict.any() else float("nan")
+        )
+    # worst case：仅生理相对完整模态的 |Δ| 最大者
+    worst = max(rows, key=lambda r: abs(r["only_physiological"] - r["full"]))
+    out["worst_delta_only_physio"] = int(abs(worst["only_physiological"] - worst["full"]))
+    out["worst_full_level"] = int(worst["full"])
+    out["worst_only_physio_level"] = int(worst["only_physiological"])
+    # 聚合：所有消融配置里最保守的两个数（供台账「一致层最大翻转」引用）
+    out["agree_max_abs_delta"] = int(max(out[f"{n}_agree_max_abs_delta"] for n in keep))
+    assert engine.weights == PROD_WEIGHTS
+    return out
 
 
 def _indep_net_benefit(y: np.ndarray, p: np.ndarray, thr: float) -> float:
@@ -666,12 +790,23 @@ EXPECTED: dict[str, tuple] = {
     # ROUND_33：DCA 代表点净获益（无 CI，method 已声明）
     "C-32": ("calib_dca", "text_groupwise_oof", "nb_0.5", "point"),
     "C-33": ("calib_dca", "text_groupwise_oof", "nb_0.05", "point"),
+    # ROUND_36（P1 漏报安全网）：spec[3]=="ci" 时 CI 也校验
+    "C-34": ("safetynet", "text_groupwise_oof", "net_recall", "ci"),
+    "C-35": ("safetynet", "text_groupwise_oof", "review_burden", "point"),
+    "C-36": ("safetynet", "text_groupwise_oof", "sn_precision", "point"),
+    # ROUND_36：双阈值 vs 单阈值下调的精确率对比（「更可信但不省钱」的两个读数）
+    "C-37": ("safetynet", "text_groupwise_oof", "alert_precision", "point"),
+    "C-38": ("safetynet_single", "precision_at_t_low", "point"),
     "X-01": ("sens", "agree_low"),
     "X-02": ("sens", "agree_high"),
     "X-03": ("sens", "mid_all"),
     "X-04": ("sens", "conflict_s-low_t-high"),
     "X-05": ("sens", "conflict_s-high_t-low"),
     "X-06": ("sens", "production_row"),
+    # ROUND_37（P1 融合消融）：模态缺失下的等级翻转（确定性穷举，无 CI）
+    "X-07": ("ablation", "agree_max_abs_delta"),
+    "X-08": ("ablation", "only_physiological_conflict_flip_rate"),
+    "X-09": ("ablation", "worst_delta_only_physio"),
     "S-01": ("dataset", "depresjon_rows"),
     "S-02": ("dataset", "kaggle_rows"),
     "S-03": ("dataset", "ood_rows"),
@@ -711,6 +846,18 @@ def build_truth() -> dict:
         elif kind == "calib_dca":
             calib = recompute_calibration()
             truth[cid] = calib[spec[1]][spec[2]]
+        elif kind == "safetynet":
+            sn = recompute_safety_net()
+            if not sn["feasible"]:
+                raise AssertionError("安全网工作点不可达（独立复算）⇒ 台账 C-34~C-36 失去依据")
+            truth[cid] = sn["point"][spec[2]]
+        elif kind == "safetynet_single":
+            sn = recompute_safety_net()
+            if not sn["feasible"]:
+                raise AssertionError("安全网工作点不可达 ⇒ 成本等价对照失去依据")
+            truth[cid] = sn["single_at_t_low"]["precision"]
+        elif kind == "ablation":
+            truth[cid] = recompute_ablation()[spec[1]]
         elif kind == "dataset":
             field = spec[1]
             pj = json.loads(UNITS["physio_v2"]["json"].read_text(encoding="utf-8"))
@@ -875,6 +1022,33 @@ def check_ledger(truth: dict, failures: list[str]) -> None:
                 failures.append(f"[{where}] DCA 代表点的 CI 单元格应为「—」，实际为 {ci!r}")
             # 点估计的比对由上方 truth 分支完成（独立复算 vs 文档），此处补产物层校验
             check_equal(f"[{where}] 产物值", float(point), float(jval), tol_for(point), failures)
+        elif spec[0] == "safetynet":
+            if not SAFETY_NET_JSON.exists():
+                failures.append(f"缺少安全网产物 {SAFETY_NET_JSON}")
+                continue
+            sn_doc = json.loads(SAFETY_NET_JSON.read_text(encoding="utf-8"))
+            pt = sn_doc["operating_point"]["operating_point"]
+            if spec[3] == "point":
+                if ci.strip() not in ("—", "-", ""):
+                    failures.append(f"[{where}] 点估计类登记的 CI 单元格应为「—」，实际为 {ci!r}")
+            else:
+                pair = re.findall(NUM, ci)
+                if len(pair) != 2:
+                    failures.append(f"[{where}] CI 单元格无法解析为两个数：{ci!r}")
+                else:
+                    jlo, jhi = sn_doc["operating_point"]["net_recall_ci95"]["ci95"]
+                    check_equal(f"{where} CI 下界", float(pair[0]), jlo, tol_for(pair[0]), failures)
+                    check_equal(f"{where} CI 上界", float(pair[1]), jhi, tol_for(pair[1]), failures)
+        elif spec[0] == "safetynet_single":
+            if not SAFETY_NET_JSON.exists():
+                failures.append(f"缺少安全网产物 {SAFETY_NET_JSON}")
+                continue
+            sn_doc = json.loads(SAFETY_NET_JSON.read_text(encoding="utf-8"))
+            single = sn_doc["cost_equivalence"]["single_threshold_at_t_low"]
+            if ci.strip() not in ("—", "-", ""):
+                failures.append(f"[{where}] 点估计类登记的 CI 单元格应为「—」，实际为 {ci!r}")
+            check_equal(f"[{where}] 产物值", float(point), float(single["precision"]),
+                        tol_for(point), failures)
         elif ci.strip() not in ("—", "-", ""):
             failures.append(f"[{where}] 非单元类登记的 CI 单元格应为「—」，实际为 {ci!r}")
 
@@ -1149,6 +1323,115 @@ def check_calibration_artifact(failures: list[str]) -> None:
                 )
 
 
+def check_ablation_artifact(failures: list[str]) -> None:
+    """ROUND_37：融合消融产物的结构与口径边界校验（只读）。
+
+    1. 引擎参数必须与生产 DEFAULT_WEIGHTS 一致；
+    2. 汇总统计（翻转率/最大 Δ/分层）必须与独立重算一致；
+    3. worst case 必须可复算；
+    4. 产物必须自证「输入是合成网格、非性能证据」（防口径悄悄升级）。
+    """
+    abl_json = Path(__file__).resolve().parent / "v1_37" / "fusion_ablation.json"
+    if not abl_json.exists():
+        failures.append(f"缺少融合消融产物 {abl_json}")
+        return
+    doc = json.loads(abl_json.read_text(encoding="utf-8"))
+    truth = recompute_ablation()
+    if doc["engine"]["weights"] != truth["weights"]:
+        failures.append(
+            f"[ablation] 引擎权重 {doc['engine']['weights']} 与生产 {truth['weights']} 不一致"
+        )
+    if doc["engine"]["use_confidence_weighting"] is not True:
+        failures.append("[ablation] 置信度加权必须为 True（生产配置）")
+    if doc["grid"]["n_combinations"] != truth["n"]:
+        failures.append("[ablation] 网格组合数与独立重算不一致")
+    for name, s in doc["summary"].items():
+        check_equal(f"[ablation:{name}] 翻转率", float(s["flip_rate"]),
+                    float(truth[f"{name}_flip_rate"]), 5e-5, failures)
+        if s["max_abs_delta"] != truth[f"{name}_max_abs_delta"]:
+            failures.append(
+                f"[ablation:{name}] 最大|Δ| {s['max_abs_delta']} vs 复算 "
+                f"{truth[f'{name}_max_abs_delta']}"
+            )
+        for stratum in ("agree", "conflict"):
+            b = s["by_stratum"].get(stratum)
+            if b is None:
+                continue
+            check_equal(f"[ablation:{name}] {stratum} 翻转率", float(b["flip_rate"]),
+                        float(truth[f"{name}_{stratum}_flip_rate"]), 5e-5, failures)
+    top = doc["worst_cases"][0]
+    if int(top["full_level"]) != int(truth["worst_full_level"]):
+        failures.append("[ablation] worst case 的完整等级与复算不一致")
+    if int(top["only_physiological_level"]) != int(truth["worst_only_physio_level"]):
+        failures.append("[ablation] worst case 的仅生理等级与复算不一致")
+    note = doc["_note"]
+    for token in ("合成", "不是模型性能", "确定性分数网格"):
+        if token not in note:
+            failures.append(f"[ablation] 产物 _note 缺少口径边界声明：{token!r}")
+
+
+def check_safety_net_artifact(failures: list[str]) -> None:
+    """ROUND_36：安全网产物的结构与口径边界校验（只读）。
+
+    1. 工作点必须与独立复算一致（含 t_low / t_high / net_recall / burden）；
+    2. **结构恒等式**必须成立：burden == P(p>=t_low)、net_recall == 1 − FN率；
+    3. **成本等价**必须成立：双阈值 burden == 单阈值下调到 t_low 的 alert_rate
+       （这是「双阈值不省钱、只提高预警精确率」的机器化判据）；
+    4. source 必须是 posix 路径（ROUND_33 的 Windows 反斜杠缺陷不许复发）。
+    """
+    if not SAFETY_NET_JSON.exists():
+        failures.append(f"缺少安全网产物 {SAFETY_NET_JSON}")
+        return
+    doc = json.loads(SAFETY_NET_JSON.read_text(encoding="utf-8"))
+    sn = recompute_safety_net()
+    if not sn["feasible"]:
+        failures.append("[safetynet] 独立复算下工作点不可达 ⇒ 产物宣称可行即失真")
+        return
+    truth = sn["point"]
+    op = doc["operating_point"]
+    if not op["feasible"]:
+        failures.append("[safetynet] 产物标记不可达，但独立复算可行")
+        return
+    pt = op["operating_point"]
+    if (pt["t_low"], pt["t_high"]) != (truth["t_low"], truth["t_high"]):
+        failures.append(
+            f"[safetynet] 工作点 ({pt['t_low']}, {pt['t_high']}) 与独立复算 "
+            f"({truth['t_low']}, {truth['t_high']}) 不一致"
+        )
+    for key in ("net_recall", "review_burden", "sn_precision", "alert_precision"):
+        check_equal(f"[safetynet] {key}", float(pt[key]), float(truth[key]), 1e-6, failures)
+    ident = doc.get("structural_identity", {})
+    check_equal(
+        "[safetynet] burden 恒等式",
+        float(ident.get("burden_reported", float("nan"))),
+        float(ident.get("burden_equals_P_p_ge_t_low", float("nan"))),
+        1e-6, failures,
+    )
+    check_equal(
+        "[safetynet] net_recall 恒等式",
+        float(ident.get("net_recall_reported", float("nan"))),
+        float(ident.get("net_recall_equals_1_minus_fn_rate", float("nan"))),
+        1e-6, failures,
+    )
+    cost = doc.get("cost_equivalence", {})
+    if cost.get("same_burden") is not True:
+        failures.append("[safetynet] 成本等价标记为假 ⇒ 「双阈值不省钱」的结论失效")
+    single = cost.get("single_threshold_at_t_low", {})
+    check_equal(
+        "[safetynet] 成本等价数值",
+        float(single.get("alert_rate", float("nan"))),
+        float(ident.get("burden_reported", float("nan"))),
+        1e-6, failures,
+    )
+    src = doc["data"].get("source", "")
+    if "\\" in src:
+        failures.append(f"[safetynet] source 含反斜杠（Windows 路径缺陷复发）：{src!r}")
+    if doc["data"].get("source_sha256") != hashlib.sha256(
+        (REPO / src).read_bytes().replace(b"\r\n", b"\n")
+    ).hexdigest():
+        failures.append("[safetynet] source_sha256 与当前 csv 不一致")
+
+
 def run_all(show_only: bool = False) -> int:
     failures: list[str] = []
     if show_only:
@@ -1159,6 +1442,8 @@ def run_all(show_only: bool = False) -> int:
     check_artifacts(failures)
     check_groupwise_artifact(failures)
     check_calibration_artifact(failures)
+    check_safety_net_artifact(failures)
+    check_ablation_artifact(failures)
     truth = build_truth()
     check_ledger(truth, failures)
     check_chapter(failures)

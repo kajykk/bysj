@@ -96,6 +96,8 @@ DEMO OK（三步全部符合预期）
 | 模型数字在什么条件下才算数 | [评估可信度一页摘要](docs/EVALUATION_TRUST_SUMMARY.md) → [完整报告](docs/EVALUATION_INTEGRITY_REPORT.md) |
 | 泄漏怎么发现、怎么量化 | [泄漏审计](docs/ML_LEAKAGE_AUDIT.md) · [补救与闸门](docs/ML_LEAKAGE_REMEDIATION.md) |
 | 概率准不准、用在哪个阈值有净收益 | [校准与决策曲线](docs/model-evaluation/CALIBRATION_REPORT.md) → [台账 C-26~C-33](docs/thesis/CLAIMS_LEDGER.md) |
+| 漏报能不能压下去、代价是什么 | [漏报安全网评估](docs/model-evaluation/SAFETY_NET_REPORT.md) → [台账 C-34~C-38](docs/thesis/CLAIMS_LEDGER.md) |
+| 缺一个模态时风险等级会跳几级 | [融合层模态消融](docs/model-evaluation/FUSION_ABLATION_REPORT.md) → [台账 X-07~X-09](docs/thesis/CLAIMS_LEDGER.md) |
 | 阴性结论长什么样 | [纵向早期检测（阴性）](docs/planning/P2_R15_EARLY_DETECTION_RESULT.md) |
 | 临床 / 注册准入差距 | [临床准入差距分析](docs/planning/P2_R15_CLINICAL_READINESS.md) |
 | 全量审计与历史整改 | [FULL_AUDIT_REPORT](docs/FULL_AUDIT_REPORT.md) · [CHANGELOG](CHANGELOG.md) |

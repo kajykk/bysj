@@ -1,0 +1,407 @@
+{
+  "_note": "ROUND_37 (P1 融合消融) 模态缺失下的等级翻转评估。输入是**确定性分数网格**（合成，非真实样本），验证的是融合层规则的行为边界，不是模型性能；三模态对齐数据在本仓不存在 ⇒ 端到端消融无数据基础，本轮明确不做。",
+  "engine": {
+    "weights": {
+      "structured": 0.55,
+      "text": 0.3,
+      "physiological": 0.15
+    },
+    "use_confidence_weighting": true,
+    "use_modality_missing_handling": true
+  },
+  "grid": {
+    "step": 10,
+    "values": [
+      0,
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      70,
+      80,
+      90,
+      100
+    ],
+    "n_combinations": 1331
+  },
+  "ablation_configs": {
+    "full": [
+      "structured",
+      "text",
+      "physiological"
+    ],
+    "drop_structured": [
+      "text",
+      "physiological"
+    ],
+    "drop_text": [
+      "structured",
+      "physiological"
+    ],
+    "drop_physiological": [
+      "structured",
+      "text"
+    ],
+    "only_structured": [
+      "structured"
+    ],
+    "only_text": [
+      "text"
+    ],
+    "only_physiological": [
+      "physiological"
+    ]
+  },
+  "summary": {
+    "drop_structured": {
+      "flip_rate": 0.6769,
+      "max_abs_delta": 3,
+      "mean_abs_delta": 0.9376,
+      "delta_histogram": {
+        "-4": 0,
+        "-3": 16,
+        "-2": 137,
+        "-1": 292,
+        "0": 430,
+        "1": 298,
+        "2": 138,
+        "3": 20,
+        "4": 0
+      },
+      "by_stratum": {
+        "agree": {
+          "n": 71,
+          "flip_rate": 0.1127,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.1127
+        },
+        "moderate": {
+          "n": 252,
+          "flip_rate": 0.4167,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.4167
+        },
+        "conflict": {
+          "n": 1008,
+          "flip_rate": 0.7817,
+          "max_abs_delta": 3,
+          "mean_abs_delta": 1.126
+        }
+      }
+    },
+    "drop_text": {
+      "flip_rate": 0.4666,
+      "max_abs_delta": 2,
+      "mean_abs_delta": 0.4936,
+      "delta_histogram": {
+        "-4": 0,
+        "-3": 0,
+        "-2": 16,
+        "-1": 281,
+        "0": 710,
+        "1": 304,
+        "2": 20,
+        "3": 0,
+        "4": 0
+      },
+      "by_stratum": {
+        "agree": {
+          "n": 71,
+          "flip_rate": 0.1127,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.1127
+        },
+        "moderate": {
+          "n": 252,
+          "flip_rate": 0.2063,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.2063
+        },
+        "conflict": {
+          "n": 1008,
+          "flip_rate": 0.5565,
+          "max_abs_delta": 2,
+          "mean_abs_delta": 0.5923
+        }
+      }
+    },
+    "drop_physiological": {
+      "flip_rate": 0.2442,
+      "max_abs_delta": 1,
+      "mean_abs_delta": 0.2442,
+      "delta_histogram": {
+        "-4": 0,
+        "-3": 0,
+        "-2": 0,
+        "-1": 158,
+        "0": 1006,
+        "1": 167,
+        "2": 0,
+        "3": 0,
+        "4": 0
+      },
+      "by_stratum": {
+        "agree": {
+          "n": 71,
+          "flip_rate": 0.0,
+          "max_abs_delta": 0,
+          "mean_abs_delta": 0.0
+        },
+        "moderate": {
+          "n": 252,
+          "flip_rate": 0.1151,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.1151
+        },
+        "conflict": {
+          "n": 1008,
+          "flip_rate": 0.2937,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.2937
+        }
+      }
+    },
+    "only_structured": {
+      "flip_rate": 0.5515,
+      "max_abs_delta": 2,
+      "mean_abs_delta": 0.6191,
+      "delta_histogram": {
+        "-4": 0,
+        "-3": 0,
+        "-2": 57,
+        "-1": 354,
+        "0": 597,
+        "1": 290,
+        "2": 33,
+        "3": 0,
+        "4": 0
+      },
+      "by_stratum": {
+        "agree": {
+          "n": 71,
+          "flip_rate": 0.1127,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.1127
+        },
+        "moderate": {
+          "n": 252,
+          "flip_rate": 0.3016,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.3016
+        },
+        "conflict": {
+          "n": 1008,
+          "flip_rate": 0.6448,
+          "max_abs_delta": 2,
+          "mean_abs_delta": 0.7341
+        }
+      }
+    },
+    "only_text": {
+      "flip_rate": 0.7183,
+      "max_abs_delta": 3,
+      "mean_abs_delta": 1.1074,
+      "delta_histogram": {
+        "-4": 0,
+        "-3": 55,
+        "-2": 174,
+        "-1": 280,
+        "0": 375,
+        "1": 255,
+        "2": 150,
+        "3": 42,
+        "4": 0
+      },
+      "by_stratum": {
+        "agree": {
+          "n": 71,
+          "flip_rate": 0.1127,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.1127
+        },
+        "moderate": {
+          "n": 252,
+          "flip_rate": 0.5198,
+          "max_abs_delta": 2,
+          "mean_abs_delta": 0.5317
+        },
+        "conflict": {
+          "n": 1008,
+          "flip_rate": 0.8105,
+          "max_abs_delta": 3,
+          "mean_abs_delta": 1.3214
+        }
+      }
+    },
+    "only_physiological": {
+      "flip_rate": 0.7708,
+      "max_abs_delta": 4,
+      "mean_abs_delta": 1.3133,
+      "delta_histogram": {
+        "-4": 8,
+        "-3": 91,
+        "-2": 180,
+        "-1": 265,
+        "0": 305,
+        "1": 240,
+        "2": 158,
+        "3": 74,
+        "4": 10
+      },
+      "by_stratum": {
+        "agree": {
+          "n": 71,
+          "flip_rate": 0.2254,
+          "max_abs_delta": 1,
+          "mean_abs_delta": 0.2254
+        },
+        "moderate": {
+          "n": 252,
+          "flip_rate": 0.5833,
+          "max_abs_delta": 2,
+          "mean_abs_delta": 0.6032
+        },
+        "conflict": {
+          "n": 1008,
+          "flip_rate": 0.8562,
+          "max_abs_delta": 4,
+          "mean_abs_delta": 1.5675
+        }
+      }
+    }
+  },
+  "worst_cases": [
+    {
+      "structured": 0,
+      "text": 0,
+      "physiological": 90,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 1,
+      "drop_text_level": 0,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 0,
+      "text": 0,
+      "physiological": 100,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 1,
+      "drop_text_level": 0,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 0,
+      "text": 10,
+      "physiological": 90,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 1,
+      "drop_text_level": 0,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 0,
+      "text": 10,
+      "physiological": 100,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 2,
+      "drop_text_level": 0,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 0,
+      "text": 20,
+      "physiological": 90,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 2,
+      "drop_text_level": 0,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 0,
+      "text": 20,
+      "physiological": 100,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 2,
+      "drop_text_level": 0,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 0,
+      "text": 30,
+      "physiological": 90,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 2,
+      "drop_text_level": 0,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 1,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 10,
+      "text": 0,
+      "physiological": 90,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 1,
+      "drop_text_level": 1,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 10,
+      "text": 0,
+      "physiological": 100,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 1,
+      "drop_text_level": 1,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    },
+    {
+      "structured": 10,
+      "text": 10,
+      "physiological": 90,
+      "stratum": "conflict",
+      "full_level": 0,
+      "drop_structured_level": 1,
+      "drop_text_level": 1,
+      "drop_physiological_level": 0,
+      "only_structured_level": 0,
+      "only_text_level": 0,
+      "only_physiological_level": 4
+    }
+  ]
+}

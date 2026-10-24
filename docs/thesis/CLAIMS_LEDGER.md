@@ -1,4 +1,4 @@
-# 论文数字台账（ROUND_29 · P2-56 更新；ROUND_28 · P2-55 建立）
+# 论文数字台账（ROUND_36/37 更新；ROUND_29 · P2-56 更新；ROUND_28 · P2-55 建立）
 
 > **纪律**：论文里的每个数字必须能由**已提交产物**用一条命令复算；不得从任何 ROUND 汇报转引。
 > **机器校验**（只读，CI 每次提交都跑）：
@@ -85,6 +85,11 @@
 | C-31 | 文本×OOD(strict) Brier（n=2523） | 0.0281 | [0.0264, 0.0299] | 同上（`units.text_ood_strict.metrics.brier`） | 同上 | 降级·兄弟泄漏 | ❌ 仅压力测试，禁作外迁 |
 | C-32 | 文本 groupwise DCA 净获益 NB(t=0.50) | 0.0523 | — | 同上（`units.text_groupwise_oof.dca.net_benefit_model`，阈值 0.50 处） | 同上（独立实现 TP/n − FP/n·(t/(1−t))） | 泛化口径·决策曲线 | ✅ |
 | C-33 | 文本 groupwise DCA 净获益 NB(t=0.05) | 0.1763 | — | 同上（阈值 0.05 处） | 同上 | 泛化口径·决策曲线 | ✅ |
+| C-34 | 安全网工作点净 Recall（t_low=0.11, t_high=0.60） | 0.9845 | [0.9683, 0.9972] | `backend/scripts/modeling/eval/v1_36/safety_net_analysis.json`（`operating_point.operating_point.net_recall`） | `v1_36/safety_net_analysis.py`（生成）；`verify_thesis_numbers.py`（flatnonzero 独立复算 + 同源 group bootstrap CI） | 泛化口径·漏报安全网 | ✅ 必须与 C-35 同引 |
+| C-35 | 同工作点需人工介入比例 | 0.8125 | — | 同上（`review_burden`） | 同上（恒等式 burden = P(p≥t_low)，已数值核验） | 泛化口径·漏报安全网 | ✅ 必须与 C-34 同引 |
+| C-36 | 安全网区间阳性率（[0.11, 0.60)） | 0.1905 | — | 同上（`sn_precision`） | 同上 | 泛化口径·漏报安全网 | ✅ 须同句注明低于基准率 0.2163 |
+| C-37 | 安全网工作点预警精确率（只对 p≥0.60 负责） | 0.6815 | — | 同上（`alert_precision`） | 同上 | 泛化口径·漏报安全网 | ✅ 必须与 C-38 对比引用 |
+| C-38 | 单阈值直接下调到 0.11 的精确率（成本等价对照） | 0.2620 | — | 同上（`cost_equivalence.single_threshold_at_t_low.precision`） | 同上 | 泛化口径·漏报安全网 | ✅ 必须与 C-37 对比引用 |
 
 > C-22 ~ C-25 备注：这些是**跨被试（按原始用户分组、组间不重叠）**的泛化读数，CI 为
 > **按 group 重采样**的分组级 bootstrap（B=10000, seed=42，抽 1277 组非按行）——
@@ -116,6 +121,9 @@
 | X-04 | conflict_s-low_t-high 随结构化权重增大由 2 级转 1 级 | 2→1 @0.55 | — | 同上 | 同上 | 敏感性 | ✅ |
 | X-05 | conflict_s-high_t-low 随结构化权重增大由 2 级转 3 级 | 2→3 @0.55 | — | 同上 | 同上 | 敏感性 | ✅ |
 | X-06 | 生产权重在扫描范围内 | 0.55/0.3/0.15 | — | 同上 + `backend/app/ml/fusion_engine.py::DEFAULT_WEIGHTS`（AST 取值） | `verify_thesis_numbers.py` | 敏感性 | ✅ |
+| X-07 | 三模态一致时（极差<20）消融最大等级翻转（级） | 1 | — | `backend/scripts/modeling/eval/v1_37/fusion_ablation.json`（`summary.*.by_stratum.agree.max_abs_delta`） | `v1_37/fusion_ablation.py`（生成）；`verify_thesis_numbers.py`（调生产引擎独立重算） | 融合消融·合成网格 | ✅ 必须同句注明输入为合成网格 |
+| X-08 | 仅剩生理模态时的等级翻转率（冲突层） | 0.86 | — | 同上（`summary.only_physiological.by_stratum.conflict.flip_rate`） | 同上 | 融合消融·合成网格 | ✅ 必须同句注明输入为合成网格 |
+| X-09 | 最大翻转个案 (0,0,90)：完整 vs 仅生理的等级差（级） | 4 | — | 同上（`worst_cases[0]`） | 同上 | 融合消融·合成网格 | ✅ 必须同句注明输入为合成网格 |
 
 ### 1.5 数据集规模
 
