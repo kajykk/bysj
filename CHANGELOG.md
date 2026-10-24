@@ -29,6 +29,12 @@
 - **连带**：`test_p2_11_round11.py` 第二十七批见证改名为
   `test_runtime_init_sentry_failure_records_skipped`（原断言「记 ok」正是被修掉的缺陷），
   `sentry.py` 行号锚点 103/148/163 → 107/153/168（docstring 增 5 行）。
+- **CI 修复（`2eab986` 红灯）**：`test_p2_11_round11.py` 的 batch36/37 仍用硬行号锚点，
+  本轮源码改动使 `startup_status.py` 的 except handler 100→118、`main.py` 模块级
+  OSError 371→379；同步候选表与 verify/probe/mutate 工具（`dff864b`）。
+  本地全量 p2_11 233 例绿。
+- **CI 收口**：`dff864b` **7/7 workflow success**（Coverage 24m32s；
+  backend-coverage 7302 passed / 77 skipped / 278 deselected，总覆盖率 86.32%）。
 - **未覆盖如实记账**：`init_otel` 有同型缺陷（`main.py` 丢弃返回值，且 False 同时表示
   「未配置」与「初始化失败」，语义需先拆分），留待后续单独立项。
 
