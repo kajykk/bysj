@@ -29,6 +29,8 @@
   `test_eatd_raw_data_not_tracked`，断言 `git ls-files data/external/eatd` 为空
   （预注册承诺：只登记形态、不分发数据）。
 - README 后端测试计数校准 7,582→**7,620**（ROUND_36/37 新增 37 例 + 本轮 B5 的 1 例）。
+- **CI 收口**：`2546cb2` **7/7 workflow success**（Coverage 23m08s；
+  backend-coverage 7265 passed / 77 skipped / 278 deselected，总覆盖率 86.32%）。
 
 ### ROUND_37 · P1 融合消融（模态缺失下的等级翻转）
 

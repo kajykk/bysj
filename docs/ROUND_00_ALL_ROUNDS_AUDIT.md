@@ -572,4 +572,6 @@ missing = sorted(
 - **时点说明**：本报告结论中的「39 条台账」是 HEAD `716677d` 的时点值；ROUND_33
   （`09564c5`）新增 C-26~C-33 后为 47 条，校准轮以其审计文档为准。
 - **修正状态**：本报告 §八 的 A 类 6 条已由 ROUND_34 处理（A1/A3 的计数按 ROUND_33
-  后台账实数写为 47）；B 类 5 条另立 ROUND_35。
+  后台账实数写为 47）；B 类 5 条已由 ROUND_35（`2546cb2`）处理完毕：B1 写盘固定 LF、
+  B2 恒空断言改为 AST 导入对照（并豁免无 PII 的 `RefreshTokenSession`）、B3 改断言
+  生产实现、B4 显式 data-machine-only gate、B5 EATD 未入库负向断言。CI 7/7 success。
