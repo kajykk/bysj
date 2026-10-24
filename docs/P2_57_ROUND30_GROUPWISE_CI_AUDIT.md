@@ -24,7 +24,8 @@
 - **方法关键**：bootstrap **按 group 重采样**（抽 1277 组，非按行）——同组行相关，
   按行会低估区间。B=10000、seed=42。
 - 产物：`groupwise_ci.json`（含 method、oof sha256、四指标 point+ci95）。
-- 确定性：重跑该脚本产出逐字节一致（sha `B9E38E01…`），非随机。
+- 确定性：重跑该脚本产出内容一致（LF 归一后 sha `c40fa308…`）；Windows 工作区生成
+  CRLF（38 处，raw sha `df926624…`），LF 归一后与提交件逐字节一致，非随机。
 
 ### 结果
 

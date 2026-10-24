@@ -76,7 +76,7 @@ cd backend
 .venv/Scripts/python.exe scripts/modeling/eval/verify_thesis_numbers.py
 ```
 
-它从**已提交**的逐样本 csv / 评估 json 复算台账全部 35 条登记（点估计用独立实现，
+它从**已提交**的逐样本 csv / 评估 json 复算台账全部 47 条登记（点估计用独立实现，
 CI 用与评估脚本同一抽样序列），并比对论文章节表格、扫描黑名单、检查引用纪律。
 复算分层如实说明：需要原始数据集的 `01/02` 评估脚本只能在有数据的机器上以
 `--report-only` 运行；CI 干净 checkout 的复算层就是上述 csv/json 层。

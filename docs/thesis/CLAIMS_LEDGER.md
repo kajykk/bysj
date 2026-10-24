@@ -92,6 +92,13 @@
 > 随机划分读数是 F1 0.9964 / AUC 0.9994——那是兄弟泄漏口径，**不得**当泛化引用
 > （见 `docs/EVALUATION_INTEGRITY_REPORT.md`）；分组口径相对随机口径的落差
 > F1 −0.41 / AUC −0.156 即虚高幅度。该口径为「同人群换被试」，**不外推到跨平台/跨人群**。
+>
+> **随机划分读数溯源（ROUND_34 补记）**：F1 0.9964 / AUC 0.9994 的来源产物是已提交的
+> `backend/scripts/modeling/v1_27/bilingual_groupwise_retrain_results.json` 的
+> `textwise_ooF`（n=8379）。只读复算：
+> `cd backend && .venv/Scripts/python.exe -c "import json;d=json.load(open('scripts/modeling/v1_27/bilingual_groupwise_retrain_results.json',encoding='utf-8'));print(d['textwise_ooF'])"`。
+> `docs/ML_LEAKAGE_AUDIT.md:172` 的 0.8860 是另一协议（随机文本级、1244 组、阈值 0.3），
+> 与本条 0.9964 不可比，非矛盾。
 
 ### 1.4 融合权重敏感性（`docs/model-evaluation/fusion_weight_sensitivity.csv`）
 

@@ -257,7 +257,7 @@ Brier 为 0.1280（C-26），在 OOD strict 上却是 0.0281（C-31）——后�
   外部审稿人的复算层是 csv/json**——`verify_thesis_numbers.py` 即在该层工作，
   用独立实现复算点估计/混淆矩阵/AUC，用同一 bootstrap 抽样序列复算 CI。
 - **一条命令**：`cd backend && .venv/Scripts/python.exe scripts/modeling/eval/verify_thesis_numbers.py`
-  （只读，不写任何文件；`--show` 打印全部复算真值表）。该命令同时校验：台账 39 条
+  （只读，不写任何文件；`--show` 打印全部复算真值表）。该命令同时校验：台账 47 条
   登记行、本章主表/迁移表/混淆矩阵/诊断表、黑名单行级扫描、QA/局限文档的引用纪律。
 - **已知边界（不假装更强）**：①「提交产物 == 单命令产物」的硬闸门在 ROUND_27
   （`docs/P2_54_ROUND27_TRANSFER_AUDIT.md`），**ROUND_29 已随 01 全量重跑复验**
