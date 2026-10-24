@@ -44,6 +44,8 @@
 - **验证**：p2_59+p2_55 20 passed；`verify_thesis_numbers.py` rc=0；新闸门
   变异（生成端退回 `str()`）RED→字节还原→GREEN，日志
   `backend/tests/tools/mutate_round33_pathfix_result.log`。
+- **CI 结果**（修复提交 `d93e23b`）：**10/10 success**（24m39s）——
+  `backend-coverage` 由 3 failed/7224 passed 转绿，缺陷闭环。
 
 - 待发布内容在此累积。
 

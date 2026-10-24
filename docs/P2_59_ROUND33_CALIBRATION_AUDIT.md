@@ -122,10 +122,15 @@ CI 干净 Linux checkout 下 `REPO / "backend\\scripts\\..."` 把整串当文件
 闸门 **rc=0**；新闸门真实变异（生成端退回 `str()`）**RED 于形态断言**→字节级
 还原→GREEN，日志 `mutate_round33_pathfix_result.log`。
 
+**CI 结果**（修复提交 d93e23b，watch_ci.py 24m39s）：**10/10 success**——
+backend-coverage 由 3 failed/7224 passed 转绿（三个失败点即本缺陷），其余 9 项
+（contract-test / E2E Full Stack / frontend-coverage / coverage-summary / harness /
+lighthouse / 双 Gitleaks / 部署窗口检查）全 success。跨平台路径缺陷至此闭环。
+
 ## 七、未验证记账
 
-1. **全量测试套件未跑**（约 37 分钟），本轮只跑回归组 44 例 + collect 实数；
-   权威验证由 CI 承担（提交后盯 `backend/tests/tools/watch_ci.py`）。
+1. **全量测试套件未本地跑**（约 37 分钟），本轮只跑回归组 44 例 + collect 实数；
+   权威验证由 CI 承担——修复提交 d93e23b 已 **10/10 success**（§六），该项关闭。
 2. **DCA 净获益与斜率/截距无 CI**（理由见 §二）；阈值区间描述「在本批数据上
    成立」，不构成跨人群保证。
 3. **校准后处理未做、阈值收益未实测**：只诊断不修复；「下调阈值能到多少」
