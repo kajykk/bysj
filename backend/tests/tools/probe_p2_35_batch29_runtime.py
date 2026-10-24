@@ -5,11 +5,11 @@ E1 `otel_enabled` 配置项**全仓零消费**（AST 证据）：唯一命中是
    `settings.otlp_endpoint`（默认 `""`）⇒ 默认部署走 `return False` 分支。
 E2 otel 依赖**双重不可达**：`requirements.txt` 无任何 opentelemetry 条目，
    `requirements.lock` 只有间接依赖 `opentelemetry-api==1.45.0`（无 sdk /
-   exporter / instrumentation）⇒ `_check_otel_available()` 返回 False，
-   `init_otel` 在 L63 提前返回，走不到 L133 的 handler。
-E3 `main.py:_init_otel` **丢弃 `init_otel` 的返回值** ⇒ `record_step_sync(
-   "init_otel", _init_otel, fatal=False)` 把状态记为 `ok` —— 与第二十七批
-   `init_sentry` 完全同型（第二次出现该信号）。
+   exporter / instrumentation）。默认配置下 `otlp_endpoint` 为空 ⇒
+   `init_otel` 返回 SKIPPED（ROUND_40 起三态，不再用 False 混表失败）。
+E3 `main.py:_init_otel` 曾**丢弃 `init_otel` 的返回值** ⇒ `record_step_sync(
+   "init_otel", _init_otel, fatal=False)` 把状态记为 `ok`。ROUND_40 已修复
+   （三态契约 + 模块级映射），本探针反转为验证 failed 状态可见。
 E4 `_common.py` 五处脏数据 handler：非数值特征值被 `continue` 跳过，返回结构
    与正常态同形，且 `data_quality=="poor"` 时仍有兜底因子。
 
@@ -73,50 +73,48 @@ def e2_otel_dependency_unreachable() -> None:
     print("[E2a] requirements.txt 零 opentelemetry；lock 仅间接依赖 opentelemetry-api")
 
     otel = importlib.import_module("app.core.otel")
-    print(f"[E2b] _check_otel_available() -> {otel._check_otel_available()}")
-    assert otel._check_otel_available() is False, (
-        "opentelemetry 可导入 —— 本机环境与交付物不一致，E2 结论仅对交付物成立"
-    )
-    # otel_enabled=False + endpoint 空 ⇒ init_otel 必走L71 的 `return False`
+    available = otel._check_otel_available()
+    print(f"[E2b] _check_otel_available() -> {available}（不钉环境，仅记录）")
+    # endpoint 空 ⇒ 无论依赖门开/关，init_otel 都返回 SKIPPED
+    otel._otel_initialized = False
     rc = otel.init_otel("probe", otlp_endpoint="")
     print(f"[E2c] init_otel(endpoint='') -> {rc}")
-    assert rc is False, "默认配置下init_otel 应返回 False"
+    assert rc is otel.OtelInit.SKIPPED, "默认配置下 init_otel 应返回 SKIPPED"
     print(
         "[E2]⇒ 双重不可达（依赖未交付 + endpoint 默认空）⇒ "
         "L133/L151/L166/L180 的 handler 在交付形态下不可达"
     )
 
 
-def e3_init_otel_return_value_discarded() -> None:
-    """E3：main.py 丢弃 init_otel 返回值 ⇒ /health/startup 把失败记为 ok。"""
+def e3_init_otel_startup_status_exposes_failed() -> None:
+    """E3（ROUND_40 反转）：main._init_otel 把 FAILED 如实映射为 failed。"""
     importlib.import_module("app.core.otel")
+    main_mod = importlib.import_module("app.main")
     ss = importlib.import_module("app.core.startup_status")
+    from app.core.otel import OtelInit
 
-    from app.core.config import settings
-
-    def _init_otel():
-        from app.core.otel import init_otel
-
-        # 与 main.py L253-262逐字同形：调用但不 return
-        init_otel(
-            service_name=settings.otel_service_name,
-            service_version=settings.app_version,
-            otlp_endpoint=settings.otlp_endpoint,
-            otlp_protocol=settings.otlp_protocol,
-            environment=settings.sentry_environment,
+    original = main_mod.init_otel
+    ss.startup_status.reset()
+    try:
+        main_mod.init_otel = lambda **kw: OtelInit.FAILED
+        # 生产函数 + fatal=False：失败必须被记录但不阻断启动
+        out = ss.record_step_sync("init_otel", main_mod._init_otel, fatal=False)
+        rec = ss.startup_status.components["init_otel"]
+        print(
+            f"[E3] init_otel 启动状态 -> status={rec.status!r} "
+            f"error_type={rec.error_type!r} wrapper_return={out!r}"
         )
-
-    ss.record_step_sync("init_otel", _init_otel, fatal=False)
-    rec = ss.startup_status.components["init_otel"]
-    print(f"[E3] init_otel 启动状态 -> status={rec.status!r} error_type={rec.error_type!r}")
-    assert rec.status == "ok", (
-        f"启动状态变为 {rec.status!r} —— 若改为 failed/skipped，"
-        "第二十七/二十九批的「S 型不接线」判据需重估"
-    )
-    assert rec.error_type == "", "不应有 error_type"
+        assert out is None, "fatal=False 的失败不得冒泡"
+        assert rec.status == "failed", "FAILED 又被吞成了非失败状态"
+        assert rec.error_type == "OTelInitError"
+        assert "init_otel" in ss.startup_status.failed_components
+    finally:
+        main_mod.init_otel = original
+        ss.startup_status.reset()
     print(
-        "[E3]⇒ 与第二十七批 init_sentry 完全同型：SDK/依赖不可用时"
-        "/health/startup 记 ok，运维无法区分「追踪已启用」与「依赖根本没装」"
+        "[E3]⇒ ROUND_40 起 /health/startup 能区分 ok / skipped / failed："
+        "配置了 endpoint 但装配失败时记 failed（/health/ready 降级），"
+        "未启用记 skipped 且不进 failed_components"
     )
 
 
@@ -160,7 +158,7 @@ def main() -> int:
     print("-" * 72)
     e2_otel_dependency_unreachable()
     print("-" * 72)
-    e3_init_otel_return_value_discarded()
+    e3_init_otel_startup_status_exposes_failed()
     print("-" * 72)
     e4_common_dirty_data_same_shape()
     print("=" * 72)

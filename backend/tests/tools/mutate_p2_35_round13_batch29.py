@@ -81,17 +81,17 @@ def main() -> int:
     m1_old = (
         "    if _otel_initialized:\n"
         "        logger.debug(\"STAB-P2-009: OpenTelemetry already initialized, skipping\")\n"
-        "        return True\n"
+        "        return OtelInit.OK\n"
     )
     m1_new = (
         "    from app.core.config import settings as _settings\n"
         "\n"
         "    if not getattr(_settings, \"otel_enabled\", False):\n"
-        "        return False\n"
+        "        return OtelInit.SKIPPED\n"
         "\n"
         "    if _otel_initialized:\n"
         "        logger.debug(\"STAB-P2-009: OpenTelemetry already initialized, skipping\")\n"
-        "        return True\n"
+        "        return OtelInit.OK\n"
     )
     mutate("M1 给 otel_enabled 造真实消费点", OTEL, m1_old, m1_new)
 

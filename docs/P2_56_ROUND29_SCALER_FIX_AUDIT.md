@@ -149,6 +149,8 @@ activity_intensity scale 13888 超 5000）。
    里记录真实超参，不在 registry 侧改数。
 4. **`/health/startup` Sentry 误记 ok**（第二十七批发现）**已由 ROUND_39 关闭**：
    `init_sentry` 返回 bool + `SKIPPED` 哨兵，未配置 DSN / SDK 不可用记 `skipped`；
+   同型的 **OTel 误记 ok**（第二十九批发现）**已由 ROUND_40 关闭**：`init_otel`
+   三态 + `main._init_otel` 映射，FAILED 记 `failed`、SKIPPED 记 `skipped`；
    与论文数字无关，台账 LIMITATIONS §4.3 同步改记。
 5. 修复后 metrics.json 记录真实切分 719/153/157（旧记录 719/171/139 不可复现，
    ROUND_26 三重证据），旧值随存档工件保留。

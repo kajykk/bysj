@@ -10,6 +10,36 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_40 · OTel 启动自检真实性：三态可比，失败不再伪装成 ok/未启用
+
+- **背景**：ROUND_39 收口时如实记账的同型缺陷——`main.py` 的 `_init_otel` 丢弃
+  `init_otel` 返回值，而 `init_otel` 的 bool 同时表示「未启用」与「初始化失败」。
+  后果是 `/health/startup` 无法区分「追踪已就绪」「SDK 没装 / endpoint 未配」
+  「装配失败」，`/health/ready` 也不会因追踪失败降级。本轮只修这一条。
+- **契约**：`app/core/otel.py` 的 `init_otel` 改为三态 `OtelInit.OK / SKIPPED / FAILED`。
+  `SKIPPED` 只给两条前置未启用路径（顶层 `opentelemetry` 不可导入、`otlp_endpoint`
+  未配置）；配置了 endpoint 但装配抛异常 → `FAILED`；已初始化幂等 → `OK`。
+  失败 / 跳过路径均不置 `_otel_initialized=True`。
+- **接线**：`main._init_otel` 提为模块级——`OK`→`None`、`SKIPPED`→`SKIPPED` 哨兵、
+  `FAILED`→抛 `OTelInitError`；lifespan 仍以 `record_step_sync(..., fatal=False)`
+  登记，失败被记 `failed` 但不阻断启动（R-006 同语义）。`/health/startup` 由此
+  如实暴露 ok / skipped / failed；`FAILED` 使 `/health/ready` 显示 `degraded`
+  （HTTP 仍 200），`SKIPPED` 不进 `failed_components`、不降级。
+- **闸门** `backend/tests/test_p2_64_round40_otel_startup_truthfulness.py` 16 例：
+  三态契约（空 endpoint / 依赖缺失 / 装配异常 / 成功 / 幂等）+ main AST 接线
+  （模块级、SKIPPED 哨兵、FAILED 必须抛、`fatal=False`）+ 运行时驱动真实
+  `main._init_otel`（failed / skipped / ok）+ `/health/startup` 序列化 +
+  `/health/ready` 降级边界 + `otel_enabled` 死配置互锁。变异脚本 8/8 RED + 恢复绿。
+- **连带**：`test_p2_11_round11.py` 第二十九批见证改钉三态（原 `is False` 断言）、
+  E3 运行时从「记 ok」反转为「failed / skipped」；`otel.py` 行号锚点
+  133/151/166/180/203/205/228 → 150/168/183/197/220/222/245，`main.py` 模块级
+  OSError 379→396。`test_sec_p2_003...` 的三个旧 bool 契约用例同步更名/改断言；
+  batch29/30 probe 与 mutate 脚本随契约更新。新增 raise 使 #34 `other_raise`
+  355→356，已按棘轮同步 `docs/P2_11_ROUND11_AUDIT.md`。
+- **边界**：`otel_enabled` 死配置（E1）保持零消费，未接线；Sentry 契约、
+  `SKIPPED` 哨兵机制与 p2_63 闸门未改；instrumentation 内部 handler 裁定未动。
+- **CI 读数**：待推送后回填。
+
 ### ROUND_39 · 启动自检真实性：Sentry 未启用不再谎报 ok
 
 - **背景**：ROUND_13 第二十七批审计发现 `init_sentry` 的两条降级路径（未配置 DSN、

@@ -5962,16 +5962,17 @@ class TestP235Round13Batch29Declined:
       里 `opentelemetry-api==1.45.0` 的 `# via` 是 **fastapi** ⇒ 任何装了
       fastapi 的环境（含 CI）`import opentelemetry` 都成功，
       `_check_otel_available()` 返回 **True**。真正的默认阻断是
-      `otlp_endpoint` 默认空串 ⇒ `init_otel` 在 L77 提前 return。
-      **一旦运维显式配置 endpoint，L133 外层 except 真实可达**
+      `otlp_endpoint` 默认空串 ⇒ `init_otel` 在 L88 提前 return。
+      **一旦运维显式配置 endpoint，L150 外层 except 真实可达**
       （sdk/exporter 缺失 ⇒ ImportError 被 `except Exception` 捕获）。
-      ⇒ 7 条裁定修正为：**L133 = V 型可达**（return False + warning，
+      ⇒ 7 条裁定修正为：**L150 = V 型可达**（返回 FAILED + warning，
       失败如实上报），**其余 6 条 = P 型不可达**（三处 `_instrument_*`
       在 `_otel_initialized = True` 之后才调用；`instrument_app` /
       `shutdown_otel` 被 `if not _otel_initialized: return` 闸门保护）。
     - **E3** `main.py:_init_otel` 丢弃 `init_otel` 返回值 ⇒
       `/health/startup` 把失败记为 `ok`（与第二十七批 `init_sentry` 同型，
-      第二次出现该信号）。
+      第二次出现该信号）。**ROUND_40 已修复**：三态契约 + 模块级映射，
+      本类运行时见证已反转为 failed / skipped（见下文）。
     """
 
     OTEL_REL = "app/core/otel.py"
@@ -5981,13 +5982,13 @@ class TestP235Round13Batch29Declined:
 
     # 裁定明细13 处（文件, 行号, 所属函数, 裁定桶）
     TARGETS = (
-        (OTEL_REL, 133, "init_otel", "S"),
-        (OTEL_REL, 151, "_instrument_fastapi", "P"),
-        (OTEL_REL, 166, "_instrument_sqlalchemy", "P"),
-        (OTEL_REL, 180, "_instrument_redis", "P"),
-        (OTEL_REL, 203, "instrument_app", "P"),
-        (OTEL_REL, 205, "instrument_app", "S"),
-        (OTEL_REL, 228, "shutdown_otel", "S"),
+        (OTEL_REL, 150, "init_otel", "S"),  # ROUND_40 +17（三态契约/文档串）
+        (OTEL_REL, 168, "_instrument_fastapi", "P"),
+        (OTEL_REL, 183, "_instrument_sqlalchemy", "P"),
+        (OTEL_REL, 197, "_instrument_redis", "P"),
+        (OTEL_REL, 220, "instrument_app", "P"),
+        (OTEL_REL, 222, "instrument_app", "S"),
+        (OTEL_REL, 245, "shutdown_otel", "S"),
         (COMMON_REL, 201, "_save_assessment_sync", "W"),  # 第六批已接，复核（REV-2026-10-20 S6 后 +17 行）
         (COMMON_REL, 278, "_generate_structured_factors", "D"),
         (COMMON_REL, 334, "_generate_physio_factors", "D"),
@@ -6095,7 +6096,7 @@ class TestP235Round13Batch29Declined:
         「开」的（第二十九批据本机 venv 断言它 False，CI 实锤红）。
 
         所以不可达性**不**由依赖门决定，而由两处结构决定：
-        ① `otlp_endpoint` 默认空串 ⇒ L77 提前 return（见
+        ① `otlp_endpoint` 默认空串 ⇒ L88 提前 return（见
            `test_runtime_e2_otel_unavailable_and_returns_false`）；
         ② 成功需要 sdk/exporter（lock 无）⇒ `_otel_initialized` 永不为 True
            ⇒ 六条 P 型 handler 不可达（见
@@ -6152,9 +6153,9 @@ class TestP235Round13Batch29Declined:
         """
         src = self._read(self.OTEL_REL)
         for line, token in (
-            (133, '"STAB-P2-009: OpenTelemetry initialization failed, "'),
-            (205, '"STAB-P2-009: FastAPI instrumentation failed: %s"'),
-            (228, '"STAB-P2-009: OpenTelemetry shutdown failed: %s"'),
+            (150, '"STAB-P2-009: OpenTelemetry initialization failed, "'),
+            (222, '"STAB-P2-009: FastAPI instrumentation failed: %s"'),
+            (245, '"STAB-P2-009: OpenTelemetry shutdown failed: %s"'),
         ):
             handler = self._handler_at(src, line)
             assert handler is not None, f"otel.py:{line} handler 消失"
@@ -6170,9 +6171,9 @@ class TestP235Round13Batch29Declined:
         """
         src = self._read(self.OTEL_REL)
         for line, token in (
-            (151, '"STAB-P2-009: opentelemetry-instrumentation-fastapi not installed, "'),
-            (166, '"STAB-P2-009: opentelemetry-instrumentation-sqlalchemy not installed, "'),
-            (180, '"STAB-P2-009: opentelemetry-instrumentation-redis not installed, "'),
+            (168, '"STAB-P2-009: opentelemetry-instrumentation-fastapi not installed, "'),
+            (183, '"STAB-P2-009: opentelemetry-instrumentation-sqlalchemy not installed, "'),
+            (197, '"STAB-P2-009: opentelemetry-instrumentation-redis not installed, "'),
         ):
             handler = self._handler_at(src, line)
             assert handler is not None, f"otel.py:{line} handler 消失"
@@ -6195,8 +6196,8 @@ class TestP235Round13Batch29Declined:
             "otlp_endpoint 默认值不再是空串 ⇒ E2「提前 return」前提需重估"
         )
         otel = importlib.import_module("app.core.otel")
-        assert otel.init_otel("b29_probe", otlp_endpoint="") is False, (
-            "默认配置下 init_otel 应返回 False（endpoint 未配置）"
+        assert otel.init_otel("b29_probe", otlp_endpoint="") is otel.OtelInit.SKIPPED, (
+            "默认配置下 init_otel 应返回 SKIPPED（endpoint 未配置）"
         )
 
     def test_runtime_e2_otel_unavailable_and_returns_false(self):
@@ -6212,7 +6213,7 @@ class TestP235Round13Batch29Declined:
         「顶层 opentelemetry 可导入、sdk/exporter/instrumentation 全缺」的
         交付形态，断言真正的两条结论：
         1. `_check_otel_available()` 在该环境下为 **True**（依赖门是开的）；
-        2. 空endpoint 时 `init_otel` 仍返回 False（默认阻断在 L77）。
+        2. 空 endpoint 时 `init_otel` 返回 SKIPPED（默认阻断在 L88）。
         这两条与运行环境无关，任何装了 fastapi 的机器都成立。
         """
         import importlib
@@ -6245,8 +6246,11 @@ class TestP235Round13Batch29Declined:
                     f"实际={available}"
                 )
                 otel._otel_initialized = False
-                assert otel.init_otel("b29_probe", otlp_endpoint="") is False, (
-                    "空 endpoint 时 init_otel 应返回 False（默认阻断在 L77，"
+                assert (
+                    otel.init_otel("b29_probe", otlp_endpoint="")
+                    is otel.OtelInit.SKIPPED
+                ), (
+                    "空 endpoint 时 init_otel 应返回 SKIPPED（默认阻断在 L88，"
                     "不是依赖门）"
                 )
                 assert otel._otel_initialized is False, "otel 不应被本测试初始化"
@@ -6257,11 +6261,11 @@ class TestP235Round13Batch29Declined:
                         del sys.modules[key]
 
     def test_runtime_e2b_l133_reachable_when_endpoint_configured(self):
-        """E2b 运行时（第三十批新增）：配了 endpoint 后 **L133 真实可达**。
+        """E2b 运行时（第三十批新增）：配了 endpoint 后 **L150 真实可达**。
 
         这是对第二十九批「7 条全部不可达」判据的**反向钉**：钉住
         `init_otel` 在 sdk/exporter 缺失时**仍然走外层 except 并
-        return False + warning**（V 型：失败如实上报，无需接线）。
+        返回 FAILED + warning**（V 型：失败如实上报，无需接线）。
         若哪天有人把 sdk 依赖补齐，本断言会红 —— 那正是「该 handler
         在交付形态下不再可达」的信号，应据实重估裁定而非改断言。
         """
@@ -6309,10 +6313,12 @@ class TestP235Round13Batch29Declined:
                         del sys.modules[key]
                 otel._otel_initialized = False
 
-        assert out is False, "sdk/exporter 缺失时 init_otel 应 return False"
+        assert out is otel.OtelInit.FAILED, (
+            "sdk/exporter 缺失时 init_otel 应返回 FAILED（配置了但初始化失败）"
+        )
         msgs = [r.getMessage() for r in records if r.levelno >= logging.WARNING]
         assert any("initialization failed" in m for m in msgs), (
-            f"L133 外层 except 未触发 ⇒ 该 handler 在交付形态下不可达，"
+            f"L150 外层 except 未触发 ⇒ 该 handler 在交付形态下不可达，"
             f"P 型可成立；实际日志={msgs}"
         )
         assert otel._otel_initialized is False, "失败后不得置 _otel_initialized"
@@ -6320,7 +6326,7 @@ class TestP235Round13Batch29Declined:
     def test_instrument_calls_only_on_success_path(self):
         """第三十批新增结构钉：三处 `_instrument_*` 调用在 `_otel_initialized=True` 之后。
 
-        它们各自的 `except ImportError`（L151/L166/L180）因此只在 init
+        它们各自的 `except ImportError`（L168/L183/L197）因此只在 init
         **成功**后才可能触发，而成功需要 sdk+exporter（lock 无）⇒ P 型不可达。
         结构钉锁住这个顺序，防止将来有人把调用提到成功之前。
         """
@@ -6340,12 +6346,12 @@ class TestP235Round13Batch29Declined:
             assert f"    {name}()" in init_body, f"init_otel 体内不再调用 {name}"
             assert init_body.index(f"    {name}()") > idx_success, (
                 f"{name}() 被提到 _otel_initialized=True 之前 ⇒ "
-                "失败路径也会触发，L{}/L{}/L{} 的 P 型不成立".format(151, 166, 180)
+                "失败路径也会触发，L{}/L{}/L{} 的 P 型不成立".format(168, 183, 197)
             )
 
     def test_instrument_app_and_shutdown_gated_by_initialized_flag(self):
         """第三十批新增结构钉：`instrument_app` / `shutdown_otel` 都有
-        `if not _otel_initialized: return` 闸门 ⇒ L203/L205/L228 不可达。
+        `if not _otel_initialized: return` 闸门 ⇒ L220/L222/L245 不可达。
 
         运行时用**探针调用计数**反证闸门生效，而不数日志条数。
         第三十一批修正：初版数日志（`_otel_initialized=True` 时必须 >0 条），
@@ -6405,7 +6411,7 @@ class TestP235Round13Batch29Declined:
                 otel.shutdown_otel()
                 assert probes == [], (
                     f"_otel_initialized=False 时闸门未拦住，provider 被取用 {probes} ⇒ "
-                    "L203/L205/L228 在未初始化时也会进入，裁定需重估"
+                    "L220/L222/L245 在未初始化时也会进入，裁定需重估"
                 )
 
                 # 反证：闸门一旦放行，provider 必须被取用（证明上面不是假通过）
@@ -6424,41 +6430,47 @@ class TestP235Round13Batch29Declined:
                         del sys.modules[key]
                 otel._otel_initialized = False
 
-    def test_runtime_e3_startup_status_records_ok(self):
-        """E3 运行时：`main.py` 形态的 `_init_otel` 让 `/health/startup` 记 `ok`。
+    def test_runtime_e3_startup_status_exposes_failed(self, monkeypatch):
+        """E3 运行时（ROUND_40 反转）：失败不再被丢弃成 `ok`。
 
-        与第二十七批 `init_sentry` 完全同型：失败被如实呈现给启动状态检查器
-        之前就已丢失 ⇒ 属S 型（自报设施自身失败）而非 V 型。
+        修复前本测试断言 `ok`——那正是被修掉的缺陷。现在驱动**生产函数**
+        `main._init_otel`：FAILED → record_step_sync 记 failed 且不阻断；
+        SKIPPED → 记 skipped。/health/startup 由此可区分三态。
         """
         import importlib
 
-        importlib.import_module("app.core.otel")
+        import pytest
+
+        main_mod = importlib.import_module("app.main")
         ss = importlib.import_module("app.core.startup_status")
-        from app.core.config import settings
+        otel = importlib.import_module("app.core.otel")
 
-        def _init_otel():
-            from app.core.otel import init_otel
-
-            # 与 main.py L253-262 逐字同形：调用但不 return
-            init_otel(
-                service_name=settings.otel_service_name,
-                service_version=settings.app_version,
-                otlp_endpoint=settings.otlp_endpoint,
-                otlp_protocol=settings.otlp_protocol,
-                environment=settings.sentry_environment,
-            )
-
-        ss.record_step_sync("init_otel", _init_otel, fatal=False)
+        monkeypatch.setattr(main_mod, "init_otel", lambda **kw: otel.OtelInit.FAILED)
+        with pytest.raises(main_mod.OTelInitError):
+            main_mod._init_otel()
+        assert (
+            ss.record_step_sync("init_otel", main_mod._init_otel, fatal=False) is None
+        ), "fatal=False 的失败必须被包装器吞掉，不得阻断启动"
         rec = ss.startup_status.components["init_otel"]
-        assert rec.status == "ok", (
-            f"init_otel 启动状态变为 {rec.status!r} —— "
-            "若改为 failed/skipped，说明 signal 已显式，判据需重估"
+        assert rec.status == "failed", (
+            f"init_otel 启动状态仍为 {rec.status!r} —— 失败信号又被吞掉了"
         )
-        assert rec.error_type == "", "不应有 error_type"
-        # main.py 的真实接线形态仍在（fatal=False + 不 return）
+        assert rec.error_type == "OTelInitError"
+        assert "init_otel" in ss.startup_status.failed_components
+
+        monkeypatch.setattr(main_mod, "init_otel", lambda **kw: otel.OtelInit.SKIPPED)
+        assert main_mod._init_otel() is ss.SKIPPED
+        ss.record_step_sync("init_otel", main_mod._init_otel, fatal=False)
+        assert ss.startup_status.components["init_otel"].status == "skipped"
+        assert "init_otel" not in ss.startup_status.failed_components
+
+        # main.py 的真实接线形态仍在（模块级函数 + fatal=False）
         main_src = self._read(self.MAIN_REL)
         assert 'record_step_sync("init_otel", _init_otel, fatal=False)' in main_src, (
             "main.py 的 init_otel 启动登记消失"
+        )
+        assert "\ndef _init_otel() -> SkippedStep | None:" in main_src, (
+            "main._init_otel 不再是模块级函数（无法独立见证）"
         )
         assert (
             "# OTel 初始化失败不影响启动 (仅追踪降级, 与 Sentry 一致)" in main_src
@@ -6501,12 +6513,13 @@ class TestP235Round13Batch29Declined:
           - 形态 B：顶层可导入、sdk/exporter/instrumentation 全缺（**交付形态**）
 
         实测（本测试自身的输出即证据）：
-          - 「空 endpoint ⇒init_otel 返回 False」：**两形态一致**（环境无关不变量）
-          - 「配 endpoint ⇒ 命中 L133」：**只有形态 B 成立** —— 形态 A 里
-            `_check_otel_available()` 返回 False，直接走 L71 提前 return，
-            L133 根本进不去。
+          - 「空 endpoint ⇒ init_otel 返回 SKIPPED」：**两形态一致**
+            （环境无关不变量）
+          - 「配 endpoint ⇒ 命中 L150 / 返回 FAILED」：**只有形态 B 成立** ——
+            形态 A 里 `_check_otel_available()` 返回 False，直接走 L86
+            提前 return，L150 根本进不去（返回 SKIPPED）。
 
-        ⇒ 「L133 可达」是**以交付形态为前提的条件结论**，不是无条件结论。
+        ⇒ 「L150 可达」是**以交付形态为前提的条件结论**，不是无条件结论。
         前提已由 `test_otel_dependency_not_delivered` 钉住（lock 里
         `opentelemetry-api==1.45.0` 的 `# via` 是 `fastapi`，故顶层包必然可导入）。
         若哪天 fastapi 版本变更把 api 移出依赖闭包，形态 B 不再成立，
@@ -6526,7 +6539,7 @@ class TestP235Round13Batch29Declined:
                     del sys.modules[key]
 
         def _probe(label: str) -> dict[str, object]:
-            """配 endpoint 后是否命中 L133；空 endpoint 是否返回 False。"""
+            """配 endpoint 后是否命中 L150；空 endpoint 是否返回 SKIPPED。"""
             records: list[logging.LogRecord] = []
 
             class _Cap(logging.Handler):
@@ -6598,10 +6611,19 @@ class TestP235Round13Batch29Declined:
                 sys.path[:] = saved_path
                 _purge()
 
-        # 不变量 1：空 endpoint ⇒ 返回 False，两形态必须一致（环境无关）
+        # 不变量 1：空 endpoint ⇒ SKIPPED，两形态必须一致（环境无关）
         for key, res in results.items():
-            assert res["empty"] is False, f"{key}: 空 endpoint 应返回 False"
-            assert res["with_endpoint"] is False, f"{key}: 配 endpoint 应返回 False"
+            assert res["empty"] is otel.OtelInit.SKIPPED, (
+                f"{key}: 空 endpoint 应返回 SKIPPED"
+            )
+        # 配置了 endpoint 后：形态 A（依赖门关）仍 SKIPPED；
+        # 形态 B（交付形态，sdk 缺失）才是 FAILED —— 三态必须可分。
+        assert results["A_无otel"]["with_endpoint"] is otel.OtelInit.SKIPPED, (
+            "形态 A 依赖门关，配置 endpoint 也应止于 SKIPPED"
+        )
+        assert results["B_有顶层包"]["with_endpoint"] is otel.OtelInit.FAILED, (
+            "交付形态配了 endpoint 却未返回 FAILED —— 失败与未启用混为一谈"
+        )
 
         # 不变量 2：两种形态的依赖门必须真的不同（证明形态构造有效）
         assert results["A_无otel"]["available"] is False, (
@@ -8782,7 +8804,7 @@ class TestP235Round13Batch37Wiring:
       cache.py:241/247 C（停机 aclose 失败，warning，单例照旧重置）/
       kill_switch.py:119 V（调用方 `_degrade` 显式写 degraded=True +
       source="unavailable"，fail-closed 由 P1-7 设计）/
-      main.py:379 V（启动 warning + 影响点上传端点显式失败）/
+      main.py:396 V（启动 warning + 影响点上传端点显式失败）/
       reports.py:355 P（`notify_task_progress`→ws `send_to_user` 两条
       内层路径 L175/L203 均已接线，外层防御性重复层）/
       reports.py:403 V（status=failed+error 入 job_store + notify）/
@@ -8809,7 +8831,7 @@ class TestP235Round13Batch37Wiring:
         ("app/core/cache.py", 241, "close_redis_client", "C"),
         ("app/core/cache.py", 247, "close_redis_client", "C"),
         ("app/core/kill_switch.py", 119, "_get_redis", "V"),
-        ("app/main.py", 379, None, "V"),  # 模块级（lifespan 装配段；ROUND_39 +8）
+        ("app/main.py", 396, None, "V"),  # 模块级（lifespan 装配段；ROUND_40 +17）
         ("app/api/v1/reports.py", 355, "_notify", "P"),
         ("app/api/v1/reports.py", 403, "_execute_pdf_generation", "V"),
         ("app/api/v1/validation.py", 254, "_cleanup_memory_expired", "D"),
@@ -8844,7 +8866,7 @@ class TestP235Round13Batch37Wiring:
     # ---- 存在性 / 反向钉 ------------------------------------------------
 
     def test_candidates_present_and_enclosing_func(self):
-        """15 条候选全部在位且所属函数未漂移（main.py:379 为模块级）。"""
+        """15 条候选全部在位且所属函数未漂移（main.py:396 为模块级）。"""
         for rel, line, fn_name, _bucket in self.CANDIDATES:
             handler = self._handler_at(rel, line)
             actual = self._enclosing(rel, line)

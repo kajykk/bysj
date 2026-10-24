@@ -14,9 +14,9 @@ M2 删掉 `instrument_app` 的 `if not _otel_initialized: return` 闸门
 M3 把 `_check_otel_available` 改成同时 import sdk（收紧依赖门）
    → `test_otel_dependency_not_delivered` 必须红
    （「依赖门只查顶层包」这条前提被推翻）
-M4 在 `init_otel` 的 L77 提前 return **之前**插一个 `from opentelemetry.sdk
-   import trace`（让 sdk 缺失不再阻断 endpoint 检查之外的东西）
-   → E2「空 endpoint 返回 False」必须红
+M4 在 `init_otel` 的空 endpoint 提前 return **之前**插一个
+   `from opentelemetry.sdk import trace`
+   → E2「空 endpoint 返回 SKIPPED」必须红（会变成 FAILED）
 
 纪律：锚点先读实际落盘文本；`mutate()` 用 try/finally 保证**无论 RED 还是
 假绿都还原**；日志落盘（须 git add -f）。
@@ -153,7 +153,7 @@ def main() -> int:
         "            \"STAB-P2-009: OTLP endpoint not configured, \"\n"
         "            \"distributed tracing disabled\"\n"
         "        )\n"
-        "        return False\n"
+        "        return OtelInit.SKIPPED\n"
     )
     m4_new = (
         "    otlp_endpoint = otlp_endpoint or \"http://mutated.invalid:4317\"  # MUTATION\n"

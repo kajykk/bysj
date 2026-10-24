@@ -99,7 +99,9 @@
    翻阅旧文档时会遇到——论文侧只作拒绝性标注，不删除历史文件。
 3. **`/health/startup` 在 Sentry 初始化失败时误记 ok**（第二十七批发现）已由
    ROUND_39 关闭：`init_sentry` 返回 bool + `SKIPPED` 哨兵，未配置 DSN / SDK
-   不可用时记 `skipped`；与论文数字无关，保留本条作为历史记录。
+   不可用时记 `skipped`；同型的 **OTel 误记 ok**（第二十九批发现）已由 ROUND_40
+   关闭：`init_otel` 三态（OK / SKIPPED / FAILED）+ `main._init_otel` 映射，
+   FAILED 记 `failed`、SKIPPED 记 `skipped`；与论文数字无关，保留本条作为历史记录。
 
 ## 5. 未来工作（按优先级）
 

@@ -30,6 +30,7 @@ from app.core.middlewares import (
     security_headers_middleware,
 )
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
+from app.core.otel import OtelInit, init_otel
 from app.core.pii_crypto import ensure_pii_key
 from app.core.rate_limit import install_rate_limiter, limiter
 from app.core.seed import seed_database
@@ -119,6 +120,33 @@ def _init_sentry() -> SkippedStep | None:
         traces_sample_rate=settings.sentry_traces_sample_rate,
     )
     return None if initialized else SKIPPED
+
+
+class OTelInitError(RuntimeError):
+    """OTel 已配置但初始化失败（非致命，由 record_step_sync 记 failed）。"""
+
+
+def _init_otel() -> SkippedStep | None:
+    """STAB-P2-009: OTel 初始化失败不影响启动（仅追踪降级，与 Sentry 一致）。
+
+    ROUND_40: init_otel 返回三态 —— OK 记 ok；SKIPPED（依赖缺失/未配置）
+    记 skipped；FAILED 抛 OTelInitError，由 record_step_sync(fatal=False)
+    记 failed，既不谎报 ok 也不阻断启动。
+    """
+    state = init_otel(
+        service_name=settings.otel_service_name,
+        service_version=settings.app_version,
+        otlp_endpoint=settings.otlp_endpoint,
+        otlp_protocol=settings.otlp_protocol,
+        environment=settings.sentry_environment,
+    )
+    if state is OtelInit.OK:
+        return None
+    if state is OtelInit.SKIPPED:
+        return SKIPPED
+    raise OTelInitError(
+        f"OpenTelemetry configured but initialization failed (state={state!r})"
+    )
 
 
 @asynccontextmanager
@@ -258,17 +286,6 @@ async def lifespan(app: FastAPI):
 
     # STAB-P2-009: 初始化 OpenTelemetry 分布式追踪 (OTLP 导出)
     # OTel 初始化失败不影响启动 (仅追踪降级, 与 Sentry 一致)
-    def _init_otel():
-        from app.core.otel import init_otel
-
-        init_otel(
-            service_name=settings.otel_service_name,
-            service_version=settings.app_version,
-            otlp_endpoint=settings.otlp_endpoint,
-            otlp_protocol=settings.otlp_protocol,
-            environment=settings.sentry_environment,
-        )
-
     record_step_sync("init_otel", _init_otel, fatal=False)
     # v1.39: 启动 ObservabilityExporter (60s 周期发布 7 v1.36 metric 到 Prometheus)
     observability_exporter = ObservabilityExporter()

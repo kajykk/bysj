@@ -62,7 +62,9 @@ def main() -> None:
             otel._otel_initialized = False
             no_endpoint = otel.init_otel("b30_probe", otlp_endpoint="")
             print(f"[E2a] otlp_endpoint='' 时 init_otel 返回 {no_endpoint}")
-            assert no_endpoint is False, "空endpoint 应返回 False"
+            assert no_endpoint is otel.OtelInit.SKIPPED, (
+                "空 endpoint 应返回 SKIPPED（ROUND_40 三态）"
+            )
             assert otel._otel_initialized is False, "空endpoint 不得置 _otel_initialized"
 
             # ---------- E3: 配了 endpoint 后 L133 外层 except 真实可达 ----------
@@ -94,7 +96,9 @@ def main() -> None:
             print(f"[E3] warning 条数={len(warns)}")
             for m in msgs:
                 print(f"       - {m[:96]}")
-            assert with_endpoint is False, "sdk 缺失时 init_otel 应返回 False"
+            assert with_endpoint is otel.OtelInit.FAILED, (
+                "sdk 缺失时 init_otel 应返回 FAILED（配置了但初始化失败）"
+            )
             assert any("initialization failed" in m for m in msgs), (
                 f"L133 外层 except 未被触发 ⇒ 该 handler 在交付形态下并不可达，"
                 f"P4 可成立；实际记录={msgs}"

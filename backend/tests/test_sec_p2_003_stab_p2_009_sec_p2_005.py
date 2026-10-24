@@ -346,20 +346,24 @@ class TestOtelConfig:
 class TestOtelInitBehavior:
     """STAB-P2-009: init_otel 行为测试."""
 
-    def test_init_otel_no_endpoint_returns_false(self) -> None:
-        """未配置 OTLP endpoint 时返回 False."""
+    def test_init_otel_no_endpoint_returns_skipped(self) -> None:
+        """未配置 OTLP endpoint 时返回 SKIPPED（未启用，不是失败）."""
         from app.core import otel
 
-        # 重置初始化状态
         otel._otel_initialized = False
-        result = otel.init_otel(
-            service_name="test",
-            otlp_endpoint="",  # 空端点
-        )
-        assert result is False
+        try:
+            # 依赖门置开，单独见证 endpoint 未配置这条路径
+            with patch("app.core.otel._check_otel_available", return_value=True):
+                result = otel.init_otel(
+                    service_name="test",
+                    otlp_endpoint="",  # 空端点
+                )
+        finally:
+            otel._otel_initialized = False
+        assert result is otel.OtelInit.SKIPPED
 
-    def test_init_otel_otel_not_available(self) -> None:
-        """opentelemetry 不可用时返回 False."""
+    def test_init_otel_otel_not_available_returns_skipped(self) -> None:
+        """opentelemetry 不可用时返回 SKIPPED（未启用：依赖缺失）."""
         from app.core import otel
 
         otel._otel_initialized = False
@@ -368,20 +372,21 @@ class TestOtelInitBehavior:
                 service_name="test",
                 otlp_endpoint="http://localhost:4317",
             )
-            assert result is False
+            assert result is otel.OtelInit.SKIPPED
 
     def test_init_otel_already_initialized(self) -> None:
-        """已初始化时直接返回 True."""
+        """已初始化时直接返回 OK（幂等）."""
         from app.core import otel
 
         otel._otel_initialized = True
-        result = otel.init_otel(
-            service_name="test",
-            otlp_endpoint="http://localhost:4317",
-        )
-        assert result is True
-        # 重置
-        otel._otel_initialized = False
+        try:
+            result = otel.init_otel(
+                service_name="test",
+                otlp_endpoint="http://localhost:4317",
+            )
+        finally:
+            otel._otel_initialized = False
+        assert result is otel.OtelInit.OK
 
     def test_instrument_app_not_initialized_noop(self) -> None:
         """未初始化时 instrument_app 是空操作."""

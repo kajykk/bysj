@@ -18,9 +18,19 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+class OtelInit(Enum):
+    """init_otel 的三态结果：成功 / 未启用（跳过） / 已配置但初始化失败。"""
+
+    OK = "ok"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
 
 _otel_initialized = False
 
@@ -41,7 +51,7 @@ def init_otel(
     otlp_endpoint: str = "",
     otlp_protocol: str = "grpc",
     environment: str = "",
-) -> bool:
+) -> OtelInit:
     """STAB-P2-009: 初始化 OpenTelemetry SDK + OTLP exporter.
 
     Args:
@@ -52,13 +62,20 @@ def init_otel(
         environment: 部署环境 (如 "production").
 
     Returns:
-        True if initialized successfully, False if skipped or failed.
+        OtelInit.OK: 初始化成功（已初始化时的幂等调用同样返回 OK）。
+        OtelInit.SKIPPED: 未启用 —— 顶层 ``opentelemetry`` 不可导入，或
+            ``otlp_endpoint`` 未配置。属正常降级，调用方应记 skipped。
+        OtelInit.FAILED: 已配置 endpoint 但装配过程抛异常。属初始化失败，
+            调用方应记 failed（非致命，不阻断启动）。
+
+    Note:
+        失败 / 跳过路径不会置 ``_otel_initialized=True``。
     """
     global _otel_initialized
 
     if _otel_initialized:
         logger.debug("STAB-P2-009: OpenTelemetry already initialized, skipping")
-        return True
+        return OtelInit.OK
 
     if not _check_otel_available():
         logger.warning(
@@ -66,14 +83,14 @@ def init_otel(
             "distributed tracing disabled. Install with: "
             "pip install opentelemetry-distro opentelemetry-exporter-otlp"
         )
-        return False
+        return OtelInit.SKIPPED
 
     if not otlp_endpoint:
         logger.info(
             "STAB-P2-009: OTLP endpoint not configured, "
             "distributed tracing disabled"
         )
-        return False
+        return OtelInit.SKIPPED
 
     try:
         from opentelemetry import trace
@@ -128,7 +145,7 @@ def init_otel(
         _instrument_sqlalchemy()
         _instrument_redis()
 
-        return True
+        return OtelInit.OK
 
     except Exception as exc:
         logger.warning(
@@ -137,7 +154,7 @@ def init_otel(
             exc,
             exc_info=True,
         )
-        return False
+        return OtelInit.FAILED
 
 
 def _instrument_fastapi() -> None:

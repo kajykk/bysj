@@ -1950,8 +1950,33 @@ P1-3）是 fail-closed 白名单，鉴权失败会显式 401/403/503——端点
   `probe_p2_35_batch29_unjudged.json`（99 条真新库存候选清单，供后续批次取用）。
 - **独立待办信号（第二次出现）**：`/health/startup` 把 `init_otel` 记为 `ok`，
   与第二十七批 `init_sentry` 同型；建议合并立项把两者改为 `skipped`。
+  → **已由 ROUND_40 关闭**（三态契约 + 模块级映射，见本节 §9；Sentry 侧由
+  ROUND_39 关闭）。
 - **CI 实锤本批 §4 判据错误**：HEAD `7bd9bcc` 的 `backend-coverage`
   **1 failed / 6901 passed**，红的正是 E2（详见下节）。
+
+### 9. ROUND_40 关闭（2026-10-25）
+
+**基线取证**：`git rev-parse HEAD` = `7fec0392576fcfc03ea1730b99e7f102f01a0efc`
+（ROUND_39 收口）；`git status --short` 仅含长期在侧的无关改动
+（`backend/tests/tools/scan_p2_35_batch6_result.json`、`frontend/src/components.d.ts`、
+`scripts/data_acquisition/fetch_external_datasets.py` 及历史临时目录），
+开工时无本轮改动。
+
+**修法**：`init_otel` 由 bool 改为三态 `OtelInit.OK / SKIPPED / FAILED`——
+SKIPPED 只给「顶层依赖不可导入」「endpoint 未配置」两条前置路径；配置了
+endpoint 但装配抛异常 → FAILED。`main._init_otel` 提为模块级：OK→None、
+SKIPPED→`SKIPPED` 哨兵、FAILED→抛 `OTelInitError`；lifespan 仍以
+`record_step_sync(..., fatal=False)` 登记，失败记 `failed` 但不阻断启动。
+`/health/startup` 因此可区分 ok / skipped / failed；FAILED 使 `/health/ready`
+显示 `degraded`（HTTP 仍 200），SKIPPED 不进 `failed_components`、不降级。
+
+**闸门**：`tests/test_p2_64_round40_otel_startup_truthfulness.py` 16 例；
+变异 `tests/tools/mutate_round40_otel_startup_truthfulness.py` 8/8 被杀死。
+
+**边界**：`otel_enabled` 死配置（E1）保持零消费、未接线；Sentry 契约、
+`SKIPPED` 哨兵与 p2_63 未改；instrumentation handler 裁定未动。
+本节为关闭记录，上文 E3 的历史描述保留为时点快照。
 
 ---
 

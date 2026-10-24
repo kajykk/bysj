@@ -1792,3 +1792,11 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   `docs/P2_10_ROUND10_AUDIT.md` 附录 ROUND_19 段）；
   `TestP235Round13Batch16` 的 DECLINED_MARKERS 锚点搬迁至
   `core/pending_events.py`。三处均为登记面同步，行为断言不变。
+
+## 附：ROUND_40 计数同步
+
+- #34 raise 分类（同口径 `ast.Raise + Call`）：HTTPException=214（不变）、
+  ServiceError=38（不变）、other_raise=356（355→356：`app/main.py` 的
+  `_init_otel` 对 `OtelInit.FAILED` 抛 `OTelInitError` 1 处；该异常由
+  `record_step_sync(..., fatal=False)` 捕获并记 `failed`，不阻断启动 ——
+  这是把「失败被吞成 ok」改成显式失败信号的代价，不是新增降级路径）。
