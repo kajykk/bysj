@@ -32,6 +32,8 @@
   `get_recommendations` 的 `GROUP BY category` 查询被单键判据命中，登记白名单并写明
   「分组后每组一行，`cnt DESC, category ASC` 已全序，`.limit(3)` 单页」。
   本地补跑 p2_51 + p2_50 + p2_62 共 48 例全绿。
+- **CI 收口**：`2fe2249` **7/7 workflow success**（Coverage 24m17s；
+  backend-coverage 7287 passed / 77 skipped / 278 deselected，总覆盖率 86.32%）。
 
 ### ROUND_35 · B1–B5：ROUND_00 审计遗留的测试/脚本缺陷收口
 
