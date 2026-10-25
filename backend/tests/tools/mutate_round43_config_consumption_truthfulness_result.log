@@ -1,0 +1,72 @@
+=== 基线（未变异，必须绿） ===
+exit = 0
+16 passed, 4 warnings in 3.92s
+
+=== M1 predict_lite 长度阈值重新硬编码 20 ===
+target = app/core/model_engine/predict.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+3 failed, 13 passed, 4 warnings in 4.09s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 覆盖率路由重新硬编码 0.80 ===
+target = app/core/model_engine/inference.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+4 failed, 12 passed, 4 warnings in 3.85s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 路由层 lite 长度重新硬编码 20 ===
+target = app/core/model_engine/inference.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+3 failed, 13 passed, 4 warnings in 3.99s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M4 覆盖率比较反转（>= 改 <） ===
+target = app/core/model_engine/inference.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 14 passed, 4 warnings in 3.87s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M5 predict_lite 长度比较反转（< 改 >） ===
+target = app/core/model_engine/predict.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 15 passed, 4 warnings in 3.84s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M6 预留项开始被消费（豁免清单过期） ===
+target = app/services/shadow_comparison_service.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+3 failed, 13 passed, 4 warnings in 3.78s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M7 docstring 退回「窗口内推理样本」 ===
+target = app/services/shadow_comparison_service.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 15 passed, 4 warnings in 3.89s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M8 配置注释删掉「预留项」 ===
+target = app/core/config.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 15 passed, 4 warnings in 3.90s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M9 新增零消费 Settings 字段 ===
+target = app/core/config.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 15 passed, 4 warnings in 3.85s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照 ===
+exit = 0（期望 0）
+16 passed, 4 warnings in 3.79s
+
+===== 结论：全部通过 =====

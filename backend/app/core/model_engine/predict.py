@@ -803,7 +803,7 @@ class PredictMixin:
             chinese_c = sum(1 for c in audio_transcript if "\u4e00" <= c <= "\u9fff")
             chinese_r = chinese_c / max(length, 1)
 
-            if length < 20:
+            if length < settings.route_lite_min_text_length:
                 logger.warning(
                     "Lite model: text too short (%d chars), falling back to anxiety_only",
                     length,

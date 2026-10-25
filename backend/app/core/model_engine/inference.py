@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     from sklearn.pipeline import Pipeline
 
 
+from app.core.config import settings
+
 # MAINT-P0-002: _STR_TO_NUM / _DEFAULTS 已抽离到 feature_maps.py,
 # 此处通过别名导入保持内部 _ 前缀命名约定
 from app.core.feature_maps import DEFAULTS as _DEFAULTS
@@ -519,7 +521,8 @@ class InferenceMixin:
             "prediction_confidence_band": None,
         }
 
-        if f_coverage >= 0.80:
+        # ROUND_43：阈值由配置读取（此前硬编码 0.80，改环境变量无效）
+        if f_coverage >= settings.route_feature_coverage_threshold:
             routing_info["selected_model_id"] = "structured_logistic_regression_v1.20"
             routing_info["selected_model_family"] = "structured"
             routing_info["routing_reason"] = "feature_coverage_sufficient"
@@ -527,7 +530,11 @@ class InferenceMixin:
             self._incr_routing("structured")
             return routing_info, None
 
-        if gad7 is not None and transcript and len(str(transcript)) >= 20:
+        if (
+            gad7 is not None
+            and transcript
+            and len(str(transcript)) >= settings.route_lite_min_text_length
+        ):
             routing_info["selected_model_family"] = "lite"
             routing_info["routing_reason"] = "feature_coverage_insufficient_text_available"
             routing_info["prediction_confidence_band"] = "medium"

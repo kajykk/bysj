@@ -1816,3 +1816,20 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 - #35 桶计数：未新增/删除 `record_silent_degradation` 接线，
   W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
 - README 后端用例 7,673→7,689。
+
+## 附：ROUND_43 配置消费真实性（路由阈值接线 + Settings 零消费棘轮）
+
+- 开工实测（AST）：`Settings` 119 字段中零消费 3 项；本轮接线
+  `route_feature_coverage_threshold` 与 `route_lite_min_text_length`，
+  `registry_auto_rollback_window_seconds` 显式预留（零消费进入 ALLOWLIST，
+  注释/docstring 改为「累计，窗口语义未实现」）。
+- 新增全仓棘轮 `test_p2_66_round43_config_consumption_truthfulness.py`：
+  零消费集合必须恰好等于豁免清单；豁免项必须存在且仍零消费；扫描器自证
+  可见 `otel_enabled` 与两项新接线字段。
+- `inference.py` 新增 `from app.core.config import settings`（+2 行），
+  batch34 候选表 `inference.py` 348→350、362→364，
+  `verify_p2_35_batch34_candidates.py` 同步；行为断言不变。
+- #34 raise 分类：无新增 raise，HTTPException=214 / ServiceError=38 /
+  other_raise=356 不变。
+- #35 桶计数：W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
+- README 后端用例 7,689→7,705。

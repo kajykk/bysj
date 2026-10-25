@@ -221,7 +221,8 @@ class Settings(BaseSettings):
     registry_auto_rollback_max_fallback_rate: float = 0.05
     # 触发自动回退所需最小推理样本数 (少于则不判定)
     registry_auto_rollback_min_samples: int = 20
-    # 评估时间窗口 (秒, 仅统计最近窗口内的推理/回退)
+    # 预留项：评估时间窗口 (秒)。当前实现为进程内累计计数
+    # （见 shadow_comparison_service.should_auto_rollback），窗口语义尚未实现。
     registry_auto_rollback_window_seconds: int = 3600
 
     # ── STAB-P1-004 修复：SMTP 邮件熔断器 ──
@@ -495,6 +496,8 @@ class Settings(BaseSettings):
     model_cache_maxsize: int = 20
 
     # ── v1.25 路由配置 ──
+    # ROUND_43：两项均已由代码读取（此前路由/短文本判定硬编码 0.80 / 20，
+    # 改环境变量无效）；覆盖率达标走 structured，文本长度不足该值时降级。
     route_feature_coverage_threshold: float = 0.80
     route_lite_min_text_length: int = 20
 

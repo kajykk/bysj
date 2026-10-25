@@ -40,7 +40,7 @@ class ShadowComparisonService:
     def __init__(self) -> None:
         # 内存统计: model_id -> {total, agree, disagree, prob_diff_sum, prob_diff_max}
         self._stats: dict[str, dict[str, float | int]] = {}
-        # R2 健康统计: model_id -> {total, fallback} (窗口滑动在检查时计算)
+        # R2 健康统计: model_id -> {total, fallback} (进程内累计, 不按时间窗口切片)
         self._health: dict[str, dict[str, int]] = {}
         self._random = random.Random(42)
 
@@ -173,7 +173,9 @@ class ShadowComparisonService:
     def should_auto_rollback(self, model_id: str) -> tuple[bool, str]:
         """判断 PRODUCTION 训练产物是否应自动回退.
 
-        条件: 窗口内推理样本 >= min_samples 且回退率 > max_fallback_rate.
+        条件: 进程内累计推理样本 >= min_samples 且回退率 > max_fallback_rate.
+        ROUND_43：窗口语义未实现（计数器不按时间切片）；
+        ``registry_auto_rollback_window_seconds`` 为显式预留项，改它不改变本判定。
         """
         from app.core.config import settings
 

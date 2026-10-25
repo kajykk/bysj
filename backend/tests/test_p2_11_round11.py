@@ -6810,6 +6810,18 @@ class TestP235Round13Batch29Declined:
         assert "附：ROUND_42" in doc11, "P2_11 附录缺少 ROUND_42 条目"
         for token in ("otel_enabled", "改判", "other_raise=356"):
             assert token in doc11, f"P2_11 ROUND_42 条目缺少关键标识: {token}"
+        # ROUND_43：一之四十 配置消费节（add-only，不删既有 token）
+        assert "## 一之四十、" in doc13, "P2_13 缺少「一之四十」配置消费节标题"
+        for token in (
+            "ROUND_43",
+            "route_lite_min_text_length",
+            "registry_auto_rollback_window_seconds",
+            "7,705",
+        ):
+            assert token in doc13, f"P2_13 ROUND_43 节缺少关键标识: {token}"
+        assert "附：ROUND_43" in doc11, "P2_11 附录缺少 ROUND_43 条目"
+        for token in ("配置消费", "棘轮", "other_raise=356"):
+            assert token in doc11, f"P2_11 ROUND_43 条目缺少关键标识: {token}"
         assert "第十三轮第二十九批" in doc11, "P2_11 附录缺少第二十九批条目"
         assert "otel.py" in doc11, "P2_11 附录第二十九批条目缺少文件名"
         assert "第十三轮第三十批" in doc11, "P2_11 附录缺少第三十批条目"
@@ -7517,13 +7529,13 @@ class TestP235Round13Batch34Wiring:
       - `dedup.py:105` —— **S 型**：它保护的是那个专用计数器本身，且该计数器
         走 `app.core.metrics`，与 `record_silent_degradation` **同源** ⇒
         接线即恒 0 假设施。
-      - `inference.py:348` `_publish_to_prometheus` —— **P 型不可达**：九个
+      - `inference.py:350` `_publish_to_prometheus` —— **P 型不可达**：九个
         Gauge 全部定义在 `metrics.py`（交付形态齐备），唯一残留触发路径是
         「Gauge 被改名/删除」这类代码缺陷；且它内部 `from app.core import
         metrics` 与接线设施同源（第二十九条「环境状态 ≠ 交付形态」的对称用法）。
       - `kill_switch.py:109` `_record_degraded` —— **S 型**：可观测设施自身
         （`kill_switch_degraded_total`），与主判定路径同源。
-      - `stop_persist:362` / `stop_auto_rollback_monitor:136` —— **K 型**
+      - `stop_persist:364` / `stop_auto_rollback_monitor:136` —— **K 型**
         （CancelledError 是预期控制流）。
       - `stop_auto_rollback_monitor:138` —— **C 型**（停止监控的清理路径，
         已有 `logger.warning(..., exc_info=True)` 自报）。
@@ -7551,8 +7563,8 @@ class TestP235Round13Batch34Wiring:
         (AGG_REL, 484, "_fetch_lock_memory_stats", "W"),
         (DEDUP_REL, 97, "should_send", "M"),
         (DEDUP_REL, 105, "should_send", "S"),
-        (INF_REL, 348, "_publish_to_prometheus", "P"),
-        (INF_REL, 362, "stop_persist", "K"),
+        (INF_REL, 350, "_publish_to_prometheus", "P"),
+        (INF_REL, 364, "stop_persist", "K"),
         (KS_REL, 109, "_record_degraded", "S"),
         (RAR_REL, 136, "stop_auto_rollback_monitor", "K"),
         (RAR_REL, 138, "stop_auto_rollback_monitor", "C"),

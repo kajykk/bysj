@@ -2976,3 +2976,62 @@ L号列 / 函数名 L号 / 路径:行号 / 裸数字 / 中文括号行号，**�
   「消费点恰好一处」；p2_64 `TestBoundaryInterlock` 反转；batch29 probe 与
   mutate（M1 换臂为「开关分支恒假化」）同步复跑。
 - README 后端用例 7,673→7,689（+16）。
+
+---
+
+## 一之四十、ROUND_43：配置消费真实性（两处路由阈值接线 + window 项预留裁定）
+
+> 本节追加于文末（add-only）。开工实测基于 HEAD `c399eac`（ROUND_42 收口提交）。
+
+### 40.1 开工前复测（2026-10-25）
+
+- 以 AST 扫 `backend/app/` 的属性读取（`ast.Attribute.attr` + `getattr(x, "field")`），
+  与 `Settings` 的 119 个字段做差：零消费恰 **3 项**——
+  `route_feature_coverage_threshold`、`route_lite_min_text_length`、
+  `registry_auto_rollback_window_seconds`。
+- 生产硬编码（同值但改环境变量无效）：`inference.py:522`
+  `f_coverage >= 0.80`；`inference.py:530` `len(str(transcript)) >= 20`；
+  `predict.py:806` `length < 20`。
+- `shadow_comparison_service` 的 `__init__` 注释与 `should_auto_rollback`
+  docstring 宣称「窗口滑动 / 窗口内推理样本」，实现是进程内累计字典，
+  窗口语义不存在。
+
+### 40.2 接线与裁定
+
+| 配置项 | 改判 | 消费位置 |
+| --- | --- | --- |
+| `route_feature_coverage_threshold` | 死配置 → **被消费（默认值/行为不变）** | `_route_structured` 覆盖率分支 |
+| `route_lite_min_text_length` | 死配置 → **被消费（覆盖两处硬编码）** | `_route_structured` lite 门槛 + `predict_lite` 短文本早退 |
+| `registry_auto_rollback_window_seconds` | **显式预留（不实现、不删除）** | 无；配置注释与判定 docstring 改为「累计」 |
+
+- 默认值 0.80 / 20 / 3600 全部以 `Settings.model_fields`（环境无关）钉住；
+  接线后 `ROUTE_FEATURE_COVERAGE_THRESHOLD` / `ROUTE_LITE_MIN_TEXT_LENGTH`
+  环境变量真实生效，`backend/.env.example` 已登记。
+- window 项不实现窗口语义：那会改变 `should_auto_rollback` 判定（行为变更）；
+  也不删除：避免破坏既有运维配置面。改为在 `config.py` 注释、
+  `should_auto_rollback` docstring、`__init__` 健康统计注释三处如实声明
+  「进程内累计，窗口语义未实现」，回退判定逻辑零改动。
+
+### 40.3 闸门与变异
+
+- 新闸门 `tests/test_p2_66_round43_config_consumption_truthfulness.py` 16 例：
+  默认值；目标函数不得再出现 0.80/20 字面量；运行时两态（覆盖率阈值
+  0.99→lite / 0.05→structured，文本门槛 100→anxiety_only / 5→lite）；
+  `predict_lite` 两态（高门槛走长度不足分支；低门槛进入模型装配，假
+  `_load_model_async` 抛错后落 `lite_model_unavailable`）；window 预留三处
+  文档 + 零消费；**全仓棘轮**（`Settings` 零消费集合 == ALLOWLIST，豁免项
+  存在且仍零消费，扫描器自证可见 `otel_enabled` 与两项新接线字段，
+  ALLOWLIST 不得扩容）；`.env.example` 登记。
+- 变异 `tests/tools/mutate_round43_config_consumption_truthfulness.py` 9/9
+  被杀死（重新硬编码 ×3、比较反转 ×2、预留项被消费、docstring 回退、
+  配置注释删「预留项」、新增零消费字段），每条还原 sha 一致，恢复后
+  16 passed（log 已 `git add -f`）。
+
+### 40.4 连带与计数
+
+- `inference.py` 新增 `from app.core.config import settings`（+2 行）：p2_11
+  batch34 候选表 handler 锚点 348/362→350/364，
+  `verify_p2_35_batch34_candidates.py` 同步；p2_11 全量 233 passed。
+- 无新增 `raise`：HTTPException=214 / ServiceError=38 / other_raise=356 不变；
+  #35 桶计数 W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
+- README 后端用例 7,689→7,705（新增 p2_66 16 例）。

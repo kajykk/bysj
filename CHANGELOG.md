@@ -10,6 +10,38 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_43 · 配置消费真实性：两处路由阈值接线 + window 项裁定为显式预留
+
+- **背景**：ROUND_42 之后对 `Settings` 做全字段 AST 消费面实测（119 个字段），
+  仍有 3 项在 `backend/app/` 零消费。其中 `route_feature_coverage_threshold`
+  （0.80）与 `route_lite_min_text_length`（20）在 `app/core/config.py` 声明为
+  「v1.25 路由配置」，代码却硬编码同值——路由层一处、`predict_lite` 一处，
+  改环境变量无效，与 ROUND_42 同类缺陷。第三项
+  `registry_auto_rollback_window_seconds` 的「窗口」语义从未实现。
+- **接线**：`_route_structured` 的覆盖率分支改读
+  `settings.route_feature_coverage_threshold`，lite 文本门槛改读
+  `settings.route_lite_min_text_length`；`predict_lite` 的短文本早退改读同一
+  配置（第二处 20 硬编码）。默认值 0.80 / 20 不变 ⇒ 生产行为不变；
+  `backend/.env.example` 登记两项。
+- **预留裁定**：`registry_auto_rollback_window_seconds` 不实现窗口语义（会改变
+  回退判定行为），也不删除（避免破坏运维配置面），改为显式预留：`config.py`
+  注释与 `shadow_comparison_service.should_auto_rollback` docstring / 健康统计
+  注释均改写为「进程内累计，窗口语义未实现」，回退判定逻辑零改动。
+- **闸门** `backend/tests/test_p2_66_round43_config_consumption_truthfulness.py`
+  16 例：默认值钉（`model_fields`，环境无关）、目标函数内不得再出现字面量
+  0.80/20、运行时两态（覆盖率阈值 0.99→lite / 0.05→structured；文本门槛
+  100→anxiety_only / 5→lite）、`predict_lite` 两态（高门槛走长度不足分支，
+  低门槛进入模型装配并因假 `_load_model_async` 抛错落到
+  `lite_model_unavailable`）、window 预留文档 + 零消费、全仓「Settings 字段
+  零消费」棘轮（实测集合恰好等于 ALLOWLIST；扫描器自证可见 `otel_enabled`
+  与两项已接线字段）、`.env.example` 登记。变异脚本 9/9 RED + 恢复绿。
+- **连带**：`inference.py` 新增 `from app.core.config import settings`，使
+  p2_11 batch34 候选表的 handler 锚点 348/362→350/364，同步
+  `test_p2_11_round11.py` 正文与 batch34 校验工具；无新增 `raise`
+  （`other_raise=356` 不变），#35 桶计数不变。README 后端用例
+  7,689→7,705（新增 16 例，既有测试仅平移锚点、用例数不变）。
+- **CI 读数**：待收口提交回填。
+
 ### ROUND_42 · OTel 配置面真实性：`otel_enabled` 由死配置接线为真开关
 
 - **背景**：`backend/app/core/config.py` 的 STAB-P2-009 配置块中，`otel_enabled`
