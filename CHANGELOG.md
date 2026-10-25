@@ -39,7 +39,14 @@
 - **连带**：两处均为单行替换（行数不变），p2_11 锚点无平移；无新增 `raise`
   （`other_raise=356` 不变），#35 桶计数不变。README 后端用例
   7,705→7,720（新增 15 例）。
-- **CI 读数**：待回填。
+- **CI 读数**：`77e7aa8` 7 个 push workflow / 10 个 check-run 全 success；Coverage
+  `40174215047`（07:49:10Z→08:06:03Z，16m53s）：backend-coverage **7365 passed /
+  77 skipped / 278 deselected**（与收集数 7,720 自洽），覆盖率 **86.46%**
+  （门槛 60%，TOTAL 25236 语句 / 3416 未覆盖），测试步 799.64s / 13:19，
+  job 16m42s；frontend-coverage 1m48s、coverage-summary 6s。另有**定时**任务
+  `Container Image Security Scan`（schedule，非 push 闸门）在同一 SHA 失败：
+  `Scan Backend Image` 的 Trivy 扫描 exit 1；该任务自 2026-10-04 起连续失败
+  （2026-10-11 / 10-18 同一 job 同样失败），属既有基线镜像漏洞，与本次改动无关。
 
 ### ROUND_43 · 配置消费真实性：两处路由阈值接线 + window 项裁定为显式预留
 
