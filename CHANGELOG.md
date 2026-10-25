@@ -39,7 +39,11 @@
   `test_p2_64` 的 `TestBoundaryInterlock` 反转为唯一消费位置互锁；batch29
   probe/mutate 同步（M1 换臂）。无新增 `raise`（`other_raise=356` 不变），
   #35 桶计数不变。README 后端用例 7,673→7,689。
-- **CI 读数**：待收口提交回填。
+- **CI 读数**：`fbcbce9` 7 个 workflow / 10 个 check-run 全 success；Coverage
+  `40155324311`（02:40:07Z→03:04:49Z，24m42s）：backend-coverage **7334 passed /
+  77 skipped / 278 deselected**（与收集数 7,689 自洽），覆盖率 **86.43%**
+  （门槛 60%，TOTAL 25235 语句 / 3425 未覆盖），测试步 1237.23s / 20:37，
+  job 24m32s；frontend-coverage、coverage-summary 亦 success。
 
 ### ROUND_41 · 论文增补 §0 检测目的论（根因未明的前置边界）
 
