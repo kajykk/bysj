@@ -132,6 +132,9 @@ def _init_otel() -> SkippedStep | None:
     ROUND_40: init_otel 返回三态 —— OK 记 ok；SKIPPED（依赖缺失/未配置）
     记 skipped；FAILED 抛 OTelInitError，由 record_step_sync(fatal=False)
     记 failed，既不谎报 ok 也不阻断启动。
+
+    ROUND_42: 补传 otel_enabled（真开关）与 otel_resource_attributes
+    （附加资源属性），配置面由此在交付形态下被消费。
     """
     state = init_otel(
         service_name=settings.otel_service_name,
@@ -139,6 +142,8 @@ def _init_otel() -> SkippedStep | None:
         otlp_endpoint=settings.otlp_endpoint,
         otlp_protocol=settings.otlp_protocol,
         environment=settings.sentry_environment,
+        enabled=settings.otel_enabled,
+        resource_attributes=settings.otel_resource_attributes,
     )
     if state is OtelInit.OK:
         return None

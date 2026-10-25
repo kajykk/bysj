@@ -16,7 +16,8 @@ ROUND_40 修法：
 三档自检：
 - `TestOtelContract`：驱动真实 `init_otel`，逐条覆盖三态；
 - `TestMainWiring`：驱动真实 `main._init_otel`，验证映射、非致命与端点序列化；
-- `TestBoundaryInterlock`：`otel_enabled` 死配置（E1）保持零消费。
+- `TestBoundaryInterlock`：`otel_enabled` 的唯一消费位置（ROUND_42 由
+  「死配置零消费」改判为「真开关单点消费」，互锁语义反转、强度不变）。
 """
 from __future__ import annotations
 
@@ -315,11 +316,19 @@ class TestMainWiring:
 
 
 class TestBoundaryInterlock:
-    """边界互锁：otel_enabled 死配置（E1）本轮保持零消费。"""
+    """边界互锁：`otel_enabled` 的唯一消费位置（ROUND_42 反转）。
 
-    def test_otel_enabled_stays_dead_config(self):
+    ROUND_40 时 `otel_enabled` 是死配置，本类钉「零消费」；ROUND_42 接线后
+    零消费断言必然红，改为等价的**反弱化**互锁：`backend/app` 下只有
+    `main._init_otel` 的 `enabled=settings.otel_enabled` 一处读取，且
+    p2_11 的第二十九批改判钉仍在位。任何额外消费点或删除唯一消费点都会红。
+    """
+
+    def test_otel_enabled_single_consumer_in_main(self):
         src = MAIN_REL.read_text(encoding="utf-8")
-        assert "otel_enabled" not in src, "main.py 开始读 otel_enabled 了"
+        assert src.count("settings.otel_enabled") == 1, (
+            "main.py 的 otel_enabled 透传不是恰好一处"
+        )
 
         tree = ast.parse(src)
         fn = next(
@@ -332,9 +341,28 @@ class TestBoundaryInterlock:
             for n in ast.walk(fn)
             if isinstance(n, ast.Attribute) and n.attr == "otel_enabled"
         ]
-        assert consumers == [], f"_init_otel 出现 otel_enabled 消费点 {consumers}"
+        assert len(consumers) == 1, (
+            f"_init_otel 的 otel_enabled 消费点应为恰好 1 处，实际 {consumers}"
+        )
+
+        elsewhere: list[str] = []
+        for p in (BACKEND / "app").rglob("*.py"):
+            if "__pycache__" in p.parts:
+                continue
+            try:
+                other = ast.parse(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            for n in ast.walk(other):
+                if isinstance(n, ast.Attribute) and n.attr == "otel_enabled":
+                    elsewhere.append(
+                        f"{p.relative_to(BACKEND).as_posix()}:{n.lineno}"
+                    )
+        assert elsewhere == [f"app/main.py:{consumers[0]}"], (
+            f"otel_enabled 出现预期外消费点：{elsewhere}"
+        )
 
         batch29 = BATCH29_REL.read_text(encoding="utf-8")
-        assert "def test_otel_enabled_is_dead_config" in batch29, (
-            "E1 死配置钉消失 —— 本轮的边界互锁失去引用对象"
+        assert "def test_otel_enabled_consumers_locked" in batch29, (
+            "E1 反弱化钉消失 —— 本轮的边界互锁失去引用对象"
         )

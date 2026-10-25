@@ -1800,3 +1800,19 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   `_init_otel` 对 `OtelInit.FAILED` 抛 `OTelInitError` 1 处；该异常由
   `record_step_sync(..., fatal=False)` 捕获并记 `failed`，不阻断启动 ——
   这是把「失败被吞成 ok」改成显式失败信号的代价，不是新增降级路径）。
+
+## 附：ROUND_42 OTel 配置面真实性（`otel_enabled` 接线改判）
+
+- E1 改判：第二十九批「`otel_enabled` 死配置」保留为时点结论；ROUND_42 接线为
+  真开关（`init_otel(enabled=...)` + main 透传）。本文件第二十九批 E1 结构钉已改为
+  「消费点集合恰好等于唯一交付位置」（`test_otel_enabled_consumers_locked`），
+  运行时钉改为「开关关 → SKIPPED 且不置初始化标记；开关开 + endpoint 空 → SKIPPED」。
+- `otel_resource_attributes` 同步接线（解析后注入 `Resource.create`）。
+- E2 前提重估：默认阻断前移到开关；endpoint 空分支在 main 路径不可达、库级直调
+  可达；依赖门与外层 except 结论不变。详见
+  `P2_13_ROUND13_AUDIT.md`「一之三十九」。
+- #34 raise 分类：本轮不新增 raise，HTTPException=214 / ServiceError=38 /
+  other_raise=356 不变。
+- #35 桶计数：未新增/删除 `record_silent_degradation` 接线，
+  W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
+- README 后端用例 7,673→7,689。

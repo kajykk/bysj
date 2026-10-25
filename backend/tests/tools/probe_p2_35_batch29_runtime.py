@@ -1,12 +1,13 @@
 """第二十九批运行时证据（4 项，为裁定提供可客断言）。
 
-E1 `otel_enabled` 配置项**全仓零消费**（AST 证据）：唯一命中是 otel.py 模块
-   docstring 里的说明文字，不是代码读取。`main.py:_init_otel` 只看
-   `settings.otlp_endpoint`（默认 `""`）⇒ 默认部署走 `return False` 分支。
-E2 otel 依赖**双重不可达**：`requirements.txt` 无任何 opentelemetry 条目，
+E1 `otel_enabled` 曾是**全仓零消费**的死配置（第二十九批时点）；ROUND_42
+   已接线改判：`main._init_otel` 透传 `enabled=settings.otel_enabled`，
+   `init_otel` 在装配前按 `enabled` 硬性判定。本探针反转为「唯一消费位置」。
+E2 otel 依赖形态不变：`requirements.txt` 无任何 opentelemetry 条目，
    `requirements.lock` 只有间接依赖 `opentelemetry-api==1.45.0`（无 sdk /
-   exporter / instrumentation）。默认配置下 `otlp_endpoint` 为空 ⇒
-   `init_otel` 返回 SKIPPED（ROUND_40 起三态，不再用 False 混表失败）。
+   exporter / instrumentation）。ROUND_42 后 main 路径的默认阻断是
+   `otel_enabled=False`；库级直调（`enabled` 默认 True）在 endpoint 为空时
+   仍走 endpoint 空分支返回 SKIPPED（ROUND_40 起三态）。
 E3 `main.py:_init_otel` 曾**丢弃 `init_otel` 的返回值** ⇒ `record_step_sync(
    "init_otel", _init_otel, fatal=False)` 把状态记为 `ok`。ROUND_40 已修复
    （三态契约 + 模块级映射），本探针反转为验证 failed 状态可见。
@@ -31,8 +32,8 @@ if str(BACKEND) not in sys.path:
 DOCS = ("app/core/otel.py", "app/api/v1/model_predict/_common.py")
 
 
-def e1_otel_enabled_zero_consumers() -> None:
-    """E1：`otel_enabled` 只有定义与 docstring，无任何代码读取。"""
+def e1_otel_enabled_wired() -> None:
+    """E1（ROUND_42 反转）：`otel_enabled` 的实际消费位置恰好一处。"""
     consumers: list[str] = []
     for p in (BACKEND / "app").rglob("*.py"):
         if "__pycache__" in p.parts:
@@ -43,27 +44,28 @@ def e1_otel_enabled_zero_consumers() -> None:
             continue
         for n in ast.walk(tree):
             if isinstance(n, ast.Attribute) and n.attr == "otel_enabled":
-                consumers.append(f"{p.name}:{n.lineno} Attribute")
+                consumers.append(f"{p.relative_to(BACKEND).as_posix()}:{n.lineno} Attribute")
     print(f"[E1] otel_enabled 代码消费点: {consumers}")
-    assert consumers == [], (
-        f"otel_enabled 出现代码消费点 {consumers} —— "
-        "「配置项声明但从不消费」的发现需重估"
+    assert len(consumers) == 1 and consumers[0].startswith("app/main.py:"), (
+        f"otel_enabled 消费点应为恰好 1 处且在 main.py，实际 {consumers}"
     )
-    # main.py 的 _init_otel 只透传 otlp_endpoint，不透传 otel_enabled
     main_src = (BACKEND / "app" / "main.py").read_text(encoding="utf-8")
-    assert "otel_enabled" not in main_src, "main.py 开始读otel_enabled 了"
+    assert "enabled=settings.otel_enabled," in main_src, "main.py 未透传 otel_enabled"
+    assert "resource_attributes=settings.otel_resource_attributes," in main_src, (
+        "main.py 未透传 otel_resource_attributes"
+    )
     assert "otlp_endpoint=settings.otlp_endpoint," in main_src, "main.py 的参数透传形态漂移"
     from app.core.config import Settings
 
     s = Settings()
     print(f"[E1b] Settings().otel_enabled={s.otel_enabled} otlp_endpoint={s.otlp_endpoint!r}")
     assert s.otel_enabled is False, "otel_enabled 默认值不再是 False"
-    assert s.otlp_endpoint == "", "otlp_endpoint 默认值不再是空串 ⇒ E2 的提前 return 前提需重估"
-    print("[E1]⇒ otel_enabled 是**死配置**：默认部署下从未被任何代码读取")
+    assert s.otlp_endpoint == "", "otlp_endpoint 默认值不再是空串"
+    print("[E1]⇒ otel_enabled 由死配置改判为真开关（单一消费位置）")
 
 
 def e2_otel_dependency_unreachable() -> None:
-    """E2：otel 依赖在交付物中不存在 ⇒ init_otel 提前 return，走不到 L133。"""
+    """E2：otel 依赖在交付物中不完整 ⇒ 装配路径无真实 SDK（库级直调可证）。"""
     lock = (BACKEND / "requirements.lock").read_text(encoding="utf-8")
     req = (BACKEND / "requirements.txt").read_text(encoding="utf-8")
     assert "opentelemetry-sdk" not in lock, "sdk 已进requirements.lock ⇒ E2 需重估"
@@ -81,8 +83,8 @@ def e2_otel_dependency_unreachable() -> None:
     print(f"[E2c] init_otel(endpoint='') -> {rc}")
     assert rc is otel.OtelInit.SKIPPED, "默认配置下 init_otel 应返回 SKIPPED"
     print(
-        "[E2]⇒ 双重不可达（依赖未交付 + endpoint 默认空）⇒ "
-        "L133/L151/L166/L180 的 handler 在交付形态下不可达"
+        "[E2]⇒ 依赖未交付（无 sdk/exporter）+ 库级 endpoint 空 ⇒ 装配前的 "
+        "两条 SKIPPED 路径；ROUND_42 后 main 路径另由 otel_enabled=False 前置阻断"
     )
 
 
@@ -154,7 +156,7 @@ def main() -> int:
     print("=" * 72)
     print("P2-35 第二十九批运行时证据")
     print("=" * 72)
-    e1_otel_enabled_zero_consumers()
+    e1_otel_enabled_wired()
     print("-" * 72)
     e2_otel_dependency_unreachable()
     print("-" * 72)

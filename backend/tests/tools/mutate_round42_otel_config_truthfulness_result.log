@@ -1,0 +1,67 @@
+=== 基线（未变异，必须绿） ===
+exit = 0
+16 passed, 4 warnings in 1.49s
+
+=== M1 开关分支恒假化（enabled=False 仍继续装配） ===
+target = app/core/otel.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+3 failed, 13 passed, 4 warnings in 1.57s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 开关分支恒真化（enabled=True 也被跳过） ===
+target = app/core/otel.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+FAILED tests/test_p2_65_round42_otel_config_truthfulness.py::TestSwitchContract::test_assembly_failure_returns_failed
+5 failed, 11 passed, 4 warnings in 1.61s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 关闭路径仍置 _otel_initialized=True ===
+target = app/core/otel.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 14 passed, 4 warnings in 1.53s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M4 资源属性解析结果被丢弃 ===
+target = app/core/otel.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 14 passed, 4 warnings in 1.53s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M5 畸形资源属性改抛异常 ===
+target = app/core/otel.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 14 passed, 4 warnings in 1.51s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M6 main 不再透传 settings.otel_enabled ===
+target = app/main.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 14 passed, 4 warnings in 1.46s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M7 .env.example 的 OTEL_ENABLED 登记行被删 ===
+target = .env.example | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 15 passed, 4 warnings in 1.51s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M8 关闭路径返回 OK（未启用伪装成成功） ===
+target = app/core/otel.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+FAILED tests/test_p2_65_round42_otel_config_truthfulness.py::TestMainHealthAndRegistry::test_disabled_records_skipped_not_failed
+4 failed, 12 passed, 4 warnings in 1.50s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照 ===
+exit = 0（期望 0）
+16 passed, 4 warnings in 1.75s
+
+===== 结论：全部通过 =====

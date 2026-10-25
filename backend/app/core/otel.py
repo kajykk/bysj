@@ -7,10 +7,15 @@
 - Redis: 缓存操作追踪 (如果可用)
 
 配置项 (app/core/config.py):
-- otel_enabled: 是否启用 (默认 False)
+- otel_enabled: 是否启用 (默认 False；ROUND_42 起为真开关)
 - otlp_endpoint: OTLP collector 端点 (如 "http://localhost:4317")
 - otlp_protocol: 协议 ("grpc" 或 "http/protobuf")
 - otel_service_name: 服务名 (默认 "mindcare-backend")
+- otel_resource_attributes: 附加资源属性 ("key1=value1,key2=value2")
+
+ROUND_42: otel_enabled 是真正的开关 —— 默认 False 时在装配前直接跳过，
+仅配置 otlp_endpoint 而不打开开关不再启用追踪（行为变更，见 CHANGELOG）。
+资源属性中的畸形项（缺 "="、空 key）逐项跳过并 debug 留痕，不影响装配。
 
 优雅降级: opentelemetry 库未安装时记录 warning 并跳过, 不影响应用启动.
 """
@@ -45,12 +50,36 @@ def _check_otel_available() -> bool:
         return False
 
 
+def _parse_resource_attributes(raw: str) -> dict[str, str]:
+    """解析 "key1=value1,key2=value2" 形式的附加资源属性.
+
+    逐项解析：空片段忽略；缺 "=" 或 key 为空的畸形项跳过并 debug 留痕。
+    本函数对任意字符串输入都返回 dict —— 属性配置问题不得让整条装配失败。
+    """
+    attrs: dict[str, str] = {}
+    for item in (raw or "").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        key, sep, value = item.partition("=")
+        key = key.strip()
+        if not sep or not key:
+            logger.debug(
+                "STAB-P2-009: ignoring malformed resource attribute %r", item
+            )
+            continue
+        attrs[key] = value.strip()
+    return attrs
+
+
 def init_otel(
     service_name: str,
     service_version: str = "",
     otlp_endpoint: str = "",
     otlp_protocol: str = "grpc",
     environment: str = "",
+    enabled: bool = True,
+    resource_attributes: str = "",
 ) -> OtelInit:
     """STAB-P2-009: 初始化 OpenTelemetry SDK + OTLP exporter.
 
@@ -60,18 +89,31 @@ def init_otel(
         otlp_endpoint: OTLP collector 端点 (如 "http://localhost:4317").
         otlp_protocol: 协议 ("grpc" 或 "http/protobuf").
         environment: 部署环境 (如 "production").
+        enabled: 配置开关（对应 otel_enabled）。False 时在依赖探测与装配前
+            直接跳过。默认 True 保持库级直接调用的既有行为。
+        resource_attributes: 附加资源属性 ("key1=value1,key2=value2")，
+            畸形项跳过并 debug 留痕。
 
     Returns:
         OtelInit.OK: 初始化成功（已初始化时的幂等调用同样返回 OK）。
-        OtelInit.SKIPPED: 未启用 —— 顶层 ``opentelemetry`` 不可导入，或
-            ``otlp_endpoint`` 未配置。属正常降级，调用方应记 skipped。
+        OtelInit.SKIPPED: 未启用 —— ``enabled`` 为 False、顶层
+            ``opentelemetry`` 不可导入，或 ``otlp_endpoint`` 未配置。
+            属正常降级，调用方应记 skipped。
         OtelInit.FAILED: 已配置 endpoint 但装配过程抛异常。属初始化失败，
             调用方应记 failed（非致命，不阻断启动）。
 
     Note:
-        失败 / 跳过路径不会置 ``_otel_initialized=True``。
+        失败 / 跳过路径不会置 ``_otel_initialized=True``。``enabled=False``
+        是硬否决：即使本次调用前已存在初始化标记，也按配置返回 SKIPPED。
     """
     global _otel_initialized
+
+    if not enabled:
+        logger.info(
+            "STAB-P2-009: OpenTelemetry disabled by configuration "
+            "(otel_enabled=False)"
+        )
+        return OtelInit.SKIPPED
 
     if _otel_initialized:
         logger.debug("STAB-P2-009: OpenTelemetry already initialized, skipping")
@@ -109,6 +151,7 @@ def init_otel(
             resource_attrs["service.version"] = service_version
         if environment:
             resource_attrs["deployment.environment"] = environment
+        resource_attrs.update(_parse_resource_attributes(resource_attributes))
 
         resource = Resource.create(resource_attrs)
 

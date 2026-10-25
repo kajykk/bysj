@@ -2,27 +2,27 @@
 P2-35 第二十九批变异验证（锚点均为落盘实读文本）
 ========================================================================
   [baseline] 变异前闸门应为绿…
-    gate: 13 passed, 4 warnings in 5.08s
+    gate: 17 passed, 4 warnings in 1.59s
   [baseline] GREEN-OK
-  [M1 给 otel_enabled 造真实消费点] 变异注入…
-    gate: 3 failed, 10 passed, 4 warnings in 5.96s
-  [M1 给 otel_enabled 造真实消费点] RED-OK（returncode=1）
-    gate: 13 passed, 4 warnings in 5.07s
-  [M1 给 otel_enabled 造真实消费点] GREEN-OK（还原后 returncode=0）
+  [M1 开关分支恒假化] 变异注入…
+    gate: 2 failed, 15 passed, 4 warnings in 2.54s
+  [M1 开关分支恒假化] RED-OK（returncode=1）
+    gate: 17 passed, 4 warnings in 1.68s
+  [M1 开关分支恒假化] GREEN-OK（还原后 returncode=0）
   [M2 给 instrument_app handler 接线] 变异注入…
-    gate: 3 failed, 10 passed, 4 warnings in 5.74s
+    gate: 3 failed, 14 passed, 4 warnings in 2.62s
   [M2 给 instrument_app handler 接线] RED-OK（returncode=1）
-    gate: 13 passed, 4 warnings in 5.03s
+    gate: 17 passed, 4 warnings in 1.66s
   [M2 给 instrument_app handler 接线] GREEN-OK（还原后 returncode=0）
   [M3 把脏数据 continue 改成 break] 变异注入…
-    gate: 2 failed, 11 passed, 4 warnings in 5.59s
+    gate: 2 failed, 15 passed, 4 warnings in 2.41s
   [M3 把脏数据 continue 改成 break] RED-OK（returncode=1）
-    gate: 13 passed, 4 warnings in 5.05s
+    gate: 17 passed, 4 warnings in 1.60s
   [M3 把脏数据 continue 改成 break] GREEN-OK（还原后 returncode=0）
   [M4 删 P2_13 节标题] 变异注入…
-    gate: 1 failed, 12 passed, 4 warnings in 5.55s
+    gate: 1 failed, 16 passed, 4 warnings in 2.18s
   [M4 删 P2_13 节标题] RED-OK（returncode=1）
-    gate: 13 passed, 4 warnings in 5.13s
+    gate: 17 passed, 4 warnings in 1.59s
   [M4 删 P2_13 节标题] GREEN-OK（还原后 returncode=0）
 ========================================================================
 四条变异全部 RED-OK / GREEN-OK

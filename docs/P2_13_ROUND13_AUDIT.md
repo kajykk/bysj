@@ -2912,3 +2912,67 @@ L号列 / 函数名 L号 / 路径:行号 / 裸数字 / 中文括号行号，**�
   已实现 `measure_ms`（warmup + best-of-N 最小值，阈值不放宽 + 反作弊闸门），
   本文件 13 passed 实测全绿。**无遗留。**
 
+
+---
+
+## 一之三十九、ROUND_42：`otel_enabled` 由死配置接线为真开关 + `otel_resource_attributes` 接线（追加改判）
+
+> 本节追加于文末（add-only）：第二十九/三十批的「零消费」「默认阻断在 endpoint 空」
+> 均是其时点结论，保留原文；本节只登记改判与证据。
+
+### 39.1 开工前复测（2026-10-25，HEAD `c399eac`）
+
+- AST（`ast.Attribute.attr in {"otel_enabled", "otel_resource_attributes"}`，扫
+  `backend/app/`）：两项的消费点均为 **0**（唯一命中是 `config.py` 的声明）。
+- `Settings()`：`otel_enabled=False`、`otlp_endpoint=''`、
+  `otlp_protocol='grpc'`、`otel_resource_attributes=''`。
+- `requirements.lock`：仅 `opentelemetry-api==1.45.0`（`# via` = **fastapi**）；
+  sdk / exporter / instrumentation 均不在 lock ⇒ 依赖门开、装配路径无真实 SDK。
+
+### 39.2 接线内容
+
+| 配置项 | 改判 | 消费位置 |
+| --- | --- | --- |
+| `otel_enabled` | 死配置 → **真开关（硬否决）** | `main._init_otel` → `init_otel(enabled=...)`；`otel.py` 装配前首个判定 |
+| `otel_resource_attributes` | 零消费 → **被消费** | `init_otel(resource_attributes=...)` → `_parse_resource_attributes` → `Resource.create` |
+
+- 判定顺序：`enabled` → 已初始化幂等 → 依赖门 → endpoint 空。
+- `enabled=False` 使用独立文案
+  `STAB-P2-009: OpenTelemetry disabled by configuration (otel_enabled=False)`，
+  返回 `SKIPPED`，与「依赖缺失」「endpoint 未配」可区分。
+- 三条跳过路径均不置 `_otel_initialized=True`；FAILED 仍由 main 抛
+  `OTelInitError` 经 `fatal=False` 记 failed（ROUND_40 语义不变）。
+- 资源属性解析：`k=v,k2=v2`；空片段忽略，缺 `=` 或空 key 跳过并 `logger.debug`；
+  解析器对任意字符串返回 dict，配置问题不升级成 FAILED。
+- 未接线：`_instrument_*` / `instrument_app` / `shutdown_otel` 的 handler 维持
+  第二十九批 P/S 裁定，未新增任何 `record_silent_degradation`。
+
+### 39.3 E2 前提重估（不改写第三十批结论）
+
+- 第三十批：默认阻断 = `otlp_endpoint` 默认空串；依赖门开；外层 except V 型可达。
+- ROUND_42 后：main 路径默认阻断前移到 `otel_enabled=False`；endpoint 空分支在
+  main 路径下退化为**不可达**（`_init_otel` 已带 `enabled`），但库级直调
+  （`enabled` 默认 True）仍可达，并由 p2_11 的
+  `test_runtime_e2_otel_unavailable_and_returns_false` 见证。
+- 依赖门（`opentelemetry-api` via fastapi）与外层 except 的可达性**不变**；
+  7 条 handler 的桶计数不变（无新增 `except`）。
+
+### 39.4 行为变更（显式记账）
+
+只配 `OTLP_ENDPOINT`、不设 `OTEL_ENABLED=true` 的部署，由「追踪开启」变为
+「追踪关闭」。已在 `CHANGELOG.md` 与 `backend/.env.example` 声明默认关闭。
+
+### 39.5 闸门与连带见证
+
+- 新闸门 `tests/test_p2_65_round42_otel_config_truthfulness.py` 16 例：默认值；
+  开关关（endpoint 非空 + SDK 全装仍不装配）；开关开 + endpoint 空；成功；装配失败；
+  `/health/startup` 三态（skipped 不进 `failed_components`）；资源属性正常/畸形/
+  注入 `Resource.create`；main 透传 AST；`.env.example` 登记；全仓消费点恰好
+  `main.py` 一处。
+- 变异 `tests/tools/mutate_round42_otel_config_truthfulness.py` 8/8 被杀死，
+  每条还原 sha 一致（log 已 `git add -f`）。
+- 连带：p2_11 第二十九批 `TARGETS` `150/168/183/197/220/222/245` →
+  `193/211/226/240/263/265/288`（+43）；`main.py` 396→401（+5）；E1 钉反转为
+  「消费点恰好一处」；p2_64 `TestBoundaryInterlock` 反转；batch29 probe 与
+  mutate（M1 换臂为「开关分支恒假化」）同步复跑。
+- README 后端用例 7,673→7,689（+16）。

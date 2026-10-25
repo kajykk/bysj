@@ -1,8 +1,9 @@
 """P2-35 第二十九批变异验证（纯裁定批：0 接线，4 条变异）。
 
-M1 把 `otel_enabled` 真的接进`init_otel`（新增消费点）
-   → `test_otel_enabled_is_dead_config` 必须红（死配置发现被推翻）
-M2 给 `otel.py` L205 `instrument_app` 的 Exception handler 接线
+M1 把 `otel_enabled` 开关分支恒假化（`if not enabled:` → `if False:`）
+   → `test_otel_enabled_consumers_locked` 的运行时互锁必须红
+   （ROUND_42 接线后原「新增消费点」变异不再改变真值空间，故换臂）
+M2 给 `otel.py` L265 `instrument_app` 的 Exception handler 接线
    → 块级反向钉必须红（含直调式 silent_degradation_total 禁现）
 M3 把 `_common.py` L261 的 `continue` 改成 `break`（裁掉脏数据跳过）
    → `test_runtime_e4_dirty_data_same_shape` 必须红（脏数据将污染后续特征）
@@ -77,23 +78,10 @@ def main() -> int:
     assert run_gate() == 0, "基线不绿—— 不许在红态下做变异验证"
     print("  [baseline] GREEN-OK")
 
-    # M1：给 otel_enabled 造一个真实消费点（死配置发现被推翻）
-    m1_old = (
-        "    if _otel_initialized:\n"
-        "        logger.debug(\"STAB-P2-009: OpenTelemetry already initialized, skipping\")\n"
-        "        return OtelInit.OK\n"
-    )
-    m1_new = (
-        "    from app.core.config import settings as _settings\n"
-        "\n"
-        "    if not getattr(_settings, \"otel_enabled\", False):\n"
-        "        return OtelInit.SKIPPED\n"
-        "\n"
-        "    if _otel_initialized:\n"
-        "        logger.debug(\"STAB-P2-009: OpenTelemetry already initialized, skipping\")\n"
-        "        return OtelInit.OK\n"
-    )
-    mutate("M1 给 otel_enabled 造真实消费点", OTEL, m1_old, m1_new)
+    # M1：开关分支恒假化（关闭配置仍继续装配 ⇒ 运行时互锁必须红）
+    m1_old = "    if not enabled:\n"
+    m1_new = "    if False:  # MUTATION:开关分支失效\n"
+    mutate("M1 开关分支恒假化", OTEL, m1_old, m1_new)
 
     # M2：给 instrument_app 的 Exception handler 接线
     m2_old = (

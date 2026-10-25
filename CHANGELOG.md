@@ -10,6 +10,37 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_42 · OTel 配置面真实性：`otel_enabled` 由死配置接线为真开关
+
+- **背景**：`backend/app/core/config.py` 的 STAB-P2-009 配置块中，`otel_enabled`
+  与 `otel_resource_attributes` 全仓零消费（AST 实测）。运维改环境变量毫无效果，
+  属于已定性的缺陷类「配置项存在 ≠ 被消费 ⇒ 误导运维」。第二十九批把它记为
+  独立待办 E1，本轮关闭。
+- **接线**：`app/core/otel.py:init_otel` 新增 `enabled: bool = True`（保持库级
+  直调既有行为）与 `resource_attributes: str = ""`；判定顺序 `enabled` →
+  已初始化幂等 → 依赖门 → endpoint 空。`enabled=False` 打印独立文案
+  `OpenTelemetry disabled by configuration (otel_enabled=False)` 并返回
+  `SKIPPED`；三条跳过路径均不置 `_otel_initialized=True`。`app/main.py:_init_otel`
+  透传 `enabled=settings.otel_enabled` 与
+  `resource_attributes=settings.otel_resource_attributes`。
+- **资源属性**：`"k=v,k2=v2"` 解析后注入 `Resource.create(resource_attrs)`；
+  畸形项（缺 `=`、空 key）逐项跳过并 `logger.debug`，解析问题不把装配打成 `FAILED`。
+- **行为变更（显式声明）**：运维「只配 `OTLP_ENDPOINT`、不设 `OTEL_ENABLED=true`」
+  的部署由「追踪开启」变为「追踪关闭」。`backend/.env.example` 已按 `SENTRY_*`
+  写法登记五个有消费的 OTel 项，并注明默认关闭与「需另装 SDK/exporter」。
+- **闸门** `backend/tests/test_p2_65_round42_otel_config_truthfulness.py` 16 例：
+  默认值、开关关（endpoint 非空 + SDK 全装仍不装配）、开关开 + endpoint 空、
+  成功 / 装配失败、`/health/startup` 三态（skipped 不进 `failed_components`）、
+  资源属性正常/畸形/注入 `Resource.create`、main 透传 AST、`.env.example` 登记、
+  全仓消费点恰好 `main.py` 一处。变异脚本 8/8 RED + 恢复绿。
+- **连带**：`test_p2_11_round11.py` 第二十九批 E1 结构钉反转为
+  「消费点集合恰好等于唯一位置」，运行时钉改为开关两态；`otel.py` 行号锚点
+  150/168/183/197/220/222/245 → 193/211/226/240/263/265/288，`main.py` 396→401；
+  `test_p2_64` 的 `TestBoundaryInterlock` 反转为唯一消费位置互锁；batch29
+  probe/mutate 同步（M1 换臂）。无新增 `raise`（`other_raise=356` 不变），
+  #35 桶计数不变。README 后端用例 7,673→7,689。
+- **CI 读数**：待收口提交回填。
+
 ### ROUND_41 · 论文增补 §0 检测目的论（根因未明的前置边界）
 
 - **改动**：`docs/thesis/LIMITATIONS.md` 顶部新增 §0「检测的目的论：先于一切数字的
