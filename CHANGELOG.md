@@ -10,6 +10,21 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_41 · 论文增补 §0 检测目的论（根因未明的前置边界）
+
+- **改动**：`docs/thesis/LIMITATIONS.md` 顶部新增 §0「检测的目的论：先于一切数字的
+  边界声明」，把四条立场固化为可引用前提：检测 ≠ 诊断 ≠ 解释（输出仅作人工复核队列
+  前置过滤）；只认最保守口径（文本泛化只认 groupwise [C-22]，泄漏 [C-19] 与
+  `stress_only` [C-12 等] 禁作效果主张）；漏报优先（Recall 及 CI 与 F1 同权报告，
+  双阈值安全网成本见 §3ter [C-34 ~ C-38]）；阈值 0.5 是价值承诺而非调参
+  （拒绝挑优，保守校准 [C-28] 公开为诊断）。
+- **不引入新数字、不改任何指标**；`verify_thesis_numbers.py` rc=0（台账 55 条 +
+  引用纪律），本地复跑确认。
+- **CI 读数**：`28c4d0e` **7/7 workflow success**；backend-coverage **7318 passed /
+  77 skipped / 278 deselected**（与 7,673 收集数自洽），覆盖率 **86.41%**
+  （TOTAL 25,218 语句 / 3,428 未覆盖），测试步 986.00s（16:25），job 20m16s，
+  Coverage workflow 20m25s；frontend-coverage、coverage-summary 亦 success。
+
 ### ROUND_40 · OTel 启动自检真实性：三态可比，失败不再伪装成 ok/未启用
 
 - **背景**：ROUND_39 收口时如实记账的同型缺陷——`main.py` 的 `_init_otel` 丢弃
