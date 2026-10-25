@@ -40,7 +40,11 @@
   `test_p2_11_round11.py` 正文与 batch34 校验工具；无新增 `raise`
   （`other_raise=356` 不变），#35 桶计数不变。README 后端用例
   7,689→7,705（新增 16 例，既有测试仅平移锚点、用例数不变）。
-- **CI 读数**：待收口提交回填。
+- **CI 读数**：`4554ff3` 7 个 workflow / 10 个 check-run 全 success；Coverage
+  `40159553886`（03:48:17Z→04:12:52Z，24m35s）：backend-coverage **7350 passed /
+  77 skipped / 278 deselected**（与收集数 7,705 自洽），覆盖率 **86.47%**
+  （门槛 60%，TOTAL 25236 语句 / 3415 未覆盖），测试步 1245.37s / 20:45，
+  job 24m25s；frontend-coverage、coverage-summary 亦 success。
 
 ### ROUND_42 · OTel 配置面真实性：`otel_enabled` 由死配置接线为真开关
 
