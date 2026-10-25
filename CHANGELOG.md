@@ -10,6 +10,37 @@
 > `backend/app/core/config.py`（`app_version` 与 `RELEASE_CODENAME`）。
 
 ## [Unreleased]
+### ROUND_44 · 配置来源唯一性：两处兜底默认值归一到 `Settings` + 同名 env 直读显式登记
+
+- **背景**：ROUND_43 之后对 `backend/app` 全量 AST 扫描
+  `getattr(settings, "<field>", <literal>)`，13 处中有 2 处兜底值与
+  `Settings` 声明默认值分叉：`predict_structured` 的
+  `structured_default_model` 兜底 `v1.20`（声明 `v1.23`）、`_model_roots`
+  的 `model_dir` 兜底 `None`（声明 `models`）。settings 属性缺失或被替换时
+  会静默使用第二个默认值，与声明值分叉——同一配置出现两个来源。
+- **修复**：两处改为直接读取 `settings.structured_default_model` /
+  `settings.model_dir`（`if raw:` 保留，空串行为不变）。真实 `Settings` 恒有
+  这两个字段，故生产行为不变；剩余 11 处 `getattr` 兜底实测全部等于声明默认值。
+- **第二来源登记**：与 `Settings` 字段同名的环境变量直读全仓共 3 处
+  （`core/cache.py` 与 `monitoring/dedup_lock.py` 的 `REDIS_URL`、
+  `core/sentry.py` 的 `SENTRY_DSN`），均为有意兜底；闸门内
+  `ALLOWLIST` 显式登记理由，并钉「settings 优先」与
+  「main 始终透传 `settings.sentry_dsn`」。
+- **闸门** `backend/tests/test_p2_67_round44_config_source_uniqueness.py`
+  15 例：兜底默认值无分叉（扫描器自证 ≥11 处可见）、两漂移点直接读取且
+  禁止回退 `getattr`、声明默认值钉（`v1.23` / `models`）、同名 env 直读集合
+  恰好等于 ALLOWLIST（精确 3 项、理由非空、过期豁免报错）、扫描器三读法自证、
+  已知 env 读取可见、非 Settings 名不误报、redis settings-first 顺序、
+  sentry 库级兜底 + main 透传。
+- **变异** `backend/tests/tools/mutate_round44_config_source_uniqueness.py`
+  9/9 被杀死（两处兜底回退、新增同名直读 ×2、允许项变过期、兜底值 20→21、
+  main 透传断开、settings 优先失效、声明默认值被改），每条还原 sha 一致，
+  恢复后 15 passed（log 已 `git add -f`）。
+- **连带**：两处均为单行替换（行数不变），p2_11 锚点无平移；无新增 `raise`
+  （`other_raise=356` 不变），#35 桶计数不变。README 后端用例
+  7,705→7,720（新增 15 例）。
+- **CI 读数**：待回填。
+
 ### ROUND_43 · 配置消费真实性：两处路由阈值接线 + window 项裁定为显式预留
 
 - **背景**：ROUND_42 之后对 `Settings` 做全字段 AST 消费面实测（119 个字段），

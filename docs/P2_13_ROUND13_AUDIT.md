@@ -3035,3 +3035,55 @@ L号列 / 函数名 L号 / 路径:行号 / 裸数字 / 中文括号行号，**�
 - 无新增 `raise`：HTTPException=214 / ServiceError=38 / other_raise=356 不变；
   #35 桶计数 W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
 - README 后端用例 7,689→7,705（新增 p2_66 16 例）。
+
+## 一之四十一、ROUND_44：配置来源唯一性（兜底默认值归一 + 同名 env 直读登记）
+
+> 本节追加于文末（add-only）。开工实测基于 HEAD `42d936d`（ROUND_43 收口提交）。
+
+### 41.1 开工前复测（2026-10-25）
+
+- AST 扫 `backend/app/` 的 `getattr(settings, "<field>", <literal>)` 共 13 处，
+  兜底值不等于 `Settings.model_fields[field].default` 的有 **2 处**：
+  - `core/model_engine/predict.py::predict_structured`：
+    `structured_default_model` 兜底 `"v1.20"`，声明 `"v1.23"`；
+  - `api/v1/metrics_helpers.py::_model_roots`：
+    `model_dir` 兜底 `None`，声明 `"models"`。
+- 与 `Settings` 字段同名的环境变量直读全仓 16 处中占 3 处（有意兜底）：
+  `core/cache.py` 与 `monitoring/dedup_lock.py` 的 `REDIS_URL`、
+  `core/sentry.py` 的 `SENTRY_DSN`。pydantic 已消费 env / `.env` 并做类型
+  校验，第二来源会绕过校验且两处可能不一致。
+- 其余 11 处 `getattr` 兜底实测全部等于声明默认值，本轮不动。
+
+### 41.2 修复与登记
+
+| 位置 | 改判 | 生产行为 |
+| --- | --- | --- |
+| `predict_structured` 默认模型版本 | 兜底 `v1.20` → 直接读 `settings.structured_default_model` | 不变（真实 Settings 恒有该字段，值为 v1.23） |
+| `_model_roots` 模型根目录 | 兜底 `None` → 直接读 `settings.model_dir`（`if raw:` 保留） | 不变（空串仍跳过） |
+| `REDIS_URL` ×2 / `SENTRY_DSN` ×1 | 保留第二来源，写入闸门 `ALLOWLIST` 并写明理由 | 不变 |
+
+- 同名 env 直读的约束：`REDIS_URL` 两处必须 `settings.redis_url` 优先；
+  `SENTRY_DSN` 仅作为 `init_sentry` 库级兜底，`main._init_sentry` 必须透传
+  `dsn=settings.sentry_dsn`，不得让库级兜底接管配置来源。
+
+### 41.3 闸门与变异
+
+- 新闸门 `tests/test_p2_67_round44_config_source_uniqueness.py` 15 例：
+  全仓兜底默认值无分叉（扫描器自证 ≥11 处可见）；两漂移点直接读取且禁止
+  回退 `getattr`；声明默认值钉（`structured_default_model == "v1.23"`、
+  `model_dir == "models"`）且各只声明一次；同名 env 直读集合 == ALLOWLIST
+  （精确 3 项、理由非空、过期豁免报错）；扫描器三读法自证；已知读取可见、
+  非 Settings 名不误报；redis settings-first 行序；sentry 库级兜底 +
+  main 透传 AST。
+- 变异 `tests/tools/mutate_round44_config_source_uniqueness.py` 9/9 被杀死
+  （两处兜底回退、新增同名直读 ×2、允许项变过期、兜底值 20→21、main 透传
+  断开、settings 优先失效、声明默认值被改），每条还原 sha 一致，恢复后
+  15 passed。首跑 M6 因注释插进行中导致语法错误（exit=4），改为语法合法
+  的 `20→21` 后由断言杀死，日志为最终版。
+
+### 41.4 连带与计数
+
+- 两处修复均为单行替换（行数不变），p2_11 batch34 锚点 350/364 无平移。
+- 无新增 `raise`：HTTPException=214 / ServiceError=38 / other_raise=356 不变；
+  #35 桶计数 W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
+- README 后端用例 7,705→7,720（新增 p2_67 15 例）。

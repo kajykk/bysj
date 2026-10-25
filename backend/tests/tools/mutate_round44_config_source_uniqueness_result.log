@@ -1,0 +1,72 @@
+=== 基线（未变异，必须绿） ===
+exit = 0
+15 passed, 4 warnings in 6.15s
+
+=== M1 predict_structured 恢复 v1.20 兜底 ===
+target = app/core/model_engine/predict.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 13 passed, 4 warnings in 5.26s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M2 _model_roots 恢复 None 兜底 ===
+target = app/api/v1/metrics_helpers.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+2 failed, 13 passed, 4 warnings in 5.49s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M3 cache 新增同名直读 MODEL_DIR ===
+target = app/core/cache.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 5.12s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M4 cache 的 REDIS_URL 改读 REDIS_URL_LEGACY ===
+target = app/core/cache.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+3 failed, 12 passed, 4 warnings in 5.29s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M5 sentry 新增同名直读 SENTRY_ENVIRONMENT ===
+target = app/core/sentry.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 5.05s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M6 model_cache_maxsize 兜底 20 改 21 ===
+target = app/core/model_engine/__init__.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 5.00s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M7 main 不再透传 settings.sentry_dsn ===
+target = app/main.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 5.03s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M8 cache 不再优先读取 settings.redis_url ===
+target = app/core/cache.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+1 failed, 14 passed, 4 warnings in 5.04s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== M9 声明默认值 model_dir 改 models2 ===
+target = app/core/config.py | 命中 = 1
+exit = 1（期望非 0 = RED）
+3 failed, 12 passed, 4 warnings in 5.00s
+OK：变异被杀死（RED）
+还原 sha 一致 = True
+
+=== 恢复后 GREEN 对照 ===
+exit = 0（期望 0）
+15 passed, 4 warnings in 5.03s
+
+===== 结论：全部通过 =====

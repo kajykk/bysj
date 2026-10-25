@@ -151,7 +151,7 @@ class PredictMixin:
             #   不可达——默认配置为 v1.23 时不进本分支，且 models/*.pkl 按
             #   .gitignore 有意不入库、主模型恒加载失败，model 保持 None；
             #   裁定与解锁条件见 P2_13 审计「一之二十二」）
-            default_model_version = getattr(settings, "structured_default_model", "v1.20")
+            default_model_version = settings.structured_default_model
             if default_model_version == "v1.23":
                 primary_model_id = "structured_v1.23_external_lr"
                 primary_model_used = "structured_v1.23_external_lr"

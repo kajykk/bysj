@@ -1833,3 +1833,22 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   other_raise=356 不变。
 - #35 桶计数：W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
 - README 后端用例 7,689→7,705。
+
+## 附：ROUND_44 配置来源唯一性（兜底默认值归一 + 同名 env 直读登记）
+
+- 开工实测（AST）：`getattr(settings, field, default)` 13 处，2 处兜底值与
+  `Settings` 声明默认值分叉——`predict_structured` 的
+  `structured_default_model`（v1.20 vs v1.23）、`_model_roots` 的
+  `model_dir`（None vs models）。本轮改为直接读取，生产行为不变；剩余
+  11 处实测全部一致。
+- 与 `Settings` 同名的 env 直读共 3 处（`REDIS_URL` ×2、`SENTRY_DSN` ×1），
+  均为有意兜底：写入 `ALLOWLIST` 并钉「settings 优先」与
+  「main 透传 `settings.sentry_dsn`」。
+- 新增闸门 `test_p2_67_round44_config_source_uniqueness.py`（15 例）：
+  兜底值无分叉棘轮 + 同名 env 直读必须登记（过期豁免亦报错），扫描器自证
+  可见已知点，防止「恒空集合」静默失效。变异 9/9 RED + 恢复绿。
+- 两处修复均为单行替换，p2_11 batch34 锚点 350/364 无平移；行为断言不变。
+- #34 raise 分类：无新增 raise，HTTPException=214 / ServiceError=38 /
+  other_raise=356 不变。
+- #35 桶计数：W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
+- README 后端用例 7,705→7,720。

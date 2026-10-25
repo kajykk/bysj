@@ -6822,6 +6822,19 @@ class TestP235Round13Batch29Declined:
         assert "附：ROUND_43" in doc11, "P2_11 附录缺少 ROUND_43 条目"
         for token in ("配置消费", "棘轮", "other_raise=356"):
             assert token in doc11, f"P2_11 ROUND_43 条目缺少关键标识: {token}"
+        # ROUND_44：一之四十一 配置来源唯一性节（add-only，不删既有 token）
+        assert "## 一之四十一、" in doc13, "P2_13 缺少「一之四十一」配置来源节标题"
+        for token in (
+            "ROUND_44",
+            "structured_default_model",
+            "model_dir",
+            "ALLOWLIST",
+            "7,720",
+        ):
+            assert token in doc13, f"P2_13 ROUND_44 节缺少关键标识: {token}"
+        assert "附：ROUND_44" in doc11, "P2_11 附录缺少 ROUND_44 条目"
+        for token in ("配置来源", "兜底默认值", "other_raise=356"):
+            assert token in doc11, f"P2_11 ROUND_44 条目缺少关键标识: {token}"
         assert "第十三轮第二十九批" in doc11, "P2_11 附录缺少第二十九批条目"
         assert "otel.py" in doc11, "P2_11 附录第二十九批条目缺少文件名"
         assert "第十三轮第三十批" in doc11, "P2_11 附录缺少第三十批条目"

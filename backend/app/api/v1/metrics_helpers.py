@@ -86,7 +86,7 @@ def _model_roots() -> list[Path]:
     from app.core.config import settings
 
     roots: list[Path] = []
-    raw = getattr(settings, "model_dir", None)
+    raw = settings.model_dir
     if raw:
         roots.append(Path(raw))
     # app/api/v1/metrics_helpers.py -> app/api/v1 -> app/api -> app -> backend
