@@ -101,6 +101,64 @@ html.dark {
   /* ISS-031 修复：表格行高亮深色模式适配 */
   --row-highlight-bg: #1f2d3f;
 
+  /* ===== UI-B1 表面层级：页面最暗，卡片/内嵌/悬浮逐级提亮 ===== */
+  --surface-1: #161c24;
+  --surface-2: #1d2530;
+  --surface-3: #28313e;
+  --card-border: rgba(255, 255, 255, 0.08);
+
+  /* UI-B1：浅色阶段遗留的令牌此前未覆盖，暗色下会直接落回近白值 */
+  --bg-page: #0d1117;
+  --bg-hover: #1c2430;
+  --bg-active: #1a2530;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --text-regular: #c3cbd6;
+  --text-placeholder: #5a6270;
+  --text-disabled: #4a5260;
+  --text-inverse: #131820;
+  --border-lighter: #202734;
+  --border-extra-light: #1c232e;
+
+  --primary-hover: #5aa8df;
+  --primary-active: #3b82c4;
+  --primary-lighter: #10161d;
+  --primary-surface: rgba(74, 155, 214, 0.12);
+  --success-light: #16240f;
+  --warning-light: #2a2012;
+  --danger-light: #2a1414;
+  --info-light: #1a1d22;
+
+  --gradient-surface: linear-gradient(180deg, rgba(74, 155, 214, 0.08) 0%, transparent 100%);
+  --gradient-primary: linear-gradient(135deg, #4a9bd6 0%, #3b82c4 100%);
+  --gradient-success: linear-gradient(135deg, #6ab84a 0%, #5a9e3a 100%);
+  --gradient-danger: linear-gradient(135deg, #e06868 0%, #d65a5a 100%);
+  --gradient-blue: linear-gradient(135deg, #4a9bd6, #3b82c4);
+  --gradient-green: linear-gradient(135deg, #6ab84a, #5a9e3a);
+  --gradient-gold: linear-gradient(135deg, #e4a64a, #d4923a);
+
+  /* 图表色板：ECharts 从计算样式读取，暗色必须给独立值 */
+  --chart-color-primary: #4a9bd6;
+  --chart-color-success: #6ab84a;
+  --chart-color-danger: #e06868;
+  --chart-color-warning: #e4a64a;
+  --chart-color-info: #8a909a;
+  --chart-color-primary-area: rgba(74, 155, 214, 0.28);
+  --chart-color-primary-area-end: rgba(74, 155, 214, 0.04);
+
+  /* 暗色改用描边分层，阴影只保留极弱层级 */
+  --shadow-base: 0 2px 12px 0 rgba(0, 0, 0, 0.35);
+  --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --ring-focus: 0 0 0 3px rgba(74, 155, 214, 0.4);
+  --ring-focus-strong: 0 0 0 4px rgba(74, 155, 214, 0.5);
+  --glow-primary: 0 0 8px rgba(74, 155, 214, 0.6);
+  --glow-success: 0 0 8px rgba(106, 184, 74, 0.6);
+  --glow-danger: 0 0 8px rgba(224, 104, 104, 0.6);
+  --glow-success-soft: 0 0 8px rgba(106, 184, 74, 0.5);
+
   /* ===== Element Plus 深色主题覆盖 ===== */
   --el-color-primary: #4a9bd6;
   --el-color-primary-light-3: #6eb3de;

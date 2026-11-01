@@ -61,6 +61,12 @@
   --bg-hover: #f5f7fa;
   --bg-active: #ecf5ff;
 
+  /* ===== 表面层级（UI-B1）：页面底色之上逐级提亮，暗色在 theme.scss 重写 ===== */
+  --surface-1: #ffffff;
+  --surface-2: #f7f9fb;
+  --surface-3: #eef2f6;
+  --card-border: #e2e7ee;
+
   /* ===== 间距系统 (8px 基准，符合 4/8/12/16/24/32/48 规范) ===== */
   /* ISS-024 修复：--spacing-md 由 12px 调整为 16px，符合计划规范 */
   /* ISS-159 修复：--spacing-lg 由 16px 调整为 24px，避免与 --spacing-md 重复 */
@@ -165,7 +171,8 @@
   --chart-color-primary: #2e6fa8;
   --chart-color-success: #5a9e3a;
   --chart-color-danger: #d65a5a;
-  --chart-color-warning: #d4923a;
+  /* UI-B1：白底 #d4923a 仅 2.63:1，未达非文本 3:1；#c07f26 为 3.33:1 */
+  --chart-color-warning: #c07f26;
   --chart-color-info: #7a8290;
   --chart-color-primary-area: rgba(46, 111, 168, 0.25);
   --chart-color-primary-area-end: rgba(46, 111, 168, 0.04);

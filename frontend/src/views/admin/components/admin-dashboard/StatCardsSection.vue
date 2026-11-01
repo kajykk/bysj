@@ -173,6 +173,7 @@ const { t } = useI18n()
 }
 
 .stat--primary { color: var(--primary-color); }
+.stat--neutral { color: var(--text-primary); }
 .stat--warning { color: var(--warning-color); }
 .stat--danger { color: var(--danger-color); }
 .stat--success { color: var(--success-color); }

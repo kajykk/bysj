@@ -10,6 +10,7 @@ import { adminApi } from '@/api/adminApi'
 import {
   COMPONENT_NAME_KEYS,
   calcTrend,
+  trendToneFor,
   type ComponentStatusItem,
   type StatCard,
 } from './sharedAdminDashboardUtils'
@@ -48,7 +49,7 @@ export function useAdminDashboardData() {
       value: stats.total_users,
       tone: 'primary',
       trend: userTrend.value,
-      trendType: userTrend.value >= 0 ? 'success' : 'danger',
+      trendType: trendToneFor('capacity', userTrend.value),
       sub: t('adminDashboard.statSubUsers', { count: stats.total_counselors }),
     },
     {
@@ -57,7 +58,7 @@ export function useAdminDashboardData() {
       value: stats.today_warnings,
       tone: 'warning',
       trend: warningTrend.value,
-      trendType: warningTrend.value <= 0 ? 'success' : 'danger',
+      trendType: trendToneFor('risk', warningTrend.value),
       sub: t('adminDashboard.statSubWarnings', { count: stats.today_unhandled_warnings }),
       action: () => router.push('/admin/operation-logs'),
       actionText: t('adminDashboard.actionWarnings'),
@@ -67,9 +68,9 @@ export function useAdminDashboardData() {
       key: 'assessments',
       label: t('adminDashboard.statLabelAssessments'),
       value: stats.total_assessments,
-      tone: 'danger',
+      tone: 'neutral',
       trend: assessmentTrend.value,
-      trendType: assessmentTrend.value >= 0 ? 'success' : 'danger',
+      trendType: trendToneFor('capacity', assessmentTrend.value),
       sub: t('adminDashboard.statSubAssessments', { count: stats.high_risk_users }),
     },
     {
@@ -78,7 +79,7 @@ export function useAdminDashboardData() {
       value: `${stats.active_templates}/${stats.total_templates}`,
       tone: 'success',
       trend: templateTrend.value,
-      trendType: templateTrend.value >= 0 ? 'success' : 'danger',
+      trendType: trendToneFor('intervention', templateTrend.value),
       sub: '',
       action: () => router.push('/admin/templates'),
       actionText: t('adminDashboard.actionTemplates'),

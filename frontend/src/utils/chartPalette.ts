@@ -15,7 +15,7 @@ export const CHART_PALETTE = {
   primary: '#2e6fa8',
   primaryLight: '#82a9cb',
   success: '#5a9e3a',
-  warning: '#d4923a',
+  warning: '#c07f26',
   danger: '#d65a5a',
   info: '#7a8290',
 } as const
