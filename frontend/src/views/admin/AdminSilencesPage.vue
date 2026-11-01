@@ -53,16 +53,21 @@
         class="active-alert"
       >
         <template #default>
-          <el-tag
-            v-for="s in activeSilences"
-            :key="s.id"
-            size="small"
-            type="warning"
-            effect="plain"
-            class="active-tag"
+          <div
+            v-auto-animate="{ duration: 180, easing: 'ease-out' }"
+            class="active-tags"
           >
-            #{{ s.id }} {{ s.name }}
-          </el-tag>
+            <el-tag
+              v-for="s in activeSilences"
+              :key="s.id"
+              size="small"
+              type="warning"
+              effect="plain"
+              class="active-tag"
+            >
+              #{{ s.id }} {{ s.name }}
+            </el-tag>
+          </div>
         </template>
       </el-alert>
 
@@ -102,6 +107,7 @@ import SilencesTable from './components/admin-silences/SilencesTable.vue'
 import SilenceFormDialog from './components/admin-silences/SilenceFormDialog.vue'
 import SilenceStatsCard from './components/admin-silences/SilenceStatsCard.vue'
 import { useSilencesData } from './components/admin-silences/useSilencesData'
+import { vAutoAnimate } from '@/directives/autoAnimate'
 
 const { t } = useI18n()
 
@@ -126,6 +132,11 @@ const {
 
 .active-alert {
   margin-bottom: 12px;
+}
+
+.active-tags {
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .active-tag {

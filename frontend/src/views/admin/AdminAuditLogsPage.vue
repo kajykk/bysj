@@ -104,7 +104,10 @@
           </div>
         </div>
         <div class="compliance-item compliance-breakdown">
-          <div class="breakdown-tags">
+          <div
+            v-auto-animate="{ duration: 180, easing: 'ease-out' }"
+            class="breakdown-tags"
+          >
             <el-tag
               v-for="(count, actionType) in topBreakdown"
               :key="actionType"
@@ -250,6 +253,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
+import { vAutoAnimate } from '@/directives/autoAnimate'
 
 const { t } = useI18n()
 const auth = useAuthStore()

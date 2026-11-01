@@ -19,7 +19,10 @@
           <el-icon><Close /></el-icon>
         </el-button>
       </div>
-      <div class="task-progress-list">
+      <div
+        v-auto-animate="{ duration: 220, easing: 'ease-out' }"
+        class="task-progress-list"
+      >
         <div
           v-for="task in allTasks"
           :key="task.job_id"
@@ -85,6 +88,7 @@ import { useTaskProgress } from '@/composables/useTaskProgress'
 import { useAnalytics } from '@/composables/useAnalytics'
 import { reportsApi } from '@/api/reportsApi'
 import { downloadBlob } from '@/utils/exportUtils'
+import { vAutoAnimate } from '@/directives/autoAnimate'
 
 const { t } = useI18n()
 const { activeTasks, completedTasks, failedTasks, hasActiveTasks, clearAll, removeTask } =
