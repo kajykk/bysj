@@ -133,9 +133,13 @@
 - `frontend/src/components/charts/BaseChart.vue` 从手写 `echarts.init` 迁到 `<v-chart>`，保留 resize/dispose/tooltip formatter 行为
 - 逐步迁移：`ModelPerformanceChart` / `RiskTrendChart` / `SystemHealthChart` → `views/user/components/experiment-charts/*`(4 个)
 - 图表配色改为读 `--chart-color-*`（`utils/chartTheme.ts:14-18,40-54` 已有读取逻辑），暗色覆盖在 B1 已补齐；`utils/chartPalette.ts` 静态色板降级为兜底
-- **验收**：4 类图表在明/暗下的截图；图表色板与页面主色同源
-- **门禁**：`perf-p2-bundle.test.ts`、`components/charts/charts.test.ts`、`useECharts.test.ts`、`views/user/UserRiskPage.report.test.ts`
-- **回滚**：`git revert <sha>`
+- **实施结果**：`BaseChart.vue` 改为 `<VChart v-if="active && hostReady">`，宿主测量到非零尺寸后才挂载（避免 0 尺寸 init 警告；测试模式直接挂载）；keep-alive 停用时卸载、激活时重挂，`updateOptions: { notMerge: true }` 保持旧的整份替换语义；`theme` 支持传入 ECharts 主题对象，默认由 `chartEchartsTheme()` 按令牌生成；`aria`/键盘高亮/`defineExpose` 导出 API 全部保留
+- **色板同源**：`chartTheme.ts` 新增 `chartSeriesColors()`（primary/success/warning/danger/info/primaryLight）、`chartEchartsTheme()`（axis/legend/tooltip 文本色）与 `useChartColors()`/`useChartSeriesColors()`；`MutationObserver` 监听 `html.class` 自增版本号，暗色切换时 canvas 重绘。`chartPalette.ts` 只作 CSS 变量缺失时的兜底
+- **实际迁移范围**：管理端 `AdminMonitoringPage`（成功率折线）、用户端 `UserReportsPage`（趋势折线 + 因子环形图）、`ExperimentTab` 四图（Loss/Accuracy/Compare/Confusion）、user-dashboard `RiskTrendChart`；未被任何视图引用的 `ModelPerformanceChart` / `SystemHealthChart` / `charts/RiskTrendChart` 一并迁移，避免两套写法并存。同时删除实验图表中的静态色 `#d4923a`、环形图硬编码白描边与重复色板常量
+- **验证说明**：jsdom 无 canvas，`BaseChart.test.ts` 与 `ExperimentTab.test.ts` 用 `vue-echarts` 桩验证 props/事件/生命周期；真实渲染由 Playwright 路由注入成功率、报告/趋势、对比结果后采集明暗截图，确认坐标轴文本、折线与柱色随主题切换
+- **验收**：3 个页面（系统监控 / 评估报告 / 模型评估对比）× 明暗共 6 张截图；图表色板与页面主色同源
+- **门禁**：`perf-p2-bundle.test.ts`、`components/charts/charts.test.ts`、`useECharts.test.ts`、`views/user/UserRiskPage.report.test.ts`；全量 `vitest`、`typecheck`、`build`
+- **回滚**：`git revert <sha>`（依赖在 package.json 同一提交内）
 
 ### UI-B5 动效
 **目标**：列表与卡片的增删有连续性。
@@ -198,7 +202,7 @@ npx playwright test          # 涉及交互的批次必跑
 | UI-B1 | `d69479c` | vitest 114 文件 / 1445 通过 / 4 跳过；typecheck 0；build 0；契约 78 用例全绿 | `outputs/ui-refresh/B1-dark-surfaces/`（主页面 12 张 + EP 组件 7 张） | 已完成 |
 | UI-B2 | `0feeb11` + `be79425` | vitest 114 文件 / 1445 通过 / 4 跳过；typecheck 0；build 0；lint 0；栅格/对比度探针见 §7.1 | `outputs/ui-refresh/B2-ab/`（A/B 样张 4 张）+ `B2-hero-grid/`（12 张） | 已完成 |
 | UI-B3 | `13a83f0` | vitest 115 文件 / 1447 通过 / 4 跳过；typecheck 0；build 0；lint 0；图标 chunk 2.1KB gzip | `outputs/ui-refresh/B3-icons/`（12 张）+ `B3-icons/roles/`（4 张） | 已完成 |
-| UI-B4 | | | | 待开始 |
+| UI-B4 | `94673a8` | vitest 115 文件 / 1449 通过 / 4 跳过；typecheck 0；build 0；lint 0；charts chunk 698.30KB | `outputs/ui-refresh/B4-charts/`（6 张，gitignored） | 已完成 |
 | UI-B5 | | | | 待开始 |
 | UI-B6 | | | | 待开始 |
 | UI-B7 | | | | 待开始 |
@@ -222,6 +226,11 @@ npx playwright test          # 涉及交互的批次必跑
 | B3 构建 | `npm run build` | exit 0（20.20s，PWA precache 150 项 / 9265.81 KiB；B2 为 148 项 / 9250.72 KiB） |
 | B3 图标体积 | 产物统计 | `dist/assets/AppIcon-*.js` 7,912B raw / 2,114B gzip；完整 Tabler 集合约 350KB gzip，故采用 30 图标子集 |
 | B3 尺寸探针 | Playwright 1440×900 | 头部小按钮 12px、普通按钮 14px、侧栏菜单 18px；`aria-hidden="true"` 正常 |
+| B4 回归 | `npx vitest run` | 115 文件 / 1449 通过 / 4 跳过 / 1453，58.56s（B3 为 1447） |
+| B4 图表定向 | `npx vitest run src/components/charts src/composables/useECharts*` | 57/57 通过（BaseChart 7、charts 28、useECharts 22） |
+| B4 类型 | `npm run typecheck` | exit 0 |
+| B4 构建 | `npm run build` | exit 0（18.80s，PWA precache 151 项 / 9281.12 KiB；B3 为 150 项 / 9265.81 KiB；charts chunk 698.30KB） |
+| B4 渲染验证 | Playwright 1440×900 | 系统监控成功率折线、评估报告趋势折线 + 因子环形图、模型评估对比柱 × 明暗 6 张；暗色下轴文本/图例/描边随令牌切换，无 canvas 0 尺寸告警 |
 
 B1 暗色抽检覆盖：el-card、el-table、el-dialog、el-select、el-date-picker、el-tabs、el-form、el-input、el-button、el-tag、el-progress、el-descriptions。抽检截图在 `outputs/ui-refresh/B1-dark-surfaces/ep/`；报告页任务列表原本为空，`el-progress` 用 Playwright 路由注入一条 42% 的进行中任务后采集。
 
