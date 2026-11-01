@@ -159,6 +159,13 @@
 
 - 顺序：公共组件（`components/common/` 24 个）→ user dashboard 7 个子组件 → user 业务页 → counselor 页
 - 不做页面结构重写，只套 token / 卡片规范 / 图标 / 图表
+- **实施结果（令牌缺口）**：暗色补 `--risk-none/mild/moderate/high/critical`（浅色深值在暗底不可读，`--risk-critical` 此前完全无暗色覆盖）、`--text-on-accent`（渐变卡文字不随 `--text-inverse` 反转）、`--success/warning/info-strong`（语义色底正文）；`tokens.contract.test.ts` 的 REQUIRED/MUST_DIVERGE 扩到 97 例，并新增「语义底上正文 ≥4.5:1」断言
+- **色值归 token**：清理 user/counselor/公共组件中带主题风险的硬编码色（`RiskReportTab`、`StructuredResultPanel`、`UserRiskPage`、`TrainingSidePanel`、`TrainingStatsRow`、`ExperimentTab`/`PhysioTab`/结构化步骤、咨询师统计卡 `#b5384a`→`--risk-critical`、`ErrorCell`/`TrendArrow`）；保留 `readChartVar` 兜底 hex、咨询师 `color_tag` 数据默认值与 `AuthBrandPanel` 固定深色品牌面板（后者留 B7）
+- **卡片规范**：user dashboard 7 张卡由 `--bg-primary`/`--border-extra-light`/`1.25rem`/私有阴影改为 `--surface-1`/`--card-border`/`--radius-xl`/`--shadow-card(-hover)`；训练卡 16/18px 圆角与报告摘要卡统一到 `--radius-lg/xl`
+- **图标**：Tabler 子集新增 `info-circle`、`upload`（32 图标）；`RiskStatusCard` 趋势箭头、`UserRiskPage` 危机热线、`BindingCard` 提示、`FileUploadCard` 上传区由 Element 图标迁到 `AppIcon`
+- **e2e 适配**：`seed.spec.ts` 后端地址支持 `E2E_BACKEND_URL`（CI 仍默认 8000）；本机 8000 被其他服务占用时用 8001 覆盖
+- **验证**：lint 0 error；typecheck 0；vitest 116 文件 / 1475 通过 / 4 跳过；build 16.51s，precache 152 项 / 9291.11 KiB；Playwright 13 spec / 32 用例，`--workers=1` 下 27 通过 / 5 跳过 / 0 失败（本地默认并发会因多个 spec 共用种子账号触发 refresh token 轮换竞争，CI 本身固定 workers=1）
+- **遗留（B7）**：训练页三张渐变卡仍为白字，`--gradient-gold` 上对比度不足 4.5:1，B7 对比度回归时一并处理；`AuthBrandPanel` 固定品牌色与 `chartPalette` 兜底 hex 留 B7 清理
 - **验收**：user 与 counselor 主路径页面明/暗截图；`e2e/alignment-smoke.spec.ts` 与 13 个 Playwright spec 全绿
 - **回滚**：`git revert <sha>`
 
@@ -207,7 +214,7 @@ npx playwright test          # 涉及交互的批次必跑
 | UI-B3 | `13a83f0` | vitest 115 文件 / 1447 通过 / 4 跳过；typecheck 0；build 0；lint 0；图标 chunk 2.1KB gzip | `outputs/ui-refresh/B3-icons/`（12 张）+ `B3-icons/roles/`（4 张） | 已完成 |
 | UI-B4 | `94673a8` | vitest 115 文件 / 1449 通过 / 4 跳过；typecheck 0；build 0；lint 0；charts chunk 698.30KB | `outputs/ui-refresh/B4-charts/`（6 张，gitignored） | 已完成 |
 | UI-B5 | `4dc11d7` | vitest 116 文件 / 1456 通过 / 4 跳过；typecheck 0；build 0；lint 0；precache 152 项 / 9290.78 KiB | `outputs/ui-refresh/B5-motion/`（4 张，gitignored） | 已完成 |
-| UI-B6 | | | | 待开始 |
+| UI-B6 | `e5a5d30` | vitest 116 文件 / 1475 通过 / 4 跳过；typecheck 0；build 0；lint 0；e2e 27 通过 / 5 跳过 / 0 失败（workers=1）；precache 152 项 / 9291.11 KiB | `outputs/ui-refresh/B6-rollout/`（16 张：user 5 页 + counselor 3 页 × 明暗，gitignored） | 已完成 |
 | UI-B7 | | | | 待开始 |
 
 ### 7.1 读数明细
@@ -238,6 +245,12 @@ npx playwright test          # 涉及交互的批次必跑
 | B5 类型 | `npm run typecheck` | exit 0 |
 | B5 构建 | `npm run build` | exit 0（16.97s，PWA precache 152 项 / 9290.78 KiB；B4 为 151 项 / 9281.12 KiB；新增 auto-animate 单文件 8,406B raw） |
 | B5 动效验证 | Playwright 1440×900 | 移除任务：正常模式 `.task-progress-item` 动画数 >0；`reducedMotion: reduce` 下同动作动画数 = 0；静默标签明暗渲染正常 |
+| B6 样式契约 | `npx vitest run src/styles/tokens.contract.test.ts` | 97/97 通过（新增 5 级风险色、on-accent、3 个语义强色与语义底对比度） |
+| B6 回归 | `npx vitest run` | 116 文件 / 1475 通过 / 4 跳过 / 1479，47.43s（B5 为 1456） |
+| B6 类型 | `npm run typecheck` | exit 0 |
+| B6 构建 | `npm run build` | exit 0（16.51s，PWA precache 152 项 / 9291.11 KiB；B5 为 9290.78 KiB；charts chunk 698.30KB 不变） |
+| B6 e2e | `npx playwright test --project=chromium --workers=1` | 13 spec / 32 用例：27 通过 / 5 跳过 / 0 失败，1.1m；默认并发下 `key-flows` token 刷新用例会与同账号其他 spec 竞争，串行（CI 口径）稳定全绿 |
+| B6 明暗截图 | 临时 Playwright 脚本（采集后删除） | user dashboard/risk/reports/intervention/model-training + counselor dashboard/warnings/users × 明暗 16 张；暗色侧栏底部白块经视口截图与 `elementsFromPoint` 排除，确认为 fullPage 对 sticky 侧栏的拼接伪影 |
 
 B1 暗色抽检覆盖：el-card、el-table、el-dialog、el-select、el-date-picker、el-tabs、el-form、el-input、el-button、el-tag、el-progress、el-descriptions。抽检截图在 `outputs/ui-refresh/B1-dark-surfaces/ep/`；报告页任务列表原本为空，`el-progress` 用 Playwright 路由注入一条 42% 的进行中任务后采集。
 
