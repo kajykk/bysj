@@ -38,7 +38,7 @@
       <span class="stat-sub">{{ primaryStat.sub }}</span>
     </section>
 
-    <!-- 副指标 2x2 网格 -->
+    <!-- 副指标：三卡同排，与 Hero 同高 -->
     <div class="bento-stat-grid">
       <section
         v-for="card in secondaryStats"
@@ -110,59 +110,58 @@ const { t } = useI18n()
 </script>
 
 <style scoped>
-/* ===== Bento 统计区：主指标（1.3fr）+ 副指标网格（2fr 内 2x2） ===== */
+/* ===== Bento 统计区（UI-B2 方案 B）：Hero 大卡 + 三副卡同排同高 ===== */
 .bento-stats {
   display: grid;
-  grid-template-columns: 1.3fr 2fr;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 2.6fr);
   gap: var(--spacing-lg);
   margin-bottom: var(--spacing-lg);
 }
 
 .bento-stat-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--spacing-lg);
 }
 
 .bento-stat {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-extra-light);
-  border-radius: 1.25rem;
-  padding: 1.5rem;
+  background: var(--surface-1);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04);
+  box-shadow: var(--shadow-light);
   transition: box-shadow 0.3s var(--transition-ease-out),
     border-color 0.3s var(--transition-ease-out);
 }
 
 .bento-stat:hover {
-  box-shadow: 0 12px 32px -12px rgba(46, 111, 168, 0.14);
+  box-shadow: var(--shadow-card-hover);
   border-color: var(--border-light);
 }
 
 .bento-stat--hero {
-  background:
-    linear-gradient(180deg, rgba(46, 111, 168, 0.04) 0%, transparent 60%),
-    var(--bg-primary);
+  background: var(--gradient-surface), var(--surface-1);
   justify-content: space-between;
 }
 
 .stat-label {
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
+  font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--spacing-sm);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .stat {
   font-family: var(--font-family-display);
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--font-size-stat);
+  font-weight: var(--font-weight-bold);
   letter-spacing: -0.03em;
-  margin: 0.25rem 0 0.5rem;
+  margin: var(--spacing-xs) 0 var(--spacing-sm);
   line-height: 1;
   color: var(--text-primary);
 }
@@ -207,10 +206,16 @@ const { t } = useI18n()
   padding-top: 0.5rem;
 }
 
-/* ===== 响应式：移动端单列回退 ===== */
-@media (max-width: 1024px) {
+/* ===== 响应式：Hero 先独占一行，再收副卡列数 ===== */
+@media (max-width: 1280px) {
   .bento-stats {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .bento-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -220,7 +225,7 @@ const { t } = useI18n()
   }
 
   .stat {
-    font-size: 1.75rem;
+    font-size: var(--font-size-heading);
   }
 
   .stat--hero {

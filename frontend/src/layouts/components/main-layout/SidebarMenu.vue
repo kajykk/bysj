@@ -56,16 +56,13 @@
         v-for="section in menus"
         :key="section.key"
       >
-        <el-menu-item
+        <!-- 分组标签是纯展示文字，不用 el-menu-item：disabled 态会强制 opacity .25 且可能吸附激活色 -->
+        <li
           v-if="!layout.sidebarCollapsed"
-          :index="section.first?.path || '/'"
           class="menu-section-label"
-          disabled
         >
-          <template #title>
-            {{ t(section.labelKey) }}
-          </template>
-        </el-menu-item>
+          {{ t(section.labelKey) }}
+        </li>
         <!-- 折叠态:用细分隔线代替分组标签,保留视觉分隔但不占位 -->
         <div
           v-else
@@ -165,7 +162,7 @@ const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
   background: var(--bg-primary);
   transition: width var(--transition-duration) var(--transition-ease-out);
   position: relative;
-  box-shadow: 1px 0 8px rgba(46, 111, 168, 0.04);
+  box-shadow: var(--shadow-light);
   display: flex;
   flex-direction: column;
 }
@@ -177,7 +174,7 @@ const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
 }
 
 .layout-aside :deep(.el-menu-item) {
-  border-radius: var(--radius-base);
+  border-radius: var(--radius-md);
   margin-bottom: 2px;
   transition: background var(--transition-fast) var(--transition-timing),
     color var(--transition-fast) var(--transition-timing);
@@ -207,16 +204,21 @@ const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
   transition: background var(--transition-fast) var(--transition-timing);
 }
 
+/* 12px 导航分组文字需满足 4.5:1：--text-tertiary 仅 3.2:1，
+   --text-secondary 为 6.0:1（浅色）/ 7.4:1（深色）。 */
 .menu-section-label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
   font-size: var(--font-size-extra-small);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-placeholder);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-wider);
   cursor: default;
   pointer-events: none;
-  padding: var(--spacing-md) var(--spacing-sm) var(--spacing-xs);
-  height: auto;
+  padding: calc(var(--spacing-md) + var(--spacing-xs)) var(--spacing-sm) var(--spacing-xs);
   line-height: var(--line-height-tight);
 }
 
@@ -228,7 +230,7 @@ const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
 .menu-section-divider {
   height: 1px;
   background: var(--border-lighter);
-  margin: var(--spacing-sm) var(--spacing-xs);
+  margin: var(--spacing-sm);
 }
 
 .layout-aside.collapsed .logo {

@@ -141,7 +141,7 @@ const handleLogout = async () => {
 /* ===== 第二行 Bento 布局容器：系统状态（宽）+ 快捷操作（窄） ===== */
 .bento-grid--bottom {
   display: grid;
-  grid-template-columns: 1.85fr 1fr;
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr);
   gap: var(--spacing-lg);
 }
 
