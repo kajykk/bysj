@@ -161,7 +161,10 @@ const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
   border-right: 1px solid var(--border-lighter);
   background: var(--bg-primary);
   transition: width var(--transition-duration) var(--transition-ease-out);
-  position: relative;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100dvh;
   box-shadow: var(--shadow-light);
   display: flex;
   flex-direction: column;
@@ -170,7 +173,12 @@ const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
 .layout-aside :deep(.el-menu) {
   border-right: none;
   padding: var(--spacing-sm) var(--spacing-xs);
+  /* 底部 version-info(24px) + 折叠按钮(40px) 是绝对定位，预留高度避免遮住最后一项 */
+  padding-bottom: 72px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .layout-aside :deep(.el-menu-item) {
