@@ -120,8 +120,10 @@
 - 替换顺序（按感知强度）：`LayoutHeader.vue`(7 处) → `SidebarMenu.vue` → 管理端 4 个 dashboard 组件 → `HelpCenter.vue`(9) → `CounselorDashboard.vue`(11) → `RiskReportTab.vue`(6) → `ThemeSwitcher.vue`(5)
 - Element Plus 组件内部图标（select 箭头、dialog 关闭）保持不动
 - 现有 13 处内联 SVG：保留品牌与插画类（`AuthBrandPanel.vue`、`SidebarMenu.vue`、5 个 `illustrations/*`），其余按语义迁到 Iconify
-- **验收**：管理端 + 用户端主要页面图标视觉一致；`npm run build` 体积增量记录在案（预期 +~80KB gzip 上限，超出则改为按需子集导入）
-- **门禁**：`eslint`、`typecheck`、全量 `vitest`
+- **实施结果**：不引入完整 Tabler 集合（完整集合约 350KB gzip，远超预算），改为 `frontend/scripts/gen-tabler-subset.mjs` 从 `@iconify-json/tabler` 生成 30 图标静态子集（`src/icons/tabler-subset.ts`），`AppIcon.vue` 运行时 `addCollection`，短名自动补 `tabler:` 前缀；图标 chunk 7.9KB raw / 2.1KB gzip
+- **实际替换范围**：`LayoutHeader`(7) / `SidebarMenu`(菜单图标 + 折叠按钮) / `useLayoutMenu`(图标名改字符串) / `StatCardsSection`(趋势箭头) / `HelpCenter`(9) / `ThemeSwitcher`(5) / `CounselorDashboard`(11) / `RiskReportTab`(6)；管理端其余 dashboard 组件与 Element Plus 内置图标不动
+- **验收**：管理端 12 页 + 咨询师/用户仪表盘明暗各 1 张截图；图标尺寸探针：头部小按钮 12px、普通按钮 14px、侧栏 18px；build 体积增量在 §7.1
+- **门禁**：`eslint`、`typecheck`、全量 `vitest`；新增 `AppIcon.test.ts`（短名/全名与 aria-hidden）
 - **回滚**：`git revert <sha>`（依赖在 package.json 同一提交内）
 
 ### UI-B4 图表统一
@@ -186,6 +188,7 @@ npx playwright test          # 涉及交互的批次必跑
 | Element Plus 禁用态强制 `opacity: .25` | `el-menu-item.is-disabled` 等 | 需要可读文字时不要复用 `disabled`，改用纯展示元素（UI-B2 侧栏分组标题已按此修正） |
 | 暗色 CSS 被加载两次 | `main.ts:24` 静态 + `useTheme.ts:42` 动态 | UI-B1 顺带收敛为一处 |
 | 硬编码 hex 430 处 | `frontend/src` 全量 | UI-B7 清理 43 处生产代码，其余登记不强制 |
+| Iconify 完整集合超体积预算 | `@iconify-json/tabler` | 只登记用到的图标，跑 `scripts/gen-tabler-subset.mjs` 重新生成子集（UI-B3 已按此落地） |
 
 ## 7. 进度表（执行时逐行填写）
 
@@ -194,7 +197,7 @@ npx playwright test          # 涉及交互的批次必跑
 | UI-B0 | `4b50a47` | vitest 113 文件 / 1367 通过 / 4 跳过；基线读数在 §7.1 | `outputs/ui-refresh/B0-baseline/`（12 张，gitignored） | 已完成 |
 | UI-B1 | `d69479c` | vitest 114 文件 / 1445 通过 / 4 跳过；typecheck 0；build 0；契约 78 用例全绿 | `outputs/ui-refresh/B1-dark-surfaces/`（主页面 12 张 + EP 组件 7 张） | 已完成 |
 | UI-B2 | `0feeb11` + `be79425` | vitest 114 文件 / 1445 通过 / 4 跳过；typecheck 0；build 0；lint 0；栅格/对比度探针见 §7.1 | `outputs/ui-refresh/B2-ab/`（A/B 样张 4 张）+ `B2-hero-grid/`（12 张） | 已完成 |
-| UI-B3 | | | | 待开始 |
+| UI-B3 | `13a83f0` | vitest 115 文件 / 1447 通过 / 4 跳过；typecheck 0；build 0；lint 0；图标 chunk 2.1KB gzip | `outputs/ui-refresh/B3-icons/`（12 张）+ `B3-icons/roles/`（4 张） | 已完成 |
 | UI-B4 | | | | 待开始 |
 | UI-B5 | | | | 待开始 |
 | UI-B6 | | | | 待开始 |
@@ -214,6 +217,11 @@ npx playwright test          # 涉及交互的批次必跑
 | B2 构建 | `npm run build` | exit 0（19.61s，PWA precache 148 项） |
 | B2 布局探针 | Playwright 1440×900 | 四卡同排 y=195 / h=194；Hero 405px、副卡 234px×3；底部 750/406；overflowX 0；aside 900px；菜单 scrollH 1087 > clientH 843；滚到底部最后一项 bottom 826 < 页脚 top 835 |
 | B2 对比度 | 相对亮度计算 | 侧栏分组标题 6.01:1（浅 #5a6470/白）/ 7.42:1（深 #a0a8b4/#131820） |
+| B3 回归 | `npx vitest run` | 115 文件 / 1447 通过 / 4 跳过 / 1451，53.64s |
+| B3 类型 | `npm run typecheck` | exit 0 |
+| B3 构建 | `npm run build` | exit 0（20.20s，PWA precache 150 项 / 9265.81 KiB；B2 为 148 项 / 9250.72 KiB） |
+| B3 图标体积 | 产物统计 | `dist/assets/AppIcon-*.js` 7,912B raw / 2,114B gzip；完整 Tabler 集合约 350KB gzip，故采用 30 图标子集 |
+| B3 尺寸探针 | Playwright 1440×900 | 头部小按钮 12px、普通按钮 14px、侧栏菜单 18px；`aria-hidden="true"` 正常 |
 
 B1 暗色抽检覆盖：el-card、el-table、el-dialog、el-select、el-date-picker、el-tabs、el-form、el-input、el-button、el-tag、el-progress、el-descriptions。抽检截图在 `outputs/ui-refresh/B1-dark-surfaces/ep/`；报告页任务列表原本为空，`el-progress` 用 Playwright 路由注入一条 42% 的进行中任务后采集。
 
