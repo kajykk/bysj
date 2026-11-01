@@ -8,7 +8,7 @@ vi.mock('./request', () => ({
   dedupedGet: vi.fn((url: string, config?: unknown) => Promise.resolve({ url, config })),
 }))
 
-import request, { dedupedGet } from './request'
+import { dedupedGet } from './request'
 import { observabilityApi } from './observabilityApi'
 
 describe('api/observabilityApi', () => {

@@ -47,7 +47,8 @@ export const RISK_SCORE_THRESHOLDS = {
 
 /**
  * 风险等级对应的基础颜色。
- * P2-D 修复：消除前端魔法数字，集中管理颜色。
+ * 会作为 el-tag 的背景色传入，必须是具体色值；与浅色主题的
+ * --risk-mild/moderate/high/critical 一一对应，改令牌时同步本表。
  */
 export const RISK_SCORE_COLORS = {
   low: '#5a9e3a',      // 0-20: 绿色（低风险）

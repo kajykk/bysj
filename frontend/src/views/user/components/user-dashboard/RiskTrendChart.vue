@@ -66,7 +66,7 @@ import { echarts, type ECharts } from '@/utils/echarts'
 import { subscribeResize } from '@/utils/sharedResize'
 import { initChartWhenReady, type ChartInitHandle } from '@/utils/chartInit'
 import { readChartVar } from '@/utils/chartTheme'
-import { withAlpha } from '@/utils/chartPalette'
+import { CHART_PALETTE, STATIC_FALLBACK_COLORS, withAlpha } from '@/utils/chartPalette'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { RiskTrend } from '@/api/userRiskApi'
@@ -125,12 +125,12 @@ const renderTrendChart = () => {
   // ISS-077 修复：图表配色读取 CSS 变量令牌，与 variables.scss 统一
   // VIS-P2-02 修复：tooltip 背景与边框改用主题令牌，深色模式下自动适配
   // VIS-P4-01 修复：回退值与渐变/光晕统一取自 chartPalette 常量
-  const chartDanger = readChartVar('--chart-color-danger', '#d65a5a')
-  const chartTextPrimary = readChartVar('--text-primary', '#2c3340')
-  const chartTextSecondary = readChartVar('--text-secondary', '#6a727f')
-  const chartTooltipBg = readChartVar('--surface-1', '#ffffff')
-  const chartTooltipBorder = readChartVar('--card-border', '#e2e7ee')
-  const chartSurface = readChartVar('--surface-1', '#ffffff')
+  const chartDanger = readChartVar('--chart-color-danger', CHART_PALETTE.danger)
+  const chartTextPrimary = readChartVar('--text-primary', STATIC_FALLBACK_COLORS.textPrimary)
+  const chartTextSecondary = readChartVar('--text-secondary', STATIC_FALLBACK_COLORS.textSecondary)
+  const chartTooltipBg = readChartVar('--surface-1', STATIC_FALLBACK_COLORS.surface1)
+  const chartTooltipBorder = readChartVar('--card-border', STATIC_FALLBACK_COLORS.cardBorder)
+  const chartSurface = readChartVar('--surface-1', STATIC_FALLBACK_COLORS.surface1)
 
   trendChart.setOption({
     tooltip: {

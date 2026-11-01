@@ -7,7 +7,7 @@
 
 import { echarts } from '@/utils/echarts'
 import { chartColors, readChartVar } from '@/utils/chartTheme'
-import { withAlpha } from '@/utils/chartPalette'
+import { STATIC_FALLBACK_COLORS, withAlpha } from '@/utils/chartPalette'
 import { escapeHtml } from '@/utils/security'
 import type { RiskTrend } from '@/api/modelApi'
 import type { Composer } from 'vue-i18n'
@@ -27,10 +27,10 @@ export function buildReportTrendOption(
 ): Record<string, unknown> {
   const points = Array.isArray(trend.points) ? trend.points : []
   const c = chartColors()
-  const textPrimary = readChartVar('--text-primary', '#2c3340')
-  const textSecondary = readChartVar('--text-secondary', '#6a727f')
-  const tooltipBg = readChartVar('--surface-1', '#ffffff')
-  const tooltipBorder = readChartVar('--card-border', '#e2e7ee')
+  const textPrimary = readChartVar('--text-primary', STATIC_FALLBACK_COLORS.textPrimary)
+  const textSecondary = readChartVar('--text-secondary', STATIC_FALLBACK_COLORS.textSecondary)
+  const tooltipBg = readChartVar('--surface-1', STATIC_FALLBACK_COLORS.surface1)
+  const tooltipBorder = readChartVar('--card-border', STATIC_FALLBACK_COLORS.cardBorder)
   const dates = points.map((p) => p.date)
   const valueOrNull = (value: number | null | undefined) =>
     typeof value === 'number' ? value : null

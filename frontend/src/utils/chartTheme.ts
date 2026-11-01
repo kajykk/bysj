@@ -13,7 +13,7 @@
  * 触发重新计算，让图表在明暗主题间保持同一套语义色。
  */
 import { computed, ref } from 'vue'
-import { CHART_PALETTE, withAlpha } from './chartPalette'
+import { CHART_PALETTE, STATIC_FALLBACK_COLORS, withAlpha } from './chartPalette'
 
 /** 读取 CSS 变量；取不到时回退到传入的安全值。 */
 export function readChartVar(name: string, fallback: string): string {
@@ -94,12 +94,12 @@ export function useChartSeriesColors() {
  * 避免 canvas 内出现与页面脱节的默认灰黑。
  */
 export function chartEchartsTheme(): Record<string, unknown> {
-  const textPrimary = readChartVar('--text-primary', '#2c3340')
-  const textRegular = readChartVar('--text-regular', '#5a6470')
-  const textSecondary = readChartVar('--text-secondary', '#6a727f')
-  const surface = readChartVar('--surface-1', '#ffffff')
-  const cardBorder = readChartVar('--card-border', '#e2e7ee')
-  const border = readChartVar('--border-color', '#dcdfe6')
+  const textPrimary = readChartVar('--text-primary', STATIC_FALLBACK_COLORS.textPrimary)
+  const textRegular = readChartVar('--text-regular', STATIC_FALLBACK_COLORS.textRegular)
+  const textSecondary = readChartVar('--text-secondary', STATIC_FALLBACK_COLORS.textSecondary)
+  const surface = readChartVar('--surface-1', STATIC_FALLBACK_COLORS.surface1)
+  const cardBorder = readChartVar('--card-border', STATIC_FALLBACK_COLORS.cardBorder)
+  const border = readChartVar('--border-color', STATIC_FALLBACK_COLORS.borderColor)
 
   const axis = {
     axisLabel: { color: textSecondary },

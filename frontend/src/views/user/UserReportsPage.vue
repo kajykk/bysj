@@ -9,6 +9,7 @@ import { showHttpFeedback } from '@/utils/httpFeedback'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import BaseChart from '@/components/charts/BaseChart.vue'
 import { readChartVar, useChartColors, useChartSeriesColors } from '@/utils/chartTheme'
+import { STATIC_FALLBACK_COLORS } from '@/utils/chartPalette'
 import type { EChartsCoreOption } from '@/utils/echarts'
 import type { RiskReport, RiskTrend } from '@/api/userRiskApi'
 import { downloadBlob } from '@/utils/exportUtils'
@@ -87,7 +88,7 @@ const factorOption = computed<EChartsCoreOption>(() => {
   const data = factors.map((f) => ({ name: f.feature, value: Number(f.importance) || 0 }))
   if (!data.length) return {}
   const palette = factorColors.value
-  const surface = readChartVar('--surface-1', '#ffffff')
+  const surface = readChartVar('--surface-1', STATIC_FALLBACK_COLORS.surface1)
   return {
     tooltip: { trigger: 'item' },
     legend: { type: 'scroll', orient: 'vertical', right: 10, top: 'middle' },

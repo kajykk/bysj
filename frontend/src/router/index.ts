@@ -28,7 +28,7 @@ function ensureProgressBar(): HTMLDivElement {
     'left: 0',
     'height: 3px',
     'width: 0%',
-    'background: #409eff',
+    'background: var(--primary-color)',
     'z-index: 9999',
     'transition: width 0.2s ease, opacity 0.3s ease',
     'pointer-events: none',

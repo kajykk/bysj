@@ -307,19 +307,20 @@ const asideWidth = computed(() => layout.sidebarCollapsed ? '64px' : '220px')
   pointer-events: none;
 }
 
+/* 语义底在白字下对比不足：danger/warning 用固定深墨色，primary 跟随主题强调底 */
 .menu-badge--danger {
   background: var(--danger-color);
-  color: #fff;
+  color: var(--text-on-light-accent);
 }
 
 .menu-badge--warning {
   background: var(--warning-color);
-  color: #fff;
+  color: var(--text-on-light-accent);
 }
 
 .menu-badge--primary {
   background: var(--primary-color);
-  color: #fff;
+  color: var(--text-on-accent);
 }
 
 /* 折叠态徽章 - 小圆点 */

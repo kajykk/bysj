@@ -430,8 +430,8 @@ describe('Router - index.ts 集成测试', () => {
       const bar = document.querySelector('div[style*="position: fixed"]') as HTMLDivElement
       expect(bar).not.toBeNull()
       expect(bar.style.height).toBe('3px')
-      // jsdom 会将十六进制颜色 #409eff 转换为 rgb 格式
-      expect(bar.style.background).toBe('rgb(64, 158, 255)')
+      // 进度条颜色跟随设计令牌，不再硬编码 Element 蓝
+      expect(bar.style.background).toBe('var(--primary-color)')
       expect(bar.style.zIndex).toBe('9999')
     })
 

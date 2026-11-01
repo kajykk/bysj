@@ -116,7 +116,8 @@ html.dark {
   --text-placeholder: #5a6270;
   --text-disabled: #4a5260;
   --text-inverse: #131820;
-  --text-on-accent: #ffffff;
+  /* 暗色主题的强调底是提亮后的浅蓝，白字仅 3.0:1；改用深墨色后 ≥4.7:1 */
+  --text-on-accent: #0b0f14;
   --border-lighter: #202734;
   --border-extra-light: #1c232e;
 

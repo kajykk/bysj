@@ -1,7 +1,7 @@
 import request, { dedupedGet, requestData, requestPageData } from './request'
 import { buildPageParams } from './business.shared'
 import type { PageQuery } from '@/types/api'
-import type { AuditCompliance, AuditLogsResult, ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
+import type { AuditLogsResult, ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'
 import type { TaskType } from './taskTypes'
 
 export type { AuditCompliance, AuditLogsResult, ConfigItem, CrisisEventItem, ModelFeedbackItem, OperationLogItem, TemplateItem, ThresholdItem } from './adminTypes'

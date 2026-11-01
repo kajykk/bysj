@@ -50,8 +50,11 @@
   --text-placeholder: #a8abb2;
   --text-disabled: #c0c4cc;
   --text-inverse: #ffffff;
-  /* 品牌渐变/实色底上的文字：两套主题都必须是白，不能跟随 --text-inverse 反转 */
+  /* 品牌强调底上的文字：跟随强调底亮度，而不是跟随主题。
+     浅色主题强调底是深蓝，用白字；暗色主题强调底被提亮，白字只有 3.0:1，改用深墨色。 */
   --text-on-accent: #ffffff;
+  /* 浅色强调底（绿/金渐变）两套主题都偏亮，固定用深墨色才能过 4.5:1 */
+  --text-on-light-accent: #0b0f14;
 
   /* ===== 边框色阶 ===== */
   --border-color: #dcdfe6;
@@ -172,6 +175,18 @@
   --gradient-blue: linear-gradient(135deg, #2e6fa8, #327ab0);
   --gradient-green: linear-gradient(135deg, #5a9e3a, #7ab558);
   --gradient-gold: linear-gradient(135deg, #d4923a, #e4b46a);
+
+  /* ===== 登录品牌面板（始终深色，不随主题反转） =====
+     面板是独立视觉岛，浅色主题下也是深底，因此色值只定义一次，暗色无需覆盖。 */
+  --brand-panel-text: #f3f6fb;
+  --brand-panel-text-muted: rgba(243, 246, 251, 0.62);
+  --brand-panel-text-dim: rgba(243, 246, 251, 0.45);
+  --brand-panel-bg-start: #1d2a3a;
+  --brand-panel-bg-mid: #131c28;
+  --brand-panel-bg-end: #0f1620;
+  --brand-panel-accent-blue: #4a9bd6;
+  --brand-panel-accent-soft: #6bb4e8;
+  --brand-panel-accent-green: #9fd0a8;
 
   /* ===== 图表色板（ISS-076~078 修复：统一 ECharts 配色，消除组件内硬编码 hex；I6 同步主色相） ===== */
   --chart-color-primary: #2e6fa8;

@@ -22,11 +22,11 @@
             >
               <stop
                 offset="0%"
-                stop-color="var(--brand-accent-soft, #6bb4e8)"
+                stop-color="var(--brand-panel-accent-soft)"
               />
               <stop
                 offset="100%"
-                stop-color="var(--brand-accent-blue, #4a9bd6)"
+                stop-color="var(--brand-panel-accent-blue)"
               />
             </linearGradient>
           </defs>
@@ -115,25 +115,14 @@ withDefaults(
 /* ===== 左侧品牌面板（与 LoginPage 共享） ===== */
 /* ISS-079 修复：品牌面板色板提取为局部 CSS 变量，便于统一调整与主题切换 */
 .auth-brand {
-  /* 品牌面板局部色板令牌 */
-  --brand-text: #f3f6fb;
-  --brand-text-muted: rgba(243, 246, 251, 0.62);
-  --brand-text-dim: rgba(243, 246, 251, 0.5);
-  --brand-bg-start: #1d2a3a;
-  --brand-bg-mid: #131c28;
-  --brand-bg-end: #0f1620;
-  --brand-accent-blue: #4a9bd6;
-  --brand-accent-soft: #6bb4e8;
-  --brand-accent-green: #9fd0a8;
-
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 3rem 3.5rem;
-  color: var(--brand-text);
+  color: var(--brand-panel-text);
   background:
-    radial-gradient(ellipse at 20% 0%, var(--brand-bg-start) 0%, var(--brand-bg-mid) 55%, var(--brand-bg-end) 100%);
+    radial-gradient(ellipse at 20% 0%, var(--brand-panel-bg-start) 0%, var(--brand-panel-bg-mid) 55%, var(--brand-panel-bg-end) 100%);
   overflow: hidden;
   isolation: isolate;
 }
@@ -213,13 +202,13 @@ withDefaults(
   font-size: 1.0625rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--brand-text);
+  color: var(--brand-panel-text);
 }
 
 .auth-brand__version {
   font-family: var(--font-family-mono);
   font-size: 0.75rem;
-  color: rgba(243, 246, 251, 0.45);
+  color: var(--brand-panel-text-dim);
   letter-spacing: 0.08em;
 }
 
@@ -242,12 +231,12 @@ withDefaults(
 
 .auth-brand__headline-line {
   display: block;
-  color: rgba(243, 246, 251, 0.92);
+  color: var(--brand-panel-text);
 }
 
 .auth-brand__headline-line--accent {
   color: transparent;
-  background: linear-gradient(120deg, var(--brand-accent-soft) 0%, var(--brand-accent-green) 100%);
+  background: linear-gradient(120deg, var(--brand-panel-accent-soft) 0%, var(--brand-panel-accent-green) 100%);
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -256,7 +245,7 @@ withDefaults(
   margin: 0 0 2.25rem;
   font-size: 0.9375rem;
   line-height: 1.65;
-  color: var(--brand-text-muted);
+  color: var(--brand-panel-text-muted);
   max-width: 42ch;
 }
 
@@ -295,7 +284,7 @@ withDefaults(
 }
 
 .auth-brand__signal-dot.breathe-dot {
-  background: var(--brand-accent-soft);
+  background: var(--brand-panel-accent-soft);
   box-shadow: 0 0 10px rgba(107, 180, 232, 0.6);
 }
 
@@ -305,7 +294,7 @@ withDefaults(
   gap: 0.5rem;
   font-family: var(--font-family-mono);
   font-size: 0.75rem;
-  color: var(--brand-text-dim);
+  color: var(--brand-panel-text-dim);
   letter-spacing: 0.04em;
 }
 
@@ -313,7 +302,7 @@ withDefaults(
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--brand-accent-green);
+  background: var(--brand-panel-accent-green);
   box-shadow: 0 0 8px rgba(159, 208, 168, 0.7);
 }
 

@@ -66,18 +66,28 @@ const { t } = useI18n()
   border-radius: var(--radius-lg);
   padding: var(--spacing-md);
   min-height: 106px;
-  color: var(--text-on-accent);
   box-shadow: var(--shadow-card);
 }
 
-/* ISS-011 修复：改用 CSS 变量定义的渐变令牌，避免硬编码 */
-.accent-blue { background: var(--gradient-blue); }
-.accent-green { background: var(--gradient-green); }
-.accent-gold { background: var(--gradient-gold); }
+/* 蓝底在浅色主题是深蓝（白字 5.3:1），暗色主题被提亮成浅蓝（白字仅 3.0:1），
+   所以用跟随主题的 --text-on-accent；绿/金底两套主题都偏亮，固定深墨色。 */
+.accent-blue {
+  background: var(--gradient-blue);
+  color: var(--text-on-accent);
+}
+
+.accent-green {
+  background: var(--gradient-green);
+  color: var(--text-on-light-accent);
+}
+
+.accent-gold {
+  background: var(--gradient-gold);
+  color: var(--text-on-light-accent);
+}
 
 .stat-label {
   font-size: var(--font-size-extra-small);
-  opacity: 0.9;
 }
 
 .stat-value {
@@ -89,6 +99,5 @@ const { t } = useI18n()
 .stat-desc {
   margin-top: 4px;
   font-size: var(--font-size-extra-small);
-  opacity: 0.95;
 }
 </style>

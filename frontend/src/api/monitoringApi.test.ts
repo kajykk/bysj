@@ -7,7 +7,7 @@ vi.mock('./request', () => ({
   requestData: vi.fn(async (p: Promise<{ data: unknown }>) => (await p).data),
 }))
 
-import request, { dedupedGet, requestData } from './request'
+import { dedupedGet, requestData } from './request'
 import { monitoringApi } from './monitoringApi'
 
 describe('api/monitoringApi', () => {
