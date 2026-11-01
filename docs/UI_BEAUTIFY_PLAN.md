@@ -102,12 +102,14 @@
 ### UI-B2 版式规范与仪表盘栅格
 **目标**：解决"大卡空、密排挤"。
 
-- 出 A/B 两版样张（纯 CSS 改动，不引依赖）：A 四卡等宽一行；B Hero 保留大卡但与副卡组同高 → **你选一版后再提交**
+- 出 A/B 两版样张（纯 CSS 改动，不引依赖）：A 四卡等宽一行；B Hero 保留大卡但与副卡组同高 → **已选 B（2026-11-01）**
 - `StatCardsSection.vue:114-119` 栅格与 `:121-125` 副指标网格按选定方案重排；`:210-228` 响应式断点同步
 - `AdminDashboard.vue:142-146` 底部栅格（1.85fr 1fr）与 `:149-153` 响应式同步
 - 卡片统一：圆角、描边、内边距、标题字重/字阶
 - 侧边栏分组标题独立样式（`SidebarMenu.vue:59-68`），折叠态分隔线（`:70-75`）对齐
-- **验收**：仪表盘明/暗各 2 张截图（选型前后对照）；顶栏/侧栏/内容区三处高度与间距对齐
+- **实施结果**：统计区 `minmax(0,1.4fr) / repeat(3,minmax(0,1fr))`；底部 `minmax(0,1.85fr) / minmax(0,1fr)`；卡片统一 `--surface-1` + `--card-border` + `--radius-lg` + `--spacing-lg` + `--shadow-light`，hover 用 `--shadow-card-hover`；标题字阶 `--font-size-medium` / `--font-weight-semibold`
+- **验证中修掉的两个真实缺陷**：① 侧栏分组标题用 `el-menu-item disabled`，Element Plus 强制 `opacity: .25` 且首个分组因 index 命中当前路由而吸附激活色；改为纯展示 `<li>`，对比度 6.01:1（浅）/ 7.42:1（深）。② 侧栏被菜单内容撑到 1080px，页脚盖住末尾导航项；改为 `sticky + 100dvh`，菜单区 `min-height:0` 可滚动并预留 72px 页脚高度
+- **验收**：仪表盘明/暗各 2 张截图（A/B 样张 + 定稿）；顶栏/侧栏/内容区三处高度与间距对齐
 - **门禁**：`p1-15-stats-cards.test.ts`（9 个统计卡组件断言）、`AdminDashboard.test.ts`
 - **回滚**：`git revert <sha>`
 
@@ -181,6 +183,7 @@ npx playwright test          # 涉及交互的批次必跑
 | 图表按需引入被源码断言 | `src/config/perf-p2-bundle.test.ts:29-59` | UI-B4 保留 `utils/echarts.ts` 现有结构，只在组件层迁移 |
 | 覆盖率阈值 50%/40% | `frontend/vitest.config.ts:36-41` | 新增组件需带测试，避免掉线 |
 | Element Plus 暗色覆盖不全 | `theme.scss:105-167` | UI-B1 抽样 12 类组件逐个看图 |
+| Element Plus 禁用态强制 `opacity: .25` | `el-menu-item.is-disabled` 等 | 需要可读文字时不要复用 `disabled`，改用纯展示元素（UI-B2 侧栏分组标题已按此修正） |
 | 暗色 CSS 被加载两次 | `main.ts:24` 静态 + `useTheme.ts:42` 动态 | UI-B1 顺带收敛为一处 |
 | 硬编码 hex 430 处 | `frontend/src` 全量 | UI-B7 清理 43 处生产代码，其余登记不强制 |
 
@@ -190,7 +193,7 @@ npx playwright test          # 涉及交互的批次必跑
 |---|---|---|---|---|
 | UI-B0 | `4b50a47` | vitest 113 文件 / 1367 通过 / 4 跳过；基线读数在 §7.1 | `outputs/ui-refresh/B0-baseline/`（12 张，gitignored） | 已完成 |
 | UI-B1 | `d69479c` | vitest 114 文件 / 1445 通过 / 4 跳过；typecheck 0；build 0；契约 78 用例全绿 | `outputs/ui-refresh/B1-dark-surfaces/`（主页面 12 张 + EP 组件 7 张） | 已完成 |
-| UI-B2 | | | | 待开始（A/B 样张待选） |
+| UI-B2 | `0feeb11` + `be79425` | vitest 114 文件 / 1445 通过 / 4 跳过；typecheck 0；build 0；lint 0；栅格/对比度探针见 §7.1 | `outputs/ui-refresh/B2-ab/`（A/B 样张 4 张）+ `B2-hero-grid/`（12 张） | 已完成 |
 | UI-B3 | | | | 待开始 |
 | UI-B4 | | | | 待开始 |
 | UI-B5 | | | | 待开始 |
@@ -206,9 +209,14 @@ npx playwright test          # 涉及交互的批次必跑
 | B1 类型 | `npm run typecheck` | exit 0 |
 | B1 构建 | `npm run build` | exit 0 |
 | B1 样式契约 | `npx vitest run src/styles/tokens.contract.test.ts` | 78/78 通过（37 覆盖 + 33 明暗分叉 + 8 层级/对比度） |
+| B2 回归 | `npx vitest run` | 114 文件 / 1445 通过 / 4 跳过 / 1449，52.03s |
+| B2 类型 | `npm run typecheck` | exit 0 |
+| B2 构建 | `npm run build` | exit 0（19.61s，PWA precache 148 项） |
+| B2 布局探针 | Playwright 1440×900 | 四卡同排 y=195 / h=194；Hero 405px、副卡 234px×3；底部 750/406；overflowX 0；aside 900px；菜单 scrollH 1087 > clientH 843；滚到底部最后一项 bottom 826 < 页脚 top 835 |
+| B2 对比度 | 相对亮度计算 | 侧栏分组标题 6.01:1（浅 #5a6470/白）/ 7.42:1（深 #a0a8b4/#131820） |
 
 B1 暗色抽检覆盖：el-card、el-table、el-dialog、el-select、el-date-picker、el-tabs、el-form、el-input、el-button、el-tag、el-progress、el-descriptions。抽检截图在 `outputs/ui-refresh/B1-dark-surfaces/ep/`；报告页任务列表原本为空，`el-progress` 用 Playwright 路由注入一条 42% 的进行中任务后采集。
 
-## 8. 待你确认的唯一开放项
+## 8. 已确认项
 
-UI-B2 的仪表盘栅格方案 A（四卡等宽一行）还是 B（Hero 保留大卡但与副卡组同高）——会在 UI-B2 批次里出两版截图再定，其余按本计划执行。
+UI-B2 仪表盘栅格采用**方案 B（Hero 保留大卡，与三张副卡同排同高）**，已于 2026-11-01 确认并落地。当前无待确认的开放项。
