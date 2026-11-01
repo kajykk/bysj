@@ -175,7 +175,16 @@
 - 清理生产代码硬编码 hex：优先 `chartPalette.ts`、`AuthBrandPanel.vue`、`RiskReportTab.vue`、`sharedChartUtils.ts`、`chartTheme.ts`（合计约 43 处），其余登记台账不强制
 - 截图基线对比：改造前 vs 改造后并排存档到 `outputs/ui-refresh/final/`
 - 文档：`frontend/src/styles/README.md`（若不存在则新建）写明"新增组件该用哪些 token"的规约
+- **实施结果（契约，127 例）**：重写为全量口径——解析 `variables.scss` / `theme.scss` 的 `:root` 与 `html.dark`，建立「浅色全集 / 暗色覆盖 / 生效暗色」三张表；浅色每个令牌必须有暗色落点或显式主题无关豁免（前缀 + 精确名单，失效豁免会被抓出）；暗色不得出现浅色未定义的孤儿；Element Plus `--el-*` 明暗全量对齐；暗色不得原样复制浅色（`var()` 间接引用登记到 `SAME_VALUE_ALLOWED`）；原有 REQUIRED / MUST_DIVERGE 保留并把 `--text-on-accent` 纳入
+- **对比度回归**：正文三级（primary / regular / secondary）× 四个表面（surface-1/2/3 + bg-page）≥4.5:1；表面层级亮度严格递减；强调底文字 × 渐变两端 ≥4.5:1；语义浅底 × `*-strong` ≥4.5:1；图表色 × 背景 ≥3:1；`chartPalette.ts` 静态镜像与浅色令牌逐项一致
+- **强调底文字修正**：新增 `--text-on-accent`（浅色白字 / 暗色 `#0b0f14`）与 `--text-on-light-accent`（两套主题固定 `#0b0f14`）。暗色品牌蓝渐变原来的白字只有 3.0:1，改深墨后最差 4.74:1；浅色蓝渐变白字最差 4.62:1；绿 / 金渐变两套主题共用深墨，最差 5.84 / 7.30:1。训练页三张统计卡、侧栏徽标、风险报告建议序号改用新令牌
+- **hex 收口**：`AuthBrandPanel` 的 8 个固定品牌色收敛到 `--brand-panel-*`（登录面板始终深色，登记为主题无关令牌）；`chartTheme`、`reportTrendOption`、`RiskTrendChart`、`UserReportsPage` 的分散兜底色统一到 `chartPalette.STATIC_FALLBACK_COLORS`（唯一允许的静态镜像）；路由进度条 `#409eff` → `--primary-color`；`riskFormatters` 色板注释声明为 `--risk-*` 的 el-tag 背景镜像。优先文件 `RiskReportTab.vue`、`sharedChartUtils.ts` 检查时已无 hex。生产代码 6 位 hex 53 → 31，全部登记 README 台账
+- **文档**：新增 `frontend/src/styles/README.md`——加载顺序、表面 / 文字 / 语义 / 强调底 / 图表 / 间距选色速查、新增令牌四条规矩、31 处存量 hex 台账、契约覆盖范围
+- **验证**：契约 127/127；全量 vitest 116 文件 / 1505 通过 / 4 跳过 / 1509，49.16s（B6 为 1475）；typecheck 0；lint 0 error；build 17.84s，precache 152 项 / 9291.65 KiB（B6 为 9291.11 KiB）；Playwright 13 spec / 43 用例（3 个 project），`--workers=1` 下 36 通过 / 7 跳过 / 0 失败，1.5m
+- **截图存档**：`outputs/ui-refresh/final/`——14 个主路径页面（admin 6 + user 5 + counselor 3）× 明暗 28 张 fullPage；before 取自 B0 基线（admin）与 B6 铺开（user / counselor），生成 28 组并排对照（`pairs/*-before-after.png` + 28 个查看页）；`manifest.json` 记录每张生效令牌，训练卡探针证明浅色蓝卡白字、绿 / 金卡深墨，暗色三卡均深墨
+- **遗留**：Element Plus 内置实色按钮（`type="success" / "warning" / "info"`）仍为白字，对当前 `#5a9e3a` / `#d4923a` / `#909399` 仅 3.29 / 2.63 / 3.08:1，暗色更差（2.45 / 2.13:1）；属组件库默认样式，统一改文字色会改全站按钮观感，另开专项处理，不在本批夹带
 - **验收**：`lint` / `typecheck` / `vitest` / `build` / `e2e` 全绿；契约与对比度测试通过
+- **回滚**：`git revert cd890c4`
 
 ## 5. 每批通用验证清单
 
@@ -201,7 +210,8 @@ npx playwright test          # 涉及交互的批次必跑
 | Element Plus 暗色覆盖不全 | `theme.scss:105-167` | UI-B1 抽样 12 类组件逐个看图 |
 | Element Plus 禁用态强制 `opacity: .25` | `el-menu-item.is-disabled` 等 | 需要可读文字时不要复用 `disabled`，改用纯展示元素（UI-B2 侧栏分组标题已按此修正） |
 | 暗色 CSS 被加载两次 | `main.ts:24` 静态 + `useTheme.ts:42` 动态 | UI-B1 顺带收敛为一处 |
-| 硬编码 hex 430 处 | `frontend/src` 全量 | UI-B7 清理 43 处生产代码，其余登记不强制 |
+| 硬编码 hex 430 处 | `frontend/src` 全量 | UI-B7 后生产代码剩 31 处，已登记 `src/styles/README.md` 台账；新增硬编码色必须说明类别 |
+| Element Plus 实色按钮白字 | `el-button type="success"/"warning"/"info"` | 组件库默认白字对当前令牌仅 2.13–3.29:1，低于 AA；B7 已记录，另开专项统一处理 |
 | Iconify 完整集合超体积预算 | `@iconify-json/tabler` | 只登记用到的图标，跑 `scripts/gen-tabler-subset.mjs` 重新生成子集（UI-B3 已按此落地） |
 
 ## 7. 进度表（执行时逐行填写）
@@ -215,7 +225,7 @@ npx playwright test          # 涉及交互的批次必跑
 | UI-B4 | `94673a8` | vitest 115 文件 / 1449 通过 / 4 跳过；typecheck 0；build 0；lint 0；charts chunk 698.30KB | `outputs/ui-refresh/B4-charts/`（6 张，gitignored） | 已完成 |
 | UI-B5 | `4dc11d7` | vitest 116 文件 / 1456 通过 / 4 跳过；typecheck 0；build 0；lint 0；precache 152 项 / 9290.78 KiB | `outputs/ui-refresh/B5-motion/`（4 张，gitignored） | 已完成 |
 | UI-B6 | `e5a5d30` | vitest 116 文件 / 1475 通过 / 4 跳过；typecheck 0；build 0；lint 0；e2e 27 通过 / 5 跳过 / 0 失败（workers=1）；precache 152 项 / 9291.11 KiB | `outputs/ui-refresh/B6-rollout/`（16 张：user 5 页 + counselor 3 页 × 明暗，gitignored） | 已完成 |
-| UI-B7 | | | | 待开始 |
+| UI-B7 | `cd890c4` | vitest 116 文件 / 1505 通过 / 4 跳过；typecheck 0；build 0；lint 0；e2e 36 通过 / 7 跳过 / 0 失败（workers=1）；契约 127/127；precache 152 项 / 9291.65 KiB | `outputs/ui-refresh/final/`（14 页 × 明暗 28 张 + 28 组并排 before/after，gitignored） | 已完成 |
 
 ### 7.1 读数明细
 
@@ -251,6 +261,14 @@ npx playwright test          # 涉及交互的批次必跑
 | B6 构建 | `npm run build` | exit 0（16.51s，PWA precache 152 项 / 9291.11 KiB；B5 为 9290.78 KiB；charts chunk 698.30KB 不变） |
 | B6 e2e | `npx playwright test --project=chromium --workers=1` | 13 spec / 32 用例：27 通过 / 5 跳过 / 0 失败，1.1m；默认并发下 `key-flows` token 刷新用例会与同账号其他 spec 竞争，串行（CI 口径）稳定全绿 |
 | B6 明暗截图 | 临时 Playwright 脚本（采集后删除） | user dashboard/risk/reports/intervention/model-training + counselor dashboard/warnings/users × 明暗 16 张；暗色侧栏底部白块经视口截图与 `elementsFromPoint` 排除，确认为 fullPage 对 sticky 侧栏的拼接伪影 |
+| B7 样式契约 | `npx vitest run src/styles/tokens.contract.test.ts` | 127/127 通过（全量明暗覆盖、暗色孤儿、豁免失效、EP 对齐、明暗分歧、文字 × 表面、强调底 × 渐变、语义浅底、图表 3:1、静态镜像） |
+| B7 回归 | `npx vitest run` | 116 文件 / 1505 通过 / 4 跳过 / 1509，49.16s（B6 为 1475，+30） |
+| B7 类型 | `npm run typecheck` | exit 0 |
+| B7 构建 | `npm run build` | exit 0（17.84s，PWA precache 152 项 / 9291.65 KiB；B6 为 9291.11 KiB） |
+| B7 lint | `npm run lint` | 0 error（仅存量 warning；顺带清掉 3 个未使用导入） |
+| B7 e2e | `npx playwright test --workers=1` | 13 spec / 43 用例（chromium + smoke + regression）：36 通过 / 7 跳过 / 0 失败，1.5m |
+| B7 对比度探针 | Playwright computed style + 相对亮度计算 | 训练卡文字：浅色蓝白字 5.31–4.62:1、绿 5.84–7.85:1、金 7.30–10.10:1；暗色蓝深墨 6.36–4.74:1、绿 7.84–5.84:1、金 9.02–7.30:1 |
+| B7 明暗截图 | 临时 Playwright 脚本 | 14 路由 × 明暗 28 张 fullPage；`manifest.json` 记录生效令牌；`pairs/` 28 组并排对照由 B0（admin）与 B6（user/counselor）before + B7 after 合成 |
 
 B1 暗色抽检覆盖：el-card、el-table、el-dialog、el-select、el-date-picker、el-tabs、el-form、el-input、el-button、el-tag、el-progress、el-descriptions。抽检截图在 `outputs/ui-refresh/B1-dark-surfaces/ep/`；报告页任务列表原本为空，`el-progress` 用 Playwright 路由注入一条 42% 的进行中任务后采集。
 
