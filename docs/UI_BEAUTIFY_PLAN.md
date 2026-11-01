@@ -188,14 +188,26 @@ npx playwright test          # 涉及交互的批次必跑
 
 | 批次 | 提交 SHA | 验证读数（vitest/build/e2e） | 截图目录 | 状态 |
 |---|---|---|---|---|
-| UI-B0 | | | | 待开始 |
-| UI-B1 | | | | 待开始 |
+| UI-B0 | `4b50a47` | vitest 113 文件 / 1367 通过 / 4 跳过；基线读数在 §7.1 | `outputs/ui-refresh/B0-baseline/`（12 张，gitignored） | 已完成 |
+| UI-B1 | `d69479c` | vitest 114 文件 / 1445 通过 / 4 跳过；typecheck 0；build 0；契约 78 用例全绿 | `outputs/ui-refresh/B1-dark-surfaces/`（主页面 12 张 + EP 组件 7 张） | 已完成 |
 | UI-B2 | | | | 待开始（A/B 样张待选） |
 | UI-B3 | | | | 待开始 |
 | UI-B4 | | | | 待开始 |
 | UI-B5 | | | | 待开始 |
 | UI-B6 | | | | 待开始 |
 | UI-B7 | | | | 待开始 |
+
+### 7.1 读数明细
+
+| 批次 | 命令 | 读数 |
+|---|---|---|
+| B0 基线 | `npx vitest run --silent` | 113 文件 / 1367 通过 / 4 跳过 / 1371，65.03s |
+| B1 回归 | `npx vitest run --silent` | 114 文件 / 1445 通过 / 4 跳过 / 1449，47.30s |
+| B1 类型 | `npm run typecheck` | exit 0 |
+| B1 构建 | `npm run build` | exit 0 |
+| B1 样式契约 | `npx vitest run src/styles/tokens.contract.test.ts` | 78/78 通过（37 覆盖 + 33 明暗分叉 + 8 层级/对比度） |
+
+B1 暗色抽检覆盖：el-card、el-table、el-dialog、el-select、el-date-picker、el-tabs、el-form、el-input、el-button、el-tag、el-progress、el-descriptions。抽检截图在 `outputs/ui-refresh/B1-dark-surfaces/ep/`；报告页任务列表原本为空，`el-progress` 用 Playwright 路由注入一条 42% 的进行中任务后采集。
 
 ## 8. 待你确认的唯一开放项
 
