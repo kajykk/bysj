@@ -145,11 +145,14 @@
 **目标**：列表与卡片的增删有连续性。
 
 - 引入 `@formkit/auto-animate@0.10.0`；封装 `frontend/src/directives/autoAnimate.ts`
-- 与既有 `styles/transitions.scss`（375 行 Vue transition 库）划界：**既有 transition 保留**，auto-animate 只用于 v-for 列表增删、Tab 切换、弹层进出
+- 与既有 `styles/transitions.scss`（375 行 Vue transition 库）划界：**既有 transition 保留**；auto-animate 只负责「同一容器内子节点增删/移动」，Element Plus 弹层/页签的进出过渡仍由组件自身接管（避免重复动画）
 - 尊重 `prefers-reduced-motion`（须在 directive 内显式关闭）
+- **实施结果**：指令在挂载时创建控制器并读取 `matchMedia('(prefers-reduced-motion: reduce)')`；命中减动效或绑定 `false` 即 `controller.disable()`，并监听媒体查询变化实时启停；`duration/easing` 只在挂载时生效（auto-animate 无更新配置 API，重建会叠加 observer）；无 Web Animations API 的环境（jsdom/老浏览器）直接不挂 observer
+- **实际接入范围**：`TaskProgressNotification` 任务栈（220ms）、`AdminSilencesPage` 生效静默标签（180ms）、`AdminAuditLogsPage` 分类标签（180ms）。三处均为「容器先存在、子项后续增删」的真实动态列表；首屏整块进出继续由既有 Vue `Transition` 负责
+- **验证**：浏览器内点击「关闭」移除一条任务，正常模式下 `.task-progress-item` 检测到 WAAPI 动画；`page.emulateMedia({ reducedMotion: 'reduce' })` 下同一动作动画数为 0
 - **验收**：列表增删、Tab 切换无闪烁；reduced-motion 下无动画
-- **门禁**：全量 `vitest`、`eslint`
-- **回滚**：`git revert <sha>`
+- **门禁**：全量 `vitest`、`eslint`、`typecheck`、`build`；新增 `autoAnimate.test.ts`（7 例：参数过滤/disabled 切换/减动效启停/布尔绑定/绕过防护/卸载清理/无 WAAPI 兜底）
+- **回滚**：`git revert <sha>`（依赖在 package.json 同一提交内）
 
 ### UI-B6 全端铺开
 **目标**：把 B1–B5 的规范套到 user（10 页）与 counselor（7 页）端。
@@ -203,7 +206,7 @@ npx playwright test          # 涉及交互的批次必跑
 | UI-B2 | `0feeb11` + `be79425` | vitest 114 文件 / 1445 通过 / 4 跳过；typecheck 0；build 0；lint 0；栅格/对比度探针见 §7.1 | `outputs/ui-refresh/B2-ab/`（A/B 样张 4 张）+ `B2-hero-grid/`（12 张） | 已完成 |
 | UI-B3 | `13a83f0` | vitest 115 文件 / 1447 通过 / 4 跳过；typecheck 0；build 0；lint 0；图标 chunk 2.1KB gzip | `outputs/ui-refresh/B3-icons/`（12 张）+ `B3-icons/roles/`（4 张） | 已完成 |
 | UI-B4 | `94673a8` | vitest 115 文件 / 1449 通过 / 4 跳过；typecheck 0；build 0；lint 0；charts chunk 698.30KB | `outputs/ui-refresh/B4-charts/`（6 张，gitignored） | 已完成 |
-| UI-B5 | | | | 待开始 |
+| UI-B5 | `4dc11d7` | vitest 116 文件 / 1456 通过 / 4 跳过；typecheck 0；build 0；lint 0；precache 152 项 / 9290.78 KiB | `outputs/ui-refresh/B5-motion/`（4 张，gitignored） | 已完成 |
 | UI-B6 | | | | 待开始 |
 | UI-B7 | | | | 待开始 |
 
@@ -231,6 +234,10 @@ npx playwright test          # 涉及交互的批次必跑
 | B4 类型 | `npm run typecheck` | exit 0 |
 | B4 构建 | `npm run build` | exit 0（18.80s，PWA precache 151 项 / 9281.12 KiB；B3 为 150 项 / 9265.81 KiB；charts chunk 698.30KB） |
 | B4 渲染验证 | Playwright 1440×900 | 系统监控成功率折线、评估报告趋势折线 + 因子环形图、模型评估对比柱 × 明暗 6 张；暗色下轴文本/图例/描边随令牌切换，无 canvas 0 尺寸告警 |
+| B5 回归 | `npx vitest run` | 116 文件 / 1456 通过 / 4 跳过 / 1460，42.18s（B4 为 1449） |
+| B5 类型 | `npm run typecheck` | exit 0 |
+| B5 构建 | `npm run build` | exit 0（16.97s，PWA precache 152 项 / 9290.78 KiB；B4 为 151 项 / 9281.12 KiB；新增 auto-animate 单文件 8,406B raw） |
+| B5 动效验证 | Playwright 1440×900 | 移除任务：正常模式 `.task-progress-item` 动画数 >0；`reducedMotion: reduce` 下同动作动画数 = 0；静默标签明暗渲染正常 |
 
 B1 暗色抽检覆盖：el-card、el-table、el-dialog、el-select、el-date-picker、el-tabs、el-form、el-input、el-button、el-tag、el-progress、el-descriptions。抽检截图在 `outputs/ui-refresh/B1-dark-surfaces/ep/`；报告页任务列表原本为空，`el-progress` 用 Playwright 路由注入一条 42% 的进行中任务后采集。
 
