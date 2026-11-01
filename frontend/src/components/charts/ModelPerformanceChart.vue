@@ -11,7 +11,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
-import { chartColors } from '@/utils/chartTheme'
+import { useChartColors } from '@/utils/chartTheme'
 import type { EChartsCoreOption } from 'echarts/core'
 
 const { t } = useI18n()
@@ -48,10 +48,12 @@ const handleChartReady = (instance: unknown) => {
   emit('chartReady', instance)
 }
 
+const colors = useChartColors()
+
 const chartOption = computed<EChartsCoreOption>(() => {
   const models = props.data.map((d) => d.name)
   // 统一读取设计令牌，避免硬编码旧主色 #3b82c4 与全局主色不一致
-  const c = chartColors()
+  const c = colors.value
 
   return {
     title: {

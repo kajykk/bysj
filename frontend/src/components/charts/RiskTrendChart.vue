@@ -11,8 +11,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseChart from './BaseChart.vue'
-import { readChartVar } from '@/utils/chartTheme'
-import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
+import { useChartColors } from '@/utils/chartTheme'
 import type { EChartsCoreOption } from 'echarts/core'
 
 const { t } = useI18n()
@@ -49,13 +48,16 @@ const handleChartReady = (instance: unknown) => {
   emit('chartReady', instance)
 }
 
+const colors = useChartColors()
+
 const chartOption = computed<EChartsCoreOption>(() => {
   // 图表配色读取 CSS 变量令牌，与 variables.scss 统一（回退值统一取自 chartPalette）
-  const colorPrimary = readChartVar('--chart-color-primary', CHART_PALETTE.primary)
-  const colorDanger = readChartVar('--chart-color-danger', CHART_PALETTE.danger)
-  const colorSuccess = readChartVar('--chart-color-success', CHART_PALETTE.success)
-  const areaStart = readChartVar('--chart-color-primary-area', withAlpha(CHART_PALETTE.primary, 0.25))
-  const areaEnd = readChartVar('--chart-color-primary-area-end', withAlpha(CHART_PALETTE.primary, 0.04))
+  const c = colors.value
+  const colorPrimary = c.primary
+  const colorDanger = c.danger
+  const colorSuccess = c.success
+  const areaStart = c.primaryAreaStart
+  const areaEnd = c.primaryAreaEnd
 
   const dates = props.data.map((d) => d.date)
   const values = props.data.map((d) => d.value)

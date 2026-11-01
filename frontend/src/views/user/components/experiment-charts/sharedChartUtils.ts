@@ -1,14 +1,7 @@
 /**
- * 实验图表共享工具：颜色常量、类型定义、公共配置。
+ * 实验图表共享工具：类型定义与公共配置。
+ * 颜色统一由 @/utils/chartTheme 读取设计令牌，这里不再保留静态色板。
  */
-
-/** 图表配色（与原 ExperimentTab 内联配色保持一致） */
-export const CHART_COLORS = {
-  loss: '#2e6fa8',
-  accuracy: '#5a9e3a',
-  /** 对比柱状图各指标配色 */
-  compareSeries: ['#2e6fa8', '#5a9e3a', '#d4923a', '#d65a5a', '#7a8290'],
-} as const
 
 /** 对比实验指标键名 */
 export const COMPARE_METRICS = ['accuracy', 'precision', 'recall', 'f1', 'auc'] as const

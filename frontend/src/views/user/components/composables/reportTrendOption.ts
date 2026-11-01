@@ -6,7 +6,8 @@
  */
 
 import { echarts } from '@/utils/echarts'
-import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
+import { chartColors, readChartVar } from '@/utils/chartTheme'
+import { withAlpha } from '@/utils/chartPalette'
 import { escapeHtml } from '@/utils/security'
 import type { RiskTrend } from '@/api/modelApi'
 import type { Composer } from 'vue-i18n'
@@ -25,6 +26,11 @@ export function buildReportTrendOption(
   t: Translate,
 ): Record<string, unknown> {
   const points = Array.isArray(trend.points) ? trend.points : []
+  const c = chartColors()
+  const textPrimary = readChartVar('--text-primary', '#2c3340')
+  const textSecondary = readChartVar('--text-secondary', '#6a727f')
+  const tooltipBg = readChartVar('--surface-1', '#ffffff')
+  const tooltipBorder = readChartVar('--card-border', '#e2e7ee')
   const dates = points.map((p) => p.date)
   const valueOrNull = (value: number | null | undefined) =>
     typeof value === 'number' ? value : null
@@ -46,6 +52,10 @@ export function buildReportTrendOption(
   return {
     tooltip: {
       trigger: 'axis',
+      backgroundColor: tooltipBg,
+      borderColor: tooltipBorder,
+      borderWidth: 1,
+      textStyle: { color: textPrimary },
       formatter: (params: unknown) => {
         const items = Array.isArray(params)
           ? (params as TrendTooltipItem[])
@@ -79,11 +89,21 @@ export function buildReportTrendOption(
         t('riskReport.legendText'),
         t('riskReport.legendPhysiological'),
       ],
-      textStyle: { fontSize: 11 },
+      textStyle: { fontSize: 11, color: textSecondary },
     },
     grid: { left: 40, right: 20, top: 42, bottom: 30 },
-    xAxis: { type: 'category', data: dates, axisLabel: { fontSize: 11 } },
-    yAxis: { type: 'value', min: 0, max: 100, axisLabel: { fontSize: 11 } },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLabel: { fontSize: 11, color: textSecondary },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 100,
+      axisLabel: { fontSize: 11, color: textSecondary },
+      splitLine: { lineStyle: { color: tooltipBorder } },
+    },
     graphic: points.length
       ? []
       : [
@@ -93,7 +113,7 @@ export function buildReportTrendOption(
             top: 'middle',
             style: {
               text: t('riskReport.noTrendData'),
-              fill: CHART_PALETTE.info,
+              fill: c.info,
               fontSize: 14,
             },
           },
@@ -104,15 +124,15 @@ export function buildReportTrendOption(
         type: 'line',
         data: points.map((p) => p.risk_score),
         smooth: true,
-        // VIS-P4-01：主色渐变/系列色统一取自 chartPalette
+        // UI-B4：主色渐变/系列色读取设计令牌，静态 chartPalette 仅作兜底
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: withAlpha(CHART_PALETTE.primary, 0.3) },
-            { offset: 1, color: withAlpha(CHART_PALETTE.primary, 0.02) },
+            { offset: 0, color: withAlpha(c.primary, 0.3) },
+            { offset: 1, color: withAlpha(c.primary, 0.02) },
           ]),
         },
-        lineStyle: { color: CHART_PALETTE.primary, width: 2 },
-        itemStyle: { color: CHART_PALETTE.primary },
+        lineStyle: { color: c.primary, width: 2 },
+        itemStyle: { color: c.primary },
       },
       {
         name: t('riskReport.legendStructured'),
@@ -120,8 +140,8 @@ export function buildReportTrendOption(
         data: points.map((p) => valueOrNull(p.structured_score)),
         smooth: true,
         connectNulls: true,
-        lineStyle: { color: CHART_PALETTE.success, width: 1.8 },
-        itemStyle: { color: CHART_PALETTE.success },
+        lineStyle: { color: c.success, width: 1.8 },
+        itemStyle: { color: c.success },
       },
       {
         name: t('riskReport.legendText'),
@@ -129,8 +149,8 @@ export function buildReportTrendOption(
         data: points.map((p) => valueOrNull(p.text_score)),
         smooth: true,
         connectNulls: true,
-        lineStyle: { color: CHART_PALETTE.warning, width: 1.8 },
-        itemStyle: { color: CHART_PALETTE.warning },
+        lineStyle: { color: c.warning, width: 1.8 },
+        itemStyle: { color: c.warning },
       },
       {
         name: t('riskReport.legendPhysiological'),
@@ -138,8 +158,8 @@ export function buildReportTrendOption(
         data: points.map((p) => valueOrNull(p.physiological_score)),
         smooth: true,
         connectNulls: true,
-        lineStyle: { color: CHART_PALETTE.danger, width: 1.8 },
-        itemStyle: { color: CHART_PALETTE.danger },
+        lineStyle: { color: c.danger, width: 1.8 },
+        itemStyle: { color: c.danger },
       },
     ],
   }

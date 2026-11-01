@@ -8,7 +8,7 @@ import { reportsApi } from '@/api/reportsApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import BaseChart from '@/components/charts/BaseChart.vue'
-import { CHART_SERIES_COLORS } from '@/utils/chartPalette'
+import { readChartVar, useChartColors, useChartSeriesColors } from '@/utils/chartTheme'
 import type { EChartsCoreOption } from '@/utils/echarts'
 import type { RiskReport, RiskTrend } from '@/api/userRiskApi'
 import { downloadBlob } from '@/utils/exportUtils'
@@ -62,22 +62,32 @@ function triggerBlobDownload(blob: Blob, filename: string) {
   downloadBlob(blob, filename)
 }
 
+const colors = useChartColors()
+const factorColors = useChartSeriesColors()
+
 const trendOption = computed<EChartsCoreOption>(() => {
   const points = trend.value?.points || []
   return {
     tooltip: { trigger: 'axis' },
     xAxis: { type: 'category', data: points.map((p) => p.date) },
     yAxis: { type: 'value' },
-    series: [{ name: t('user.riskScore'), type: 'line', data: points.map((p) => p.risk_score), smooth: true }],
+    series: [{
+      name: t('user.riskScore'),
+      type: 'line',
+      data: points.map((p) => p.risk_score),
+      smooth: true,
+      lineStyle: { color: colors.value.primary, width: 2 },
+      itemStyle: { color: colors.value.primary },
+    }],
   }
 })
 
-// VIS-P4-01 修复：复用统一图表色板，消除硬编码 hex
-const FACTOR_COLORS = CHART_SERIES_COLORS
 const factorOption = computed<EChartsCoreOption>(() => {
   const factors = (report.value?.main_factors || []).slice(0, 6)
   const data = factors.map((f) => ({ name: f.feature, value: Number(f.importance) || 0 }))
   if (!data.length) return {}
+  const palette = factorColors.value
+  const surface = readChartVar('--surface-1', '#ffffff')
   return {
     tooltip: { trigger: 'item' },
     legend: { type: 'scroll', orient: 'vertical', right: 10, top: 'middle' },
@@ -85,9 +95,9 @@ const factorOption = computed<EChartsCoreOption>(() => {
       type: 'pie',
       radius: ['42%', '70%'],
       avoidLabelOverlap: true,
-      itemStyle: { borderColor: '#fff', borderWidth: 2 },
+      itemStyle: { borderColor: surface, borderWidth: 2 },
       label: { show: false },
-      data: data.map((d, i) => ({ ...d, itemStyle: { color: FACTOR_COLORS[i % FACTOR_COLORS.length] } }))
+      data: data.map((d, i) => ({ ...d, itemStyle: { color: palette[i % palette.length] } }))
     }]
   }
 })

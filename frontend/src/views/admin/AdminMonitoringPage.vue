@@ -5,10 +5,12 @@ import { useI18n } from 'vue-i18n'
 import { monitoringApi, type MonitoringSummary, type RequestDetailsList, type RequestDetailItem, type ModelSuccessRatePoint } from '@/api/monitoringApi'
 import { showHttpFeedback } from '@/utils/httpFeedback'
 import BaseChart from '@/components/charts/BaseChart.vue'
+import { useChartColors } from '@/utils/chartTheme'
 import type { EChartsCoreOption } from '@/utils/echarts'
 import { maskSensitive } from './utils/monitoringUtils'
 
 const { t } = useI18n()
+const colors = useChartColors()
 
 const summary = ref<MonitoringSummary | null>(null)
 const successRate = ref<{ data: ModelSuccessRatePoint[] } | null>(null)
@@ -28,7 +30,13 @@ const successOption = computed<EChartsCoreOption>(() => ({
   xAxis: { type: 'category', data: (successRate.value?.data || []).map((p) => p.time_bucket) },
   // success_rate 后端为 0-100 百分比, yAxis max 须为 100
   yAxis: { type: 'value', max: 100 },
-  series: [{ type: 'line', data: (successRate.value?.data || []).map((p) => p.success_rate), smooth: true }],
+  series: [{
+    type: 'line',
+    data: (successRate.value?.data || []).map((p) => p.success_rate),
+    smooth: true,
+    lineStyle: { color: colors.value.primary, width: 2 },
+    itemStyle: { color: colors.value.primary },
+  }],
 }))
 
 async function loadAll() {

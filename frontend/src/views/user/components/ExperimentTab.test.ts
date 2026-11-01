@@ -21,6 +21,37 @@ vi.mock('@/utils/echarts', () => ({
   },
 }))
 
+// UI-B4: BaseChart 改用 vue-echarts，jsdom 无 canvas，用 stub 替代真实渲染
+vi.mock('vue-echarts', async () => {
+  const { defineComponent, h, onBeforeUnmount, onMounted } = await import('vue')
+  return {
+    default: defineComponent({
+      name: 'VChartStub',
+      props: {
+        option: { type: Object, default: () => ({}) },
+        theme: { type: [String, Object], default: undefined },
+        autoresize: { type: [Boolean, Object], default: false },
+        updateOptions: { type: Object, default: undefined },
+      },
+      emits: ['finished'],
+      setup(_props, { emit, expose }) {
+        onMounted(() => emit('finished'))
+        onBeforeUnmount(() => disposeMock())
+        expose({
+          chart: {
+            setOption: setOptionMock,
+            resize: resizeMock,
+            dispose: disposeMock,
+            dispatchAction: vi.fn(),
+            getDataURL: vi.fn(),
+          },
+        })
+        return () => h('div', { class: 'vchart-stub' })
+      },
+    }),
+  }
+})
+
 // 模拟 modelApi
 const { importDatasetMock, trainModelMock, evaluateModelMock, compareModelsMock } = vi.hoisted(() => ({
   importDatasetMock: vi.fn(),

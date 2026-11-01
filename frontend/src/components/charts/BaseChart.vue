@@ -1,6 +1,6 @@
 <template>
   <div
-    ref="chartRef"
+    ref="hostRef"
     class="base-chart"
     :style="chartStyle"
     role="img"
@@ -15,20 +15,33 @@
       :id="describedById"
       class="sr-only"
     >{{ description }}</span>
+    <VChart
+      v-if="active && hostReady"
+      ref="chartRef"
+      class="base-chart__canvas"
+      :option="chartOption"
+      :theme="effectiveTheme"
+      :autoresize="props.autoResize"
+      :update-options="updateOptions"
+      @finished="handleFinished"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, shallowRef, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, useId } from 'vue'
+import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-// H-12 修复：改用 @/utils/echarts 统一入口，避免重复注册组件，
-// 同时获得 HeatmapChart/VisualMapComponent 等图表支持（R-007 移除未使用的 RadarChart）。
-// ISS-086 TODO：图表高度目前依赖父组件传入固定像素值，移动端可考虑根据视口高度自适应（如 min(40vh, 300px)）
-// ISS-097 已修复：图表容器已具备 role="img" 与 aria-label（默认值取自 i18n charts.baseAriaLabel）
-// ISS-098 TODO：复杂多系列图表可补充 aria-describedby 关联数据摘要文本，提升屏幕阅读器信息完整性
-// ISS-100 已修复：图表容器已具备 role="img" 与 aria-label，并支持键盘 Enter/Space 触发 highlight
+import VChart from 'vue-echarts'
+import 'vue-echarts/style.css'
+import type { EChartsOption } from 'echarts'
+// 运行时副作用：注册按需图表与 CanvasRenderer，VChart 与业务共用同一份 echarts/core 单例
+import '@/utils/echarts'
+// H-12 修复：改用 @/utils/echarts 统一入口，避免重复注册组件。
+// ISS-086 TODO：图表高度目前依赖父组件传入固定像素值，移动端可考虑根据视口高度自适应。
+// ISS-097/ISS-100 已修复：容器具备 role="img"、aria-label 与键盘 Enter/Space 高亮。
+// ISS-098 TODO：复杂多系列图表可补充 aria-describedby 关联数据摘要文本。
 import { type ECharts, type EChartsCoreOption } from '@/utils/echarts'
-import { initChartWhenReady, type ChartInitHandle } from '@/utils/chartInit'
+import { chartEchartsTheme, chartThemeVersion } from '@/utils/chartTheme'
 
 const { t } = useI18n()
 
@@ -36,7 +49,7 @@ interface Props {
   option: EChartsCoreOption
   width?: string
   height?: string
-  theme?: string
+  theme?: string | Record<string, unknown>
   autoResize?: boolean
   ariaLabel?: string
   chartId?: string
@@ -57,15 +70,15 @@ const emit = defineEmits<{
   chartReady: [chart: ECharts]
 }>()
 
-const chartRef = ref<HTMLDivElement>()
-// FM-02 修复：使用 shallowRef 持有 ECharts 实例和 ResizeObserver。
-// shallowRef 避免 Vue 对大型第三方对象进行深度响应式代理（性能开销且可能触发 ECharts 内部警告），
-// 同时保持 per-instance 作用域语义（<script setup> 中每个实例独立）。
-const chartInstance = shallowRef<ECharts | null>(null)
-const resizeObserver = shallowRef<ResizeObserver | null>(null)
-// R-009 修复：使用 rAF 合并同一帧内的多次 ResizeObserver 回调，
-// 避免 ECharts resize 的同步布局计算阻塞主线程（尤其多图表页面）。
-let resizeRafId: number | null = null
+interface VChartExposed {
+  readonly chart?: ECharts
+  resize: () => void
+  dispatchAction: (payload: unknown) => void
+  getDataURL: (opts: { type: string; pixelRatio: number }) => string
+}
+
+const hostRef = useTemplateRef<HTMLDivElement>('hostRef')
+const chartRef = useTemplateRef<VChartExposed>('chartRef')
 
 const chartStyle = computed(() => ({
   width: props.width,
@@ -80,125 +93,80 @@ const effectiveChartId = computed(() => props.chartId || `chart-${generatedChart
 const describedById = computed(() => `${effectiveChartId.value}-desc`)
 const hasDescription = computed(() => Boolean(props.description))
 
-const validExportTypes = ['png', 'svg', 'jpeg'] as const
+const chartOption = computed(() => (props.option ?? {}) as unknown as EChartsOption)
+const updateOptions = { notMerge: true }
 
-// SEC-FIX (P1-6): 记录 init 句柄, disposeChart 时 cancel 未完成的重试链,
-// 防止对已卸载 DOM 创建无人 dispose 的"僵尸" ECharts 实例
-let initHandle: ChartInitHandle | null = null
-
-const initChart = () => {
-  if (!chartRef.value) return
-  if (chartInstance.value) return
-  if (initHandle) return
-  // 容器尺寸就绪后才 init，避免 tab 切换/布局未稳定时 0 尺寸初始化警告
-  initHandle = initChartWhenReady(chartRef.value, { theme: props.theme }, (instance) => {
-    // SEC-FIX (P1-6): 极端竞态下回调到达时组件已卸载 → 立即释放实例
-    if (!chartRef.value) {
-      instance.dispose()
-      return
-    }
-    // SEC-FIX (P2-6): 幂等防护——重复 init 不重复 emit/注册 ResizeObserver
-    if (chartInstance.value) {
-      instance.dispose()
-      return
-    }
-    initHandle = null
-    chartInstance.value = instance
-    // L-07 修复：处理空 option，避免渲染空白图表
-    if (props.option && Object.keys(props.option).length > 0) {
-      instance.setOption(props.option, true)
-    }
-    emit('chartReady', instance)
-
-    // 响应式调整
-    if (props.autoResize && chartRef.value) {
-      resizeObserver.value = new ResizeObserver(() => {
-        // R-009 修复：ResizeObserver 在布局变化时高频回调（含 sidebar 折叠、flex 变化等），
-        // 直接调用 chart.resize() 会同步触发 ECharts 布局重计算。
-        // 使用 requestAnimationFrame 将 resize 合并到下一帧，同一帧内多次回调只执行一次。
-        if (resizeRafId !== null) return
-        resizeRafId = requestAnimationFrame(() => {
-          resizeRafId = null
-          chartInstance.value?.resize()
-        })
-      })
-      resizeObserver.value.observe(chartRef.value)
-    }
-  })
-}
-
-const disposeChart = () => {
-  // SEC-FIX (P1-6): 取消未完成的重试链/ResizeObserver 兜底
-  initHandle?.cancel()
-  initHandle = null
-  if (resizeRafId !== null) {
-    cancelAnimationFrame(resizeRafId)
-    resizeRafId = null
-  }
-  if (resizeObserver.value && chartRef.value) {
-    resizeObserver.value.unobserve(chartRef.value)
-    resizeObserver.value.disconnect()
-  }
-  chartInstance.value?.dispose()
-  chartInstance.value = null
-}
-
-// H-16 修复：原仅监听引用变化，但部分父组件直接修改 option 内部字段不会触发更新。
-// M-FE-6 修复：添加 { deep: true } 以捕获 option 内部字段变更，确保图表同步刷新。
-watch(
-  () => props.option,
-  (newOption) => {
-    if (chartInstance.value && newOption && Object.keys(newOption).length > 0) {
-      chartInstance.value.setOption(newOption, true)
-      return
-    }
-    // SEC-FIX (P1-7): 实例尚未创建 (容器此前为 0 尺寸) 时, 数据到达即补一次 init
-    if (!chartInstance.value && newOption && Object.keys(newOption).length > 0) {
-      initChart()
-    }
-  },
-  { deep: true }
-)
-
-// L-FE-16 修复：onMounted 已在 DOM 挂载后执行，无需再套 nextTick
-onMounted(() => {
-  initChart()
+const effectiveTheme = computed(() => {
+  // 主题切换计数是依赖项：html.dark 变化时换新主题对象，触发 VChart 重新初始化
+  void chartThemeVersion.value
+  return props.theme ?? chartEchartsTheme()
 })
 
-// C-FE-4 修复：keep-alive 组件需要处理 onActivated/onDeactivated。
-// 否则 deactivate 时实例与 ResizeObserver 不会被清理（内存泄漏），
-// reactivate 时也不会重新初始化（图表空白）。
-onActivated(() => {
-  // 仅在实例已被清理时重新初始化（keep-alive 缓存但未卸载时 chartInstance 仍存在）
-  if (!chartInstance.value && chartRef.value) {
-    nextTick(() => initChart())
+// SEC-FIX (P1-6)：容器尺寸就绪后才挂载 VChart，避免 0 尺寸初始化警告与空白 canvas。
+// 测试环境 jsdom 无布局引擎，保持同步挂载以维持既有断言。
+const hostReady = ref(import.meta.env.MODE === 'test')
+const active = ref(true)
+let hostObserver: ResizeObserver | null = null
+
+const measureHost = () => {
+  const el = hostRef.value
+  if (!el) return
+  if (el.clientWidth > 0 && el.clientHeight > 0) {
+    hostReady.value = true
+    hostObserver?.disconnect()
+    hostObserver = null
   }
+}
+
+onMounted(() => {
+  measureHost()
+  if (hostReady.value || !hostRef.value || typeof ResizeObserver === 'undefined') return
+  hostObserver = new ResizeObserver(measureHost)
+  hostObserver.observe(hostRef.value)
+})
+
+// C-FE-4 修复：keep-alive 停用时卸载 VChart（随组件销毁实例与 ResizeObserver），
+// 激活后重新挂载，避免隐藏页持有 canvas 与监听器。
+onActivated(() => {
+  active.value = true
+  nextTick(measureHost)
 })
 
 onDeactivated(() => {
-  disposeChart()
+  active.value = false
 })
 
 onUnmounted(() => {
-  disposeChart()
+  hostObserver?.disconnect()
+  hostObserver = null
 })
 
-// 键盘事件处理
-const handleEnter = () => {
-  chartInstance.value?.dispatchAction({ type: 'highlight', seriesIndex: 0, dataIndex: 0 })
+let readyChart: ECharts | null = null
+
+const handleFinished = () => {
+  const chart = chartRef.value?.chart
+  if (!chart || chart === readyChart) return
+  readyChart = chart
+  emit('chartReady', chart)
 }
+
+const handleEnter = () => {
+  chartRef.value?.dispatchAction({ type: 'highlight', seriesIndex: 0, dataIndex: 0 })
+}
+
 const handleSpace = (event: KeyboardEvent) => {
   event.preventDefault()
   handleEnter()
 }
 
-// 暴露方法
+const validExportTypes = ['png', 'svg', 'jpeg'] as const
+
 defineExpose({
-  getInstance: () => chartInstance.value,
-  resize: () => chartInstance.value?.resize(),
-  setOption: (option: EChartsCoreOption) => chartInstance.value?.setOption(option, true),
+  getInstance: () => chartRef.value?.chart ?? null,
+  resize: () => chartRef.value?.resize(),
+  setOption: (option: EChartsCoreOption) => chartRef.value?.chart?.setOption(option, true),
   exportImage: (type: (typeof validExportTypes)[number] = 'png', pixelRatio = 2) => {
-    return chartInstance.value?.getDataURL({ type, pixelRatio })
+    return chartRef.value?.chart?.getDataURL({ type, pixelRatio })
   },
 })
 </script>
@@ -206,6 +174,11 @@ defineExpose({
 <style scoped>
 .base-chart {
   width: 100%;
+}
+
+.base-chart__canvas {
+  width: 100%;
+  height: 100%;
 }
 
 /* A11Y-P2-08：图表数据摘要描述，仅供屏幕阅读器读取，视觉隐藏 */

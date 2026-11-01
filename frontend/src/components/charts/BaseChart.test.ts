@@ -1,94 +1,59 @@
-/* R-009 回归测试：覆盖 V-Perf-04 窗口缩放验证用例 */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+/* UI-B4 回归测试：BaseChart 迁到 vue-echarts 后保留的对外契约 */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import BaseChart from './BaseChart.vue'
 
-/**
- * BaseChart 组件单元测试
- *
- * R-009 修复点：BaseChart.vue 添加 rAF (requestAnimationFrame) 节流 ResizeObserver 回调，
- * 避免同一帧内多次 RO 回调同步触发 ECharts resize（布局重计算阻塞主线程）。
- *
- * 关键实现：
- * - ResizeObserver 回调中使用 requestAnimationFrame 合并：if (resizeRafId !== null) return
- * - disposeChart 中 cancelAnimationFrame 取消 pending rAF
- * - onUnmounted/onDeactivated 调用 disposeChart 清理资源
- */
-
-// 使用 vi.hoisted 确保 mock 函数在 vi.mock 工厂执行前已初始化
-const { mockResize, mockDispose, mockSetOption, mockInit } = vi.hoisted(() => {
-  const mockResize = vi.fn()
-  const mockDispose = vi.fn()
-  const mockSetOption = vi.fn()
+const { chartMock, mockResize, mockDispatchAction, mockGetDataURL, mockSetOption } = vi.hoisted(() => {
+  const chartMock = {
+    dispatchAction: vi.fn(),
+    getDataURL: vi.fn(() => 'data:image/png;base64,stub'),
+    setOption: vi.fn(),
+    resize: vi.fn(),
+    dispose: vi.fn(),
+  }
   return {
-    mockResize,
-    mockDispose,
-    mockSetOption,
-    mockInit: vi.fn(() => ({
-      resize: mockResize,
-      dispose: mockDispose,
-      setOption: mockSetOption,
-      getDataURL: vi.fn(),
-      dispatchAction: vi.fn(),
-    })),
+    chartMock,
+    mockResize: chartMock.resize,
+    mockDispatchAction: chartMock.dispatchAction,
+    mockGetDataURL: chartMock.getDataURL,
+    mockSetOption: chartMock.setOption,
   }
 })
 
-// Mock @/utils/echarts 避免 ECharts 真实渲染
-vi.mock('@/utils/echarts', () => ({
-  echarts: {
-    init: mockInit,
-    use: vi.fn(),
-  },
-}))
+vi.mock('vue-echarts', async () => {
+  const { defineComponent, h, onMounted } = await import('vue')
+  return {
+    default: defineComponent({
+      name: 'VChartStub',
+      props: {
+        option: { type: Object, default: () => ({}) },
+        theme: { type: [String, Object], default: undefined },
+        autoresize: { type: [Boolean, Object], default: false },
+        updateOptions: { type: Object, default: undefined },
+      },
+      emits: ['finished'],
+      setup(_props, { emit, expose }) {
+        onMounted(() => emit('finished'))
+        expose({
+          chart: chartMock,
+          resize: mockResize,
+          dispatchAction: mockDispatchAction,
+          getDataURL: mockGetDataURL,
+        })
+        return () => h('div', { class: 'vchart-stub' })
+      },
+    }),
+  }
+})
 
-// Mock vue-i18n（BaseChart 使用 useI18n 的 t 函数）
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) => key,
   }),
 }))
 
-// ResizeObserver mock 实例收集器
-interface MockResizeObserver {
-  observe: ReturnType<typeof vi.fn>
-  unobserve: ReturnType<typeof vi.fn>
-  disconnect: ReturnType<typeof vi.fn>
-  cb: (entries: ResizeObserverEntry[]) => void
-}
-const roInstances: MockResizeObserver[] = []
-
 beforeEach(() => {
-  // 使用 fake timers 控制 requestAnimationFrame 时序（rAF 被调度到 ~16ms 后）
-  vi.useFakeTimers()
-
-  // 清理 mock 调用记录
-  mockResize.mockClear()
-  mockDispose.mockClear()
-  mockSetOption.mockClear()
-  mockInit.mockClear()
-  roInstances.length = 0
-
-  // Mock ResizeObserver：构造时保存回调，便于测试中手动触发
-  vi.stubGlobal(
-    'ResizeObserver',
-    class MockRO {
-      observe = vi.fn()
-      unobserve = vi.fn()
-      disconnect = vi.fn()
-      cb: (entries: ResizeObserverEntry[]) => void
-      constructor(cb: (entries: ResizeObserverEntry[]) => void) {
-        this.cb = cb
-        roInstances.push(this as unknown as MockResizeObserver)
-      }
-    }
-  )
-})
-
-afterEach(() => {
-  vi.useRealTimers()
-  vi.unstubAllGlobals()
-  vi.restoreAllMocks()
+  vi.clearAllMocks()
 })
 
 const baseProps = {
@@ -96,58 +61,87 @@ const baseProps = {
   autoResize: true,
 }
 
-describe('BaseChart - R-009 rAF 节流 ResizeObserver', () => {
-  it('1. rAF 节流合并多次 ResizeObserver 回调：同一帧内仅调用一次 chart.resize', async () => {
-    // R-009 修复点：ResizeObserver 回调使用 rAF 合并，避免同步布局计算
+const vchart = (wrapper: ReturnType<typeof mount>) =>
+  wrapper.findComponent({ name: 'VChartStub' })
+
+describe('BaseChart - UI-B4 vue-echarts 契约', () => {
+  it('1. 挂载后渲染 VChart，并传递 option / autoresize / 全量替换选项', async () => {
     const wrapper = mount(BaseChart, { props: baseProps })
     await flushPromises()
 
-    expect(roInstances).toHaveLength(1)
-    const ro = roInstances[0]
-
-    // 连续触发 3 次 RO 回调
-    ro.cb([])
-    ro.cb([])
-    ro.cb([])
-
-    // rAF 尚未执行（需推进时间），chart.resize 不应被调用
-    expect(mockResize).not.toHaveBeenCalled()
-
-    // 推进 rAF（一帧 ≈ 16ms）
-    vi.advanceTimersByTime(20)
-
-    // chart.resize 应仅被调用一次（3 次回调被 rAF 合并为 1 次）
-    expect(mockResize).toHaveBeenCalledTimes(1)
+    const chart = vchart(wrapper)
+    expect(chart.exists()).toBe(true)
+    expect(chart.props('option')).toEqual(baseProps.option)
+    expect(chart.props('autoresize')).toBe(true)
+    expect(chart.props('updateOptions')).toEqual({ notMerge: true })
+    expect(wrapper.emitted('chartReady')?.[0]?.[0]).toBe(chartMock)
 
     wrapper.unmount()
   })
 
-  it('2. disposeChart 取消未执行的 rAF：pending rAF 被 cancelAnimationFrame 取消', async () => {
-    // R-009 修复点：disposeChart 中 cancelAnimationFrame(resizeRafId) 取消 pending rAF
+  it('2. 未显式指定 theme 时注入令牌主题；显式传入时原样透传', async () => {
+    const themed = mount(BaseChart, { props: baseProps })
+    await flushPromises()
+    const theme = vchart(themed).props('theme') as Record<string, unknown>
+    expect(theme).toMatchObject({ backgroundColor: 'transparent' })
+    expect(Array.isArray(theme.color)).toBe(true)
+    expect(theme.categoryAxis).toBeDefined()
+    themed.unmount()
+
+    const explicit = mount(BaseChart, { props: { ...baseProps, theme: 'dark' } })
+    await flushPromises()
+    expect(vchart(explicit).props('theme')).toBe('dark')
+    explicit.unmount()
+  })
+
+  it('3. autoResize=false 时不开启自动尺寸同步', async () => {
+    const wrapper = mount(BaseChart, { props: { ...baseProps, autoResize: false } })
+    await flushPromises()
+
+    expect(vchart(wrapper).props('autoresize')).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('4. 键盘 Enter/Space 触发首系列高亮，Space 阻止滚动', async () => {
     const wrapper = mount(BaseChart, { props: baseProps })
     await flushPromises()
 
-    const ro = roInstances[0]
+    await wrapper.trigger('keydown.enter')
+    expect(mockDispatchAction).toHaveBeenCalledWith({ type: 'highlight', seriesIndex: 0, dataIndex: 0 })
 
-    // 触发 RO 回调（调度 rAF，但尚未执行）
-    ro.cb([])
+    const event = new KeyboardEvent('keydown', { key: ' ', cancelable: true })
+    await wrapper.element.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(mockDispatchAction).toHaveBeenCalledTimes(2)
 
-    // 立即卸载组件（触发 disposeChart → cancelAnimationFrame）
     wrapper.unmount()
-
-    // 推进 rAF 时间
-    vi.advanceTimersByTime(20)
-
-    // chart.resize 不应被调用（rAF 已被取消，且 chartInstance 已被 dispose）
-    expect(mockResize).not.toHaveBeenCalled()
   })
 
-  it('3. disposeChart 断开 ResizeObserver：onDeactivated 时 disconnect 应被调用', async () => {
-    // R-009 修复点：disposeChart 调用 ResizeObserver.disconnect 释放观察者
-    // 说明：onUnmounted 时 Vue 已将 chartRef.value 置空，disposeChart 中
-    // `resizeObserver.value && chartRef.value` 守卫会跳过 disconnect。
-    // 故通过 keep-alive 的 onDeactivated 路径验证（deactivate 时 chartRef.value 仍有效）。
-    const Dummy = { inheritAttrs: false, template: '<div />' }
+  it('5. 暴露 getInstance / resize / setOption / exportImage', async () => {
+    const wrapper = mount(BaseChart, { props: baseProps })
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      getInstance: () => unknown
+      resize: () => void
+      setOption: (option: Record<string, unknown>) => void
+      exportImage: (type?: 'png' | 'svg' | 'jpeg', pixelRatio?: number) => string | undefined
+    }
+
+    expect(vm.getInstance()).toBe(chartMock)
+    vm.resize()
+    expect(mockResize).toHaveBeenCalled()
+    vm.setOption({ title: { text: 'next' } })
+    expect(mockSetOption).toHaveBeenCalledWith({ title: { text: 'next' } }, true)
+    expect(vm.exportImage('svg', 3)).toBe('data:image/png;base64,stub')
+    expect(mockGetDataURL).toHaveBeenCalledWith({ type: 'svg', pixelRatio: 3 })
+
+    wrapper.unmount()
+  })
+
+  it('6. keep-alive 停用卸载图表，重新激活后重新挂载', async () => {
+    const Dummy = { name: 'Dummy', template: '<div />' }
     const Parent = {
       components: { BaseChart, Dummy },
       data() {
@@ -162,42 +156,30 @@ describe('BaseChart - R-009 rAF 节流 ResizeObserver', () => {
     const wrapper = mount(Parent)
     await flushPromises()
 
-    expect(roInstances).toHaveLength(1)
-    const ro = roInstances[0]
+    expect(wrapper.findComponent({ name: 'VChartStub' }).exists()).toBe(true)
 
-    // 切换到 Dummy → BaseChart 被 keep-alive 缓存（deactivate），触发 onDeactivated → disposeChart
     await wrapper.setData({ current: 'Dummy' })
     await flushPromises()
+    expect(wrapper.findComponent({ name: 'VChartStub' }).exists()).toBe(false)
 
-    expect(ro.disconnect).toHaveBeenCalled()
+    await wrapper.setData({ current: 'BaseChart' })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'VChartStub' }).exists()).toBe(true)
   })
 
-  it('4. autoResize=false 不创建 ResizeObserver', async () => {
-    // R-009 相关：autoResize 为 false 时不应初始化 ResizeObserver
-    const wrapper = mount(BaseChart, { props: { ...baseProps, autoResize: false } })
+  it('7. 保留 role=img / aria-label / aria-describedby 无障碍契约', async () => {
+    const wrapper = mount(BaseChart, {
+      props: { ...baseProps, description: '近 30 天风险走势' },
+    })
     await flushPromises()
 
-    expect(roInstances).toHaveLength(0)
+    const root = wrapper.element as HTMLElement
+    expect(root.getAttribute('role')).toBe('img')
+    expect(root.getAttribute('aria-label')).toBe('charts.baseAriaLabel')
+    const describedBy = root.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(wrapper.find(`#${describedBy}`).text()).toBe('近 30 天风险走势')
 
     wrapper.unmount()
-  })
-
-  it('5. 组件卸载时清理：onUnmounted 触发 disposeChart，释放 chart 实例和 rAF', async () => {
-    // R-009 修复点：onUnmounted → disposeChart → chart.dispose + cancelAnimationFrame
-    const wrapper = mount(BaseChart, { props: baseProps })
-    await flushPromises()
-
-    const ro = roInstances[0]
-
-    // 触发 RO 回调（调度 pending rAF）
-    ro.cb([])
-
-    wrapper.unmount()
-
-    // ECharts 实例应被 dispose（释放 chart 实例）
-    expect(mockDispose).toHaveBeenCalled()
-    // 推进 rAF 时间，resize 不应被调用（rAF 已被 cancelAnimationFrame 取消，释放 rAF）
-    vi.advanceTimersByTime(20)
-    expect(mockResize).not.toHaveBeenCalled()
   })
 })

@@ -66,7 +66,7 @@ import { echarts, type ECharts } from '@/utils/echarts'
 import { subscribeResize } from '@/utils/sharedResize'
 import { initChartWhenReady, type ChartInitHandle } from '@/utils/chartInit'
 import { readChartVar } from '@/utils/chartTheme'
-import { CHART_PALETTE, withAlpha } from '@/utils/chartPalette'
+import { withAlpha } from '@/utils/chartPalette'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { RiskTrend } from '@/api/userRiskApi'
@@ -125,11 +125,12 @@ const renderTrendChart = () => {
   // ISS-077 修复：图表配色读取 CSS 变量令牌，与 variables.scss 统一
   // VIS-P2-02 修复：tooltip 背景与边框改用主题令牌，深色模式下自动适配
   // VIS-P4-01 修复：回退值与渐变/光晕统一取自 chartPalette 常量
-  const chartDanger = readChartVar('--chart-color-danger', CHART_PALETTE.danger)
+  const chartDanger = readChartVar('--chart-color-danger', '#d65a5a')
   const chartTextPrimary = readChartVar('--text-primary', '#2c3340')
-  const chartTextSecondary = readChartVar('--text-secondary', '#8a929e')
-  const chartTooltipBg = readChartVar('--bg-primary', '#ffffff')
-  const chartTooltipBorder = readChartVar('--border-color', '#dce1e7')
+  const chartTextSecondary = readChartVar('--text-secondary', '#6a727f')
+  const chartTooltipBg = readChartVar('--surface-1', '#ffffff')
+  const chartTooltipBorder = readChartVar('--card-border', '#e2e7ee')
+  const chartSurface = readChartVar('--surface-1', '#ffffff')
 
   trendChart.setOption({
     tooltip: {
@@ -167,20 +168,31 @@ const renderTrendChart = () => {
       }
     },
     grid: { left: 40, right: 20, top: 20, bottom: 30 },
-    xAxis: { type: 'category', data: points.map((p) => p.date), axisLabel: { fontSize: 11 } },
-    yAxis: { type: 'value', min: 0, max: 100, axisLabel: { fontSize: 11 } },
+    xAxis: {
+      type: 'category',
+      data: points.map((p) => p.date),
+      axisLabel: { fontSize: 11, color: chartTextSecondary },
+      axisLine: { lineStyle: { color: chartTooltipBorder } },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 100,
+      axisLabel: { fontSize: 11, color: chartTextSecondary },
+      splitLine: { lineStyle: { color: chartTooltipBorder } },
+    },
     series: [{
       type: 'line',
       data: points.map((p) => p.risk_score),
       smooth: true,
       areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: withAlpha(CHART_PALETTE.danger, 0.25) },
-        { offset: 1, color: withAlpha(CHART_PALETTE.danger, 0.02) }
+        { offset: 0, color: withAlpha(chartDanger, 0.25) },
+        { offset: 1, color: withAlpha(chartDanger, 0.02) }
       ]) },
       lineStyle: { color: chartDanger, width: 2 },
       itemStyle: { color: chartDanger },
       emphasis: {
-        itemStyle: { borderWidth: 2, borderColor: '#fff', shadowBlur: 8, shadowColor: withAlpha(CHART_PALETTE.danger, 0.5) },
+        itemStyle: { borderWidth: 2, borderColor: chartSurface, shadowBlur: 8, shadowColor: withAlpha(chartDanger, 0.5) },
         scale: 1.5
       }
     }]
