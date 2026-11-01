@@ -10,7 +10,7 @@
         size="small"
         @click="$emit('toggle-sidebar')"
       >
-        <el-icon><Menu /></el-icon>
+        <el-icon><AppIcon name="menu-2" /></el-icon>
       </el-button>
       <BreadcrumbNav />
     </div>
@@ -27,10 +27,11 @@
       >
         <el-button
           size="small"
-          :icon="BellIcon"
           circle
           :aria-label="warningCount > 0 ? t('layout.newWarningCount', { count: warningCount }) : t('layout.noWarning')"
-        />
+        >
+          <el-icon><AppIcon name="bell" /></el-icon>
+        </el-button>
       </el-badge>
       <HelpCenter :on-restart-onboarding="onRestartOnboarding" />
 
@@ -63,28 +64,28 @@
             </div>
           </div>
           <el-icon class="user-caret">
-            <ArrowDown />
+            <AppIcon name="chevron-down" />
           </el-icon>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="settings">
-              <el-icon><Setting /></el-icon>
+              <el-icon><AppIcon name="settings" /></el-icon>
               {{ t('layout.userMenuSettings') }}
             </el-dropdown-item>
             <el-dropdown-item command="theme">
-              <el-icon><Brush /></el-icon>
+              <el-icon><AppIcon name="palette" /></el-icon>
               {{ t('layout.userMenuTheme') }}
             </el-dropdown-item>
             <el-dropdown-item command="onboarding">
-              <el-icon><QuestionFilled /></el-icon>
+              <el-icon><AppIcon name="help-circle" /></el-icon>
               {{ t('layout.userMenuOnboarding') }}
             </el-dropdown-item>
             <el-dropdown-item
               divided
               command="logout"
             >
-              <el-icon><SwitchButton /></el-icon>
+              <el-icon><AppIcon name="logout" /></el-icon>
               {{ t('layout.logout') }}
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -97,7 +98,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Bell, Menu, ArrowDown, Setting, Brush, QuestionFilled, SwitchButton } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import BreadcrumbNav from '@/components/common/BreadcrumbNav.vue'
 import HelpCenter from '@/components/common/HelpCenter.vue'
 import { USER_ROLE_USER } from '@/utils/roles'
@@ -118,8 +119,6 @@ const emit = defineEmits<{
   (e: 'go-settings'): void
   (e: 'toggle-theme'): void
 }>()
-
-const BellIcon = Bell
 
 // H-AUDIT-01: 键盘可访问性 - 用合成的鼠标点击打开下拉 (原 $event.target.click() 类型报错)
 function openDropdown(event: KeyboardEvent) {

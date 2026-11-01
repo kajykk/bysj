@@ -2,30 +2,17 @@
  * MainLayout 菜单数据 composable。
  * 从原 MainLayout.vue 提取菜单配置、分组计算与角色标签逻辑，保持行为一致。
  */
-import { computed, type Component } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import {
-  Bell,
-  HomeFilled,
-  Warning,
-  User,
-  Setting,
-  Document,
-  DataLine,
-  ChatLineRound,
-  Calendar,
-  Reading,
-  Monitor,
-  Promotion,
-} from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { USER_ROLE_ADMIN, USER_ROLE_COUNSELOR, USER_ROLE_SUPER_ADMIN } from '@/utils/roles'
 
 export interface MenuItem {
   titleKey: string
   path: string
-  icon?: Component
+  /** Tabler 图标名（不含 tabler: 前缀），由 AppIcon 解析 */
+  icon?: string
   tourTarget?: string
   /** UI 升级 v3.2: 未读数徽章 - 大于 0 时显示 */
   badge?: number
@@ -41,44 +28,44 @@ export interface MenuSection {
 }
 
 const adminMenus: MenuItem[] = [
-  { titleKey: 'nav.admin.home', path: '/admin/dashboard', icon: HomeFilled, tourTarget: 'admin-dashboard' },
-  { titleKey: 'nav.admin.templates', path: '/admin/templates', icon: Document },
-  { titleKey: 'nav.admin.settings', path: '/admin/settings', icon: Setting },
-  { titleKey: 'nav.admin.operationLogs', path: '/admin/operation-logs', icon: Reading },
+  { titleKey: 'nav.admin.home', path: '/admin/dashboard', icon: 'home', tourTarget: 'admin-dashboard' },
+  { titleKey: 'nav.admin.templates', path: '/admin/templates', icon: 'file-text' },
+  { titleKey: 'nav.admin.settings', path: '/admin/settings', icon: 'settings' },
+  { titleKey: 'nav.admin.operationLogs', path: '/admin/operation-logs', icon: 'book' },
   // AUDIT-2026-10-01 (P2)：合规审计日志（GDPR/等保场景专用查询视图）
-  { titleKey: 'nav.admin.auditLogs', path: '/admin/audit-logs', icon: Reading },
-  { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: Bell },
-  { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: Bell },
-  { titleKey: 'nav.admin.crisisEvents', path: '/admin/crisis-events', icon: Warning },
+  { titleKey: 'nav.admin.auditLogs', path: '/admin/audit-logs', icon: 'book' },
+  { titleKey: 'nav.admin.alerts', path: '/admin/alerts', icon: 'bell' },
+  { titleKey: 'nav.admin.silences', path: '/admin/silences', icon: 'bell' },
+  { titleKey: 'nav.admin.crisisEvents', path: '/admin/crisis-events', icon: 'alert-triangle' },
   // AUDIT-2026-10-01：复核任务的「指定分配」入口。路径复用 counselor 页面
   // （该路由的 meta.role 已放开给 admin/super_admin），管理员据此把任务分给具体咨询师。
-  { titleKey: 'nav.admin.reviews', path: '/counselor/reviews', icon: ChatLineRound },
-  { titleKey: 'nav.admin.reports', path: '/admin/reports', icon: Document },
-  { titleKey: 'nav.admin.observability', path: '/admin/observability', icon: DataLine, tourTarget: 'admin-observability' },
-  { titleKey: 'nav.admin.monitoring', path: '/admin/monitoring', icon: Monitor },
-  { titleKey: 'nav.admin.canary', path: '/admin/canary', icon: Promotion },
+  { titleKey: 'nav.admin.reviews', path: '/counselor/reviews', icon: 'message-circle' },
+  { titleKey: 'nav.admin.reports', path: '/admin/reports', icon: 'file-text' },
+  { titleKey: 'nav.admin.observability', path: '/admin/observability', icon: 'chart-line', tourTarget: 'admin-observability' },
+  { titleKey: 'nav.admin.monitoring', path: '/admin/monitoring', icon: 'device-desktop' },
+  { titleKey: 'nav.admin.canary', path: '/admin/canary', icon: 'rocket' },
   // AUDIT-2026-10-01 (P1-7)：模型暂停开关（事故止血）。此前无 UI 入口。
-  { titleKey: 'nav.admin.modelKillSwitch', path: '/admin/model-kill-switch', icon: Warning }
+  { titleKey: 'nav.admin.modelKillSwitch', path: '/admin/model-kill-switch', icon: 'alert-triangle' }
 ]
 
 const roleMenus: Record<string, MenuItem[]> = {
   user: [
-    { titleKey: 'nav.user.home', path: '/user/dashboard', icon: HomeFilled, tourTarget: 'user-dashboard' },
-    { titleKey: 'nav.user.risk', path: '/user/risk', icon: DataLine, tourTarget: 'user-risk' },
-    { titleKey: 'nav.user.modelTraining', path: '/user/model-training', icon: Document },
-    { titleKey: 'nav.user.intervention', path: '/user/intervention', icon: Calendar },
-    { titleKey: 'nav.user.content', path: '/user/content', icon: Reading },
-    { titleKey: 'nav.user.warnings', path: '/user/warnings', icon: Warning, tourTarget: 'user-warnings' },
-    { titleKey: 'nav.user.assessments', path: '/user/assessments', icon: ChatLineRound },
-    { titleKey: 'nav.user.settings', path: '/user/settings', icon: Setting },
-    { titleKey: 'nav.user.reports', path: '/user/reports', icon: Document }
+    { titleKey: 'nav.user.home', path: '/user/dashboard', icon: 'home', tourTarget: 'user-dashboard' },
+    { titleKey: 'nav.user.risk', path: '/user/risk', icon: 'chart-line', tourTarget: 'user-risk' },
+    { titleKey: 'nav.user.modelTraining', path: '/user/model-training', icon: 'file-text' },
+    { titleKey: 'nav.user.intervention', path: '/user/intervention', icon: 'calendar' },
+    { titleKey: 'nav.user.content', path: '/user/content', icon: 'book' },
+    { titleKey: 'nav.user.warnings', path: '/user/warnings', icon: 'alert-triangle', tourTarget: 'user-warnings' },
+    { titleKey: 'nav.user.assessments', path: '/user/assessments', icon: 'message-circle' },
+    { titleKey: 'nav.user.settings', path: '/user/settings', icon: 'settings' },
+    { titleKey: 'nav.user.reports', path: '/user/reports', icon: 'file-text' }
   ],
   counselor: [
-    { titleKey: 'nav.counselor.home', path: '/counselor/dashboard', icon: HomeFilled },
-    { titleKey: 'nav.counselor.warnings', path: '/counselor/warnings', icon: Warning, tourTarget: 'counselor-warnings' },
-    { titleKey: 'nav.counselor.users', path: '/counselor/users', icon: User, tourTarget: 'counselor-users' },
-    { titleKey: 'nav.counselor.reviews', path: '/counselor/reviews', icon: ChatLineRound },
-    { titleKey: 'nav.counselor.settings', path: '/counselor/settings', icon: Setting }
+    { titleKey: 'nav.counselor.home', path: '/counselor/dashboard', icon: 'home' },
+    { titleKey: 'nav.counselor.warnings', path: '/counselor/warnings', icon: 'alert-triangle', tourTarget: 'counselor-warnings' },
+    { titleKey: 'nav.counselor.users', path: '/counselor/users', icon: 'user', tourTarget: 'counselor-users' },
+    { titleKey: 'nav.counselor.reviews', path: '/counselor/reviews', icon: 'message-circle' },
+    { titleKey: 'nav.counselor.settings', path: '/counselor/settings', icon: 'settings' }
   ],
   admin: adminMenus,
   // 平台管理员 (super_admin): 与 admin 共用平台级菜单

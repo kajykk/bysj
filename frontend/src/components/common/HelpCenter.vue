@@ -6,26 +6,27 @@
   >
     <el-button
       size="small"
-      :icon="QuestionFilled"
       circle
       :aria-label="t('help.buttonLabel')"
-    />
+    >
+      <el-icon><AppIcon name="help-circle" /></el-icon>
+    </el-button>
     <template #dropdown>
       <el-dropdown-menu>
         <el-dropdown-item command="onboarding">
-          <el-icon><Guide /></el-icon>
+          <el-icon><AppIcon name="book" /></el-icon>
           {{ t('help.onboarding') }}
         </el-dropdown-item>
         <el-dropdown-item command="faq">
-          <el-icon><Document /></el-icon>
+          <el-icon><AppIcon name="file-text" /></el-icon>
           {{ t('help.faqLabel') }}
         </el-dropdown-item>
         <el-dropdown-item command="contact">
-          <el-icon><Message /></el-icon>
+          <el-icon><AppIcon name="message-circle" /></el-icon>
           {{ t('help.contactSupport') }}
         </el-dropdown-item>
         <el-dropdown-item command="feedback">
-          <el-icon><EditPen /></el-icon>
+          <el-icon><AppIcon name="pencil" /></el-icon>
           {{ t('help.feedbackLabel') }}
         </el-dropdown-item>
       </el-dropdown-menu>
@@ -66,7 +67,7 @@
   >
     <div class="contact-info">
       <div class="contact-item">
-        <el-icon><Message /></el-icon>
+        <el-icon><AppIcon name="message-circle" /></el-icon>
         <div>
           <p class="contact-label">
             {{ t('help.emailLabel') }}
@@ -77,7 +78,7 @@
         </div>
       </div>
       <div class="contact-item">
-        <el-icon><Phone /></el-icon>
+        <el-icon><AppIcon name="phone" /></el-icon>
         <div>
           <p class="contact-label">
             {{ t('help.phoneLabel') }}
@@ -88,7 +89,7 @@
         </div>
       </div>
       <div class="contact-item">
-        <el-icon><Clock /></el-icon>
+        <el-icon><AppIcon name="clock" /></el-icon>
         <div>
           <p class="contact-label">
             {{ t('help.hoursLabel') }}
@@ -144,7 +145,7 @@
         type="primary"
         :underline="false"
       >
-        <el-icon><Link /></el-icon>
+        <el-icon><AppIcon name="link" /></el-icon>
         {{ t('help.githubIssues') }}
       </el-link>
       <el-button
@@ -161,7 +162,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { QuestionFilled, Guide, Document, Message, Phone, Clock, EditPen, Link } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAnalytics } from '@/composables/useAnalytics'
 import { isAdminRole, isCounselorRole } from '@/utils/roles'

@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     ActionColumn: typeof import('./components/common/ActionColumn.vue')['default']
+    AppIcon: typeof import('./components/common/AppIcon.vue')['default']
     AuthBrandPanel: typeof import('./components/common/AuthBrandPanel.vue')['default']
     BaseChart: typeof import('./components/charts/BaseChart.vue')['default']
     BentoCell: typeof import('./components/common/BentoCell.vue')['default']

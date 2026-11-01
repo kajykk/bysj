@@ -28,8 +28,7 @@
           effect="plain"
         >
           <el-icon>
-            <ArrowUp v-if="primaryStat.trend >= 0" />
-            <ArrowDown v-else />
+            <AppIcon :name="primaryStat.trend >= 0 ? 'arrow-up' : 'arrow-down'" />
           </el-icon>
           {{ Math.abs(primaryStat.trend) }}%
         </el-tag>
@@ -72,8 +71,7 @@
             effect="plain"
           >
             <el-icon>
-              <ArrowUp v-if="card.trend >= 0" />
-              <ArrowDown v-else />
+              <AppIcon :name="card.trend >= 0 ? 'arrow-up' : 'arrow-down'" />
             </el-icon>
             {{ Math.abs(card.trend) }}%
           </el-tag>
@@ -96,7 +94,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ArrowUp, ArrowDown } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { StatCard } from './sharedAdminDashboardUtils'
 

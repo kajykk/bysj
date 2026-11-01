@@ -5,9 +5,7 @@
   >
     <el-button circle>
       <el-icon>
-        <Sunny v-if="theme === 'light'" />
-        <Moon v-else-if="theme === 'dark'" />
-        <SemiSelect v-else />
+        <AppIcon :name="theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'circle-half-2'" />
       </el-icon>
     </el-button>
     <template #dropdown>
@@ -16,21 +14,21 @@
           command="light"
           :disabled="theme === 'light'"
         >
-          <el-icon><Sunny /></el-icon>
+          <el-icon><AppIcon name="sun" /></el-icon>
           {{ $t('theme.light') }}
         </el-dropdown-item>
         <el-dropdown-item
           command="dark"
           :disabled="theme === 'dark'"
         >
-          <el-icon><Moon /></el-icon>
+          <el-icon><AppIcon name="moon" /></el-icon>
           {{ $t('theme.dark') }}
         </el-dropdown-item>
         <el-dropdown-item
           command="auto"
           :disabled="theme === 'auto'"
         >
-          <el-icon><SemiSelect /></el-icon>
+          <el-icon><AppIcon name="circle-half-2" /></el-icon>
           {{ $t('theme.auto') }}
         </el-dropdown-item>
       </el-dropdown-menu>
@@ -40,7 +38,7 @@
 
 <script setup lang="ts">
 import { useTheme } from '@/composables/useTheme'
-import { Sunny, Moon, SemiSelect } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 
 const { theme, setTheme } = useTheme()
 

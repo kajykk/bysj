@@ -83,7 +83,7 @@
             :class="{ 'has-badge': item.badge }"
           >
             <el-icon v-if="item.icon">
-              <component :is="item.icon" />
+              <AppIcon :name="item.icon" />
             </el-icon>
             <template #title>
               {{ t(item.titleKey) }}
@@ -118,8 +118,7 @@
       @keyup.space.prevent="layout.toggleSidebar"
     >
       <el-icon>
-        <Fold v-if="!layout.sidebarCollapsed" />
-        <Expand v-else />
+        <AppIcon :name="layout.sidebarCollapsed ? 'layout-sidebar-left-expand' : 'layout-sidebar-left-collapse'" />
       </el-icon>
     </div>
     <div
@@ -141,7 +140,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Fold, Expand } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import { useLayoutStore } from '@/stores/layout'
 import type { MenuSection } from './useLayoutMenu'
 

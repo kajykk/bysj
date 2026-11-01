@@ -86,7 +86,7 @@
             class="magnetic-press"
             @click="router.push('/counselor/warnings')"
           >
-            <el-icon><Bell /></el-icon> {{ t('counselorDashboard.heroBtnEnterQueue') }}
+            <el-icon><AppIcon name="bell" /></el-icon> {{ t('counselorDashboard.heroBtnEnterQueue') }}
           </el-button>
           <el-tag
             v-else
@@ -107,7 +107,7 @@
         >
           <template #actions>
             <el-icon class="stat-icon stat-icon--primary">
-              <User />
+              <AppIcon name="user" />
             </el-icon>
           </template>
           <div
@@ -137,7 +137,7 @@
               class="magnetic-press"
               @click="router.push('/counselor/users')"
             >
-              <el-icon><Management /></el-icon> {{ t('counselorDashboard.userCountBtnViewList') }}
+              <el-icon><AppIcon name="users" /></el-icon> {{ t('counselorDashboard.userCountBtnViewList') }}
             </el-button>
             <el-tag
               v-else
@@ -156,7 +156,7 @@
         >
           <template #actions>
             <el-icon class="stat-icon stat-icon--primary">
-              <CopyDocument />
+              <AppIcon name="copy" />
             </el-icon>
           </template>
           <div
@@ -183,7 +183,7 @@
                 class="magnetic-press"
                 @click="copyBindCode"
               >
-                <el-icon><CopyDocument /></el-icon> {{ t('counselorDashboard.bindCodeBtnCopy') }}
+                <el-icon><AppIcon name="copy" /></el-icon> {{ t('counselorDashboard.bindCodeBtnCopy') }}
               </el-button>
               <el-button
                 v-if="canViewConsultations"
@@ -208,7 +208,7 @@
     >
       <template #actions>
         <el-icon class="stat-icon stat-icon--success">
-          <Management />
+          <AppIcon name="users" />
         </el-icon>
       </template>
       <div class="quick-actions">
@@ -218,7 +218,7 @@
           class="magnetic-press"
           @click="router.push('/counselor/warnings')"
         >
-          <el-icon><Warning /></el-icon> {{ t('counselorDashboard.quickActionHandleWarning') }}
+          <el-icon><AppIcon name="alert-triangle" /></el-icon> {{ t('counselorDashboard.quickActionHandleWarning') }}
         </el-button>
         <el-button
           type="success"
@@ -226,7 +226,7 @@
           class="magnetic-press"
           @click="router.push('/counselor/users')"
         >
-          <el-icon><User /></el-icon> {{ t('counselorDashboard.quickActionUserManagement') }}
+          <el-icon><AppIcon name="user" /></el-icon> {{ t('counselorDashboard.quickActionUserManagement') }}
         </el-button>
       </div>
     </BentoCell>
@@ -243,8 +243,8 @@ import { hasPermission } from '@/config/permissions'
 import { counselorApi } from '@/api/counselorApi'
 import CountUp from '@/components/common/CountUp.vue'
 import BentoCell from '@/components/common/BentoCell.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
-import { Warning, User, CopyDocument, Bell, Management } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()

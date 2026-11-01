@@ -52,11 +52,11 @@
                 <el-icon
                   v-if="report.trend === 'up'"
                   color="#d65a5a"
-                ><Top /></el-icon>
+                ><AppIcon name="arrow-up" /></el-icon>
                 <el-icon
                   v-else-if="report.trend === 'down'"
                   color="#5a9e3a"
-                ><Bottom /></el-icon>
+                ><AppIcon name="arrow-down" /></el-icon>
                 <span v-else>{{ t('riskReport.trendStable') }}</span>
               </span>
             </div>
@@ -231,7 +231,7 @@
                 size="small"
               >
                 {{ t('riskReport.exportReport') }}<el-icon class="el-icon--right">
-                  <ArrowDown />
+                  <AppIcon name="chevron-down" />
                 </el-icon>
               </el-button>
               <template #dropdown>
@@ -263,7 +263,7 @@
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ProgressColor } from 'element-plus'
-import { Top, Bottom, ArrowDown } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import StatefulContainer from '@/components/common/StatefulContainer.vue'
 import type { RiskTrend } from '@/api/modelApi'
 import type { ReportFactor, RiskReport } from '@/api/userRiskApi'
