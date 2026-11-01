@@ -116,6 +116,7 @@ html.dark {
   --text-placeholder: #5a6270;
   --text-disabled: #4a5260;
   --text-inverse: #131820;
+  --text-on-accent: #ffffff;
   --border-lighter: #202734;
   --border-extra-light: #1c232e;
 
@@ -127,6 +128,18 @@ html.dark {
   --warning-light: #2a2012;
   --danger-light: #2a1414;
   --info-light: #1a1d22;
+
+  /* 语义色底上的正文色：暗色底改用高亮前景，避免浅色阶段的深绿/深蓝直接落在暗底上 */
+  --success-strong: #a5d595;
+  --warning-strong: #f0c995;
+  --info-strong: #93c4e6;
+
+  /* 风险色阶：浅色值是给白底用的深色，暗色下必须提亮（含 --risk-critical） */
+  --risk-none: #8a909a;
+  --risk-mild: #6ab84a;
+  --risk-moderate: #e4a64a;
+  --risk-high: #e06868;
+  --risk-critical: #f08282;
 
   --gradient-surface: linear-gradient(180deg, rgba(74, 155, 214, 0.08) 0%, transparent 100%);
   --gradient-primary: linear-gradient(135deg, #4a9bd6 0%, #3b82c4 100%);

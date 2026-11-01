@@ -153,7 +153,7 @@ onMounted(loadStats)
 }
 
 .stat-tile--critical {
-  border-left-color: #b5384a;
+  border-left-color: var(--risk-critical);
 }
 
 .stat-value {
@@ -180,7 +180,7 @@ onMounted(loadStats)
 }
 
 .stat-tile--critical .stat-value {
-  color: #b5384a;
+  color: var(--risk-critical);
 }
 
 .stat-label {

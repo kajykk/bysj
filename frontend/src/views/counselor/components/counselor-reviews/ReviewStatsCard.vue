@@ -127,7 +127,7 @@ const { t } = useI18n()
 }
 
 .stat-tile--crisis {
-  border-left-color: #b5384a;
+  border-left-color: var(--risk-critical);
 }
 
 .stat-tile--high-risk {
@@ -158,7 +158,7 @@ const { t } = useI18n()
 }
 
 .stat-tile--crisis .stat-value {
-  color: #b5384a;
+  color: var(--risk-critical);
 }
 
 .stat-tile--high-risk .stat-value {

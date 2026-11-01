@@ -51,7 +51,7 @@ const { t } = useI18n()
 
 <style scoped>
 .job-card {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   margin-bottom: 16px;
 }
 

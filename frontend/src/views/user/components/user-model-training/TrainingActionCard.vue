@@ -127,7 +127,7 @@ const handleRunPipeline = () => {
 <style scoped>
 .action-card {
   min-height: 260px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .card-title {

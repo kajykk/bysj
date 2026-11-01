@@ -271,9 +271,9 @@ onMounted(loadData)
 .card-sub { font-size: var(--font-size-extra-small); color: var(--text-secondary); }
 .page-summary {
   padding: 1rem 1.25rem;
-  border: 1px solid var(--border-extra-light);
-  border-radius: 1rem;
-  background: var(--bg-primary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
 }
 .page-summary__eyebrow {
   margin: 0 0 0.35rem;

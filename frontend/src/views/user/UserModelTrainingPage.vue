@@ -154,7 +154,7 @@ const {
 
 .console-card,
 .hero-card {
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
 }
 
 .eyebrow {
@@ -175,7 +175,7 @@ const {
 
 .subtitle {
   margin-top: 6px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: var(--font-size-small);
 }
 

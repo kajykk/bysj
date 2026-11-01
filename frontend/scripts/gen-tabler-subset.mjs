@@ -19,6 +19,7 @@ const ICON_NAMES = [
   'file-text',
   'help-circle',
   'home',
+  'info-circle',
   'layout-sidebar-left-collapse',
   'layout-sidebar-left-expand',
   'link',
@@ -32,6 +33,7 @@ const ICON_NAMES = [
   'rocket',
   'settings',
   'sun',
+  'upload',
   'user',
   'users',
 ]

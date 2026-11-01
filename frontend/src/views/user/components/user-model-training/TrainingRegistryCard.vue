@@ -329,7 +329,7 @@ onMounted(() => {
 <style scoped>
 .registry-card {
   min-height: 260px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .section-card {

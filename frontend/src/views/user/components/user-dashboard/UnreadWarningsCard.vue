@@ -114,19 +114,19 @@ const goWarnings = () => {
 
 <style scoped>
 .bento-cell {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-extra-light);
-  border-radius: 1.25rem;
-  padding: 1.5rem;
+  background: var(--surface-1);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04);
+  box-shadow: var(--shadow-card);
   transition: box-shadow 0.3s var(--transition-ease-out),
     border-color 0.3s var(--transition-ease-out);
 }
 
 .bento-cell:hover {
-  box-shadow: 0 12px 32px -12px rgba(46, 111, 168, 0.14);
+  box-shadow: var(--shadow-card-hover);
   border-color: var(--border-light);
 }
 
@@ -169,7 +169,7 @@ const goWarnings = () => {
 
 .warning-count {
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   font-weight: 600;
   color: var(--danger-color);
   background: var(--danger-light);

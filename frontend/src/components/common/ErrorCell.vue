@@ -18,10 +18,10 @@ defineProps<{
 
 <style scoped>
 .error-cell {
-  color: #f56c6c;
+  color: var(--danger-color);
 }
 
 .placeholder {
-  color: #909399;
+  color: var(--text-secondary);
 }
 </style>

@@ -372,7 +372,7 @@ onUnmounted(() => {
 
 <style scoped>
 .panel-card {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .compact-form :deep(.el-form-item) {

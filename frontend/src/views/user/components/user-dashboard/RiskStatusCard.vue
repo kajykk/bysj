@@ -81,14 +81,14 @@
           {{ t('userDashboard.trendLabel') }}
           <el-icon
             v-if="riskReport.trend === 'up'"
-            color="#d65a5a"
+            color="var(--danger-color)"
             :aria-label="t('userDashboard.trendUp')"
-          ><Top /></el-icon>
+          ><AppIcon name="arrow-up" /></el-icon>
           <el-icon
             v-else-if="riskReport.trend === 'down'"
-            color="#5a9e3a"
+            color="var(--success-color)"
             :aria-label="t('userDashboard.trendDown')"
-          ><Bottom /></el-icon>
+          ><AppIcon name="arrow-down" /></el-icon>
           <span v-else>{{ t('userDashboard.trendStable') }}</span>
         </span>
       </div>
@@ -103,8 +103,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Top, Bottom } from '@element-plus/icons-vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import CountUp from '@/components/common/CountUp.vue'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import type { RiskReport } from '@/api/userRiskApi'
@@ -138,13 +138,13 @@ const riskIcon = computed(() => RISK_ICONS[riskLevel.value] || '')
 
 <style scoped>
 .bento-cell {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-extra-light);
-  border-radius: 1.25rem;
-  padding: 1.5rem;
+  background: var(--surface-1);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04);
+  box-shadow: var(--shadow-card);
   transition: box-shadow 0.3s var(--transition-ease-out),
     border-color 0.3s var(--transition-ease-out);
   position: relative;
@@ -152,7 +152,7 @@ const riskIcon = computed(() => RISK_ICONS[riskLevel.value] || '')
 }
 
 .bento-cell:hover {
-  box-shadow: 0 12px 32px -12px rgba(46, 111, 168, 0.14);
+  box-shadow: var(--shadow-card-hover);
   border-color: var(--border-light);
 }
 

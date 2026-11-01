@@ -31,6 +31,10 @@
   --danger-light: #faecec;
   --info-color: #7a8290;
   --info-light: #f0f2f5;
+  /* 语义色底上的正文色：浅色底需要更深的前景才能满足 4.5:1 */
+  --success-strong: #2f6b1f;
+  --warning-strong: #8a5a12;
+  --info-strong: #205a9d;
 
   /* ===== 风险等级色阶 ===== */
   --risk-none: #7a8290;
@@ -46,6 +50,8 @@
   --text-placeholder: #a8abb2;
   --text-disabled: #c0c4cc;
   --text-inverse: #ffffff;
+  /* 品牌渐变/实色底上的文字：两套主题都必须是白，不能跟随 --text-inverse 反转 */
+  --text-on-accent: #ffffff;
 
   /* ===== 边框色阶 ===== */
   --border-color: #dcdfe6;

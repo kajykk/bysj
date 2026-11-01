@@ -75,6 +75,15 @@ const REQUIRED_TOKENS = [
   '--text-secondary',
   '--text-tertiary',
   '--text-placeholder',
+  '--text-on-accent',
+  '--success-strong',
+  '--warning-strong',
+  '--info-strong',
+  '--risk-none',
+  '--risk-mild',
+  '--risk-moderate',
+  '--risk-high',
+  '--risk-critical',
   '--border-color',
   '--border-light',
   '--border-lighter',
@@ -115,6 +124,14 @@ const MUST_DIVERGE = [
   '--text-primary',
   '--text-regular',
   '--text-secondary',
+  '--success-strong',
+  '--warning-strong',
+  '--info-strong',
+  '--risk-none',
+  '--risk-mild',
+  '--risk-moderate',
+  '--risk-high',
+  '--risk-critical',
   '--border-color',
   '--border-light',
   '--border-lighter',
@@ -215,6 +232,15 @@ describe('设计令牌契约：表面层级与对比度', () => {
     expect(contrastRatio(tokens['--text-primary'], tokens['--surface-1'])).toBeGreaterThanOrEqual(4.5)
     expect(contrastRatio(tokens['--text-regular'], tokens['--surface-1'])).toBeGreaterThanOrEqual(4.5)
     expect(contrastRatio(tokens['--text-secondary'], tokens['--surface-1'])).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it.each([
+    ['light', lightTokens],
+    ['dark', darkTokens],
+  ])('%s 主题语义底上的正文对比度满足 WCAG AA（≥4.5:1）', (_name, tokens) => {
+    expect(contrastRatio(tokens['--success-strong'], tokens['--success-light'])).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(tokens['--warning-strong'], tokens['--warning-light'])).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(tokens['--info-strong'], tokens['--info-light'])).toBeGreaterThanOrEqual(4.5)
   })
 
   it.each([

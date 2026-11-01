@@ -94,7 +94,7 @@ const { t } = useI18n()
 <style scoped>
 .side-card,
 .console-side-card {
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
 }
 
 .section-card {
@@ -119,27 +119,27 @@ const { t } = useI18n()
 }
 
 .status-item {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   font-size: var(--font-size-small);
   line-height: 1.5;
-  background: #f8fafc;
-  color: #334155;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .status-item.success {
   background: var(--success-light);
-  color: #2f6b1f;
+  color: var(--success-strong);
 }
 
 .status-item.info {
   background: var(--info-light);
-  color: #205a9d;
+  color: var(--info-strong);
 }
 
 .status-item.warning {
   background: var(--warning-light);
-  color: #8a5a12;
+  color: var(--warning-strong);
 }
 
 .compact-desc :deep(.el-descriptions__label) {

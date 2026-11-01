@@ -63,7 +63,7 @@
         </el-form-item>
       </el-form>
       <div class="bind-tip">
-        <el-icon><InfoFilled /></el-icon>
+        <el-icon><AppIcon name="info-circle" /></el-icon>
         <span>{{ t('userSettings.binding.tip') }}</span>
       </div>
     </template>
@@ -75,7 +75,7 @@ defineOptions({ name: 'BindingCard' })
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { InfoFilled } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
 import { useAuthStore } from '@/stores/auth'
 import { userApi, type UserBindingInfo } from '@/api/userApi'

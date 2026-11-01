@@ -53,7 +53,7 @@
           drag
           class="upload-dragger"
         >
-          <el-icon class="upload-icon"><UploadFilled /></el-icon>
+          <el-icon class="upload-icon"><AppIcon name="upload" /></el-icon>
           <div class="upload-hint">{{ t('userSettings.fileUpload.dropHint') }}</div>
         </el-upload>
       </el-form-item>
@@ -125,7 +125,7 @@ defineOptions({ name: 'FileUploadCard' })
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, type UploadFile, type UploadRawFile } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import { userApi } from '@/api/userApi'
 import type { UploadBatchItem } from '@/api/userFileApi'
 import { normalizeHttpError } from '@/utils/errorPolicy'

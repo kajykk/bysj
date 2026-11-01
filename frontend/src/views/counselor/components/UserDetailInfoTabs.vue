@@ -133,6 +133,6 @@ const getRiskTimelineType = (item: UserRiskHistoryItem) => {
 
 .detail-timeline .timeline-text {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-small);
 }
 </style>

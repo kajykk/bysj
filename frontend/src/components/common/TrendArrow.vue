@@ -42,14 +42,14 @@ const trendClass = computed(() => {
 }
 
 .trend-up {
-  color: #f56c6c;
+  color: var(--danger-color);
 }
 
 .trend-down {
-  color: #67c23a;
+  color: var(--success-color);
 }
 
 .trend-same {
-  color: #909399;
+  color: var(--info-color);
 }
 </style>

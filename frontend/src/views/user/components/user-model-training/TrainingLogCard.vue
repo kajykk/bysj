@@ -57,7 +57,7 @@ const { t } = useI18n()
 <style scoped>
 .action-card {
   min-height: 260px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .section-card {
@@ -65,7 +65,7 @@ const { t } = useI18n()
 }
 
 .log-card {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .header-row {

@@ -6,7 +6,8 @@ import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'serial' })
 
-const baseURL = 'http://127.0.0.1:8000/api/v1'
+// 默认对齐 CI 的后端端口；本机后端不在 8000 时用 E2E_BACKEND_URL 覆盖。
+const baseURL = process.env.E2E_BACKEND_URL || 'http://127.0.0.1:8000/api/v1'
 
 // ISSUE-004 修复：从环境变量读取种子密码，与后端 .env 配置保持一致
 // AUDIT-2026-10-01：移除 `|| '***REMOVED***'` 这类回落默认值——把已知口令写进源码，

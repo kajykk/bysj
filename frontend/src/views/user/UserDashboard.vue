@@ -157,7 +157,7 @@ onMounted(() => {
   gap: 0.5rem;
   margin: 0 0 0.375rem;
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-extra-small);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);

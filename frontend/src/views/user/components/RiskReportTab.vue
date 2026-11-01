@@ -51,11 +51,11 @@
                 {{ t('riskReport.trend') }}
                 <el-icon
                   v-if="report.trend === 'up'"
-                  color="#d65a5a"
+                  color="var(--danger-color)"
                 ><AppIcon name="arrow-up" /></el-icon>
                 <el-icon
                   v-else-if="report.trend === 'down'"
-                  color="#5a9e3a"
+                  color="var(--success-color)"
                 ><AppIcon name="arrow-down" /></el-icon>
                 <span v-else>{{ t('riskReport.trendStable') }}</span>
               </span>
@@ -355,7 +355,7 @@ onMounted(() => {
 
 .score-label {
   font-size: var(--font-size-extra-small);
-  color: #7a8290;
+  color: var(--text-secondary);
 }
 
 .report-meta {
@@ -368,7 +368,7 @@ onMounted(() => {
 
 .trend-text {
   font-size: var(--font-size-small);
-  color: #5a6470;
+  color: var(--text-regular);
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -384,7 +384,7 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   transition: transform 0.2s ease;
 }
 
@@ -396,8 +396,8 @@ onMounted(() => {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #2e6fa8, #4a9bd6);
-  color: #fff;
+  background: var(--gradient-primary);
+  color: var(--text-on-accent);
   font-size: var(--font-size-extra-small);
   font-weight: 600;
   display: flex;
@@ -409,7 +409,7 @@ onMounted(() => {
 
 .advice-text {
   font-size: var(--font-size-small);
-  color: #2c3340;
+  color: var(--text-primary);
   line-height: 1.6;
   flex: 1;
 }
@@ -425,7 +425,7 @@ onMounted(() => {
 }
 
 .text-muted {
-  color: #7a8290;
+  color: var(--text-secondary);
   font-size: var(--font-size-small);
 }
 </style>

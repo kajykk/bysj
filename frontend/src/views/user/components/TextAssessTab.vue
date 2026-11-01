@@ -515,7 +515,7 @@ onUnmounted(() => {
 }
 
 .result-panel {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .result-grid {
@@ -524,11 +524,11 @@ onUnmounted(() => {
 
 .mini-result-card {
   min-height: 260px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 .mini-title {
   font-weight: 600;
-  color: #2c3340;
+  color: var(--text-primary);
 }
 </style>

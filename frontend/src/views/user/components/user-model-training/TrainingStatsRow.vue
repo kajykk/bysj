@@ -63,11 +63,11 @@ const { t } = useI18n()
 }
 
 .stat-card {
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
   min-height: 106px;
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-card);
 }
 
 /* ISS-011 修复：改用 CSS 变量定义的渐变令牌，避免硬编码 */

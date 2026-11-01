@@ -328,7 +328,7 @@ const copyLatestStructuredResult = async () => {
 }
 
 .result-panel {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .result-grid {
@@ -337,12 +337,12 @@ const copyLatestStructuredResult = async () => {
 
 .mini-result-card {
   min-height: 260px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 .mini-title {
   font-weight: 600;
-  color: #2c3340;
+  color: var(--text-primary);
 }
 
 .result-actions {
@@ -354,12 +354,12 @@ const copyLatestStructuredResult = async () => {
 
 .experimental-ref {
   font-size: var(--font-size-extra-small);
-  color: #7a8290;
+  color: var(--text-secondary);
   line-height: 1.7;
   padding: 8px 10px;
-  background: rgba(144, 147, 153, 0.06);
-  border-radius: 8px;
-  border: 1px dashed rgba(144, 147, 153, 0.3);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-color);
 }
 
 .experimental-ref p {
@@ -372,15 +372,15 @@ const copyLatestStructuredResult = async () => {
   gap: 10px;
   padding: 8px 12px;
   margin-bottom: 8px;
-  background: rgba(64, 158, 255, 0.06);
-  border-radius: 8px;
-  border: 1px solid rgba(64, 158, 255, 0.15);
+  background: var(--primary-light);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
   flex-wrap: wrap;
 }
 
 .routing-reason {
   font-size: var(--font-size-extra-small);
-  color: #5a6470;
+  color: var(--text-regular);
   flex: 1;
   min-width: 0;
 }

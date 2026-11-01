@@ -42,10 +42,10 @@ const router = useRouter()
 .next-step-card {
   margin-top: var(--spacing-md);
   padding: 1rem 1.1rem;
-  border: 1px solid var(--border-extra-light);
-  border-radius: 1rem;
-  background: var(--bg-primary);
-  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-card);
 }
 
 .next-step-card__label {

@@ -113,7 +113,7 @@
       </el-alert>
       <div class="crisis-hotlines">
         <div class="hotline-item">
-          <el-icon><PhoneFilled /></el-icon>
+          <el-icon><AppIcon name="phone" /></el-icon>
           <div class="hotline-info">
             <div class="hotline-name">
               {{ t('crisis.hotlines.national24hNumber') }}
@@ -124,7 +124,7 @@
           </div>
         </div>
         <div class="hotline-item">
-          <el-icon><PhoneFilled /></el-icon>
+          <el-icon><AppIcon name="phone" /></el-icon>
           <div class="hotline-info">
             <div class="hotline-name">
               {{ t('crisis.hotlines.beijingCrisisNumber') }}
@@ -135,7 +135,7 @@
           </div>
         </div>
         <div class="hotline-item">
-          <el-icon><PhoneFilled /></el-icon>
+          <el-icon><AppIcon name="phone" /></el-icon>
           <div class="hotline-info">
             <div class="hotline-name">
               {{ t('crisis.hotlines.lifeLineNumber') }}
@@ -173,7 +173,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { PhoneFilled } from '@element-plus/icons-vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import { modelApi, type FusionPredictResult, type RiskTrend } from '@/api/modelApi'
 import type { RiskReport } from '@/api/userRiskApi'
 import { userApi } from '@/api/userApi'
@@ -401,8 +401,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-radius: 8px;
-  background: #fef0f0;
+  border-radius: var(--radius-md);
+  background: var(--danger-light);
 }
 
 .hotline-info {
@@ -410,14 +410,14 @@ onUnmounted(() => {
 }
 
 .hotline-name {
-  font-size: 13px;
-  color: #606266;
+  font-size: var(--font-size-small);
+  color: var(--text-regular);
 }
 
 .hotline-number {
-  font-size: 18px;
+  font-size: var(--font-size-large);
   font-weight: 600;
-  color: #f56c6c;
+  color: var(--danger-color);
   margin-top: 4px;
 }
 </style>

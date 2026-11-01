@@ -209,7 +209,7 @@ import { ElMessage } from 'element-plus'
 import { userApi } from '@/api/userApi'
 import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
-import { downloadBlob, sanitizeCellForExcel, csvEscape } from '@/utils/exportUtils'
+import { downloadBlob, csvEscape } from '@/utils/exportUtils'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 import { formatDate } from '@/utils/formatUtils'
 import TrendArrow from '@/components/common/TrendArrow.vue'
@@ -381,7 +381,7 @@ onUnmounted(() => {
 
 .field-hint {
   margin-left: 12px;
-  color: #909399;
+  color: var(--text-secondary);
   font-size: var(--font-size-extra-small);
 }
 </style>
