@@ -138,15 +138,20 @@ class TestResolveAndSend:
         mock_send.assert_not_awaited()
 
     async def test_delivery_failure_is_isolated(
-        self, db_session, seeded_user_id, mock_send, caplog
+        self, db_session, seeded_user_id, mock_send, caplog, monkeypatch
     ):
         await _bind(db_session)
         mock_send.side_effect = ValueError("smtp down")
+        failures = []
+        monkeypatch.setattr(
+            warning_email, "record_silent_degradation", failures.append
+        )
 
         with caplog.at_level(logging.ERROR, logger="app.services.warning_email"):
             ok = await _send(db_session)
 
         assert ok is False
+        assert failures == ["services.warning_email.delivery_failed"]
         assert any(
             r.levelno >= logging.ERROR and "warning_email.delivery_failed" in r.message
             for r in caplog.records
@@ -192,10 +197,16 @@ class TestEventHandler:
             "send_warning_email",
             AsyncMock(side_effect=RuntimeError("boom")),
         )
+        failures = []
+        monkeypatch.setattr(
+            warning_email, "record_silent_degradation", failures.append
+        )
 
         await warning_email._on_warning_created(
             {"warning_id": 9, "user_id": 1, "current_level": 3, "counselor_id": 2}
         )
+
+        assert failures == ["services.warning_email.event_handler_failed"]
 
     def test_register_is_idempotent(self, monkeypatch):
         monkeypatch.setattr(warning_email, "_REGISTERED", False)

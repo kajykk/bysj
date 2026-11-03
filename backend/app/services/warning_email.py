@@ -25,6 +25,7 @@ from app.core.contracts import (
     USER_STATUS_ACTIVE,
     USER_STATUS_DELETED,
 )
+from app.core.degradation import record_silent_degradation
 from app.core.event_bus import event_bus
 from app.core.states import BindingStatus
 from app.models.user import User, UserCounselorBinding
@@ -158,6 +159,7 @@ async def _deliver(recipient: _Recipient, *, warning_id: int, risk_level: int, t
             warning_id,
             recipient.client_user_id,
         )
+        record_silent_degradation("services.warning_email.delivery_failed")
         return False
     return sent
 
@@ -203,6 +205,7 @@ async def send_warning_email(
             user_id,
             counselor_id,
         )
+        record_silent_degradation("services.warning_email.resolve_failed")
         return False
 
     if recipient is None:
@@ -246,6 +249,7 @@ async def _on_warning_created(data: dict) -> None:
         logger.exception(
             "warning_email.event_handler_failed warning_id=%s", warning_id
         )
+        record_silent_degradation("services.warning_email.event_handler_failed")
 
 
 def register_warning_email_handler() -> None:
