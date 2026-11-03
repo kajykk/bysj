@@ -294,6 +294,8 @@ class TestAssignableCounselorsEndpoint:
         assert STUDENT_ID not in ids           # id=1 是 user
         assert ADMIN_ID not in ids             # id=3 是 admin
         assert set(items[0]) >= {"id", "username", "role", "nickname"}
+        # 邮箱只随登录响应回显给本人；名单端点不得带出其他咨询师的邮箱
+        assert "email" not in items[0]
 
     async def test_inactive_counselor_excluded(
         self, client: TestClient, as_role, db_session, seeded_user_id

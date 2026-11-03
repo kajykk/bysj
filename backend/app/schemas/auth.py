@@ -67,7 +67,16 @@ class UserBrief(BaseModel):
     username: str
     role: str
     nickname: str | None = None
-    # 咨询师设置页需回显本人邮箱（用于接收绑定来访者的预警邮件）
+
+
+class LoginUserBrief(UserBrief):
+    """登录响应里的本人信息。
+
+    比 ``UserBrief`` 多 ``email``：咨询师设置页需要回显本人邮箱（用于接收
+    绑定来访者的预警邮件）。**不复用 ``UserBrief``**，避免该字段随
+    ``/reviews/assignable-counselors`` 等他人名单端点一起暴露。
+    """
+
     email: EmailStr | None = None
 
 
@@ -94,7 +103,7 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: str | None = None
-    user: UserBrief
+    user: LoginUserBrief
 
 
 class MessageResponse(BaseModel):
