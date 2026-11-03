@@ -139,7 +139,11 @@ RUN set -eux; \
             python-dotenv==1.2.2 \
             slowapi==0.1.9 \
             python-magic==0.4.27 \
-            "sentry-sdk[fastapi]==2.58.0"; \
+            "sentry-sdk[fastapi]==2.58.0" \
+            jieba==0.42.1 \
+            email-validator==2.3.0 \
+            httptools==0.8.0 \
+            websockets==17.2; \
     fi
 
 # ===============================================================
@@ -148,16 +152,24 @@ RUN set -eux; \
 # T-P0-04: 升级至 Python 3.12.13 (与 deps 阶段保持一致)
 FROM python:3.12.13-slim AS runtime
 
+# 2026-11 (D5): 模型制品不随镜像分发，改由 compose 只读卷挂载外部制品目录；
+# 镜像内只保留注册表/清单文档，避免训练数据与 .pkl 打进镜像。
+ARG GIT_SHA=unknown
+
 LABEL maintainer="DWS Team" \
       version="3.1.0" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
       description="Depression Warning System backend (FastAPI)"
 # 版本号说明: LABEL version 与镜像 tag (dws-backend:3.1.0) 跟随
 # backend/app/core/config.py Settings.app_version (SSOT)，不再独立编号。
+# org.opencontainers.image.revision 由 CI 传入仓库 HEAD commit，供部署后核对
+# 「镜像内代码版本 == 仓库 HEAD」。
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     APP_ENV=production \
     PYTHONPATH=/app \
+    APP_GIT_SHA=${GIT_SHA} \
     PATH="/app/.local/bin:${PATH}"
 
 # Runtime system libraries only (no compilers)
@@ -194,7 +206,8 @@ COPY --from=deps /usr/local/bin /usr/local/bin
 COPY --chown=dws:dws app/ /app/app/
 COPY --chown=dws:dws alembic/ /app/alembic/
 COPY --chown=dws:dws alembic.ini /app/alembic.ini
-COPY --chown=dws:dws models/ /app/models/
+# 2026-11 (D5): 仅带注册表文档；模型权重/数据集按外部制品库分发并由 compose 挂载。
+COPY --chown=dws:dws models/MODEL_REGISTRY.md /app/models/MODEL_REGISTRY.md
 COPY --chown=dws:dws scripts/ /app/scripts/
 
 # Make sure the user can write to the app dir (for sqlite fallback, logs, etc.)

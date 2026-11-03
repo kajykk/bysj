@@ -160,15 +160,15 @@ async def _validate_mime_type(file_content: bytes, category: str | None = None) 
     try:
         mime = magic.from_buffer(file_content, mime=True)
     except (magic.MagicException, OSError) as exc:
-        # 环境缺少 libmagic 数据库时降级: 仅依赖扩展名白名单校验 (与 ClamAV 降级策略一致)
-        logger.warning("SEC-UPLOAD: libmagic unavailable, skipping MIME check: %s", exc)
-        # P2-35 第三十三批：MIME 校验被跳过与「校验通过」对调用方完全同形 ——
-        # `_process_batch_file` 两种情况下都返回带 url 的成功结果，上传方无法
-        # 察觉内容类型其实没被验证（只剩扩展名白名单）。与第十一批
-        # `services.file_security.clamav_dependency_missing_fail_open` 同族：
-        # 同为「安全校验 fail-open 跳过，未校验按已校验处理」，必须计数。
+        # 2026-11（阶段 0）：libmagic 不可用时改为 fail-closed（与 clamav_fail_open=False 同口径）。
+        # 旧行为是「跳过 MIME 校验、只留扩展名白名单」并返回成功，调用方无法区分
+        # 「已校验」与「未校验」，属于安全校验 fail-open；现改为 503 拒绝上传。
+        logger.error("SEC-UPLOAD: libmagic unavailable, reject upload (fail-closed): %s", exc)
         record_silent_degradation("api.user_upload.validate_mime_type")
-        return
+        raise HTTPException(
+            status_code=503,
+            detail="文件类型校验服务暂不可用，上传已拒绝，请稍后重试",
+        ) from exc
 
     # 确定允许的MIME类型
     if category and category in ALLOWED_MIME_TYPES:

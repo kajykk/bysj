@@ -12,7 +12,14 @@ foreach ($p in $ports) {
 }
 if ($conflict) { Write-Host '[abort] 请先释放冲突端口或按 DEMO_CHECKLIST 调整映射后重跑。'; exit 1 }
 
-docker compose up -d --build
+# 2026-11: 密钥文件已迁出仓库，必须通过 ENV_FILE 指向仓库外文件（默认 E:\secrets\bysj\.env）
+$envFile = if ($env:ENV_FILE) { $env:ENV_FILE } else { 'E:\secrets\bysj\.env' }
+if (-not (Test-Path $envFile)) {
+  Write-Host "[abort] 未找到密钥文件：$envFile。请设置 ENV_FILE 指向仓库外的 .env（见 docs/ops/SECRET_ROTATION_2026-11.md）。"
+  exit 1
+}
+
+docker compose --env-file $envFile up -d --build
 Write-Host '[wait] 等待 backend healthy...'
 for ($i = 0; $i -lt 30; $i++) {
   try {

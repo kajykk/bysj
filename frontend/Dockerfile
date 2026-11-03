@@ -31,6 +31,11 @@ RUN npm run build
 # 注: 1.27.4-alpine3.22 tag 不存在, 使用 alpine3.22 (latest nginx on alpine 3.22)
 FROM nginx:alpine3.22 AS production
 
+# 2026-11: 与后端同名 label，供「镜像内代码版本 == 仓库 HEAD」核对。
+# 正式发版时必须传入干净 HEAD；dirty worktree 请按 <HEAD>-dirty 传入，避免被误读为干净提交。
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
+
 # T-P0-04: apk upgrade 升级基础镜像中所有系统包至最新补丁版本
 # 修复 trivy HIGH/CRITICAL 漏洞:
 #   - libcrypto3/libssl3 (OpenSSL) 3.5.4-r0 → 3.5.7-r0 (CVE-2026-31789 等 8 项)

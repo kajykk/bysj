@@ -50,6 +50,73 @@ os.environ.setdefault("E2E_USER_PASSWORD", "TestUserPwd-2024-Secure!")
 if not os.environ.get("TEST_DATABASE_URL"):
     os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_app.db"
 
+
+def _bootstrap_libmagic() -> bool:
+    """把 python-magic 自带的 libmagic 注入 PATH/MAGIC（必须在导入 app 之前）。
+
+    Windows 上 python-magic 依赖 ``site-packages/magic/libmagic`` 下的
+    ``libmagic.dll`` + ``magic.mgc``，两者都不在宿主 PATH 时 ``import magic``
+    会失败、上传接口随后 503。这里探测并显式设置，避免依赖开发者手工配环境变量。
+
+    Returns:
+        True = 已找到并注入；False = 未找到（此时注入替身模块，上传用例在
+        collection 阶段被明确 skip，而不是以 503 失败）。
+    """
+    import importlib.util
+    import types
+
+    candidates: list[Path] = []
+    spec = importlib.util.find_spec("magic")
+    if spec and spec.submodule_search_locations:
+        candidates.extend(
+            Path(location) / "libmagic"
+            for location in spec.submodule_search_locations
+        )
+    # venv 兜底路径（find_spec 在部分布局下拿不到子目录）
+    candidates.append(
+        Path(sys.prefix) / "Lib" / "site-packages" / "magic" / "libmagic"
+    )
+
+    for lib_dir in candidates:
+        mgc = lib_dir / "magic.mgc"
+        if not mgc.is_file():
+            continue
+        os.environ["PATH"] = f"{lib_dir}{os.pathsep}" + os.environ.get("PATH", "")
+        os.environ.setdefault("MAGIC", str(mgc))
+        return True
+
+    # 找不到 libmagic 时不能让整个 app 导入失败（import magic 会抛 OSError），
+    # 注入替身保证其余用例可运行；上传用例由 collection hook 明确 skip。
+    stub = types.ModuleType("magic")
+
+    def _unavailable(*_args, **_kwargs):
+        raise RuntimeError(
+            "libmagic 不可用：未找到 site-packages/magic/libmagic/magic.mgc。"
+            "Windows 安装方式见 docs/test-overview.md#windows-libmagic"
+        )
+
+    stub.from_buffer = _unavailable  # type: ignore[attr-defined]
+    stub.from_file = _unavailable  # type: ignore[attr-defined]
+    sys.modules["magic"] = stub
+    return False
+
+
+LIBMAGIC_AVAILABLE = _bootstrap_libmagic()
+LIBMAGIC_SKIP_REASON = (
+    "libmagic 不可用（未找到 magic/libmagic/magic.mgc）；上传用例跳过。"
+    "Windows 安装方式见 docs/test-overview.md#windows-libmagic"
+)
+
+
+def pytest_collection_modifyitems(config, items) -> None:
+    """libmagic 缺失时明确 skip 上传类用例，而不是让其以 503 失败。"""
+    if LIBMAGIC_AVAILABLE:
+        return
+    for item in items:
+        if "upload" in item.path.name.lower():
+            item.add_marker(pytest.mark.skip(reason=LIBMAGIC_SKIP_REASON))
+
+
 from starlette.requests import Request as StarletteRequest
 
 from app.core.database import get_db
@@ -416,20 +483,133 @@ def override_user_dependency():
 
 
 @pytest.fixture(scope="session")
-def client() -> TestClient:
-    """Session-scoped TestClient.
+def app_lifespan():
+    """会话级 lifespan：ML 模型/事件总线只启动一次。
 
-    背景: 早期为 function-scope, 每个测试创建新 TestClient 触发 lifespan startup
-    (加载 ML 模型). 2118+ 测试导致:
-    1. Windows 页面文件耗尽 (WinError 1455, torch DLL 加载失败)
-    2. model_engine 不支持重复 preload → 第二次 lifespan startup 挂起
+    背景: 早期 function-scope 每用例进入 lifespan startup，2118+ 用例导致
+    Windows 页面文件耗尽（WinError 1455）且 model_engine 重复 preload 会挂起；
+    因此 startup/shutdown 必须保持“整个会话一次”。
 
-    改为 session-scope: lifespan startup 只执行一次, ML 模型只加载一次.
-    每测试的数据库隔离由 ``override_db_dependency`` (function-scope autouse)
-    通过 ``app.dependency_overrides[get_db]`` 实现, 不依赖 client 重建.
+    该 TestClient 只由本 fixture 独占持有，**不交给用例**，避免任何用例提前
+    关闭共享 portal 后把后续用例连带打断（RuntimeError: This portal is not running）。
     """
-    with TestClient(app) as c:
-        yield c
+    with TestClient(app) as session_client:
+
+        async def _wait_model_preload() -> None:
+            """等待后台 model_preload 完成，避免首个预测用例撞上加载窗口（503）。
+
+            lifespan 把 model_preload 放进后台任务且 ``started=True`` 先于其完成；
+            整套运行中先执行的预测用例可能因此拿到 "模型推理超时/服务不可用" 的
+            503。这是时序问题，不是业务失败，这里在会话启动阶段一次性等待预热。
+            """
+            preload_task = getattr(app.state, "_model_preload_task", None)
+            if preload_task is None:
+                return
+            try:
+                await asyncio.wait_for(asyncio.shield(preload_task), timeout=90)
+            except Exception:  # noqa: BLE001 - 预热失败不应阻断测试会话，保持原有行为
+                return
+
+        async def _warmup_inference() -> None:
+            """预热一次文本推理，规避首个用例在覆盖率插桩下超过 5s 推理超时。
+
+            ``ml_inference_timeout`` 默认 5s；整套运行里第一个预测用例（
+            test_crisis_audit）会同时承担 jieba/向量器首次初始化的开销，
+            开启 coverage 后可能 >5s → 端点返回 503「模型推理超时」。
+            这里在会话启动阶段直接调用模型（绕过熔断/超时包装）完成预热。
+            """
+            from app.core.model_engine import model_engine
+
+            try:
+                await model_engine.predict_text("预热文本：最近压力有点大")
+            except Exception:  # noqa: BLE001 - 预热失败不影响测试判定
+                return
+
+        session_client.portal.call(_wait_model_preload)
+        session_client.portal.call(_warmup_inference)
+        yield session_client.portal
+
+
+@pytest.fixture
+def client(app_lifespan) -> TestClient:
+    """每个用例独立的 TestClient 实例（复用会话级 portal，不重复触发 lifespan）。
+
+    - 每个用例 new 一个 TestClient，headers/cookies/内部状态互不影响；
+    - portal 由 ``app_lifespan`` 独占，用例拿到的是借用引用，
+      用例结束只 close 自己的 httpx transport，不会关闭共享 portal；
+    - lifespan 仍只执行一次，ML 模型不会重复加载。
+    """
+    test_client = TestClient(app)
+    test_client.portal = app_lifespan  # type: ignore[assignment]
+    try:
+        yield test_client
+    finally:
+        test_client.close()
+
+
+@pytest.fixture(autouse=True)
+def _bind_module_level_testclients(request):
+    """兼容历史模块级 TestClient：绑定到会话级 portal。
+
+    ``tests/api/test_model_predict_v116.py`` 在模块顶层创建了
+    ``client = TestClient(app)``，这类 client 没有进入上下文，每个请求都会
+    临时 ``start_blocking_portal``；在模型推理路径上关闭临时 portal 时
+    可能卡在 ``thread.join()``（Windows 实测整套运行挂起）。
+    这里在用例执行前把这类 client.portal 指向会话级 portal，复用统一事件循环。
+    """
+    orphan_clients = [
+        value
+        for value in vars(request.module).values()
+        if isinstance(value, TestClient) and value.portal is None
+    ]
+    if not orphan_clients:
+        return
+    portal = request.getfixturevalue("app_lifespan")
+    for orphan in orphan_clients:
+        orphan.portal = portal  # type: ignore[assignment]
+
+
+@pytest.fixture(autouse=True)
+def deterministic_alert_dedup(request, monkeypatch, db_connection):
+    """让告警发送用例不受"跨批次"去重窗口影响（重跑结果一致）。
+
+    背景:
+    - ``try_acquire_lock`` 的 key 在真实 Redis 中保留 5 分钟，同一批次立即重跑
+      会命中日志 ``[dedup_lock] held by other instance``，通知被抑制，
+      用例表现为 send 调用次数 0（随机失败）。
+    - SQL 降级路径的 ``alert_fired`` 行会被持久化到 test_app.db，跨批次重跑
+      同样命中 5 分钟窗口。
+
+    处理（仅 tests/api/test_alerts_webhook.py）:
+    1) Redis 锁函数替换为"总是获取成功"（Redis 去重语义由单测单独覆盖）；
+    2) 清掉测试库中历史 alert_fired/alert_resolved 日志，使 SQL 窗口从零开始。
+    不改用例断言，也不触碰业务代码。
+    """
+    if request.node.path.name != "test_alerts_webhook.py":
+        return
+
+    from app.monitoring import dedup_lock
+
+    async def _always_acquired(*_args, **_kwargs) -> bool:
+        return True
+
+    async def _noop_release(*_args, **_kwargs) -> bool:
+        return True
+
+    monkeypatch.setattr(dedup_lock, "try_acquire_lock", _always_acquired)
+    monkeypatch.setattr(dedup_lock, "release_lock", _noop_release)
+
+    from sqlalchemy import text
+
+    async def _purge_alert_logs() -> None:
+        await db_connection.execute(
+            text(
+                "DELETE FROM operation_logs "
+                "WHERE action_type IN ('alert_fired', 'alert_resolved')"
+            )
+        )
+
+    run(_purge_alert_logs())
 
 
 @pytest.fixture

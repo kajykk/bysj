@@ -1,7 +1,21 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+    literal_column,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -89,15 +103,6 @@ class MonitoringLog(Base):
 class CanaryRecord(Base):
     __tablename__ = "canary_records"
 
-    __table_args__ = (
-        Index("ix_canary_records_status_started_at", "status", "started_at"),
-        Index("ix_canary_records_version_created_at", "version", "created_at"),
-        # P1-D-8: 流量百分比范围约束 - 0-100（rolled_back/completed 允许 0%）
-        CheckConstraint("traffic_percent >= 0 AND traffic_percent <= 100", name="ck_canary_records_traffic_percent"),
-        # P1-D-8: 枚举约束 - status 只允许合法值
-        CheckConstraint("status IN ('pending', 'running', 'paused', 'rolled_back', 'completed')", name="ck_canary_records_status_values"),
-    )
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     version: Mapped[str] = mapped_column(
         String(50),
@@ -159,6 +164,29 @@ class CanaryRecord(Base):
         server_default=func.now(),
         nullable=False,
         comment="记录创建时间"
+    )
+
+    # 注意：``__table_args__`` 放在列定义之后，表达式索引需要引用 ``route_prefix`` 列对象。
+    __table_args__ = (
+        Index("ix_canary_records_status_started_at", "status", "started_at"),
+        Index("ix_canary_records_version_created_at", "version", "created_at"),
+        # P1-D-8: 流量百分比范围约束 - 0-100（rolled_back/completed 允许 0%）
+        CheckConstraint("traffic_percent >= 0 AND traffic_percent <= 100", name="ck_canary_records_traffic_percent"),
+        # P1-D-8: 枚举约束 - status 只允许合法值
+        CheckConstraint("status IN ('pending', 'running', 'paused', 'rolled_back', 'completed')", name="ck_canary_records_status_values"),
+        # 同一 route_prefix 至多一条 RUNNING（NULL 归一为 ''）。
+        #
+        # 与迁移 n2b3c4d5e6f7 的 DDL 完全等价：unique + 表达式
+        # COALESCE(route_prefix, '') + 部分索引 WHERE status = 'running'。
+        # 必须声明在 ORM 模型里，否则全新库走 create_all + stamp head 会天生
+        # 缺这个索引（迁移历史不会对新库重放），init_db 的漂移自检永远报警。
+        Index(
+            "uq_canary_records_single_running",
+            func.coalesce(route_prefix, literal_column("''")),
+            unique=True,
+            sqlite_where=text("status = 'running'"),
+            postgresql_where=text("status = 'running'"),
+        ),
     )
 
 

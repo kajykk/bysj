@@ -166,7 +166,7 @@ jieba==0.42.1
     # via -r backend/requirements.txt
 jinja2==3.1.6
     # via torch
-joblib==1.6.0
+joblib==1.5.3
     # via
     #   -r backend/requirements.txt
     #   scikit-learn
@@ -309,7 +309,7 @@ rich==15.0.0
     #   typer
 safetensors==0.8.0
     # via transformers
-scikit-learn==1.9.1
+scikit-learn==1.8.0
     # via
     #   -r backend/requirements.txt
     #   shap

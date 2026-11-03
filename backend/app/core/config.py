@@ -1,5 +1,7 @@
 import importlib.util
 import logging
+import os
+import re
 import secrets
 import sys
 import warnings
@@ -8,7 +10,10 @@ from pathlib import Path
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.core.ml_decision_thresholds import TEXT_BILINGUAL_DECISION_THRESHOLD
+from app.core.ml_decision_thresholds import (
+    TEXT_BILINGUAL_DECISION_THRESHOLD,
+    TEXT_BILINGUAL_REVIEW_THRESHOLD,
+)
 
 # P1-E 修复：使用 logger 替代 print()，便于生产环境统一日志收集
 logger = logging.getLogger(__name__)
@@ -106,6 +111,44 @@ _MIN_JWT_SECRET_LENGTH_WHEN_LOW_ENTROPY = 48
 # 判定入口统一为 Settings.dev_credentials_allowed，避免各调用点各写一份漂移。
 _DEV_CREDENTIAL_ENVS = frozenset({"development", "dev", "local", "test", "testing", "pytest"})
 
+# ── 2026-11 安全整改（阶段 0）：部署期配置校验 ──
+# 目标：把「配错了但能启动」的部署错误提前到启动期，生产 fail-fast、开发仅告警。
+# 判定只用一份实现，避免各调用点漂移。
+_COMMIT_HASH_RE = re.compile(r"^[0-9a-f]{40}$")
+_PLACEHOLDER_PREFIXES = (
+    "change_me",
+    "changeme",
+    "change-me",
+    "replace_me",
+    "<",
+    "your_",
+    "todo",
+    "xxx",
+)
+# 需要做占位值检查的字段（只报字段名，绝不回显字段值）。
+_PLACEHOLDER_CHECKED_FIELDS = (
+    "jwt_secret_key",
+    "pii_encryption_key",
+    "pii_previous_keys",
+    "alertmanager_webhook_secret",
+    "metrics_access_token",
+    "grafana_service_token",
+    "smtp_password",
+)
+
+
+def _is_placeholder_secret(value: str) -> bool:
+    """判断配置值是否为示例/占位值（如 ``change_me_smtp_password``）。"""
+    normalized = (value or "").strip().lower()
+    if not normalized:
+        return False
+    return normalized.startswith(_PLACEHOLDER_PREFIXES)
+
+
+def _is_pinned_commit(revision: str) -> bool:
+    """HuggingFace revision 必须是 40 位 commit hash，而不是浮动分支名。"""
+    return bool(_COMMIT_HASH_RE.match((revision or "").strip().lower()))
+
 
 def _validate_jwt_secret_strength(secret: str) -> None:
     """P1-6: 生产环境 HS256 密钥强度校验。
@@ -149,7 +192,10 @@ def _validate_jwt_secret_strength(secret: str) -> None:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        # 2026-11（阶段 0）：密钥文件已迁出仓库。优先读取 ENV_FILE 指向的仓库外文件，
+        # 未设置时才回退 backend/.env（仅用于本地开发，CI 会拒绝仓库内 env 文件）。
+        env_file=os.environ.get("ENV_FILE")
+        or str(Path(__file__).parent.parent.parent / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         protected_namespaces=("settings_",),
@@ -380,10 +426,57 @@ class Settings(BaseSettings):
                     UserWarning,
                     stacklevel=2,
                 )
+        # 2026-11 安全整改（阶段 0）：占位值 / 模型 revision / JWT iss-aud 部署期校验
+        self._validate_deployment_config()
         # M-Core-2 修复：CORS 通配符校验移到启动时（model_validator）执行一次，
         # 避免每次请求访问 cors_origins_list 属性时重复校验。
         self._validate_cors_origins()
         return self
+
+    def _validate_deployment_config(self) -> None:
+        """部署期配置校验（生产 fail-fast，开发仅告警）。
+
+        覆盖四类「能启动但实际没配好」的部署错误：
+        1. 密钥/口令仍是 ``change_me`` 之类示例值；
+        2. ``MODEL_BERT_REVISION`` 是浮动分支名而非 40 位 commit hash；
+        3. ``JWT_ISSUER`` / ``JWT_AUDIENCE`` 未配置（token 可跨服务重放）；
+        4. 生产 CORS 含 ``http://`` 明文源（见 ``_validate_cors_origins``）。
+        只输出字段名，不回显任何配置值。
+        """
+        is_production = self.app_env.strip().lower() == "production"
+
+        problems: list[str] = []
+        placeholders = [
+            name.upper()
+            for name in _PLACEHOLDER_CHECKED_FIELDS
+            if _is_placeholder_secret(getattr(self, name, "") or "")
+        ]
+        for url_field in ("database_url", "redis_url"):
+            if "change_me" in (getattr(self, url_field, "") or "").lower():
+                placeholders.append(url_field.upper())
+        if placeholders:
+            problems.append(
+                "以下配置仍是示例/占位值: " + ", ".join(sorted(set(placeholders)))
+            )
+        if not _is_pinned_commit(self.model_bert_revision):
+            problems.append(
+                "MODEL_BERT_REVISION 必须是 40 位 commit hash（当前不是 commit hash）"
+            )
+        if not self.jwt_issuer.strip():
+            problems.append("JWT_ISSUER 未配置")
+        if not self.jwt_audience.strip():
+            problems.append("JWT_AUDIENCE 未配置")
+
+        if not problems:
+            return
+        message = "部署配置校验失败: " + "; ".join(problems)
+        if is_production:
+            raise ValueError(message + "。生产环境拒绝启动，请修正密钥文件后重试。")
+        warnings.warn(
+            f"⚠️  {message}（非生产环境仅告警，生产环境会拒绝启动）",
+            UserWarning,
+            stacklevel=3,
+        )
 
     def _validate_cors_origins(self) -> None:
         """启动时校验 CORS 配置：allow_credentials=True 时禁止通配符 '*'。"""
@@ -396,6 +489,15 @@ class Settings(BaseSettings):
                 "CORS 配置错误：allow_credentials=True 时不允许使用通配符 '*'。"
                 "请显式配置受信域名列表，例如：https://example.com,https://app.example.com"
             )
+        # 2026-11 整改：生产环境禁止 http:// 源（含 localhost:3000 之类的历史开发值），
+        # 否则 TLS 降级后的源仍可携带凭据发起跨域请求。
+        if self.app_env.strip().lower() == "production":
+            insecure = [origin for origin in origins if origin.lower().startswith("http://")]
+            if insecure:
+                raise ValueError(
+                    "生产环境 CORS_ALLOWED_ORIGINS 不允许 http:// 源，"
+                    "请改为 https:// 域名。检测到: " + ", ".join(insecure)
+                )
 
     jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
@@ -508,6 +610,8 @@ class Settings(BaseSettings):
     # ROUND_16 (P1-8)：默认值引用 SSOT 常量（口径单一事实源），环境变量仍可覆盖；
     # 一致性闸门 test_p2_40 TestThresholdSsot 钉死二者相等。
     text_bilingual_decision_threshold: float = TEXT_BILINGUAL_DECISION_THRESHOLD
+    #: D2 双阈值门控上界：> 本值才直接判高风险；0.30–0.55 为疑似需复核区。
+    text_bilingual_review_threshold: float = TEXT_BILINGUAL_REVIEW_THRESHOLD
 
     # ── v1.26 轻特征模型召回优化配置 ──
     lite_decision_threshold: float = 0.40

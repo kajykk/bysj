@@ -59,6 +59,39 @@ dist/
 .env.local
 .env.*.local
 .pii_key
+.env.probe
+
+# ── 模型数据集 / 制品 (2026-11 D5: 不随镜像分发, 走外部制品库 + .sha256) ──
+# 运行时由 compose 只读卷挂载 backend/models；镜像内只保留注册表文档。
+# 归档目录（历史/损坏产物）永不进镜像。
+_archive/
+models/_archive/
+models/datasets/
+# 清单与哈希侧车只用于部署机启动校验（由 MODEL_DIR 只读卷提供），构建上下文不带
+models/DEPLOYMENT_MANIFEST.json
+models/**/*.sha256
+*.pkl
+*.csv
+*.pt
+*.pth
+*.keras
+*.h5
+*.onnx
+*.joblib
+# 实验目录/中间产物（训练期影子目录，不属于交付）
+r25_bt_api/
+rev_s6_bt/
+p2_40_r16_*/
+leak_delta_real.json
+pool_leakage*.json
+# 2026-11-03 工作区整理：上述实验目录与评估产物已归档到 _experiments/，
+# 该归档区永不进镜像（保留上方逐项规则以兼容旧工作区）。
+_experiments/
+
+# ── 其他数据库 / 覆盖率产物（test_app.db、.coverage、htmlcov 已在上面排除）──
+*.db
+*.sqlite3
+.coverage.*
 
 # ── Docker 自身文件 (避免循环) ──
 Dockerfile

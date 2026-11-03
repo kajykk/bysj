@@ -32,7 +32,11 @@ from app.models import (
 # 修复：pydantic Settings 仅将 .env 加载到 Settings 对象，不会自动注入 os.environ，
 # 导致 seed.py 模块导入时 os.getenv("E2E_*_PASSWORD") 返回 None，应用启动失败。
 # config.py 的 BACKEND_DIR 与本文件同处 backend/ 目录，复用相同的 .env 路径。
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+# 2026-11（阶段 0）：密钥文件已迁出仓库，优先读取 ENV_FILE 指向的仓库外文件。
+_env_file = os.environ.get("ENV_FILE") or str(
+    Path(__file__).resolve().parents[2] / ".env"
+)
+load_dotenv(_env_file, override=False)
 
 # 从环境变量读取种子数据密码，默认值仅用于开发环境
 # 修复：生产环境必须显式配置密码，防止弱口令后门

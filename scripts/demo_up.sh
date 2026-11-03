@@ -18,7 +18,14 @@ if [ "$conflict" -eq 1 ]; then
   exit 1
 fi
 
-docker compose up -d --build
+# 2026-11: 密钥文件已迁出仓库，必须通过 ENV_FILE 指向仓库外文件（默认 /e/secrets/bysj/.env）
+ENV_FILE="${ENV_FILE:-/e/secrets/bysj/.env}"
+if [ ! -f "$ENV_FILE" ]; then
+  echo "[abort] 未找到密钥文件：$ENV_FILE。请设置 ENV_FILE 指向仓库外的 .env（见 docs/ops/SECRET_ROTATION_2026-11.md）。"
+  exit 1
+fi
+
+docker compose --env-file "$ENV_FILE" up -d --build
 echo "[wait] 等待 backend healthy..."
 for i in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:8001/health >/dev/null 2>&1; then

@@ -15,10 +15,18 @@ datasources:
     access: proxy
     # 指向 v1.37 grafana_adapter 根路径 (T-GRAF-002, Test connection 兼容).
     # 注意: 不能是 v1.36 /alerts/observability (无根路由, simpod 测试连接会 500)
-    url: http://backend:8000/api/v1/alerts/observability/grafana
+    # 末尾必须带 "/"：后端路由是 ``@router.get("/")``，缺斜杠会 307 跳转，
+    # Grafana 代理不会跟随跳转，插件「Test connection」直接看到 3xx。
+    url: http://backend:8000/api/v1/alerts/observability/grafana/
     isDefault: true
     editable: true
     jsonData:
       tlsSkipVerify: false
+      # Grafana 数据源代理只认 httpHeaderName*/httpHeaderValue* 这组键。
+      # 任意键名（如 Authorization）只有 backend 插件能通过
+      # DecryptedSecureJSONData 读取；simpod-json-datasource 是纯前端插件
+      # (plugin.json: "backend": false)，拿不到 secureJsonData，因此历史上
+      # 写成 secureJsonData.Authorization 时该头从未进入出站请求 → 后端 401。
+      httpHeaderName1: Authorization
     secureJsonData:
-      Authorization: Bearer ${GRAFANA_SA_TOKEN}
+      httpHeaderValue1: "Bearer ${GRAFANA_SA_TOKEN}"

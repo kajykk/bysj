@@ -3,7 +3,10 @@
 # 本文件头注释与各 service image tag 不再独立维护版本数字，统一引用 SSOT。
 # 当前对齐版本见 backend/models/MODEL_REGISTRY.md（模型）与 /api/v1/version（运行时）。
 # Architecture: 9 services (postgres + redis + alembic_migrate + backend + celery_worker + celery_beat + frontend + grafana + prometheus)
-# Usage: docker compose up -d
+# Usage (2026-11): 密钥文件已迁出仓库，必须显式传入环境文件：
+#   PowerShell: $env:ENV_FILE="E:\secrets\bysj\.env"; docker compose --env-file $env:ENV_FILE up -d
+#   Bash:       ENV_FILE=/e/secrets/bysj/.env docker compose --env-file "$ENV_FILE" up -d
+# 版本号: 镜像 tag 统一由 APP_VERSION 注入（默认 3.1.0），禁止各服务各写一套 tag。
 # Docs: docs/DEPLOYMENT_GUIDE.md
 
 name: dws
@@ -68,6 +71,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        # 2026-11: 写入镜像 label 并在启动日志打印，供「镜像内代码版本 == 仓库 HEAD」核对
+        GIT_SHA: ${GIT_SHA:-unknown}
     container_name: dws-migrate
     restart: "no"
     depends_on:
@@ -78,6 +84,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://depress_admin:${POSTGRES_PASSWORD}@postgres:5432/depression_system
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      # 2026-11: 生产启动校验要求显式配置（缺失/浮动值会 fail-fast）
+      JWT_ISSUER: ${JWT_ISSUER:?JWT_ISSUER is required in production}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:?JWT_AUDIENCE is required in production}
+      MODEL_BERT_REVISION: ${MODEL_BERT_REVISION:?MODEL_BERT_REVISION must be a 40-char commit hash}
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
       # SEC-P1-002: Settings() 校验需要 (即使迁移不发送邮件, Settings() 仍会验证)
       PASSWORD_RESET_BASE_URL: ${PASSWORD_RESET_BASE_URL:?PASSWORD_RESET_BASE_URL must start with https:// in production}
@@ -103,7 +113,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: dws-backend:3.1.0
+      args:
+        # 2026-11: 写入镜像 label 并在启动日志打印，供「镜像内代码版本 == 仓库 HEAD」核对
+        GIT_SHA: ${GIT_SHA:-unknown}
+    image: dws-backend:${APP_VERSION:-3.1.0}
     container_name: dws-backend
     restart: unless-stopped
     depends_on:
@@ -120,6 +133,10 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       JWT_ALGORITHM: HS256
+      # 2026-11: 生产启动校验要求显式配置（缺失/浮动值会 fail-fast）
+      JWT_ISSUER: ${JWT_ISSUER:?JWT_ISSUER is required in production}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:?JWT_AUDIENCE is required in production}
+      MODEL_BERT_REVISION: ${MODEL_BERT_REVISION:?MODEL_BERT_REVISION must be a 40-char commit hash}
       ACCESS_TOKEN_EXPIRE_MINUTES: 120
       REFRESH_TOKEN_EXPIRE_DAYS: 7
       PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: 30
@@ -176,7 +193,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: dws-backend:v1.41
+      args:
+        # 2026-11: 写入镜像 label 并在启动日志打印，供「镜像内代码版本 == 仓库 HEAD」核对
+        GIT_SHA: ${GIT_SHA:-unknown}
+    image: dws-backend:${APP_VERSION:-3.1.0}
     container_name: dws-celery-worker
     restart: unless-stopped
     depends_on:
@@ -187,6 +207,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://depress_admin:${POSTGRES_PASSWORD}@postgres:5432/depression_system
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      # 2026-11: 生产启动校验要求显式配置（缺失/浮动值会 fail-fast）
+      JWT_ISSUER: ${JWT_ISSUER:?JWT_ISSUER is required in production}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:?JWT_AUDIENCE is required in production}
+      MODEL_BERT_REVISION: ${MODEL_BERT_REVISION:?MODEL_BERT_REVISION must be a 40-char commit hash}
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
       MODEL_DIR: /app/models
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-2}
@@ -225,7 +249,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: dws-backend:v1.41
+      args:
+        # 2026-11: 写入镜像 label 并在启动日志打印，供「镜像内代码版本 == 仓库 HEAD」核对
+        GIT_SHA: ${GIT_SHA:-unknown}
+    image: dws-backend:${APP_VERSION:-3.1.0}
     container_name: dws-celery-beat
     restart: unless-stopped
     depends_on:
@@ -236,6 +263,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://depress_admin:${POSTGRES_PASSWORD}@postgres:5432/depression_system
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      # 2026-11: 生产启动校验要求显式配置（缺失/浮动值会 fail-fast）
+      JWT_ISSUER: ${JWT_ISSUER:?JWT_ISSUER is required in production}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:?JWT_AUDIENCE is required in production}
+      MODEL_BERT_REVISION: ${MODEL_BERT_REVISION:?MODEL_BERT_REVISION must be a 40-char commit hash}
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
       MODEL_DIR: /app/models
       # SEC-P1-002: Settings() 校验需要
@@ -278,7 +309,10 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    image: dws-frontend:3.1.0
+      args:
+        # 2026-11: 与 backend 三个服务同一 GIT_SHA 口径（写入前端镜像 label）
+        GIT_SHA: ${GIT_SHA:-unknown}
+    image: dws-frontend:${APP_VERSION:-3.1.0}
     container_name: dws-frontend
     restart: unless-stopped
     depends_on:
@@ -323,7 +357,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=30d
-      - --web.enable-lifecycle
+      # 2026-11: 关闭 --web.enable-lifecycle（禁止经 API 触发热重载），配置变更走容器重启
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # SEC-AUDIT-02: 抓取令牌经文件注入 (prometheus.yml 不支持 ${VAR} 展开)

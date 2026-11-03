@@ -38,7 +38,23 @@ jobs:
       - name: Build backend image
         working-directory: backend
         run: |
-          docker build -f Dockerfile -t dws-backend:scan .
+          docker build -f Dockerfile --build-arg GIT_SHA="${GITHUB_SHA}" -t dws-backend:scan .
+
+      - name: Verify image revision == repository HEAD
+        # 2026-11: 校验「镜像内代码版本 == 仓库 HEAD」。
+        # GIT_SHA 由 build-arg 写入 label + APP_GIT_SHA，部署后可用同一条命令自检。
+        run: |
+          set -eu
+          image_sha=$(docker image inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' dws-backend:scan)
+          env_sha=$(docker run --rm --entrypoint printenv dws-backend:scan APP_GIT_SHA)
+          echo "repo HEAD       = ${GITHUB_SHA}"
+          echo "image label     = ${image_sha}"
+          echo "image APP_GIT_SHA = ${env_sha}"
+          if [ "${image_sha}" != "${GITHUB_SHA}" ] || [ "${env_sha}" != "${GITHUB_SHA}" ]; then
+            echo "::error::镜像版本与仓库 HEAD 不一致（label 或 APP_GIT_SHA），请检查构建参数"
+            exit 1
+          fi
+          echo "OK: 镜像版本与仓库 HEAD 一致"
 
       - name: Verify base-image hardening floor
         # 目的: 让 backend/.trivyignore 中的风险接受前提**可被 CI 自动验证**。

@@ -315,9 +315,19 @@ backend/full_test.txt
 backend/backend/
 # models/ 含大型 .pkl 模型文件不入库, 但保留 .gitkeep 使目录存在于 CI 构建上下文 (Dockerfile COPY models/ 需要)
 backend/models/*
+# 子目录内的一切文件默认仍忽略（含 *.pkl / *.csv）
+backend/models/**/*
+# 目录需显式放行, 否则 git 不会下钻, 下方的文件级白名单不生效
+!backend/models/*/
+!backend/models/**/*/
 !backend/models/.gitkeep
 # P0 口径统一: 模型注册表是文档 (SSOT 配套), 必须入库
 !backend/models/MODEL_REGISTRY.md
+# 2026-11 D5: 部署清单与 .sha256 侧车只含哈希、不含模型本体, 属审计材料, 随仓库走
+!backend/models/DEPLOYMENT_MANIFEST.json
+!backend/models/**/*.sha256
+# 归档区（历史/损坏产物）整体不入库, 连侧车也不入库
+backend/models/_archive/**
 backend/monitoring/
 
 # AI tool memory
@@ -365,3 +375,8 @@ test_app.db
 .coverage
 coverage.xml
 trivy_scan_*.txt
+
+# ── 实验产物归档（2026-11-03 工作区整理）────────────────────────────────
+# backend/ 根目录的实验目录与评估产物已移入 backend/_experiments/；
+# 该目录不参与运行时、构建与 CI，整体忽略，避免污染 git 工作区与交付包。
+backend/_experiments/
