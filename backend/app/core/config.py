@@ -536,6 +536,8 @@ class Settings(BaseSettings):
     otel_resource_attributes: str = ""  # 附加资源属性 (如 "key1=val1,key2=val2")
     refresh_token_expire_days: int = 7
     password_reset_token_expire_minutes: int = 30
+    # 六位邮箱验证码有效期；验证码仅存 HMAC 摘要，过期即失效
+    password_reset_code_expire_minutes: int = 10
 
     # SEC-P1-002 修复：生产环境 (app_env=production) 必须配置 https:// 前缀
     # 默认值仅用于本地开发, 启动时由 apply_env_defaults 校验

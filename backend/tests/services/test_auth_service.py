@@ -222,6 +222,162 @@ class TestAuthService:
         assert result["access_token"]
 
     @pytest.mark.asyncio
+    async def test_reset_password_with_email_code(
+        self, db_session, seeded_user_id, memory_blocklist, monkeypatch
+    ):
+        """六位验证码路径：申请后可用验证码改密并登录。"""
+        from app.core.cache import clear_memory_cache
+
+        clear_memory_cache()
+        monkeypatch.setattr(
+            "app.services.auth_service._generate_password_reset_code",
+            lambda: "123456",
+        )
+        service = AuthService(db_session)
+        sent: list[tuple[str, str, int]] = []
+
+        async def _capture(email: str, code: str, expire_minutes: int) -> None:
+            sent.append((email, code, expire_minutes))
+
+        monkeypatch.setattr(
+            service.email_service, "send_password_reset_code_email", _capture
+        )
+        await service.request_password_reset("seed@test.com")
+
+        assert sent == [("seed@test.com", "123456", 10)]
+        await service.reset_password(
+            ResetPasswordRequest(
+                email="seed@test.com",
+                new_password="newpass123",
+                verification_code="123456",
+            )
+        )
+
+        from app.schemas.auth import LoginRequest
+
+        result = await service.login(
+            LoginRequest(username="seed_user", password="newpass123")
+        )
+        assert result["access_token"]
+
+    @pytest.mark.asyncio
+    async def test_reset_password_with_wrong_code_keeps_code_valid(
+        self, db_session, seeded_user_id, memory_blocklist, monkeypatch
+    ):
+        """错误验证码只累计尝试次数，不提前作废正确验证码。"""
+        from app.core.cache import clear_memory_cache
+
+        clear_memory_cache()
+        monkeypatch.setattr(
+            "app.services.auth_service._generate_password_reset_code",
+            lambda: "123456",
+        )
+        service = AuthService(db_session)
+
+        async def _noop(email: str, code: str, expire_minutes: int) -> None:
+            return None
+
+        monkeypatch.setattr(
+            service.email_service, "send_password_reset_code_email", _noop
+        )
+        await service.request_password_reset("seed@test.com")
+
+        with pytest.raises(ValueError, match="验证码无效或已过期"):
+            await service.reset_password(
+                ResetPasswordRequest(
+                    email="seed@test.com",
+                    new_password="newpass123",
+                    verification_code="654321",
+                )
+            )
+
+        await service.reset_password(
+            ResetPasswordRequest(
+                email="seed@test.com",
+                new_password="newpass123",
+                verification_code="123456",
+            )
+        )
+
+    @pytest.mark.asyncio
+    async def test_reset_password_code_is_single_use(
+        self, db_session, seeded_user_id, memory_blocklist, monkeypatch
+    ):
+        """验证码成功后立即核销，重复使用被拒。"""
+        from app.core.cache import clear_memory_cache
+
+        clear_memory_cache()
+        monkeypatch.setattr(
+            "app.services.auth_service._generate_password_reset_code",
+            lambda: "123456",
+        )
+        service = AuthService(db_session)
+
+        async def _noop(email: str, code: str, expire_minutes: int) -> None:
+            return None
+
+        monkeypatch.setattr(
+            service.email_service, "send_password_reset_code_email", _noop
+        )
+        await service.request_password_reset("seed@test.com")
+        payload = ResetPasswordRequest(
+            email="seed@test.com",
+            new_password="newpass123",
+            verification_code="123456",
+        )
+        await service.reset_password(payload)
+
+        with pytest.raises(ValueError, match="验证码无效或已过期"):
+            await service.reset_password(
+                ResetPasswordRequest(
+                    email="seed@test.com",
+                    new_password="attackerpass1",
+                    verification_code="123456",
+                )
+            )
+
+    @pytest.mark.asyncio
+    async def test_reset_password_code_invalid_after_max_attempts(
+        self, db_session, seeded_user_id, memory_blocklist, monkeypatch
+    ):
+        """连续 5 次错误后，即使给出正确验证码也拒绝。"""
+        from app.core.cache import clear_memory_cache
+
+        clear_memory_cache()
+        monkeypatch.setattr(
+            "app.services.auth_service._generate_password_reset_code",
+            lambda: "123456",
+        )
+        service = AuthService(db_session)
+
+        async def _noop(email: str, code: str, expire_minutes: int) -> None:
+            return None
+
+        monkeypatch.setattr(
+            service.email_service, "send_password_reset_code_email", _noop
+        )
+        await service.request_password_reset("seed@test.com")
+
+        for _ in range(5):
+            with pytest.raises(ValueError, match="验证码无效或已过期"):
+                await service.reset_password(
+                    ResetPasswordRequest(
+                        email="seed@test.com",
+                        new_password="newpass123",
+                        verification_code="654321",
+                    )
+                )
+
+        with pytest.raises(ValueError, match="验证码无效或已过期"):
+            await service.reset_password(
+                ResetPasswordRequest(
+                    email="seed@test.com",
+                    new_password="newpass123",
+                    verification_code="123456",
+                )
+            )
+
+    @pytest.mark.asyncio
     async def test_logout_without_token(self, db_session, seeded_user_id):
         """TC-COV-AUTH-008: Logout without token revokes all sessions."""
         service = AuthService(db_session)
@@ -314,16 +470,18 @@ class TestAuthServiceEmailCaseInsensitivity:
             await service.register(payload)
 
     @pytest.mark.asyncio
-    async def test_password_reset_finds_user_by_case_variant(self, db_session) -> None:
+    async def test_password_reset_finds_user_by_case_variant(
+        self, db_session, memory_blocklist
+    ) -> None:
         """用大写邮箱注册, 用小写邮箱申请重置 —— 必须命中同一账号."""
         service = AuthService(db_session)
         sent: dict[str, str] = {}
 
-        async def _capture(email: str, token: str) -> None:
+        async def _capture(email: str, code: str, expire_minutes: int) -> None:
             sent["email"] = email
-            sent["token"] = token
+            sent["code"] = code
 
-        service.email_service.send_password_reset_email = _capture  # type: ignore[method-assign]
+        service.email_service.send_password_reset_code_email = _capture  # type: ignore[method-assign]
 
         payload = RegisterRequest(
             username="mixedcaseuser",

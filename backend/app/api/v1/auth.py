@@ -292,7 +292,7 @@ async def request_password_reset(
     service = AuthService(db)
     try:
         await service.request_password_reset(payload.email)
-        return ok({"message": "如果邮箱已注册，重置邮件将尽快发送"})
+        return ok({"message": "如果邮箱已注册，重置验证码将发送到该邮箱"})
     except ValueError as exc:
         raise ServiceError(
                 str(exc),

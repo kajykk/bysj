@@ -119,6 +119,33 @@ class EmailService:
             "如果这不是你的操作，请忽略本邮件。"
         )
 
+        await self._deliver(message, email, "重置邮件发送失败，请稍后重试")
+
+    async def send_password_reset_code_email(
+        self, email: str, code: str, expire_minutes: int
+    ) -> None:
+        if not settings.smtp_host or not settings.smtp_from_email:
+            logger.warning(
+                "email.smtp_not_configured user=%s (reset code generated but not delivered)",
+                _mask_email(email),
+            )
+            return
+
+        message = EmailMessage()
+        message["Subject"] = "密码重置验证码"
+        message["From"] = settings.smtp_from_email
+        message["To"] = email
+        message.set_content(
+            "我们收到了一次密码重置请求。\n"
+            f"验证码：{code}\n"
+            f"请在 {expire_minutes} 分钟内输入该验证码完成重置，验证码仅可使用一次。\n\n"
+            "如果这不是你的操作，请忽略本邮件。"
+        )
+        await self._deliver(message, email, "验证码邮件发送失败，请稍后重试")
+
+    async def _deliver(
+        self, message: EmailMessage, email: str, error_message: str
+    ) -> None:
         try:
             # STAB-P1-004 修复：用 SMTP 熔断器包装 to_thread 调用
             # - 熔断器 OPEN 时直接抛 CircuitBreakerOpenError (503 快速失败)
@@ -131,10 +158,12 @@ class EmailService:
             raise ValueError("邮件服务暂时不可用，请稍后重试") from None
         except Exception as exc:
             logger.exception(
-                "email.send_password_reset_failed user=%s", _mask_email(email)
+                "email.send_failed user=%s subject=%s",
+                _mask_email(email),
+                message["Subject"],
             )
             # L-9 修复：添加 from exc 保留原始异常链，便于排查根因
-            raise ValueError("重置邮件发送失败，请稍后重试") from exc
+            raise ValueError(error_message) from exc
 
     def _send_smtp(self, message: EmailMessage) -> None:
         """同步 SMTP 发送逻辑，供 asyncio.to_thread 调用。

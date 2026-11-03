@@ -68,6 +68,9 @@ class TestConfigProductionHttpsCheck:
             pii_encryption_key="production-pii-key",
             alertmanager_webhook_secret="prod-webhook-secret",
             metrics_access_token="prod-metrics-token",
+            model_bert_revision="a" * 40,
+            jwt_issuer="bysj-backend",
+            jwt_audience="bysj-api",
             password_reset_base_url="https://example.com/reset-password",
         )
         assert settings.password_reset_base_url == "https://example.com/reset-password"

@@ -1,4 +1,8 @@
+import hashlib
+import hmac
 import logging
+import secrets
+import time
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -13,7 +17,6 @@ from app.core.contracts import DEFAULT_TENANT_ID, USER_ROLE_USER
 from app.core.pii_crypto import blind_index_candidates, compute_blind_index
 from app.core.security import (
     create_access_token,
-    create_password_reset_token,
     create_refresh_token,
     decode_token,
     get_password_hash_async,
@@ -32,6 +35,24 @@ from app.services.email_service import EmailService
 
 # P1-E 修复：添加 logger 记录密码验证异常，防止服务端异常被静默吞掉
 logger = logging.getLogger(__name__)
+
+# 六位邮箱验证码：只存 HMAC 摘要，不存明文；单码最多尝试 5 次，
+# 同一账号每小时最多 10 次失败，限制低熵验证码的暴力枚举空间。
+_RESET_CODE_MAX_ATTEMPTS = 5
+_RESET_CODE_MAX_FAILURES_PER_HOUR = 10
+_RESET_FAILURE_WINDOW_SECONDS = 3600
+
+
+def _generate_password_reset_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def _hash_password_reset_code(user_id: int, code: str) -> str:
+    return hmac.new(
+        settings.jwt_secret_key.encode("utf-8"),
+        f"{user_id}:{code}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 # M-04 修复：时序攻击防护的 dummy bcrypt 哈希改为懒加载。
 # 原实现在模块加载时调用 get_password_hash（内部 bcrypt.gensalt 较慢），
@@ -356,17 +377,46 @@ class AuthService:
             )
             return
 
-        # 生成密码重置令牌（仅用于邮件发送，不通过 API 返回）
-        reset_token = create_password_reset_token({"sub": str(user.id), "email": email})
-        # 重置令牌仅通过电子邮件发送，绝不通过 API 响应返回
-        # M11 修复：send_password_reset_email 已改为 async，需要 await
-        await self.email_service.send_password_reset_email(email, reset_token)
+        # 验证码只通过邮件发送，绝不通过 API 响应返回；服务端仅存 HMAC 摘要
+        code = _generate_password_reset_code()
+        ttl_seconds = max(1, settings.password_reset_code_expire_minutes) * 60
+        expire_at = time.time() + ttl_seconds
+        from app.core.cache import CacheUnavailableError, cache_set
+
+        try:
+            await cache_set(
+                f"pwdreset:code:{user.id}",
+                {
+                    "digest": _hash_password_reset_code(user.id, code),
+                    "attempts": 0,
+                    "exp": expire_at,
+                },
+                ttl=ttl_seconds,
+                strict=True,
+            )
+        except CacheUnavailableError as exc:
+            logger.error(
+                "Password reset code storage unavailable: user_id=%s", user.id
+            )
+            raise ValueError("密码重置服务暂时不可用，请稍后重试") from exc
+
+        await self.email_service.send_password_reset_code_email(
+            email, code, ttl_seconds // 60
+        )
 
     async def reset_password(self, payload: ResetPasswordRequest) -> None:
+        if payload.reset_token:
+            await self._reset_password_with_token(payload)
+            return
+        await self._reset_password_with_code(payload)
+
+    async def _reset_password_with_token(
+        self, payload: ResetPasswordRequest
+    ) -> None:
         from app.core.security import decode_token
 
         try:
-            token_data = decode_token(payload.reset_token)
+            token_data = decode_token(payload.reset_token or "")
             if token_data.get("type") != "password_reset":
                 raise ValueError("无效的重置令牌类型")
             sub = token_data.get("sub")
@@ -444,6 +494,126 @@ class AuthService:
         # P1-SEC-003 修复：密码重置后撤销所有 refresh token，防止旧 token 继续使用
         await self._revoke_all_user_refresh_tokens(user_id)
         await self.db.commit()
+
+    async def _reset_password_with_code(
+        self, payload: ResetPasswordRequest
+    ) -> None:
+        code = (payload.verification_code or "").strip()
+        if not code:
+            raise ValueError("请输入验证码")
+
+        from app.core.cache import CacheUnavailableError, cache_get, cache_set
+        from app.core.pii_crypto import blind_index_candidates
+
+        stmt = select(User).where(
+            User.email_hash.in_(blind_index_candidates(payload.email, "email"))
+        )
+        user = (await self.db.execute(stmt)).scalar_one_or_none()
+        # 邮箱不存在与验证码错误返回同一文案，避免账号枚举
+        if user is None:
+            raise ValueError("验证码无效或已过期")
+
+        now = time.time()
+        code_key = f"pwdreset:code:{user.id}"
+        fail_key = f"pwdreset:fail:{user.id}"
+        try:
+            record = await cache_get(code_key, strict=True)
+            fail_record = await cache_get(fail_key, strict=True)
+        except CacheUnavailableError as exc:
+            raise ValueError("密码重置服务暂时不可用，请稍后重试") from exc
+
+        if not isinstance(fail_record, dict):
+            fail_record = None
+        fail_count = int((fail_record or {}).get("count", 0))
+        if fail_count >= _RESET_CODE_MAX_FAILURES_PER_HOUR:
+            raise ValueError("验证码尝试次数过多，请稍后再试")
+
+        if not isinstance(record, dict) or record.get("used"):
+            raise ValueError("验证码无效或已过期")
+
+        expected = _hash_password_reset_code(user.id, code)
+        if not hmac.compare_digest(str(record.get("digest", "")), expected):
+            await self._record_reset_code_failure(
+                code_key, fail_key, record, fail_record, now
+            )
+            raise ValueError("验证码无效或已过期")
+
+        expire_at = float(record.get("exp", now + 60))
+        fail_exp = float(
+            (fail_record or {}).get("exp", now + _RESET_FAILURE_WINDOW_SECONDS)
+        )
+        try:
+            # 先核销再改密：验证码只允许成功使用一次
+            await cache_set(
+                code_key,
+                {"used": True, "exp": expire_at},
+                ttl=max(1, int(expire_at - now)),
+                strict=True,
+            )
+            await cache_set(
+                fail_key,
+                {"count": 0, "exp": fail_exp},
+                ttl=max(1, int(fail_exp - now)),
+                strict=True,
+            )
+        except CacheUnavailableError as exc:
+            raise ValueError("密码重置服务暂时不可用，请稍后重试") from exc
+
+        from app.core.tenant_status import is_tenant_suspended
+
+        if await is_tenant_suspended(
+            self.db, user.tenant_id or DEFAULT_TENANT_ID
+        ):
+            logger.warning(
+                "Password reset rejected for suspended tenant: tenant_id=%s user_id=%s",
+                user.tenant_id,
+                user.id,
+            )
+            raise ValueError("租户已暂停，请联系平台管理员")
+
+        user.password_hash = await get_password_hash_async(payload.new_password)
+        await self._revoke_all_user_refresh_tokens(user.id)
+        await self.db.commit()
+
+    async def _record_reset_code_failure(
+        self,
+        code_key: str,
+        fail_key: str,
+        record: dict,
+        fail_record: dict | None,
+        now: float,
+    ) -> None:
+        from app.core.cache import CacheUnavailableError, cache_set
+
+        attempts = int(record.get("attempts", 0)) + 1
+        expire_at = float(record.get("exp", now + 60))
+        fail_exp = float(
+            (fail_record or {}).get("exp", now + _RESET_FAILURE_WINDOW_SECONDS)
+        )
+        fail_count = int((fail_record or {}).get("count", 0)) + 1
+        updated = (
+            {"used": True, "exp": expire_at}
+            if attempts >= _RESET_CODE_MAX_ATTEMPTS
+            else {**record, "attempts": attempts}
+        )
+        try:
+            await cache_set(
+                code_key,
+                updated,
+                ttl=max(1, int(expire_at - now)),
+                strict=True,
+            )
+            await cache_set(
+                fail_key,
+                {"count": fail_count, "exp": fail_exp},
+                ttl=max(1, int(fail_exp - now)),
+                strict=True,
+            )
+        except CacheUnavailableError:
+            logger.error(
+                "Password reset attempt accounting unavailable: code_key=%s",
+                code_key,
+            )
 
     async def logout(
         self,

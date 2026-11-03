@@ -305,11 +305,15 @@ class TestEmailServiceBreakerIntegration:
     """验证 EmailService 经过熔断器包装."""
 
     def test_send_password_reset_email_uses_breaker(self):
-        """send_password_reset_email 源码应包含 call_with_smtp_breaker."""
+        """邮件发送路径统一经 _deliver 包装 SMTP 熔断器."""
         from app.services.email_service import EmailService
 
-        src = inspect.getsource(EmailService.send_password_reset_email)
-        assert "call_with_smtp_breaker" in src
+        assert "call_with_smtp_breaker" in inspect.getsource(EmailService._deliver)
+        for method in (
+            EmailService.send_password_reset_email,
+            EmailService.send_password_reset_code_email,
+        ):
+            assert "_deliver" in inspect.getsource(method)
 
     def test_email_service_imports_circuit_breaker_open_error(self):
         """email_service 模块应导入 CircuitBreakerOpenError."""
@@ -318,10 +322,10 @@ class TestEmailServiceBreakerIntegration:
         assert hasattr(email_service, "CircuitBreakerOpenError")
 
     def test_email_service_handles_circuit_open(self):
-        """send_password_reset_email 应处理 CircuitBreakerOpenError."""
+        """_deliver 应处理 CircuitBreakerOpenError."""
         from app.services.email_service import EmailService
 
-        src = inspect.getsource(EmailService.send_password_reset_email)
+        src = inspect.getsource(EmailService._deliver)
         assert "CircuitBreakerOpenError" in src
         assert "邮件服务暂时不可用" in src
 

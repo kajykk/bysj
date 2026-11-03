@@ -43,8 +43,12 @@ export const authApi = {
     requestData<{ message: string }>(request.put('/auth/change-password', payload)),
   requestPasswordReset: (email: string) =>
     requestData<{ message: string }>(request.post('/auth/request-reset', { email })),
-  resetPassword: (payload: { email: string; new_password: string; reset_token: string }) =>
-    requestData<{ message: string }>(request.post('/auth/reset-password', payload)),
+  resetPassword: (payload: {
+    email: string
+    new_password: string
+    verification_code?: string
+    reset_token?: string
+  }) => requestData<{ message: string }>(request.post('/auth/reset-password', payload)),
   updateProfile: (payload: { nickname?: string; email?: string }) =>
     requestData<UserInfo>(request.put('/auth/profile', payload)),
 }

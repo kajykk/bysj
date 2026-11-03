@@ -50,16 +50,31 @@
             />
           </el-form-item>
           <el-form-item
-            :label="t('auth.fieldResetToken')"
-            prop="reset_token"
+            :label="t('auth.fieldVerificationCode')"
+            prop="verification_code"
             class="auth-field"
           >
             <el-input
-              v-model="form.reset_token"
-              type="textarea"
-              :rows="3"
-              :placeholder="t('auth.placeholderResetToken')"
-            />
+              v-model="form.verification_code"
+              maxlength="6"
+              inputmode="numeric"
+              :placeholder="t('auth.placeholderVerificationCode')"
+              size="large"
+            >
+              <template #append>
+                <el-button
+                  :loading="sendingCode"
+                  :disabled="countdown > 0"
+                  @click="handleSendCode"
+                >
+                  {{
+                    countdown > 0
+                      ? t('auth.resendCodeCountdown', { seconds: countdown })
+                      : t('auth.sendCodeBtn')
+                  }}
+                </el-button>
+              </template>
+            </el-input>
           </el-form-item>
           <el-form-item
             :label="t('auth.fieldNewPassword')"
@@ -99,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus/es/components/message/index'
@@ -113,11 +128,14 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
+const sendingCode = ref(false)
+const countdown = ref(0)
 const formRef = ref<FormInstance>()
+let countdownTimer: ReturnType<typeof setInterval> | undefined
 
 const form = reactive({
   email: '',
-  reset_token: '',
+  verification_code: '',
   new_password: ''
 })
 
@@ -126,7 +144,10 @@ const rules: FormRules = {
     { required: true, message: t('auth.ruleRequiredEmail'), trigger: 'blur' },
     { type: 'email', message: t('auth.ruleEmailFormat'), trigger: ['blur', 'change'] }
   ],
-  reset_token: [{ required: true, message: t('auth.ruleRequiredResetToken'), trigger: 'blur' }],
+  verification_code: [
+    { required: true, message: t('auth.ruleRequiredVerificationCode'), trigger: 'blur' },
+    { pattern: /^\d{6}$/, message: t('auth.ruleCodeFormat'), trigger: 'blur' }
+  ],
   new_password: [
     { required: true, message: t('auth.ruleRequiredNewPassword'), trigger: 'blur' },
     { min: 8, message: t('auth.rulePasswordMin'), trigger: 'blur' },
@@ -137,16 +158,47 @@ const rules: FormRules = {
 
 // 品牌面板信号列表：重置场景的安全提示
 const brandSignals: BrandSignal[] = [
-  { key: 'token', label: t('auth.signalToken'), live: true },
+  { key: 'code', label: t('auth.signalCode'), live: true },
   { key: 'strong', label: t('auth.signalStrong'), live: false },
   { key: 'safe', label: t('auth.signalSafe'), live: true },
 ]
 
 onMounted(() => {
-  // 支持从邮件链接直接回填邮箱与 token，减少用户粘贴错误的概率。
   form.email = typeof route.query.email === 'string' ? route.query.email : ''
-  form.reset_token = typeof route.query.token === 'string' ? route.query.token : ''
 })
+
+onUnmounted(() => {
+  if (countdownTimer) clearInterval(countdownTimer)
+})
+
+const handleSendCode = async () => {
+  if (!formRef.value || sendingCode.value || countdown.value > 0) return
+
+  const emailValid = await formRef.value
+    .validateField('email')
+    .then(() => true)
+    .catch(() => false)
+  if (!emailValid) return
+
+  sendingCode.value = true
+  try {
+    await authApi.requestPasswordReset(form.email)
+    ElMessage.success(t('auth.codeSent'))
+    countdown.value = 60
+    if (countdownTimer) clearInterval(countdownTimer)
+    countdownTimer = setInterval(() => {
+      countdown.value -= 1
+      if (countdown.value <= 0 && countdownTimer) {
+        clearInterval(countdownTimer)
+        countdownTimer = undefined
+      }
+    }, 1000)
+  } catch (error) {
+    ElMessage.error(getErrorDetail(error, t('auth.codeSendFailed')))
+  } finally {
+    sendingCode.value = false
+  }
+}
 
 const handleSubmit = async () => {
   if (!formRef.value) return
@@ -154,7 +206,11 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validate()
     loading.value = true
-    await authApi.resetPassword(form)
+    await authApi.resetPassword({
+      email: form.email,
+      new_password: form.new_password,
+      verification_code: form.verification_code
+    })
     ElMessage.success(t('auth.resetSuccess'))
     await router.push('/login')
   } catch (error) {

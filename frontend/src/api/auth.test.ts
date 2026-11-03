@@ -174,6 +174,21 @@ describe('api/auth', () => {
       expect(res).toEqual({ message: 'ok' })
     })
 
+    it('使用六位邮箱验证码重置密码', async () => {
+      (requestData as any).mockResolvedValueOnce({ message: 'ok' })
+      await authApi.resetPassword({
+        email: 'a@b.com',
+        new_password: 'newpass1',
+        verification_code: '123456'
+      })
+
+      expect(request.post).toHaveBeenCalledWith('/auth/reset-password', {
+        email: 'a@b.com',
+        new_password: 'newpass1',
+        verification_code: '123456'
+      })
+    })
+
     it('reset_token 失效时透传错误', async () => {
       (requestData as any).mockRejectedValueOnce(new Error('410'))
       await expect(

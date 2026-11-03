@@ -57,6 +57,31 @@ class TestEmailService:
 
     @patch("app.services.email_service.smtplib.SMTP")
     @patch("app.services.email_service.settings")
+    async def test_send_reset_code_email_contains_six_digit_code(
+        self, mock_settings, mock_smtp_class
+    ):
+        """验证码邮件应包含六位数字与有效期说明."""
+        mock_settings.smtp_host = "smtp.test.com"
+        mock_settings.smtp_port = 587
+        mock_settings.smtp_from_email = "from@test.com"
+        mock_settings.smtp_use_tls = True
+        mock_settings.smtp_user = "user"
+        mock_settings.smtp_password = "pass"
+
+        mock_smtp = MagicMock()
+        mock_smtp_class.return_value = mock_smtp
+
+        svc = EmailService()
+        await svc.send_password_reset_code_email("to@test.com", "123456", 10)
+
+        message = mock_smtp.send_message.call_args.args[0]
+        body = message.get_content()
+        assert "123456" in body
+        assert "10 分钟内" in body
+        assert message["Subject"] == "密码重置验证码"
+
+    @patch("app.services.email_service.smtplib.SMTP")
+    @patch("app.services.email_service.settings")
     async def test_send_email_failure_raises(self, mock_settings, mock_smtp_class):
         """TC-COV-EMAIL-003: SMTP failure raises ValueError."""
         mock_settings.smtp_host = "smtp.test.com"

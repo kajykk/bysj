@@ -103,7 +103,7 @@ def test_request_reset_is_idempotent_without_user_enumeration(
         json={"email": "missing-user@test.com"},
     )
     assert resp.status_code == 200
-    assert "重置邮件" in resp.json()["data"]["message"]
+    assert "重置验证码" in resp.json()["data"]["message"]
 
 
 def test_refresh_rejects_missing_sub(client: TestClient) -> None:

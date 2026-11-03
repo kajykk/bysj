@@ -44,7 +44,9 @@ class RequestPasswordResetRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     new_password: str = Field(min_length=8, max_length=MAX_PASSWORD_BYTES)
-    reset_token: str = Field(min_length=32, max_length=2048)
+    # 旧邮件链接令牌保留兼容；新流程使用六位邮箱验证码
+    reset_token: str | None = Field(default=None, min_length=32, max_length=2048)
+    verification_code: str | None = Field(default=None, pattern=r"^\d{6}$")
 
     @field_validator("new_password")
     @classmethod
