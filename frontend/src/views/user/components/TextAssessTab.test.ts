@@ -95,11 +95,12 @@ describe('TextAssessTab', () => {
     expect(wrapper.text()).toContain('情绪标签')
   })
 
-  it('应包含最大字符数 500 的文本输入框', () => {
+  it('应包含最大字符数 5000 的文本输入框', () => {
     const wrapper = mount(TextAssessTab, { props: { canUse: true }, ...mountOptions })
     const textarea = wrapper.find('textarea')
     expect(textarea.exists()).toBe(true)
-    expect(textarea.attributes('maxlength')).toBe('500')
+    // 与后端 TextPredictRequest.max_length=5000 对齐；超长文本由后端分块推理
+    expect(textarea.attributes('maxlength')).toBe('5000')
   })
 
   it('canUse 为 true 时不应禁用提交按钮', () => {

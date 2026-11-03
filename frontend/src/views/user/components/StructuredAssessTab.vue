@@ -224,14 +224,14 @@ const structuredRules: FormRules = {
     }
   ],
   cgpa: [{ required: true, type: 'number', min: 0, max: 10, message: t('structuredAssess.ruleCgpa'), trigger: 'change' }],
-  stress_level: [{ required: true, type: 'number', min: 0, max: 5, message: t('structuredAssess.ruleStressLevel'), trigger: 'change' }],
+  stress_level: [{ required: true, type: 'number', min: 0, max: 4, message: t('structuredAssess.ruleStressLevel'), trigger: 'change' }],
   sleep_duration: [{ required: true, type: 'number', min: 0, max: 12, message: t('structuredAssess.ruleSleepDuration'), trigger: 'change' }],
   social_support: [{ required: true, type: 'number', min: 0, max: 5, message: t('structuredAssess.ruleSocialSupport'), trigger: 'change' }],
   financial_pressure: [{ required: true, type: 'number', min: 0, max: 5, message: t('structuredAssess.ruleFinancialPressure'), trigger: 'change' }],
   family_history: [{ required: true, type: 'number', message: t('structuredAssess.ruleFamilyHistory'), trigger: 'change' }],
-  academic_pressure: [{ required: true, type: 'number', min: 0, max: 5, message: t('structuredAssess.ruleAcademicPressure'), trigger: 'change' }],
+  academic_pressure: [{ required: true, type: 'number', min: 0, max: 4, message: t('structuredAssess.ruleAcademicPressure'), trigger: 'change' }],
   exercise_frequency: [{ required: true, type: 'number', min: 0, max: 7, message: t('structuredAssess.ruleExerciseFrequency'), trigger: 'change' }],
-  anxiety: [{ required: true, type: 'number', min: 0, max: 5, message: t('structuredAssess.ruleAnxiety'), trigger: 'change' }],
+  anxiety: [{ required: true, type: 'number', min: 0, max: 4, message: t('structuredAssess.ruleAnxiety'), trigger: 'change' }],
   panic_attack: [{ required: true, type: 'number', message: t('structuredAssess.rulePanicAttack'), trigger: 'change' }],
   treatment_seeking: [{ required: true, type: 'number', message: t('structuredAssess.ruleTreatmentSeeking'), trigger: 'change' }]
 }

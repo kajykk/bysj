@@ -269,6 +269,8 @@ describe('i18n 语言包完整性测试（T-306）', () => {
         'userAssessmentDetail', 'userRisk', 'riskReport', 'structuredAssess', 'textAssess',
         'physioAssess', 'experimentAssess', 'charts', 'webSocket', 'serviceWorker',
         'exportUtils', 'formatUtils', 'help',
+        // ROUND_46 Phase 0：运行时人群适用范围与弃权披露
+        'populationScope',
         // AUDIT-2026-10-01 (P1-7)：模型暂停开关页面命名空间
         'adminKillSwitch',
         // AUDIT-2026-10-01 (P2)：合规审计日志页面命名空间

@@ -58,6 +58,50 @@ export const RISK_SCORE_COLORS = {
 } as const
 
 /**
+ * 结构化模态的本地回退阈值。
+ *
+ * 主路径应从后端预测响应的 `thresholds` 读取；本常量只在服务端未下发时兜底，
+ * 且调用方必须在文案中显式标注「本地口径，服务端未下发」，不得静默混用。
+ * 数值与 backend/app/core/risk_thresholds.py 的
+ * `MODALITY_RISK_THRESHOLDS["structured"]` 保持一致（v1.23 校准分位点 20/70/93/97）。
+ */
+export const STRUCTURED_RISK_THRESHOLDS = {
+  mild: 20,
+  moderate: 70,
+  high: 93,
+  critical: 97,
+} as const
+
+export interface StructuredThresholds {
+  mild: number
+  moderate: number
+  high: number
+  critical: number
+}
+
+/**
+ * 返回某个结构化风险等级对应的分数区间文案（含上下界）。
+ * `thresholds` 应优先传入服务端下发值；缺省时才回退到本地常量。
+ * `null` / 未判定返回空串，由调用方展示「待复核」文案。
+ */
+export function structuredScoreBand(
+  level: number | null | undefined,
+  thresholds: StructuredThresholds = STRUCTURED_RISK_THRESHOLDS
+): string {
+  if (level == null || !Number.isFinite(level)) return ''
+  if (level <= 0) return `0–${thresholds.mild - 1}`
+  if (level === 1) return `${thresholds.mild}–${thresholds.moderate - 1}`
+  if (level === 2) return `${thresholds.moderate}–${thresholds.high - 1}`
+  if (level === 3) return `${thresholds.high}–${thresholds.critical - 1}`
+  return `≥${thresholds.critical}`
+}
+
+/** 中文顿号/斜杠风格的阈值串，用于界面解释文案。 */
+export function formatThresholdValues(thresholds: StructuredThresholds): string {
+  return `${thresholds.mild} / ${thresholds.moderate} / ${thresholds.high} / ${thresholds.critical}`
+}
+
+/**
  * 根据风险分数返回对应的基础颜色。
  * P2-D 修复：消除 UserDashboard.vue 中的魔法数字。
  */
@@ -95,6 +139,25 @@ export function severityFromLevel(level: number): string {
   const keys = ['none', 'mild', 'moderate', 'high', 'critical']
   const key = keys[level]
   return key ? tr(`riskFormatter.severity.${key}`, 'Unknown') : tr('riskFormatter.severity.unknown', 'Unknown')
+}
+
+/**
+ * 等级标签（null 安全）。
+ *
+ * `risk_level=null` 表示「未判定/待复核」，绝不能退化成 0 级「无风险」——
+ * 否则会把漏检伪装成正常。后端 risk_level 可空，调用方一律走本函数。
+ */
+export function riskLevelLabel(level: number | null | undefined): string {
+  if (level == null || !Number.isFinite(level)) {
+    return tr('riskFormatter.severity.pending', '待复核')
+  }
+  return severityFromLevel(level)
+}
+
+/** 人工复核原因的可读文案（后端下发 snake_case code，未知 code 原样回退） */
+export function reviewReasonLabel(reason: string | null | undefined): string {
+  if (!reason) return ''
+  return tr(`riskFormatter.reviewReasons.${snakeToCamel(reason)}`, reason)
 }
 
 /** 路由族中文标签 */

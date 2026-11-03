@@ -83,6 +83,51 @@ export interface TextAnalyzeResult {
  * 修复顺序必须是「先改类型、再改模板」：只改模板不改类型，strict 永远
  * 抓不到下一处同类漏网。
  */
+export interface TextPredictScoreComponents {
+  score_kind: 'risk_score_not_confidence'
+  ml_probability: number
+  heuristic_score: number
+  crisis_score: number
+  model_weight: number
+  heuristic_weight: number
+  model_contribution: number
+  heuristic_contribution: number
+  disagreement: number
+  matched_categories: string[]
+  crisis_override: boolean
+  decision_source: 'fusion' | 'crisis_rule'
+}
+
+export interface TextPredictChunkInfo {
+  chunk_count: number
+  chunk_size: number
+  chunk_overlap: number
+  /** 聚合口径：仅当文本被切块时返回，当前固定为 max（安全优先）。 */
+  aggregation: 'max' | string
+  chunk_probabilities: number[]
+  chunk_offsets: [number, number][]
+}
+
+/** 人群/验证范围披露：只描述证据边界，不改变预测或风险等级。 */
+export interface PopulationScope {
+  scope_version: string
+  population_id: string
+  population_label: string
+  language?: string | null
+  setting?: string | null
+  label_definition: string
+  validation_cohort: string
+  evidence_level: string
+  transport_risk: string
+  calibration_scope?: string | null
+  intended_use: string
+  out_of_scope: string[]
+  automated_decision_allowed: boolean
+  abstention_recommended: boolean
+  abstention_reasons: string[]
+  disclosure: string
+}
+
 export interface TextPredictModelResult {
   prediction: number
   probability: number
@@ -91,6 +136,31 @@ export interface TextPredictModelResult {
   /** 可空：模型回退路径可能只返回 heuristic 分，不写回该字段。 */
   sentiment_score: number | null
   model_used: string
+  distress_score?: number | null
+  crisis_score?: number | null
+  crisis_detected?: boolean
+  crisis_keywords?: string[]
+  matched_categories?: string[]
+  suppressed_crisis_keywords?: string[]
+  risk_level?: number | null
+  crisis_override?: boolean
+  /** 文本概率三态门控：normal / suspect / high_risk；旧后端可能为空。 */
+  text_decision_state?: 'normal' | 'suspect' | 'high_risk' | null
+  text_decision_thresholds?: { suspect_lower: number; high_upper: number } | null
+  /** D4：第三人称/转述命中，仅记录不升级。 */
+  third_person_matches?: Array<Record<string, unknown>>
+  requires_human_review?: boolean
+  review_reasons?: string[]
+  risk_factors?: string[]
+  protective_factors?: string[]
+  risk_evidence?: Record<string, string[]>
+  protective_evidence?: Record<string, string[]>
+  /** 融合分量；`sentiment_score` 是风险分，不是置信度。 */
+  score_components?: TextPredictScoreComponents | null
+  /** 长文本分块信息；仅当输入被切块时返回。 */
+  chunk_info?: TextPredictChunkInfo | null
+  /** 人群与验证范围披露；旧缓存/旧后端可能为空。 */
+  population_scope?: PopulationScope | null
 }
 
 /**

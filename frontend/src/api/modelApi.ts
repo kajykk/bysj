@@ -1,7 +1,7 @@
 import request, { LONG_RUNNING_API_TIMEOUT_MS, dedupedGet, requestData } from './request'
-import type { RiskReport, RiskTrend, TextPredictModelResult } from './userRiskApi'
+import type { PopulationScope, RiskReport, RiskTrend, TextPredictModelResult } from './userRiskApi'
 
-export type { RiskReport, RiskTrend, TextPredictModelResult }
+export type { PopulationScope, RiskReport, RiskTrend, TextPredictModelResult }
 
 export interface RoutingInfo {
   selected_model_id: string | null
@@ -17,6 +17,32 @@ export interface DataQualityInfo {
   quality_level: 'complete' | 'partial' | 'poor'
 }
 
+/** 输入域修正留痕单条记录（后端 input_adjustments.*_fields 的元素）。 */
+export interface InputAdjustmentItem {
+  field: string
+  original?: number | string | null
+  value?: number | string | null
+  policy?: string
+}
+
+/** 后端对结构化输入的钳制/归一/缺失中性化留痕。 */
+export interface InputAdjustments {
+  clamped_fields?: InputAdjustmentItem[]
+  defaulted_missing_fields?: InputAdjustmentItem[]
+  normalized_fields?: InputAdjustmentItem[]
+}
+
+/** 后端下发的结构化风险等级阈值（v1.23 校准分位点）。 */
+export interface StructuredThresholdsPayload {
+  mild: number
+  moderate: number
+  high: number
+  critical: number
+}
+
+/** 阈值来源：校准口径或服务端兜底口径。 */
+export type ThresholdSource = 'calibration_v123_p25_p50_p75_p90' | 'fallback'
+
 export interface ModelPredictResponse {
   prediction?: number | null
   probability?: number | null
@@ -25,6 +51,7 @@ export interface ModelPredictResponse {
   model_used?: string | null
   model_version?: string | null
   model_family?: string | null
+  confidence?: number | null
   fallback_used?: boolean
   fallback_reason?: string | null
   safety_flags: string[]
@@ -33,6 +60,15 @@ export interface ModelPredictResponse {
   data_quality?: DataQualityInfo | null
   routing_info?: RoutingInfo | null
   warning?: string | null
+  population_scope?: PopulationScope | null
+  /** 输入域钳制/归一/缺失中性化的完整留痕。 */
+  input_adjustments?: InputAdjustments | null
+  /** 未填→中性 0 的字段（与用户主动填 0 区分）。 */
+  defaulted_missing_fields?: InputAdjustmentItem[]
+  /** 服务端下发的结构化等级阈值；缺失时前端回退本地常量并显式标注。 */
+  thresholds?: StructuredThresholdsPayload | null
+  /** 阈值来源；`fallback` 表示服务端使用兜底评分口径。 */
+  threshold_source?: ThresholdSource | null
   experimental_real_score?: number | null
   experimental_real_level?: number | null
   experimental_real_probability?: number | null
@@ -92,6 +128,7 @@ export interface FusionPredictResult {
   model_version: string
   risk_factors?: string[]
   protective_factors?: string[]
+  population_scope?: PopulationScope | null
 }
 
 export interface DatasetImportResult {

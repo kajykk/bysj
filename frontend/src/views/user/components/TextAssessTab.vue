@@ -31,7 +31,7 @@
             type="textarea"
             :rows="6"
             :placeholder="t('textAssess.contentPlaceholder')"
-            maxlength="500"
+            maxlength="5000"
             show-word-limit
           />
         </el-form-item>
@@ -184,14 +184,50 @@
         <template #header>
           <div class="header-row">
             <span class="card-title">{{ t('textAssess.predictResultTitle') }}</span>
-            <el-tag
-              type="success"
-              effect="light"
-            >
-              {{ t('textAssess.newTextModelTag') }}
-            </el-tag>
+            <div class="header-tags">
+              <el-tag
+                type="success"
+                effect="light"
+              >
+                {{ t('textAssess.newTextModelTag') }}
+              </el-tag>
+              <el-tag
+                v-if="textPredictResult.crisis_detected"
+                type="danger"
+              >
+                {{ t('textAssess.crisisRuleHitTag') }}
+              </el-tag>
+              <el-tag
+                v-if="textPredictResult.requires_human_review"
+                type="warning"
+              >
+                {{ t('textAssess.humanReviewTag') }}
+              </el-tag>
+            </div>
           </div>
         </template>
+        <el-alert
+          v-if="textPredictResult.requires_human_review"
+          class="review-alert"
+          :type="textPredictResult.crisis_detected ? 'error' : 'warning'"
+          :closable="false"
+          show-icon
+          :title="t('textAssess.reviewRequiredTitle')"
+        >
+          <p class="review-message">
+            {{ reviewAlertMessage }}
+          </p>
+        </el-alert>
+        <PopulationScopeNotice :scope="textPredictResult.population_scope" />
+        <!-- 第三人称/转述命中只记录、不升级本人风险：中性信息提示，避免红色告警 -->
+        <el-alert
+          v-if="thirdPersonMatches.length"
+          class="third-person-alert"
+          type="info"
+          :closable="false"
+          show-icon
+          :title="t('textAssess.thirdPersonNotice')"
+        />
         <el-row
           :gutter="16"
           class="result-grid"
@@ -210,8 +246,8 @@
                 <span class="mini-title">{{ t('textAssess.textPredictResultTitle') }}</span>
               </template>
               <el-result
-                :icon="textPredictResult.prediction === 1 ? 'warning' : 'success'"
-                :title="textPredictResult.prediction === 1 ? t('textAssess.predictHighRisk') : t('textAssess.predictLowRisk')"
+                :icon="resultIcon"
+                :title="resultHeadline"
               >
                 <template #sub-title>
                   <!--
@@ -228,6 +264,7 @@
                     `null * 100` 直接抛 TypeError。改为与 sentiment_score
                     一致的 != null 防御，null 时显示 '-'。
                   -->
+                  <p>{{ t('textAssess.mlPredictionLine') }}{{ textPredictResult.prediction === 1 ? t('textAssess.predictionHighRisk') : t('textAssess.predictionLowRisk') }}</p>
                   <p>{{ t('textAssess.probabilityLabel') }}{{ textPredictResult.probability != null ? (textPredictResult.probability * 100).toFixed(2) + '%' : '-' }}</p>
                   <p>{{ t('textAssess.sentimentLabelField') }}{{ textPredictResult.sentiment_label || t('textAssess.sentimentLabel') }}</p>
                   <p>{{ t('textAssess.sentimentScoreFieldLabel') }}{{ textPredictResult.sentiment_score != null ? textPredictResult.sentiment_score.toFixed(2) : '-' }}</p>
@@ -254,10 +291,26 @@
                 size="small"
               >
                 <el-descriptions-item :label="t('textAssess.predictionLabelLabel')">
-                  {{ textPredictResult.prediction === 1 ? t('textAssess.predictionHighRisk') : t('textAssess.predictionLowRisk') }}
+                  {{ predictionDisplay }}
                 </el-descriptions-item>
                 <el-descriptions-item :label="t('textAssess.predictionProbabilityLabel')">
                   {{ textPredictResult.probability != null ? (textPredictResult.probability * 100).toFixed(2) + '%' : t('textAssess.sentimentLabel') }}
+                </el-descriptions-item>
+                <el-descriptions-item :label="t('textAssess.riskLevelLabel')">
+                  <el-tag :type="decisionTagType">
+                    {{ decisionStateText }}
+                  </el-tag>
+                  <div
+                    v-if="reviewReasonList.length"
+                    class="review-reason-list"
+                  >
+                    <span class="review-reason-label">{{ t('textAssess.reviewReasonsLabel') }}</span>
+                    <span
+                      v-for="reason in reviewReasonList"
+                      :key="reason"
+                      class="review-reason-item"
+                    >{{ reviewReasonLabel(reason) }}</span>
+                  </div>
                 </el-descriptions-item>
                 <el-descriptions-item :label="t('textAssess.sentimentLabel')">
                   {{ textPredictResult.sentiment_label || t('textAssess.sentimentLabel') }}
@@ -272,6 +325,128 @@
             </el-card>
           </el-col>
         </el-row>
+        <div
+          v-if="scoreComponents"
+          class="score-components"
+        >
+          <div class="section-header">
+            <span class="mini-title">{{ t('textAssess.scoreComponentsTitle') }}</span>
+            <span class="section-hint">{{ t('textAssess.scoreKindHint') }}</span>
+          </div>
+          <div class="component-grid">
+            <div class="component-item">
+              <span class="component-label">{{ t('textAssess.fusedScoreLabel') }}</span>
+              <span class="component-value">{{ formatScore(textPredictResult.sentiment_score) }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-label">{{ t('textAssess.mlProbabilityLabel') }}</span>
+              <span class="component-value">{{ formatPercent(scoreComponents.ml_probability) }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-label">{{ t('textAssess.heuristicScoreLabel') }}</span>
+              <span class="component-value">{{ formatScore(scoreComponents.heuristic_score) }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-label">{{ t('textAssess.weightsLabel') }}</span>
+              <span class="component-value">
+                {{ t('textAssess.mlWeightShort') }} {{ formatPercent(scoreComponents.model_weight) }} /
+                {{ t('textAssess.heuristicWeightShort') }} {{ formatPercent(scoreComponents.heuristic_weight) }}
+              </span>
+            </div>
+            <div class="component-item">
+              <span class="component-label">{{ t('textAssess.crisisRuleScoreLabel') }}</span>
+              <span class="component-value">{{ formatScore(scoreComponents.crisis_score, 1) }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-label">{{ t('textAssess.decisionSourceLabel') }}</span>
+              <span class="component-value">
+                {{ scoreComponents.decision_source === 'crisis_rule' ? t('textAssess.decisionSourceCrisis') : t('textAssess.decisionSourceFusion') }}
+              </span>
+            </div>
+            <div
+              v-if="chunkInfo"
+              class="component-item"
+            >
+              <span class="component-label">{{ t('textAssess.chunkingLabel') }}</span>
+              <span class="component-value">
+                {{ t('textAssess.chunkingValue', { count: chunkInfo.chunk_count, size: chunkInfo.chunk_size, aggregation: chunkInfo.aggregation }) }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="hasEvidence"
+          class="evidence-block"
+        >
+          <div class="evidence-row">
+            <span class="evidence-label">{{ t('textAssess.riskFactorsLabel') }}</span>
+            <div class="evidence-tags">
+              <el-tag
+                v-for="factor in riskFactorList"
+                :key="factor"
+                type="danger"
+                size="small"
+              >
+                {{ factor }}
+              </el-tag>
+              <span
+                v-if="!riskFactorList.length"
+                class="evidence-none"
+              >{{ t('textAssess.noneLabel') }}</span>
+            </div>
+          </div>
+          <div class="evidence-row">
+            <span class="evidence-label">{{ t('textAssess.protectiveFactorsLabel') }}</span>
+            <div class="evidence-tags">
+              <el-tag
+                v-for="factor in protectiveFactorList"
+                :key="factor"
+                type="success"
+                size="small"
+              >
+                {{ factor }}
+              </el-tag>
+              <span
+                v-if="!protectiveFactorList.length"
+                class="evidence-none"
+              >{{ t('textAssess.noneLabel') }}</span>
+            </div>
+          </div>
+          <div class="evidence-row">
+            <span class="evidence-label">{{ t('textAssess.ruleHitLabel') }}</span>
+            <div class="evidence-tags">
+              <el-tag
+                v-for="keyword in crisisKeywords"
+                :key="keyword"
+                type="danger"
+                effect="dark"
+                size="small"
+              >
+                {{ keyword }}
+              </el-tag>
+              <span
+                v-if="!crisisKeywords.length"
+                class="evidence-none"
+              >{{ t('textAssess.noneLabel') }}</span>
+            </div>
+          </div>
+          <div
+            v-if="suppressedKeywords.length"
+            class="evidence-row evidence-muted"
+          >
+            <span class="evidence-label">{{ t('textAssess.suppressedRuleLabel') }}</span>
+            <div class="evidence-tags">
+              <el-tag
+                v-for="keyword in suppressedKeywords"
+                :key="keyword"
+                type="info"
+                size="small"
+              >
+                {{ keyword }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
       </el-card>
     </Transition>
 
@@ -284,7 +459,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { userApi } from '@/api/userApi'
@@ -294,10 +469,12 @@ import { useAuthStore } from '@/stores/auth'
 import { normalizeHttpError } from '@/utils/errorPolicy'
 import { historyKeyWithUser } from '@/utils/sensitiveStorage'
 import { formatDate } from '@/utils/formatUtils'
+import { reviewReasonLabel, severityFromLevel } from '@/utils/riskFormatters'
 import {
   useTextPredictionHistory,
   type TextPredictionHistoryItem,
 } from './composables/useTextPredictionHistory'
+import PopulationScopeNotice from './PopulationScopeNotice.vue'
 import TextPredictionHistoryCard from './TextPredictionHistoryCard.vue'
 
 interface Props {
@@ -333,6 +510,103 @@ const textSubmitting = ref(false)
 const textPredictSubmitting = ref(false)
 const textResult = ref<TextAnalyzeResult | null>(null)
 const textPredictResult = ref<TextPredictModelResult | null>(null)
+
+// 融合分是风险分，不是置信度：分量单独展示，避免让用户把 0.8 理解为「80% 确诊」。
+const scoreComponents = computed(() => textPredictResult.value?.score_components ?? null)
+const chunkInfo = computed(() => textPredictResult.value?.chunk_info ?? null)
+const crisisKeywords = computed(() => textPredictResult.value?.crisis_keywords ?? [])
+const suppressedKeywords = computed(() => textPredictResult.value?.suppressed_crisis_keywords ?? [])
+const riskFactorList = computed(() => textPredictResult.value?.risk_factors ?? [])
+const protectiveFactorList = computed(() => textPredictResult.value?.protective_factors ?? [])
+const reviewReasonList = computed(() => textPredictResult.value?.review_reasons ?? [])
+const thirdPersonMatches = computed(() => textPredictResult.value?.third_person_matches ?? [])
+// 三态门控优先：文本 risk_level 在 normal/suspect 时为 null（后端语义是「未判定」），
+// 直接按等级渲染会把「待复核」伪装成「无风险」。这里统一用 text_decision_state 判定。
+const decisionStateText = computed(() => {
+  const result = textPredictResult.value
+  if (!result) return ''
+  if (
+    result.crisis_detected ||
+    result.text_decision_state === 'high_risk' ||
+    (result.risk_level != null && result.risk_level >= 3)
+  ) {
+    return t('textAssess.decisionHighRisk')
+  }
+  if (result.text_decision_state === 'suspect') return t('textAssess.decisionSuspect')
+  if (result.requires_human_review) return t('textAssess.decisionPending')
+  if (result.text_decision_state === 'normal') return t('textAssess.decisionNormal')
+  if (result.risk_level == null) return t('textAssess.decisionPending')
+  return severityFromLevel(result.risk_level)
+})
+// 原始 0/1 标签只是模型输出；疑似/待复核时追加说明，避免与「待复核」判定状态冲突
+const predictionDisplay = computed(() => {
+  const result = textPredictResult.value
+  if (!result) return ''
+  const raw = result.prediction === 1
+    ? t('textAssess.predictionHighRisk')
+    : t('textAssess.predictionLowRisk')
+  const awaitingFinalDecision =
+    result.text_decision_state === 'suspect' ||
+    (result.requires_human_review && result.text_decision_state !== 'high_risk')
+  return awaitingFinalDecision ? `${raw}（${t('textAssess.rawModelLabelNote')}）` : raw
+})
+const decisionTagType = computed((): 'success' | 'warning' | 'danger' | 'info' => {
+  const result = textPredictResult.value
+  if (!result) return 'info'
+  if (
+    result.crisis_detected ||
+    result.text_decision_state === 'high_risk' ||
+    (result.risk_level != null && result.risk_level >= 3)
+  ) {
+    return 'danger'
+  }
+  if (result.text_decision_state === 'suspect' || result.requires_human_review || result.risk_level == null) {
+    return 'warning'
+  }
+  if (result.text_decision_state === 'normal') return 'success'
+  return result.risk_level !== undefined && result.risk_level <= 1 ? 'success' : 'warning'
+})
+const hasEvidence = computed(() => Boolean(
+  crisisKeywords.value.length ||
+  suppressedKeywords.value.length ||
+  riskFactorList.value.length ||
+  protectiveFactorList.value.length
+))
+const reviewAlertMessage = computed(() =>
+  textPredictResult.value?.crisis_detected
+    ? t('textAssess.reviewCrisisMessage')
+    : t('textAssess.reviewHighScoreMessage')
+)
+// 结果卡标题不能只反映 ML 的 0/1：危机规则命中时 ML 仍可能给低分，
+// 绿色「低风险」会与上方红色复核警示直接矛盾。
+const resultIcon = computed(() => {
+  const result = textPredictResult.value
+  if (!result) return 'success'
+  if (
+    result.crisis_detected ||
+    result.text_decision_state === 'high_risk' ||
+    result.text_decision_state === 'suspect' ||
+    result.requires_human_review ||
+    result.prediction === 1
+  ) {
+    return 'warning'
+  }
+  return 'success'
+})
+const resultHeadline = computed(() => {
+  const result = textPredictResult.value
+  if (!result) return ''
+  if (result.crisis_detected) return t('textAssess.crisisResultTitle')
+  if (result.text_decision_state === 'high_risk') return t('textAssess.predictHighRisk')
+  if (result.text_decision_state === 'suspect') return t('textAssess.reviewResultTitle')
+  if (result.requires_human_review) return t('textAssess.reviewResultTitle')
+  if (result.text_decision_state === 'normal') return t('textAssess.predictLowRisk')
+  return result.prediction === 1 ? t('textAssess.predictHighRisk') : t('textAssess.predictLowRisk')
+})
+const formatPercent = (value: number | null | undefined): string =>
+  value != null && Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : '-'
+const formatScore = (value: number | null | undefined, digits = 2): string =>
+  value != null && Number.isFinite(value) ? value.toFixed(digits) : '-'
 // SEC-FIX (M8): 提交成功后清空输入, 避免误触重复提交
 const resetTextForm = () => {
   textForm.content = ''
@@ -354,6 +628,8 @@ const submitText = async () => {
     unshiftTextPredictionHistory({
       // ISS-017 修复：标记 source: 'text' 表示由文本分析伪造的预测字段，便于后续按来源过滤
       prediction: textResult.value.sentiment_label === 'negative' ? 1 : 0,
+      // 此 prediction 由融合后的 sentiment_label 反推，不是模型原始判定
+      label_source: 'fused',
       probability: Math.min(Math.max(textResult.value.sentiment_score, 0), 1),
       sentiment_label: textResult.value.sentiment_label,
       sentiment_score: textResult.value.sentiment_score,
@@ -388,7 +664,9 @@ const submitTextPredict = async () => {
       time: formatDate(new Date()),
       content_preview: textForm.content.trim().slice(0, 60),
       // ISS-017 修复：标记 source: 'model' 表示真实模型预测结果
-      source: 'model'
+      source: 'model',
+      // prediction 直接来自 /model/predict/text，未融合（与日记流的 'fused' 区分）
+      label_source: 'ml'
     }
     unshiftTextPredictionHistory(item)
     textPredictionHistory.value = textPredictionHistory.value.map(entry => ({
@@ -490,6 +768,132 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.header-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.review-alert {
+  margin-bottom: var(--spacing-md);
+}
+
+.review-message {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: 1.6;
+}
+
+.third-person-alert {
+  margin-bottom: var(--spacing-md);
+}
+
+.review-reason-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
+}
+
+.review-reason-label {
+  color: var(--text-regular);
+}
+
+.review-reason-item {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--card-border);
+}
+
+.score-components {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--surface-2);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.section-hint {
+  font-size: var(--font-size-extra-small);
+  color: var(--text-placeholder);
+}
+
+.component-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.component-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.component-label {
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
+}
+
+.component-value {
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.evidence-block {
+  margin-top: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.evidence-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+}
+
+.evidence-muted {
+  opacity: 0.72;
+}
+
+.evidence-label {
+  flex: 0 0 72px;
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
+  line-height: 22px;
+}
+
+.evidence-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.evidence-none {
+  font-size: var(--font-size-extra-small);
+  color: var(--text-placeholder);
 }
 
 /* VIS-P3-01 修复：内联样式收敛为样式类 + 设计令牌 */

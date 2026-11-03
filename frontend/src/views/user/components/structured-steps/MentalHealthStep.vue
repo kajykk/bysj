@@ -8,11 +8,11 @@
         <el-slider
           v-model="form.stress_level"
           :min="0"
-          :max="5"
+          :max="4"
           :step="1"
           show-input
         />
-        <span class="slider-value-label">{{ t('structuredAssess.sliderValuePressure', { value: form.stress_level }) }}</span>
+        <span class="slider-value-label">{{ t('structuredAssess.sliderValueModelScale', { value: form.stress_level }) }}</span>
       </div>
     </el-form-item>
     <el-form-item
@@ -23,11 +23,11 @@
         <el-slider
           v-model="form.anxiety"
           :min="0"
-          :max="5"
+          :max="4"
           :step="1"
           show-input
         />
-        <span class="slider-value-label">{{ t('structuredAssess.sliderValuePressure', { value: form.anxiety }) }}</span>
+        <span class="slider-value-label">{{ t('structuredAssess.sliderValueModelScale', { value: form.anxiety }) }}</span>
       </div>
     </el-form-item>
     <el-form-item

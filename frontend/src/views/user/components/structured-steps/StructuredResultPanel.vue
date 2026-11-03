@@ -34,6 +34,39 @@
       </el-alert>
     </div>
 
+    <!-- 兜底评分口径：与校准口径区分，使用中性信息提示 -->
+    <el-alert
+      v-if="isFallbackThresholdSource"
+      class="input-adjust-alert"
+      type="info"
+      :closable="false"
+      show-icon
+      :title="t('structuredAssess.fallbackThresholdNotice')"
+    />
+    <!-- 输入域修正提示：钳制/中性化是保护性处理，用信息态轻提示，不用报错红字 -->
+    <el-alert
+      v-if="hasInputAdjustments"
+      class="input-adjust-alert"
+      type="info"
+      :closable="false"
+      show-icon
+      :title="t('structuredAssess.inputAdjustNoticeTitle')"
+    >
+      <p
+        v-if="clampedFieldNames.length"
+        class="adjust-line"
+      >
+        {{ t('structuredAssess.inputClampedNotice', { fields: clampedFieldNames.join('、') }) }}
+      </p>
+      <p
+        v-if="defaultedFieldNames.length"
+        class="adjust-line"
+      >
+        {{ t('structuredAssess.inputDefaultedNotice', { fields: defaultedFieldNames.join('、') }) }}
+      </p>
+    </el-alert>
+
+    <PopulationScopeNotice :scope="modelTabResult?.population_scope" />
     <div
       v-if="modelTabResult?.routing_info"
       class="routing-info-bar"
@@ -69,12 +102,14 @@
             <span class="mini-title">{{ t('structuredAssess.modelOverviewTitle') }}</span>
           </template>
           <el-result
-            :icon="(modelTabResult?.risk_level ?? 0) <= 1 ? 'success' : (modelTabResult?.risk_level ?? 0) <= 2 ? 'warning' : 'error'"
-            :title="severityFromLevel(modelTabResult?.risk_level ?? 0)"
+            :icon="resultIcon(modelTabResult?.risk_level)"
+            :title="modelTabResult ? riskLevelLabel(modelTabResult.risk_level) : '-'"
           >
             <template #sub-title>
               <p>{{ t('structuredAssess.riskScoreLabel') }}{{ modelTabResult?.risk_score != null ? modelTabResult.risk_score.toFixed(2) : '-' }}</p>
-              <p>{{ t('structuredAssess.businessLevelLabel') }}{{ modelTabResult ? severityFromLevel(modelTabResult.risk_level ?? 0) : '-' }}</p>
+              <p class="score-band-note">
+                {{ scoreBandNote(modelTabResult?.risk_level) }}
+              </p>
               <p>{{ t('structuredAssess.modelNameLabel') }}{{ modelTabResult?.model_used || '-' }}</p>
             </template>
           </el-result>
@@ -90,6 +125,9 @@
             </el-descriptions-item>
             <el-descriptions-item :label="t('structuredAssess.modelFamilyLabel')">
               {{ routeFamilyLabel(modelTabResult.model_family) }}
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('structuredAssess.modelConfidenceLabel')">
+              {{ modelTabResult.confidence != null ? (modelTabResult.confidence * 100).toFixed(1) + '%' : t('structuredAssess.notAvailable') }}
             </el-descriptions-item>
             <el-descriptions-item :label="t('structuredAssess.fallbackLabel')">
               {{ modelTabResult.fallback_used ? t('structuredAssess.yesOption') : t('structuredAssess.noOption') }}
@@ -184,11 +222,14 @@
             <span class="mini-title">{{ t('structuredAssess.businessOverviewTitle') }}</span>
           </template>
           <el-result
-            :icon="(structuredResult?.risk_level ?? 0) <= 1 ? 'success' : (structuredResult?.risk_level ?? 0) <= 2 ? 'warning' : 'error'"
-            :title="severityFromLevel(structuredResult?.risk_level ?? 0)"
+            :icon="resultIcon(structuredResult?.risk_level)"
+            :title="structuredResult ? riskLevelLabel(structuredResult.risk_level) : '-'"
           >
             <template #sub-title>
-              <p>{{ t('structuredAssess.riskScoreLabel') }}{{ structuredResult ? structuredResult.risk_score : '-' }}</p>
+              <p>{{ t('structuredAssess.riskScoreLabel') }}{{ structuredResult ? formatScore(structuredResult.risk_score) : '-' }}</p>
+              <p class="score-band-note">
+                {{ scoreBandNote(structuredResult?.risk_level) }}
+              </p>
               <p>{{ t('structuredAssess.severityLabel') }}{{ structuredResult ? structuredResult.severity : '-' }}</p>
               <p>{{ t('structuredAssess.warningTriggeredLabel') }}{{ structuredResult ? formatWarningGenerated(structuredResult.warning_generated, 'option') : '-' }}</p>
             </template>
@@ -220,14 +261,19 @@ import { ElMessage } from 'element-plus'
 import type { ModelPredictResponse } from '@/api/modelApi'
 import type { StructuredCollectResult } from '@/api/userRiskApi'
 import {
-  severityFromLevel,
+  riskLevelLabel,
   routeFamilyLabel,
   routeFamilyTagType,
   routeReasonLabel,
   confidenceTagType,
   confidenceLabel,
+  structuredScoreBand,
+  STRUCTURED_RISK_THRESHOLDS,
+  formatThresholdValues,
+  type StructuredThresholds,
   formatArrayText,
 } from '@/utils/riskFormatters'
+import PopulationScopeNotice from '../PopulationScopeNotice.vue'
 import { formatWarningGenerated } from './sharedStepUtils'
 
 interface Props {
@@ -241,6 +287,86 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// 等级为主、分数为辅：等级标题 + 分数区间说明，消除「90 分 + 中等风险」的直观矛盾。
+function resultIcon(level: number | null | undefined): 'success' | 'warning' | 'error' {
+  if (level == null || !Number.isFinite(level)) return 'warning'
+  if (level <= 1) return 'success'
+  if (level === 2) return 'warning'
+  return 'error'
+}
+
+// 阈值单源优先使用服务端下发值；缺失时回退本地常量，并在文案上显式标注，
+// 不允许把两套口径静默混用。
+const servedThresholds = computed<{ values: StructuredThresholds; fromServer: boolean }>(() => {
+  const raw = props.modelTabResult?.thresholds
+  if (
+    raw &&
+    [raw.mild, raw.moderate, raw.high, raw.critical].every(
+      (value) => typeof value === 'number' && Number.isFinite(value)
+    )
+  ) {
+    return { values: raw, fromServer: true }
+  }
+  return { values: STRUCTURED_RISK_THRESHOLDS, fromServer: false }
+})
+
+const isFallbackThresholdSource = computed(
+  () => props.modelTabResult?.threshold_source === 'fallback'
+)
+
+function scoreBandNote(level: number | null | undefined): string {
+  if (level == null || !Number.isFinite(level)) {
+    return t('structuredAssess.levelPendingNote')
+  }
+  const { values, fromServer } = servedThresholds.value
+  let note = t('structuredAssess.scoreBandNote', {
+    band: structuredScoreBand(level, values),
+    thresholds: formatThresholdValues(values),
+  })
+  if (!fromServer) {
+    note += t('structuredAssess.localThresholdSuffix')
+  }
+  return note
+}
+
+// 结构化字段名 → 表单标签 key，用于把输入修正留痕翻译成用户能看懂的字段名
+const FIELD_LABEL_KEYS: Record<string, string> = {
+  stress_level: 'fieldStressLevel',
+  anxiety: 'fieldAnxiety',
+  academic_pressure: 'fieldAcademicPressure',
+  financial_pressure: 'fieldFinancialPressure',
+  social_support: 'fieldSocialSupport',
+  sleep_duration: 'fieldSleepDuration',
+  exercise_frequency: 'fieldExerciseFrequency',
+  cgpa: 'fieldCgpa',
+  family_history: 'fieldFamilyHistory',
+  panic_attack: 'fieldPanicAttack',
+  treatment_seeking: 'fieldTreatmentSeeking',
+}
+
+function adjustFieldLabel(field: string): string {
+  const key = FIELD_LABEL_KEYS[field]
+  return key ? t(`structuredAssess.${key}`) : field
+}
+
+const clampedFieldNames = computed(() =>
+  (props.modelTabResult?.input_adjustments?.clamped_fields ?? []).map((item) =>
+    adjustFieldLabel(item.field)
+  )
+)
+
+const defaultedFieldNames = computed(() =>
+  (
+    props.modelTabResult?.defaulted_missing_fields ??
+    props.modelTabResult?.input_adjustments?.defaulted_missing_fields ??
+    []
+  ).map((item) => adjustFieldLabel(item.field))
+)
+
+const hasInputAdjustments = computed(
+  () => clampedFieldNames.value.length > 0 || defaultedFieldNames.value.length > 0
+)
 
 // 回退原因标签：后端下发枚举 code 或动态前缀字符串（forced_by_config: / model_load_failed:），
 // 动态前缀仅显示通用文案，未知 code 回退原文（排障信息保留可读性）
@@ -383,5 +509,20 @@ const copyLatestStructuredResult = async () => {
   color: var(--text-regular);
   flex: 1;
   min-width: 0;
+}
+
+.score-band-note {
+  font-size: var(--font-size-extra-small);
+  color: var(--text-secondary);
+}
+
+.input-adjust-alert {
+  margin-bottom: 12px;
+}
+
+.adjust-line {
+  margin: 2px 0 0;
+  font-size: var(--font-size-small);
+  line-height: 1.6;
 }
 </style>

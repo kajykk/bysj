@@ -40,10 +40,26 @@
       />
       <el-table-column
         :label="t('textAssess.colPredictResult')"
-        width="130"
+        width="180"
       >
         <template #default="{ row }">
-          {{ row.prediction === 1 ? t('textAssess.predictionHighRisk') : t('textAssess.predictionLowRisk') }}
+          <div class="history-result">
+            <span>{{ row.prediction === 1 ? t('textAssess.predictionHighRisk') : t('textAssess.predictionLowRisk') }}</span>
+            <el-tag
+              v-if="row.crisis_detected"
+              type="danger"
+              size="small"
+            >
+              {{ t('textAssess.crisisHistoryTag') }}
+            </el-tag>
+            <el-tag
+              size="small"
+              effect="plain"
+              :type="row.label_source === 'fused' ? 'primary' : 'info'"
+            >
+              {{ row.label_source === 'fused' ? t('textAssess.labelSourceFused') : t('textAssess.labelSourceMl') }}
+            </el-tag>
+          </div>
         </template>
       </el-table-column>
       <el-table-column
@@ -102,6 +118,13 @@ const { t } = useI18n()
 .header-actions {
   display: flex;
   gap: var(--spacing-sm);
+}
+
+.history-result {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
 }
 
 .card-gap {

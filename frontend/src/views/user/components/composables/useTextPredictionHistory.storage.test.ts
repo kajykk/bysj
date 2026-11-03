@@ -31,6 +31,13 @@ vi.mock('element-plus', () => ({
   },
 }))
 
+const downloadBlobMock = vi.hoisted(() => vi.fn())
+
+vi.mock('@/utils/exportUtils', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/utils/exportUtils')>()
+  return { ...actual, downloadBlob: downloadBlobMock }
+})
+
 import {
   useTextPredictionHistory,
   type TextPredictionHistoryItem,
@@ -45,6 +52,7 @@ function makeItem(): TextPredictionHistoryItem {
     time: '2026-10-09 03:00:00',
     content_preview: '最近压力很大，晚上睡不着',
     source: 'model',
+    label_source: 'ml',
     sentiment_score: -0.3,
     sentiment_label: 'negative',
     model_used: 'text_analyze',
@@ -55,6 +63,7 @@ describe('useTextPredictionHistory — 存储位置闸门', () => {
   beforeEach(() => {
     localStorage.clear()
     sessionStorage.clear()
+    downloadBlobMock.mockReset()
   })
 
   it('写入只落 sessionStorage，localStorage 保持为空', () => {
@@ -95,5 +104,42 @@ describe('useTextPredictionHistory — 存储位置闸门', () => {
 
     expect(sessionStorage.getItem(KEY)).toBeNull()
     expect(localStorage.length).toBe(0)
+  })
+
+  it('旧记录缺少 label_source 时按写入方回填', () => {
+    const legacy: Record<string, unknown>[] = [
+      { ...makeItem(), source: 'text' },
+      { ...makeItem(), source: 'model' },
+    ]
+    for (const item of legacy) delete item.label_source
+    sessionStorage.setItem(KEY, JSON.stringify(legacy))
+
+    const { load, textPredictionHistory } = useTextPredictionHistory(KEY)
+    load()
+
+    expect(textPredictionHistory.value.map(item => item.label_source)).toEqual([
+      'fused',
+      'ml',
+    ])
+  })
+
+  it('CSV 导出包含判定来源列', async () => {
+    const { unshift, exportCsv } = useTextPredictionHistory(KEY)
+    unshift(makeItem())
+    unshift({ ...makeItem(), source: 'text', label_source: 'fused' })
+    exportCsv()
+
+    expect(downloadBlobMock).toHaveBeenCalledTimes(1)
+    const blob = downloadBlobMock.mock.calls[0][0] as Blob
+    const text = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsText(blob)
+    })
+
+    expect(text).toContain('textAssess.csvHeaderLabelSource')
+    expect(text).toContain('fused')
+    expect(text).toContain('ml')
   })
 })

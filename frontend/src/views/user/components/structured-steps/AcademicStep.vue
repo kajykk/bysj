@@ -23,11 +23,11 @@
         <el-slider
           v-model="form.academic_pressure"
           :min="0"
-          :max="5"
+          :max="4"
           :step="1"
           show-input
         />
-        <span class="slider-value-label">{{ t('structuredAssess.sliderValuePressure', { value: form.academic_pressure }) }}</span>
+        <span class="slider-value-label">{{ t('structuredAssess.sliderValueModelScale', { value: form.academic_pressure }) }}</span>
       </div>
     </el-form-item>
     <el-form-item

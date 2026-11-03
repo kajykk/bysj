@@ -7,6 +7,24 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { compression } from 'vite-plugin-compression2'
 import { fileURLToPath, URL } from 'node:url'
 
+// unplugin-vue-components 的样式 import 在 transform 阶段才注入, Vite 启动扫描看不到.
+// 不预构建时, 首次进入用到新组件的路由会触发 "optimized dependencies changed. reloading",
+// 正在加载的旧 chunk 随即 404 (error loading dynamically imported module).
+// 新增 Element Plus 组件时需同步补充此列表.
+const ELEMENT_PLUS_COMPONENTS = [
+  'alert', 'aside', 'avatar', 'badge', 'breadcrumb', 'breadcrumb-item',
+  'button', 'card', 'checkbox', 'checkbox-group', 'col', 'collapse',
+  'collapse-item', 'container', 'date-picker', 'descriptions',
+  'descriptions-item', 'dialog', 'divider', 'drawer', 'dropdown',
+  'dropdown-item', 'dropdown-menu', 'empty', 'form', 'form-item', 'header',
+  'icon', 'input', 'input-number', 'link', 'loading', 'main', 'menu',
+  'menu-item', 'option', 'page-header', 'pagination', 'progress', 'radio',
+  'radio-button', 'radio-group', 'rate', 'result', 'row', 'scrollbar',
+  'select', 'slider', 'space', 'step', 'steps', 'switch', 'tab-pane',
+  'table', 'table-column', 'tabs', 'tag', 'time-select', 'timeline',
+  'timeline-item', 'tooltip', 'tour', 'tour-step', 'upload',
+]
+
 export default defineConfig(({ command }) => ({
   // M-FE-22 修复：esbuild 顶层配置，仅 build 时 drop console/debugger，避免影响 dev 调试
   esbuild: {
@@ -207,6 +225,9 @@ export default defineConfig(({ command }) => ({
       'echarts/charts',
       'echarts/components',
       'echarts/renderers',
+      ...ELEMENT_PLUS_COMPONENTS.map(
+        (name) => `element-plus/es/components/${name}/style/css`,
+      ),
     ],
     exclude: [],
   },
@@ -224,6 +245,12 @@ export default defineConfig(({ command }) => ({
     host: '0.0.0.0',
     port: 5173,
     proxy: {
+      // 根路径探针, 生产由 nginx 代理; 开发环境必须显式转发,
+      // 否则落到 SPA fallback 返回 index.html, 管理端会误判所有服务异常.
+      '/health': {
+        target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://localhost:8000',
+        changeOrigin: true
+      },
       '/api': {
         // L-修复：后端实际监听 8000 端口（见 Dockerfile/CI 脚本），修正代理目标端口
         target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://localhost:8000',

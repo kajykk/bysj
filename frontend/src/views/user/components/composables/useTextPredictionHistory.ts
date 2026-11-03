@@ -19,10 +19,18 @@ import { ElMessage } from 'element-plus'
 import type { TextPredictModelResult } from '@/api/modelApi'
 import { downloadBlob, csvEscape } from '@/utils/exportUtils'
 
+export type TextPredictionLabelSource = 'ml' | 'fused'
+
 export type TextPredictionHistoryItem = TextPredictModelResult & {
   time: string
   content_preview: string
   source: 'text' | 'model'
+  /**
+   * prediction 的来源：'ml' = /model/predict/text 的原始判定；
+   * 'fused' = 日记流由融合 sentiment_label 反推的判定。
+   * 两者写入同一历史列表，不标注会被读成同一口径。
+   */
+  label_source: TextPredictionLabelSource
 }
 
 const HISTORY_MAX = 20
@@ -38,7 +46,11 @@ const HISTORY_MAX = 20
  * 键名带 `_v1` 后缀只保证「大版本」隔离，数据体内没有版本字段，因此这里
  * 做逐项字段校验；不通过的整批丢弃并清空，避免把脏数据带进渲染。
  */
-function isValidHistoryItem(x: unknown): x is TextPredictionHistoryItem {
+type StoredHistoryItem = Omit<TextPredictionHistoryItem, 'label_source'> & {
+  label_source?: unknown
+}
+
+function isValidHistoryItem(x: unknown): x is StoredHistoryItem {
   if (!x || typeof x !== 'object') return false
   const o = x as Record<string, unknown>
   // prediction / probability 为必填数值；sentiment_* 后端 Optional，允许缺失/null
@@ -57,6 +69,25 @@ function isValidHistoryItem(x: unknown): x is TextPredictionHistoryItem {
   return true
 }
 
+/**
+ * 补齐 label_source。
+ *
+ * 该字段上线前的历史项没有来源标记；按已知写入方回填：
+ * 日记流 (source='text') 的 prediction 由融合 sentiment_label 反推，
+ * 模型流 (source='model') 才是模型原始判定。
+ */
+function normalizeHistoryItem(x: unknown): TextPredictionHistoryItem | null {
+  if (!isValidHistoryItem(x)) return null
+  const o = x as StoredHistoryItem
+  const label_source: TextPredictionLabelSource =
+    o.label_source === 'fused' || o.label_source === 'ml'
+      ? o.label_source
+      : o.source === 'text'
+        ? 'fused'
+        : 'ml'
+  return { ...o, label_source }
+}
+
 export function useTextPredictionHistory(historyKey: string) {
   const { t } = useI18n()
   const textPredictionHistory = ref<TextPredictionHistoryItem[]>([])
@@ -67,13 +98,15 @@ export function useTextPredictionHistory(historyKey: string) {
       if (!raw) return
       const parsed: unknown = JSON.parse(raw)
       if (!Array.isArray(parsed)) return
-      const valid = parsed.filter(isValidHistoryItem)
+      const valid = parsed
+        .map(normalizeHistoryItem)
+        .filter((item): item is TextPredictionHistoryItem => item !== null)
       if (valid.length !== parsed.length) {
         // 存在契约不匹配的旧记录：丢弃它们而不是让渲染期抛错。
         // 只在确有脏数据时清理，正常路径不写 localStorage。
         if (valid.length === 0) sessionStorage.removeItem(historyKey)
       }
-      textPredictionHistory.value = valid as TextPredictionHistoryItem[]
+      textPredictionHistory.value = valid
     } catch {
       textPredictionHistory.value = []
     }
@@ -106,6 +139,7 @@ export function useTextPredictionHistory(historyKey: string) {
       t('textAssess.csvHeaderTime'),
       t('textAssess.csvHeaderContentPreview'),
       'prediction(0/1)',
+      t('textAssess.csvHeaderLabelSource'),
       'probability(%)',
       'sentiment_label',
       'sentiment_score',
@@ -115,6 +149,7 @@ export function useTextPredictionHistory(historyKey: string) {
       row.time,
       row.content_preview,
       row.prediction,
+      row.label_source,
       // SEC-FIX-2026-10-05: probability 后端为 Optional（模型回退路径可能
       // 不返回）。无防御时 (null * 100).toFixed(2) 不会报错，而是静默产出
       // "NaN%" 写进 CSV —— 用户拿到一份含 NaN 的分析记录却毫无察觉。

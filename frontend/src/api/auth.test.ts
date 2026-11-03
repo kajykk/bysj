@@ -107,10 +107,10 @@ describe('api/auth', () => {
       expect(res).toEqual({ message: 'ok' })
     })
 
-    it('默认空载荷不传 refresh_token', async () => {
+    it('默认不发送 body，避免后端空对象校验 422', async () => {
       (requestData as any).mockResolvedValueOnce(undefined)
       await authApi.logout()
-      expect(request.post).toHaveBeenCalledWith('/auth/logout', {}, { withCredentials: true })
+      expect(request.post).toHaveBeenCalledWith('/auth/logout', undefined, { withCredentials: true })
     })
 
     it('logout 接口报错时抛出', async () => {

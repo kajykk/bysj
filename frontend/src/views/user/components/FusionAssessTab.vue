@@ -85,6 +85,7 @@
           </div>
         </div>
       </template>
+      <PopulationScopeNotice :scope="result.population_scope" />
       <el-result
         :icon="result.risk_level <= 1 ? 'success' : result.risk_level <= 2 ? 'warning' : 'error'"
         :title="result.severity"
@@ -162,6 +163,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FusionPredictResult } from '@/api/modelApi'
 import { formatArrayText, featureLabel, severityFromLevel } from '@/utils/riskFormatters'
+import PopulationScopeNotice from './PopulationScopeNotice.vue'
 
 interface Props {
   model: {

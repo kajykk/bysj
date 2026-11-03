@@ -29,9 +29,15 @@ export const authApi = {
   login: (payload: LoginPayload) => requestData<AuthResponse>(request.post('/auth/login', payload)),
   register: (payload: RegisterPayload) => requestData<{ id: number; username: string; role: string }>(request.post('/auth/register', payload)),
   // 注意：token 刷新逻辑在 request.ts 的 refreshAccessToken 中实现，依赖 HttpOnly Cookie
+  // 后端 RefreshTokenRequest 的 refresh_token 必填，空对象会触发 422；
+  // 没有 refresh token 时不发 body，由后端回退到 HttpOnly Cookie。
   logout: (payload: LogoutPayload = {}) =>
     requestData<{ message: string; revoked_count?: number }>(
-      request.post('/auth/logout', payload, { withCredentials: true })
+      request.post(
+        '/auth/logout',
+        payload.refresh_token ? { refresh_token: payload.refresh_token } : undefined,
+        { withCredentials: true }
+      )
     ),
   changePassword: (payload: { old_password: string; new_password: string }) =>
     requestData<{ message: string }>(request.put('/auth/change-password', payload)),
