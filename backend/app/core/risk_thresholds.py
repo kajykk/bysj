@@ -13,11 +13,15 @@ RISK_LEVEL_THRESHOLDS: dict[str, int] = {
 }
 
 MODALITY_RISK_THRESHOLDS: dict[str, dict[str, int]] = {
+    # ROUND_2 重选：输入域钳制 + 缺失中性化完成后，按 v1.23 外部校准集
+    # 分位点锚定（calibration_config.json: p25=20.18 / p50=69.68 /
+    # p75=92.82 / p90=97.46 → 20/70/93/97）。旧 25/45/65/85 在验证集上
+    # 把 36.5% 样本判为 critical；新阈值降到 12.5%（p90 口径）。
     "structured": {
-        "mild": 25,
-        "moderate": 45,
-        "high": 65,
-        "critical": 85,
+        "mild": 20,
+        "moderate": 70,
+        "high": 93,
+        "critical": 97,
     },
     "text": {
         "mild": 20,
@@ -46,6 +50,32 @@ RISK_LEVEL_LABELS: dict[int, str] = {
     3: "high",
     4: "critical",
 }
+
+
+# ── 随响应下发的阈值（单一来源） ──────────────────────────────────────
+# 前端不得再保留阈值副本：结构化响应的 ``thresholds`` 必须从这里读取，
+# ``threshold_source`` 区分「v1.23 外部校准分位点口径」与「启发式/降级兜底口径」。
+STRUCTURED_THRESHOLD_SOURCE: str = "calibration_v123_p25_p50_p75_p90"
+FALLBACK_THRESHOLD_SOURCE: str = "fallback"
+
+
+def get_structured_thresholds() -> dict[str, int]:
+    """结构化风险分阈值，形状固定为 mild/moderate/high/critical。
+
+    每次返回新字典，避免调用方改动污染全局配置。
+    """
+    threshold = get_threshold_by_modality("structured")
+    return {
+        "mild": int(threshold["mild"]),
+        "moderate": int(threshold["moderate"]),
+        "high": int(threshold["high"]),
+        "critical": int(threshold["critical"]),
+    }
+
+
+def get_structured_threshold_source(*, fallback: bool) -> str:
+    """阈值口径来源：校准路径 vs 启发式/降级路径。"""
+    return FALLBACK_THRESHOLD_SOURCE if fallback else STRUCTURED_THRESHOLD_SOURCE
 
 
 def get_threshold_by_modality(modality: str) -> dict[str, int]:

@@ -216,7 +216,7 @@ class TestStartupAudit:
         seen = {}
 
         class _Probe:
-            def _abs_path(self, rel):
+            def _abs_path(self, rel, **kwargs):
                 seen["rel"] = rel
                 return model_file
 
@@ -229,7 +229,7 @@ class TestStartupAudit:
         assert seen.get("rel") == "models/fake.pkl", "审计未走 _abs_path, 结论不可信"
 
     def test_missing_anchor_is_reported(self, monkeypatch, model_file):
-        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r: model_file}))
+        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r, **kw: model_file}))
         monkeypatch.setattr(ld, "MODEL_PATHS", {"fake": "models/fake.pkl"})
         monkeypatch.setattr(ld, "is_model_enabled", lambda _m: True)
         monkeypatch.setattr(ld, "resolve_model_path", lambda _m: "models/fake.pkl")
@@ -242,7 +242,7 @@ class TestStartupAudit:
 
     def test_valid_anchor_passes(self, monkeypatch, model_file):
         _write_sidecar(model_file, _sha256(model_file) + "\n")
-        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r: model_file}))
+        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r, **kw: model_file}))
         monkeypatch.setattr(ld, "MODEL_PATHS", {"fake": "models/fake.pkl"})
         monkeypatch.setattr(ld, "is_model_enabled", lambda _m: True)
         monkeypatch.setattr(ld, "resolve_model_path", lambda _m: "models/fake.pkl")
@@ -255,7 +255,7 @@ class TestStartupAudit:
         """.json 元数据不经 _verify_file_hash 加载, 纳入统计只会制造噪音。"""
         meta = tmp_path / "calibrator_meta.json"
         meta.write_text("{}", encoding="utf-8")
-        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r: meta}))
+        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r, **kw: meta}))
         monkeypatch.setattr(ld, "MODEL_PATHS", {"meta": "models/meta.json"})
         monkeypatch.setattr(ld, "is_model_enabled", lambda _m: True)
         monkeypatch.setattr(ld, "resolve_model_path", lambda _m: "models/meta.json")
@@ -268,7 +268,7 @@ class TestStartupAudit:
     def test_absent_file_is_skipped_not_reported(self, monkeypatch, tmp_path):
         """注册表有条目但文件不存在 = 可选模型未部署, 属正常状态, 不该报缺失锚点。"""
         gone = tmp_path / "not_deployed.pkl"
-        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r: gone}))
+        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r, **kw: gone}))
         monkeypatch.setattr(ld, "MODEL_PATHS", {"absent": "models/absent.pkl"})
         monkeypatch.setattr(ld, "is_model_enabled", lambda _m: True)
         monkeypatch.setattr(ld, "resolve_model_path", lambda _m: "models/absent.pkl")
@@ -278,8 +278,20 @@ class TestStartupAudit:
         assert summary["checked"] == 0
         assert summary["skipped"] == 1
 
+    def test_absent_file_is_not_logged_as_missing_warning(self, caplog):
+        """审计探测可选模型时不得打 'not found' 警告, 否则每次启动都会制造噪音。"""
+        import logging
+
+        probe = ld.LoadingMixin.__new__(ld.LoadingMixin)
+        caplog.set_level(logging.WARNING, logger="app.core.model_engine.loading")
+
+        path = probe._abs_path("models/not_deployed_probe.pkl", warn_missing=False)
+
+        assert not path.exists()
+        assert not any("not found under" in r.message for r in caplog.records)
+
     def test_disabled_model_is_skipped(self, monkeypatch, model_file):
-        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r: model_file}))
+        monkeypatch.setattr(ld, "LoadingMixin", type("X", (), {"_abs_path": lambda _s, r, **kw: model_file}))
         monkeypatch.setattr(ld, "MODEL_PATHS", {"off": "models/off.pkl"})
         monkeypatch.setattr(ld, "is_model_enabled", lambda _m: False)
         monkeypatch.setattr(ld, "resolve_model_path", lambda _m: "models/off.pkl")

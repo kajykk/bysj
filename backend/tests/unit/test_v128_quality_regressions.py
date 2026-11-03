@@ -88,11 +88,12 @@ async def test_physiological_artifact_paths_are_backend_absolute(monkeypatch):
 
     monkeypatch.setattr(Path, "exists", fake_exists)
 
-    result = await engine._predict_physiological(
+    result, fallback_reason = await engine._predict_physiological(
         {"sleep_hours": 7, "exercise_minutes": 30, "heart_rate": 70}
     )
     # 允许 raise 或返回 fallback(由实现决定)
     assert result is not None or True  # 接受任何返回值
+    assert fallback_reason is None or isinstance(fallback_reason, str)
     # 查找 physiological/model.json 路径(可能在 checked_paths 中间位置)
     target_path = BACKEND_DIR / "models" / "artifacts" / "physiological" / "model.json"
     found = any(p == target_path for p in checked_paths)

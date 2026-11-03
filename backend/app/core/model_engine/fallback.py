@@ -252,7 +252,9 @@ class FallbackMixin:
         # AUDIT-2026-10-08 (P0-5): 各字段经 _finite 清洗（生理量测的合法区间已
         # 写入 clamp），避免 NaN 静默把整条降级链变成「无风险」。
         sleep_hours = _finite(data.get("sleep_hours"), 7, field="sleep_hours", clamp=(0, 24))
-        sleep_quality = _finite(data.get("sleep_quality"), 5, field="sleep_quality", clamp=(0, 10))
+        # UI 与 DL 模型均使用 1–5 分制；此处旧实现按 0–10 计算，会把
+        # 满分睡眠质量 5 当成「中等」而抬高风险。
+        sleep_quality = _finite(data.get("sleep_quality"), 5, field="sleep_quality", clamp=(1, 5))
         exercise_minutes = _finite(data.get("exercise_minutes"), 30, field="exercise_minutes", clamp=(0, 1440))
         heart_rate = _finite(data.get("heart_rate"), 70, field="heart_rate", clamp=(0, 250))
         systolic_bp = _finite(data.get("systolic_bp"), 120, field="systolic_bp", clamp=(0, 300))
@@ -260,7 +262,8 @@ class FallbackMixin:
         steps = _finite(data.get("steps"), 5000, field="steps", clamp=(0, 200000))
 
         sleep_deviation = abs(sleep_hours - 7.5) / 7.5
-        sleep_risk = (1 - sleep_quality / 10) * 0.4 + sleep_deviation * 0.6
+        sleep_quality_risk = max(0.0, min(1.0, (5 - sleep_quality) / 4))
+        sleep_risk = sleep_quality_risk * 0.4 + sleep_deviation * 0.6
         sleep_score = max(0, min(100, sleep_risk * 60))
 
         hr_deviation = abs(heart_rate - 70) / 40

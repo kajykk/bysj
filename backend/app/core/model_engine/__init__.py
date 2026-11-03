@@ -112,11 +112,11 @@ class ModelEngine(LoadingMixin, InferenceMixin, PredictMixin, FusionMixin, Fallb
         # S-02: v1.23 external LR (structured_default_model=v1.23 时主路径模型),
         # 预热避免切换后首个结构化请求承担 Pipeline 冷加载 (~100ms)
         "structured_v1.23_external_lr",
-        "physiological_risk_model",
-        "physiological_risk_scaler",
-        "fusion_dnn_best",
-        "fusion_cross_modal_best",
-        "fusion_transformer_best",
+        # 以下模型不在当前交付形态内, 不预热 (请求到时仍可懒加载):
+        # - physiological_risk_model / physiological_risk_scaler: v1 已弃用 (enabled=False),
+        #   由 physiological_model_v2_dl (backend/models/artifacts/physiological_optimized) 取代
+        # - fusion_*_best: Keras 权重从未进入 backend/models/ (见 model_registry.py 的 2026-10-09 注释),
+        #   当前融合走加权启发式路径
     ]
 
     def __init__(self) -> None:

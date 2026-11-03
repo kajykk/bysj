@@ -384,8 +384,13 @@ class InferenceMixin:
         raw: dict[str, Any],
         model_feature_names: list[str],
         model: Pipeline,
+        degradation: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         input_dict: dict[str, Any] = {}
+        adjustments = degradation if degradation is not None else {}
+        adjustments.setdefault("clamped_fields", [])
+        adjustments.setdefault("defaulted_missing_fields", [])
+        adjustments.setdefault("normalized_fields", [])
 
         for col in model_feature_names:
             input_dict[col] = _DEFAULTS.get(col, 0)
@@ -399,12 +404,12 @@ class InferenceMixin:
         gender = int(raw.get("gender", 1)) if raw.get("gender") is not None else 1
         age = _get_num("age", 20)
         sleep_duration_hours = _get_num("sleep_duration", 7)
-        stress_level = _get_num("stress_level", 2)
+        stress_level = max(0.0, min(4.0, _get_num("stress_level", 2)))
         _social_support = _get_num("social_support", 3)  # noqa: F841
         financial_pressure = _get_num("financial_pressure", 2)
         family_history = int(raw.get("family_history", 0)) if raw.get("family_history") is not None else 0
-        academic_pressure = _get_num("academic_pressure", 2)
-        _anxiety = _get_num("anxiety", 1)  # noqa: F841
+        academic_pressure = max(0.0, min(4.0, _get_num("academic_pressure", 2)))
+        _anxiety = max(0.0, min(4.0, _get_num("anxiety", 1)))  # noqa: F841
         _panic_attack = int(raw.get("panic_attack", 0)) if raw.get("panic_attack") is not None else 0  # noqa: F841
         _treatment_seeking = int(raw.get("treatment_seeking", 0)) if raw.get("treatment_seeking") is not None else 0  # noqa: F841
         suicidal_thoughts = int(raw.get("suicidal_thoughts", 0)) if raw.get("suicidal_thoughts") is not None else 0
@@ -412,6 +417,9 @@ class InferenceMixin:
         _gpa_scale_default = 4.0 if cgpa_src <= 4 else 10.0
         gpa_scale = _get_num("gpa_scale", _gpa_scale_default)
         cgpa = cgpa_src / gpa_scale * 10 if gpa_scale > 0 else cgpa_src
+        # v1.23 训练集 cgpa ∈ [0,4]，UI 滑杆为 0–10；小写特征必须在推理边界
+        # 归一，否则 8.5 会以分布外数值直接进入模型。大写 CGPA 仍保留 0–10 契约。
+        cgpa_0_4 = cgpa_src / gpa_scale * 4 if gpa_scale > 0 else cgpa_src
 
         sleep_duration_cat = "7-8 hours"
         if sleep_duration_hours < 5:
@@ -472,12 +480,65 @@ class InferenceMixin:
             "Working Professional or Student": working_or_student,
         }
 
+        # 缺失值中性化：二值字段未填时用 0（无该症状），不再沿用训练中位数 1。
+        # 这样可消除「一个缺失字段把风险分抬高 53 分」的阶跃，同时在响应里
+        # 通过 defaulted_missing_fields 区分「用户填了 0」与「未填」。
+        def _is_provided(key: str) -> bool:
+            value = raw.get(key)
+            return value is not None and value != ""
+
+        for field in ("panic_attack", "treatment_seeking", "family_history", "suicidal_thoughts"):
+            if _is_provided(field):
+                continue
+            if field in model_feature_names:
+                input_dict[field] = 0
+            adjustments["defaulted_missing_fields"].append(
+                {
+                    "field": field,
+                    "value": 0,
+                    "policy": "missing_neutral_zero",
+                }
+            )
+
         for col, val in raw.items():
             if col in model_feature_names:
                 input_dict[col] = val
+        if "cgpa" in model_feature_names and raw.get("cgpa") is not None:
+            normalized_cgpa = max(0.0, min(4.0, float(cgpa_0_4)))
+            input_dict["cgpa"] = normalized_cgpa
+            if float(cgpa_src) > 4.0 or gpa_scale != 4.0:
+                adjustments["normalized_fields"].append(
+                    {
+                        "field": "cgpa",
+                        "original": cgpa_src,
+                        "value": normalized_cgpa,
+                        "policy": "cgpa_0_10_to_0_4",
+                    }
+                )
         for col, val in derived_map.items():
             if col in model_feature_names:
                 input_dict[col] = val
+
+        # 训练域钳制：stress_level / academic_pressure / anxiety 训练集为 [0,4]，
+        # UI 滑杆当前可到 5。越界时钳制并记录，不返回 422（避免打断用户填写）。
+        for field in ("stress_level", "academic_pressure", "anxiety"):
+            if field not in model_feature_names or field not in input_dict:
+                continue
+            try:
+                original_value = float(input_dict[field])
+            except (TypeError, ValueError):
+                continue
+            clamped_value = max(0.0, min(4.0, original_value))
+            if clamped_value != original_value:
+                input_dict[field] = clamped_value
+                adjustments["clamped_fields"].append(
+                    {
+                        "field": field,
+                        "original": original_value,
+                        "value": clamped_value,
+                        "policy": "clamp_to_training_domain_0_4",
+                    }
+                )
 
         numeric_pipe_cols = InferenceMixin._get_numeric_pipe_cols(model)
         if not numeric_pipe_cols and model_feature_names:
@@ -523,7 +584,11 @@ class InferenceMixin:
 
         # ROUND_43：阈值由配置读取（此前硬编码 0.80，改环境变量无效）
         if f_coverage >= settings.route_feature_coverage_threshold:
-            routing_info["selected_model_id"] = "structured_logistic_regression_v1.20"
+            routing_info["selected_model_id"] = (
+                "structured_v1.23_external_lr"
+                if settings.structured_default_model == "v1.23"
+                else "structured_logistic_regression_quick"
+            )
             routing_info["selected_model_family"] = "structured"
             routing_info["routing_reason"] = "feature_coverage_sufficient"
             routing_info["prediction_confidence_band"] = "high" if f_coverage >= 0.90 else "medium"

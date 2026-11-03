@@ -14,9 +14,19 @@ from app.schemas.model_predict import (
 class TestTextPredictResult:
     def test_minimal_fields(self):
         result = TextPredictResult(prediction=0, probability=0.5, model_used="test")
-        assert result.risk_level == 0
+        # P0 修复：未判定必须显式为 None，不能默认 0 伪装成「无风险」。
+        assert result.risk_level is None
         assert result.crisis_override is False
         assert result.crisis_detected is False
+        assert result.score_components is None
+        assert result.chunk_info is None
+
+    def test_prediction_documented_as_raw_not_fused(self):
+        """prediction 保持模型原始语义；融合结论走 sentiment_* 字段。"""
+        fields = TextPredictResult.model_fields
+        assert "未融合" in (fields["prediction"].description or "")
+        assert "融合" in (fields["sentiment_label"].description or "")
+        assert "不是置信度" in (fields["sentiment_score"].description or "")
 
     def test_full_fields(self):
         result = TextPredictResult(
@@ -32,11 +42,24 @@ class TestTextPredictResult:
             crisis_keywords=["自杀"],
             risk_level=4,
             crisis_override=True,
+            score_components={
+                "score_kind": "risk_score_not_confidence",
+                "ml_probability": 0.85,
+                "decision_source": "crisis_rule",
+            },
+            chunk_info={
+                "chunk_count": 3,
+                "chunk_size": 500,
+                "aggregation": "max",
+                "chunk_probabilities": [0.85, 0.1, 0.1],
+            },
             model_used="text_depression_model",
         )
         assert result.risk_level == 4
         assert result.crisis_override is True
         assert result.crisis_detected is True
+        assert result.score_components["score_kind"] == "risk_score_not_confidence"
+        assert result.chunk_info["chunk_count"] == 3
         data = result.model_dump()
         assert data["risk_level"] == 4
         assert data["crisis_override"] is True

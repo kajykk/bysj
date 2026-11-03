@@ -551,7 +551,15 @@ class TestRouteStructured:
         info, routed = engine._route_structured(full_features)
         assert routed is None
         assert info["selected_model_family"] == "structured"
-        assert info["selected_model_id"] == "structured_logistic_regression_v1.20"
+        # 路由 ID 必须跟随 structured_default_model，而不是固定 v1.20。
+        from app.core.config import settings
+
+        expected_id = (
+            "structured_v1.23_external_lr"
+            if settings.structured_default_model == "v1.23"
+            else "structured_logistic_regression_quick"
+        )
+        assert info["selected_model_id"] == expected_id
         assert info["routing_reason"] == "feature_coverage_sufficient"
         assert info["prediction_confidence_band"] == "high"
         assert info["feature_coverage_ratio"] == 1.0
@@ -1013,7 +1021,8 @@ class TestScoreToLevel:
     """测试 score_to_level / _score_to_level.
 
     默认阈值: mild=20, moderate=40, high=60, critical=80.
-    structured 阈值: mild=25, moderate=45, high=65, critical=85.
+    structured 阈值: mild=20, moderate=70, high=93, critical=97
+    （按 v1.23 外部校准集分位点重选，见 app/core/risk_thresholds.py）。
     physiological 阈值: mild=35, moderate=55, high=75, critical=90.
     """
 
@@ -1032,18 +1041,18 @@ class TestScoreToLevel:
 
     def test_structured_thresholds(self) -> None:
         """structured 模态使用专用阈值."""
-        assert ModelEngine._score_to_level(24, modality="structured") == 0
-        assert ModelEngine._score_to_level(25, modality="structured") == 1  # mild=25
-        assert ModelEngine._score_to_level(44, modality="structured") == 1
+        assert ModelEngine._score_to_level(19, modality="structured") == 0
+        assert ModelEngine._score_to_level(20, modality="structured") == 1  # mild=20
+        assert ModelEngine._score_to_level(69, modality="structured") == 1
         assert (
-            ModelEngine._score_to_level(45, modality="structured") == 2
-        )  # moderate=45
-        assert ModelEngine._score_to_level(64, modality="structured") == 2
-        assert ModelEngine._score_to_level(65, modality="structured") == 3  # high=65
-        assert ModelEngine._score_to_level(84, modality="structured") == 3
+            ModelEngine._score_to_level(70, modality="structured") == 2
+        )  # moderate=70
+        assert ModelEngine._score_to_level(92, modality="structured") == 2
+        assert ModelEngine._score_to_level(93, modality="structured") == 3  # high=93
+        assert ModelEngine._score_to_level(96, modality="structured") == 3
         assert (
-            ModelEngine._score_to_level(85, modality="structured") == 4
-        )  # critical=85
+            ModelEngine._score_to_level(97, modality="structured") == 4
+        )  # critical=97
 
     def test_physiological_thresholds(self) -> None:
         """physiological 模态使用专用阈值 (更高)."""

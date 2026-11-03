@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
@@ -11,6 +12,53 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+from app.core.risk_thresholds import (
+    STRUCTURED_THRESHOLD_SOURCE,
+    get_structured_thresholds,
+)
+
+
+class PopulationScope(BaseModel):
+    """人群/验证范围披露：只描述证据边界，不改变预测或风险等级。"""
+
+    model_config = ConfigDict(protected_namespaces=())
+
+    scope_version: str = Field(..., description="人群范围登记版本")
+    population_id: str = Field(..., description="运行时人群 ID")
+    population_label: str = Field(..., description="人类可读的人群描述")
+    language: str | None = Field(default=None, description="适用语言")
+    setting: str | None = Field(default=None, description="采集/使用场景")
+    label_definition: str = Field(..., description="训练与验证标签的定义")
+    validation_cohort: str = Field(..., description="验证队列与协议摘要")
+    evidence_level: str = Field(
+        ...,
+        description=(
+            "证据等级: internal_source_split/groupwise_oof/cross_source/"
+            "small_internal_split/small_external/synthetic_label_derived/"
+            "not_evaluable/heuristic_fallback"
+        ),
+    )
+    transport_risk: str = Field(
+        ..., description="跨人群迁移风险: unknown/not_evaluated/degraded"
+    )
+    calibration_scope: str | None = Field(
+        default=None, description="校准范围与目标域校准状态"
+    )
+    intended_use: str = Field(..., description="登记用途")
+    out_of_scope: list[str] = Field(
+        default_factory=list, description="明确未验证/不适用的人群与场景"
+    )
+    automated_decision_allowed: bool = Field(
+        default=False, description="是否允许仅凭本结果自动决策"
+    )
+    abstention_recommended: bool = Field(
+        default=True, description="是否建议弃权/转人工复核"
+    )
+    abstention_reasons: list[str] = Field(
+        default_factory=list, description="建议弃权的原因"
+    )
+    disclosure: str = Field(..., description="面向调用方的人群与弃权提示")
 
 
 class TabularPredictRequest(BaseModel):
@@ -33,10 +81,20 @@ class TextPredictRequest(BaseModel):
 class TextPredictResult(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
-    prediction: int
-    probability: float
-    sentiment_label: str | None = None
-    sentiment_score: float | None = None
+    prediction: int = Field(
+        ...,
+        description=(
+            "模型原始 0/1 判定，未融合启发式与危机规则"
+            "（ML 不可用时为启发式回退），不等同于最终风险结论"
+        ),
+    )
+    probability: float = Field(..., description="模型原始正类概率，未融合")
+    sentiment_label: str | None = Field(
+        default=None, description="融合后的情感标签（非 prediction 原值）"
+    )
+    sentiment_score: float | None = Field(
+        default=None, description="融合后的风险分 0-1（不是置信度）"
+    )
     distress_score: float | None = Field(default=None, description="情绪困扰程度 0-100")
     crisis_score: float | None = Field(default=None, description="危机表达强度 0-100")
     risk_factors: list[str] = Field(
@@ -45,15 +103,62 @@ class TextPredictResult(BaseModel):
     protective_factors: list[str] = Field(
         default_factory=list, description="检测到的保护因素"
     )
+    risk_evidence: dict[str, list[str]] = Field(
+        default_factory=dict, description="各风险类别命中的关键词"
+    )
+    protective_evidence: dict[str, list[str]] = Field(
+        default_factory=dict, description="各保护类别命中的关键词"
+    )
     crisis_detected: bool = Field(default=False, description="是否检测到危机表达")
     crisis_keywords: list[str] = Field(
         default_factory=list, description="命中的危机关键词"
     )
-    risk_level: int = Field(default=0, description="风险等级 0-4")
+    risk_level: int | None = Field(
+        default=None,
+        description=(
+            "风险等级 0-4；null 表示未判定（不等于 0 级无风险），"
+            "需结合 requires_human_review 与 text_decision_state 复核"
+        ),
+    )
+    text_decision_state: str | None = Field(
+        default=None,
+        description="文本概率三态门控：normal / suspect / high_risk",
+    )
+    text_decision_thresholds: dict[str, float | str] | None = Field(
+        default=None,
+        description=(
+            "本次文本门控实际使用的双阈值：suspect_lower / high_upper / source"
+        ),
+    )
+    third_person_matches: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="D4：第三人称/转述命中，只记录不升级",
+    )
     crisis_override: bool = Field(
         default=False, description="是否因危机检测覆盖风险等级"
     )
+    requires_human_review: bool = Field(
+        default=False, description="是否建议人工复核"
+    )
+    review_reasons: list[str] = Field(
+        default_factory=list, description="触发人工复核的原因"
+    )
+    matched_categories: list[str] = Field(
+        default_factory=list, description="命中的危机信号类别"
+    )
+    suppressed_crisis_keywords: list[str] = Field(
+        default_factory=list, description="被否定/元话语上下文过滤的危机关键词"
+    )
+    score_components: dict[str, Any] | None = Field(
+        default=None, description="融合分量（ML/启发式/权重/危机规则），非置信度"
+    )
+    chunk_info: dict[str, Any] | None = Field(
+        default=None, description="长文本分块信息（仅当文本被切块时返回）"
+    )
     model_used: str
+    population_scope: PopulationScope | None = Field(
+        default=None, description="本次文本推理的人群与验证范围披露"
+    )
 
 
 class PhysiologicalPredictRequest(BaseModel):
@@ -86,9 +191,40 @@ class PhysiologicalPredictRequest(BaseModel):
         errors = []
         for field, (min_val, max_val) in ranges.items():
             if field in v:
-                val = float(v[field])
-                if val < min_val or val > max_val:
-                    errors.append(f"{field}={val} 超出有效范围 [{min_val}, {max_val}]")
+                raw = v[field]
+                if raw is None:
+                    errors.append(f"{field} 不能为 null")
+                    continue
+                try:
+                    val = float(raw)
+                except (TypeError, ValueError):
+                    errors.append(f"{field}={raw!r} 不是数值")
+                else:
+                    if not math.isfinite(val):
+                        errors.append(f"{field}={val!r} 不是有限数值")
+                    elif val < min_val or val > max_val:
+                        errors.append(
+                            f"{field}={val} 超出有效范围 [{min_val}, {max_val}]"
+                        )
+
+        # 拒绝空/全未知字段输入。旧行为会把空字典补成「默认人」
+        # （sleep 7h / quality 5 / HR 70 / …）并返回可落库的风险分，
+        # 等同于凭空生成评估结论。
+        recognized = {
+            "sleep_hours",
+            "sleep_quality",
+            "exercise_minutes",
+            "heart_rate",
+            "systolic_bp",
+            "diastolic_bp",
+            "steps",
+        }
+        if not any(key in recognized and value is not None for key, value in v.items()):
+            errors.append(
+                "physiological 至少需要包含一项可识别的生理字段（"
+                "sleep_hours/sleep_quality/exercise_minutes/heart_rate/"
+                "systolic_bp/diastolic_bp/steps）"
+            )
 
         if errors:
             raise ValueError("; ".join(errors))
@@ -173,6 +309,29 @@ class TabularPredictResult(BaseModel):
         default_factory=list, description="安全标记，如 crisis_keyword_detected"
     )
     requires_human_review: bool = Field(default=False, description="是否需要人工复核")
+    population_scope: PopulationScope | None = Field(
+        default=None, description="本次结构化推理的人群与验证范围披露"
+    )
+    input_adjustments: dict[str, Any] = Field(
+        default_factory=dict, description="输入域钳制/归一与缺失中性化留痕"
+    )
+    defaulted_missing_fields: list[dict[str, Any]] = Field(
+        default_factory=list, description="未填→中性 0 的字段（与用户填 0 区分）"
+    )
+    thresholds: dict[str, int] = Field(
+        default_factory=get_structured_thresholds,
+        description=(
+            "本次分级使用的四档阈值，形状固定 mild/moderate/high/critical；"
+            "数值唯一来源 app/core/risk_thresholds.py，前端不得保存副本"
+        ),
+    )
+    threshold_source: str = Field(
+        default=STRUCTURED_THRESHOLD_SOURCE,
+        description=(
+            "阈值口径来源：calibration_v123_p25_p50_p75_p90（校准路径）"
+            "或 fallback（启发式/降级兜底）"
+        ),
+    )
 
 
 class ModelPredictResponse(BaseModel):
@@ -193,6 +352,28 @@ class ModelPredictResponse(BaseModel):
     data_quality: DataQualityItem | None = None
     routing_info: RoutingInfo | None = None
     warning: str | None = None
+    population_scope: PopulationScope | None = Field(
+        default=None, description="本次推理的人群与验证范围披露"
+    )
+    input_adjustments: dict[str, Any] = Field(
+        default_factory=dict, description="输入域钳制/归一与缺失中性化留痕"
+    )
+    defaulted_missing_fields: list[dict[str, Any]] = Field(
+        default_factory=list, description="未填→中性 0 的字段（与用户填 0 区分）"
+    )
+    thresholds: dict[str, int] = Field(
+        default_factory=get_structured_thresholds,
+        description=(
+            "本次分级使用的四档阈值（mild/moderate/high/critical），"
+            "唯一来源 app/core/risk_thresholds.py"
+        ),
+    )
+    threshold_source: str = Field(
+        default=STRUCTURED_THRESHOLD_SOURCE,
+        description=(
+            "阈值口径来源：calibration_v123_p25_p50_p75_p90 或 fallback"
+        ),
+    )
 
 
 class PhysiologicalPredictResult(BaseModel):
@@ -208,6 +389,9 @@ class PhysiologicalPredictResult(BaseModel):
         default="complete", description="数据质量: complete/partial/poor"
     )
     calibrated: bool = Field(default=True, description="是否经过校准")
+    population_scope: PopulationScope | None = Field(
+        default=None, description="本次生理推理的人群与验证范围披露"
+    )
 
 
 class FusionPredictResult(BaseModel):
@@ -227,6 +411,9 @@ class FusionPredictResult(BaseModel):
     )
     crisis_override: bool = Field(
         default=False, description="是否因危机检测覆盖风险等级"
+    )
+    population_scope: PopulationScope | None = Field(
+        default=None, description="本次融合推理的人群与验证范围披露"
     )
 
 

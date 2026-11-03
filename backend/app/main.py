@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import warnings
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -165,6 +166,12 @@ async def lifespan(app: FastAPI):
 
     # RES-P0-002 修复：在 lifespan 最开始配置日志轮转，确保后续所有启动日志均经过统一配置
     await record_step_async("configure_logging", _async_noop(configure_logging), fatal=True)
+    # 2026-11：镜像内代码版本 == 仓库 HEAD 的可观测校验（Dockerfile 写入 APP_GIT_SHA 标签/环境变量）。
+    # 仅打印，不参与业务判定；比对逻辑由 CI（container-scan.yml）执行。
+    _git_sha = os.environ.get("APP_GIT_SHA", "unknown")
+    logger.info(
+        "启动版本: app=%s version=%s git_sha=%s", settings.app_name, settings.app_version, _git_sha
+    )
     # STAB-P0-001 修复：根据 settings 初始化 DB 熔断器参数
     from app.core.db_breaker import init_db_breaker
 
@@ -244,6 +251,42 @@ async def lifespan(app: FastAPI):
         # `loading.audit_path_resolve_failed`：审计自身的失败必须由自己留痕）。
         logger.warning("模型侧车审计跳过（非致命）: %s", exc)
         record_silent_degradation("main.sidecar_audit_skipped")
+
+    # 2026-11 (D5)：生产必需模型制品校验。
+    # 口径：生产缺任一必需产物 / revision 非 commit hash → 启动失败；
+    # 开发/测试允许降级，但必须在 /health 暴露 missing 并打告警。
+    from app.core.model_registry import audit_deployment_artifacts
+
+    _artifact_audit = await asyncio.to_thread(
+        audit_deployment_artifacts, settings.model_dir
+    )
+    app.state.model_artifact_audit = _artifact_audit
+    _artifact_failures: list[str] = []
+    if _artifact_audit["missing"]:
+        _artifact_failures.append("缺少必需制品: " + ", ".join(_artifact_audit["missing"]))
+    if _artifact_audit["hash_mismatch"]:
+        _artifact_failures.append(
+            "清单哈希不一致: " + ", ".join(_artifact_audit["hash_mismatch"])
+        )
+    if _artifact_audit["unverified"]:
+        _artifact_failures.append(
+            "清单未覆盖/缺少摘要: " + ", ".join(_artifact_audit["unverified"])
+        )
+    if _artifact_audit["manifest_status"] != "ok":
+        _artifact_failures.append(f"制品清单状态={_artifact_audit['manifest_status']}")
+    if _artifact_failures:
+        _artifact_message = "部署制品校验失败（" + "；".join(_artifact_failures) + "）"
+        if settings.app_env.lower() == "production":
+            logger.critical("%s；生产环境拒绝启动（D5 制品口径）", _artifact_message)
+            raise RuntimeError(_artifact_message)
+        logger.warning("%s；开发/测试环境降级运行，/health 已暴露", _artifact_message)
+        record_silent_degradation("main.model_artifacts_unverified")
+        warnings.warn(_artifact_message, UserWarning, stacklevel=2)
+    else:
+        logger.info(
+            "部署模型制品校验通过: %d 个必需产物齐全且哈希一致",
+            len(_artifact_audit["present"]),
+        )
 
     # STAB-P2-004: model preload 改为后台任务, 不阻塞启动
     # 原: await record_step_async("model_preload", _preload_models(), fatal=False) 阻塞启动
@@ -497,6 +540,30 @@ async def ws_endpoint_query(ws: WebSocket):
     await websocket_endpoint(ws, int(raw))
 
 
+def _deployment_health() -> dict[str, object]:
+    """D5：模型制品可用性（生产校验失败会在启动期退出，此处为开发/测试显式暴露）。"""
+    audit = getattr(app.state, "model_artifact_audit", None) or {
+        "present": [],
+        "missing": [],
+        "hash_mismatch": [],
+        "unverified": [],
+        "manifest_status": "missing",
+    }
+    missing = list(audit.get("missing", []))
+    mismatch = list(audit.get("hash_mismatch", []))
+    unverified = list(audit.get("unverified", []))
+    manifest_status = audit.get("manifest_status", "missing")
+    degraded = bool(missing or mismatch or unverified) or manifest_status != "ok"
+    return {
+        "model_artifacts": "degraded" if degraded else "ok",
+        "missing": missing,
+        "hash_mismatch": mismatch,
+        "unverified": unverified,
+        "manifest": manifest_status,
+        "required_count": len(audit.get("present", [])) + len(missing),
+    }
+
+
 @app.get("/health", responses=COMMON_ERROR_RESPONSES, deprecated=True)
 @limiter.exempt
 async def health_check() -> dict:
@@ -525,6 +592,7 @@ async def health_check() -> dict:
             # STAB-P1-007: 暴露 ML 核心模型可用性 (3 个降级回退模型文件存在性)
             "models": "ok" if snapshot.models else "failed (optional)",
         },
+        "deployment": _deployment_health(),
         **startup_status.to_summary_dict(),
     }
 
@@ -566,6 +634,7 @@ async def readiness_check() -> dict:
             # STAB-P1-007: 暴露 ML 核心模型可用性
             "models": "ok" if snapshot.models else "failed (optional)",
         },
+        "deployment": _deployment_health(),
         **startup_status.to_summary_dict(),
     }
 

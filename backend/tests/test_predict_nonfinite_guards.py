@@ -344,7 +344,7 @@ class TestPhysiologicalPathRegressionGuard:
     def test_still_degrades_to_heuristic(self, engine, bad):
         # 闭包捕获 engine, 使替身成为绑定方法（与被替换的实例方法签名一致）
         async def fake(_data):  # noqa: ANN001
-            return bad
+            return bad, None
 
         engine._predict_physiological = fake
         result = asyncio.run(engine.predict_physiological({"sleep_hours": 5, "heart_rate": 90, "steps": 3000}))

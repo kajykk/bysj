@@ -184,7 +184,7 @@ def audit_model_integrity_anchors() -> dict[str, Any]:
             if not is_model_enabled(model_id):
                 skipped += 1
                 continue
-            file_path = probe._abs_path(resolve_model_path(model_id))
+            file_path = probe._abs_path(resolve_model_path(model_id), warn_missing=False)
         except Exception as exc:  # noqa: PERF203 — 逐项隔离，单个失败不中断审计
             logger.warning("完整性审计: 模型 %s 路径解析失败 %s", model_id, exc)
             # P2-35 第七批：该模型随后被 skipped，不仅不进 missing 清单，调用方
@@ -302,7 +302,7 @@ class LoadingMixin:
                 # P2-35 第二批：同上（未知异常同样落到 fallback）
                 record_silent_degradation("core.model_engine.loading.preload.failed")
 
-    def _abs_path(self, rel_path: str) -> Path:
+    def _abs_path(self, rel_path: str, *, warn_missing: bool = True) -> Path:
         raw = Path(rel_path)
         if raw.is_absolute():
             return raw
@@ -352,15 +352,18 @@ class LoadingMixin:
         # 陈旧权重参与风险判定，比"明确缺失→回退启发式"更危险。
         # 部署侧 MODEL_DIR 为绝对路径且 backend/models 是唯一权威源，此改动
         # 不影响生产解析结果（/app/models 命中路径不变）。
-        logger.warning(
-            "Model %s not found under model_dir=%s nor backend_root=%s; "
-            "falling back to heuristic/statistical path. "
-            "(CWD-relative resolution is intentionally disabled to avoid "
-            "silently loading untracked training leftovers.)",
-            rel_path,
-            model_dir,
-            backend_root,
-        )
+        # 审计调用方 (audit_model_integrity_anchors) 传入 warn_missing=False:
+        # 「注册表有条目但文件未部署」是可选模型的正常状态, 不应在每次启动时告警。
+        if warn_missing:
+            logger.warning(
+                "Model %s not found under model_dir=%s nor backend_root=%s; "
+                "falling back to heuristic/statistical path. "
+                "(CWD-relative resolution is intentionally disabled to avoid "
+                "silently loading untracked training leftovers.)",
+                rel_path,
+                model_dir,
+                backend_root,
+            )
         return candidate_paths[0]
 
     def _load_adapter(self) -> Any:
@@ -377,33 +380,28 @@ class LoadingMixin:
 
                 models_root = Path(__file__).resolve().parents[3] / "models"
                 try:
-                    # P0 修复 (2026-09-24): score_adapter.pkl 系训练脚本上下文
-                    # （__main__.ScoreAdapter）直接 pickle，unpickle 时需先在
-                    # __main__ 注册同名类别名，否则 AttributeError。
-                    import sys as _sys
-
-                    from app.core.score_adapter import ScoreAdapter as _ScoreAdapterForPickle
-
-                    _main = _sys.modules.get("__main__")
-                    if _main is not None and not hasattr(_main, "ScoreAdapter"):
-                        _main.ScoreAdapter = _ScoreAdapterForPickle  # type: ignore[attr-defined]
+                    # 2026-11: 生成端已统一为 app.core.score_adapter.ScoreAdapter
+                    # （scripts 的 __main__ 命名空间 pickle 已废弃），无需再向 __main__
+                    # 注入类别名；safe_pickle 白名单直接放行 app.* 前缀。
                     adapter = safe_joblib_load(
                         adapter_pkl,
                         trusted_root=models_root,
                         model_id="v1.24_adapter",
                     )
                     logger.info(
-                        "v1.24 adapter loaded from pkl (version=%s)",
+                        "v1.24 adapter loaded source=pkl (version=%s)",
                         getattr(adapter, "version", "unknown"),
                     )
                     return adapter
                 except Exception as pkl_exc:
                     # pkl 反序列化失败时不直接放弃，继续走 config.json 动态构建
-                    logger.warning(
-                        "v1.24 adapter pkl load failed, falling back to config.json: %s",
+                    # 2026-11: 不再静默——显式来源标记 + model_fallback_total 打点 + 降级计数
+                    logger.error(
+                        "[ADAPTER-FALLBACK] v1.24 score_adapter.pkl rejected/failed, "
+                        "falling back to config.json: %s",
                         pkl_exc,
                     )
-                    # P2-35 第二批：pkl→config.json 回退 = 静默降级（行为等价但来源不同）
+                    _incr_model_fallback("v1.24_adapter", "pkl_rejected")
                     record_silent_degradation("core.model_engine.loading.adapter.pkl_fallback")
 
             if adapter_config.exists():
@@ -412,11 +410,18 @@ class LoadingMixin:
 
                 from app.core.score_adapter import ScoreAdapter as _ScoreAdapter
 
+                if not adapter_pkl.exists():
+                    # 2026-11: pkl 缺失属可观测事件，不再静默
+                    logger.warning(
+                        "[ADAPTER-FALLBACK] v1.24 score_adapter.pkl missing, "
+                        "using config.json as fallback"
+                    )
+                    _incr_model_fallback("v1.24_adapter", "pkl_missing")
                 with open(adapter_config, "r", encoding="utf-8") as f:
                     config = json.load(f)
                 adapter = _ScoreAdapter(config)
                 logger.info(
-                    "v1.24 adapter loaded from config.json (version=%s)",
+                    "v1.24 adapter loaded source=config_json (version=%s)",
                     getattr(adapter, "version", "unknown"),
                 )
                 return adapter

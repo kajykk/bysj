@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +18,185 @@ class ModelLifecycle(StrEnum):
     EXPERIMENTAL = "experimental"
     DEPRECATED = "deprecated"
     DISABLED = "disabled"
+    # 2026-11 (D5)：已退役。对应制品不存在/不再交付，仅保留注册表信息用于历史追溯，
+    # 永不被 get_active_models 选中，也不得被生产引用。
+    RETIRED = "retired"
 
 
 ACTIVE_LIFECYCLES: frozenset[str] = frozenset({ModelLifecycle.DEFAULT, ModelLifecycle.LIMITED_ACTIVE})
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+# ── 2026-11 (D5)：生产必需制品与死条目治理 ──
+# 生产部署必需制品（相对 backend/）。生产环境缺失任一即启动失败；
+# 开发/测试环境允许降级，但必须在 /health 显式暴露并打告警（见 app.main.lifespan）。
+DEPLOYMENT_REQUIRED_ARTIFACTS: dict[str, str] = {
+    "structured_v1.23_external_lr": "models/v1.23_external_lr/model.pkl",
+    "physiological_model_v2_dl": "models/artifacts/physiological_optimized/model.json",
+    "physiological_scaler_v2_dl": "models/artifacts/physiological_optimized/scaler.json",
+    "text_improved_bilingual_model": "models/text/improved_bilingual_model.pkl",
+    "text_improved_bilingual_tfidf": "models/text/improved_bilingual_tfidf.pkl",
+    "mmpsy_lite_model": "models/v1.25_mmpsy_lite/mmpsy_lite_model.pkl",
+}
+
+# 指向不存在文件的死条目：保留 ID 以兼容历史引用（model_compatibility / 实验对比），
+# 但明确标注为「不可解析 + retired」，不得作为生产产物，也不得进入交付镜像。
+# 复核时间 2026-11：以下路径在 backend/ 下均不存在（含 D6 决定不纳入交付的融合 DNN）。
+UNRESOLVABLE_MODEL_IDS: frozenset[str] = frozenset(
+    {
+        "fusion_dnn_best",
+        "fusion_cross_modal_best",
+        "fusion_transformer_best",
+        "physiological_risk_model",
+        "physiological_risk_scaler",
+        "structured_random_forest_quick",
+        "structured_best_ensemble_quick",
+        "structured_best_threshold",
+    }
+)
+
+# 非文件承载条目：注册表有 ID，但对应权重并不以独立文件形式交付。
+# 2026-11 复核：`structured_v1.23_external_scaler` 指向 models/v1.23_external_lr/scaler.pkl，
+# 该文件不存在——**v1.23 的缩放器已内嵌在 model.pkl 的 sklearn Pipeline 内**，
+# 无需也不应单独加载，故标记 resolvable=False（保留 ID 以兼容历史引用）。
+NON_FILE_BACKED_MODEL_IDS: frozenset[str] = frozenset(
+    {
+        "structured_v1.23_external_scaler",
+    }
+)
+
+
+DEPLOYMENT_MANIFEST_FILENAME = "DEPLOYMENT_MANIFEST.json"
+DEPLOYMENT_MANIFEST_SCHEMA = "dws-deployment-artifacts/v1"
+
+
+def _artifact_candidates(base: Path, relative_path: str) -> list[Path]:
+    """解析制品的候选路径：MODEL_DIR 挂载点优先，其次仓库 backend/models。"""
+    candidates = [base / relative_path]
+    if relative_path.startswith("models/"):
+        candidates.append(base / relative_path[len("models/") :])
+    candidates.append(BACKEND_ROOT / relative_path)
+    return candidates
+
+
+def _resolve_artifact(base: Path, relative_path: str) -> Path | None:
+    for candidate in _artifact_candidates(base, relative_path):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def compute_sha256(file_path: str | Path) -> str:
+    """流式计算 SHA256（与 safe_pickle 的校验口径一致）。"""
+    digest = hashlib.sha256()
+    with open(file_path, "rb") as handle:
+        while chunk := handle.read(64 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_deployment_manifest(model_dir: str | Path) -> dict[str, Any]:
+    """生成部署制品清单（含每条制品的字节数与 sha256）。
+
+    供 `scripts/artifact_manifest.py` 调用；清单本身应与制品一同分发，
+    启动期 `audit_deployment_artifacts` 以此核对完整性。
+    """
+    base = Path(model_dir)
+    if not base.is_absolute():
+        base = BACKEND_ROOT / base
+    artifacts: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for model_id, relative_path in DEPLOYMENT_REQUIRED_ARTIFACTS.items():
+        resolved = _resolve_artifact(base, relative_path)
+        if resolved is None:
+            missing.append(model_id)
+            continue
+        artifacts.append(
+            {
+                "model_id": model_id,
+                "path": relative_path,
+                "bytes": resolved.stat().st_size,
+                "sha256": compute_sha256(resolved),
+            }
+        )
+    if missing:
+        raise FileNotFoundError(
+            "无法生成制品清单，以下必需制品缺失: " + ", ".join(missing)
+        )
+    return {
+        "schema": DEPLOYMENT_MANIFEST_SCHEMA,
+        "algorithm": "sha256",
+        "generated_at": "2026-11-03",
+        "artifacts": artifacts,
+    }
+
+
+def audit_deployment_artifacts(
+    model_dir: str | Path,
+    *,
+    manifest: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """校验生产必需制品：存在性 + 清单哈希一致性。
+
+    返回 ``{"present", "missing", "hash_mismatch", "unverified", "manifest_status"}``。
+    只返回模型 ID，不泄露绝对路径或摘要之外的信息。
+    - 清单缺失：``manifest_status="missing"``，全部制品记为 unverified；
+    - 清单存在但条目缺失：该制品 unverified（不误报为 mismatch）；
+    - 哈希不一致：进入 ``hash_mismatch``。
+    ``manifest`` 参数仅供测试/负向用例注入，生产应从清单文件读取。
+    """
+    base = Path(model_dir)
+    if not base.is_absolute():
+        base = BACKEND_ROOT / base
+
+    manifest_status = "ok"
+    if manifest is None:
+        manifest_path = base / DEPLOYMENT_MANIFEST_FILENAME
+        if not manifest_path.is_file():
+            manifest_path = BACKEND_ROOT / "models" / DEPLOYMENT_MANIFEST_FILENAME
+        if manifest_path.is_file():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                manifest = None
+                manifest_status = "invalid"
+        else:
+            manifest_status = "missing"
+    elif manifest.get("schema") != DEPLOYMENT_MANIFEST_SCHEMA:
+        manifest_status = "invalid"
+
+    entries: dict[str, dict[str, Any]] = {}
+    if isinstance(manifest, dict):
+        for entry in manifest.get("artifacts", []):
+            if isinstance(entry, dict) and entry.get("model_id"):
+                entries[str(entry["model_id"])] = entry
+
+    present: list[str] = []
+    missing: list[str] = []
+    hash_mismatch: list[str] = []
+    unverified: list[str] = []
+    for model_id, relative_path in DEPLOYMENT_REQUIRED_ARTIFACTS.items():
+        resolved = _resolve_artifact(base, relative_path)
+        if resolved is None:
+            missing.append(model_id)
+            continue
+        present.append(model_id)
+        entry = entries.get(model_id)
+        expected = str(entry.get("sha256", "")).strip().lower() if entry else ""
+        if not expected:
+            unverified.append(model_id)
+            continue
+        actual = compute_sha256(resolved)
+        if actual != expected:
+            hash_mismatch.append(model_id)
+
+    return {
+        "present": present,
+        "missing": missing,
+        "hash_mismatch": hash_mismatch,
+        "unverified": unverified,
+        "manifest_status": manifest_status,
+    }
 
 
 # 统一模型 ID 命名规范：使用 lower_snake_case，并按业务域分组。
@@ -81,6 +260,9 @@ class ModelMetadata:
     lifecycle: str = "experimental"
     feature_schema: dict[str, object] = field(default_factory=dict)
     artifact_metadata: dict[str, object] = field(default_factory=dict)
+    # 2026-11 (D5): 制品路径是否可解析。False 表示注册表条目对应的权重文件
+    # 不在交付物中（死条目），调用方必须先判空再加载。
+    resolvable: bool = True
 
 
 MODEL_REGISTRY: dict[str, ModelMetadata] = {
@@ -146,21 +328,24 @@ MODEL_REGISTRY["physiological_model_v2_dl"] = ModelMetadata(
     lifecycle="default",
     feature_schema={
         "input_features": 13,
-        "hidden_dims": [64, 32, 16],
-        "dropout_rate": 0.3,
+        "hidden_dims": [128, 64, 32, 16],
+        "dropout_rate": 0.2,
         "use_batch_norm": True,
         "architecture": "MLP",
         "framework": "numpy",
     },
     artifact_metadata={
-        "training_date": "2026-05-07",
+        "training_date": "2026-10-22",
         "dataset": "Depresjon (clinical, n=1029)",
-        "test_f1": 0.9530,
-        "test_accuracy": 0.9660,
-        "test_roc_auc": 0.9940,
-        "test_auprc": 0.9737,
-        "best_epoch": 108,
-        "model_parameters": 3745,
+        "dataset_size": 1029,
+        "evaluation_set_size": 157,
+        "evaluation_scheme": "single stratified 70/15/15 split, random_state=42",
+        "test_f1": 0.8205128205128205,
+        "test_accuracy": 0.8662420382165605,
+        "test_roc_auc": 0.9450980392156862,
+        "test_auprc": 0.8919268523615607,
+        "best_epoch": 27,
+        "model_parameters": 13153,
         "loss_function": "BCE",
     },
 )
@@ -300,6 +485,32 @@ MODEL_REGISTRY["mmpsy_lite_scaler"] = ModelMetadata(
 
 def normalize_model_id(model_id: str) -> str:
     return model_id.strip()
+
+
+# 2026-11 (D5): 显式标注死条目，避免下游把「注册表里有」误当「文件存在」。
+# 放在所有注册语句之后执行，防止后续显式 register 把标记重置回 True。
+for _dead_model_id in UNRESOLVABLE_MODEL_IDS:
+    _dead_metadata = MODEL_REGISTRY.get(_dead_model_id)
+    if _dead_metadata is not None:
+        _dead_metadata.resolvable = False
+        _dead_metadata.enabled = False
+        _dead_metadata.lifecycle = ModelLifecycle.RETIRED
+        _dead_metadata.artifact_metadata = {
+            **_dead_metadata.artifact_metadata,
+            "archive_reason": "artifact_missing_or_not_delivered",
+            "archive_date": "2026-11",
+        }
+
+# 非文件承载条目：没有独立制品，但语义上仍可用（如 Pipeline 内置 scaler）。
+for _non_file_model_id in NON_FILE_BACKED_MODEL_IDS:
+    _non_file_metadata = MODEL_REGISTRY.get(_non_file_model_id)
+    if _non_file_metadata is not None:
+        _non_file_metadata.resolvable = False
+        _non_file_metadata.artifact_metadata = {
+            **_non_file_metadata.artifact_metadata,
+            "embedded_in": "models/v1.23_external_lr/model.pkl",
+            "note": "v1.23 的 scaler 在 Pipeline 内，无独立文件",
+        }
 
 
 def register_model(

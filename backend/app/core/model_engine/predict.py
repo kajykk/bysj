@@ -50,7 +50,24 @@ from app.core.feature_maps import (
 from app.core.feature_maps import (
     LITE_FEATURE_ORDER,
 )
+from app.core.model_engine.text_chunking import (
+    DEFAULT_CHUNK_OVERLAP,
+    DEFAULT_CHUNK_SIZE,
+    aggregate_chunk_probabilities,
+    split_text_chunks,
+)
+from app.core.ml_decision_thresholds import (
+    TEXT_DECISION_STATE_HIGH_RISK,
+    TEXT_DECISION_STATE_SUSPECT,
+    TEXT_DECISION_THRESHOLD_SOURCE,
+    classify_text_probability,
+)
+from app.core.model_engine.text_fusion import fuse_text_signals
 from app.core.model_registry import get_model_info
+from app.core.risk_thresholds import (
+    get_structured_threshold_source,
+    get_structured_thresholds,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,11 +128,19 @@ class PredictMixin:
                         cgpa=float(raw.get("cgpa", 3.1)),
                     )
                     lite_result["routing_info"] = routing_info
+                    lite_result["thresholds"] = get_structured_thresholds()
+                    lite_result["threshold_source"] = get_structured_threshold_source(
+                        fallback=bool(lite_result.get("fallback_used", False))
+                    )
                     return lite_result
                 elif routed_result == "anxiety_only":
                     gad7 = raw.get("gad7_score", None)
                     fb = self._anxiety_only_fallback(float(gad7))
                     fb["routing_info"] = routing_info
+                    fb["thresholds"] = get_structured_thresholds()
+                    fb["threshold_source"] = get_structured_threshold_source(
+                        fallback=True
+                    )
                     return fb
                 else:
                     return {
@@ -129,6 +154,10 @@ class PredictMixin:
                         "fallback_reason": "insufficient_information",
                         "routing_info": routing_info,
                         "warning": "信息不足以评估风险，请提供 GAD-7 评分或结构化特征",
+                        "thresholds": get_structured_thresholds(),
+                        "threshold_source": get_structured_threshold_source(
+                            fallback=True
+                        ),
                     }
 
             model = None
@@ -186,10 +215,16 @@ class PredictMixin:
                         exc,
                     )
 
+            input_adjustments: dict[str, Any] = {}
             if model is not None:
                 model_feature_names = list(getattr(model, "feature_names_in_", []))
                 if model_feature_names:
-                    input_dict = self._build_structured_input(raw, model_feature_names, model)
+                    input_dict = self._build_structured_input(
+                        raw,
+                        model_feature_names,
+                        model,
+                        degradation=input_adjustments,
+                    )
                     feature_df = pd.DataFrame(
                         [{col: input_dict[col] for col in model_feature_names}],
                         columns=model_feature_names,
@@ -285,6 +320,16 @@ class PredictMixin:
                     "confidence_penalty": round(confidence_penalty, 2),
                     "quality_level": quality_level,
                 },
+                # 显式区分「用户填 0」与「未填→中性 0」，并留痕输入域钳制/归一。
+                "input_adjustments": input_adjustments,
+                "defaulted_missing_fields": input_adjustments.get(
+                    "defaulted_missing_fields", []
+                ),
+                # 阈值随响应下发：数值唯一来源 risk_thresholds.py，前端不再保存副本。
+                "thresholds": get_structured_thresholds(),
+                "threshold_source": get_structured_threshold_source(
+                    fallback=fallback_used
+                ),
             }
             if fallback_reason:
                 result["fallback_reason"] = fallback_reason
@@ -347,6 +392,9 @@ class PredictMixin:
                 quality_level,
             )
 
+            # routing_info 在加载模型前生成；此处以真实执行结果覆写，避免
+            # 「选中 v1.20 / 实际 v1.23」或降级后仍标主模型。
+            routing_info["selected_model_id"] = model_used
             result["routing_info"] = routing_info
 
             return result
@@ -565,47 +613,90 @@ class PredictMixin:
             # 2. ML 模型预测 (已有)
             ml_result = await self._predict_text_ml(text)
 
+            # D2：任何文本模型路径（双语主模型 / 英文回退 / 启发式回退）都必须在
+            # 统一出口带出三态。此处只做防御性补齐（正常路径已在
+            # _predict_text_ml 收敛），避免降级或测试替身漏字段时静默退回两态。
+            if not ml_result.get("text_decision_state"):
+                ml_result = self._apply_text_decision_state(
+                    dict(ml_result),
+                    float(
+                        ml_result.get("probability")
+                        if ml_result.get("probability") is not None
+                        else ml_result.get("sentiment_score", 0.0) or 0.0
+                    ),
+                )
+
             # S3 P4 影子模式: 异步对拍 M2 BERT vs 生产结果 (fire-and-forget, 不阻塞)
             self._maybe_fire_shadow_predict(text, ml_result)
 
             # 3. 文本风险分析 (新增)
             text_analysis = self.text_analyzer.analyze(text)
 
-            heuristic_score = float(text_analysis.get("heuristic_sentiment_score", 0.0))
-            model_score = float(ml_result.get("sentiment_score", 0.0))
+            # 4. 融合 ML 与启发式分量（纯函数，便于单独验证权重与解释）
+            fusion = fuse_text_signals(
+                ml_probability=float(ml_result.get("sentiment_score", 0.0)),
+                heuristic_score=float(
+                    text_analysis.get("heuristic_sentiment_score", 0.0)
+                ),
+                crisis_score=float(crisis_result["crisis_score"]),
+                crisis_detected=bool(crisis_result["crisis_detected"]),
+                requires_corroboration=bool(
+                    crisis_result.get("requires_corroboration", False)
+                ),
+                matched_categories=crisis_result.get("matched_categories", []),
+                critical_intent=bool(crisis_result.get("critical_intent", False)),
+            )
 
-            model_extremity = abs(model_score - 0.5) * 2
-            model_weight = 0.4 + model_extremity * 0.4
-            heuristic_weight = 0.6 - model_extremity * 0.4
+            # D2：文本概率三态门控（normal / suspect / high_risk）。
+            text_decision_state = ml_result.get("text_decision_state")
+            risk_level = fusion["risk_level"]
+            requires_human_review = bool(fusion["requires_human_review"])
+            review_reasons = list(fusion["review_reasons"])
+            third_person_only = bool(
+                crisis_result.get("third_person_matches")
+            ) and not crisis_result["crisis_detected"]
 
-            disagreement = abs(model_score - heuristic_score)
-            if disagreement > 0.5:
-                model_weight = max(model_weight, 0.65)
-                heuristic_weight = min(heuristic_weight, 0.35)
+            # D4：第三人称/转述命中只记录，不因文本概率把本人风险升级。
+            if not third_person_only:
+                if text_decision_state == TEXT_DECISION_STATE_SUSPECT:
+                    # 0.30–0.55：不直接判高风险，但必须人工复核。
+                    requires_human_review = True
+                    if "text_suspect_probability" not in review_reasons:
+                        review_reasons.append("text_suspect_probability")
+                elif text_decision_state == TEXT_DECISION_STATE_HIGH_RISK:
+                    requires_human_review = True
+                    if "text_high_risk_probability" not in review_reasons:
+                        review_reasons.append("text_high_risk_probability")
+                    risk_level = max(risk_level or 0, 3)
 
-            total_w = model_weight + heuristic_weight
-            model_weight /= total_w
-            heuristic_weight /= total_w
-
-            final_sentiment_score = round(model_score * model_weight + heuristic_score * heuristic_weight, 4)
-            final_sentiment_label = "negative" if final_sentiment_score >= 0.2 else "positive"
-
-            # 4. 合并结果
+            # 5. 合并结果：分量与复核建议随结果返回，界面不得把融合分当置信度
             result = {
                 **ml_result,
-                "sentiment_label": final_sentiment_label,
-                "sentiment_score": round(final_sentiment_score, 4),
-                "distress_score": round(final_sentiment_score * 100, 2),
+                "sentiment_label": fusion["sentiment_label"],
+                "sentiment_score": fusion["sentiment_score"],
+                "distress_score": fusion["distress_score"],
                 "crisis_score": crisis_result["crisis_score"],
                 "risk_factors": text_analysis["risk_factors"],
                 "protective_factors": text_analysis["protective_factors"],
+                "risk_evidence": text_analysis.get("risk_evidence", {}),
+                "protective_evidence": text_analysis.get("protective_evidence", {}),
                 "crisis_detected": crisis_result["crisis_detected"],
                 "crisis_keywords": crisis_result["matched_keywords"],
+                "matched_categories": crisis_result.get("matched_categories", []),
+                "suppressed_crisis_keywords": [
+                    item["keyword"]
+                    for item in crisis_result.get("suppressed_matches", [])
+                ],
+                "third_person_matches": crisis_result.get(
+                    "third_person_matches", []
+                ),
+                "score_components": fusion["score_components"],
+                # 未判定必须显式 null，不能以 0 伪装成「无风险」。
+                "risk_level": risk_level,
+                "requires_human_review": requires_human_review,
+                "review_reasons": review_reasons,
             }
-
-            # 5. 如果检测到危机，覆盖 risk_level
-            if crisis_result["crisis_detected"]:
-                result["risk_level"] = 4  # critical
+            if fusion["crisis_override"]:
                 result["crisis_override"] = True
 
             return result
@@ -684,11 +775,23 @@ class PredictMixin:
                 record_silent_degradation(
                     "core.model_engine.predict.text_ml_all_unavailable"
                 )
-                return self._text_heuristic_fallback(text)
+                fallback = self._text_heuristic_fallback(text)
+                return self._apply_text_decision_state(
+                    fallback, float(fallback.get("probability", 0.0) or 0.0)
+                )
 
-        vector = await asyncio.to_thread(tfidf.transform, [text])
+        chunks = split_text_chunks(text)
+        if not chunks:
+            fallback = self._text_heuristic_fallback(text)
+            return self._apply_text_decision_state(
+                fallback, float(fallback.get("probability", 0.0) or 0.0)
+            )
+
+        vector = await asyncio.to_thread(
+            tfidf.transform, [chunk.text for chunk in chunks]
+        )
         proba = await asyncio.to_thread(model.predict_proba, vector)
-        probability = float(proba[0][1])
+        probabilities = [float(row[1]) for row in proba]
 
         # AUDIT-2026-10-08 (P0-5)：本项目唯一**完全无防护**的推理出口。
         # 与 structured/lite 不同，本路径不经过 `_score_to_level`，所以
@@ -701,8 +804,12 @@ class PredictMixin:
         #
         # 处置：回退到启发式（与 Level 2/3 一致的降级语义），并**如实标记**
         # fallback_used / fallback_reason，绝不静默给出「无风险」。
-        if not math.isfinite(probability):
-            reason = f"文本模型产出非有限概率 probability={probability!r}，回退启发式情感分析"
+        non_finite = [p for p in probabilities if not math.isfinite(p)]
+        if non_finite:
+            reason = (
+                f"文本模型产出非有限概率 probability={non_finite[0]!r}，"
+                "回退启发式情感分析"
+            )
             logger.error("_predict_text_ml: %s (model_used=%s)", reason, model_used)
             result = self._text_heuristic_fallback(text)
             # _text_heuristic_fallback 自身已带 model_used=text_heuristic_fallback,
@@ -710,19 +817,84 @@ class PredictMixin:
             result["fallback_used"] = True
             result["fallback_reason"] = reason
             result["ml_model_used"] = model_used
-            return result
+            return self._apply_text_decision_state(
+                result, float(result.get("probability", 0.0) or 0.0)
+            )
 
-        if model_used == "text_improved_bilingual_model":
-            prediction = 1 if probability >= settings.text_bilingual_decision_threshold else 0
-        else:
-            prediction = int((await asyncio.to_thread(model.predict, vector))[0])
-        return {
-            "prediction": prediction,
+        # P2：长文本按句界切块后逐块推理，并按 max 聚合。整段送入 TF-IDF
+        # 时，一小段高风险自述会被其余日常内容稀释到阈值以下。
+        probability = aggregate_chunk_probabilities(probabilities)
+
+        # D2 统一出口：双语主模型、英文回退模型（原本走模型自带 predict 两态）
+        # 与启发式回退都在这里收敛为 normal / suspect / high_risk，
+        # 避免降级路径悄悄退回单阈值判定。
+        result: dict[str, Any] = {
             "probability": round(probability, 4),
-            "sentiment_label": "negative" if prediction == 1 else "positive",
             "sentiment_score": round(probability, 4),
             "model_used": model_used,
         }
+        if len(chunks) > 1:
+            result["chunk_info"] = {
+                "chunk_count": len(chunks),
+                "chunk_size": DEFAULT_CHUNK_SIZE,
+                "chunk_overlap": DEFAULT_CHUNK_OVERLAP,
+                "aggregation": "max",
+                "chunk_probabilities": [round(p, 4) for p in probabilities],
+                "chunk_offsets": [[chunk.start, chunk.end] for chunk in chunks],
+            }
+        return self._apply_text_decision_state(result, probability)
+
+    def _apply_text_decision_state(
+        self, result: dict[str, Any], probability: float
+    ) -> dict[str, Any]:
+        """把任意文本模型路径的结果收敛到 D2 三态出口。
+
+        语义与 ``classify_text_probability`` 一致：
+        < 下界 ``normal``；下界~上界 ``suspect``（不判高风险但必须人工复核）；
+        > 上界 ``high_risk``。阈值来自 Settings（SSOT 常量默认）。
+
+        双语主模型、英文回退模型、启发式回退全部经过本方法，因此任何一条
+        文本路径都会输出 ``text_decision_state`` / ``requires_human_review``，
+        不会因降级而退回「模型自带 predict 的单阈值两态」。
+        """
+        lower = float(settings.text_bilingual_decision_threshold)
+        upper = float(getattr(settings, "text_bilingual_review_threshold", lower))
+        try:
+            prob = float(probability)
+        except (TypeError, ValueError):
+            prob = 0.0
+        if not math.isfinite(prob):
+            prob = 0.0
+        # 概率标度按 [0,1] 钳制：启发式回退的原始情感分区间是 [-1,1]。
+        prob = max(0.0, min(1.0, prob))
+
+        state = classify_text_probability(
+            prob, lower_threshold=lower, upper_threshold=upper
+        )
+        prediction = 1 if state == TEXT_DECISION_STATE_HIGH_RISK else 0
+        review_reasons: list[str] = []
+        if state == TEXT_DECISION_STATE_SUSPECT:
+            review_reasons.append("text_suspect_probability")
+        elif state == TEXT_DECISION_STATE_HIGH_RISK:
+            review_reasons.append("text_high_risk_probability")
+
+        result.update(
+            {
+                "prediction": prediction,
+                "probability": round(prob, 4),
+                "sentiment_score": round(prob, 4),
+                "sentiment_label": "negative" if prediction == 1 else "positive",
+                "text_decision_state": state,
+                "text_decision_thresholds": {
+                    "suspect_lower": lower,
+                    "high_upper": upper,
+                    "source": TEXT_DECISION_THRESHOLD_SOURCE,
+                },
+                "requires_human_review": bool(review_reasons),
+                "review_reasons": review_reasons,
+            }
+        )
+        return result
 
     async def _predict_text_bert_single(self, text: str) -> dict[str, Any] | None:
         """已移除 (2026-10): BERT 首选分支下线，主路径为双语 TF-IDF + LR。
@@ -908,9 +1080,11 @@ class PredictMixin:
 
     async def predict_physiological(self, physiological: dict[str, float | int]) -> dict[str, Any]:
         async with self._timed_async("predict", "physiological"):
-            score = await self._predict_physiological(physiological)
-            fallback_used = False
-            fallback_reason: str | None = None
+            score, model_fallback_reason = await self._predict_physiological(physiological)
+            fallback_used = model_fallback_reason is not None
+            fallback_reason: str | None = model_fallback_reason
+            if fallback_used:
+                self._incr_fallback()
 
             # AUDIT-2026-10-01 (P0-3)：非有限分数必须在此截断。
             # 原实现下 NaN 会：① `score >= 50` 判 False → prediction=0；
@@ -944,7 +1118,14 @@ class PredictMixin:
                 "diastolic_bp",
                 "steps",
             ]:
-                if key not in physiological:
+                value = physiological.get(key)
+                if value is None:
+                    missing_count += 1
+                    continue
+                try:
+                    if not math.isfinite(float(value)):
+                        missing_count += 1
+                except (TypeError, ValueError):
                     missing_count += 1
             confidence = base_confidence - (missing_count * 0.1)
             if confidence < 0.3:
@@ -966,7 +1147,8 @@ class PredictMixin:
                 "fallback_reason": fallback_reason,
             }
 
-    async def _predict_physiological(self, data: dict[str, float | int]) -> float:
+    async def _predict_physiological(self, data: dict[str, float | int]) -> tuple[float, str | None]:
+        """返回 (风险分, 降级原因)。降级原因非空时调用方必须如实上报。"""
         fallback_reason = None
 
         # L-Core-5 修复：移除无效的 PyTorch 早期检查。生理模型 framework 为 numpy
@@ -977,12 +1159,11 @@ class PredictMixin:
             # M-06 修复：将 CPU 密集型的同步推理逻辑放到线程池中执行，避免阻塞事件循环
             # load_model/scaler.transform/predict_proba 等操作可能耗时较长
             prob = await asyncio.to_thread(self._predict_physiological_sync, data)
-            return prob
+            return prob, None
         except ModelException:
             raise
         except FileNotFoundError as exc:
-            if fallback_reason is None:
-                fallback_reason = "model_not_found"
+            fallback_reason = "model_not_found"
             logger.warning("MLP model not found, falling back to heuristic: %s", exc)
             # P2-35 第六批：生理模型缺失 → 启发式分，无 _incr_fallback 计数
             record_silent_degradation(
@@ -1001,7 +1182,7 @@ class PredictMixin:
             )
 
         # Fallback to heuristic
-        return self._physiological_heuristic_fallback(data, fallback_reason)
+        return self._physiological_heuristic_fallback(data, fallback_reason), fallback_reason
 
     def _predict_physiological_sync(self, data: dict[str, float | int]) -> float:
         """同步执行生理模型推理（M-06：从 _predict_physiological 提取，供 asyncio.to_thread 调用）。"""
