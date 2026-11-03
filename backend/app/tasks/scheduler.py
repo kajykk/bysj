@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, func, insert, literal, not_, select
 
@@ -21,6 +22,9 @@ from app.models.counselor import CounselorProfile
 from app.models.intervention import InterventionPlan, InterventionTask, TaskExecution
 from app.models.risk import RiskAssessment, WarningNotification, WarningSetting
 from app.models.user import User, UserCounselorBinding
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 _get_loop = get_celery_loop
@@ -51,8 +55,9 @@ async def _notify_warning(
     risk_level: int,
     trigger_reason: str,
     counselor_id: int | None,
+    db: AsyncSession | None = None,
 ) -> bool:
-    """推送预警通知，返回是否成功。
+    """推送预警通知，返回是否至少有一个通道送达。
 
     AUDIT-2026-09-28-P0-2 修复：原实现在 except 中仅 ``logger.warning`` 后返回 None，
     调用方无从得知失败——DB 里 WarningNotification 状态正常，实际咨询师从未收到，
@@ -60,13 +65,15 @@ async def _notify_warning(
 
     修复后：
     - 失败先就地重试（网络抖动/连接重建常可自愈）；
-    - 重试耗尽后返回 False，并以 **error** 级别记录完整上下文（warning_id/user_id/
-      counselor_id/risk_level），便于日志告警规则命中；
+    - 传入 ``db`` 时额外向绑定咨询师的邮箱发送预警邮件（``counselor_id`` 为空则跳过）；
+    - 仅当 WebSocket 与邮件**都未送达**时返回 False，并以 **error** 级别记录完整上下文
+      （warning_id/user_id/counselor_id/risk_level），便于日志告警规则命中；
     - 递增 ``warning_notify_failed_total`` 指标，供 Prometheus 告警。
 
     Returns:
-        True 表示推送成功；False 表示重试耗尽仍失败（调用方应记录/兜底）。
+        True 表示至少一个通道送达；False 表示全部失败（调用方应记录/兜底）。
     """
+    ws_ok = False
     last_exc: BaseException | None = None
     for attempt in range(1, _NOTIFY_MAX_ATTEMPTS + 1):
         try:
@@ -77,7 +84,8 @@ async def _notify_warning(
             await notify_warning(user_id, warning_id, level_str, trigger_reason)
             if counselor_id:
                 await notify_counselor(counselor_id, user_id, warning_id, level_str)
-            return True
+            ws_ok = True
+            break
         except Exception as exc:  # noqa: BLE001 - 通知失败不应中断批量扫描
             last_exc = exc
             logger.warning(
@@ -89,11 +97,36 @@ async def _notify_warning(
                 exc_info=True,
             )
 
-    # 重试耗尽：升级为 error，确保不会淹没在 warning 里
+    email_ok = False
+    if counselor_id and db is not None:
+        try:
+            from app.services.warning_email import send_warning_email
+
+            email_ok = await send_warning_email(
+                warning_id=warning_id,
+                user_id=user_id,
+                counselor_id=counselor_id,
+                risk_level=risk_level,
+                trigger_reason=trigger_reason,
+                db=db,
+            )
+        except Exception as exc:  # noqa: BLE001 - 邮件通道失败不得中断扫描
+            logger.warning(
+                "预警邮件发送异常 warning_id=%s counselor_id=%s: %s",
+                warning_id,
+                counselor_id,
+                exc,
+                exc_info=True,
+            )
+
+    if ws_ok or email_ok:
+        return True
+
+    # 全部通道失败：升级为 error，确保不会淹没在 warning 里
     logger.error(
         "AUDIT-P0-2 预警推送最终失败: warning_id=%s user_id=%s counselor_id=%s "
-        "risk_level=%s trigger_reason=%r —— 该预警已入库但咨询师未收到实时通知，"
-        "需人工或兜底任务补发. 最后错误: %s",
+        "risk_level=%s trigger_reason=%r —— 该预警已入库但咨询师既未收到实时通知，"
+        "也未收到预警邮件，需人工或兜底任务补发. 最后错误: %s",
         warning_id,
         user_id,
         counselor_id,
@@ -358,7 +391,12 @@ async def _daily_risk_scan_impl():
                 counselor_id,
             ) in page_notifications:
                 ok = await _notify_warning(
-                    user_id, warning_id, risk_level, trigger_reason, counselor_id
+                    user_id,
+                    warning_id,
+                    risk_level,
+                    trigger_reason,
+                    counselor_id,
+                    db=db,
                 )
                 if not ok:
                     failed_notifications.append(warning_id)

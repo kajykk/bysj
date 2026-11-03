@@ -3,10 +3,12 @@ import logging
 import smtplib
 import threading
 import time
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from urllib.parse import quote
 
 from app.core.config import settings
+from app.core.contracts import RISK_LEVEL_DISPLAY_ZH, normalize_risk_level
 from app.core.db_breaker import CircuitBreakerOpenError
 from app.core.smtp_breaker import call_with_smtp_breaker
 
@@ -142,6 +144,52 @@ class EmailService:
             "如果这不是你的操作，请忽略本邮件。"
         )
         await self._deliver(message, email, "验证码邮件发送失败，请稍后重试")
+
+    async def send_warning_alert_email(
+        self,
+        *,
+        email: str,
+        client_name: str,
+        client_user_id: int,
+        risk_level: int,
+        trigger_reason: str,
+        warning_id: int,
+    ) -> bool:
+        """向来访者绑定的咨询师发送风险预警邮件，返回是否已交给 SMTP。"""
+        if not settings.smtp_host or not settings.smtp_from_email:
+            logger.warning(
+                "email.smtp_not_configured warning_id=%s counselor=%s "
+                "(warning alert email not delivered)",
+                warning_id,
+                _mask_email(email),
+            )
+            return False
+
+        # 名称/原因可能来自用户输入，压掉换行避免污染邮件头
+        safe_name = " ".join(str(client_name).split()) or f"用户{client_user_id}"
+        safe_reason = " ".join(str(trigger_reason).split()) or "-"
+        level_label = RISK_LEVEL_DISPLAY_ZH.get(
+            normalize_risk_level(risk_level), "未知"
+        )
+
+        message = EmailMessage()
+        message["Subject"] = (
+            f"【风险预警】来访者 {safe_name} 当前风险等级 {risk_level} 级"
+        )
+        message["From"] = settings.smtp_from_email
+        message["To"] = email
+        message.set_content(
+            f"你的来访者 {safe_name}（用户 ID：{client_user_id}）触发了风险预警。\n\n"
+            f"风险等级：{risk_level} 级（{level_label}）\n"
+            f"触发原因：{safe_reason}\n"
+            f"预警编号：{warning_id}\n"
+            f"触发时间：{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n\n"
+            "请尽快登录咨询师工作台查看并跟进处理。\n"
+            "本邮件由系统自动发送，请勿直接回复。"
+        )
+
+        await self._deliver(message, email, "预警邮件发送失败，请稍后重试")
+        return True
 
     async def _deliver(
         self, message: EmailMessage, email: str, error_message: str

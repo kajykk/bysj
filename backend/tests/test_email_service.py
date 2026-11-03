@@ -181,3 +181,84 @@ class TestEmailService:
         mock_close.assert_called_once()
         mock_smtp_class.assert_called_once()
         mock_fresh.send_message.assert_called_once()
+
+    @patch("app.services.email_service.smtplib.SMTP")
+    @patch("app.services.email_service.settings")
+    async def test_send_warning_alert_email(self, mock_settings, mock_smtp_class):
+        """预警邮件发往咨询师邮箱, 正文含等级/原因/预警编号."""
+        mock_settings.smtp_host = "smtp.test.com"
+        mock_settings.smtp_port = 587
+        mock_settings.smtp_from_email = "from@test.com"
+        mock_settings.smtp_use_tls = False
+        mock_settings.smtp_user = ""
+        mock_settings.smtp_password = ""
+
+        mock_smtp = MagicMock()
+        mock_smtp_class.return_value = mock_smtp
+
+        svc = EmailService()
+        sent = await svc.send_warning_alert_email(
+            email="c@test.com",
+            client_name="seed_user",
+            client_user_id=1,
+            risk_level=3,
+            trigger_reason="风险等级从2级上升到3级",
+            warning_id=42,
+        )
+
+        assert sent is True
+        message = mock_smtp.send_message.call_args.args[0]
+        assert message["To"] == "c@test.com"
+        assert "seed_user" in message["Subject"]
+        body = message.get_content()
+        assert "风险等级从2级上升到3级" in body
+        assert "预警编号：42" in body
+        assert "高" in body
+
+    @patch("app.services.email_service.smtplib.SMTP")
+    @patch("app.services.email_service.settings")
+    async def test_send_warning_alert_email_sanitizes_header(
+        self, mock_settings, mock_smtp_class
+    ):
+        """用户名中的换行不得进入邮件头（防头注入）。"""
+        mock_settings.smtp_host = "smtp.test.com"
+        mock_settings.smtp_port = 587
+        mock_settings.smtp_from_email = "from@test.com"
+        mock_settings.smtp_use_tls = False
+        mock_settings.smtp_user = ""
+        mock_settings.smtp_password = ""
+
+        mock_smtp = MagicMock()
+        mock_smtp_class.return_value = mock_smtp
+
+        svc = EmailService()
+        await svc.send_warning_alert_email(
+            email="c@test.com",
+            client_name="evil\nBcc: attacker@test.com",
+            client_user_id=1,
+            risk_level=4,
+            trigger_reason="line1\nline2",
+            warning_id=43,
+        )
+
+        message = mock_smtp.send_message.call_args.args[0]
+        assert "\n" not in message["Subject"]
+        assert "\n" not in message["To"]
+
+    @patch("app.services.email_service.settings")
+    async def test_send_warning_alert_email_not_configured(self, mock_settings):
+        """SMTP 未配置时返回 False, 不静默假装已发送."""
+        mock_settings.smtp_host = ""
+        mock_settings.smtp_from_email = ""
+
+        svc = EmailService()
+        sent = await svc.send_warning_alert_email(
+            email="c@test.com",
+            client_name="seed_user",
+            client_user_id=1,
+            risk_level=3,
+            trigger_reason="r",
+            warning_id=42,
+        )
+
+        assert sent is False

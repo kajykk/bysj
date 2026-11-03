@@ -338,6 +338,10 @@ async def lifespan(app: FastAPI):
     # v1.39: 启动 ObservabilityExporter (60s 周期发布 7 v1.36 metric 到 Prometheus)
     observability_exporter = ObservabilityExporter()
     await record_step_async("observability_exporter", observability_exporter.start(), fatal=False)
+    # 来访者预警邮件: 订阅 warning.created (事务提交后), 投递给绑定咨询师本人邮箱
+    from app.services.warning_email import register_warning_email_handler
+
+    record_step_sync("warning_email_handler", register_warning_email_handler, fatal=False)
     # P0-1.1: 启动后台健康监控任务, 周期性刷新健康快照缓存
     # 确保 /health/ready 端点延迟 < 5ms (仅读取内存缓存, 永不阻塞)
     await record_step_async(

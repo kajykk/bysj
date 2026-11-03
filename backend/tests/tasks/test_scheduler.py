@@ -288,6 +288,107 @@ class TestNotifyWarning:
         assert calls["n"] == 2
         mock_counter.inc.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_notify_warning_sends_email_when_db_given(self):
+        """传入 session 时, WebSocket 成功之外仍投递咨询师邮箱."""
+        db = object()
+        with patch("app.core.ws.notify_warning", new=AsyncMock()), patch(
+            "app.core.ws.notify_counselor", new=AsyncMock()
+        ), patch("app.core.contracts.normalize_risk_level", return_value="high"), patch(
+            "app.services.warning_email.send_warning_email",
+            new=AsyncMock(return_value=True),
+        ) as mock_email:
+            from app.tasks.scheduler import _notify_warning
+
+            ok = await _notify_warning(
+                user_id=1,
+                warning_id=12,
+                risk_level=3,
+                trigger_reason="r",
+                counselor_id=2,
+                db=db,
+            )
+
+        assert ok is True
+        mock_email.assert_awaited_once()
+        kwargs = mock_email.await_args.kwargs
+        assert kwargs["warning_id"] == 12
+        assert kwargs["user_id"] == 1
+        assert kwargs["counselor_id"] == 2
+        assert kwargs["risk_level"] == 3
+        assert kwargs["db"] is db
+
+    @pytest.mark.asyncio
+    async def test_notify_warning_email_fallback_counts_as_delivered(self):
+        """WebSocket 失败但邮件送达时, 不应计为漏报."""
+        with patch(
+            "app.core.ws.notify_warning",
+            new=AsyncMock(side_effect=RuntimeError("ws down")),
+        ), patch("app.core.contracts.normalize_risk_level", return_value="high"), patch(
+            "app.services.warning_email.send_warning_email",
+            new=AsyncMock(return_value=True),
+        ), patch("app.core.metrics.warning_notify_failed_total") as mock_counter:
+            from app.tasks.scheduler import _notify_warning
+
+            ok = await _notify_warning(
+                user_id=1,
+                warning_id=13,
+                risk_level=3,
+                trigger_reason="r",
+                counselor_id=2,
+                db=object(),
+            )
+
+        assert ok is True, "至少一个通道送达就不应返回 False"
+        mock_counter.inc.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_notify_warning_all_channels_failed(self):
+        """WebSocket 与邮件都失败时才计为漏报."""
+        with patch(
+            "app.core.ws.notify_warning",
+            new=AsyncMock(side_effect=RuntimeError("ws down")),
+        ), patch("app.core.contracts.normalize_risk_level", return_value="high"), patch(
+            "app.services.warning_email.send_warning_email",
+            new=AsyncMock(return_value=False),
+        ), patch("app.core.metrics.warning_notify_failed_total") as mock_counter:
+            from app.tasks.scheduler import _notify_warning
+
+            ok = await _notify_warning(
+                user_id=1,
+                warning_id=14,
+                risk_level=3,
+                trigger_reason="r",
+                counselor_id=2,
+                db=object(),
+            )
+
+        assert ok is False
+        mock_counter.inc.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_notify_warning_email_error_is_isolated(self):
+        """邮件通道抛异常时按未送达处理, 不得中断扫描."""
+        with patch(
+            "app.core.ws.notify_warning",
+            new=AsyncMock(side_effect=RuntimeError("ws down")),
+        ), patch("app.core.contracts.normalize_risk_level", return_value="high"), patch(
+            "app.services.warning_email.send_warning_email",
+            new=AsyncMock(side_effect=RuntimeError("smtp boom")),
+        ), patch("app.core.metrics.warning_notify_failed_total"):
+            from app.tasks.scheduler import _notify_warning
+
+            ok = await _notify_warning(
+                user_id=1,
+                warning_id=15,
+                risk_level=3,
+                trigger_reason="r",
+                counselor_id=2,
+                db=object(),
+            )
+
+        assert ok is False
+
 
 # ---------- Celery 任务 retry 路径 (5 个任务) ----------
 

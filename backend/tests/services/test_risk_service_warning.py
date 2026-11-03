@@ -386,6 +386,25 @@ class TestCheckWarningTrigger:
             )
             await session.commit()
 
+            # 绑定咨询师：事件里必须带上 counselor_id，邮件 handler 才有收件人
+            session.add(
+                User(
+                    id=2,
+                    username="m14_counselor",
+                    email="m14c@test.com",
+                    email_hash=compute_blind_index("m14c@test.com", "email"),
+                    password_hash="x",
+                    role="counselor",
+                    status="active",
+                )
+            )
+            session.add(
+                UserCounselorBinding(
+                    user_id=1, counselor_id=2, bind_code="M14B", status="active"
+                )
+            )
+            await session.commit()
+
             risk = _make_risk(1, level=3)
             session.add(risk)
             await session.flush()
@@ -405,6 +424,7 @@ class TestCheckWarningTrigger:
                 assert payload["warning_id"] == warning.id
                 assert payload["user_id"] == 1
                 assert payload["current_level"] == 3
+                assert payload["counselor_id"] == 2
             # 注：events_published 计数器此处不断言 —— publish_sync 已被
             # mock 替换，真实计数由 test_p2_47_round19_m_batch2 的
             # TestM14EventAfterCommit 用未打桩的计数器验证。
