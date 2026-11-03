@@ -10,12 +10,12 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.core.degradation import record_silent_degradation
 from app.models.risk import RiskAssessment
+from app.services.risk_assessment_latest import save_latest_assessment
 from app.services.risk_service import RiskService
 
 logger = logging.getLogger(__name__)
@@ -116,16 +116,6 @@ async def save_assessment_result(
             )
             risk_score_value = 0.0
 
-        # PERF-P2-002: 清除该用户旧风险评估的 is_latest 标志
-        await session.execute(
-            update(RiskAssessment)
-            .where(
-                RiskAssessment.user_id == user_id,
-                RiskAssessment.is_latest.is_(True),
-            )
-            .values(is_latest=False)
-        )
-
         risk = RiskAssessment(
             user_id=user_id,
             risk_score=risk_score_value,
@@ -138,8 +128,10 @@ async def save_assessment_result(
             assessment_type=assessment_type,
             is_latest=True,
         )
-        session.add(risk)
-        await session.flush()
+        # 取锁 → 清旧 → 插新。本路径可能是独立 session 的 fire-and-forget，
+        # 必须与请求内保存路径共用同一把 advisory lock，否则并发提交撞
+        # uq_risk_assessments_latest（见 app/services/risk_assessment_latest.py）。
+        await save_latest_assessment(session, risk)
         risk_service = RiskService(session)
         warning = await risk_service.trigger_warning_for_risk(risk)
         # REV-2026-10-20 (S6)：干预计划生成失败必须降级，不能拖垮已 flush 的

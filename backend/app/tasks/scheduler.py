@@ -755,7 +755,7 @@ async def _canary_auto_rollback_check_impl():
     async with AsyncSessionLocal() as db:
         from app.services.auto_rollback_service import auto_rollback_service
 
-        results = await auto_rollback_service.check_all_canaries(db)
+        results = await auto_rollback_service.check_all_canaries(db, source="celery")
         # H-AUDIT-01 修复: execute_rollback 仅 flush (C-Svc-1), 此处必须 commit,
         # 否则回滚状态/rollback_reason/ended_at 随 session 关闭全部丢失,
         # 自动回滚静默失效. (对照 drift 路径 scheduler.py drift_monitoring_check_impl)

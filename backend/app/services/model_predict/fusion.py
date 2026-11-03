@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.degradation import record_silent_degradation
 from app.core.ml_breaker import call_with_ml_breaker
 from app.core.model_engine import model_engine
+from app.core.population_scope import attach_population_scope
 
 logger = logging.getLogger(__name__)
 _ML_INFERENCE_CACHE_TTL: int = getattr(settings, "ml_inference_cache_ttl", 60)
@@ -121,7 +122,7 @@ class FusionMixin:
                         cache_key,
                         canary_routed,
                     )
-                    return cached
+                    return attach_population_scope(cached, "fusion")
                 logger.info(
                     "[predict_fusion] cache hit 路由不一致, 丢弃并重算 key=%s "
                     "canary=%s expected_version=%s cached_version=%s",
@@ -185,6 +186,8 @@ class FusionMixin:
             # 稳定组同样标记 canary_version=None，使 _cached_matches_route
             # 能区分「稳定组结果」与「灰度组结果」。
             result["canary_version"] = None
+
+        result = attach_population_scope(result, "fusion")
 
         # P0 修复：写入时带上路由标记，保证「读到的缓存」可自证来源，
         # 一致性校验（_cached_matches_route）才有依据。

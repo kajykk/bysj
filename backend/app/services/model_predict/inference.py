@@ -14,6 +14,10 @@ from app.core.degradation import record_silent_degradation
 from app.core.ml_breaker import call_with_ml_breaker
 from app.core.model_engine import model_engine
 from app.core.model_registry import MODEL_PATHS, get_model_info, resolve_model_path
+from app.core.population_scope import (
+    attach_population_scope,
+    get_population_scope_for_model_id,
+)
 from app.services.input_validator import input_validator
 
 from .fusion import FusionMixin
@@ -171,6 +175,7 @@ class InferenceService(FusionMixin):
                     "size_kb": round(stat_info.st_size / 1024, 2) if stat_info else None,
                     "modified_at": stat_info.st_mtime if stat_info else None,
                     "lifecycle": model_info.lifecycle if model_info else None,
+                    "population_scope": get_population_scope_for_model_id(model_id),
                 }
             )
 
@@ -213,9 +218,12 @@ class InferenceService(FusionMixin):
             cached = await cache_get(cache_key)
             if cached is not None:
                 logger.debug("[predict_tabular] cache hit key=%s", cache_key)
-                return cached
+                return attach_population_scope(cached, "structured")
 
-        result = await call_with_ml_breaker(model_engine.predict_structured(features))
+        result = attach_population_scope(
+            await call_with_ml_breaker(model_engine.predict_structured(features)),
+            "structured",
+        )
         routing_info = result.get("routing_info", {})
         if routing_info:
             logger.info(
@@ -241,8 +249,11 @@ class InferenceService(FusionMixin):
             cached = await cache_get(cache_key)
             if cached is not None:
                 logger.debug("[predict_text] cache hit key=%s", cache_key)
-                return cached
-        result = await call_with_ml_breaker(model_engine.predict_text(cleaned))
+                return attach_population_scope(cached, "text")
+        result = attach_population_scope(
+            await call_with_ml_breaker(model_engine.predict_text(cleaned)),
+            "text",
+        )
         if _ML_INFERENCE_CACHE_TTL > 0:
             await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
         self._fire_shadow_check(result, {"text": cleaned})
@@ -258,8 +269,13 @@ class InferenceService(FusionMixin):
             cached = await cache_get(cache_key)
             if cached is not None:
                 logger.debug("[predict_physiological] cache hit key=%s", cache_key)
-                return cached
-        result = await call_with_ml_breaker(model_engine.predict_physiological(physiological))
+                return attach_population_scope(cached, "physiological")
+        result = attach_population_scope(
+            await call_with_ml_breaker(
+                model_engine.predict_physiological(physiological)
+            ),
+            "physiological",
+        )
         if _ML_INFERENCE_CACHE_TTL > 0:
             await cache_set(cache_key, result, ttl=_ML_INFERENCE_CACHE_TTL)
         self._fire_shadow_check(result, physiological)

@@ -86,14 +86,14 @@ class TestRiskService:
         assert 0 <= score <= 100
 
     def test_score_to_level(self, db_session):
-        """TC-COV-RISK-002: Score to level conversion (default = structured, mild=25)."""
+        """TC-COV-RISK-002: Score to level conversion (default = structured, mild=20)."""
         service = RiskService(db_session)
         assert service._score_to_level(0) == 0
-        assert service._score_to_level(24) == 0
-        assert service._score_to_level(25) == 1  # structured mild threshold
-        assert service._score_to_level(45) == 2  # moderate threshold
-        assert service._score_to_level(65) == 3  # high threshold
-        assert service._score_to_level(85) == 4  # critical threshold
+        assert service._score_to_level(19) == 0
+        assert service._score_to_level(20) == 1  # structured mild threshold
+        assert service._score_to_level(70) == 2  # moderate threshold
+        assert service._score_to_level(93) == 3  # high threshold
+        assert service._score_to_level(97) == 4  # critical threshold
 
     def test_score_to_level_physiological(self, db_session):
         """TC-COV-RISK-002b: Score to level with physiological modality (mild=35)."""

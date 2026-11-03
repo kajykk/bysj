@@ -409,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 109,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+            "W": 108,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
                        # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
                        # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1，
                        # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1，
@@ -424,6 +424,10 @@ class TestP235SilentDegradationRatchet:
                        # 第三十七批 1 处：model_predict.fusion canary 事件落库
                        # 失败⇒回滚率判据缺样本（生产中唯一落库的 INFERENCE/
                        # FALLBACK 写入方）+1）
+            # 2026-11 安全整改：user_upload `_validate_mime_type` 由 fail-open
+            # 跳过校验改为 fail-closed 503 拒绝（handler 内新增 raise）。扫描器
+            # 排除含 raise 的 handler ⇒ 不再计为可静默降级候选，W 109→108；
+            # 同批新增 1 处未接线 handler（D 型）⇒ D 22→23。总数 342 不变。
             # REV-2026-10-20：S2/S5/S6 修复新增 6 处降级接线（review 关键词容错解析、
             # PDF CJK 字体注册失败、预警提交失败、干预生成失败 ×3 调用链），
             # W 103→109、总数 334→340。
@@ -433,7 +437,7 @@ class TestP235SilentDegradationRatchet:
                        # metrics_helpers `_load_json` 由 S 改判接线 ⇒ 36→35；
                        # 第三十六批 log_sanitizer 脱敏失败实测可达（exc_info=实例）
                        # ⇒ 35→34）
-            "D": 22,   # 脏数据探测
+            "D": 23,   # 脏数据探测（2026-11：+1 条未接线 handler，见上方 W 注释）
             "C": 7,    # 清理路径
             "H": 6,    # 检查型
             "K": 11,   # 任务取消
@@ -447,7 +451,7 @@ class TestP235SilentDegradationRatchet:
                        # 非降级）⇒ G 7→8，总数 340→341）
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 116,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
+            "X": 117,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
                        # 告警 history detail JSON 解析失败 → 空壳 item 照常入列表；
                        # 故 X 120→119、W 95→96；总数 334 不变。
                        # 第二十三批纯裁定不变；第二十四批接线的 ws pubsub 循环
@@ -460,6 +464,10 @@ class TestP235SilentDegradationRatchet:
                        # ⇒ X 118→117、W 100→101（同批 log_sanitizer 原分类为 S）。
                        # 第三十七批 model_predict.fusion canary 事件落库失败
                        # 原分类为 X ⇒ X 117→116、W 102→103。
+                       # 2026-11-02 工作树 +1：auto_rollback_service.release_check_lock
+                       # 的 CAS 释放失败（warning + return False，调用方不检查，
+                       # 锁靠 TTL 兜底）来自既存未提交的分令牌锁改动，非本批
+                       # 来源纠偏所加；仍为 X（未接线），总数 341→342。
                        # 前序口径：第十八批 3 处 X→W（金丝雀检查失败洗白 /
                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败），
                        # X 126→123→120、W 89→92→95；
@@ -5567,7 +5575,7 @@ class TestP235Round13Batch28Declined:
         (FB_REL, 171, "_structured_heuristic_fallback", "P"),
         (FB_REL, 199, "_text_heuristic_fallback", "P"),
         (FB_REL, 233, "_anxiety_only_fallback", "P"),
-        (FB_REL, 297, "_physiological_heuristic_fallback", "P"),
+        (FB_REL, 300, "_physiological_heuristic_fallback", "P"),
         # 新库存：observability_exporter.py 4 条
         (OE_REL, 136, "stop", "K"),
         (OE_REL, 150, "_wait_for_db_ready", "R"),
@@ -5616,7 +5624,7 @@ class TestP235Round13Batch28Declined:
         """
         src = self._read(self.FB_REL)
         tree = ast.parse(src)
-        for line in (171, 199, 233, 297):
+        for line in (171, 199, 233, 300):
             handler = self._handler_at(src, line)
             assert handler is not None, f"fallback.py:{line} handler 消失"
             # handler 所属 try 的 body：向上找最近的 Try.body
@@ -5950,7 +5958,7 @@ class TestP235Round13Batch29Declined:
     `shutdown_otel` 七个名字一次都没出现过；_common.py 的五个
     `_generate_*_factors` / `_save_assessment_sync` 同样零记载。
 
-    分类器现场重算13 条：S 3 + P 4 + D 5 + **W 1**（`_common.py:184`
+    分类器现场重算13 条：S 3 + P 4 + D 5 + **W 1**（`_common.py:193`
     `_save_assessment_sync` 已由第六批接线，本批复核）⇒ 纯裁定批，
     桶计数 W=97/X=119 不变。
 
@@ -5995,16 +6003,16 @@ class TestP235Round13Batch29Declined:
         (OTEL_REL, 263, "instrument_app", "P"),
         (OTEL_REL, 265, "instrument_app", "S"),
         (OTEL_REL, 288, "shutdown_otel", "S"),
-        (COMMON_REL, 201, "_save_assessment_sync", "W"),  # 第六批已接，复核（REV-2026-10-20 S6 后 +17 行）
-        (COMMON_REL, 278, "_generate_structured_factors", "D"),
-        (COMMON_REL, 334, "_generate_physio_factors", "D"),
-        (COMMON_REL, 350, "_generate_physio_factors", "D"),
-        (COMMON_REL, 366, "_generate_physio_factors", "D"),
-        (COMMON_REL, 382, "_generate_physio_factors", "D"),
+        (COMMON_REL, 193, "_save_assessment_sync", "W"),  # 第六批已接，复核（2026-11 最新评估锁改造后 −8 行）
+        (COMMON_REL, 270, "_generate_structured_factors", "D"),
+        (COMMON_REL, 326, "_generate_physio_factors", "D"),
+        (COMMON_REL, 342, "_generate_physio_factors", "D"),
+        (COMMON_REL, 358, "_generate_physio_factors", "D"),
+        (COMMON_REL, 374, "_generate_physio_factors", "D"),
     )
 
     # 复核维持「已接线」的 1 处（第六批）
-    WIRED_TARGET = (COMMON_REL, 201)
+    WIRED_TARGET = (COMMON_REL, 193)
 
     def _read(self, rel: str) -> str:
         return (BEPKG / rel).read_text(encoding="utf-8")
@@ -6029,7 +6037,7 @@ class TestP235Round13Batch29Declined:
     def test_twelve_declined_handlers_not_wired(self):
         """块级反向钉：裁定不接线的 12 处均无接线（含直调式计数器禁现）。
 
-        `WIRED_TARGET`（`_common.py:184`）不在此列——它已由第六批接线。
+        `WIRED_TARGET`（`_common.py:193`）不在此列——它已由第六批接线。
         """
         for rel, line, fn_name, bucket in self.TARGETS:
             if (rel, line) == self.WIRED_TARGET:
@@ -6046,7 +6054,7 @@ class TestP235Round13Batch29Declined:
             )
 
     def test_common_schedule_failure_stays_wired(self):
-        """互锁钉：`_common.py:184` 的第六批接线仍在且location 字面量完整。
+        """互锁钉：`_common.py:193` 的第六批接线仍在且location 字面量完整。
 
         接线判据（第六批）：fire-and-forget 调度失败 ⇒ 评估结果永久丢失，
         调用方早已返回 200、用户侧无感 ⇒ 真降级，必须计数。
@@ -6559,8 +6567,8 @@ class TestP235Round13Batch29Declined:
         调用方从返回值看不出。这是第二十九批 M3 变异暴露的假绿，必须钉住。
         """
         src = self._read(self.COMMON_REL)
-        # REV-2026-10-20 S6：_common.py 新增 17 行后，L261 → L278
-        handler = self._handler_at(src, 278)
+        # 2026-11 最新评估锁改造后 _common.py −8 行，L278 → L270
+        handler = self._handler_at(src, 270)
         assert handler is not None, "_generate_structured_factors 的 L261 handler 消失"
         seg = ast.get_source_segment(src, handler) or ""
         assert ast.unparse(handler.type) == "(TypeError, ValueError)", (
@@ -6889,10 +6897,10 @@ class TestP235Round13Batch32Wiring:
         (CB_REL, 97, "_collect_infra_exceptions", "P"),
         (CB_REL, 107, "_collect_infra_exceptions", "P"),
         (CB_REL, 153, "_is_celery_failure", "P"),
-        (UDS_REL, 182, "_generate_physio_factors", "D"),
-        (UDS_REL, 197, "_generate_physio_factors", "D"),
-        (UDS_REL, 214, "_generate_physio_factors", "D"),
-        (UDS_REL, 229, "_generate_physio_factors", "D"),
+        (UDS_REL, 174, "_generate_physio_factors", "D"),
+        (UDS_REL, 189, "_generate_physio_factors", "D"),
+        (UDS_REL, 206, "_generate_physio_factors", "D"),
+        (UDS_REL, 221, "_generate_physio_factors", "D"),
         (IDM_REL, 76, "begin_idempotent_call", "W"),
         (IDM_REL, 98, "settle_idempotent_call", "W"),
         (IDM_REL, 112, "dismiss_idempotent_call", "W"),
@@ -7134,6 +7142,11 @@ class TestP235Round13Batch33Wiring:
         **注意分类器误判**：它按「handler 返回 None」把本条粗判 G（fail-closed），
         实际这是 **fail-open 放行**，与 `_schemas.py:68` 那种真正的
         fail-closed 置 None 截然相反。
+        **2026-11 复核（反转）**：安全整改把本处改为 **fail-closed 503 拒绝**
+        （与 `clamav_fail_open=False` 同口径）—— handler 内新增 `raise`，扫描器
+        排除含 raise 的 handler，故本处不再计入全局静默降级桶（W−1）。接线
+        计数器保留：拒绝虽有响应，但「校验设施不可用」仍需可观测。E1 运行时
+        见证同步反转为「降级态与成功态不同形」。
       - `fire_forget_metrics.py` 2 条 —— **S 型**。失败的是**可观测设施自身**；
         且 `record_silent_degradation` 同样走 `app.core.metrics`
         （degradation.py:30），metrics 不可用时**两者同时失效** ⇒ 接线即恒 0
@@ -7174,7 +7187,7 @@ class TestP235Round13Batch33Wiring:
     CANDIDATES = [
         (SCHEMAS_REL, 63, "_validate_url_safety", "G"),
         (SCHEMAS_REL, 68, "_validate_url_safety", "G"),
-        (UU_REL, 162, "_validate_mime_type", "W"),
+        (UU_REL, 162, "_validate_mime_type", "G"),  # 2026-11 已改为 fail-closed 拒绝
         (DBB_REL, 100, "_check_exception_is_connection_failure", "P"),
         (DBB_REL, 109, "_check_exception_is_connection_failure", "P"),
         (DEPS_REL, 204, "_role_for_request", "G"),
@@ -7289,10 +7302,12 @@ class TestP235Round13Batch33Wiring:
         )
         assert ffm_imports_metrics, "fire_forget_metrics 不再依赖 app.core.metrics ⇒ 判据需重估"
 
-    def test_runtime_e1_mime_skipped_shape_is_silent(self, monkeypatch):
-        """E1 运行时：MIME 校验被跳过与「校验通过」对调用方完全同形。
+    def test_runtime_e1_mime_unavailable_is_fail_closed(self, monkeypatch):
+        """E1 运行时：MIME 校验设施不可用时**拒绝上传**（fail-closed）。
 
-        对照组（MIME 与扩展名不匹配）必须被拒 —— 否则本断言是恒真的
+        2026-11 安全整改反转：旧行为是静默跳过并与成功态同形；现要求降级态
+        与成功态**明显不同形**（无 url、有 error 且文案指明暂不可用）。
+        对照组（MIME 与扩展名不匹配）仍必须被拒 —— 否则断言是恒真的
         （第二十九批 M3 假绿的教训：断言必须能分辨实现差异）。
         """
         import asyncio
@@ -7337,10 +7352,12 @@ class TestP235Round13Batch33Wiring:
         mismatch = asyncio.run(_drive())
 
         assert "url" in ok_shape and "error" not in ok_shape, f"正常态应成功：{ok_shape}"
-        assert "url" in degraded_shape and "error" not in degraded_shape, (
-            f"降级态应同样成功（MIME 校验被静默跳过）：{degraded_shape}"
+        assert "url" not in degraded_shape and "error" in degraded_shape, (
+            f"降级态必须 fail-closed 拒绝（不得返回 url）：{degraded_shape}"
         )
-        assert set(ok_shape) == set(degraded_shape), "两种形态返回键必须一致"
+        assert "暂不可用" in degraded_shape["error"], (
+            f"降级态文案应指明校验设施不可用：{degraded_shape}"
+        )
         assert "error" in mismatch and "url" not in mismatch, (
             f"对照组（MIME 不匹配）必须被拒，否则 E1 是恒真断言：{mismatch}"
         )
@@ -8500,7 +8517,7 @@ class TestP235Round13Batch36Wiring:
 
     不接 16 条（逐条硬判据见 P2_13「一之三十七」节）：
       instance.py:25 V（warning+exc_info，降级值语义明确，无业务后果）/
-      model_registry.py:351 V（warning，有意设计「不应阻断推理」）/
+      model_registry.py:562 V（warning，有意设计「不应阻断推理」）/
       startup_status.py:118 S 同源（被保护计数器就在 app.core.metrics，
       实测阻断后接线设施同样失效）/
       text_tokenizer.py:37 F（jieba 版本兼容，无业务后果）/
@@ -8535,7 +8552,7 @@ class TestP235Round13Batch36Wiring:
     # (文件, 行号, 所属函数, 裁定桶)
     CANDIDATES = [
         ("app/core/instance.py", 25, "get_instance_id", "V"),
-        ("app/core/model_registry.py", 351, "resolve_model_path", "V"),
+        ("app/core/model_registry.py", 562, "resolve_model_path", "V"),
         ("app/core/startup_status.py", 118, "record", "S"),  # ROUND_39 +18（哨兵/文档串）
         (PRED_REL, 162, "predict", "W"),
         ("app/core/text_tokenizer.py", 37, "_get_jieba", "F"),
@@ -8891,7 +8908,8 @@ class TestP235Round13Batch37Wiring:
     （历批登记格式多达六七种，文本匹配不可能穷尽 ⇒ 分离靠人工），
     **15 条真新库存**即本批工作面。
 
-    接线 1：`services/model_predict/fusion.py:229` `_log_canary_event`
+    接线 1：`services/model_predict/fusion.py:232` `_log_canary_event`
+      （229→232：人群范围披露接线新增 1 行 import + 2 行 attach）
       canary 事件落库失败。判据：① 同形性——推理响应正常返回，事件缺失
       无痕；`auto_rollback_service.check_canary_rollback` 的
       fallback_rate 分子/分母同时缺样本 ⇒ 低估 ⇒ 超阈值金丝雀的回滚被
@@ -8916,16 +8934,17 @@ class TestP235Round13Batch37Wiring:
       cache.py:241/247 C（停机 aclose 失败，warning，单例照旧重置）/
       kill_switch.py:119 V（调用方 `_degrade` 显式写 degraded=True +
       source="unavailable"，fail-closed 由 P1-7 设计）/
-      main.py:401 V（启动 warning + 影响点上传端点显式失败）/
+      main.py:444 V（启动 warning + 影响点上传端点显式失败）/
       reports.py:355 P（`notify_task_progress`→ws `send_to_user` 两条
       内层路径 L175/L203 均已接线，外层防御性重复层）/
       reports.py:403 V（status=failed+error 入 job_store + notify）/
       validation.py:254 D（单条 created_at 畸形只跳过自己，第三十二批
       user_data_service 同型）/
       validation.py:478 V（status=failed+error 入 job_store + error 日志）/
-      model_predict/inference.py:150 P（包裹调用生产不可抛：单例获取/
+      model_predict/inference.py:154 P（包裹调用生产不可抛：单例获取/
       纯内存 dict 更新/唯一现实异常 create_task RuntimeError 已被内层
-      捕获且第十批接线 ⇒ 外层运行期不可达）
+      捕获且第十批接线 ⇒ 外层运行期不可达；2026-11-02 人群范围披露
+      新增 4 行 import 致 150→154）
 
     桶计数：W 102→103、X 117→116，总数 334 不变。
     """
@@ -8943,16 +8962,16 @@ class TestP235Round13Batch37Wiring:
         ("app/core/cache.py", 241, "close_redis_client", "C"),
         ("app/core/cache.py", 247, "close_redis_client", "C"),
         ("app/core/kill_switch.py", 119, "_get_redis", "V"),
-        ("app/main.py", 401, None, "V"),  # 模块级（lifespan 装配段；ROUND_42 +5）
+        ("app/main.py", 444, None, "V"),  # 模块级 upload_dir 创建（D5 制品校验 +43 行）
         ("app/api/v1/reports.py", 355, "_notify", "P"),
         ("app/api/v1/reports.py", 403, "_execute_pdf_generation", "V"),
         ("app/api/v1/validation.py", 254, "_cleanup_memory_expired", "D"),
         ("app/api/v1/validation.py", 481, "_execute_validation", "V"),
-        ("app/services/model_predict/inference.py", 150, "_fire_shadow_check", "P"),
-        (FUSION_REL, 229, "_log_canary_event", "W"),
+        ("app/services/model_predict/inference.py", 154, "_fire_shadow_check", "P"),
+        (FUSION_REL, 232, "_log_canary_event", "W"),  # 229→232：population_scope 接线 +3 行
     ]
 
-    WIRED_LINES = {(FUSION_REL, 229)}
+    WIRED_LINES = {(FUSION_REL, 232)}
 
     # ---- 辅助 ----------------------------------------------------------
 
@@ -8978,7 +8997,7 @@ class TestP235Round13Batch37Wiring:
     # ---- 存在性 / 反向钉 ------------------------------------------------
 
     def test_candidates_present_and_enclosing_func(self):
-        """15 条候选全部在位且所属函数未漂移（main.py:401 为模块级）。"""
+        """15 条候选全部在位且所属函数未漂移（main.py:444 为模块级）。"""
         for rel, line, fn_name, _bucket in self.CANDIDATES:
             handler = self._handler_at(rel, line)
             actual = self._enclosing(rel, line)
@@ -8993,7 +9012,7 @@ class TestP235Round13Batch37Wiring:
             assert handler.type is not None, f"{rel}:{line} 裸 except"
 
     def test_wiring_only_at_the_batch37_handler(self):
-        """块级反向钉：接线只允许出现在 fusion:229 这一个 handler 内。"""
+        """块级反向钉：接线只允许出现在 fusion:232 这一个 handler 内。"""
         for rel, line, fn_name, _bucket in self.CANDIDATES:
             src = (BEPKG / rel).read_text(encoding="utf-8")
             handler = self._handler_at(rel, line)

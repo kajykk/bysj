@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from sqlalchemy import update
-
 from app.core.config import settings
 from app.core.degradation import record_silent_degradation
 from app.core.model_engine import model_engine
@@ -12,6 +10,7 @@ from app.core.risk_thresholds import ensure_finite_score, get_threshold_by_modal
 from app.models.assessment import StructuredAssessment
 from app.models.risk import RiskAssessment
 from app.services.intervention_service import InterventionRecommendation
+from app.services.risk_assessment_latest import save_latest_assessment
 
 if TYPE_CHECKING:
     pass
@@ -208,16 +207,6 @@ class AssessmentMixin:
             result.get("risk_score"),
         )
 
-        # PERF-P2-002: 清除该用户旧风险评估的 is_latest 标志
-        await self.db.execute(
-            update(RiskAssessment)
-            .where(
-                RiskAssessment.user_id == user_id,
-                RiskAssessment.is_latest.is_(True),
-            )
-            .values(is_latest=False)
-        )
-
         risk = RiskAssessment(
             user_id=user_id,
             risk_score=result["risk_score"],
@@ -228,8 +217,9 @@ class AssessmentMixin:
             assessment_type="structured",
             is_latest=True,
         )
-        self.db.add(risk)
-        await self.db.flush()
+        # 取锁 → 清旧 → 插新，三层都在本事务内，避免并发提交撞
+        # uq_risk_assessments_latest（见 risk_assessment_latest 模块注释）。
+        await save_latest_assessment(self.db, risk)
 
         # P0-FIX-2026-10-11: 调度点必须在 commit 之后。
         # 原实现把 _schedule_warning_and_intervention 放在 commit 之前 —— 而该任务在

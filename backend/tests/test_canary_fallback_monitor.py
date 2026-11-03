@@ -613,6 +613,7 @@ class TestCanaryCheckCrossProcessLock:
         svc = arb.AutoRollbackService()
         fake_client = MagicMock()
         fake_client.set = AsyncMock(return_value=None)  # 锁已被其他进程持有
+        fake_client.eval = AsyncMock(return_value=0)
 
         with (
             patch.object(arb, "_redis_client_or_none", AsyncMock(return_value=fake_client)),
@@ -623,6 +624,7 @@ class TestCanaryCheckCrossProcessLock:
             results = await svc.check_all_canaries(db_session, source="test")
         assert results == []
         hb.assert_not_awaited()
+        fake_client.eval.assert_not_awaited()  # 未持锁不得释放他人的锁
 
     @pytest.mark.asyncio
     async def test_check_all_canaries_publishes_heartbeat_on_success(self, db_session):
@@ -632,6 +634,7 @@ class TestCanaryCheckCrossProcessLock:
         svc = arb.AutoRollbackService()
         fake_client = MagicMock()
         fake_client.set = AsyncMock(return_value=True)
+        fake_client.eval = AsyncMock(return_value=1)
 
         with (
             patch.object(arb, "_redis_client_or_none", AsyncMock(return_value=fake_client)),
@@ -640,6 +643,12 @@ class TestCanaryCheckCrossProcessLock:
             await svc.check_all_canaries(db_session, source="celery")
         hb.assert_awaited_once()
         assert hb.await_args.kwargs["source"] == "celery"
+
+        token = fake_client.set.await_args.args[1]
+        eval_args = fake_client.eval.await_args.args
+        assert eval_args[1] == 1
+        assert eval_args[2] == arb.CANARY_CHECK_LOCK_KEY
+        assert eval_args[3] == token, "释放锁必须使用与获取时相同的 token"
 
     @pytest.mark.asyncio
     async def test_lock_unavailable_is_logged_and_counted(self, caplog):

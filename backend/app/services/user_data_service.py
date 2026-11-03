@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.degradation import record_silent_degradation
@@ -16,6 +16,7 @@ from app.models.assessment import (
     TextEntry,
 )
 from app.models.risk import RiskAssessment
+from app.services.risk_assessment_latest import save_latest_assessment
 from app.services.risk_service import RiskService
 
 logger = logging.getLogger(__name__)
@@ -100,16 +101,6 @@ class UserDataService:
             )
             return
 
-        # PERF-P2-002: 清除该用户旧风险评估的 is_latest 标志
-        await self.db.execute(
-            update(RiskAssessment)
-            .where(
-                RiskAssessment.user_id == user_id,
-                RiskAssessment.is_latest.is_(True),
-            )
-            .values(is_latest=False)
-        )
-
         risk = RiskAssessment(
             user_id=user_id,
             risk_score=risk_score_value,
@@ -124,8 +115,9 @@ class UserDataService:
             assessment_type=assessment_type,
             is_latest=True,
         )
-        self.db.add(risk)
-        await self.db.flush()
+        # 取锁 → 清旧 → 插新，避免并发提交撞 uq_risk_assessments_latest
+        # （见 app/services/risk_assessment_latest.py）。
+        await save_latest_assessment(self.db, risk)
         risk_service = RiskService(self.db)
         await risk_service.trigger_warning_for_risk(risk)
         # REV-2026-10-20 (S6)：坏干预模板不得让整个请求回滚。

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -78,8 +79,15 @@ def _bump_lock_counter(outcome: str) -> None:
         logger.debug("canary_rollback 锁计数更新失败", exc_info=True)
 
 
-async def try_acquire_check_lock(ttl_seconds: int = CANARY_CHECK_LOCK_TTL_SECONDS) -> bool:
+async def try_acquire_check_lock(
+    ttl_seconds: int = CANARY_CHECK_LOCK_TTL_SECONDS, *, token: str | None = None
+) -> bool:
     """尝试获取 check_all_canaries 的跨进程互斥锁。
+
+    Args:
+        ttl_seconds: 锁自动过期时间, 防止持锁进程崩溃后永久阻塞。
+        token: 持锁令牌; 调用方应在完成后用同一令牌调用 release_check_lock。
+            未传入时沿用时间戳 (兼容只关心互斥、不主动释放的调用方)。
 
     Returns:
         True=获得锁，应执行检查；False=其他进程正在执行（跳过本次）；
@@ -94,7 +102,7 @@ async def try_acquire_check_lock(ttl_seconds: int = CANARY_CHECK_LOCK_TTL_SECOND
         return True
     try:
         acquired = await client.set(
-            CANARY_CHECK_LOCK_KEY, str(time.time()), nx=True, ex=ttl_seconds
+            CANARY_CHECK_LOCK_KEY, token or str(time.time()), nx=True, ex=ttl_seconds
         )
     except Exception as exc:
         _bump_lock_counter("unavailable")
@@ -108,6 +116,33 @@ async def try_acquire_check_lock(ttl_seconds: int = CANARY_CHECK_LOCK_TTL_SECOND
         _bump_lock_counter("skipped")
         logger.info("[canary_rollback] 另一进程正在执行 check_all_canaries, 本次跳过")
     return bool(acquired)
+
+
+# 只删除 token 匹配的锁: 避免检查超过 TTL、锁已被其他进程重新获取时误删。
+_RELEASE_CHECK_LOCK_SCRIPT = """
+if redis.call('get', KEYS[1]) == ARGV[1] then
+    return redis.call('del', KEYS[1])
+end
+return 0
+"""
+
+
+async def release_check_lock(token: str) -> bool:
+    """释放本进程持有的检查锁 (compare-and-delete)。
+
+    失败不抛异常: 锁仍有 TTL 兜底, 下轮检查最多等待一个 TTL。
+    """
+    client = await _redis_client_or_none()
+    if client is None:
+        return False
+    try:
+        deleted = await client.eval(
+            _RELEASE_CHECK_LOCK_SCRIPT, 1, CANARY_CHECK_LOCK_KEY, token
+        )
+        return bool(deleted)
+    except Exception as exc:
+        logger.warning("[canary_rollback] 释放跨进程锁失败 (TTL 兜底): %s", exc)
+        return False
 
 
 async def publish_check_heartbeat(source: str, checked: int, ttl_seconds: int = 120) -> bool:
@@ -403,7 +438,8 @@ class AutoRollbackService:
         Returns:
             List of RollbackCheckResult for each running canary.
         """
-        if not await try_acquire_check_lock():
+        token = uuid.uuid4().hex
+        if not await try_acquire_check_lock(token=token):
             # 另一进程正在执行：这不是失败，但必须可观测，不能静默 return。
             logger.info(
                 "check_all_canaries skipped (source=%s): 跨进程锁被占用",
@@ -411,61 +447,66 @@ class AutoRollbackService:
             )
             return []
 
-        result = await db_session.execute(
-            select(CanaryRecord).where(CanaryRecord.status == CanaryStatus.RUNNING)
-        )
-        canaries = result.scalars().all()
+        try:
+            result = await db_session.execute(
+                select(CanaryRecord).where(CanaryRecord.status == CanaryStatus.RUNNING)
+            )
+            canaries = result.scalars().all()
 
-        results: list[RollbackCheckResult] = []
-        for canary in canaries:
-            # M-22 修复：每个 canary 的检查和回滚使用 savepoint 隔离
-            # 避免单个 canary 失败回滚整个事务，影响后续 canary 的查询
-            try:
-                async with db_session.begin_nested():
-                    check_result = await self.check_canary_health(db_session, canary.id)
+            results: list[RollbackCheckResult] = []
+            for canary in canaries:
+                # M-22 修复：每个 canary 的检查和回滚使用 savepoint 隔离
+                # 避免单个 canary 失败回滚整个事务，影响后续 canary 的查询
+                try:
+                    async with db_session.begin_nested():
+                        check_result = await self.check_canary_health(db_session, canary.id)
 
-                if check_result.should_rollback:
-                    # H-AUDIT-01: execute_rollback 仅 flush 不 commit (C-Svc-1),
-                    # 事务提交由调用方 (scheduler / fallback monitor) 负责.
-                    # 用独立 savepoint 隔离单只金丝雀回滚失败.
-                    try:
-                        async with db_session.begin_nested():
-                            await self.execute_rollback(
-                                db_session,
-                                canary.id,
-                                check_result.reason,
-                                triggered_by="auto",
+                    if check_result.should_rollback:
+                        # H-AUDIT-01: execute_rollback 仅 flush 不 commit (C-Svc-1),
+                        # 事务提交由调用方 (scheduler / fallback monitor) 负责.
+                        # 用独立 savepoint 隔离单只金丝雀回滚失败.
+                        try:
+                            async with db_session.begin_nested():
+                                await self.execute_rollback(
+                                    db_session,
+                                    canary.id,
+                                    check_result.reason,
+                                    triggered_by="auto",
+                                )
+                        except Exception:
+                            logger.exception(
+                                "Rollback savepoint failed for canary %d", canary.id
                             )
-                    except Exception:
-                        logger.exception(
-                            "Rollback savepoint failed for canary %d", canary.id
-                        )
-                        # P2-35：回滚失败但 results 里追加的仍是 should_rollback=True
-                        # 的原始 check_result——数据结构在说谎，调用方无从知道这次
-                        # 自动回滚根本没有发生（坏金丝雀继续在生产提供服务），
-                        # 唯一的痕迹就是这行日志，必须计数。
-                        record_silent_degradation(
-                            "services.auto_rollback_service.rollback_savepoint_failed"
-                        )
-            except Exception:
-                # P2-35: 检查/回滚整体失败 → check_result 被洗成 should_rollback=False
-                # + reason="check_error"，两个调用方（scheduler beat / fallback monitor）
-                # 都只按 should_rollback 分支走 debug 日志——「无需回滚」的假象下
-                # 这次检查根本没跑成，超阈值金丝雀静默无人回滚，必须计数。
-                record_silent_degradation("services.auto_rollback_service.check_failed")
-                logger.exception("Check/rollback failed for canary %d", canary.id)
-                check_result = RollbackCheckResult(
-                    should_rollback=False,
-                    reason="check_error",
-                    metrics={},
-                    canary_id=canary.id,
-                )
-            results.append(check_result)
+                            # P2-35：回滚失败但 results 里追加的仍是 should_rollback=True
+                            # 的原始 check_result——数据结构在说谎，调用方无从知道这次
+                            # 自动回滚根本没有发生（坏金丝雀继续在生产提供服务），
+                            # 唯一的痕迹就是这行日志，必须计数。
+                            record_silent_degradation(
+                                "services.auto_rollback_service.rollback_savepoint_failed"
+                            )
+                except Exception:
+                    # P2-35: 检查/回滚整体失败 → check_result 被洗成 should_rollback=False
+                    # + reason="check_error"，两个调用方（scheduler beat / fallback monitor）
+                    # 都只按 should_rollback 分支走 debug 日志——「无需回滚」的假象下
+                    # 这次检查根本没跑成，超阈值金丝雀静默无人回滚，必须计数。
+                    record_silent_degradation("services.auto_rollback_service.check_failed")
+                    logger.exception("Check/rollback failed for canary %d", canary.id)
+                    check_result = RollbackCheckResult(
+                        should_rollback=False,
+                        reason="check_error",
+                        metrics={},
+                        canary_id=canary.id,
+                    )
+                results.append(check_result)
 
-        # 心跳在「本轮检查跑完」时发布，使兜底 monitor 能据此判断 beat 是否存活；
-        # 进程崩溃不会写心跳 → key 到期 → 兜底接管。
-        await publish_check_heartbeat(source=source, checked=len(results))
-        return results
+            # 心跳在「本轮检查跑完」时发布，使兜底 monitor 能据此判断 beat 是否存活；
+            # 进程崩溃不会写心跳 → key 到期 → 兜底接管。
+            await publish_check_heartbeat(source=source, checked=len(results))
+            return results
+        finally:
+            # 必须在检查完成后立即释放：锁 TTL 120s 而检查间隔 30s,
+            # 只设不释放会让后续 3 轮 beat 检查全部跳过, 心跳退化为兜底接管。
+            await release_check_lock(token)
 
 
 # Global service instance

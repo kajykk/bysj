@@ -21,6 +21,25 @@ class TestPredictTextIntegration:
         assert result["crisis_override"] is True
         assert result["crisis_score"] == 100.0
         assert "不想活" in result["crisis_keywords"]
+        # P1：分量必须随结果返回，且明确不是置信度
+        components = result["score_components"]
+        assert components["score_kind"] == "risk_score_not_confidence"
+        assert components["decision_source"] == "crisis_rule"
+        assert result["requires_human_review"] is True
+        assert "crisis_detected" in result["review_reasons"]
+
+    @pytest.mark.asyncio
+    async def test_low_confidence_crisis_requires_review_without_override(
+        self, engine: ModelEngine
+    ) -> None:
+        """被动意念单独出现时不得直接判 4 级，但必须标记人工复核。"""
+        result = await engine.predict_text("不是想死，是不想再继续了。")
+        assert result["crisis_detected"] is True
+        assert result["crisis_keywords"] == ["不想再继续"]
+        assert result["risk_level"] == 3
+        assert "crisis_override" not in result
+        assert result["requires_human_review"] is True
+        assert "crisis_low_confidence" in result["review_reasons"]
 
     @pytest.mark.asyncio
     async def test_normal_text_no_override(self, engine: ModelEngine) -> None:
