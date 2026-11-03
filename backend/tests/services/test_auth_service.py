@@ -71,6 +71,18 @@ class TestAuthService:
         assert result["user"]["username"] == "seed_user"
 
     @pytest.mark.asyncio
+    async def test_login_with_email_succeeds(self, db_session, seeded_user_id):
+        """登录框接受邮箱，大小写变体也能命中同一账号。"""
+        service = AuthService(db_session)
+        from app.schemas.auth import LoginRequest
+
+        result = await service.login(
+            LoginRequest(username="SEED@test.com", password="testpass123")
+        )
+        assert result["access_token"]
+        assert result["user"]["username"] == "seed_user"
+
+    @pytest.mark.asyncio
     async def test_login_invalid_user(self, db_session):
         """TC-COV-AUTH-004: Login with non-existent user raises error."""
         service = AuthService(db_session)

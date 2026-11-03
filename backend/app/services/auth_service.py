@@ -126,7 +126,7 @@ class AuthService:
             tenant_id: 当前请求解析出的租户 ID（由路由从 request.state 传入）。
                 None 视为默认租户，保证单租户部署/既有调用不受影响。
         """
-        stmt = (
+        base_stmt = (
             select(User)
             # AUDIT-2026-10-06: tenant_id 必须显式 load_only —— 否则访问
             # user.tenant_id 会触发惰性加载，在 async 上下文抛 MissingGreenlet。
@@ -140,17 +140,35 @@ class AuthService:
                     User.tenant_id,
                 )
             )
+            # AUDIT-2026-10-06 (P0-1): 登录必须绑定请求租户。
+            # 原实现按 username 全局查 —— 租户 A 的用户可以在租户 B 的
+            # 上下文里登录成功并拿到有效 JWT（ADR-001 要求的租户隔离在
+            # 认证入口完全缺失）。tenant_id=None 时回退默认租户，
+            # 保证单租户部署与既有 API 行为不变。
             .where(
-                User.username == payload.username,
-                # AUDIT-2026-10-06 (P0-1): 登录必须绑定请求租户。
-                # 原实现按 username 全局查 —— 租户 A 的用户可以在租户 B 的
-                # 上下文里登录成功并拿到有效 JWT（ADR-001 要求的租户隔离在
-                # 认证入口完全缺失）。tenant_id=None 时回退默认租户，
-                # 保证单租户部署与既有 API 行为不变。
-                User.tenant_id == (tenant_id if tenant_id is not None else DEFAULT_TENANT_ID),
+                User.tenant_id
+                == (tenant_id if tenant_id is not None else DEFAULT_TENANT_ID)
             )
         )
-        user = (await self.db.execute(stmt)).scalar_one_or_none()
+        user = None
+        # 登录框同时接受用户名与邮箱；含 @ 时邮箱优先，避免用户名恰好
+        # 等于他人邮箱时把邮箱主人的登录遮住。
+        if "@" in payload.username:
+            user = (
+                await self.db.execute(
+                    base_stmt.where(
+                        User.email_hash.in_(
+                            blind_index_candidates(payload.username, "email")
+                        )
+                    )
+                )
+            ).scalar_one_or_none()
+        if user is None:
+            user = (
+                await self.db.execute(
+                    base_stmt.where(User.username == payload.username)
+                )
+            ).scalar_one_or_none()
         if not user:
             # 时序攻击防护：用户不存在时仍执行一次 bcrypt 验证，消耗相同时间
             await verify_password_async(payload.password, await _get_dummy_password_hash_async())

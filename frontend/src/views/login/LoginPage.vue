@@ -57,13 +57,13 @@
           @submit.prevent
         >
           <el-form-item
-            :label="t('auth.fieldUsername')"
+            :label="t('auth.fieldLoginAccount')"
             prop="username"
             class="auth-field"
           >
             <el-input
               v-model="loginForm.username"
-              :placeholder="t('auth.placeholderUsername')"
+              :placeholder="t('auth.placeholderLoginAccount')"
               clearable
               size="large"
               @keyup.enter="focusPassword"
