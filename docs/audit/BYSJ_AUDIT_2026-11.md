@@ -124,7 +124,7 @@ API 整套本轮一次跑完，无挂起（上一轮已连续两次 549 passed �
 
 ## 五、仍存在的问题
 
-1. ~~**生产密钥尚未轮换（需用户执行）**~~ → **已完成（2026-11-03，由用户执行）**：`JWT_SECRET_KEY`、`PII_ENCRYPTION_KEY` 等已轮换，配置已补齐（`JWT_ISSUER`/`JWT_AUDIENCE`/`MODEL_BERT_REVISION`/CORS），详见 `docs/ops/UPGRADE_2026-11-03.md`。**SMTP 已于 2026-11-03 完成真实配置与投递验证（STARTTLS 握手 `250/220/235`，两封测试邮件到达）；告警邮件收件人 `ALERT_EMAIL_RECIPIENTS` 未配置，密码重置端点待已注册邮箱确认。**
+1. ~~**生产密钥尚未轮换（需用户执行）**~~ → **已完成（2026-11-03，由用户执行）**：`JWT_SECRET_KEY`、`PII_ENCRYPTION_KEY` 等已轮换，配置已补齐（`JWT_ISSUER`/`JWT_AUDIENCE`/`MODEL_BERT_REVISION`/CORS），详见 `docs/ops/UPGRADE_2026-11-03.md`。**SMTP 已于 2026-11-03 完成真实配置与投递验证（STARTTLS 握手 `250/220/235`，两封测试邮件到达）；密码重置已完成端到端确认（六位验证码邮件 → 重置 → 登录成功，用户验收）；告警邮件收件人 `ALERT_EMAIL_RECIPIENTS` 未配置。**
 2. **目标域标注 0 条，阈值未在目标域校准**：`backend/models/v1.23_external_lr/model_card.md` 明确“目标域独立校准标签数: 0（conformal 报告建议至少 50 条）”。当前 `20/70/93/97` 只是训练/验证集分位点锚定，不能等同于目标人群校准。
 3. **纯 alembic 从零建库断链**：基线迁移 `eab25055097a` 为空 `pass`，空库直接 `alembic upgrade head` 无法回放历史，项目实际依赖 `scripts/init_db.py` 的 `create_all + stamp head`。这是流程约束，不是 schema 缺陷；新建库经 `init_db.py` 后已无漂移。
 4. ~~**历史库的 `canary_records` 索引仍需人工补建**~~ → **已完成（2026-11-03）**：备份后已执行 `python scripts/init_db.py --repair-drift`，`pg_indexes` 已确认 `uq_canary_records_single_running`（含 `COALESCE(route_prefix)`）。**新建库仍自带**该索引。
@@ -144,7 +144,7 @@ API 整套本轮一次跑完，无挂起（上一轮已连续两次 549 passed �
 - [x] 轮换 `JWT_SECRET_KEY`、`PII_ENCRYPTION_KEY`、`ALERTMANAGER_WEBHOOK_SECRET`、`METRICS_ACCESS_TOKEN`；PII 用 `PII_PREVIOUS_KEYS` 过渡。→ 已完成（用户执行）
 - [x] 临时验证 env 已删除（本次已确认），生产 env 权限收敛（`E:\secrets\bysj\`）。→ 已完成
 - [x] CORS 白名单收敛为 `https://localhost`。→ 已完成
-- [x] SMTP 真实配置（host/port/user/password/TLS/from）。→ **已完成（2026-11-03）**：六项真实值并重建 backend；STARTTLS 握手 `250/220/235`，生产 `EmailService` + 熔断器发信成功，两封测试邮件到达；告警邮件收件人 `ALERT_EMAIL_RECIPIENTS` 未配置
+- [x] SMTP 真实配置（host/port/user/password/TLS/from）。→ **已完成（2026-11-03）**：六项真实值并重建 backend；STARTTLS 握手 `250/220/235`，生产 `EmailService` + 熔断器发信成功，两封测试邮件到达；密码重置端到端已确认（验证码 → 重置 → 登录）；告警邮件收件人 `ALERT_EMAIL_RECIPIENTS` 未配置
 
 ### 6.2 备份
 

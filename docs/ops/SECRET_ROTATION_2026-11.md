@@ -108,8 +108,9 @@
 - **验证命令**：触发一次测试告警邮件（管理端“通知测试”），日志应无 `SMTPAuthenticationError`。
 - **2026-11-03 实测**：六项 SMTP 已配置真实值并重建 backend；容器内 STARTTLS 握手
   `250/220/235`（EHLO/STARTTLS/LOGIN），生产 `EmailService` + SMTP 熔断器发信成功，
-  两封测试邮件均已到达配置邮箱；熔断器 `CLOSED`、failure_count=0。密码重置端点仍需
-  一个已注册邮箱做端到端确认；告警邮件另需 `ALERT_EMAIL_RECIPIENTS`，当前未配置。
+  两封测试邮件均已到达配置邮箱；熔断器 `CLOSED`、failure_count=0。密码重置已完成
+  端到端确认（六位验证码邮件到达 → 重置成功 → 登录成功，用户验收）；告警邮件另需
+  `ALERT_EMAIL_RECIPIENTS`，当前未配置。
 
 ### 1.9 `DEEPSEEK_API_KEY`（`sk-…`，已确认无代码引用）
 
@@ -165,8 +166,8 @@
    - [x] `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_USE_TLS` /
      `SMTP_FROM_EMAIL`：已完成（2026-11-03）。六项均为真实值，backend 已重建；
      容器内 STARTTLS 握手 `250/220/235`，生产 `EmailService` + SMTP 熔断器发信成功，
-     两封测试邮件到达配置邮箱。**剩余**：告警邮件还需 `ALERT_EMAIL_RECIPIENTS`
-     （当前未配置）；密码重置端点待一个已注册邮箱做端到端确认。
+     两封测试邮件到达配置邮箱。密码重置已由用户完成端到端验收（验证码邮件 → 重置 →
+     登录成功）；**剩余**：告警邮件还需 `ALERT_EMAIL_RECIPIENTS`（当前未配置）。
 3. 把模型制品上传到外部制品库并生成 `.sha256`；生产 `MODEL_DIR` 指向该目录（compose 只读卷）。
 4. 部署时显式传入 `GIT_SHA`（如 `$env:GIT_SHA=$(git rev-parse HEAD)`），使镜像 label 与
    启动日志中的 `git_sha` 可核对；未传时为 `unknown`（仅警告不阻断）。
@@ -193,7 +194,7 @@
 | `REDIS_PASSWORD` / `REDIS_URL` | 重新生成（43 字符） | `dws-redis` 健康检查（带新口令 `PING`）通过，backend/celery 正常连接 |
 | `GRAFANA_ADMIN_PASSWORD` | 重新生成（32 字符） | Grafana 登录 `200` |
 | `GRAFANA_SA_TOKEN` / `GRAFANA_SERVICE_TOKEN` | 创建新 SA `dws-observability-20261103`（Viewer）并签发新 token（`glsa_` 46 字符），两个变量同值 | 旧 SA token 调后端 → `401`；新 SA token → `200`；数据源 `secureJsonFields.Authorization=true` |
-| `SMTP_PASSWORD` / `SMTP_HOST` / `SMTP_USER` / `SMTP_FROM_EMAIL` | 配置真实 SMTP（587/STARTTLS），替换全部占位值；重建 backend | 容器内 STARTTLS 握手 `250/220/235`（EHLO/STARTTLS/LOGIN）；生产 `EmailService` + SMTP 熔断器发信成功；两封测试邮件到达配置邮箱；熔断器 `CLOSED`、failure_count=0。密码重置端点待已注册邮箱确认；告警邮件收件人 `ALERT_EMAIL_RECIPIENTS` 未配置 |
+| `SMTP_PASSWORD` / `SMTP_HOST` / `SMTP_USER` / `SMTP_FROM_EMAIL` | 配置真实 SMTP（587/STARTTLS），替换全部占位值；重建 backend | 容器内 STARTTLS 握手 `250/220/235`（EHLO/STARTTLS/LOGIN）；生产 `EmailService` + SMTP 熔断器发信成功；两封测试邮件到达配置邮箱；熔断器 `CLOSED`、failure_count=0。密码重置端到端已确认（验证码邮件 → 重置 → 登录成功）；告警邮件收件人 `ALERT_EMAIL_RECIPIENTS` 未配置 |
 
 PII 轮换命令（在 backend 容器内执行，与线上代码一致）：
 
