@@ -716,6 +716,28 @@ class AuthService:
             session.revoked_at = now
         return len(sessions)
 
+    async def get_profile(self, user_id: int) -> dict:
+        """返回当前用户本人资料（含邮箱），供设置页刷新后回填。"""
+        user = await self.db.get(User, user_id)
+        if user is None:
+            raise ValueError("用户不存在")
+
+        profile = (
+            await self.db.execute(
+                select(UserProfile)
+                .options(load_only(UserProfile.nickname))
+                .where(UserProfile.user_id == user_id)
+            )
+        ).scalar_one_or_none()
+
+        return {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+            "nickname": profile.nickname if profile and profile.nickname else user.username,
+            "email": user.email,
+        }
+
     async def update_profile(self, user_id: int, payload: UpdateProfileRequest) -> dict:
         user = await self.db.get(User, user_id)
         if user is None:

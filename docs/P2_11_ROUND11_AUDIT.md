@@ -1902,9 +1902,6 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
     `CacheUnavailableError`（fe5b117 引入，此前基线未同步）仅 error 日志后继续。
 - 行号平移（扫描锚点已同步）：`email_service.py` `_send_smtp` 164→241、
   `auth_service.py` `change_password` 307→346、`main.py` 启动期 handler 444→448。
-- #34 raise 分类（工作树实测）：HTTPException=215 / ServiceError=38 /
-  other_raise=375（366→375）。均为 fe5b117/002390e 验证码重置与邮箱登录
-  新增校验分支，本批未新增 `raise`。
 - 补登录响应 `user.email`（咨询师设置页换设备后回显邮箱）：新增仅用于登录
   响应的 `LoginUserBrief`（继承 `UserBrief` 并加 `email`），**不改共享
   `UserBrief`**，避免邮箱随 `/reviews/assignable-counselors` 等他人名单端点
@@ -1912,3 +1909,9 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   加载触发 `MissingGreenlet`）+ API 响应透传。计数不变（W=111 / X=118 /
   M=7 / 总数 347）；`auth_service.py` `change_password` 锚点 346→348、
   `logout` 685→687（+2 行），扫描产物已重生成。
+- 新增 `GET /auth/profile`（设置页整页刷新后从后端回填本人邮箱）：
+  `AuthService.get_profile` 的 `raise ValueError("用户不存在")` 计入
+  other_raise，API 层转为 `ServiceError(404)`。有效路由 206→207
+  （README 已同步）；`#35` 桶计数不变。
+- #34 raise 分类（工作树实测）：HTTPException=215 / ServiceError=39 /
+  other_raise=376（375→376、38→39，均为上述 `GET /auth/profile`）。

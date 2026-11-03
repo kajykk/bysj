@@ -364,6 +364,25 @@ async def logout(
     return ok({"message": "登出成功", **result})
 
 
+@router.get("/profile", response_model=ApiResponse[ProfileResponse], responses=COMMON_ERROR_RESPONSES)
+@limiter.limit("30/minute")
+async def get_profile(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """返回当前用户本人资料（含邮箱），供设置页刷新后回填。"""
+    try:
+        data = await AuthService(db).get_profile(current_user.id)
+    except ValueError as exc:
+        raise ServiceError(
+            str(exc),
+            status_code=404,
+            tenant_id=current_user.tenant_id,
+        ) from exc
+    return ok(data)
+
+
 @router.put("/profile", response_model=ApiResponse[ProfileResponse], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def update_profile(

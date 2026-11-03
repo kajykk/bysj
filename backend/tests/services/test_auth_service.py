@@ -122,6 +122,25 @@ class TestAuthService:
             await service.login(payload)
 
     @pytest.mark.asyncio
+    async def test_get_profile_returns_own_email(self, db_session, seeded_user_id):
+        """设置页刷新后回填：GET 资料必须返回本人邮箱。"""
+        service = AuthService(db_session)
+
+        result = await service.get_profile(seeded_user_id)
+
+        assert result["username"] == "seed_user"
+        assert result["email"] == "seed@test.com"
+        assert result["role"] == "user"
+        assert result["nickname"] == "seed_user"
+
+    @pytest.mark.asyncio
+    async def test_get_profile_missing_user(self, db_session):
+        service = AuthService(db_session)
+
+        with pytest.raises(ValueError, match="用户不存在"):
+            await service.get_profile(9999)
+
+    @pytest.mark.asyncio
     async def test_change_password_user_not_found(self, db_session):
         """TC-COV-AUTH-005: Change password for non-existent user raises error."""
         service = AuthService(db_session)

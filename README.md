@@ -29,7 +29,7 @@
 
 | # | 亮点 | 可验证数字 | 怎么复现 |
 |---|---|---|---|
-| 1 | 完整闭环，不是 Demo 页面 | 运行时 **206** 个 REST 端点 + **3** 个 WebSocket 长连接、**39** 张数据表 | `cd backend && python tests/tools/check_portfolio_numbers.py --show` |
+| 1 | 完整闭环，不是 Demo 页面 | 运行时 **207** 个 REST 端点 + **3** 个 WebSocket 长连接、**39** 张数据表 | `cd backend && python tests/tools/check_portfolio_numbers.py --show` |
 | 2 | 评估可信度治理 | **41 个交付脚本 / 90 处划分与挑优调用点**，逐条人工读码裁定；文本模态泛化口径 **F1 0.5864**（同一模型随机划分 0.9964） | `cd backend && python tests/tools/leakage_audit_scan.py` |
 | 3 | 静默降级全部裁定 | **341 处 except 候选**全部裁定：已接线 109 / 真降级留档 116 / fail-closed 8 | `cd backend && pytest tests/test_p2_11_round11.py -k batch6_bucket_counts` |
 | 4 | 认证入口机器可检 | **8 个 token 操作入口**（6 强制 + 2 显式豁免）AST 全等覆盖，变异 3/3 红 | `cd backend && pytest tests/test_p2_41_round17_auth_gate.py` |
@@ -262,14 +262,14 @@ python -m pytest tests/e2e/test_grafana_e2e.py -v
 - 71 个核心模块文件（`backend/app/core/**/*.py`）
 - 29 个 ML 模块文件（`backend/app/ml/**/*.py`）
 - 39 张数据表声明（AST 统计 `__tablename__`）
-- 运行时 206 个 REST 端点 + 3 个 WebSocket（**独立解释器**里 import 一次 `app.main`，沿 include 标记递归展开后数**有效路由**；进程内数会受测试会话的模块装载顺序影响，fastapi ≥ 0.151 的 `include_router` 也不再扁平化 `app.routes`，两版依赖下展开读数同为 206/3，2026-10-21 实测见 `docs/P2_22_ROUND22_PORTFOLIO_AUDIT.md` §八）
+- 运行时 207 个 REST 端点 + 3 个 WebSocket（**独立解释器**里 import 一次 `app.main`，沿 include 标记递归展开后数**有效路由**；进程内数会受测试会话的模块装载顺序影响，fastapi ≥ 0.151 的 `include_router` 也不再扁平化 `app.routes`，2026-10-21 实测为 206/3，2026-11-03 新增 `GET /auth/profile` 后为 207/3，见 `docs/P2_22_ROUND22_PORTFOLIO_AUDIT.md` §八）
 - 9 个 Docker 服务（`docker-compose.yml`）
 - 契约测试全部通过
 - 7,720 例后端测试 / 1,327 例前端测试（`cd backend && pytest --collect-only -q`；
   `cd frontend && npx vitest list | wc -l`。**这两项每次提交都会变，仅作快照，不入数字闸门**）
 
 > 上一版这里写的是 2026-09-23 的读数（50 路由 / 191 端点 / 62 服务 / 61 核心 / 27 ML / 6,160 后端用例 + 1,119 前端用例）。
-> 本轮逐项重测后按实测值更新：端点 191→206、服务 62→66、ML 27→29、后端用例 6,160→7,455；其余口径也已写进括号，不再留"某处曾测过"的模糊数字。
+> 本轮逐项重测后按实测值更新：端点 191→206、服务 62→66、ML 27→29、后端用例 6,160→7,455；其余口径也已写进括号，不再留"某处曾测过"的模糊数字。端点 206→207 为 2026-11-03 新增 `GET /auth/profile`。
 
 > ROUND_25（2026-10-22）校准：后端用例 7,455→**7,548**（`pytest --collect-only -q` 实测）。
 > 该数自 ROUND_22（2948428）后 ROUND_23/23b/24 各批未随提交更新，本轮一次性校准；

@@ -197,6 +197,23 @@ describe('api/auth', () => {
     })
   })
 
+  describe('getProfile', () => {
+    it('通过 GET /auth/profile 拉取本人资料', async () => {
+      const expected = { id: 1, username: 'u', role: 'counselor', nickname: 'NN', email: 'n@e.com' }
+      ;(requestData as any).mockResolvedValueOnce(expected)
+
+      const res = await authApi.getProfile()
+
+      expect(request.get).toHaveBeenCalledWith('/auth/profile')
+      expect(res).toEqual(expected)
+    })
+
+    it('拉取失败时透传错误', async () => {
+      (requestData as any).mockRejectedValueOnce(new Error('401'))
+      await expect(authApi.getProfile()).rejects.toThrow('401')
+    })
+  })
+
   describe('updateProfile', () => {
     it('通过 PUT /auth/profile 更新昵称与邮箱', async () => {
       const expected = { id: 1, username: 'u', role: 'user', nickname: 'NN', email: 'n@e.com' }

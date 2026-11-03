@@ -4,6 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.core.deps import get_current_user
+from app.main import app
 from app.models.user import User
 
 
@@ -123,6 +125,41 @@ class TestLogin:
             json={"username": "ghost", "password": "Whatever123"},
         )
         assert resp.status_code == 401
+
+
+class TestProfile:
+    def test_get_profile_returns_own_email(self, client: TestClient, clean_db):
+        client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "profile_user",
+                "email": "profile@test.com",
+                "password": "StrongPass123",
+                "role": "user",
+            },
+        )
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "profile_user", "password": "StrongPass123"},
+        )
+        token = login.json()["data"]["access_token"]
+
+        resp = client.get(
+            "/api/v1/auth/profile",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["username"] == "profile_user"
+        assert data["email"] == "profile@test.com"
+        assert data["nickname"] == "profile_user"
+
+    def test_get_profile_requires_auth(self, client: TestClient, clean_db):
+        # conftest 全局覆盖 get_current_user，先摘除才能验证真实认证依赖
+        app.dependency_overrides.pop(get_current_user, None)
+        resp = client.get("/api/v1/auth/profile")
+        assert resp.status_code == 401, resp.text
 
 
 class TestRequestReset:

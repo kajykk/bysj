@@ -49,6 +49,7 @@ export const authApi = {
     verification_code?: string
     reset_token?: string
   }) => requestData<{ message: string }>(request.post('/auth/reset-password', payload)),
+  getProfile: () => requestData<UserInfo>(request.get('/auth/profile')),
   updateProfile: (payload: { nickname?: string; email?: string }) =>
     requestData<UserInfo>(request.put('/auth/profile', payload)),
 }

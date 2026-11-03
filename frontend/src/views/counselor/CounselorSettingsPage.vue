@@ -298,8 +298,24 @@ const changePassword = async () => {
   }
 }
 
+const loadProfile = async () => {
+  try {
+    const data = await authApi.getProfile()
+    profileForm.nickname = data.nickname || ''
+    profileForm.email = data.email || ''
+    if (auth.user) {
+      auth.user.nickname = data.nickname
+      auth.user.email = data.email
+      setStoredAuth({ user: auth.user })
+    }
+  } catch {
+    // 拉取失败时保留登录响应里的值，不打断设置页其余功能
+  }
+}
+
 onMounted(() => {
   loadCounselorBindCode()
+  loadProfile()
 })
 </script>
 
