@@ -151,6 +151,8 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      # 告警邮件收件人：英文逗号分隔的纯邮箱地址（不含显示名）
+      ALERT_EMAIL_RECIPIENTS: ${ALERT_EMAIL_RECIPIENTS:-}
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
       PII_PREVIOUS_KEYS: ${PII_PREVIOUS_KEYS:-}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://localhost}
@@ -219,6 +221,14 @@ services:
       # P1-INFRA-003/004: 生产环境必填密钥
       ALERTMANAGER_WEBHOOK_SECRET: ${ALERTMANAGER_WEBHOOK_SECRET:?ALERTMANAGER_WEBHOOK_SECRET is required}
       METRICS_ACCESS_TOKEN: ${METRICS_ACCESS_TOKEN:?METRICS_ACCESS_TOKEN is required}
+      # 告警升级任务在 worker 内执行，EmailNotifier 同时依赖 SMTP_* 与收件人
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      ALERT_EMAIL_RECIPIENTS: ${ALERT_EMAIL_RECIPIENTS:-}
       # 生产环境默认关闭结构化实验通道 (实验训练仅限开发环境显式开启)
       STRUCTURED_EXPERIMENTAL_ENABLED: "false"
     command: >
