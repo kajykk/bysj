@@ -125,18 +125,31 @@ bash scripts/generate-self-signed-cert.sh example.com
 
 ### 3. 配置环境变量
 
-在项目根目录创建 `.env` 文件 (参考 `backend/.env.example`):
+**2026-11 起密钥文件不再放在仓库内**。请在仓库外创建密钥文件（推荐
+`E:\secrets\bysj\.env`，Linux 用 `/e/secrets/bysj/.env`），并通过 `ENV_FILE` 注入：
+
+```powershell
+$env:ENV_FILE = "E:\secrets\bysj\.env"
+```
+
+内容参考 `.env.example`（仓库内只保留模板，禁止写入真实值）：
 
 ```env
 # === 必填 (生产环境) ===
 POSTGRES_PASSWORD=CHANGE_ME_strong_db_password
 REDIS_PASSWORD=CHANGE_ME_strong_redis_password
 JWT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+# 2026-11: 生产必须配置，否则启动校验失败（防 token 跨服务重放）
+JWT_ISSUER=bysj-backend
+JWT_AUDIENCE=bysj-api
+# 2026-11 (D5): 必须是 40 位 commit hash，不允许 main/master
+MODEL_BERT_REVISION=0123456789abcdef0123456789abcdef01234567
 GRAFANA_ADMIN_PASSWORD=CHANGE_ME_grafana_admin
 
 # === 应用配置 ===
 APP_ENV=production
-CORS_ORIGINS=https://your-domain.com
+# 2026-11: 生产禁止 http:// 源，否则启动失败
+CORS_ALLOWED_ORIGINS=https://your-domain.com
 SENTRY_DSN=                            # 可选
 
 # === 邮件 (SMTP) ===
@@ -158,12 +171,17 @@ CELERY_WORKER_CONCURRENCY=2
 ```
 
 > **SEC-P1-002 强制约束**: 当 `APP_ENV=production` 时，`PASSWORD_RESET_BASE_URL` 必须以 `https://` 开头，否则应用启动失败 (ValueError)。
+> **2026-11 启动校验**: 生产环境还会拒绝：占位值（`change_me*`）、非 40 位 hash 的
+> `MODEL_BERT_REVISION`、含 `http://` 的 CORS 源、未配置 `JWT_ISSUER/JWT_AUDIENCE`。
+> 密钥轮换见 `docs/ops/SECRET_ROTATION_2026-11.md`。
 
 ### 4. 启动全部服务
 
 ```bash
-docker compose up -d
+docker compose --env-file "$ENV_FILE" up -d
 ```
+
+Windows PowerShell: `docker compose --env-file $env:ENV_FILE up -d`
 
 启动顺序 (由 `depends_on` + `condition` 控制):
 

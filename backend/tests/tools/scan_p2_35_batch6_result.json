@@ -1,6 +1,6 @@
 {
-  "real_total": 325,
-  "real_wired": 107,
+  "real_total": 326,
+  "real_wired": 106,
   "import_probe": 16,
   "real_list": [
     {
@@ -65,7 +65,7 @@
     },
     {
       "file": "app/api/v1/alerts/__init__.py",
-      "line": 349,
+      "line": 352,
       "handled": [
         "Exception"
       ],
@@ -155,7 +155,7 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 257,
+      "line": 258,
       "handled": [
         "Exception"
       ],
@@ -165,7 +165,7 @@
     },
     {
       "file": "app/api/v1/metrics_helpers.py",
-      "line": 283,
+      "line": 284,
       "handled": [
         "Exception"
       ],
@@ -186,7 +186,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 201,
+      "line": 193,
       "handled": [
         "Exception"
       ],
@@ -196,7 +196,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 153,
+      "line": 145,
       "handled": [
         "Exception"
       ],
@@ -206,7 +206,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 278,
+      "line": 270,
       "handled": [
         "TypeError",
         "ValueError"
@@ -217,7 +217,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 334,
+      "line": 326,
       "handled": [
         "TypeError",
         "ValueError"
@@ -228,7 +228,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 350,
+      "line": 342,
       "handled": [
         "TypeError",
         "ValueError"
@@ -239,7 +239,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 366,
+      "line": 358,
       "handled": [
         "TypeError",
         "ValueError"
@@ -250,7 +250,7 @@
     },
     {
       "file": "app/api/v1/model_predict/_common.py",
-      "line": 382,
+      "line": 374,
       "handled": [
         "TypeError",
         "ValueError"
@@ -341,7 +341,7 @@
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 415,
+      "line": 416,
       "handled": [
         "Exception"
       ],
@@ -351,7 +351,7 @@
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 492,
+      "line": 493,
       "handled": [
         "Exception"
       ],
@@ -361,7 +361,7 @@
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 383,
+      "line": 384,
       "handled": [
         "Exception"
       ],
@@ -371,7 +371,7 @@
     },
     {
       "file": "app/api/v1/silences.py",
-      "line": 550,
+      "line": 551,
       "handled": [
         "Exception"
       ],
@@ -394,17 +394,6 @@
       "line": 231,
       "handled": [
         "Exception"
-      ],
-      "wired": true,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/api/v1/user_upload.py",
-      "line": 162,
-      "handled": [
-        "MagicException",
-        "OSError"
       ],
       "wired": true,
       "fire_and_forget": false,
@@ -603,7 +592,7 @@
     },
     {
       "file": "app/core/config.py",
-      "line": 361,
+      "line": 408,
       "handled": [
         "OSError"
       ],
@@ -613,7 +602,7 @@
     },
     {
       "file": "app/core/config.py",
-      "line": 374,
+      "line": 421,
       "handled": [
         "OSError"
       ],
@@ -934,7 +923,7 @@
     },
     {
       "file": "app/core/model_engine/fallback.py",
-      "line": 297,
+      "line": 300,
       "handled": [
         "Exception"
       ],
@@ -944,7 +933,7 @@
     },
     {
       "file": "app/core/model_engine/inference.py",
-      "line": 348,
+      "line": 350,
       "handled": [
         "Exception"
       ],
@@ -954,7 +943,7 @@
     },
     {
       "file": "app/core/model_engine/inference.py",
-      "line": 323,
+      "line": 325,
       "handled": [
         "CancelledError"
       ],
@@ -964,7 +953,7 @@
     },
     {
       "file": "app/core/model_engine/inference.py",
-      "line": 326,
+      "line": 328,
       "handled": [
         "Exception"
       ],
@@ -974,9 +963,20 @@
     },
     {
       "file": "app/core/model_engine/inference.py",
-      "line": 362,
+      "line": 364,
       "handled": [
         "CancelledError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/core/model_engine/inference.py",
+      "line": 529,
+      "handled": [
+        "TypeError",
+        "ValueError"
       ],
       "wired": false,
       "fire_and_forget": false,
@@ -1016,7 +1016,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 429,
+      "line": 434,
       "handled": [
         "Exception"
       ],
@@ -1066,7 +1066,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 400,
+      "line": 396,
       "handled": [
         "Exception"
       ],
@@ -1076,7 +1076,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 560,
+      "line": 565,
       "handled": [
         "Exception"
       ],
@@ -1086,7 +1086,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 596,
+      "line": 601,
       "handled": [
         "OSError"
       ],
@@ -1096,7 +1096,7 @@
     },
     {
       "file": "app/core/model_engine/loading.py",
-      "line": 712,
+      "line": 717,
       "handled": [
         "Exception"
       ],
@@ -1106,7 +1106,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 494,
+      "line": 542,
       "handled": [
         "Exception"
       ],
@@ -1116,7 +1116,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 543,
+      "line": 591,
       "handled": [
         "Exception"
       ],
@@ -1126,7 +1126,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 640,
+      "line": 731,
       "handled": [
         "Exception"
       ],
@@ -1136,27 +1136,17 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 668,
+      "line": 759,
       "handled": [
         "Exception"
       ],
       "wired": true,
       "fire_and_forget": false,
-      "returns": "self._text_heuristic_fallback(text)"
+      "returns": "self._apply_text_decision_state(fallback, float(fallback.get"
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 756,
-      "handled": [
-        "Exception"
-      ],
-      "wired": true,
-      "fire_and_forget": false,
-      "returns": "(probability, False)"
-    },
-    {
-      "file": "app/core/model_engine/predict.py",
-      "line": 777,
+      "line": 928,
       "handled": [
         "Exception"
       ],
@@ -1166,7 +1156,17 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 983,
+      "line": 949,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "(probability, False)"
+    },
+    {
+      "file": "app/core/model_engine/predict.py",
+      "line": 1165,
       "handled": [
         "FileNotFoundError"
       ],
@@ -1176,7 +1176,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 995,
+      "line": 1176,
       "handled": [
         "Exception"
       ],
@@ -1186,7 +1186,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 426,
+      "line": 474,
       "handled": [
         "Exception"
       ],
@@ -1196,7 +1196,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 892,
+      "line": 1064,
       "handled": [
         "NonFiniteLiteProbabilityError"
       ],
@@ -1206,7 +1206,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 902,
+      "line": 1074,
       "handled": [
         "Exception"
       ],
@@ -1216,7 +1216,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1038,
+      "line": 1219,
       "handled": [
         "Exception"
       ],
@@ -1226,7 +1226,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1144,
+      "line": 1325,
       "handled": [
         "Exception"
       ],
@@ -1236,7 +1236,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 1177,
+      "line": 1358,
       "handled": [
         "Exception"
       ],
@@ -1246,7 +1246,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 172,
+      "line": 201,
       "handled": [
         "FileNotFoundError",
         "ValueError"
@@ -1257,7 +1257,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 183,
+      "line": 212,
       "handled": [
         "FileNotFoundError",
         "ValueError"
@@ -1268,7 +1268,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 390,
+      "line": 438,
       "handled": [
         "Exception"
       ],
@@ -1278,17 +1278,17 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 675,
+      "line": 766,
       "handled": [
         "Exception"
       ],
       "wired": true,
       "fire_and_forget": false,
-      "returns": "self._text_heuristic_fallback(text)"
+      "returns": "self._apply_text_decision_state(fallback, float(fallback.get"
     },
     {
       "file": "app/core/model_registry.py",
-      "line": 351,
+      "line": 562,
       "handled": [
         "Exception"
       ],
@@ -1343,17 +1343,17 @@
     },
     {
       "file": "app/core/otel.py",
-      "line": 133,
+      "line": 193,
       "handled": [
         "Exception"
       ],
       "wired": false,
       "fire_and_forget": false,
-      "returns": "False"
+      "returns": "OtelInit.FAILED"
     },
     {
       "file": "app/core/otel.py",
-      "line": 205,
+      "line": 265,
       "handled": [
         "Exception"
       ],
@@ -1363,7 +1363,7 @@
     },
     {
       "file": "app/core/otel.py",
-      "line": 228,
+      "line": 288,
       "handled": [
         "Exception"
       ],
@@ -1503,7 +1503,17 @@
     },
     {
       "file": "app/core/sentry.py",
-      "line": 103,
+      "line": 107,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/core/sentry.py",
+      "line": 153,
       "handled": [
         "Exception"
       ],
@@ -1513,17 +1523,7 @@
     },
     {
       "file": "app/core/sentry.py",
-      "line": 148,
-      "handled": [
-        "Exception"
-      ],
-      "wired": false,
-      "fire_and_forget": false,
-      "returns": null
-    },
-    {
-      "file": "app/core/sentry.py",
-      "line": 163,
+      "line": 168,
       "handled": [
         "Exception"
       ],
@@ -1566,7 +1566,7 @@
     },
     {
       "file": "app/core/startup_status.py",
-      "line": 100,
+      "line": 118,
       "handled": [
         "Exception"
       ],
@@ -1798,7 +1798,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 371,
+      "line": 444,
       "handled": [
         "OSError"
       ],
@@ -1808,7 +1808,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 190,
+      "line": 246,
       "handled": [
         "Exception"
       ],
@@ -1818,7 +1818,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 222,
+      "line": 314,
       "handled": [
         "Exception"
       ],
@@ -1828,7 +1828,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 326,
+      "line": 399,
       "handled": [
         "Exception"
       ],
@@ -1838,7 +1838,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 304,
+      "line": 377,
       "handled": [
         "CancelledError"
       ],
@@ -1980,7 +1980,7 @@
     },
     {
       "file": "app/monitoring/dedup.py",
-      "line": 95,
+      "line": 97,
       "handled": [
         "Exception"
       ],
@@ -1990,7 +1990,7 @@
     },
     {
       "file": "app/monitoring/dedup.py",
-      "line": 103,
+      "line": 105,
       "handled": [
         "Exception"
       ],
@@ -2212,7 +2212,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 58,
+      "line": 59,
       "handled": [
         "Exception"
       ],
@@ -2222,7 +2222,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 77,
+      "line": 78,
       "handled": [
         "Exception"
       ],
@@ -2232,7 +2232,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 99,
+      "line": 107,
       "handled": [
         "Exception"
       ],
@@ -2242,7 +2242,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 132,
+      "line": 143,
       "handled": [
         "Exception"
       ],
@@ -2252,7 +2252,17 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 161,
+      "line": 167,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/services/auto_rollback_service.py",
+      "line": 196,
       "handled": [
         "Exception"
       ],
@@ -2262,7 +2272,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 170,
+      "line": 205,
       "handled": [
         "TypeError",
         "ValueError",
@@ -2274,7 +2284,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 182,
+      "line": 217,
       "handled": [
         "Exception"
       ],
@@ -2284,7 +2294,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 450,
+      "line": 487,
       "handled": [
         "Exception"
       ],
@@ -2294,7 +2304,7 @@
     },
     {
       "file": "app/services/auto_rollback_service.py",
-      "line": 439,
+      "line": 476,
       "handled": [
         "Exception"
       ],
@@ -2507,7 +2517,7 @@
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 229,
+      "line": 232,
       "handled": [
         "Exception"
       ],
@@ -2517,7 +2527,7 @@
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 82,
+      "line": 83,
       "handled": [
         "Exception"
       ],
@@ -2527,7 +2537,7 @@
     },
     {
       "file": "app/services/model_predict/fusion.py",
-      "line": 164,
+      "line": 165,
       "handled": [
         "Exception"
       ],
@@ -2537,7 +2547,7 @@
     },
     {
       "file": "app/services/model_predict/inference.py",
-      "line": 116,
+      "line": 120,
       "handled": [
         "Exception"
       ],
@@ -2547,7 +2557,7 @@
     },
     {
       "file": "app/services/model_predict/inference.py",
-      "line": 150,
+      "line": 154,
       "handled": [
         "Exception"
       ],
@@ -2809,7 +2819,7 @@
     },
     {
       "file": "app/services/risk_service_assessment.py",
-      "line": 180,
+      "line": 179,
       "handled": [
         "Exception"
       ],
@@ -2839,7 +2849,7 @@
     },
     {
       "file": "app/services/shadow_comparison_service.py",
-      "line": 230,
+      "line": 232,
       "handled": [
         "Exception"
       ],
@@ -2849,7 +2859,7 @@
     },
     {
       "file": "app/services/shadow_comparison_service.py",
-      "line": 262,
+      "line": 264,
       "handled": [
         "Exception"
       ],
@@ -2859,7 +2869,7 @@
     },
     {
       "file": "app/services/shadow_comparison_service.py",
-      "line": 296,
+      "line": 298,
       "handled": [
         "Exception"
       ],
@@ -2889,7 +2899,7 @@
     },
     {
       "file": "app/services/user_data_service.py",
-      "line": 139,
+      "line": 131,
       "handled": [
         "Exception"
       ],
@@ -2899,7 +2909,7 @@
     },
     {
       "file": "app/services/user_data_service.py",
-      "line": 182,
+      "line": 174,
       "handled": [
         "TypeError",
         "ValueError"
@@ -2910,7 +2920,7 @@
     },
     {
       "file": "app/services/user_data_service.py",
-      "line": 197,
+      "line": 189,
       "handled": [
         "TypeError",
         "ValueError"
@@ -2921,7 +2931,7 @@
     },
     {
       "file": "app/services/user_data_service.py",
-      "line": 214,
+      "line": 206,
       "handled": [
         "TypeError",
         "ValueError"
@@ -2932,7 +2942,7 @@
     },
     {
       "file": "app/services/user_data_service.py",
-      "line": 229,
+      "line": 221,
       "handled": [
         "TypeError",
         "ValueError"
@@ -3379,7 +3389,7 @@
     },
     {
       "file": "app/core/model_engine/predict.py",
-      "line": 991,
+      "line": 1172,
       "handled": [
         "ImportError"
       ],
@@ -3389,7 +3399,7 @@
     },
     {
       "file": "app/core/otel.py",
-      "line": 151,
+      "line": 211,
       "handled": [
         "ImportError"
       ],
@@ -3399,7 +3409,7 @@
     },
     {
       "file": "app/core/otel.py",
-      "line": 166,
+      "line": 226,
       "handled": [
         "ImportError"
       ],
@@ -3409,7 +3419,7 @@
     },
     {
       "file": "app/core/otel.py",
-      "line": 180,
+      "line": 240,
       "handled": [
         "ImportError"
       ],
@@ -3419,7 +3429,7 @@
     },
     {
       "file": "app/core/otel.py",
-      "line": 203,
+      "line": 263,
       "handled": [
         "ImportError"
       ],

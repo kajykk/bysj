@@ -1852,3 +1852,35 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   other_raise=356 不变。
 - #35 桶计数：W=109 / X=116 / S=34 / P=15 / R=3 / G=8（总数 341）不变。
 - README 后端用例 7,705→7,720。
+
+## 附：2026-11-02 生理来源纠偏与人群范围披露（工作树计数同步）
+
+- 本批新增 `app/core/population_scope.py`（未登记模态直接 `raise ValueError`，+1）；
+  `inference.py` / `fusion.py` 接入人群范围披露与弃权元数据。未新增任何
+  `record_silent_degradation` 接线。
+- #34 raise 分类（工作树实测）：HTTPException=214 / ServiceError=38 /
+  other_raise=360（356→360）。+4 已逐文件核对：`app/core/model_engine/text_chunking.py`
+  +3（既有未提交的文本分块工作）、`app/core/population_scope.py` +1（本批）。
+- #35 桶计数（工作树实测）：W=109 / X=117 / S=34 / P=15 / R=3 / G=8
+  （总数 341→342）。X +1 来自既有未提交的
+  `app/services/auto_rollback_service.py` `release_check_lock`：CAS 释放失败只
+  warning + `return False`，调用方不检查，锁靠 TTL 兜底 —— 仍为 X（未接线），
+  计入待接清单，不是本批新增的降级路径。
+- `fusion.py` 既有 W 接线锚点 229→232（+1 行 import、+2 行 attach），
+  `test_p2_11_round11.py` 的 batch37 候选表与反向钉同步；`inference.py`
+  既有 P 候选 150→154（+4 行 import）。
+
+## 附：2026-11-03 安全整改与制品校验（工作树计数同步）
+
+- `user_upload._validate_mime_type` 由 fail-open（跳过 MIME 校验仍返回成功）
+  改为 fail-closed（libmagic 不可用 → 503 拒绝上传，仍记
+  `api.user_upload.validate_mime_type` 降级计数）。扫描器排除含 `raise` 的
+  handler ⇒ 该处不再计入静默降级候选桶：W 109→108。
+- 同批工作树新增 1 处未接线 handler（D 型脏数据跳过）⇒ D 22→23；总数 342 不变。
+- #34 raise 分类（工作树实测）：HTTPException=215（214→215：上述 fail-closed
+  503）；ServiceError=38（不变）；other_raise=366（360→366：`config.py` 生产
+  密钥校验 +2、`ml_decision_thresholds.py` 阈值校验 +2、
+  `model_registry.py` 制品缺失 `FileNotFoundError` +1、`main.py` 生产制品
+  校验失败 `RuntimeError` +1）。
+- #35 桶计数（工作树实测）：W=108 / X=117 / S=34 / P=15 / D=23 / C=7 /
+  H=6 / K=11 / R=3 / M=6 / G=8 / V=2 / F=2（总数 342）。

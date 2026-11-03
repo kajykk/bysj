@@ -1,4 +1,4 @@
-# 论文数字台账（ROUND_36/37 更新；ROUND_29 · P2-56 更新；ROUND_28 · P2-55 建立）
+# 论文数字台账（2026-11-02 生理特征来源纠偏；ROUND_36/37 更新；ROUND_29 · P2-56 更新；ROUND_28 · P2-55 建立）
 
 > **纪律**：论文里的每个数字必须能由**已提交产物**用一条命令复算；不得从任何 ROUND 汇报转引。
 > **机器校验**（只读，CI 每次提交都跑）：
@@ -27,19 +27,51 @@
 
 ## 一、可进论文数字
 
-### 1.1 域内（生理模态 · 生产路径 · n = 157 · ROUND_29 修复后工件）
+### 1.1 域内（生理模态 · 合成特征管线 · n = 157 · ROUND_29 修复后工件）
+
+> **来源更正（2026-11-02 · 先于任何性能解读）**：本节 C-01 ~ C-06 的训练数据
+> `datasets/physiological/external/depresjon_processed/depresjon_physiological.csv`
+> 由 `scripts/data_prep/convert_depresjon_to_system.py` 以 `np.random.seed(42)`
+> 生成，8/8 建模列可从脚本逐值复现。7 个原始输入特征中，只有 `steps`（来自真实
+> `mean_act`）与 `exercise_minutes`（来自真实 `peak_activity`）源自 actigraphy；
+> `heart_rate`、`sleep_hours`、`sleep_quality`、`systolic_bp`、`diastolic_bp`
+> 是按真实标签分组的均值叠加高斯噪声，`diastolic_bp` 还由 `systolic_bp` 派生。
+> 消融（1029 行、5 折 OOF logistic regression）：仅真实 actigraphy 派生列
+> ROC AUC 0.6443；仅标签驱动合成列 0.9898；全 7 列 0.9901。因此：
+>
+> 1. **C-01 ~ C-06 只能作为「合成特征管线的生产一致性/回归读数」**，不得表述为
+>    「模型能从真实心率、睡眠或血压识别抑郁」，也不得作为真实设备/人群的性能证据；
+> 2. **C-07 ~ C-09 仍是有效的一致性证明**：它们证明部署 scaler 与 train-only
+>    重拟合逐位相等，与特征来源无关，但不提升 C-04/C-05 的绝对水平解释力；
+> 3. 真实特征基线必须用原始 actigraphy 重建，或另找「真实特征 + 标签」外部队列；
+>    审计与复现细节见 `docs/model-evaluation/PHYSIO_DATA_PROVENANCE_AUDIT.md`；
+> 4. ROUND_48 已用原始 actigraphy 重建同队列受试者分组基线（主口径 AUC 0.6454
+>    [0.4861, 0.7983]；多日聚合 0.7620 ± 0.0093），但它是回顾性同队列结果，
+>    不是外部验证，不改变 C-01 ~ C-06 的口径，也不能与 0.9451 并列；
+>    见 `docs/model-evaluation/REAL_ACTIGRAPHY_BASELINE.md`；
+> 5. ROUND_49 的 18 个规范网格显示 ROUND_48 主口径对聚合/自相关缺失/日纳入选择敏感
+>    （AUC 0.5855–0.7364，中位 0.6569），且与零活动日/记录时长代理纠缠（仅代理模型
+>    LOSO 0.7921；病例平均 15.6 个完整日 vs 对照 20.9）。因此 0.6454 不是稳健性能估计，
+>    不得作为「真实 actigraphy 性能」的单点引用；见
+>    `docs/model-evaluation/REAL_BASELINE_ROBUSTNESS.md`；
+> 6. ROUND_50 的日级 9 规范审计显示 ROUND_48 多日聚合次口径的 0.7620 同样是规范点：
+>    预注册 `day__zero__all` 精确复现 0.7620 ± 0.0093，但 9 规范受试者级 AUC 为
+>    0.6565–0.7620，0.7620 是网格最大值；日级口径在 9/9 配对中高于受试者级 LOSO
+>    （+0.0187 到 +0.0789），但差值随规范变化，且校准斜率 3.23–4.28。因此 0.7620 也
+>    不得作为稳健单点引用，日级与受试者级 AUC 不得互相替代；见
+>    `docs/model-evaluation/REAL_BASELINE_PROTOCOL_ROBUSTNESS.md`。
 
 | 编号 | 指标 | 点估计 | 95% CI | 来源产物 | 复算命令 | 类别 | 可否进论文 |
 |---|---|---|---|---|---|---|---|
-| C-01 | Accuracy | 0.8662 | [0.8089, 0.9172] | `docs/model-evaluation/physio_v2_current_data_eval.json` + `backend/models/artifacts/physiological_optimized/test_predictions.csv` | `01_reproducible_eval.py --report-only`（需数据集）；CI 层 `verify_thesis_numbers.py` | 域内 | ✅ |
-| C-02 | Precision | 0.7742 | [0.6667, 0.8750] | 同上 | 同上 | 域内 | ✅ |
-| C-03 | Recall | 0.8727 | [0.7800, 0.9531] | 同上 | 同上 | 域内 | ✅ |
-| C-04 | F1 | 0.8205 | [0.7387, 0.8889] | 同上 | 同上 | 域内 | ✅ |
-| C-05 | ROC AUC | 0.9451 | [0.9064, 0.9768] | 同上 | 同上 | 域内 | ✅ |
-| C-06 | 混淆矩阵 | TP=48 / FP=14 / FN=7 / TN=88 | — | 同上 | 同上 | 域内 | ✅ |
-| C-07 | 一致性·train-only 重拟合 F1（ROUND_29 起） | 0.8205 | — | 同上（csv 列 `y_score_refit_scaler`） | `01_reproducible_eval.py --report-only`；CI 层 `verify_thesis_numbers.py` | 域内·一致性证明 | ✅（与 C-04 相等即 co-consistency 证据；ROUND_29 前为缺陷定位诊断列，历史读数见 §1.1 注） |
-| C-08 | 一致性·train-only 重拟合 Recall（ROUND_29 起） | 0.8727 | — | 同上 | 同上 | 域内·一致性证明 | ✅（同上） |
-| C-09 | 一致性·train-only 重拟合 ROC AUC（ROUND_29 起） | 0.9451 | — | 同上 | 同上 | 域内·一致性证明 | ✅（同上） |
+| C-01 | Accuracy | 0.8662 | [0.8089, 0.9172] | `docs/model-evaluation/physio_v2_current_data_eval.json` + `backend/models/artifacts/physiological_optimized/test_predictions.csv` | `01_reproducible_eval.py --report-only`（需数据集）；CI 层 `verify_thesis_numbers.py` | 域内·合成特征 | ⚠️ 仅作生产管线一致性/回归读数；不得称真实生理性能（§1.1 来源更正） |
+| C-02 | Precision | 0.7742 | [0.6667, 0.8750] | 同上 | 同上 | 域内·合成特征 | ⚠️ 同上（合成特征读数，不得称真实生理性能） |
+| C-03 | Recall | 0.8727 | [0.7800, 0.9531] | 同上 | 同上 | 域内·合成特征 | ⚠️ 同上（合成特征读数，不得称真实生理性能） |
+| C-04 | F1 | 0.8205 | [0.7387, 0.8889] | 同上 | 同上 | 域内·合成特征 | ⚠️ 同上（合成特征读数，不得称真实生理性能） |
+| C-05 | ROC AUC | 0.9451 | [0.9064, 0.9768] | 同上 | 同上 | 域内·合成特征 | ⚠️ 同上（合成特征读数，不得称真实生理性能） |
+| C-06 | 混淆矩阵 | TP=48 / FP=14 / FN=7 / TN=88 | — | 同上 | 同上 | 域内·合成特征 | ⚠️ 同上（合成特征读数，不得作真实生理性能证据） |
+| C-07 | 一致性·train-only 重拟合 F1（ROUND_29 起） | 0.8205 | — | 同上（csv 列 `y_score_refit_scaler`） | `01_reproducible_eval.py --report-only`；CI 层 `verify_thesis_numbers.py` | 域内·一致性证明 | ✅（与 C-04 相等即 co-consistency 证据；仅证明标准化一致性，不涉及真实生理性能；ROUND_29 前为缺陷定位诊断列，历史读数见 §1.1 注） |
+| C-08 | 一致性·train-only 重拟合 Recall（ROUND_29 起） | 0.8727 | — | 同上 | 同上 | 域内·一致性证明 | ✅（同上；仅证明标准化一致性，不涉及真实生理性能） |
+| C-09 | 一致性·train-only 重拟合 ROC AUC（ROUND_29 起） | 0.9451 | — | 同上 | 同上 | 域内·一致性证明 | ✅（同上；仅证明标准化一致性，不涉及真实生理性能） |
 
 > **ROUND_29 修复记录（D-R26-1，路径 B 端到端重训）**：C-01 ~ C-06 是**修复后**生产链路
 > 读数（同一 n = 157 测试集、同一阈值 0.5、同一评估脚本）。修复前同口径为
@@ -69,6 +101,11 @@
 | C-20 | 文本×OOD ROC AUC（n=2523） | 0.9986 | [0.9956, 0.99999] | 同上 | 同上 | 降级 | ✅（同上） |
 | C-21 | 文本×OOD 混淆矩阵 | TP=499 / FP=0 / FN=14 / TN=2010 | — | 同上 | 同上 | 降级 | ✅（同上） |
 
+> **来源约束（同 §1.1）**：C-10 ~ C-15 的迁移失败仍可作为负向证据，但被迁移的
+> 生理模型本身训练于标签驱动合成特征，因此只能表述为「合成特征模型无法迁移到
+> 真实可穿戴数据」，不得单独引申为「真实生理信号不可跨设备迁移」；后一个命题
+> 需要真实特征基线才能检验。
+
 ### 1.3 泛化口径（文本模态，唯一可引用的「泛化」读数）
 
 | 编号 | 指标 | 点估计 | 95% CI | 来源产物 | 复算命令 | 类别 | 可否进论文 |
@@ -80,7 +117,7 @@
 | C-26 | 文本 groupwise Brier 分数（n=8379） | 0.1280 | [0.1184, 0.1376] | `backend/scripts/modeling/eval/v1_33/calibration_analysis.json`（`units.text_groupwise_oof.metrics.brier`） | `v1_33/calibration_analysis.py`（生成）；`verify_thesis_numbers.py`（点估计独立实现 + CI 同源独立复算） | 泛化口径·校准 | ✅ |
 | C-27 | 文本 groupwise ECE（n=8379，10 等宽箱） | 0.0855 | [0.0710, 0.1069] | 同上（`units.text_groupwise_oof.metrics.ece`） | 同上（ECE 用显式区间遍历的独立实现） | 泛化口径·校准 | ✅ |
 | C-28 | 文本 groupwise 校准斜率（Platt slope） | 1.3466 | — | 同上（`units.text_groupwise_oof.calibration_slope`） | 同上（Nelder-Mead 最小化 logloss 的独立实现；斜率无 CI，理由见 method.not_estimated） | 泛化口径·校准 | ✅ |
-| C-29 | 生理切分 ECE（n=157） | 0.2160 | [0.1815, 0.2647] | 同上（`units.physio_current_split.metrics.ece`） | 同上 | 次级口径·小样本 | ⚠️ 必须同句标注 n=157 |
+| C-29 | 生理切分 ECE（n=157） | 0.2160 | [0.1815, 0.2647] | 同上（`units.physio_current_split.metrics.ece`） | 同上 | 次级口径·小样本·合成特征 | ⚠️ 必须同句标注 n=157；且只能作合成特征管线的校准读数，不得称真实生理校准 |
 | C-30 | 生理×Kaggle Brier（n=10000） | 0.2761 | [0.2729, 0.2793] | 同上（`units.physio_kaggle.metrics.brier`） | 同上 | 降级·跨数据集下界 | ❌ 仅压力测试，禁作外迁 |
 | C-31 | 文本×OOD(strict) Brier（n=2523） | 0.0281 | [0.0264, 0.0299] | 同上（`units.text_ood_strict.metrics.brier`） | 同上 | 降级·兄弟泄漏 | ❌ 仅压力测试，禁作外迁 |
 | C-32 | 文本 groupwise DCA 净获益 NB(t=0.50) | 0.0523 | — | 同上（`units.text_groupwise_oof.dca.net_benefit_model`，阈值 0.50 处） | 同上（独立实现 TP/n − FP/n·(t/(1−t))） | 泛化口径·决策曲线 | ✅ |
@@ -150,6 +187,7 @@
 | B-03 | **0.8527** | `docs/model-evaluation/physio_v2_test_ci.json`（已标 SUPERSEDED） | bootstrap 均值被误写入 `point` 位（名义值 0.8541667 亦属 B-01，两者差 0.0015 即来源） | C-04（0.8205，全样本统计量） |
 | B-04 | 融合「4 条手写场景全 1.0000」行 | `docs/upgrade_baseline_202607.md:22` | 4 条硬编码场景无统计意义；且 `1.0000` 与合法 Precision=1.0000（C-02/C-17）**撞号**，无法做 token 级闸门，仅叙事禁用 | X-01 ~ X-06（权重敏感性扫描） |
 | B-05 | 任何台账外、未复算的数字 | — | 通则：没有来源产物路径 + 复算命令的数字一律不得进论文 | 先补登记（复算通过）再引用 |
+| B-06 | 把 C-01 ~ C-06 / C-29 的读数表述为「真实生理信号性能」（口径禁令，无单一数值） | `docs/model-evaluation/PHYSIO_DATA_PROVENANCE_AUDIT.md` | 训练 CSV 的 5/7 原始特征由标签驱动合成（seed 42 可逐值复现），模型未从真实心率/睡眠/血压学习；仅真实 actigraphy 派生列 5 折 OOF AUC 为 0.6443 | 只能写「合成特征管线读数」；真实性能须用原始 actigraphy 重建基线，或另找真实特征队列。ROUND_48 已重建同队列真实基线（AUC 0.6454 / 0.7620），但仍非外部验证，不得替换 C-01 ~ C-06 的口径；ROUND_49 显示该读数对规范选择敏感且与佩戴代理纠缠，0.6454 不得作稳健单点引用；ROUND_50 显示多日聚合 0.7620 也是 9 规范网格最大值（0.6565–0.7620），同样不得作稳健单点引用，两协议不可互相替代 |
 
 ## 三、历史文件保留说明（不删，只标注）
 
