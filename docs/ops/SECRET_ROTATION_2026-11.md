@@ -106,6 +106,10 @@
 - **在哪用过**：`.env`/`.env.production`；`app/monitoring/notifier.py` 发信。
 - **轮换后失效**：告警邮件发送失败（会进重试队列），不影响主业务。
 - **验证命令**：触发一次测试告警邮件（管理端“通知测试”），日志应无 `SMTPAuthenticationError`。
+- **2026-11-03 实测**：六项 SMTP 已配置真实值并重建 backend；容器内 STARTTLS 握手
+  `250/220/235`（EHLO/STARTTLS/LOGIN），生产 `EmailService` + SMTP 熔断器发信成功，
+  两封测试邮件均已到达配置邮箱；熔断器 `CLOSED`、failure_count=0。密码重置端点仍需
+  一个已注册邮箱做端到端确认；告警邮件另需 `ALERT_EMAIL_RECIPIENTS`，当前未配置。
 
 ### 1.9 `DEEPSEEK_API_KEY`（`sk-…`，已确认无代码引用）
 
@@ -152,17 +156,17 @@
 ## 3. 仍依赖用户执行的事项
 
 1. **执行本清单 §1 的全部轮换**（代码无法代做）；轮换前先备份数据库。
-   - 2026-11-03：§1.1 / §1.2 / §1.3 / §1.4 / §1.7 已执行；§1.8 只替换了口令，
-     **host/user/from 仍是 `example.com` 占位，无法实发验证**；详见 §4.1、§4.5。
+   - 2026-11-03：§1.1 / §1.2 / §1.3 / §1.4 / §1.7 / §1.8 已执行；§1.8 已完成
+     真实 SMTP 配置与投递验证（STARTTLS 握手 + 两封测试邮件到达），详见 §4.1。
 2. 在 `E:\secrets\bysj\.env` 中补齐生产必需项，否则容器会**按设计启动失败**：
    - [x] `JWT_ISSUER`、`JWT_AUDIENCE`（任意稳定的服务标识，需与签发端一致）
    - [x] `MODEL_BERT_REVISION`：40 位 commit hash（替换当前的 `main`）
    - [x] `CORS_ALLOWED_ORIGINS`：仅保留 `https://` 域名（移除 `http://localhost:3000`）
-   - [ ] `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_USE_TLS` /
-     `SMTP_FROM_EMAIL`：**唯一剩余的凭证类阻塞项**。当前 host=`smtp.example.com`、
-     user/from=`*@example.com`，均为占位；密码是随机占位值，不是有效授权码。
-     未配置真实 SMTP 前，密码重置邮件与告警邮件全链路不可用（代码会走日志回退/重试，
-     不会崩溃，但不会真正投递）
+   - [x] `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_USE_TLS` /
+     `SMTP_FROM_EMAIL`：已完成（2026-11-03）。六项均为真实值，backend 已重建；
+     容器内 STARTTLS 握手 `250/220/235`，生产 `EmailService` + SMTP 熔断器发信成功，
+     两封测试邮件到达配置邮箱。**剩余**：告警邮件还需 `ALERT_EMAIL_RECIPIENTS`
+     （当前未配置）；密码重置端点待一个已注册邮箱做端到端确认。
 3. 把模型制品上传到外部制品库并生成 `.sha256`；生产 `MODEL_DIR` 指向该目录（compose 只读卷）。
 4. 部署时显式传入 `GIT_SHA`（如 `$env:GIT_SHA=$(git rev-parse HEAD)`），使镜像 label 与
    启动日志中的 `git_sha` 可核对；未传时为 `unknown`（仅警告不阻断）。
@@ -170,7 +174,7 @@
 6. 在 CI/仓库设置中把新增的 `workspace-scan` job 设为 required。
 7. 轮换完成后，用 §1 各条的验证命令逐项确认，并把结果记入运维台账。
 
-## 4. 2026-11-03 执行记录（§1.1 / §1.2 / §1.3 / §1.4 / §1.7）
+## 4. 2026-11-03 执行记录（§1.1 / §1.2 / §1.3 / §1.4 / §1.7 / §1.8）
 
 > 记录只含「动作 + 长度/布尔 + 验证读数」，不含任何明文密钥。
 > 执行文件：`E:\secrets\bysj\.env`（compose 实际读取）与 `E:\secrets\bysj\.env.production`
@@ -189,7 +193,7 @@
 | `REDIS_PASSWORD` / `REDIS_URL` | 重新生成（43 字符） | `dws-redis` 健康检查（带新口令 `PING`）通过，backend/celery 正常连接 |
 | `GRAFANA_ADMIN_PASSWORD` | 重新生成（32 字符） | Grafana 登录 `200` |
 | `GRAFANA_SA_TOKEN` / `GRAFANA_SERVICE_TOKEN` | 创建新 SA `dws-observability-20261103`（Viewer）并签发新 token（`glsa_` 46 字符），两个变量同值 | 旧 SA token 调后端 → `401`；新 SA token → `200`；数据源 `secureJsonFields.Authorization=true` |
-| `SMTP_PASSWORD` | 把占位值 `change_me_smtp_password` 换成随机 32 字符 | **未验证，且不构成可用配置**：`SMTP_HOST=smtp.example.com`、`SMTP_USER`/`SMTP_FROM_EMAIL=*@example.com` 仍是占位，没有真实授权码，未做实发邮件测试；这是**唯一还缺的凭证类阻塞项** |
+| `SMTP_PASSWORD` / `SMTP_HOST` / `SMTP_USER` / `SMTP_FROM_EMAIL` | 配置真实 SMTP（587/STARTTLS），替换全部占位值；重建 backend | 容器内 STARTTLS 握手 `250/220/235`（EHLO/STARTTLS/LOGIN）；生产 `EmailService` + SMTP 熔断器发信成功；两封测试邮件到达配置邮箱；熔断器 `CLOSED`、failure_count=0。密码重置端点待已注册邮箱确认；告警邮件收件人 `ALERT_EMAIL_RECIPIENTS` 未配置 |
 
 PII 轮换命令（在 backend 容器内执行，与线上代码一致）：
 

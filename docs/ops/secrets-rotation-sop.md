@@ -314,7 +314,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/api/v1/users/me
 
 | Secret 名称 | 轮换日期 | 执行人 | 审批人 | 演练环境 | 验证结果 | 备注 |
 |------------|---------|--------|--------|---------|---------|------|
-| `JWT_SECRET_KEY` / `PII_ENCRYPTION_KEY` / `POSTGRES_PASSWORD` / `REDIS_PASSWORD` / `GRAFANA_ADMIN_PASSWORD` / `GRAFANA_SA_TOKEN` | 2026-11-03 | 项目维护者（本机 docker compose 执行） | _(待补)_ | 未演练（本机生产栈直接执行，已先做数据库备份） | 全部通过：旧 JWT 401 / 新 JWT 200（iss/aud 生效）；PII 重加密 1 行 0 失败；PG/Redis 新口令连通；Grafana 登录 200、旧 SA 401 / 新 SA 200；8 个常驻容器 healthy + `dws-migrate` Exit 0 | 详见 [SECRET_ROTATION_2026-11.md](SECRET_ROTATION_2026-11.md) §4。`SMTP_PASSWORD` 只替换了口令，host/user/from 仍为 `example.com` 占位，**真实 SMTP 是唯一剩余凭证阻塞项**。同轮已修复 Grafana 告警 webhook 403（旧渲染 secret）与 Prometheus 抓取 403/down（旧 token 文件）；备份含旧密钥，观察期后销毁 |
+| `JWT_SECRET_KEY` / `PII_ENCRYPTION_KEY` / `POSTGRES_PASSWORD` / `REDIS_PASSWORD` / `GRAFANA_ADMIN_PASSWORD` / `GRAFANA_SA_TOKEN` / `SMTP_PASSWORD`（授权码） | 2026-11-03 | 项目维护者（本机 docker compose 执行） | _(待补)_ | 未演练（本机生产栈直接执行，已先做数据库备份） | 全部通过：旧 JWT 401 / 新 JWT 200（iss/aud 生效）；PII 重加密 1 行 0 失败；PG/Redis 新口令连通；Grafana 登录 200、旧 SA 401 / 新 SA 200；8 个常驻容器 healthy + `dws-migrate` Exit 0 | 详见 [SECRET_ROTATION_2026-11.md](SECRET_ROTATION_2026-11.md) §4。`SMTP_*` 六项已于同日完成真实配置与投递验证（STARTTLS 握手 `250/220/235`，两封测试邮件到达）；告警邮件收件人 `ALERT_EMAIL_RECIPIENTS` 未配置。同轮已修复 Grafana 告警 webhook 403（旧渲染 secret）与 Prometheus 抓取 403/down（旧 token 文件）；备份含旧密钥，观察期后销毁 |
 
 ---
 
