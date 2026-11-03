@@ -112,7 +112,9 @@ model_card:
   跨来源 AUC 0.8633 / Brier 0.1734 / ECE 0.1435 / 斜率 1.161。
 - **transport**：`degraded`；目标域平均预测概率 0.3272 vs 实际 0.4707，0.5 阈值灵敏度约 0.511。
 - **calibration**：同源良好；目标域未校准（目标标签数 0）。
-- **thresholds**：25/45/65/85，全局固定，`population_specific=false`。
+- **thresholds**：运行时 20/70/93/97（v1.23 校准集 p25/p50/p75/p90，生产唯一源
+  `risk_thresholds.MODALITY_RISK_THRESHOLDS`）；工件 `threshold_config.json` 的
+  18/35/55/72 仅作评估对照，不接入生产。全局固定，`population_specific=false`。
 - **intended_use**：学生/青年自报场景的风险筛查辅助、人工复核排序。
 - **out_of_scope**：非学生人群、临床诊断、仅有文本或生理数据的场景、以学业字段缺失推断风险。
 - **abstention**：`automated_decision_allowed=false`，`recommended=true`；
