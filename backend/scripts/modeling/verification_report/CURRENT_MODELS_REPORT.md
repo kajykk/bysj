@@ -16,6 +16,30 @@
 | mmpsy_lite_gbdt | data/processed/lite_features.csv (test 15%, seed 42) | 192 | 20.3% | 0.9115 | 0.8585 | 0.7895 | 0.7692 | 0.9477 | 0.7792 | 0.9019 | 0.0778 |
 | physiological_v2_dl | depresjon_physiological.csv (n=1029 全量) | 1029 | 34.9% | 0.8290 | 0.7575 | 0.9791 | 0.5209 | 0.9940 | 0.6800 | 0.9624 | 0.1462 |
 
+## 口径说明（文本模态，勿把 0.996 当真实指标）
+
+> 文本模态的 AUC/F1 **不得直接当作泛化性能引用**。
+> `text_improved_bilingual` 在 `chinese_depression_corpus_v2_clean`
+> （仅 original）上的 AUC 0.9960 是 **sibling-leaked 文本级口径**：
+> 同一原文的回译/同义改写变体同时出现在训练集与评估集，属于兄弟样本泄漏，
+> 不是外部或跨域指标，只用于口径对照。
+>
+> 去泄漏口径（v1.27 按用户分组 `StratifiedGroupKFold`，无兄弟交叠）：
+> **AUC 0.8437 / F1 0.5864**（Precision 0.6450 / Recall 0.5375）。
+> 依据：`scripts/modeling/v1_27/groupwise_eval_results.json`、
+> `scripts/modeling/v1_27/groupwise_eval_report.md`。
+> 对外引用文本模态时一律使用组级口径。
+
+## 口径说明（生理模态，勿把 0.96 当真实生理性能）
+
+> `physiological_v2_dl` 的训练表 `depresjon_physiological.csv` 中，
+> `heart_rate`/`sleep_hours`/`sleep_quality`/`systolic_bp`/`diastolic_bp`
+> 由真实队列标签的分组均值生成，`phq9_score` 也是标签的噪声副本；
+> 仅 `steps`/`exercise_minutes` 来自真实 actigraphy 汇总。
+> 仅真实列 5 折 OOF AUC 为 0.6443，合成列可达 0.9898。
+> 因此本表生理行只能作生产管线回归读数，**不得**作为真实生理信号性能引用。
+> 依据：`docs/model-evaluation/PHYSIO_DATA_PROVENANCE_AUDIT.md`。
+
 ## 混淆矩阵
 
 - **structured_v1.20**: TN=7966 FP=3957 FN=1692 TP=14937

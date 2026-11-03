@@ -393,6 +393,36 @@ def _write_markdown(report: dict, path: Path) -> None:
             f"{m['recall']:.4f} | {m['specificity']:.4f} | {m['f1']:.4f} | {auc} | {m['brier']:.4f} |"
         )
 
+    lines.extend(
+        [
+            "",
+            "## 口径说明（文本模态，勿把 0.996 当真实指标）",
+            "",
+            "> 文本模态的 AUC/F1 **不得直接当作泛化性能引用**。",
+            "> `text_improved_bilingual` 在 `chinese_depression_corpus_v2_clean`",
+            "> （仅 original）上的 AUC 0.9960 是 **sibling-leaked 文本级口径**：",
+            "> 同一原文的回译/同义改写变体同时出现在训练集与评估集，属于兄弟样本泄漏，",
+            "> 不是外部或跨域指标，只用于口径对照。",
+            ">",
+            "> 去泄漏口径（v1.27 按用户分组 `StratifiedGroupKFold`，无兄弟交叠）：",
+            "> **AUC 0.8437 / F1 0.5864**（Precision 0.6450 / Recall 0.5375）。",
+            "> 依据：`scripts/modeling/v1_27/groupwise_eval_results.json`、",
+            "> `scripts/modeling/v1_27/groupwise_eval_report.md`。",
+            "> 对外引用文本模态时一律使用组级口径。",
+            "",
+            "## 口径说明（生理模态，勿把 0.96 当真实生理性能）",
+            "",
+            "> `physiological_v2_dl` 的训练表 `depresjon_physiological.csv` 中，",
+            "> `heart_rate`/`sleep_hours`/`sleep_quality`/`systolic_bp`/`diastolic_bp`",
+            "> 由真实队列标签的分组均值生成，`phq9_score` 也是标签的噪声副本；",
+            "> 仅 `steps`/`exercise_minutes` 来自真实 actigraphy 汇总。",
+            "> 仅真实列 5 折 OOF AUC 为 0.6443，合成列可达 0.9898。",
+            "> 因此本表生理行只能作生产管线回归读数，**不得**作为真实生理信号性能引用。",
+            "> 依据：`docs/model-evaluation/PHYSIO_DATA_PROVENANCE_AUDIT.md`。",
+            "",
+        ]
+    )
+
     lines.extend(["", "## 混淆矩阵", ""])
     for key, m in report["models"].items():
         if not isinstance(m, dict) or "confusion_matrix" not in m or not m["confusion_matrix"]:

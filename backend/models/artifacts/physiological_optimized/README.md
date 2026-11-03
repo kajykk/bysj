@@ -1,5 +1,17 @@
 # physiological_optimized (v2 experimental)
 
+> **2026-11-02 状态与来源更正（以此为准）**
+>
+> - 本目录的 `model.json` / `scaler.json` / `cleaner_stats.json` 是**当前生产推理实际加载**的
+>   v2 工件（`model_registry.py` 中 `physiological_model_v2_dl` 为 default；推理见
+>   `app/core/model_engine/predict.py::_predict_physiological_sync`）。下方
+>   「TRAINING_PENDING / 未交付 / 回退到 v1」是 v1.28 时代的历史陈述，已过期。
+> - 训练数据 `depresjon_physiological.csv` 的 5/7 原始生理特征由真实队列标签驱动合成，
+>   `phq9_score` 也是标签副本；仅 `steps`/`exercise_minutes` 来自真实 actigraphy。
+>   当前 AUC 0.9451 / F1 0.8205 只能作管线回归读数，**不是真实生理信号性能**。
+> - 审计与复现：`docs/model-evaluation/PHYSIO_DATA_PROVENANCE_AUDIT.md`。
+> - 运行时 `population_scope` 的 `evidence_level` 已下调为 `synthetic_label_derived`。
+
 > **状态**: TRAINING_PENDING (未交付到 v1.28-final)
 > **生产回退**: 加载失败时自动使用 `physiological` (v1) + 启发式规则
 

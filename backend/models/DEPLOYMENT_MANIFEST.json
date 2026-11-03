@@ -1,0 +1,43 @@
+{
+  "schema": "dws-deployment-artifacts/v1",
+  "algorithm": "sha256",
+  "generated_at": "2026-11-03",
+  "artifacts": [
+    {
+      "model_id": "structured_v1.23_external_lr",
+      "path": "models/v1.23_external_lr/model.pkl",
+      "bytes": 1880,
+      "sha256": "7c19b41b971aa92fa45e92a2e695f846578c985f8e0b7bfc39ddb7235d7cbe5b"
+    },
+    {
+      "model_id": "physiological_model_v2_dl",
+      "path": "models/artifacts/physiological_optimized/model.json",
+      "bytes": 446907,
+      "sha256": "d2b0b80529a8f56484b1de1df11247775627d11b12b7bbd01fb38ffe7b78f3bd"
+    },
+    {
+      "model_id": "physiological_scaler_v2_dl",
+      "path": "models/artifacts/physiological_optimized/scaler.json",
+      "bytes": 688,
+      "sha256": "310ee08d6a061e0f1e6131099457aa6ee300d3d3edbf9aa24e11801e041946fe"
+    },
+    {
+      "model_id": "text_improved_bilingual_model",
+      "path": "models/text/improved_bilingual_model.pkl",
+      "bytes": 960734,
+      "sha256": "aaaa1e1acb1983129c996652d2105d1961c0a991550d314137546ee01a653943"
+    },
+    {
+      "model_id": "text_improved_bilingual_tfidf",
+      "path": "models/text/improved_bilingual_tfidf.pkl",
+      "bytes": 4870613,
+      "sha256": "787f30e7a291d8c76ccd0ff11dea681f501e4fbdc2d020acec2ffcf41c154519"
+    },
+    {
+      "model_id": "mmpsy_lite_model",
+      "path": "models/v1.25_mmpsy_lite/mmpsy_lite_model.pkl",
+      "bytes": 3020,
+      "sha256": "5dd5684eedc4ce4b36a5512fcc94183a912e99a1d50908661f94a1cac3075fa9"
+    }
+  ]
+}
