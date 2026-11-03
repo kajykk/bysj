@@ -1,0 +1,4973 @@
+{
+  "_note": "ROUND_46 P1. Split conformal with score 1-p(true label); singleton sets auto-decide, empty/two-label sets route to human review. Fairness is computed only where protected attributes exist (structured). No production artifact or threshold was modified.",
+  "protocol_date": "2026-11-02",
+  "method": {
+    "score": "1 - p(true label)",
+    "q": "ceil((n_cal + 1) * (1 - alpha))-th smallest calibration score",
+    "set": "{y : 1 - p(y) <= q}",
+    "auto_alert": "set == {positive}; auto_clear: set == {negative}; review: empty or both",
+    "coverage": "marginal split-conformal coverage; subgroups and Mondrian reported separately",
+    "bootstrap": "percentile bootstrap B=2000; text repeats=50 group splits"
+  },
+  "units": {
+    "structured_internal": {
+      "role": "citable_internal_test",
+      "n": 4318,
+      "positive_rate": 0.5812876331635016,
+      "conformal": {
+        "0.05": {
+          "alpha": 0.05,
+          "nominal_coverage": 0.95,
+          "n_cal": 4318,
+          "n_test": 4318,
+          "q": 0.7789809106661408,
+          "review_band": [
+            0.22101908933385916,
+            0.7789809106661408
+          ],
+          "coverage": 0.9502084298286244,
+          "coverage_wilson95": [
+            0.9433110618449727,
+            0.956305464361642
+          ],
+          "coverage_positive": 0.9665338645418327,
+          "coverage_positive_wilson95": [
+            0.9587543207973125,
+            0.9728875660775625
+          ],
+          "coverage_negative": 0.9275442477876106,
+          "coverage_negative_wilson95": [
+            0.9146664958994639,
+            0.9386090445588458
+          ],
+          "mean_set_size": 1.3121815655396016,
+          "singleton_rate": 0.6878184344603984,
+          "empty_rate": 0.0,
+          "both_rate": 0.3121815655396017,
+          "abstention_rate": 0.3121815655396017,
+          "review_positive_rate": 0.2693227091633466,
+          "review_negative_rate": 0.37168141592920356,
+          "auto_decision_rate": 0.6878184344603984,
+          "auto_alert_rate": 0.43561834182491893,
+          "auto_alert_precision": 0.9303561935140883,
+          "auto_alert_precision_wilson95": [
+            0.9179541731049542,
+            0.9410040127007498
+          ],
+          "positive_auto_alert_rate": 0.6972111553784861,
+          "positive_auto_cleared_rate": 0.03346613545816733,
+          "negative_auto_cleared_rate": 0.5558628318584071,
+          "auto_accuracy": 0.9276094276094277,
+          "coverage_by_subgroup": {
+            "source:kaggle": {
+              "n": 4181,
+              "coverage": 0.9497727816311887,
+              "coverage_wilson95": [
+                0.9427296378841831,
+                0.9559901910528646
+              ],
+              "mean_set_size": 1.3042334369767998,
+              "abstention_rate": 0.30423343697679983
+            },
+            "source:mendeley": {
+              "n": 137,
+              "coverage": 0.9635036496350365,
+              "coverage_wilson95": [
+                0.9174111125832916,
+                0.9843120097374185
+              ],
+              "mean_set_size": 1.5547445255474452,
+              "abstention_rate": 0.5547445255474452
+            },
+            "gender:0": {
+              "n": 1854,
+              "coverage": 0.9530744336569579,
+              "coverage_wilson95": [
+                0.9424757000118327,
+                0.9617995232714376
+              ],
+              "mean_set_size": 1.3122977346278317,
+              "abstention_rate": 0.3122977346278317
+            },
+            "gender:1": {
+              "n": 2464,
+              "coverage": 0.948051948051948,
+              "coverage_wilson95": [
+                0.938571087976873,
+                0.9561379266999189
+              ],
+              "mean_set_size": 1.312094155844156,
+              "abstention_rate": 0.31209415584415584
+            },
+            "kaggle_gender:0": {
+              "n": 1814,
+              "coverage": 0.9531422271223815,
+              "coverage_wilson95": [
+                0.9424226367353432,
+                0.9619466590703143
+              ],
+              "mean_set_size": 1.3065049614112458,
+              "abstention_rate": 0.3065049614112459
+            },
+            "kaggle_gender:1": {
+              "n": 2367,
+              "coverage": 0.9471905365441488,
+              "coverage_wilson95": [
+                0.9374341736631769,
+                0.9554977396554977
+              ],
+              "mean_set_size": 1.3024926066751161,
+              "abstention_rate": 0.3024926066751162
+            },
+            "age:17-20": {
+              "n": 859,
+              "coverage": 0.9732246798603027,
+              "coverage_wilson95": [
+                0.9601427049034328,
+                0.9820929650320198
+              ],
+              "mean_set_size": 1.2479627473806751,
+              "abstention_rate": 0.2479627473806752
+            },
+            "kaggle_age:17-20": {
+              "n": 797,
+              "coverage": 0.9711417816813049,
+              "coverage_wilson95": [
+                0.9570691495564104,
+                0.9806944885872869
+              ],
+              "mean_set_size": 1.2296110414052697,
+              "abstention_rate": 0.22961104140526975
+            },
+            "age:21-25": {
+              "n": 1361,
+              "coverage": 0.9390154298310066,
+              "coverage_wilson95": [
+                0.9250241915693177,
+                0.9505353778421747
+              ],
+              "mean_set_size": 1.3093313739897134,
+              "abstention_rate": 0.30933137398971344
+            },
+            "kaggle_age:21-25": {
+              "n": 1296,
+              "coverage": 0.9382716049382716,
+              "coverage_wilson95": [
+                0.9238293393683493,
+                0.9501233971681954
+              ],
+              "mean_set_size": 1.2939814814814814,
+              "abstention_rate": 0.29398148148148145
+            },
+            "age:26-30": {
+              "n": 1205,
+              "coverage": 0.946058091286307,
+              "coverage_wilson95": [
+                0.9318273551154193,
+                0.9574538588567874
+              ],
+              "mean_set_size": 1.3319502074688796,
+              "abstention_rate": 0.33195020746887965
+            },
+            "kaggle_age:26-30": {
+              "n": 1195,
+              "coverage": 0.9472803347280335,
+              "coverage_wilson95": [
+                0.9331161123337588,
+                0.9585781080609717
+              ],
+              "mean_set_size": 1.3297071129707112,
+              "abstention_rate": 0.3297071129707113
+            },
+            "age:31-35": {
+              "n": 893,
+              "coverage": 0.9507278835386338,
+              "coverage_wilson95": [
+                0.9345012338427146,
+                0.9630933098557206
+              ],
+              "mean_set_size": 1.3516237402015678,
+              "abstention_rate": 0.3516237402015677
+            },
+            "kaggle_age:31-35": {
+              "n": 893,
+              "coverage": 0.9507278835386338,
+              "coverage_wilson95": [
+                0.9345012338427146,
+                0.9630933098557206
+              ],
+              "mean_set_size": 1.3516237402015678,
+              "abstention_rate": 0.3516237402015677
+            }
+          }
+        },
+        "0.10": {
+          "alpha": 0.1,
+          "nominal_coverage": 0.9,
+          "n_cal": 4318,
+          "n_test": 4318,
+          "q": 0.6424257885012837,
+          "review_band": [
+            0.35757421149871627,
+            0.6424257885012837
+          ],
+          "coverage": 0.9027327466419639,
+          "coverage_wilson95": [
+            0.8935331384795824,
+            0.9112164186568903
+          ],
+          "coverage_positive": 0.9306772908366534,
+          "coverage_positive_wilson95": [
+            0.9200681253893158,
+            0.9399702005814271
+          ],
+          "coverage_negative": 0.8639380530973452,
+          "coverage_negative_wilson95": [
+            0.8473606587845236,
+            0.8789722074788243
+          ],
+          "mean_set_size": 1.148911533117184,
+          "singleton_rate": 0.8510884668828161,
+          "empty_rate": 0.0,
+          "both_rate": 0.1489115331171839,
+          "abstention_rate": 0.1489115331171839,
+          "review_positive_rate": 0.12270916334661354,
+          "review_negative_rate": 0.18528761061946902,
+          "auto_decision_rate": 0.8510884668828161,
+          "auto_alert_rate": 0.5266327003242242,
+          "auto_alert_precision": 0.8918205804749341,
+          "auto_alert_precision_wilson95": [
+            0.8783871938782101,
+            0.9039323978121591
+          ],
+          "positive_auto_alert_rate": 0.8079681274900399,
+          "positive_auto_cleared_rate": 0.06932270916334661,
+          "negative_auto_cleared_rate": 0.6786504424778761,
+          "auto_accuracy": 0.8857142857142857,
+          "coverage_by_subgroup": {
+            "source:kaggle": {
+              "n": 4181,
+              "coverage": 0.9033723989476202,
+              "coverage_wilson95": [
+                0.8940430363705277,
+                0.9119612132983536
+              ],
+              "mean_set_size": 1.1444630471179145,
+              "abstention_rate": 0.14446304711791438
+            },
+            "source:mendeley": {
+              "n": 137,
+              "coverage": 0.8832116788321168,
+              "coverage_wilson95": [
+                0.818698144531221,
+                0.9268209723481061
+              ],
+              "mean_set_size": 1.2846715328467153,
+              "abstention_rate": 0.2846715328467153
+            },
+            "gender:0": {
+              "n": 1854,
+              "coverage": 0.8996763754045307,
+              "coverage_wilson95": [
+                0.885163801215653,
+                0.9125361278949461
+              ],
+              "mean_set_size": 1.1353829557713053,
+              "abstention_rate": 0.1353829557713053
+            },
+            "gender:1": {
+              "n": 2464,
+              "coverage": 0.9050324675324676,
+              "coverage_wilson95": [
+                0.8928181303733049,
+                0.9159858520972011
+              ],
+              "mean_set_size": 1.1590909090909092,
+              "abstention_rate": 0.1590909090909091
+            },
+            "kaggle_gender:0": {
+              "n": 1814,
+              "coverage": 0.9007717750826902,
+              "coverage_wilson95": [
+                0.886155366763652,
+                0.9136943632250499
+              ],
+              "mean_set_size": 1.1339581036383684,
+              "abstention_rate": 0.13395810363836824
+            },
+            "kaggle_gender:1": {
+              "n": 2367,
+              "coverage": 0.9053654414871145,
+              "coverage_wilson95": [
+                0.8929079402080506,
+                0.9165093208493591
+              ],
+              "mean_set_size": 1.1525137304604984,
+              "abstention_rate": 0.15251373046049851
+            },
+            "age:17-20": {
+              "n": 859,
+              "coverage": 0.9254947613504074,
+              "coverage_wilson95": [
+                0.9059771415192521,
+                0.9412236883981104
+              ],
+              "mean_set_size": 1.1152502910360884,
+              "abstention_rate": 0.11525029103608847
+            },
+            "kaggle_age:17-20": {
+              "n": 797,
+              "coverage": 0.9284818067754078,
+              "coverage_wilson95": [
+                0.9084613281350313,
+                0.9443916210688903
+              ],
+              "mean_set_size": 1.1028858218318696,
+              "abstention_rate": 0.1028858218318695
+            },
+            "age:21-25": {
+              "n": 1361,
+              "coverage": 0.8861131520940485,
+              "coverage_wilson95": [
+                0.8681379706922724,
+                0.9019148388905548
+              ],
+              "mean_set_size": 1.1506245407788391,
+              "abstention_rate": 0.15062454077883908
+            },
+            "kaggle_age:21-25": {
+              "n": 1296,
+              "coverage": 0.8842592592592593,
+              "coverage_wilson95": [
+                0.8656951584104164,
+                0.9005521352431034
+              ],
+              "mean_set_size": 1.1427469135802468,
+              "abstention_rate": 0.1427469135802469
+            },
+            "age:26-30": {
+              "n": 1205,
+              "coverage": 0.9020746887966805,
+              "coverage_wilson95": [
+                0.8839937998931683,
+                0.9176001501896859
+              ],
+              "mean_set_size": 1.1551867219917011,
+              "abstention_rate": 0.15518672199170125
+            },
+            "kaggle_age:26-30": {
+              "n": 1195,
+              "coverage": 0.9046025104602511,
+              "coverage_wilson95": [
+                0.8866266353034359,
+                0.9199854424530695
+              ],
+              "mean_set_size": 1.1548117154811715,
+              "abstention_rate": 0.15481171548117154
+            },
+            "age:31-35": {
+              "n": 893,
+              "coverage": 0.9070548712206047,
+              "coverage_wilson95": [
+                0.8862285857500962,
+                0.9243940642732111
+              ],
+              "mean_set_size": 1.1702127659574468,
+              "abstention_rate": 0.1702127659574468
+            },
+            "kaggle_age:31-35": {
+              "n": 893,
+              "coverage": 0.9070548712206047,
+              "coverage_wilson95": [
+                0.8862285857500962,
+                0.9243940642732111
+              ],
+              "mean_set_size": 1.1702127659574468,
+              "abstention_rate": 0.1702127659574468
+            }
+          }
+        },
+        "0.20": {
+          "alpha": 0.2,
+          "nominal_coverage": 0.8,
+          "n_cal": 4318,
+          "n_test": 4318,
+          "q": 0.41657130922807695,
+          "review_band": [
+            0.41657130922807695,
+            0.583428690771923
+          ],
+          "coverage": 0.7883279295970357,
+          "coverage_wilson95": [
+            0.775890310478094,
+            0.8002529894844755
+          ],
+          "coverage_positive": 0.8370517928286852,
+          "coverage_positive_wilson95": [
+            0.8220904468706778,
+            0.8509830256281645
+          ],
+          "coverage_negative": 0.7206858407079646,
+          "coverage_negative_wilson95": [
+            0.6995537326141975,
+            0.7408821543752794
+          ],
+          "mean_set_size": 0.9110699397869384,
+          "singleton_rate": 0.9110699397869384,
+          "empty_rate": 0.0889300602130616,
+          "both_rate": 0.0,
+          "abstention_rate": 0.0889300602130616,
+          "review_positive_rate": 0.0697211155378486,
+          "review_negative_rate": 0.11559734513274336,
+          "auto_decision_rate": 0.9110699397869384,
+          "auto_alert_rate": 0.5551181102362205,
+          "auto_alert_precision": 0.8765123070504798,
+          "auto_alert_precision_wilson95": [
+            0.8627360481674636,
+            0.8890836912694858
+          ],
+          "positive_auto_alert_rate": 0.8370517928286852,
+          "positive_auto_cleared_rate": 0.09322709163346614,
+          "negative_auto_cleared_rate": 0.7206858407079646,
+          "auto_accuracy": 0.8652770716827657,
+          "coverage_by_subgroup": {
+            "source:kaggle": {
+              "n": 4181,
+              "coverage": 0.7921549868452523,
+              "coverage_wilson95": [
+                0.7795901551767839,
+                0.804183453462729
+              ],
+              "mean_set_size": 0.9138961970820378,
+              "abstention_rate": 0.08610380291796221
+            },
+            "source:mendeley": {
+              "n": 137,
+              "coverage": 0.6715328467153284,
+              "coverage_wilson95": [
+                0.5891489046040097,
+                0.744559652475308
+              ],
+              "mean_set_size": 0.8248175182481752,
+              "abstention_rate": 0.17518248175182483
+            },
+            "gender:0": {
+              "n": 1854,
+              "coverage": 0.796655879180151,
+              "coverage_wilson95": [
+                0.777730358954691,
+                0.8143546086712597
+              ],
+              "mean_set_size": 0.918015102481122,
+              "abstention_rate": 0.08198489751887811
+            },
+            "gender:1": {
+              "n": 2464,
+              "coverage": 0.7820616883116883,
+              "coverage_wilson95": [
+                0.7653283752177973,
+                0.7979168831158716
+              ],
+              "mean_set_size": 0.9058441558441559,
+              "abstention_rate": 0.09415584415584416
+            },
+            "kaggle_gender:0": {
+              "n": 1814,
+              "coverage": 0.7993384785005513,
+              "coverage_wilson95": [
+                0.7802844720778681,
+                0.8171273620127304
+              ],
+              "mean_set_size": 0.9195148842337376,
+              "abstention_rate": 0.0804851157662624
+            },
+            "kaggle_gender:1": {
+              "n": 2367,
+              "coverage": 0.7866497676383608,
+              "coverage_wilson95": [
+                0.7696882608353917,
+                0.8026823609753979
+              ],
+              "mean_set_size": 0.9095901985635826,
+              "abstention_rate": 0.0904098014364174
+            },
+            "age:17-20": {
+              "n": 859,
+              "coverage": 0.8381839348079162,
+              "coverage_wilson95": [
+                0.8120589458320715,
+                0.8612976645400048
+              ],
+              "mean_set_size": 0.930151338766007,
+              "abstention_rate": 0.06984866123399301
+            },
+            "kaggle_age:17-20": {
+              "n": 797,
+              "coverage": 0.849435382685069,
+              "coverage_wilson95": [
+                0.822933968360605,
+                0.872584468984321
+              ],
+              "mean_set_size": 0.9372647427854455,
+              "abstention_rate": 0.06273525721455459
+            },
+            "age:21-25": {
+              "n": 1361,
+              "coverage": 0.772226304188097,
+              "coverage_wilson95": [
+                0.7491968583075165,
+                0.7937233433108232
+              ],
+              "mean_set_size": 0.9110947832476121,
+              "abstention_rate": 0.08890521675238795
+            },
+            "kaggle_age:21-25": {
+              "n": 1296,
+              "coverage": 0.7770061728395061,
+              "coverage_wilson95": [
+                0.7535439237432965,
+                0.7988311333282166
+              ],
+              "mean_set_size": 0.9174382716049383,
+              "abstention_rate": 0.08256172839506173
+            },
+            "age:26-30": {
+              "n": 1205,
+              "coverage": 0.783402489626556,
+              "coverage_wilson95": [
+                0.759263343926225,
+                0.8057404413230932
+              ],
+              "mean_set_size": 0.9145228215767635,
+              "abstention_rate": 0.08547717842323652
+            },
+            "kaggle_age:26-30": {
+              "n": 1195,
+              "coverage": 0.7857740585774059,
+              "coverage_wilson95": [
+                0.7616154992082936,
+                0.8081012010064873
+              ],
+              "mean_set_size": 0.9138075313807531,
+              "abstention_rate": 0.08619246861924686
+            },
+            "age:31-35": {
+              "n": 893,
+              "coverage": 0.7715565509518477,
+              "coverage_wilson95": [
+                0.7428921469495477,
+                0.7978946278252859
+              ],
+              "mean_set_size": 0.8880179171332587,
+              "abstention_rate": 0.11198208286674133
+            },
+            "kaggle_age:31-35": {
+              "n": 893,
+              "coverage": 0.7715565509518477,
+              "coverage_wilson95": [
+                0.7428921469495477,
+                0.7978946278252859
+              ],
+              "mean_set_size": 0.8880179171332587,
+              "abstention_rate": 0.11198208286674133
+            }
+          }
+        }
+      },
+      "mondrian_alpha_0.10": {
+        "source": {
+          "alpha": 0.1,
+          "groups": {
+            "source:kaggle": {
+              "alpha": 0.1,
+              "nominal_coverage": 0.9,
+              "n_cal": 4181,
+              "n_test": 4181,
+              "q": 0.6426062561909888,
+              "review_band": [
+                0.35739374380901123,
+                0.6426062561909888
+              ],
+              "coverage": 0.9033723989476202,
+              "coverage_wilson95": [
+                0.8940430363705277,
+                0.9119612132983536
+              ],
+              "coverage_positive": 0.9349959116925592,
+              "coverage_positive_wilson95": [
+                0.9245276710492459,
+                0.9440999670120259
+              ],
+              "coverage_negative": 0.8587896253602305,
+              "coverage_negative_wilson95": [
+                0.841609835078852,
+                0.8743841353227829
+              ],
+              "mean_set_size": 1.1444630471179145,
+              "singleton_rate": 0.8555369528820856,
+              "empty_rate": 0.0,
+              "both_rate": 0.14446304711791438,
+              "abstention_rate": 0.14446304711791438,
+              "review_positive_rate": 0.1169255928045789,
+              "review_negative_rate": 0.18328530259365994,
+              "auto_decision_rate": 0.8555369528820856,
+              "auto_alert_rate": 0.5371920593159532,
+              "auto_alert_precision": 0.8909171861086376,
+              "auto_alert_precision_wilson95": [
+                0.877350864285992,
+                0.9031485762925666
+              ],
+              "positive_auto_alert_rate": 0.8180703188879804,
+              "positive_auto_cleared_rate": 0.06500408830744071,
+              "negative_auto_cleared_rate": 0.6755043227665706,
+              "auto_accuracy": 0.8870561923399497
+            },
+            "source:mendeley": {
+              "alpha": 0.1,
+              "nominal_coverage": 0.9,
+              "n_cal": 137,
+              "n_test": 137,
+              "q": 0.6169581811121632,
+              "review_band": [
+                0.38304181888783684,
+                0.6169581811121632
+              ],
+              "coverage": 0.8613138686131386,
+              "coverage_wilson95": [
+                0.7935350433664754,
+                0.9093829811197471
+              ],
+              "coverage_positive": 0.75,
+              "coverage_positive_wilson95": [
+                0.631837235413303,
+                0.8398507346902941
+              ],
+              "coverage_negative": 0.958904109589041,
+              "coverage_negative_wilson95": [
+                0.8859990837370165,
+                0.9859260596460794
+              ],
+              "mean_set_size": 1.2262773722627738,
+              "singleton_rate": 0.7737226277372263,
+              "empty_rate": 0.0,
+              "both_rate": 0.22627737226277372,
+              "abstention_rate": 0.22627737226277372,
+              "review_positive_rate": 0.265625,
+              "review_negative_rate": 0.1917808219178082,
+              "auto_decision_rate": 0.7737226277372263,
+              "auto_alert_rate": 0.24817518248175183,
+              "auto_alert_precision": 0.9117647058823529,
+              "auto_alert_precision_wilson95": [
+                0.7703951343719113,
+                0.9695340563253514
+              ],
+              "positive_auto_alert_rate": 0.484375,
+              "positive_auto_cleared_rate": 0.25,
+              "negative_auto_cleared_rate": 0.7671232876712328,
+              "auto_accuracy": 0.8207547169811321
+            }
+          },
+          "assigned_rate": 1.0,
+          "marginal_coverage_assigned": 0.9020379805465494,
+          "mean_set_size_assigned": 1.1470588235294117
+        },
+        "gender": {
+          "alpha": 0.1,
+          "groups": {
+            "gender:0": {
+              "alpha": 0.1,
+              "nominal_coverage": 0.9,
+              "n_cal": 1918,
+              "n_test": 1854,
+              "q": 0.6737935493057671,
+              "review_band": [
+                0.32620645069423293,
+                0.6737935493057671
+              ],
+              "coverage": 0.9104638619201726,
+              "coverage_wilson95": [
+                0.8966044570487359,
+                0.9226258345209888
+              ],
+              "coverage_positive": 0.9361111111111111,
+              "coverage_positive_wilson95": [
+                0.9199242453132717,
+                0.9492065600583655
+              ],
+              "coverage_negative": 0.8746770025839793,
+              "coverage_negative_wilson95": [
+                0.84948607974087,
+                0.8961671551475779
+              ],
+              "mean_set_size": 1.1715210355987056,
+              "singleton_rate": 0.8284789644012945,
+              "empty_rate": 0.0,
+              "both_rate": 0.1715210355987055,
+              "abstention_rate": 0.1715210355987055,
+              "review_positive_rate": 0.13703703703703704,
+              "review_negative_rate": 0.21963824289405684,
+              "auto_decision_rate": 0.8284789644012945,
+              "auto_alert_rate": 0.517799352750809,
+              "auto_alert_precision": 0.8989583333333333,
+              "auto_alert_precision_wilson95": [
+                0.8782751492552293,
+                0.9164613636742284
+              ],
+              "positive_auto_alert_rate": 0.799074074074074,
+              "positive_auto_cleared_rate": 0.06388888888888888,
+              "negative_auto_cleared_rate": 0.6550387596899225,
+              "auto_accuracy": 0.8919270833333334
+            },
+            "gender:1": {
+              "alpha": 0.1,
+              "nominal_coverage": 0.9,
+              "n_cal": 2400,
+              "n_test": 2464,
+              "q": 0.6180069056322748,
+              "review_band": [
+                0.3819930943677252,
+                0.6180069056322748
+              ],
+              "coverage": 0.890827922077922,
+              "coverage_wilson95": [
+                0.8779006434154618,
+                0.9025384699303268
+              ],
+              "coverage_positive": 0.916083916083916,
+              "coverage_positive_wilson95": [
+                0.9005747555846306,
+                0.9293635843059951
+              ],
+              "coverage_negative": 0.8558994197292069,
+              "coverage_negative_wilson95": [
+                0.8331753485679666,
+                0.8759888438476279
+              ],
+              "mean_set_size": 1.1290584415584415,
+              "singleton_rate": 0.8709415584415584,
+              "empty_rate": 0.0,
+              "both_rate": 0.12905844155844157,
+              "abstention_rate": 0.12905844155844157,
+              "review_positive_rate": 0.106993006993007,
+              "review_negative_rate": 0.1595744680851064,
+              "auto_decision_rate": 0.8709415584415584,
+              "auto_alert_rate": 0.5300324675324676,
+              "auto_alert_precision": 0.8859111791730475,
+              "auto_alert_precision_wilson95": [
+                0.8675253158441385,
+                0.9020334679399276
+              ],
+              "positive_auto_alert_rate": 0.8090909090909091,
+              "positive_auto_cleared_rate": 0.08391608391608392,
+              "negative_auto_cleared_rate": 0.6963249516441006,
+              "auto_accuracy": 0.874650512581547
+            }
+          },
+          "assigned_rate": 1.0,
+          "marginal_coverage_assigned": 0.8992589161648912,
+          "mean_set_size_assigned": 1.1472904122278833
+        },
+        "age": {
+          "alpha": 0.1,
+          "groups": {
+            "age:17-20": {
+              "alpha": 0.1,
+              "nominal_coverage": 0.9,
+              "n_cal": 853,
+              "n_test": 859,
+              "q": 0.6309338892129717,
+              "review_band": [
+                0.36906611078702833,
+                0.6309338892129717
+              ],
+              "coverage": 0.9185098952270081,
+              "coverage_wilson95": [
+                0.8982970081259654,
+                0.9349962842277744
+              ],
+              "coverage_positive": 0.9801980198019802,
+              "coverage_positive_wilson95": [
+                0.9657095871070284,
+                0.9886368115872589
+              ],
+              "coverage_negative": 0.7707509881422925,
+              "coverage_negative_wilson95": [
+                0.7151347638322827,
+                0.8182682180268193
+              ],
+              "mean_set_size": 1.1024447031431897,
+              "singleton_rate": 0.8975552968568102,
+              "empty_rate": 0.0,
+              "both_rate": 0.10244470314318975,
+              "abstention_rate": 0.10244470314318975,
+              "review_positive_rate": 0.06435643564356436,
+              "review_negative_rate": 0.19367588932806323,
+              "auto_decision_rate": 0.8975552968568102,
+              "auto_alert_rate": 0.7136204889406287,
+              "auto_alert_precision": 0.9053833605220228,
+              "auto_alert_precision_wilson95": [
+                0.879623917303814,
+                0.9260936506271541
+              ],
+              "positive_auto_alert_rate": 0.9158415841584159,
+              "positive_auto_cleared_rate": 0.019801980198019802,
+              "negative_auto_cleared_rate": 0.5770750988142292,
+              "auto_accuracy": 0.9092088197146563
+            },
+            "age:21-25": {
+              "alpha": 0.1,
+              "nominal_coverage": 0.9,
+              "n_cal": 1332,
+              "n_test": 1361,
+              "q": 0.625230068965984,
+              "review_band": [
+                0.374769931034016,
+                0.625230068965984
+              ],
+              "coverage": 0.8765613519470977,
+              "coverage_wilson95": [
+                0.8580181972784621,
+                0.8929847806686338
+              ],
+              "coverage_positive": 0.9233409610983981,
+              "coverage_positive_wilson95": [
+                0.9037915775978028,
+                0.9391852407836477
+              ],
+              "coverage_negative": 0.7926078028747433,
+              "coverage_negative_wilson95": [
+                0.7543770996923946,
+                0.8262584494821736
+              ],
+              "mean_set_size": 1.1285819250551066,
+              "singleton_rate": 0.8714180749448934,
+              "empty_rate": 0.0,
+              "both_rate": 0.12858192505510654,
+              "abstention_rate": 0.12858192505510654,
+              "review_positive_rate": 0.10183066361556065,
+              "review_negative_rate": 0.17659137577002054,
+              "auto_decision_rate": 0.8714180749448934,
+              "auto_alert_rate": 0.6017634092578986,
+              "auto_alert_precision": 0.8766788766788767,
+              "auto_alert_precision_wilson95": [
+                0.8523854524297657,
+                0.8974552287681549
+              ],
+              "positive_auto_alert_rate": 0.8215102974828375,
+              "positive_auto_cleared_rate": 0.07665903890160183,
+              "negative_auto_cleared_rate": 0.6160164271047228,
+              "auto_accuracy": 0.8583473861720068
+            },
+            "age:26-30": {
+              "alpha": 0.1,
+              "nominal_coverage": 0.9,
+              "n_cal": 1209,
+              "n_test": 1205,
+              "q": 0.6988797232123497,
+              "review_band": [
+                0.3011202767876503,
+                0.6988797232123497
+              ],
+              "coverage": 0.9195020746887966,
+              "coverage_wilson95": [
+                0.9027744447553879,
+                0.9335635155477756
+              ],
+              "coverage_positive": 0.924924924924925,
+              "coverage_positive_wilson95": [
+                0.9023842637898225,
+                0.9425918011382655
+              ],
+              "coverage_negative": 0.9128014842300557,
+              "coverage_negative_wilson95": [
+                0.885968066828177,
+                0.9337924595080914
+              ],
+              "mean_set_size": 1.2240663900414939,
+              "singleton_rate": 0.7759336099585062,
+              "empty_rate": 0.0,
+              "both_rate": 0.22406639004149378,
+              "abstention_rate": 0.22406639004149378,
+              "review_positive_rate": 0.1921921921921922,
+              "review_negative_rate": 0.2634508348794063,
+              "auto_decision_rate": 0.7759336099585062,
+              "auto_alert_rate": 0.44398340248962653,
+              "auto_alert_precision": 0.9121495327102803,
+              "auto_alert_precision_wilson95": [
+                0.8851299856500107,
+                0.9332925629140335
+              ],
+              "positive_auto_alert_rate": 0.7327327327327328,
+              "positive_auto_cleared_rate": 0.07507507507507508,
+              "negative_auto_cleared_rate": 0.6493506493506493,
+              "auto_accuracy": 0.8962566844919786
+            },
+            "age:31-35": {
+              "alpha": 0.1,
+              "nominal_coverage": 0.9,
+              "n_cal": 924,
+              "n_test": 893,
+              "q": 0.6307306567115545,
+              "review_band": [
+                0.3692693432884455,
+                0.6307306567115545
+              ],
+              "coverage": 0.9014557670772676,
+              "coverage_wilson95": [
+                0.8801541150082293,
+                0.9193182922362155
+              ],
+              "coverage_positive": 0.8736263736263736,
+              "coverage_positive_wilson95": [
+                0.835545651856836,
+                0.9039033511784296
+              ],
+              "coverage_negative": 0.9206049149338374,
+              "coverage_negative_wilson95": [
+                0.8944179238256167,
+                0.9407273011440989
+              ],
+              "mean_set_size": 1.16013437849944,
+              "singleton_rate": 0.8398656215005599,
+              "empty_rate": 0.0,
+              "both_rate": 0.1601343784994401,
+              "abstention_rate": 0.1601343784994401,
+              "review_positive_rate": 0.19230769230769232,
+              "review_negative_rate": 0.13799621928166353,
+              "auto_decision_rate": 0.8398656215005599,
+              "auto_alert_rate": 0.3247480403135498,
+              "auto_alert_precision": 0.8551724137931035,
+              "auto_alert_precision_wilson95": [
+                0.8100234386886503,
+                0.8910348831246234
+              ],
+              "positive_auto_alert_rate": 0.6813186813186813,
+              "positive_auto_cleared_rate": 0.12637362637362637,
+              "negative_auto_cleared_rate": 0.782608695652174,
+              "auto_accuracy": 0.8826666666666667
+            }
+          },
+          "assigned_rate": 1.0,
+          "marginal_coverage_assigned": 0.9020379805465494,
+          "mean_set_size_assigned": 1.1565539601667438
+        }
+      },
+      "fairness": {
+        "subgroups": {
+          "source:kaggle": {
+            "n": 4181,
+            "positives": 2446,
+            "prevalence": 0.5850275053814877,
+            "auroc": 0.9144697806923496,
+            "auprc": 0.9328455701461623,
+            "brier": 0.11389153729238163,
+            "ece": 0.017221585453731498,
+            "calibration_slope": 1.0271628612796766,
+            "operating_points": {
+              "0.25": {
+                "alerts": 3078,
+                "alert_rate": 0.7361875149485769,
+                "sensitivity": 0.9632052330335241,
+                "sensitivity_wilson95": [
+                  0.9549888833082075,
+                  0.9699689305295941
+                ],
+                "specificity": 0.5838616714697407,
+                "specificity_wilson95": [
+                  0.560507481877011,
+                  0.6068453256626483
+                ],
+                "ppv": 0.7654320987654321,
+                "ppv_wilson95": [
+                  0.7501376195779029,
+                  0.7800648654731194
+                ],
+                "npv": 0.9184043517679057,
+                "f1": 0.8530050687907313
+              },
+              "0.45": {
+                "alerts": 2640,
+                "alert_rate": 0.6314278880650562,
+                "sensitivity": 0.8969746524938675,
+                "sensitivity_wilson95": [
+                  0.8842984586749962,
+                  0.9084058989918224
+                ],
+                "specificity": 0.7429394812680116,
+                "specificity_wilson95": [
+                  0.7218551966438103,
+                  0.7629503592185016
+                ],
+                "ppv": 0.831060606060606,
+                "ppv_wilson95": [
+                  0.816288720436601,
+                  0.8448704402869429
+                ],
+                "npv": 0.836469824789098,
+                "f1": 0.8627605190719623
+              },
+              "0.50": {
+                "alerts": 2542,
+                "alert_rate": 0.6079885194929443,
+                "sensitivity": 0.8777596075224857,
+                "sensitivity_wilson95": [
+                  0.8641827217008737,
+                  0.8901518060891782
+                ],
+                "specificity": 0.7723342939481268,
+                "specificity_wilson95": [
+                  0.7520142448773341,
+                  0.7914510579576419
+                ],
+                "ppv": 0.8446105428796223,
+                "ppv_wilson95": [
+                  0.8300084452936146,
+                  0.8581726643076001
+                ],
+                "npv": 0.8175716900549115,
+                "f1": 0.8608660785886126
+              },
+              "0.65": {
+                "alerts": 2221,
+                "alert_rate": 0.5312126285577613,
+                "sensitivity": 0.8115290269828291,
+                "sensitivity_wilson95": [
+                  0.7955463302808036,
+                  0.8265347413382652
+                ],
+                "specificity": 0.8639769452449567,
+                "specificity_wilson95": [
+                  0.8470398298411479,
+                  0.8793058606144866
+                ],
+                "ppv": 0.8937415578568213,
+                "ppv_wilson95": [
+                  0.8802384844221438,
+                  0.9058849461107805
+                ],
+                "npv": 0.764795918367347,
+                "f1": 0.8506535247482323
+              }
+            }
+          },
+          "source:mendeley": {
+            "n": 137,
+            "positives": 64,
+            "prevalence": 0.46715328467153283,
+            "auroc": 0.8671875000000002,
+            "auprc": 0.8723526438142299,
+            "brier": 0.154749021172934,
+            "ece": 0.13324021651741447,
+            "calibration_slope": 1.3240981023499476,
+            "operating_points": {
+              "0.25": {
+                "alerts": 86,
+                "alert_rate": 0.6277372262773723,
+                "sensitivity": 0.890625,
+                "sensitivity_wilson95": [
+                  0.7910135867310387,
+                  0.945998866555832
+                ],
+                "specificity": 0.6027397260273972,
+                "specificity_wilson95": [
+                  0.4880741402294003,
+                  0.7071329814235315
+                ],
+                "ppv": 0.6627906976744186,
+                "ppv_wilson95": [
+                  0.557825607589722,
+                  0.7538345142242223
+                ],
+                "npv": 0.8627450980392157,
+                "f1": 0.76
+              },
+              "0.45": {
+                "alerts": 62,
+                "alert_rate": 0.45255474452554745,
+                "sensitivity": 0.734375,
+                "sensitivity_wilson95": [
+                  0.6151712627143486,
+                  0.8270362092577739
+                ],
+                "specificity": 0.7945205479452054,
+                "specificity_wilson95": [
+                  0.6882634698485864,
+                  0.8713302788898184
+                ],
+                "ppv": 0.7580645161290323,
+                "ppv_wilson95": [
+                  0.6384749248397259,
+                  0.8475410379466626
+                ],
+                "npv": 0.7733333333333333,
+                "f1": 0.746031746031746
+              },
+              "0.50": {
+                "alerts": 52,
+                "alert_rate": 0.3795620437956204,
+                "sensitivity": 0.703125,
+                "sensitivity_wilson95": [
+                  0.5822979889645707,
+                  0.8009484867446022
+                ],
+                "specificity": 0.9041095890410958,
+                "specificity_wilson95": [
+                  0.815043633098338,
+                  0.9527710454031942
+                ],
+                "ppv": 0.8653846153846154,
+                "ppv_wilson95": [
+                  0.747266798348062,
+                  0.9332311829460386
+                ],
+                "npv": 0.7764705882352941,
+                "f1": 0.7758620689655172
+              },
+              "0.65": {
+                "alerts": 27,
+                "alert_rate": 0.19708029197080293,
+                "sensitivity": 0.40625,
+                "sensitivity_wilson95": [
+                  0.2945690924971961,
+                  0.5285479187139549
+                ],
+                "specificity": 0.9863013698630136,
+                "specificity_wilson95": [
+                  0.9264026272903616,
+                  0.997577748533516
+                ],
+                "ppv": 0.9629629629629629,
+                "ppv_wilson95": [
+                  0.8171653406642414,
+                  0.9934318540192149
+                ],
+                "npv": 0.6545454545454545,
+                "f1": 0.5714285714285714
+              }
+            }
+          },
+          "gender:0": {
+            "n": 1854,
+            "positives": 1080,
+            "prevalence": 0.5825242718446602,
+            "auroc": 0.9176021628864006,
+            "auprc": 0.9358996421109935,
+            "brier": 0.1123809837070998,
+            "ece": 0.02780291704679807,
+            "calibration_slope": 1.0501339099537637,
+            "operating_points": {
+              "0.25": {
+                "alerts": 1369,
+                "alert_rate": 0.738403451995685,
+                "sensitivity": 0.9629629629629629,
+                "sensitivity_wilson95": [
+                  0.9499598225356863,
+                  0.9726843445254995
+                ],
+                "specificity": 0.5749354005167958,
+                "specificity_wilson95": [
+                  0.5398225743230003,
+                  0.6093080726546891
+                ],
+                "ppv": 0.7596785975164354,
+                "ppv_wilson95": [
+                  0.7363381783890048,
+                  0.7815657612332494
+                ],
+                "npv": 0.9175257731958762,
+                "f1": 0.8493262556145366
+              },
+              "0.45": {
+                "alerts": 1164,
+                "alert_rate": 0.627831715210356,
+                "sensitivity": 0.9009259259259259,
+                "sensitivity_wilson95": [
+                  0.8816617810771359,
+                  0.9173480675978511
+                ],
+                "specificity": 0.7532299741602068,
+                "specificity_wilson95": [
+                  0.7216556680432847,
+                  0.7823030700192525
+                ],
+                "ppv": 0.8359106529209622,
+                "ppv_wilson95": [
+                  0.8135359362720479,
+                  0.8560755029293629
+                ],
+                "npv": 0.8449275362318841,
+                "f1": 0.8672014260249554
+              },
+              "0.50": {
+                "alerts": 1124,
+                "alert_rate": 0.6062567421790723,
+                "sensitivity": 0.8851851851851852,
+                "sensitivity_wilson95": [
+                  0.8647915899697821,
+                  0.9028483570251246
+                ],
+                "specificity": 0.7829457364341085,
+                "specificity_wilson95": [
+                  0.7525444260949247,
+                  0.8105523271484204
+                ],
+                "ppv": 0.8505338078291815,
+                "ppv_wilson95": [
+                  0.8284971292951346,
+                  0.8701826309115501
+                ],
+                "npv": 0.8301369863013699,
+                "f1": 0.867513611615245
+              },
+              "0.65": {
+                "alerts": 990,
+                "alert_rate": 0.5339805825242718,
+                "sensitivity": 0.8166666666666667,
+                "sensitivity_wilson95": [
+                  0.7924809119796159,
+                  0.8386076982902353
+                ],
+                "specificity": 0.8604651162790697,
+                "specificity_wilson95": [
+                  0.8342692814320615,
+                  0.8831005548916523
+                ],
+                "ppv": 0.8909090909090909,
+                "ppv_wilson95": [
+                  0.8699572326862132,
+                  0.9088390160821155
+                ],
+                "npv": 0.7708333333333334,
+                "f1": 0.8521739130434782
+              }
+            }
+          },
+          "gender:1": {
+            "n": 2464,
+            "positives": 1430,
+            "prevalence": 0.5803571428571429,
+            "auroc": 0.9093922035411397,
+            "auprc": 0.9272193363515298,
+            "brier": 0.11729983341200345,
+            "ece": 0.027967274703391345,
+            "calibration_slope": 1.0137181876661625,
+            "operating_points": {
+              "0.25": {
+                "alerts": 1795,
+                "alert_rate": 0.7284902597402597,
+                "sensitivity": 0.9601398601398602,
+                "sensitivity_wilson95": [
+                  0.9487064030664675,
+                  0.9691077610478719
+                ],
+                "specificity": 0.5918762088974855,
+                "specificity_wilson95": [
+                  0.5616326359665915,
+                  0.621439641966782
+                ],
+                "ppv": 0.7649025069637883,
+                "ppv_wilson95": [
+                  0.7447321313089863,
+                  0.783941474325758
+                ],
+                "npv": 0.9147982062780269,
+                "f1": 0.8514728682170543
+              },
+              "0.45": {
+                "alerts": 1538,
+                "alert_rate": 0.6241883116883117,
+                "sensitivity": 0.8867132867132868,
+                "sensitivity_wilson95": [
+                  0.869239455003664,
+                  0.902115002071153
+                ],
+                "specificity": 0.7388781431334622,
+                "specificity_wilson95": [
+                  0.7112560061514931,
+                  0.764731916475278
+                ],
+                "ppv": 0.8244473342002601,
+                "ppv_wilson95": [
+                  0.8046322900342269,
+                  0.842645673786605
+                ],
+                "npv": 0.8250539956803455,
+                "f1": 0.8544474393530997
+              },
+              "0.50": {
+                "alerts": 1470,
+                "alert_rate": 0.5965909090909091,
+                "sensitivity": 0.8643356643356643,
+                "sensitivity_wilson95": [
+                  0.8456082997365795,
+                  0.8811108180500022
+                ],
+                "specificity": 0.7736943907156673,
+                "specificity_wilson95": [
+                  0.747203737727743,
+                  0.7981589428527276
+                ],
+                "ppv": 0.8408163265306122,
+                "ppv_wilson95": [
+                  0.8212292387281973,
+                  0.8586267892069633
+                ],
+                "npv": 0.8048289738430584,
+                "f1": 0.8524137931034482
+              },
+              "0.65": {
+                "alerts": 1258,
+                "alert_rate": 0.510551948051948,
+                "sensitivity": 0.7895104895104895,
+                "sensitivity_wilson95": [
+                  0.7676201504344876,
+                  0.8098495516070571
+                ],
+                "specificity": 0.8752417794970987,
+                "specificity_wilson95": [
+                  0.8537010010336984,
+                  0.894004723578396
+                ],
+                "ppv": 0.8974562798092209,
+                "ppv_wilson95": [
+                  0.8794644873017985,
+                  0.9130280980461192
+                ],
+                "npv": 0.7504145936981758,
+                "f1": 0.8400297619047619
+              }
+            }
+          },
+          "kaggle_gender:0": {
+            "n": 1814,
+            "positives": 1061,
+            "prevalence": 0.5848952590959207,
+            "auroc": 0.9190745657020051,
+            "auprc": 0.9372480040542741,
+            "brier": 0.11113139192771282,
+            "ece": 0.026459807049146727,
+            "calibration_slope": 1.0543819862289319,
+            "operating_points": {
+              "0.25": {
+                "alerts": 1343,
+                "alert_rate": 0.7403528114663727,
+                "sensitivity": 0.9641847313854854,
+                "sensitivity_wilson95": [
+                  0.9512238162901719,
+                  0.973796515929877
+                ],
+                "specificity": 0.5750332005312085,
+                "specificity_wilson95": [
+                  0.5394319016794518,
+                  0.609872815554295
+                ],
+                "ppv": 0.7617274758004468,
+                "ppv_wilson95": [
+                  0.7382163640145663,
+                  0.7837455903015362
+                ],
+                "npv": 0.9193205944798302,
+                "f1": 0.85108153078203
+              },
+              "0.45": {
+                "alerts": 1146,
+                "alert_rate": 0.6317530319735392,
+                "sensitivity": 0.9048067860508954,
+                "sensitivity_wilson95": [
+                  0.8856587100858653,
+                  0.9210341481649185
+                ],
+                "specificity": 0.7529880478087649,
+                "specificity_wilson95": [
+                  0.7209516710568181,
+                  0.7824562693507701
+                ],
+                "ppv": 0.837696335078534,
+                "ppv_wilson95": [
+                  0.8152256918921745,
+                  0.8579105862116203
+                ],
+                "npv": 0.8488023952095808,
+                "f1": 0.8699592206615315
+              },
+              "0.50": {
+                "alerts": 1108,
+                "alert_rate": 0.6108048511576626,
+                "sensitivity": 0.8887841658812441,
+                "sensitivity_wilson95": [
+                  0.8684458971428377,
+                  0.9063173252749697
+                ],
+                "specificity": 0.7808764940239044,
+                "specificity_wilson95": [
+                  0.7499463234323744,
+                  0.808955405681562
+                ],
+                "ppv": 0.8510830324909747,
+                "ppv_wilson95": [
+                  0.8289089708718056,
+                  0.8708310809384656
+                ],
+                "npv": 0.8328611898016998,
+                "f1": 0.8695251267865376
+              },
+              "0.65": {
+                "alerts": 979,
+                "alert_rate": 0.539691289966924,
+                "sensitivity": 0.82186616399623,
+                "sensitivity_wilson95": [
+                  0.7976941508029819,
+                  0.8437158866653364
+                ],
+                "specificity": 0.8579017264276229,
+                "specificity_wilson95": [
+                  0.8311441460385753,
+                  0.8810261423595611
+                ],
+                "ppv": 0.8907048008171604,
+                "ppv_wilson95": [
+                  0.8696117878631487,
+                  0.9087436560737799
+                ],
+                "npv": 0.7736526946107785,
+                "f1": 0.8549019607843137
+              }
+            }
+          },
+          "kaggle_gender:1": {
+            "n": 2367,
+            "positives": 1385,
+            "prevalence": 0.5851288550908322,
+            "auroc": 0.9106244531531467,
+            "auprc": 0.9292197425122275,
+            "brier": 0.1160068324725714,
+            "ece": 0.031241050998894463,
+            "calibration_slope": 1.007797011595606,
+            "operating_points": {
+              "0.25": {
+                "alerts": 1735,
+                "alert_rate": 0.7329953527672158,
+                "sensitivity": 0.9624548736462094,
+                "sensitivity_wilson95": [
+                  0.9510968140086725,
+                  0.9712546839713306
+                ],
+                "specificity": 0.5906313645621182,
+                "specificity_wilson95": [
+                  0.5595817097853014,
+                  0.6209747056579397
+                ],
+                "ppv": 0.768299711815562,
+                "ppv_wilson95": [
+                  0.7478670303387989,
+                  0.7875469346763997
+                ],
+                "npv": 0.9177215189873418,
+                "f1": 0.8544871794871794
+              },
+              "0.45": {
+                "alerts": 1494,
+                "alert_rate": 0.6311787072243346,
+                "sensitivity": 0.8909747292418773,
+                "sensitivity_wilson95": [
+                  0.8734662057481265,
+                  0.9063204236916419
+                ],
+                "specificity": 0.7352342158859471,
+                "specificity_wilson95": [
+                  0.7067607989576687,
+                  0.7618743916871478
+                ],
+                "ppv": 0.8259705488621151,
+                "ppv_wilson95": [
+                  0.8059160167417255,
+                  0.8443530716615731
+                ],
+                "npv": 0.827033218785796,
+                "f1": 0.8572420979506773
+              },
+              "0.50": {
+                "alerts": 1434,
+                "alert_rate": 0.605830164765526,
+                "sensitivity": 0.8693140794223827,
+                "sensitivity_wilson95": [
+                  0.8505366072195393,
+                  0.8860485469050066
+                ],
+                "specificity": 0.7657841140529531,
+                "specificity_wilson95": [
+                  0.738291555037844,
+                  0.7912053486777276
+                ],
+                "ppv": 0.8396094839609484,
+                "ppv_wilson95": [
+                  0.8197125070540209,
+                  0.8576918020405763
+                ],
+                "npv": 0.8060021436227224,
+                "f1": 0.8542036183043632
+              },
+              "0.65": {
+                "alerts": 1242,
+                "alert_rate": 0.5247148288973384,
+                "sensitivity": 0.8036101083032491,
+                "sensitivity_wilson95": [
+                  0.7818603151983297,
+                  0.8236803638033741
+                ],
+                "specificity": 0.8686354378818737,
+                "specificity_wilson95": [
+                  0.8460637330754632,
+                  0.8883342713116518
+                ],
+                "ppv": 0.8961352657004831,
+                "ppv_wilson95": [
+                  0.8779288940415538,
+                  0.9118987305194785
+                ],
+                "npv": 0.7582222222222222,
+                "f1": 0.8473543966501713
+              }
+            }
+          },
+          "age:17-20": {
+            "n": 859,
+            "positives": 606,
+            "prevalence": 0.7054714784633295,
+            "auroc": 0.9404244772303317,
+            "auprc": 0.970900043898751,
+            "brier": 0.08591658692384474,
+            "ece": 0.043439943331954715,
+            "calibration_slope": 1.3353035688623076,
+            "operating_points": {
+              "0.25": {
+                "alerts": 732,
+                "alert_rate": 0.8521536670547147,
+                "sensitivity": 0.9933993399339934,
+                "sensitivity_wilson95": [
+                  0.9831524998900908,
+                  0.9974302259160671
+                ],
+                "specificity": 0.48616600790513836,
+                "specificity_wilson95": [
+                  0.42524751487339135,
+                  0.5474983181703041
+                ],
+                "ppv": 0.8224043715846995,
+                "ppv_wilson95": [
+                  0.7930569350152064,
+                  0.8483855854381219
+                ],
+                "npv": 0.968503937007874,
+                "f1": 0.8998505231689088
+              },
+              "0.45": {
+                "alerts": 676,
+                "alert_rate": 0.7869615832363213,
+                "sensitivity": 0.966996699669967,
+                "sensitivity_wilson95": [
+                  0.9495745757524617,
+                  0.9785354958299554
+                ],
+                "specificity": 0.6442687747035574,
+                "specificity_wilson95": [
+                  0.5835235348529968,
+                  0.7006984919770358
+                ],
+                "ppv": 0.8668639053254438,
+                "ppv_wilson95": [
+                  0.8391700654096826,
+                  0.890411800427685
+                ],
+                "npv": 0.8907103825136612,
+                "f1": 0.9141965678627145
+              },
+              "0.50": {
+                "alerts": 656,
+                "alert_rate": 0.7636786961583236,
+                "sensitivity": 0.9521452145214522,
+                "sensitivity_wilson95": [
+                  0.9321177867865993,
+                  0.9664764167949635
+                ],
+                "specificity": 0.6877470355731226,
+                "specificity_wilson95": [
+                  0.6281955570788899,
+                  0.7416824230423852
+                ],
+                "ppv": 0.8795731707317073,
+                "ppv_wilson95": [
+                  0.8524324354300645,
+                  0.902294314977607
+                ],
+                "npv": 0.8571428571428571,
+                "f1": 0.9144215530903328
+              },
+              "0.65": {
+                "alerts": 599,
+                "alert_rate": 0.6973224679860303,
+                "sensitivity": 0.9042904290429042,
+                "sensitivity_wilson95": [
+                  0.8782561276067049,
+                  0.9252313901943274
+                ],
+                "specificity": 0.7984189723320159,
+                "specificity_wilson95": [
+                  0.7446898710423994,
+                  0.8432214447293117
+                ],
+                "ppv": 0.9148580968280468,
+                "ppv_wilson95": [
+                  0.8897792541937445,
+                  0.9346497772339447
+                ],
+                "npv": 0.7769230769230769,
+                "f1": 0.9095435684647303
+              }
+            }
+          },
+          "kaggle_age:17-20": {
+            "n": 797,
+            "positives": 579,
+            "prevalence": 0.726474278544542,
+            "auroc": 0.9415474323018175,
+            "auprc": 0.973703047352973,
+            "brier": 0.0819702090371877,
+            "ece": 0.04507023919306978,
+            "calibration_slope": 1.3739779003864225,
+            "operating_points": {
+              "0.25": {
+                "alerts": 696,
+                "alert_rate": 0.8732747804265998,
+                "sensitivity": 0.9965457685664939,
+                "sensitivity_wilson95": [
+                  0.9874939412162832,
+                  0.9990522134849277
+                ],
+                "specificity": 0.4541284403669725,
+                "specificity_wilson95": [
+                  0.3893998444647054,
+                  0.5204456816767123
+                ],
+                "ppv": 0.8290229885057471,
+                "ppv_wilson95": [
+                  0.7992652286340494,
+                  0.8551687066914995
+                ],
+                "npv": 0.9801980198019802,
+                "f1": 0.9050980392156863
+              },
+              "0.45": {
+                "alerts": 645,
+                "alert_rate": 0.8092848180677541,
+                "sensitivity": 0.9758203799654577,
+                "sensitivity_wilson95": [
+                  0.9598255361351,
+                  0.9855430399351037
+                ],
+                "specificity": 0.6330275229357798,
+                "specificity_wilson95": [
+                  0.5672580013558614,
+                  0.694189972834027
+                ],
+                "ppv": 0.875968992248062,
+                "ppv_wilson95": [
+                  0.8482833000561679,
+                  0.8992028437570138
+                ],
+                "npv": 0.9078947368421053,
+                "f1": 0.923202614379085
+              },
+              "0.50": {
+                "alerts": 631,
+                "alert_rate": 0.7917189460476788,
+                "sensitivity": 0.9620034542314335,
+                "sensitivity_wilson95": [
+                  0.9431410755715539,
+                  0.9747757814113118
+                ],
+                "specificity": 0.6605504587155964,
+                "specificity_wilson95": [
+                  0.5953969631848675,
+                  0.7201436953201701
+                ],
+                "ppv": 0.8827258320126783,
+                "ppv_wilson95": [
+                  0.8552748238516193,
+                  0.9055450521804839
+                ],
+                "npv": 0.8674698795180723,
+                "f1": 0.9206611570247933
+              },
+              "0.65": {
+                "alerts": 586,
+                "alert_rate": 0.7352572145545797,
+                "sensitivity": 0.92573402417962,
+                "sensitivity_wilson95": [
+                  0.9014570781202262,
+                  0.9443990162583773
+                ],
+                "specificity": 0.7706422018348624,
+                "specificity_wilson95": [
+                  0.7104340236810528,
+                  0.8214773720845819
+                ],
+                "ppv": 0.9146757679180887,
+                "ppv_wilson95": [
+                  0.8892689317118815,
+                  0.9346812886942754
+                ],
+                "npv": 0.7962085308056872,
+                "f1": 0.9201716738197425
+              }
+            }
+          },
+          "age:21-25": {
+            "n": 1361,
+            "positives": 874,
+            "prevalence": 0.6421748714180749,
+            "auroc": 0.8903023226309681,
+            "auprc": 0.9312343784433794,
+            "brier": 0.1255787258920322,
+            "ece": 0.023993693160451676,
+            "calibration_slope": 0.9410354026314268,
+            "operating_points": {
+              "0.25": {
+                "alerts": 1081,
+                "alert_rate": 0.7942689199118296,
+                "sensitivity": 0.9645308924485125,
+                "sensitivity_wilson95": [
+                  0.9500948350187548,
+                  0.9749013494754857
+                ],
+                "specificity": 0.5112936344969199,
+                "specificity_wilson95": [
+                  0.4669833339897927,
+                  0.555427160890629
+                ],
+                "ppv": 0.7798334875115633,
+                "ppv_wilson95": [
+                  0.7541656120487183,
+                  0.8035195640485164
+                ],
+                "npv": 0.8892857142857142,
+                "f1": 0.8624040920716113
+              },
+              "0.45": {
+                "alerts": 935,
+                "alert_rate": 0.6869948567229978,
+                "sensitivity": 0.8924485125858124,
+                "sensitivity_wilson95": [
+                  0.8701646999456549,
+                  0.9112975938512033
+                ],
+                "specificity": 0.6817248459958932,
+                "specificity_wilson95": [
+                  0.6390699054101732,
+                  0.7215353303929799
+                ],
+                "ppv": 0.8342245989304813,
+                "ppv_wilson95": [
+                  0.8090300168947392,
+                  0.8566840865121136
+                ],
+                "npv": 0.7793427230046949,
+                "f1": 0.8623548922056384
+              },
+              "0.50": {
+                "alerts": 910,
+                "alert_rate": 0.668626010286554,
+                "sensitivity": 0.8787185354691075,
+                "sensitivity_wilson95": [
+                  0.8554023091224325,
+                  0.8987201959701625
+                ],
+                "specificity": 0.7084188911704312,
+                "specificity_wilson95": [
+                  0.6665476233486157,
+                  0.7470278730809891
+                ],
+                "ppv": 0.843956043956044,
+                "ppv_wilson95": [
+                  0.8189371956071718,
+                  0.8660831588073112
+                ],
+                "npv": 0.7649667405764967,
+                "f1": 0.8609865470852018
+              },
+              "0.65": {
+                "alerts": 797,
+                "alert_rate": 0.585598824393828,
+                "sensitivity": 0.8054919908466819,
+                "sensitivity_wilson95": [
+                  0.7779368394105244,
+                  0.8303734592593333
+                ],
+                "specificity": 0.8090349075975359,
+                "specificity_wilson95": [
+                  0.7717596314589327,
+                  0.8414730011780677
+                ],
+                "ppv": 0.8833124215809285,
+                "ppv_wilson95": [
+                  0.8591624990624933,
+                  0.9037850147934308
+                ],
+                "npv": 0.6985815602836879,
+                "f1": 0.8426092160383004
+              }
+            }
+          },
+          "kaggle_age:21-25": {
+            "n": 1296,
+            "positives": 845,
+            "prevalence": 0.6520061728395061,
+            "auroc": 0.8900221729490023,
+            "auprc": 0.9335651646838037,
+            "brier": 0.12466681217009908,
+            "ece": 0.02937487332988272,
+            "calibration_slope": 0.926347126458084,
+            "operating_points": {
+              "0.25": {
+                "alerts": 1037,
+                "alert_rate": 0.8001543209876543,
+                "sensitivity": 0.9668639053254438,
+                "sensitivity_wilson95": [
+                  0.9525259861094998,
+                  0.9769762098555365
+                ],
+                "specificity": 0.5121951219512195,
+                "specificity_wilson95": [
+                  0.46615540898180713,
+                  0.5580288420064837
+                ],
+                "ppv": 0.7878495660559306,
+                "ppv_wilson95": [
+                  0.7619274664872054,
+                  0.8116469188725205
+                ],
+                "npv": 0.8918918918918919,
+                "f1": 0.8682252922422954
+              },
+              "0.45": {
+                "alerts": 907,
+                "alert_rate": 0.6998456790123457,
+                "sensitivity": 0.8958579881656805,
+                "sensitivity_wilson95": [
+                  0.873440677295394,
+                  0.914692363389789
+                ],
+                "specificity": 0.6674057649667405,
+                "specificity_wilson95": [
+                  0.6226705705031187,
+                  0.709313238517964
+                ],
+                "ppv": 0.834619625137817,
+                "ppv_wilson95": [
+                  0.8090395982513607,
+                  0.8573771465308861
+                ],
+                "npv": 0.7737789203084833,
+                "f1": 0.8641552511415526
+              },
+              "0.50": {
+                "alerts": 886,
+                "alert_rate": 0.683641975308642,
+                "sensitivity": 0.8828402366863906,
+                "sensitivity_wilson95": [
+                  0.8594030121612016,
+                  0.902812350056008
+                ],
+                "specificity": 0.6895787139689579,
+                "specificity_wilson95": [
+                  0.645428187369439,
+                  0.7305269870848998
+                ],
+                "ppv": 0.8419864559819413,
+                "ppv_wilson95": [
+                  0.8164988891224005,
+                  0.8645213016013844
+                ],
+                "npv": 0.7585365853658537,
+                "f1": 0.8619295205083767
+              },
+              "0.65": {
+                "alerts": 785,
+                "alert_rate": 0.6057098765432098,
+                "sensitivity": 0.8189349112426035,
+                "sensitivity_wilson95": [
+                  0.7915467844038114,
+                  0.8434363380615301
+                ],
+                "specificity": 0.7937915742793792,
+                "specificity_wilson95": [
+                  0.7540462991801165,
+                  0.8285742928105255
+                ],
+                "ppv": 0.8815286624203822,
+                "ppv_wilson95": [
+                  0.8570426706969269,
+                  0.9022987575483582
+                ],
+                "npv": 0.700587084148728,
+                "f1": 0.849079754601227
+              }
+            }
+          },
+          "age:26-30": {
+            "n": 1205,
+            "positives": 666,
+            "prevalence": 0.5526970954356847,
+            "auroc": 0.9061241204098347,
+            "auprc": 0.9174618969450552,
+            "brier": 0.12129325242075603,
+            "ece": 0.03211088585762004,
+            "calibration_slope": 1.0083699965844535,
+            "operating_points": {
+              "0.25": {
+                "alerts": 842,
+                "alert_rate": 0.6987551867219917,
+                "sensitivity": 0.9429429429429429,
+                "sensitivity_wilson95": [
+                  0.9226545352417569,
+                  0.9581509034642005
+                ],
+                "specificity": 0.6029684601113172,
+                "specificity_wilson95": [
+                  0.5610737235497356,
+                  0.6434058684127941
+                ],
+                "ppv": 0.7458432304038005,
+                "ppv_wilson95": [
+                  0.7153642536257293,
+                  0.7740891725248585
+                ],
+                "npv": 0.8953168044077136,
+                "f1": 0.8328912466843501
+              },
+              "0.45": {
+                "alerts": 701,
+                "alert_rate": 0.5817427385892117,
+                "sensitivity": 0.8618618618618619,
+                "sensitivity_wilson95": [
+                  0.833574452770599,
+                  0.8859988039349458
+                ],
+                "specificity": 0.764378478664193,
+                "specificity_wilson95": [
+                  0.7267581783341521,
+                  0.7982569902182894
+                ],
+                "ppv": 0.818830242510699,
+                "ppv_wilson95": [
+                  0.7886052638947018,
+                  0.8455799055587215
+                ],
+                "npv": 0.8174603174603174,
+                "f1": 0.8397951719092904
+              },
+              "0.50": {
+                "alerts": 670,
+                "alert_rate": 0.5560165975103735,
+                "sensitivity": 0.8408408408408409,
+                "sensitivity_wilson95": [
+                  0.811113777662843,
+                  0.866658542968521
+                ],
+                "specificity": 0.7959183673469388,
+                "specificity_wilson95": [
+                  0.7598559129816715,
+                  0.8277926440998331
+                ],
+                "ppv": 0.835820895522388,
+                "ppv_wilson95": [
+                  0.8058714870873722,
+                  0.8619413850792581
+                ],
+                "npv": 0.8018691588785046,
+                "f1": 0.8383233532934131
+              },
+              "0.65": {
+                "alerts": 570,
+                "alert_rate": 0.4730290456431535,
+                "sensitivity": 0.7717717717717718,
+                "sensitivity_wilson95": [
+                  0.7383922713329577,
+                  0.80203411648324
+                ],
+                "specificity": 0.8961038961038961,
+                "specificity_wilson95": [
+                  0.8674803329480387,
+                  0.9191213406375491
+                ],
+                "ppv": 0.9017543859649123,
+                "ppv_wilson95": [
+                  0.8745638490501363,
+                  0.9235660053895188
+                ],
+                "npv": 0.7606299212598425,
+                "f1": 0.8317152103559871
+              }
+            }
+          },
+          "kaggle_age:26-30": {
+            "n": 1195,
+            "positives": 658,
+            "prevalence": 0.5506276150627615,
+            "auroc": 0.9087551578339644,
+            "auprc": 0.9187042060899288,
+            "brier": 0.11947640351286234,
+            "ece": 0.03364121896658272,
+            "calibration_slope": 1.0268979381326835,
+            "operating_points": {
+              "0.25": {
+                "alerts": 836,
+                "alert_rate": 0.699581589958159,
+                "sensitivity": 0.9452887537993921,
+                "sensitivity_wilson95": [
+                  0.9251867628603021,
+                  0.9602216566185373
+                ],
+                "specificity": 0.6014897579143389,
+                "specificity_wilson95": [
+                  0.5595009201686553,
+                  0.6420368839739389
+                ],
+                "ppv": 0.7440191387559809,
+                "ppv_wilson95": [
+                  0.7133667250031938,
+                  0.7724392514877906
+                ],
+                "npv": 0.8997214484679665,
+                "f1": 0.8326639892904953
+              },
+              "0.45": {
+                "alerts": 698,
+                "alert_rate": 0.5841004184100418,
+                "sensitivity": 0.8677811550151976,
+                "sensitivity_wilson95": [
+                  0.8397522103649858,
+                  0.8915407504332363
+                ],
+                "specificity": 0.7635009310986964,
+                "specificity_wilson95": [
+                  0.725768147137213,
+                  0.7974905553614489
+                ],
+                "ppv": 0.8180515759312321,
+                "ppv_wilson95": [
+                  0.7877151451241265,
+                  0.844906359946341
+                ],
+                "npv": 0.8249496981891348,
+                "f1": 0.8421828908554573
+              },
+              "0.50": {
+                "alerts": 667,
+                "alert_rate": 0.5581589958158996,
+                "sensitivity": 0.8465045592705167,
+                "sensitivity_wilson95": [
+                  0.8169577480555734,
+                  0.8720290083989499
+                ],
+                "specificity": 0.7951582867783985,
+                "specificity_wilson95": [
+                  0.7589839808145953,
+                  0.8271397248111145
+                ],
+                "ppv": 0.8350824587706147,
+                "ppv_wilson95": [
+                  0.8050156589802298,
+                  0.8613116738381739
+                ],
+                "npv": 0.8087121212121212,
+                "f1": 0.840754716981132
+              },
+              "0.65": {
+                "alerts": 568,
+                "alert_rate": 0.47531380753138075,
+                "sensitivity": 0.7781155015197568,
+                "sensitivity_wilson95": [
+                  0.7448040908130801,
+                  0.8081984373938399
+                ],
+                "specificity": 0.8957169459962756,
+                "specificity_wilson95": [
+                  0.8669957739402997,
+                  0.9188167651477971
+                ],
+                "ppv": 0.9014084507042254,
+                "ppv_wilson95": [
+                  0.8741297679796382,
+                  0.9232940510984794
+                ],
+                "npv": 0.7671451355661882,
+                "f1": 0.835236541598695
+              }
+            }
+          },
+          "age:31-35": {
+            "n": 893,
+            "positives": 364,
+            "prevalence": 0.4076147816349384,
+            "auroc": 0.9071802488626686,
+            "auprc": 0.8543304049614143,
+            "brier": 0.1192696193129788,
+            "ece": 0.027252975143385157,
+            "calibration_slope": 1.0310420570374081,
+            "operating_points": {
+              "0.25": {
+                "alerts": 509,
+                "alert_rate": 0.5699888017917133,
+                "sensitivity": 0.9340659340659341,
+                "sensitivity_wilson95": [
+                  0.9037702227709578,
+                  0.9552955307553067
+                ],
+                "specificity": 0.6805293005671077,
+                "specificity_wilson95": [
+                  0.6396161788263306,
+                  0.7188394121157269
+                ],
+                "ppv": 0.6679764243614931,
+                "ppv_wilson95": [
+                  0.6259399584307171,
+                  0.7074964224602182
+                ],
+                "npv": 0.9375,
+                "f1": 0.7789232531500573
+              },
+              "0.45": {
+                "alerts": 390,
+                "alert_rate": 0.43673012318029114,
+                "sensitivity": 0.8269230769230769,
+                "sensitivity_wilson95": [
+                  0.7846977639893374,
+                  0.8623201136665198
+                ],
+                "specificity": 0.831758034026465,
+                "specificity_wilson95": [
+                  0.7975138322264091,
+                  0.8612186935362202
+                ],
+                "ppv": 0.7717948717948718,
+                "ppv_wilson95": [
+                  0.7276113828134199,
+                  0.8106762840939845
+                ],
+                "npv": 0.8747514910536779,
+                "f1": 0.7984084880636605
+              },
+              "0.50": {
+                "alerts": 358,
+                "alert_rate": 0.4008958566629339,
+                "sensitivity": 0.7884615384615384,
+                "sensitivity_wilson95": [
+                  0.7436052663245248,
+                  0.8272928610188787
+                ],
+                "specificity": 0.8657844990548205,
+                "specificity_wilson95": [
+                  0.8340837482220638,
+                  0.8922110878751945
+                ],
+                "ppv": 0.8016759776536313,
+                "ppv_wilson95": [
+                  0.7572643035499144,
+                  0.8396822174595425
+                ],
+                "npv": 0.8560747663551402,
+                "f1": 0.7950138504155124
+              },
+              "0.65": {
+                "alerts": 282,
+                "alert_rate": 0.3157894736842105,
+                "sensitivity": 0.6730769230769231,
+                "sensitivity_wilson95": [
+                  0.623298149231268,
+                  0.7192407271747742
+                ],
+                "specificity": 0.9300567107750473,
+                "specificity_wilson95": [
+                  0.9050795202733307,
+                  0.9488330131226704
+                ],
+                "ppv": 0.8687943262411347,
+                "ppv_wilson95": [
+                  0.8243855453932885,
+                  0.9032905616982183
+                ],
+                "npv": 0.8052373158756138,
+                "f1": 0.7585139318885449
+              }
+            }
+          },
+          "kaggle_age:31-35": {
+            "n": 893,
+            "positives": 364,
+            "prevalence": 0.4076147816349384,
+            "auroc": 0.9071802488626686,
+            "auprc": 0.8543304049614143,
+            "brier": 0.1192696193129788,
+            "ece": 0.027252975143385157,
+            "calibration_slope": 1.0310420570374081,
+            "operating_points": {
+              "0.25": {
+                "alerts": 509,
+                "alert_rate": 0.5699888017917133,
+                "sensitivity": 0.9340659340659341,
+                "sensitivity_wilson95": [
+                  0.9037702227709578,
+                  0.9552955307553067
+                ],
+                "specificity": 0.6805293005671077,
+                "specificity_wilson95": [
+                  0.6396161788263306,
+                  0.7188394121157269
+                ],
+                "ppv": 0.6679764243614931,
+                "ppv_wilson95": [
+                  0.6259399584307171,
+                  0.7074964224602182
+                ],
+                "npv": 0.9375,
+                "f1": 0.7789232531500573
+              },
+              "0.45": {
+                "alerts": 390,
+                "alert_rate": 0.43673012318029114,
+                "sensitivity": 0.8269230769230769,
+                "sensitivity_wilson95": [
+                  0.7846977639893374,
+                  0.8623201136665198
+                ],
+                "specificity": 0.831758034026465,
+                "specificity_wilson95": [
+                  0.7975138322264091,
+                  0.8612186935362202
+                ],
+                "ppv": 0.7717948717948718,
+                "ppv_wilson95": [
+                  0.7276113828134199,
+                  0.8106762840939845
+                ],
+                "npv": 0.8747514910536779,
+                "f1": 0.7984084880636605
+              },
+              "0.50": {
+                "alerts": 358,
+                "alert_rate": 0.4008958566629339,
+                "sensitivity": 0.7884615384615384,
+                "sensitivity_wilson95": [
+                  0.7436052663245248,
+                  0.8272928610188787
+                ],
+                "specificity": 0.8657844990548205,
+                "specificity_wilson95": [
+                  0.8340837482220638,
+                  0.8922110878751945
+                ],
+                "ppv": 0.8016759776536313,
+                "ppv_wilson95": [
+                  0.7572643035499144,
+                  0.8396822174595425
+                ],
+                "npv": 0.8560747663551402,
+                "f1": 0.7950138504155124
+              },
+              "0.65": {
+                "alerts": 282,
+                "alert_rate": 0.3157894736842105,
+                "sensitivity": 0.6730769230769231,
+                "sensitivity_wilson95": [
+                  0.623298149231268,
+                  0.7192407271747742
+                ],
+                "specificity": 0.9300567107750473,
+                "specificity_wilson95": [
+                  0.9050795202733307,
+                  0.9488330131226704
+                ],
+                "ppv": 0.8687943262411347,
+                "ppv_wilson95": [
+                  0.8243855453932885,
+                  0.9032905616982183
+                ],
+                "npv": 0.8052373158756138,
+                "f1": 0.7585139318885449
+              }
+            }
+          }
+        },
+        "gaps": {
+          "0.25": {
+            "source:kaggle_vs_mendeley": {
+              "tpr": {
+                "delta": 0.07258023303352412,
+                "ci95": [
+                  0.00508926980748645,
+                  0.15057308372950579
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.25
+              },
+              "fpr": {
+                "delta": 0.018878054557656565,
+                "ci95": [
+                  -0.09751981461805702,
+                  0.13510070316913483
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.25
+              },
+              "ppv": {
+                "delta": 0.1026414010910135,
+                "ci95": [
+                  0.0006921593523712522,
+                  0.20825456116528587
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.25
+              },
+              "alert_rate": {
+                "delta": 0.10845028867120465,
+                "ci95": [
+                  0.02671439445388153,
+                  0.19149751133473114
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.25
+              }
+            },
+            "gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.002823102823102719,
+                "ci95": [
+                  -0.018004047536376848,
+                  0.012441425385019274
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.25
+              },
+              "fpr": {
+                "delta": -0.016940808380689676,
+                "ci95": [
+                  -0.06307104045544568,
+                  0.027790273250978204
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.25
+              },
+              "ppv": {
+                "delta": 0.005223909447352848,
+                "ci95": [
+                  -0.0241156091751509,
+                  0.035650722089684284
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.25
+              },
+              "alert_rate": {
+                "delta": -0.009913192255425307,
+                "ci95": [
+                  -0.03788108634892612,
+                  0.01684090164824386
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.25
+              }
+            },
+            "kaggle_gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.0017298577392760306,
+                "ci95": [
+                  -0.016753776660245672,
+                  0.013306624378554817
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.25
+              },
+              "fpr": {
+                "delta": -0.015598164030909634,
+                "ci95": [
+                  -0.06268169243850064,
+                  0.03171187212103985
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.25
+              },
+              "ppv": {
+                "delta": 0.0065722360151152515,
+                "ci95": [
+                  -0.023196457194892422,
+                  0.03726928443902854
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.25
+              },
+              "alert_rate": {
+                "delta": -0.007357458699156827,
+                "ci95": [
+                  -0.03405373709341375,
+                  0.02038655479211819
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.25
+              }
+            },
+            "age:max_minus_min": {
+              "tpr": {
+                "delta": 0.05933340586805935,
+                "ci95": [
+                  0.04231736913182747,
+                  0.08582786873603004
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.25
+              },
+              "fpr": {
+                "delta": 0.19436329266196928,
+                "ci95": [
+                  0.1407076711638179,
+                  0.2675583403384342
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.25
+              },
+              "ppv": {
+                "delta": 0.1544279472232064,
+                "ci95": [
+                  0.10506794554103535,
+                  0.20241390750132612
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.25
+              },
+              "alert_rate": {
+                "delta": 0.28216486526300144,
+                "ci95": [
+                  0.24494402199489756,
+                  0.3214014512043614
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.25
+              }
+            },
+            "kaggle_age:max_minus_min": {
+              "tpr": {
+                "delta": 0.06247983450055983,
+                "ci95": [
+                  0.04475542625985285,
+                  0.08899487586143491
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.25
+              },
+              "fpr": {
+                "delta": 0.22640086020013517,
+                "ci95": [
+                  0.157460461712775,
+                  0.30642671293090995
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.25
+              },
+              "ppv": {
+                "delta": 0.161046564144254,
+                "ci95": [
+                  0.11235543709231566,
+                  0.21045013613149535
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.25
+              },
+              "alert_rate": {
+                "delta": 0.3032859786348865,
+                "ci95": [
+                  0.2656938252489388,
+                  0.3448555684039111
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.25
+              }
+            }
+          },
+          "0.45": {
+            "source:kaggle_vs_mendeley": {
+              "tpr": {
+                "delta": 0.16259965249386754,
+                "ci95": [
+                  0.054795409635900114,
+                  0.27731384676397175
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.45
+              },
+              "fpr": {
+                "delta": 0.051581066677193865,
+                "ci95": [
+                  -0.045205885753835884,
+                  0.14352872144222253
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.45
+              },
+              "ppv": {
+                "delta": 0.0729960899315738,
+                "ci95": [
+                  -0.03094079492619965,
+                  0.18790306641554053
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.45
+              },
+              "alert_rate": {
+                "delta": 0.17887314353950878,
+                "ci95": [
+                  0.0928258615181294,
+                  0.26300988831994576
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.45
+              }
+            },
+            "gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.014212639212639155,
+                "ci95": [
+                  -0.038886381669641035,
+                  0.009306544892831734
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.45
+              },
+              "fpr": {
+                "delta": 0.014351831026744533,
+                "ci95": [
+                  -0.02530288869537838,
+                  0.052802379030700064
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.45
+              },
+              "ppv": {
+                "delta": -0.011463318720702165,
+                "ci95": [
+                  -0.03811061623630921,
+                  0.01712465860940921
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.45
+              },
+              "alert_rate": {
+                "delta": -0.003643403522044286,
+                "ci95": [
+                  -0.03282843605962547,
+                  0.026038339357514168
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.45
+              }
+            },
+            "kaggle_gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.013832056809018112,
+                "ci95": [
+                  -0.03592152764414144,
+                  0.009305448446472788
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.45
+              },
+              "fpr": {
+                "delta": 0.017753831922817875,
+                "ci95": [
+                  -0.023078473543341194,
+                  0.05832415186149559
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.45
+              },
+              "ppv": {
+                "delta": -0.011725786216418954,
+                "ci95": [
+                  -0.04086044629226182,
+                  0.01739807624860903
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.45
+              },
+              "alert_rate": {
+                "delta": -0.0005743247492046022,
+                "ci95": [
+                  -0.029103731992962845,
+                  0.029709055373196916
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.45
+              }
+            },
+            "age:max_minus_min": {
+              "tpr": {
+                "delta": 0.14007362274689017,
+                "ci95": [
+                  0.10279302148304466,
+                  0.1811527223222243
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.45
+              },
+              "fpr": {
+                "delta": 0.1874892593229076,
+                "ci95": [
+                  0.1344466290872406,
+                  0.2514765563135065
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.45
+              },
+              "ppv": {
+                "delta": 0.09506903353057194,
+                "ci95": [
+                  0.0496153626161293,
+                  0.14460450572554073
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.45
+              },
+              "alert_rate": {
+                "delta": 0.3502314600560301,
+                "ci95": [
+                  0.30786286301293075,
+                  0.38987507284049916
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.45
+              }
+            },
+            "kaggle_age:max_minus_min": {
+              "tpr": {
+                "delta": 0.1488973030423808,
+                "ci95": [
+                  0.11102416332753813,
+                  0.19149906766947628
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.45
+              },
+              "fpr": {
+                "delta": 0.19873051109068518,
+                "ci95": [
+                  0.1423616326960049,
+                  0.27126405594828445
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.45
+              },
+              "ppv": {
+                "delta": 0.10417412045319019,
+                "ci95": [
+                  0.05920889084355413,
+                  0.15308725227869258
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.45
+              },
+              "alert_rate": {
+                "delta": 0.37255469488746296,
+                "ci95": [
+                  0.3319519868038178,
+                  0.4156201657672037
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.45
+              }
+            }
+          },
+          "0.50": {
+            "source:kaggle_vs_mendeley": {
+              "tpr": {
+                "delta": 0.17463460752248572,
+                "ci95": [
+                  0.06689741441201369,
+                  0.2888889673930855
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.5
+              },
+              "fpr": {
+                "delta": 0.13177529509296904,
+                "ci95": [
+                  0.05598876593365863,
+                  0.19767080821599348
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.5
+              },
+              "ppv": {
+                "delta": -0.02077407250499308,
+                "ci95": [
+                  -0.11093279019934439,
+                  0.08563812022256433
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.5
+              },
+              "alert_rate": {
+                "delta": 0.22842647569732388,
+                "ci95": [
+                  0.14323263739160647,
+                  0.31206749511607074
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.5
+              }
+            },
+            "gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.020849520849520853,
+                "ci95": [
+                  -0.04737824844465488,
+                  0.0037795345700261627
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.5
+              },
+              "fpr": {
+                "delta": 0.009251345718441217,
+                "ci95": [
+                  -0.02878873153780329,
+                  0.04554595716918326
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.5
+              },
+              "ppv": {
+                "delta": -0.009717481298569308,
+                "ci95": [
+                  -0.036455391161965424,
+                  0.018074932111864683
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.5
+              },
+              "alert_rate": {
+                "delta": -0.009665833088163267,
+                "ci95": [
+                  -0.03958754719525348,
+                  0.018872169160397342
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.5
+              }
+            },
+            "kaggle_gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.01947008645886139,
+                "ci95": [
+                  -0.04372353517897745,
+                  0.006295107223395507
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.5
+              },
+              "fpr": {
+                "delta": 0.015092379970951253,
+                "ci95": [
+                  -0.025166426995327028,
+                  0.053844949060807536
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.5
+              },
+              "ppv": {
+                "delta": -0.011473548530026356,
+                "ci95": [
+                  -0.04035558468953473,
+                  0.01702214170548878
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.5
+              },
+              "alert_rate": {
+                "delta": -0.004974686392136607,
+                "ci95": [
+                  -0.03413026132474773,
+                  0.02594917878081985
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.5
+              }
+            },
+            "age:max_minus_min": {
+              "tpr": {
+                "delta": 0.16368367605991374,
+                "ci95": [
+                  0.12119944430296939,
+                  0.20905402809492296
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.5
+              },
+              "fpr": {
+                "delta": 0.1780374634816979,
+                "ci95": [
+                  0.1347162575549978,
+                  0.24157971774480955
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.5
+              },
+              "ppv": {
+                "delta": 0.07789719307807597,
+                "ci95": [
+                  0.03760077774782222,
+                  0.12831259151321545
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.5
+              },
+              "alert_rate": {
+                "delta": 0.3627828394953897,
+                "ci95": [
+                  0.320592644641351,
+                  0.40250845080153885
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.5
+              }
+            },
+            "kaggle_age:max_minus_min": {
+              "tpr": {
+                "delta": 0.17354191576989508,
+                "ci95": [
+                  0.13014302714789663,
+                  0.21899963252963808
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.5
+              },
+              "fpr": {
+                "delta": 0.2052340403392241,
+                "ci95": [
+                  0.1540840627874757,
+                  0.2764809461776587
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.5
+              },
+              "ppv": {
+                "delta": 0.08104985435904699,
+                "ci95": [
+                  0.04028288757641976,
+                  0.12996657122592198
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.5
+              },
+              "alert_rate": {
+                "delta": 0.39082308938474486,
+                "ci95": [
+                  0.3500912225436653,
+                  0.43446209961487714
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.5
+              }
+            }
+          },
+          "0.65": {
+            "source:kaggle_vs_mendeley": {
+              "tpr": {
+                "delta": 0.40527902698282914,
+                "ci95": [
+                  0.2770858798605723,
+                  0.5208472197597172
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.65
+              },
+              "fpr": {
+                "delta": 0.12232442461805693,
+                "ci95": [
+                  0.08759113273237423,
+                  0.14868842473177005
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.65
+              },
+              "ppv": {
+                "delta": -0.06922140510614161,
+                "ci95": [
+                  -0.11701194055575774,
+                  0.021232304926035096
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.65
+              },
+              "alert_rate": {
+                "delta": 0.3341323365869584,
+                "ci95": [
+                  0.26292333933313194,
+                  0.4012610488532587
+                ],
+                "n_a": 4181,
+                "n_b": 137,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.65
+              }
+            },
+            "gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.02715617715617713,
+                "ci95": [
+                  -0.058273878060688886,
+                  0.0037647791948752854
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.65
+              },
+              "fpr": {
+                "delta": -0.014776663218028951,
+                "ci95": [
+                  -0.04656924207303105,
+                  0.01602045281762475
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.65
+              },
+              "ppv": {
+                "delta": 0.006547188900130063,
+                "ci95": [
+                  -0.01879787263921961,
+                  0.03190471995239828
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.65
+              },
+              "alert_rate": {
+                "delta": -0.023428634472323795,
+                "ci95": [
+                  -0.052447848807072144,
+                  0.0061148499558693675
+                ],
+                "n_a": 2464,
+                "n_b": 1854,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.65
+              }
+            },
+            "kaggle_gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.018256055692980944,
+                "ci95": [
+                  -0.04708220829743055,
+                  0.012515325002048168
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.65
+              },
+              "fpr": {
+                "delta": -0.010733711454250838,
+                "ci95": [
+                  -0.043419760402551064,
+                  0.0238483413615905
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.65
+              },
+              "ppv": {
+                "delta": 0.005430464883322661,
+                "ci95": [
+                  -0.020976341785334692,
+                  0.03141753759199451
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.65
+              },
+              "alert_rate": {
+                "delta": -0.0149764610695855,
+                "ci95": [
+                  -0.04414880460801293,
+                  0.01666368558118821
+                ],
+                "n_a": 2367,
+                "n_b": 1814,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.65
+              }
+            },
+            "age:max_minus_min": {
+              "tpr": {
+                "delta": 0.23121350596598111,
+                "ci95": [
+                  0.17966113186033086,
+                  0.28499163754818974
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.65
+              },
+              "fpr": {
+                "delta": 0.1316377384430314,
+                "ci95": [
+                  0.1002044087366092,
+                  0.184465251793233
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.65
+              },
+              "ppv": {
+                "delta": 0.04606377058691202,
+                "ci95": [
+                  0.02060991310534183,
+                  0.09240710692007721
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.65
+              },
+              "alert_rate": {
+                "delta": 0.38153299430181975,
+                "ci95": [
+                  0.33871865251268757,
+                  0.42183702761225256
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.65
+              }
+            },
+            "kaggle_age:max_minus_min": {
+              "tpr": {
+                "delta": 0.2526571011026969,
+                "ci95": [
+                  0.19989954459336012,
+                  0.30418032498267195
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.65
+              },
+              "fpr": {
+                "delta": 0.15941450894018483,
+                "ci95": [
+                  0.11634026227557398,
+                  0.22197491806727732
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.65
+              },
+              "ppv": {
+                "delta": 0.04588144167695396,
+                "ci95": [
+                  0.01935732424945486,
+                  0.09256306584968838
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.65
+              },
+              "alert_rate": {
+                "delta": 0.4194677408703692,
+                "ci95": [
+                  0.3788300120412353,
+                  0.4642776101871379
+                ],
+                "n_groups": 4,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.65
+              }
+            }
+          }
+        }
+      },
+      "boundary": "Internal test mixes 4,181 Kaggle and 137 Mendeley rows; the production model trained on 408 other Mendeley rows, so the source contrast is same-source optimism, not an external validation."
+    },
+    "structured_source_holdout": {
+      "role": "clean_source_holdout",
+      "protocol": "train on 80% Kaggle, calibrate on held-out 20% Kaggle, test on all 682 Mendeley",
+      "n_train": 22296,
+      "n_cal": 5574,
+      "n_test": 682,
+      "positive_rate_test": 0.4706744868035191,
+      "conformal": {
+        "0.05": {
+          "alpha": 0.05,
+          "nominal_coverage": 0.95,
+          "n_cal": 5574,
+          "n_test": 682,
+          "q": 0.7928400075546513,
+          "review_band": [
+            0.20715999244534866,
+            0.7928400075546513
+          ],
+          "coverage": 0.9149560117302052,
+          "coverage_wilson95": [
+            0.8916263049400821,
+            0.9336373076931324
+          ],
+          "coverage_positive": 0.8255451713395638,
+          "coverage_positive_wilson95": [
+            0.7802471842002234,
+            0.863143597132783
+          ],
+          "coverage_negative": 0.9944598337950139,
+          "coverage_negative_wilson95": [
+            0.9800278461001444,
+            0.9984793694831924
+          ],
+          "mean_set_size": 1.4560117302052786,
+          "singleton_rate": 0.5439882697947214,
+          "empty_rate": 0.0,
+          "both_rate": 0.4560117302052786,
+          "abstention_rate": 0.4560117302052786,
+          "review_positive_rate": 0.6230529595015576,
+          "review_negative_rate": 0.3074792243767313,
+          "auto_decision_rate": 0.5439882697947214,
+          "auto_alert_rate": 0.09824046920821114,
+          "auto_alert_precision": 0.9701492537313433,
+          "auto_alert_precision_wilson95": [
+            0.8975344443664799,
+            0.991775305161102
+          ],
+          "positive_auto_alert_rate": 0.20249221183800623,
+          "positive_auto_cleared_rate": 0.17445482866043613,
+          "negative_auto_cleared_rate": 0.6869806094182825,
+          "auto_accuracy": 0.8436657681940701,
+          "coverage_by_subgroup": {
+            "source:mendeley": {
+              "n": 682,
+              "coverage": 0.9149560117302052,
+              "coverage_wilson95": [
+                0.8916263049400821,
+                0.9336373076931324
+              ],
+              "mean_set_size": 1.4560117302052786,
+              "abstention_rate": 0.4560117302052786
+            },
+            "gender:0": {
+              "n": 264,
+              "coverage": 0.8977272727272727,
+              "coverage_wilson95": [
+                0.8552894847328585,
+                0.9287564240843571
+              ],
+              "mean_set_size": 1.4545454545454546,
+              "abstention_rate": 0.45454545454545453
+            },
+            "gender:1": {
+              "n": 418,
+              "coverage": 0.9258373205741627,
+              "coverage_wilson95": [
+                0.8966551882611373,
+                0.9472637593815116
+              ],
+              "mean_set_size": 1.4569377990430623,
+              "abstention_rate": 0.4569377990430622
+            },
+            "age:17-20": {
+              "n": 284,
+              "coverage": 0.9366197183098591,
+              "coverage_wilson95": [
+                0.9020489981705428,
+                0.9595364072678283
+              ],
+              "mean_set_size": 1.454225352112676,
+              "abstention_rate": 0.45422535211267606
+            },
+            "age:21-25": {
+              "n": 342,
+              "coverage": 0.9035087719298246,
+              "coverage_wilson95": [
+                0.8675870824853441,
+                0.9304664560960315
+              ],
+              "mean_set_size": 1.4678362573099415,
+              "abstention_rate": 0.4678362573099415
+            },
+            "age:26-30": {
+              "n": 56,
+              "coverage": 0.875,
+              "coverage_wilson95": [
+                0.7637452344180986,
+                0.9381093130428289
+              ],
+              "mean_set_size": 1.3928571428571428,
+              "abstention_rate": 0.39285714285714285
+            },
+            "phq9:0-4": {
+              "n": 206,
+              "coverage": 1.0,
+              "coverage_wilson95": [
+                0.981693518324343,
+                0.9999999999999999
+              ],
+              "mean_set_size": 1.2378640776699028,
+              "abstention_rate": 0.23786407766990292
+            },
+            "phq9:5-9": {
+              "n": 155,
+              "coverage": 0.9870967741935484,
+              "coverage_wilson95": [
+                0.95417911647676,
+                0.9964543083298841
+              ],
+              "mean_set_size": 1.4,
+              "abstention_rate": 0.4
+            },
+            "phq9:10-14": {
+              "n": 128,
+              "coverage": 0.7109375,
+              "coverage_wilson95": [
+                0.6271668442501395,
+                0.7824160023219742
+              ],
+              "mean_set_size": 1.59375,
+              "abstention_rate": 0.59375
+            },
+            "phq9:15-19": {
+              "n": 125,
+              "coverage": 0.856,
+              "coverage_wilson95": [
+                0.7838403899326721,
+                0.9069310497469995
+              ],
+              "mean_set_size": 1.696,
+              "abstention_rate": 0.696
+            },
+            "phq9:20+": {
+              "n": 68,
+              "coverage": 0.9852941176470589,
+              "coverage_wilson95": [
+                0.9212902687183916,
+                0.9973993164238933
+              ],
+              "mean_set_size": 1.5441176470588236,
+              "abstention_rate": 0.5441176470588235
+            }
+          }
+        },
+        "0.10": {
+          "alpha": 0.1,
+          "nominal_coverage": 0.9,
+          "n_cal": 5574,
+          "n_test": 682,
+          "q": 0.6417158283251737,
+          "review_band": [
+            0.3582841716748263,
+            0.6417158283251737
+          ],
+          "coverage": 0.8387096774193549,
+          "coverage_wilson95": [
+            0.8092210385845369,
+            0.8644040303846241
+          ],
+          "coverage_positive": 0.67601246105919,
+          "coverage_positive_wilson95": [
+            0.622995943682747,
+            0.7248660577078256
+          ],
+          "coverage_negative": 0.9833795013850416,
+          "coverage_negative_wilson95": [
+            0.9642188989318473,
+            0.992360984089398
+          ],
+          "mean_set_size": 1.1994134897360704,
+          "singleton_rate": 0.8005865102639296,
+          "empty_rate": 0.0,
+          "both_rate": 0.19941348973607037,
+          "abstention_rate": 0.19941348973607037,
+          "review_positive_rate": 0.29906542056074764,
+          "review_negative_rate": 0.11080332409972299,
+          "auto_decision_rate": 0.8005865102639296,
+          "auto_alert_rate": 0.18621700879765396,
+          "auto_alert_precision": 0.952755905511811,
+          "auto_alert_precision_wilson95": [
+            0.9007560955638818,
+            0.9781702098787735
+          ],
+          "positive_auto_alert_rate": 0.37694704049844235,
+          "positive_auto_cleared_rate": 0.32398753894080995,
+          "negative_auto_cleared_rate": 0.8725761772853186,
+          "auto_accuracy": 0.7985347985347986,
+          "coverage_by_subgroup": {
+            "source:mendeley": {
+              "n": 682,
+              "coverage": 0.8387096774193549,
+              "coverage_wilson95": [
+                0.8092210385845369,
+                0.8644040303846241
+              ],
+              "mean_set_size": 1.1994134897360704,
+              "abstention_rate": 0.19941348973607037
+            },
+            "gender:0": {
+              "n": 264,
+              "coverage": 0.8295454545454546,
+              "coverage_wilson95": [
+                0.7795383891278748,
+                0.8700996496063899
+              ],
+              "mean_set_size": 1.2045454545454546,
+              "abstention_rate": 0.20454545454545456
+            },
+            "gender:1": {
+              "n": 418,
+              "coverage": 0.8444976076555024,
+              "coverage_wilson95": [
+                0.8066371763823115,
+                0.8760837700252249
+              ],
+              "mean_set_size": 1.1961722488038278,
+              "abstention_rate": 0.19617224880382775
+            },
+            "age:17-20": {
+              "n": 284,
+              "coverage": 0.8661971830985915,
+              "coverage_wilson95": [
+                0.8216785649875971,
+                0.9009414524768433
+              ],
+              "mean_set_size": 1.1971830985915493,
+              "abstention_rate": 0.19718309859154928
+            },
+            "age:21-25": {
+              "n": 342,
+              "coverage": 0.8187134502923976,
+              "coverage_wilson95": [
+                0.7744162615987762,
+                0.8559303739473827
+              ],
+              "mean_set_size": 1.1988304093567252,
+              "abstention_rate": 0.19883040935672514
+            },
+            "age:26-30": {
+              "n": 56,
+              "coverage": 0.8214285714285714,
+              "coverage_wilson95": [
+                0.7015881796334894,
+                0.900001432475877
+              ],
+              "mean_set_size": 1.2142857142857142,
+              "abstention_rate": 0.21428571428571427
+            },
+            "phq9:0-4": {
+              "n": 206,
+              "coverage": 0.9951456310679612,
+              "coverage_wilson95": [
+                0.9730199431901183,
+                0.9991425701019494
+              ],
+              "mean_set_size": 1.0631067961165048,
+              "abstention_rate": 0.06310679611650485
+            },
+            "phq9:5-9": {
+              "n": 155,
+              "coverage": 0.967741935483871,
+              "coverage_wilson95": [
+                0.9267157883592679,
+                0.9861441228789004
+              ],
+              "mean_set_size": 1.1741935483870967,
+              "abstention_rate": 0.17419354838709677
+            },
+            "phq9:10-14": {
+              "n": 128,
+              "coverage": 0.515625,
+              "coverage_wilson95": [
+                0.4298624503761484,
+                0.6004770197403044
+              ],
+              "mean_set_size": 1.3125,
+              "abstention_rate": 0.3125
+            },
+            "phq9:15-19": {
+              "n": 125,
+              "coverage": 0.696,
+              "coverage_wilson95": [
+                0.6105156751661401,
+                0.7697966905001957
+              ],
+              "mean_set_size": 1.288,
+              "abstention_rate": 0.288
+            },
+            "phq9:20+": {
+              "n": 68,
+              "coverage": 0.9411764705882353,
+              "coverage_wilson95": [
+                0.8582831156689853,
+                0.9768892344603642
+              ],
+              "mean_set_size": 1.2941176470588236,
+              "abstention_rate": 0.29411764705882354
+            }
+          }
+        },
+        "0.20": {
+          "alpha": 0.2,
+          "nominal_coverage": 0.8,
+          "n_cal": 5574,
+          "n_test": 682,
+          "q": 0.41944189220311806,
+          "review_band": [
+            0.41944189220311806,
+            0.580558107796882
+          ],
+          "coverage": 0.6920821114369502,
+          "coverage_wilson95": [
+            0.6564407324782565,
+            0.7255717525215707
+          ],
+          "coverage_positive": 0.4517133956386293,
+          "coverage_positive_wilson95": [
+            0.39816266448091786,
+            0.5064061669960046
+          ],
+          "coverage_negative": 0.9058171745152355,
+          "coverage_negative_wilson95": [
+            0.8712701597808897,
+            0.9318183953057143
+          ],
+          "mean_set_size": 0.8812316715542522,
+          "singleton_rate": 0.8812316715542522,
+          "empty_rate": 0.1187683284457478,
+          "both_rate": 0.0,
+          "abstention_rate": 0.1187683284457478,
+          "review_positive_rate": 0.17445482866043613,
+          "review_negative_rate": 0.06925207756232687,
+          "auto_decision_rate": 0.8812316715542522,
+          "auto_alert_rate": 0.22580645161290322,
+          "auto_alert_precision": 0.9415584415584416,
+          "auto_alert_precision_wilson95": [
+            0.8926717495554031,
+            0.9689523194066956
+          ],
+          "positive_auto_alert_rate": 0.4517133956386293,
+          "positive_auto_cleared_rate": 0.37383177570093457,
+          "negative_auto_cleared_rate": 0.9058171745152355,
+          "auto_accuracy": 0.7853577371048253,
+          "coverage_by_subgroup": {
+            "source:mendeley": {
+              "n": 682,
+              "coverage": 0.6920821114369502,
+              "coverage_wilson95": [
+                0.6564407324782565,
+                0.7255717525215707
+              ],
+              "mean_set_size": 0.8812316715542522,
+              "abstention_rate": 0.1187683284457478
+            },
+            "gender:0": {
+              "n": 264,
+              "coverage": 0.7007575757575758,
+              "coverage_wilson95": [
+                0.6429618058040165,
+                0.75279470055134
+              ],
+              "mean_set_size": 0.8977272727272727,
+              "abstention_rate": 0.10227272727272728
+            },
+            "gender:1": {
+              "n": 418,
+              "coverage": 0.6866028708133971,
+              "coverage_wilson95": [
+                0.640604629658199,
+                0.729202549645883
+              ],
+              "mean_set_size": 0.8708133971291866,
+              "abstention_rate": 0.1291866028708134
+            },
+            "age:17-20": {
+              "n": 284,
+              "coverage": 0.704225352112676,
+              "coverage_wilson95": [
+                0.6487054886464519,
+                0.7542941364779475
+              ],
+              "mean_set_size": 0.8591549295774648,
+              "abstention_rate": 0.14084507042253522
+            },
+            "age:21-25": {
+              "n": 342,
+              "coverage": 0.6900584795321637,
+              "coverage_wilson95": [
+                0.6391609237469924,
+                0.7367338589181482
+              ],
+              "mean_set_size": 0.8947368421052632,
+              "abstention_rate": 0.10526315789473684
+            },
+            "age:26-30": {
+              "n": 56,
+              "coverage": 0.6428571428571429,
+              "coverage_wilson95": [
+                0.5119388780139953,
+                0.755434282923501
+              ],
+              "mean_set_size": 0.9107142857142857,
+              "abstention_rate": 0.08928571428571429
+            },
+            "phq9:0-4": {
+              "n": 206,
+              "coverage": 0.9611650485436893,
+              "coverage_wilson95": [
+                0.925252847633539,
+                0.9801926304326029
+              ],
+              "mean_set_size": 0.9660194174757282,
+              "abstention_rate": 0.03398058252427184
+            },
+            "phq9:5-9": {
+              "n": 155,
+              "coverage": 0.832258064516129,
+              "coverage_wilson95": [
+                0.7655643476717899,
+                0.8828809685870469
+              ],
+              "mean_set_size": 0.8838709677419355,
+              "abstention_rate": 0.11612903225806452
+            },
+            "phq9:10-14": {
+              "n": 128,
+              "coverage": 0.296875,
+              "coverage_wilson95": [
+                0.22458166083566666,
+                0.3810052276504461
+              ],
+              "mean_set_size": 0.84375,
+              "abstention_rate": 0.15625
+            },
+            "phq9:15-19": {
+              "n": 125,
+              "coverage": 0.432,
+              "coverage_wilson95": [
+                0.34846990714538484,
+                0.5195849863989477
+              ],
+              "mean_set_size": 0.776,
+              "abstention_rate": 0.224
+            },
+            "phq9:20+": {
+              "n": 68,
+              "coverage": 0.7794117647058824,
+              "coverage_wilson95": [
+                0.6674326122885067,
+                0.861509876126748
+              ],
+              "mean_set_size": 0.8823529411764706,
+              "abstention_rate": 0.11764705882352941
+            }
+          }
+        }
+      },
+      "target_calibration_simulation_alpha_0.10": {
+        "50": {
+          "alpha": 0.1,
+          "n_cal_target": 50,
+          "n_test_mean": 632.0,
+          "repeats": 50,
+          "coverage": {
+            "mean": 0.8975949367088609,
+            "p2_5": 0.7948575949367088,
+            "p97_5": 0.9565664556962025
+          },
+          "mean_set_size": {
+            "mean": 1.394841772151899,
+            "p2_5": 1.102373417721519,
+            "p97_5": 1.574881329113924
+          },
+          "abstention_rate": {
+            "mean": 0.39484177215189875,
+            "p2_5": 0.10237341772151899,
+            "p97_5": 0.574881329113924
+          },
+          "auto_alert_precision": {
+            "mean": 0.9758190808154653,
+            "p2_5": 0.9302544390950975,
+            "p97_5": 1.0
+          }
+        },
+        "100": {
+          "alpha": 0.1,
+          "n_cal_target": 100,
+          "n_test_mean": 582.0,
+          "repeats": 50,
+          "coverage": {
+            "mean": 0.8987972508591063,
+            "p2_5": 0.8331615120274914,
+            "p97_5": 0.9566580756013746
+          },
+          "mean_set_size": {
+            "mean": 1.3940549828178694,
+            "p2_5": 1.2207474226804123,
+            "p97_5": 1.5685137457044673
+          },
+          "abstention_rate": {
+            "mean": 0.3940549828178694,
+            "p2_5": 0.22074742268041236,
+            "p97_5": 0.5685137457044673
+          },
+          "auto_alert_precision": {
+            "mean": 0.9750951429769208,
+            "p2_5": 0.9471786576003509,
+            "p97_5": 1.0
+          }
+        },
+        "200": {
+          "alpha": 0.1,
+          "n_cal_target": 200,
+          "n_test_mean": 482.0,
+          "repeats": 50,
+          "coverage": {
+            "mean": 0.9004979253112034,
+            "p2_5": 0.8568464730290456,
+            "p97_5": 0.9377593360995851
+          },
+          "mean_set_size": {
+            "mean": 1.396265560165975,
+            "p2_5": 1.2814834024896264,
+            "p97_5": 1.4969917012448133
+          },
+          "abstention_rate": {
+            "mean": 0.39626556016597514,
+            "p2_5": 0.28148340248962656,
+            "p97_5": 0.4969917012448133
+          },
+          "auto_alert_precision": {
+            "mean": 0.9740878024970925,
+            "p2_5": 0.9435521235521236,
+            "p97_5": 1.0
+          }
+        }
+      },
+      "fairness_secondary": {
+        "subgroups": {
+          "source:mendeley": {
+            "n": 682,
+            "positives": 321,
+            "prevalence": 0.4706744868035191,
+            "auroc": 0.8627773319180884,
+            "auprc": 0.8650792145017088,
+            "brier": 0.17121678322677175,
+            "ece": 0.13617298447306678,
+            "calibration_slope": 1.1691425869619634,
+            "operating_points": {
+              "0.25": {
+                "alerts": 335,
+                "alert_rate": 0.4912023460410557,
+                "sensitivity": 0.778816199376947,
+                "sensitivity_wilson95": [
+                  0.7302644658843476,
+                  0.8207735717166482
+                ],
+                "specificity": 0.7645429362880887,
+                "specificity_wilson95": [
+                  0.718132091477085,
+                  0.8053829734428515
+                ],
+                "ppv": 0.746268656716418,
+                "ppv_wilson95": [
+                  0.6970602886986201,
+                  0.7898931100214392
+                ],
+                "npv": 0.7953890489913544,
+                "f1": 0.7621951219512195
+              },
+              "0.50": {
+                "alerts": 184,
+                "alert_rate": 0.2697947214076246,
+                "sensitivity": 0.5264797507788161,
+                "sensitivity_wilson95": [
+                  0.47186912732974184,
+                  0.5804640941183973
+                ],
+                "specificity": 0.9584487534626038,
+                "specificity_wilson95": [
+                  0.9325831583130036,
+                  0.9746602264435352
+                ],
+                "ppv": 0.9184782608695652,
+                "ppv_wilson95": [
+                  0.8698640135719263,
+                  0.9499762973309088
+                ],
+                "npv": 0.6947791164658634,
+                "f1": 0.6693069306930693
+              }
+            }
+          },
+          "gender:0": {
+            "n": 264,
+            "positives": 128,
+            "prevalence": 0.48484848484848486,
+            "auroc": 0.8289866727941176,
+            "auprc": 0.8558757565032609,
+            "brier": 0.178407282519181,
+            "ece": 0.12901949437556556,
+            "calibration_slope": 0.9656262441547353,
+            "operating_points": {
+              "0.25": {
+                "alerts": 136,
+                "alert_rate": 0.5151515151515151,
+                "sensitivity": 0.7734375,
+                "sensitivity_wilson95": [
+                  0.6935732116243923,
+                  0.8373675154135328
+                ],
+                "specificity": 0.7279411764705882,
+                "specificity_wilson95": [
+                  0.6476562130597405,
+                  0.7957030061793615
+                ],
+                "ppv": 0.7279411764705882,
+                "ppv_wilson95": [
+                  0.6476562130597405,
+                  0.7957030061793615
+                ],
+                "npv": 0.7734375,
+                "f1": 0.75
+              },
+              "0.50": {
+                "alerts": 81,
+                "alert_rate": 0.3068181818181818,
+                "sensitivity": 0.5703125,
+                "sensitivity_wilson95": [
+                  0.48373932885040405,
+                  0.6527882866736338
+                ],
+                "specificity": 0.9411764705882353,
+                "specificity_wilson95": [
+                  0.8882197031047836,
+                  0.9698949147773495
+                ],
+                "ppv": 0.9012345679012346,
+                "ppv_wilson95": [
+                  0.8170349859835269,
+                  0.9490998837312017
+                ],
+                "npv": 0.6994535519125683,
+                "f1": 0.6985645933014354
+              }
+            }
+          },
+          "gender:1": {
+            "n": 418,
+            "positives": 193,
+            "prevalence": 0.46172248803827753,
+            "auroc": 0.8843408175014392,
+            "auprc": 0.8724387512914935,
+            "brier": 0.16667541525261848,
+            "ece": 0.14069097821885698,
+            "calibration_slope": 1.3449650983453088,
+            "operating_points": {
+              "0.25": {
+                "alerts": 199,
+                "alert_rate": 0.47607655502392343,
+                "sensitivity": 0.7823834196891192,
+                "sensitivity_wilson95": [
+                  0.7189668658694022,
+                  0.8347782681741824
+                ],
+                "specificity": 0.7866666666666666,
+                "specificity_wilson95": [
+                  0.7285599348051756,
+                  0.8351491092849354
+                ],
+                "ppv": 0.7587939698492462,
+                "ppv_wilson95": [
+                  0.694814922589672,
+                  0.8129708160795068
+                ],
+                "npv": 0.8082191780821918,
+                "f1": 0.7704081632653061
+              },
+              "0.50": {
+                "alerts": 103,
+                "alert_rate": 0.24641148325358853,
+                "sensitivity": 0.49740932642487046,
+                "sensitivity_wilson95": [
+                  0.42761186593283157,
+                  0.5673079034796126
+                ],
+                "specificity": 0.9688888888888889,
+                "specificity_wilson95": [
+                  0.9371860845336941,
+                  0.9848496387454799
+                ],
+                "ppv": 0.9320388349514563,
+                "ppv_wilson95": [
+                  0.866317705300666,
+                  0.966692260890114
+                ],
+                "npv": 0.692063492063492,
+                "f1": 0.6486486486486487
+              }
+            }
+          },
+          "age:17-20": {
+            "n": 284,
+            "positives": 123,
+            "prevalence": 0.43309859154929575,
+            "auroc": 0.8693379790940766,
+            "auprc": 0.8486891216500709,
+            "brier": 0.15162691282653915,
+            "ece": 0.08154101080417978,
+            "calibration_slope": 1.2053615687352766,
+            "operating_points": {
+              "0.25": {
+                "alerts": 150,
+                "alert_rate": 0.528169014084507,
+                "sensitivity": 0.8373983739837398,
+                "sensitivity_wilson95": [
+                  0.7621557896073968,
+                  0.8922043917693455
+                ],
+                "specificity": 0.7080745341614907,
+                "specificity_wilson95": [
+                  0.6336514599612654,
+                  0.7727996869730692
+                ],
+                "ppv": 0.6866666666666666,
+                "ppv_wilson95": [
+                  0.6085602497894558,
+                  0.7554508589797957
+                ],
+                "npv": 0.8507462686567164,
+                "f1": 0.7545787545787546
+              },
+              "0.50": {
+                "alerts": 85,
+                "alert_rate": 0.2992957746478873,
+                "sensitivity": 0.5853658536585366,
+                "sensitivity_wilson95": [
+                  0.4970054379328255,
+                  0.6685555718130971
+                ],
+                "specificity": 0.9192546583850931,
+                "specificity_wilson95": [
+                  0.866761917363394,
+                  0.9522068115341455
+                ],
+                "ppv": 0.8470588235294118,
+                "ppv_wilson95": [
+                  0.7557181632390801,
+                  0.9083861950546959
+                ],
+                "npv": 0.7437185929648241,
+                "f1": 0.6923076923076923
+              }
+            }
+          },
+          "age:21-25": {
+            "n": 342,
+            "positives": 174,
+            "prevalence": 0.5087719298245614,
+            "auroc": 0.8680384510125889,
+            "auprc": 0.8940210518895533,
+            "brier": 0.1832260972456202,
+            "ece": 0.1799553049399835,
+            "calibration_slope": 1.2434245575773981,
+            "operating_points": {
+              "0.25": {
+                "alerts": 164,
+                "alert_rate": 0.47953216374269003,
+                "sensitivity": 0.7471264367816092,
+                "sensitivity_wilson95": [
+                  0.6776834808762241,
+                  0.8058932990843372
+                ],
+                "specificity": 0.7976190476190477,
+                "specificity_wilson95": [
+                  0.7305273071092123,
+                  0.8514044379206284
+                ],
+                "ppv": 0.7926829268292683,
+                "ppv_wilson95": [
+                  0.7242904296660712,
+                  0.8476779068493859
+                ],
+                "npv": 0.7528089887640449,
+                "f1": 0.7692307692307693
+              },
+              "0.50": {
+                "alerts": 91,
+                "alert_rate": 0.26608187134502925,
+                "sensitivity": 0.5114942528735632,
+                "sensitivity_wilson95": [
+                  0.43777948301403447,
+                  0.5847124602399452
+                ],
+                "specificity": 0.9880952380952381,
+                "specificity_wilson95": [
+                  0.9576388712303782,
+                  0.9967291906185604
+                ],
+                "ppv": 0.978021978021978,
+                "ppv_wilson95": [
+                  0.9233683539751506,
+                  0.9939519939170188
+                ],
+                "npv": 0.6613545816733067,
+                "f1": 0.6716981132075471
+              }
+            }
+          },
+          "age:26-30": {
+            "n": 56,
+            "positives": 24,
+            "prevalence": 0.42857142857142855,
+            "auroc": 0.8483072916666666,
+            "auprc": 0.8543110278936239,
+            "brier": 0.19722281535569838,
+            "ece": 0.20367106937031923,
+            "calibration_slope": 1.201107622467736,
+            "operating_points": {
+              "0.25": {
+                "alerts": 21,
+                "alert_rate": 0.375,
+                "sensitivity": 0.7083333333333334,
+                "sensitivity_wilson95": [
+                  0.5083230633550337,
+                  0.8508535180303913
+                ],
+                "specificity": 0.875,
+                "specificity_wilson95": [
+                  0.7193169451834978,
+                  0.9502986561251991
+                ],
+                "ppv": 0.8095238095238095,
+                "ppv_wilson95": [
+                  0.5999943530979508,
+                  0.9233243494723822
+                ],
+                "npv": 0.8,
+                "f1": 0.7555555555555555
+              },
+              "0.50": {
+                "alerts": 8,
+                "alert_rate": 0.14285714285714285,
+                "sensitivity": 0.3333333333333333,
+                "sensitivity_wilson95": [
+                  0.1797219032729775,
+                  0.5329368316186824
+                ],
+                "specificity": 1.0,
+                "specificity_wilson95": [
+                  0.8928208017449293,
+                  1.0
+                ],
+                "ppv": 1.0,
+                "ppv_wilson95": [
+                  0.6755924351161198,
+                  1.0
+                ],
+                "npv": 0.6666666666666666,
+                "f1": 0.5
+              }
+            }
+          },
+          "phq9:0-4": {
+            "n": 206,
+            "positives": 0,
+            "prevalence": 0.0,
+            "auroc": null,
+            "auprc": null,
+            "brier": 0.03381649636711954,
+            "ece": 0.13688501167986744,
+            "calibration_slope": -3.530533352858961e-16,
+            "operating_points": {
+              "0.25": {
+                "alerts": 35,
+                "alert_rate": 0.16990291262135923,
+                "sensitivity": null,
+                "sensitivity_wilson95": [
+                  null,
+                  null
+                ],
+                "specificity": 0.8300970873786407,
+                "specificity_wilson95": [
+                  0.7728839825851788,
+                  0.875224359609533
+                ],
+                "ppv": 0.0,
+                "ppv_wilson95": [
+                  6.938893903907228e-18,
+                  0.09890099232440402
+                ],
+                "npv": 1.0,
+                "f1": 0.0
+              },
+              "0.50": {
+                "alerts": 3,
+                "alert_rate": 0.014563106796116505,
+                "sensitivity": null,
+                "sensitivity_wilson95": [
+                  null,
+                  null
+                ],
+                "specificity": 0.9854368932038835,
+                "specificity_wilson95": [
+                  0.9580654163929894,
+                  0.9950350868345283
+                ],
+                "ppv": 0.0,
+                "ppv_wilson95": [
+                  5.551115123125783e-17,
+                  0.5614970317550454
+                ],
+                "npv": 1.0,
+                "f1": 0.0
+              }
+            }
+          },
+          "phq9:5-9": {
+            "n": 155,
+            "positives": 0,
+            "prevalence": 0.0,
+            "auroc": null,
+            "auprc": null,
+            "brier": 0.07953076130971828,
+            "ece": 0.21777723306804547,
+            "calibration_slope": -2.9078989608562103e-15,
+            "operating_points": {
+              "0.25": {
+                "alerts": 50,
+                "alert_rate": 0.3225806451612903,
+                "sensitivity": null,
+                "sensitivity_wilson95": [
+                  null,
+                  null
+                ],
+                "specificity": 0.6774193548387096,
+                "specificity_wilson95": [
+                  0.6003054861223337,
+                  0.7459517215886956
+                ],
+                "ppv": 0.0,
+                "ppv_wilson95": [
+                  6.938893903907228e-18,
+                  0.07134759913335872
+                ],
+                "npv": 1.0,
+                "f1": 0.0
+              },
+              "0.50": {
+                "alerts": 12,
+                "alert_rate": 0.07741935483870968,
+                "sensitivity": null,
+                "sensitivity_wilson95": [
+                  null,
+                  null
+                ],
+                "specificity": 0.9225806451612903,
+                "specificity_wilson95": [
+                  0.8695611207063897,
+                  0.9551605922053349
+                ],
+                "ppv": 0.0,
+                "ppv_wilson95": [
+                  2.7755575615628914e-17,
+                  0.24249400665524085
+                ],
+                "npv": 1.0,
+                "f1": 0.0
+              }
+            }
+          },
+          "phq9:10-14": {
+            "n": 128,
+            "positives": 128,
+            "prevalence": 1.0,
+            "auroc": null,
+            "auprc": null,
+            "brier": 0.41881333506049334,
+            "ece": 0.5937945453598658,
+            "calibration_slope": 5.719927217963696e-15,
+            "operating_points": {
+              "0.25": {
+                "alerts": 83,
+                "alert_rate": 0.6484375,
+                "sensitivity": 0.6484375,
+                "sensitivity_wilson95": [
+                  0.5624978389203745,
+                  0.7257271271859276
+                ],
+                "specificity": null,
+                "specificity_wilson95": [
+                  null,
+                  null
+                ],
+                "ppv": 1.0,
+                "ppv_wilson95": [
+                  0.9557646903580262,
+                  1.0
+                ],
+                "npv": 0.0,
+                "f1": 0.7867298578199052
+              },
+              "0.50": {
+                "alerts": 45,
+                "alert_rate": 0.3515625,
+                "sensitivity": 0.3515625,
+                "sensitivity_wilson95": [
+                  0.2742728728140724,
+                  0.43750216107962536
+                ],
+                "specificity": null,
+                "specificity_wilson95": [
+                  null,
+                  null
+                ],
+                "ppv": 1.0,
+                "ppv_wilson95": [
+                  0.9213484012671117,
+                  1.0
+                ],
+                "npv": 0.0,
+                "f1": 0.5202312138728323
+              }
+            }
+          },
+          "phq9:15-19": {
+            "n": 125,
+            "positives": 125,
+            "prevalence": 1.0,
+            "auroc": null,
+            "auprc": null,
+            "brier": 0.2848240984182786,
+            "ece": 0.4727373512476119,
+            "calibration_slope": -1.7596000192137187e-15,
+            "operating_points": {
+              "0.25": {
+                "alerts": 100,
+                "alert_rate": 0.8,
+                "sensitivity": 0.8,
+                "sensitivity_wilson95": [
+                  0.7214100720202135,
+                  0.8607006917547908
+                ],
+                "specificity": null,
+                "specificity_wilson95": [
+                  null,
+                  null
+                ],
+                "ppv": 1.0,
+                "ppv_wilson95": [
+                  0.9630065017930143,
+                  1.0
+                ],
+                "npv": 0.0,
+                "f1": 0.8888888888888888
+              },
+              "0.50": {
+                "alerts": 67,
+                "alert_rate": 0.536,
+                "sensitivity": 0.536,
+                "sensitivity_wilson95": [
+                  0.44880835644487477,
+                  0.6210449352081258
+                ],
+                "specificity": null,
+                "specificity_wilson95": [
+                  null,
+                  null
+                ],
+                "ppv": 1.0,
+                "ppv_wilson95": [
+                  0.9457738606086981,
+                  0.9999999999999998
+                ],
+                "npv": 0.0,
+                "f1": 0.6979166666666666
+              }
+            }
+          },
+          "phq9:20+": {
+            "n": 68,
+            "positives": 68,
+            "prevalence": 1.0,
+            "auroc": null,
+            "auprc": null,
+            "brier": 0.12154795170584419,
+            "ece": 0.29008659162083816,
+            "calibration_slope": 6.53814934676593e-16,
+            "operating_points": {
+              "0.25": {
+                "alerts": 67,
+                "alert_rate": 0.9852941176470589,
+                "sensitivity": 0.9852941176470589,
+                "sensitivity_wilson95": [
+                  0.9212902687183916,
+                  0.9973993164238933
+                ],
+                "specificity": null,
+                "specificity_wilson95": [
+                  null,
+                  null
+                ],
+                "ppv": 1.0,
+                "ppv_wilson95": [
+                  0.9457738606086981,
+                  0.9999999999999998
+                ],
+                "npv": 0.0,
+                "f1": 0.9925925925925926
+              },
+              "0.50": {
+                "alerts": 57,
+                "alert_rate": 0.8382352941176471,
+                "sensitivity": 0.8382352941176471,
+                "sensitivity_wilson95": [
+                  0.733099723993876,
+                  0.9071990777719586
+                ],
+                "specificity": null,
+                "specificity_wilson95": [
+                  null,
+                  null
+                ],
+                "ppv": 1.0,
+                "ppv_wilson95": [
+                  0.9368611651470209,
+                  0.9999999999999998
+                ],
+                "npv": 0.0,
+                "f1": 0.912
+              }
+            }
+          }
+        },
+        "gaps": {
+          "0.25": {
+            "gender:1_vs_0": {
+              "tpr": {
+                "delta": 0.008945919689119175,
+                "ci95": [
+                  -0.08270986394557825,
+                  0.0999862237431745
+                ],
+                "n_a": 418,
+                "n_b": 264,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.25
+              },
+              "fpr": {
+                "delta": -0.05872549019607842,
+                "ci95": [
+                  -0.15320117196227548,
+                  0.027406844269291897
+                ],
+                "n_a": 418,
+                "n_b": 264,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.25
+              },
+              "ppv": {
+                "delta": 0.030852793378657983,
+                "ci95": [
+                  -0.0659279126762774,
+                  0.13021850478001562
+                ],
+                "n_a": 418,
+                "n_b": 264,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.25
+              },
+              "alert_rate": {
+                "delta": -0.03907496012759171,
+                "ci95": [
+                  -0.11642743221690594,
+                  0.034698963317384306
+                ],
+                "n_a": 418,
+                "n_b": 264,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.25
+              }
+            },
+            "age:max_minus_min": {
+              "tpr": {
+                "delta": 0.12906504065040647,
+                "ci95": [
+                  0.0371985746831722,
+                  0.32541445297127103
+                ],
+                "n_groups": 3,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.25
+              },
+              "fpr": {
+                "delta": 0.1669254658385093,
+                "ci95": [
+                  0.05826537249261142,
+                  0.29563494862811407
+                ],
+                "n_groups": 3,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.25
+              },
+              "ppv": {
+                "delta": 0.12285714285714289,
+                "ci95": [
+                  0.04883214051010733,
+                  0.2994062585931913
+                ],
+                "n_groups": 3,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.25
+              },
+              "alert_rate": {
+                "delta": 0.153169014084507,
+                "ci95": [
+                  0.04045898196194711,
+                  0.28471453722334006
+                ],
+                "n_groups": 3,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.25
+              }
+            }
+          },
+          "0.50": {
+            "gender:1_vs_0": {
+              "tpr": {
+                "delta": -0.07290317357512954,
+                "ci95": [
+                  -0.18084779771321138,
+                  0.03743892331073191
+                ],
+                "n_a": 418,
+                "n_b": 264,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.5
+              },
+              "fpr": {
+                "delta": -0.02771241830065363,
+                "ci95": [
+                  -0.07616138259794979,
+                  0.016076403695806686
+                ],
+                "n_a": 418,
+                "n_b": 264,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.5
+              },
+              "ppv": {
+                "delta": 0.030804267050221767,
+                "ci95": [
+                  -0.050970018839141706,
+                  0.11506035590085105
+                ],
+                "n_a": 418,
+                "n_b": 264,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.5
+              },
+              "alert_rate": {
+                "delta": -0.0604066985645933,
+                "ci95": [
+                  -0.13058712121212124,
+                  0.008378189792663466
+                ],
+                "n_a": 418,
+                "n_b": 264,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.5
+              }
+            },
+            "age:max_minus_min": {
+              "tpr": {
+                "delta": 0.25203252032520324,
+                "ci95": [
+                  0.06809916293036075,
+                  0.4561253771481044
+                ],
+                "n_groups": 3,
+                "bootstrap_n": 2000,
+                "metric": "tpr",
+                "threshold": 0.5
+              },
+              "fpr": {
+                "delta": 0.08074534161490687,
+                "ci95": [
+                  0.04190993013972055,
+                  0.12580817610062878
+                ],
+                "n_groups": 3,
+                "bootstrap_n": 2000,
+                "metric": "fpr",
+                "threshold": 0.5
+              },
+              "ppv": {
+                "delta": 0.15294117647058825,
+                "ci95": [
+                  0.07998863636363633,
+                  0.23595895755305868
+                ],
+                "n_groups": 3,
+                "bootstrap_n": 2000,
+                "metric": "ppv",
+                "threshold": 0.5
+              },
+              "alert_rate": {
+                "delta": 0.15643863179074446,
+                "ci95": [
+                  0.056841046277666035,
+                  0.2530209767376187
+                ],
+                "n_groups": 3,
+                "bootstrap_n": 2000,
+                "metric": "alert_rate",
+                "threshold": 0.5
+              }
+            }
+          }
+        }
+      },
+      "boundary": "Kaggle labels are self-reported binary; Mendeley labels are PHQ-9 >= 10. Coverage loss mixes covariate shift with label-definition shift."
+    },
+    "text_groupwise_oof": {
+      "role": "citable_groupwise_oof",
+      "n": 8379,
+      "n_groups": 1277,
+      "positive_rate": 0.21625492302184032,
+      "conformal": {
+        "0.05": {
+          "alpha": 0.05,
+          "nominal_coverage": 0.95,
+          "n_repeats": 50,
+          "coverage": {
+            "mean": 0.9527219168677442,
+            "p2_5": 0.933181085178824,
+            "p97_5": 0.9731167527699595
+          },
+          "coverage_positive": {
+            "mean": 0.8464479750768835,
+            "p2_5": 0.7740397779060858,
+            "p97_5": 0.9088854476049992
+          },
+          "coverage_negative": {
+            "mean": 0.9820735228403487,
+            "p2_5": 0.9709682618129812,
+            "p97_5": 0.9917745462620865
+          },
+          "mean_set_size": {
+            "mean": 1.4079439422185709,
+            "p2_5": 1.3402641114709914,
+            "p97_5": 1.4804938724126737
+          },
+          "abstention_rate": {
+            "mean": 0.40794394221857067,
+            "p2_5": 0.34026411147099145,
+            "p97_5": 0.48049387241267366
+          },
+          "auto_decision_rate": {
+            "mean": 0.5920560577814292,
+            "p2_5": 0.5195061275873263,
+            "p97_5": 0.6597358885290086
+          },
+          "auto_alert_precision": {
+            "mean": 0.6871116840752513,
+            "p2_5": 0.5553322891262299,
+            "p97_5": 0.8321390658174098
+          },
+          "positive_auto_alert_rate": {
+            "mean": 0.13778141038219363,
+            "p2_5": 0.09366749758231477,
+            "p97_5": 0.19977278908064564
+          },
+          "positive_auto_cleared_rate": {
+            "mean": 0.15355202492311654,
+            "p2_5": 0.09111455239500069,
+            "p97_5": 0.2259602220939142
+          },
+          "auto_accuracy": {
+            "mean": 0.9211030642271745,
+            "p2_5": 0.8966339761511516,
+            "p97_5": 0.9507464222155234
+          },
+          "q_mean": 0.7391746465804121
+        },
+        "0.10": {
+          "alpha": 0.1,
+          "nominal_coverage": 0.9,
+          "n_repeats": 50,
+          "coverage": {
+            "mean": 0.9019591908214172,
+            "p2_5": 0.8769940393153536,
+            "p97_5": 0.9304139194757262
+          },
+          "coverage_positive": {
+            "mean": 0.7047983436011558,
+            "p2_5": 0.6295569736311292,
+            "p97_5": 0.7736011540479104
+          },
+          "coverage_negative": {
+            "mean": 0.9564223915255387,
+            "p2_5": 0.935953346413778,
+            "p97_5": 0.9744884671292066
+          },
+          "mean_set_size": {
+            "mean": 1.1807100415023621,
+            "p2_5": 1.141639004615139,
+            "p97_5": 1.220251655475644
+          },
+          "abstention_rate": {
+            "mean": 0.18071004150236208,
+            "p2_5": 0.14163900461513887,
+            "p97_5": 0.220251655475644
+          },
+          "auto_decision_rate": {
+            "mean": 0.8192899584976377,
+            "p2_5": 0.779748344524356,
+            "p97_5": 0.8583609953848611
+          },
+          "auto_alert_precision": {
+            "mean": 0.6947416656184981,
+            "p2_5": 0.6172677865612648,
+            "p97_5": 0.7686927062574731
+          },
+          "positive_auto_alert_rate": {
+            "mean": 0.3525241621419321,
+            "p2_5": 0.29497899151914003,
+            "p97_5": 0.42181990039899075
+          },
+          "positive_auto_cleared_rate": {
+            "mean": 0.29520165639884427,
+            "p2_5": 0.22639884595208953,
+            "p97_5": 0.3704430263688708
+          },
+          "auto_accuracy": {
+            "mean": 0.8806757259744228,
+            "p2_5": 0.8556351715488648,
+            "p97_5": 0.9093166740380363
+          },
+          "q_mean": 0.6157357720920227
+        },
+        "0.20": {
+          "alpha": 0.2,
+          "nominal_coverage": 0.8,
+          "n_repeats": 50,
+          "coverage": {
+            "mean": 0.8047491252531883,
+            "p2_5": 0.7636686234128659,
+            "p97_5": 0.8533274099961615
+          },
+          "coverage_positive": {
+            "mean": 0.4844244210380927,
+            "p2_5": 0.4067370509933332,
+            "p97_5": 0.5690492135264872
+          },
+          "coverage_negative": {
+            "mean": 0.893238556626549,
+            "p2_5": 0.8602914751201689,
+            "p97_5": 0.9283884265794425
+          },
+          "mean_set_size": {
+            "mean": 0.9404481600387978,
+            "p2_5": 0.897951247513467,
+            "p97_5": 0.9835662172727164
+          },
+          "abstention_rate": {
+            "mean": 0.05955183996120212,
+            "p2_5": 0.016433782727283498,
+            "p97_5": 0.10204875248653299
+          },
+          "auto_decision_rate": {
+            "mean": 0.9404481600387978,
+            "p2_5": 0.897951247513467,
+            "p97_5": 0.9835662172727164
+          },
+          "auto_alert_precision": {
+            "mean": 0.6724293032108964,
+            "p2_5": 0.6167672167221796,
+            "p97_5": 0.7411153328139648
+          },
+          "positive_auto_alert_rate": {
+            "mean": 0.4844244210380927,
+            "p2_5": 0.4067370509933332,
+            "p97_5": 0.5690492135264872
+          },
+          "positive_auto_cleared_rate": {
+            "mean": 0.39099310577411506,
+            "p2_5": 0.3462020353385812,
+            "p97_5": 0.43822706935123046
+          },
+          "auto_accuracy": {
+            "mean": 0.8556313048725416,
+            "p2_5": 0.8451268801120999,
+            "p97_5": 0.8689008861314075
+          },
+          "q_mean": 0.4633252683748939
+        }
+      },
+      "fairness": {
+        "status": "not_evaluable",
+        "reason": "The Chinese corpus and the groupwise OOF table carry no gender, age, or source attribution. Group IDs denote sibling text families, not people or protected groups."
+      },
+      "boundary": "Repeated 50/50 group splits on OOF scores are group-aware, but the OOF base models saw the calibration groups during their own training folds. This is an approximate exchangeability check, not a strict held-out conformal guarantee."
+    },
+    "physio_v2": {
+      "role": "citable_secondary_small_test",
+      "n_validation": 153,
+      "n_test": 157,
+      "positive_rate_test": 0.3503184713375796,
+      "conformal": {
+        "0.05": {
+          "alpha": 0.05,
+          "nominal_coverage": 0.95,
+          "n_cal": 153,
+          "n_test": 157,
+          "q": 0.6074180275359277,
+          "review_band": [
+            0.39258197246407234,
+            0.6074180275359277
+          ],
+          "coverage": 0.9872611464968153,
+          "coverage_wilson95": [
+            0.9547477118446193,
+            0.9964995668222836
+          ],
+          "coverage_positive": 0.9818181818181818,
+          "coverage_positive_wilson95": [
+            0.903942239378376,
+            0.9967832195451589
+          ],
+          "coverage_negative": 0.9901960784313726,
+          "coverage_negative_wilson95": [
+            0.9465420852342225,
+            0.9982672656025783
+          ],
+          "mean_set_size": 1.375796178343949,
+          "singleton_rate": 0.6242038216560509,
+          "empty_rate": 0.0,
+          "both_rate": 0.37579617834394907,
+          "abstention_rate": 0.37579617834394907,
+          "review_positive_rate": 0.3090909090909091,
+          "review_negative_rate": 0.4117647058823529,
+          "auto_decision_rate": 0.6242038216560509,
+          "auto_alert_rate": 0.24203821656050956,
+          "auto_alert_precision": 0.9736842105263158,
+          "auto_alert_precision_wilson95": [
+            0.8650512388404787,
+            0.9953394123142312
+          ],
+          "positive_auto_alert_rate": 0.6727272727272727,
+          "positive_auto_cleared_rate": 0.01818181818181818,
+          "negative_auto_cleared_rate": 0.5784313725490197,
+          "auto_accuracy": 0.9795918367346939
+        },
+        "0.10": {
+          "alpha": 0.1,
+          "nominal_coverage": 0.9,
+          "n_cal": 153,
+          "n_test": 157,
+          "q": 0.5306423530182964,
+          "review_band": [
+            0.46935764698170357,
+            0.5306423530182964
+          ],
+          "coverage": 0.9299363057324841,
+          "coverage_wilson95": [
+            0.8789056235495539,
+            0.9604302105683015
+          ],
+          "coverage_positive": 0.9272727272727272,
+          "coverage_positive_wilson95": [
+            0.8274005992784393,
+            0.9713559397669594
+          ],
+          "coverage_negative": 0.9313725490196079,
+          "coverage_negative_wilson95": [
+            0.8650704496132519,
+            0.9663617791231328
+          ],
+          "mean_set_size": 1.1210191082802548,
+          "singleton_rate": 0.8789808917197452,
+          "empty_rate": 0.0,
+          "both_rate": 0.12101910828025478,
+          "abstention_rate": 0.12101910828025478,
+          "review_positive_rate": 0.10909090909090909,
+          "review_negative_rate": 0.12745098039215685,
+          "auto_decision_rate": 0.8789808917197452,
+          "auto_alert_rate": 0.33121019108280253,
+          "auto_alert_precision": 0.8653846153846154,
+          "auto_alert_precision_wilson95": [
+            0.747266798348062,
+            0.9332311829460386
+          ],
+          "positive_auto_alert_rate": 0.8181818181818182,
+          "positive_auto_cleared_rate": 0.07272727272727272,
+          "negative_auto_cleared_rate": 0.803921568627451,
+          "auto_accuracy": 0.9202898550724637
+        },
+        "0.20": {
+          "alpha": 0.2,
+          "nominal_coverage": 0.8,
+          "n_cal": 153,
+          "n_test": 157,
+          "q": 0.4591750018198933,
+          "review_band": [
+            0.4591750018198933,
+            0.5408249981801068
+          ],
+          "coverage": 0.7834394904458599,
+          "coverage_wilson95": [
+            0.7126547105681234,
+            0.8406852097021666
+          ],
+          "coverage_positive": 0.7636363636363637,
+          "coverage_positive_wilson95": [
+            0.6365163381083228,
+            0.8563334413026682
+          ],
+          "coverage_negative": 0.7941176470588235,
+          "coverage_negative_wilson95": [
+            0.7056745056103343,
+            0.861211104891746
+          ],
+          "mean_set_size": 0.8407643312101911,
+          "singleton_rate": 0.8407643312101911,
+          "empty_rate": 0.1592356687898089,
+          "both_rate": 0.0,
+          "abstention_rate": 0.1592356687898089,
+          "review_positive_rate": 0.18181818181818182,
+          "review_negative_rate": 0.14705882352941177,
+          "auto_decision_rate": 0.8407643312101911,
+          "auto_alert_rate": 0.3057324840764331,
+          "auto_alert_precision": 0.875,
+          "auto_alert_precision_wilson95": [
+            0.7529954171361317,
+            0.9414294856142802
+          ],
+          "positive_auto_alert_rate": 0.7636363636363637,
+          "positive_auto_cleared_rate": 0.05454545454545454,
+          "negative_auto_cleared_rate": 0.7941176470588235,
+          "auto_accuracy": 0.9318181818181818
+        }
+      },
+      "fairness": {
+        "status": "not_evaluable",
+        "reason": "The depression physiological table has no gender, age, or protected attribute; the only metadata is source='depresjon'. n=157 is also too small for stable subgroup inference."
+      },
+      "boundary": "Calibration 153 rows, test 157 rows. At alpha=0.05 the 95th percentile is estimated from 153 points; interval endpoints are granular."
+    },
+    "text_english_holdout": {
+      "status": "not_evaluable",
+      "reason": "The English Reddit holdout has no protected attributes and only one split; a repeated group split would need sibling provenance that is not present."
+    },
+    "fusion": {
+      "status": "not_evaluable",
+      "reason": "No aligned three-modality labelled samples; no conformal or fairness unit exists."
+    }
+  }
+}

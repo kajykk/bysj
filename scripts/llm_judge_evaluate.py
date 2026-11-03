@@ -184,15 +184,15 @@ def load_api_key() -> str:
 
     两种放法（都不会入库）:
       1) 临时, 仅当前终端:  $env:DEEPSEEK_API_KEY="sk-xxx"        (PowerShell)
-      2) 持久, 项目本地:    写入 E:\\code\\bysj\\backend\\.env 一行
+      2) 持久, 仓库外的密钥文件（推荐 E:\\secrets\\bysj\\backend.env）一行
                             DEEPSEEK_API_KEY=sk-xxx
-                            该文件已被 .gitignore 覆盖, 但**备份/分享仓库时要记得剔除**。
+                            通过 ENV_FILE 指向该文件；不要写回仓库目录。
     绝对不要: 写进代码、写进提交、贴在聊天里。
     """
     key = os.environ.get("DEEPSEEK_API_KEY", "")
     if key:
         return key
-    env_file = BACKEND / ".env"
+    env_file = Path(os.environ.get("ENV_FILE") or (BACKEND / ".env"))
     if env_file.exists():
         try:
             from dotenv import load_dotenv

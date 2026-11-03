@@ -1,5 +1,25 @@
 # physiological_optimized · 可复跑评估报告
 
+> **⚠️ 2026-11-02 来源审计后必读：本报告的 AUC/F1 不是真实生理信号性能。**
+> 训练表 `depresjon_physiological.csv` 可由 `convert_depresjon_to_system.py` 逐值复现：
+> `heart_rate`/`sleep_hours`/`sleep_quality`/`systolic_bp`/`diastolic_bp` 由真实队列标签
+> 的分组均值生成，`phq9_score` 是标签的噪声副本；仅 `steps`/`exercise_minutes`
+> 来自真实 actigraphy。仅真实列 5 折 OOF AUC 0.6443，合成列 0.9898，当前测试 AUC 0.9451
+> 落在合成列可解释范围内。**本报告只能作为生产管线一致性/回归读数**，
+> 不得作为「生理信号识别抑郁」或人群外推证据。详见
+> `docs/model-evaluation/PHYSIO_DATA_PROVENANCE_AUDIT.md`。
+> ROUND_47 的 NHANES 迁移压力测试（AUC 0.5459，非外部验证）见
+> `docs/model-evaluation/NHANES_TRANSPORT_STRESS.md`。
+> ROUND_48 从原始分钟级数据重做的同队列真实 actigraphy 基线（受试者分组；
+> LOSO 0.6454、多日聚合 0.7620）见 `docs/model-evaluation/REAL_ACTIGRAPHY_BASELINE.md`；
+> 它同样是回顾性同队列结果，不能与 0.9451 并列。
+> ROUND_49 稳健性审计进一步显示：18 个规范网格的 AUC 为 0.5855–0.7364，
+> 仅佩戴/记录时长代理的 LOSO AUC 为 0.7921；0.6454 不是稳健估计，详见
+> `docs/model-evaluation/REAL_BASELINE_ROBUSTNESS.md`。
+> ROUND_50 对多日聚合次口径的 9 规范审计显示：0.7620 是预注册规范的精确读数，
+> 但也是网格最大值（范围 0.6565–0.7620）；日级与受试者级 LOSO 回答不同问题，
+> 详见 `docs/model-evaluation/REAL_BASELINE_PROTOCOL_ROBUSTNESS.md`。
+>
 > **样本量先说：n = 157（单一切分、单一随机种子）。**
 > 这个量级下 95% CI 的宽度是**结构性**的，不能据此主张高精度；
 > 所有区间只能读作「该量级下点估计的波动范围」。

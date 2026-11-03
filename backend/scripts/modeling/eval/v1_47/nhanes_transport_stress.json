@@ -1,0 +1,918 @@
+{
+  "round": "ROUND_47",
+  "generated_at_utc": "2026-11-02T09:31:16.053538+00:00",
+  "status": "descriptive_stress_test_not_external_validation",
+  "external_validation": false,
+  "transport_risk": "not_evaluated",
+  "dataset": {
+    "path": "data/external/nhanes/nhanes_physiological.csv",
+    "sha256": "88929abb28bd11c1bd2220fa0fc5acf531b416a1bbe2b663b233db89aabcae46",
+    "cycle": "NHANES 2017-2018",
+    "license": "美国联邦政府作品，公有领域（CDC/NCHS 公开数据，无需 DUA）；引用建议：CDC/NCHS, National Health and Nutrition Examination Survey, 2017-2018",
+    "age_range": [
+      18,
+      80
+    ],
+    "label_rule": "PHQ-9 total >= 10",
+    "label_comparable_to_depresjon": false,
+    "missing": {
+      "sleep_hours": 36,
+      "sleep_quality": 0,
+      "exercise_minutes": 1292,
+      "heart_rate": 161,
+      "systolic_bp": 504,
+      "diastolic_bp": 504,
+      "steps": 5068
+    },
+    "schema_gap": [
+      "steps（无对应列，保持缺失，不以 0 或均值填充）"
+    ]
+  },
+  "model": {
+    "artifact_dir": "backend/models/artifacts/physiological_optimized",
+    "artifact_hashes": {
+      "model.json": "d2b0b80529a8f56484b1de1df11247775627d11b12b7bbd01fb38ffe7b78f3bd",
+      "scaler.json": "310ee08d6a061e0f1e6131099457aa6ee300d3d3edbf9aa24e11801e041946fe",
+      "feature_names.json": "1d96dca6260cab7f7e3b60d2250f65a7e84bed1d2878acb312990fe94c4fb503",
+      "cleaner_stats.json": "234c69ff72fda0f886b8ca42ae9857a4cbc64c980f2214e07a7f80779462b0f6"
+    },
+    "features": [
+      "sleep_hours",
+      "sleep_quality",
+      "exercise_minutes",
+      "heart_rate",
+      "systolic_bp",
+      "diastolic_bp",
+      "steps",
+      "sleep_efficiency",
+      "activity_intensity",
+      "cardiovascular_risk",
+      "hr_sleep_interaction",
+      "overall_activity",
+      "bp_category"
+    ],
+    "defaults": {
+      "sleep_hours": 7.0,
+      "sleep_quality": 5.0,
+      "exercise_minutes": 30.0,
+      "heart_rate": 70.0,
+      "systolic_bp": 120.0,
+      "diastolic_bp": 80.0,
+      "steps": 5000.0
+    }
+  },
+  "steps_training_mean": 2110.1005859375,
+  "variants": {
+    "production_defaults": {
+      "definition": {
+        "steps_value": 5000.0,
+        "complete_case_6": false,
+        "default_fill": {
+          "sleep_hours": 7.0,
+          "sleep_quality": 5.0,
+          "exercise_minutes": 30.0,
+          "heart_rate": 70.0,
+          "systolic_bp": 120.0,
+          "diastolic_bp": 80.0
+        }
+      },
+      "cohort": {
+        "n": 5068,
+        "positives": 459,
+        "prevalence": 0.09056827150749802,
+        "rows_with_any_default_fill": 1658
+      },
+      "metrics": {
+        "n": 5068,
+        "positives": 459,
+        "prevalence": 0.09056827150749802,
+        "roc_auc": 0.5459239311548733,
+        "auprc": 0.11219398597675145,
+        "brier": 0.2553771809471945,
+        "log_loss": 0.7214941459724247,
+        "mean_predicted": 0.47098537631748344,
+        "observed_rate": 0.09056827150749802,
+        "calibration_ece_10bin": 0.3804171048099854,
+        "calibration": {
+          "slope": 0.21137411150924898,
+          "intercept": -2.29691592323614
+        },
+        "thresholds": {
+          "0.35": {
+            "threshold": 0.35,
+            "tp": 343,
+            "fp": 3297,
+            "tn": 1312,
+            "fn": 116,
+            "sensitivity": 0.7472766884531591,
+            "specificity": 0.2846604469516164,
+            "ppv": 0.09423076923076923,
+            "npv": 0.9187675070028011,
+            "alert_rate": 0.7182320441988951,
+            "accuracy": 0.3265588003157064,
+            "f1": 0.16735789216882166
+          },
+          "0.50": {
+            "threshold": 0.5,
+            "tp": 216,
+            "fp": 1946,
+            "tn": 2663,
+            "fn": 243,
+            "sensitivity": 0.47058823529411764,
+            "specificity": 0.5777825992623129,
+            "ppv": 0.09990749306197964,
+            "npv": 0.9163799036476256,
+            "alert_rate": 0.4265982636148382,
+            "accuracy": 0.5680741910023678,
+            "f1": 0.1648225867989317
+          },
+          "0.55": {
+            "threshold": 0.55,
+            "tp": 172,
+            "fp": 1383,
+            "tn": 3226,
+            "fn": 287,
+            "sensitivity": 0.3747276688453159,
+            "specificity": 0.6999349099587763,
+            "ppv": 0.11061093247588424,
+            "npv": 0.9183034443495588,
+            "alert_rate": 0.30682715074980266,
+            "accuracy": 0.670481452249408,
+            "f1": 0.1708043694141013
+          },
+          "0.75": {
+            "threshold": 0.75,
+            "tp": 61,
+            "fp": 362,
+            "tn": 4247,
+            "fn": 398,
+            "sensitivity": 0.1328976034858388,
+            "specificity": 0.9214580169234107,
+            "ppv": 0.14420803782505912,
+            "npv": 0.9143164693218514,
+            "alert_rate": 0.0834648776637727,
+            "accuracy": 0.8500394632991318,
+            "f1": 0.1383219954648526
+          },
+          "0.90": {
+            "threshold": 0.9,
+            "tp": 13,
+            "fp": 80,
+            "tn": 4529,
+            "fn": 446,
+            "sensitivity": 0.02832244008714597,
+            "specificity": 0.9826426556736819,
+            "ppv": 0.13978494623655913,
+            "npv": 0.9103517587939699,
+            "alert_rate": 0.01835043409629045,
+            "accuracy": 0.8962115232833465,
+            "f1": 0.04710144927536232
+          }
+        }
+      },
+      "bootstrap": {
+        "b": 2000,
+        "seed": 42,
+        "roc_auc_95ci": {
+          "low": 0.5163437734597977,
+          "high": 0.5753824711085715
+        },
+        "brier_95ci": {
+          "low": 0.2501586528294602,
+          "high": 0.260502648737028
+        }
+      },
+      "subgroups": {
+        "age_18_39": {
+          "n": 1704,
+          "positives": 149,
+          "prevalence": 0.08744131455399061,
+          "mean_predicted": 0.43181743633135017,
+          "roc_auc": 0.5461965083407065,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 57,
+            "fp": 520,
+            "tn": 1035,
+            "fn": 92,
+            "sensitivity": 0.3825503355704698,
+            "specificity": 0.6655948553054662,
+            "ppv": 0.09878682842287695,
+            "npv": 0.9183673469387755,
+            "alert_rate": 0.3386150234741784,
+            "accuracy": 0.6408450704225352,
+            "f1": 0.15702479338842976
+          }
+        },
+        "age_40_59": {
+          "n": 1542,
+          "positives": 144,
+          "prevalence": 0.0933852140077821,
+          "mean_predicted": 0.5222124438914464,
+          "roc_auc": 0.538840208233985,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 81,
+            "fp": 740,
+            "tn": 658,
+            "fn": 63,
+            "sensitivity": 0.5625,
+            "specificity": 0.47067238912732473,
+            "ppv": 0.09866017052375152,
+            "npv": 0.912621359223301,
+            "alert_rate": 0.5324254215304799,
+            "accuracy": 0.4792477302204929,
+            "f1": 0.16787564766839377
+          }
+        },
+        "age_60_80": {
+          "n": 1822,
+          "positives": 166,
+          "prevalence": 0.09110867178924259,
+          "mean_predicted": 0.46426201272655054,
+          "roc_auc": 0.5486402130260171,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 78,
+            "fp": 686,
+            "tn": 970,
+            "fn": 88,
+            "sensitivity": 0.46987951807228917,
+            "specificity": 0.5857487922705314,
+            "ppv": 0.10209424083769633,
+            "npv": 0.9168241965973535,
+            "alert_rate": 0.41931942919868276,
+            "accuracy": 0.575192096597146,
+            "f1": 0.16774193548387098
+          }
+        },
+        "gender_1": {
+          "n": 2478,
+          "positives": 182,
+          "prevalence": 0.07344632768361582,
+          "mean_predicted": 0.47686083483325875,
+          "roc_auc": 0.5648093196002604,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 94,
+            "fp": 979,
+            "tn": 1317,
+            "fn": 88,
+            "sensitivity": 0.5164835164835165,
+            "specificity": 0.5736062717770035,
+            "ppv": 0.08760484622553588,
+            "npv": 0.9373665480427046,
+            "alert_rate": 0.43301049233252625,
+            "accuracy": 0.569410815173527,
+            "f1": 0.149800796812749
+          }
+        },
+        "gender_2": {
+          "n": 2590,
+          "positives": 277,
+          "prevalence": 0.10694980694980695,
+          "mean_predicted": 0.46536399168347137,
+          "roc_auc": 0.5348407447467696,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 122,
+            "fp": 967,
+            "tn": 1346,
+            "fn": 155,
+            "sensitivity": 0.4404332129963899,
+            "specificity": 0.5819282317336792,
+            "ppv": 0.11202938475665748,
+            "npv": 0.8967355096602265,
+            "alert_rate": 0.42046332046332047,
+            "accuracy": 0.5667953667953668,
+            "f1": 0.17862371888726208
+          }
+        }
+      },
+      "score_quintiles": {
+        "0": {
+          "n": 1014,
+          "score_min": 0.059755758908254436,
+          "score_max": 0.30487969371636,
+          "mean_score": 0.22750082015337916,
+          "observed_rate": 0.07790927021696252
+        },
+        "1": {
+          "n": 1013,
+          "score_min": 0.30530219280023846,
+          "score_max": 0.4135442625206944,
+          "mean_score": 0.3592088383445571,
+          "observed_rate": 0.08390918065153011
+        },
+        "2": {
+          "n": 1014,
+          "score_min": 0.41366092895562645,
+          "score_max": 0.5110358111382834,
+          "mean_score": 0.4646183000736181,
+          "observed_rate": 0.08382642998027613
+        },
+        "3": {
+          "n": 1013,
+          "score_min": 0.5110846141933074,
+          "score_max": 0.6188599322778906,
+          "mean_score": 0.5581322337197044,
+          "observed_rate": 0.08588351431391905
+        },
+        "4": {
+          "n": 1014,
+          "score_min": 0.6190192786615701,
+          "score_max": 0.9663073467678038,
+          "mean_score": 0.7454423996703491,
+          "observed_rate": 0.12130177514792899
+        }
+      },
+      "score_vs_phq9_spearman": 0.0484228831177092
+    },
+    "complete_case_6": {
+      "definition": {
+        "steps_value": 5000.0,
+        "complete_case_6": true,
+        "default_fill": {
+          "sleep_hours": 7.0,
+          "sleep_quality": 5.0,
+          "exercise_minutes": 30.0,
+          "heart_rate": 70.0,
+          "systolic_bp": 120.0,
+          "diastolic_bp": 80.0
+        }
+      },
+      "cohort": {
+        "n": 3410,
+        "positives": 280,
+        "prevalence": 0.08211143695014662,
+        "rows_with_any_default_fill": 0
+      },
+      "metrics": {
+        "n": 3410,
+        "positives": 280,
+        "prevalence": 0.08211143695014662,
+        "roc_auc": 0.5504666818804199,
+        "auprc": 0.10343081867358446,
+        "brier": 0.24851971022992375,
+        "log_loss": 0.7070636720558111,
+        "mean_predicted": 0.46173619026453044,
+        "observed_rate": 0.08211143695014662,
+        "calibration_ece_10bin": 0.3796247533143838,
+        "calibration": {
+          "slope": 0.2253299261338622,
+          "intercept": -2.395975003508356
+        },
+        "thresholds": {
+          "0.35": {
+            "threshold": 0.35,
+            "tp": 207,
+            "fp": 2165,
+            "tn": 965,
+            "fn": 73,
+            "sensitivity": 0.7392857142857143,
+            "specificity": 0.3083067092651757,
+            "ppv": 0.0872681281618887,
+            "npv": 0.9296724470134875,
+            "alert_rate": 0.6956011730205278,
+            "accuracy": 0.3436950146627566,
+            "f1": 0.15610859728506787
+          },
+          "0.50": {
+            "threshold": 0.5,
+            "tp": 127,
+            "fp": 1266,
+            "tn": 1864,
+            "fn": 153,
+            "sensitivity": 0.45357142857142857,
+            "specificity": 0.5955271565495208,
+            "ppv": 0.09117013639626705,
+            "npv": 0.9241447694595935,
+            "alert_rate": 0.4085043988269795,
+            "accuracy": 0.5838709677419355,
+            "f1": 0.15182307232516437
+          },
+          "0.55": {
+            "threshold": 0.55,
+            "tp": 101,
+            "fp": 900,
+            "tn": 2230,
+            "fn": 179,
+            "sensitivity": 0.3607142857142857,
+            "specificity": 0.7124600638977636,
+            "ppv": 0.1008991008991009,
+            "npv": 0.9256953092569531,
+            "alert_rate": 0.29354838709677417,
+            "accuracy": 0.6835777126099707,
+            "f1": 0.15768930523028885
+          },
+          "0.75": {
+            "threshold": 0.75,
+            "tp": 39,
+            "fp": 235,
+            "tn": 2895,
+            "fn": 241,
+            "sensitivity": 0.1392857142857143,
+            "specificity": 0.9249201277955271,
+            "ppv": 0.14233576642335766,
+            "npv": 0.9231505102040817,
+            "alert_rate": 0.08035190615835777,
+            "accuracy": 0.8604105571847507,
+            "f1": 0.1407942238267148
+          },
+          "0.90": {
+            "threshold": 0.9,
+            "tp": 8,
+            "fp": 58,
+            "tn": 3072,
+            "fn": 272,
+            "sensitivity": 0.02857142857142857,
+            "specificity": 0.9814696485623003,
+            "ppv": 0.12121212121212122,
+            "npv": 0.9186602870813397,
+            "alert_rate": 0.01935483870967742,
+            "accuracy": 0.9032258064516129,
+            "f1": 0.046242774566473986
+          }
+        }
+      },
+      "bootstrap": {
+        "b": 2000,
+        "seed": 42,
+        "roc_auc_95ci": {
+          "low": 0.5139529954893399,
+          "high": 0.5871217161974837
+        },
+        "brier_95ci": {
+          "low": 0.24200608523413894,
+          "high": 0.2545086235067434
+        }
+      },
+      "subgroups": {
+        "age_18_39": {
+          "n": 1302,
+          "positives": 110,
+          "prevalence": 0.08448540706605223,
+          "mean_predicted": 0.41926352692559626,
+          "roc_auc": 0.5298695851128737,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 38,
+            "fp": 368,
+            "tn": 824,
+            "fn": 72,
+            "sensitivity": 0.34545454545454546,
+            "specificity": 0.6912751677852349,
+            "ppv": 0.09359605911330049,
+            "npv": 0.9196428571428571,
+            "alert_rate": 0.3118279569892473,
+            "accuracy": 0.6620583717357911,
+            "f1": 0.14728682170542637
+          }
+        },
+        "age_40_59": {
+          "n": 1047,
+          "positives": 93,
+          "prevalence": 0.08882521489971347,
+          "mean_predicted": 0.5212489887188493,
+          "roc_auc": 0.549130993440184,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 52,
+            "fp": 508,
+            "tn": 446,
+            "fn": 41,
+            "sensitivity": 0.5591397849462365,
+            "specificity": 0.46750524109014674,
+            "ppv": 0.09285714285714286,
+            "npv": 0.9158110882956879,
+            "alert_rate": 0.5348615090735435,
+            "accuracy": 0.47564469914040114,
+            "f1": 0.15926493108728942
+          }
+        },
+        "age_60_80": {
+          "n": 1061,
+          "positives": 77,
+          "prevalence": 0.07257304429783223,
+          "mean_predicted": 0.45512875170243866,
+          "roc_auc": 0.5858409882800127,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 37,
+            "fp": 390,
+            "tn": 594,
+            "fn": 40,
+            "sensitivity": 0.4805194805194805,
+            "specificity": 0.6036585365853658,
+            "ppv": 0.08665105386416862,
+            "npv": 0.9369085173501577,
+            "alert_rate": 0.40245051837888784,
+            "accuracy": 0.5947219604147032,
+            "f1": 0.14682539682539683
+          }
+        },
+        "gender_1": {
+          "n": 1788,
+          "positives": 122,
+          "prevalence": 0.06823266219239374,
+          "mean_predicted": 0.46829498035649186,
+          "roc_auc": 0.5877826540452247,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 63,
+            "fp": 682,
+            "tn": 984,
+            "fn": 59,
+            "sensitivity": 0.5163934426229508,
+            "specificity": 0.5906362545018007,
+            "ppv": 0.08456375838926175,
+            "npv": 0.9434324065196549,
+            "alert_rate": 0.4166666666666667,
+            "accuracy": 0.5855704697986577,
+            "f1": 0.1453287197231834
+          }
+        },
+        "gender_2": {
+          "n": 1622,
+          "positives": 158,
+          "prevalence": 0.09741060419235512,
+          "mean_predicted": 0.45450615531728805,
+          "roc_auc": 0.5228457667565884,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 64,
+            "fp": 584,
+            "tn": 880,
+            "fn": 94,
+            "sensitivity": 0.4050632911392405,
+            "specificity": 0.6010928961748634,
+            "ppv": 0.09876543209876543,
+            "npv": 0.9034907597535934,
+            "alert_rate": 0.3995067817509248,
+            "accuracy": 0.5819975339087546,
+            "f1": 0.1588089330024814
+          }
+        }
+      },
+      "score_quintiles": {
+        "0": {
+          "n": 682,
+          "score_min": 0.059755758908254436,
+          "score_max": 0.29163423715579345,
+          "mean_score": 0.2163362716249023,
+          "observed_rate": 0.07624633431085044
+        },
+        "1": {
+          "n": 682,
+          "score_min": 0.2916440846501045,
+          "score_max": 0.401498213372271,
+          "mean_score": 0.34657819206406987,
+          "observed_rate": 0.06451612903225806
+        },
+        "2": {
+          "n": 682,
+          "score_min": 0.4016781678020262,
+          "score_max": 0.5033650612534338,
+          "mean_score": 0.45541624879030823,
+          "observed_rate": 0.08504398826979472
+        },
+        "3": {
+          "n": 682,
+          "score_min": 0.5035094885935578,
+          "score_max": 0.6087147296685961,
+          "mean_score": 0.5507512565562787,
+          "observed_rate": 0.07331378299120235
+        },
+        "4": {
+          "n": 682,
+          "score_min": 0.6091593287323683,
+          "score_max": 0.9662170590266809,
+          "mean_score": 0.7395989822870931,
+          "observed_rate": 0.11143695014662756
+        }
+      },
+      "score_vs_phq9_spearman": 0.05076217253474106
+    },
+    "steps_training_mean_sensitivity": {
+      "definition": {
+        "steps_value": 2110.1005859375,
+        "complete_case_6": false,
+        "default_fill": {
+          "sleep_hours": 7.0,
+          "sleep_quality": 5.0,
+          "exercise_minutes": 30.0,
+          "heart_rate": 70.0,
+          "systolic_bp": 120.0,
+          "diastolic_bp": 80.0
+        }
+      },
+      "cohort": {
+        "n": 5068,
+        "positives": 459,
+        "prevalence": 0.09056827150749802,
+        "rows_with_any_default_fill": 1658
+      },
+      "metrics": {
+        "n": 5068,
+        "positives": 459,
+        "prevalence": 0.09056827150749802,
+        "roc_auc": 0.5579625162666016,
+        "auprc": 0.12130540851813794,
+        "brier": 0.29456896291376006,
+        "log_loss": 0.7976989120735256,
+        "mean_predicted": 0.531485983243112,
+        "observed_rate": 0.09056827150749802,
+        "calibration_ece_10bin": 0.44091771173561406,
+        "calibration": {
+          "slope": 0.32711388376043204,
+          "intercept": -2.3754671375665115
+        },
+        "thresholds": {
+          "0.35": {
+            "threshold": 0.35,
+            "tp": 410,
+            "fp": 4006,
+            "tn": 603,
+            "fn": 49,
+            "sensitivity": 0.8932461873638344,
+            "specificity": 0.13083098285962247,
+            "ppv": 0.09284420289855072,
+            "npv": 0.9248466257668712,
+            "alert_rate": 0.8713496448303079,
+            "accuracy": 0.19988161010260458,
+            "f1": 0.1682051282051282
+          },
+          "0.50": {
+            "threshold": 0.5,
+            "tp": 292,
+            "fp": 2714,
+            "tn": 1895,
+            "fn": 167,
+            "sensitivity": 0.6361655773420479,
+            "specificity": 0.4111520937296594,
+            "ppv": 0.09713905522288756,
+            "npv": 0.9190106692531523,
+            "alert_rate": 0.5931333859510655,
+            "accuracy": 0.43153117600631413,
+            "f1": 0.16854256854256855
+          },
+          "0.55": {
+            "threshold": 0.55,
+            "tp": 254,
+            "fp": 2163,
+            "tn": 2446,
+            "fn": 205,
+            "sensitivity": 0.5533769063180828,
+            "specificity": 0.5307008027771751,
+            "ppv": 0.10508895324782788,
+            "npv": 0.922670690305545,
+            "alert_rate": 0.47691397000789265,
+            "accuracy": 0.5327545382794001,
+            "f1": 0.17663421418636996
+          },
+          "0.75": {
+            "threshold": 0.75,
+            "tp": 56,
+            "fp": 339,
+            "tn": 4270,
+            "fn": 403,
+            "sensitivity": 0.12200435729847495,
+            "specificity": 0.9264482534172271,
+            "ppv": 0.14177215189873418,
+            "npv": 0.9137598972822598,
+            "alert_rate": 0.07794001578531966,
+            "accuracy": 0.8535911602209945,
+            "f1": 0.13114754098360656
+          },
+          "0.90": {
+            "threshold": 0.9,
+            "tp": 12,
+            "fp": 31,
+            "tn": 4578,
+            "fn": 447,
+            "sensitivity": 0.026143790849673203,
+            "specificity": 0.9932740290735518,
+            "ppv": 0.27906976744186046,
+            "npv": 0.9110447761194029,
+            "alert_rate": 0.008484609313338595,
+            "accuracy": 0.9056827150749802,
+            "f1": 0.04780876494023904
+          }
+        }
+      },
+      "bootstrap": {
+        "b": 2000,
+        "seed": 42,
+        "roc_auc_95ci": {
+          "low": 0.5292610826104789,
+          "high": 0.5861632555575427
+        },
+        "brier_95ci": {
+          "low": 0.29005883635266977,
+          "high": 0.29901352809990933
+        }
+      },
+      "subgroups": {
+        "age_18_39": {
+          "n": 1704,
+          "positives": 149,
+          "prevalence": 0.08744131455399061,
+          "mean_predicted": 0.5318063863191627,
+          "roc_auc": 0.5778242948704116,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 101,
+            "fp": 925,
+            "tn": 630,
+            "fn": 48,
+            "sensitivity": 0.6778523489932886,
+            "specificity": 0.40514469453376206,
+            "ppv": 0.09844054580896686,
+            "npv": 0.9292035398230089,
+            "alert_rate": 0.602112676056338,
+            "accuracy": 0.4289906103286385,
+            "f1": 0.17191489361702128
+          }
+        },
+        "age_40_59": {
+          "n": 1542,
+          "positives": 144,
+          "prevalence": 0.0933852140077821,
+          "mean_predicted": 0.544561018167251,
+          "roc_auc": 0.5579498489906215,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 96,
+            "fp": 858,
+            "tn": 540,
+            "fn": 48,
+            "sensitivity": 0.6666666666666666,
+            "specificity": 0.38626609442060084,
+            "ppv": 0.10062893081761007,
+            "npv": 0.9183673469387755,
+            "alert_rate": 0.6186770428015564,
+            "accuracy": 0.41245136186770426,
+            "f1": 0.17486338797814208
+          }
+        },
+        "age_60_80": {
+          "n": 1822,
+          "positives": 166,
+          "prevalence": 0.09110867178924259,
+          "mean_predicted": 0.5201206315995267,
+          "roc_auc": 0.5383890635003783,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 95,
+            "fp": 931,
+            "tn": 725,
+            "fn": 71,
+            "sensitivity": 0.572289156626506,
+            "specificity": 0.43780193236714976,
+            "ppv": 0.09259259259259259,
+            "npv": 0.9108040201005025,
+            "alert_rate": 0.5631174533479693,
+            "accuracy": 0.4500548847420417,
+            "f1": 0.1593959731543624
+          }
+        },
+        "gender_1": {
+          "n": 2478,
+          "positives": 182,
+          "prevalence": 0.07344632768361582,
+          "mean_predicted": 0.5422138803282087,
+          "roc_auc": 0.5684850863422293,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 123,
+            "fp": 1419,
+            "tn": 877,
+            "fn": 59,
+            "sensitivity": 0.6758241758241759,
+            "specificity": 0.3819686411149826,
+            "ppv": 0.07976653696498054,
+            "npv": 0.936965811965812,
+            "alert_rate": 0.6222760290556901,
+            "accuracy": 0.4035512510088781,
+            "f1": 0.14269141531322505
+          }
+        },
+        "gender_2": {
+          "n": 2590,
+          "positives": 277,
+          "prevalence": 0.10694980694980695,
+          "mean_predicted": 0.5212219952211548,
+          "roc_auc": 0.5572458916093466,
+          "threshold_0_50": {
+            "threshold": 0.5,
+            "tp": 169,
+            "fp": 1295,
+            "tn": 1018,
+            "fn": 108,
+            "sensitivity": 0.6101083032490975,
+            "specificity": 0.4401210549070471,
+            "ppv": 0.11543715846994536,
+            "npv": 0.9040852575488455,
+            "alert_rate": 0.5652509652509653,
+            "accuracy": 0.4583011583011583,
+            "f1": 0.19414129810453762
+          }
+        }
+      },
+      "score_quintiles": {
+        "0": {
+          "n": 1014,
+          "score_min": 0.07878389832903747,
+          "score_max": 0.39934086797183443,
+          "mean_score": 0.3146072992745994,
+          "observed_rate": 0.07495069033530571
+        },
+        "1": {
+          "n": 1013,
+          "score_min": 0.3994342785430056,
+          "score_max": 0.4960495566499366,
+          "mean_score": 0.4489136470271724,
+          "observed_rate": 0.087857847976308
+        },
+        "2": {
+          "n": 1014,
+          "score_min": 0.49607303171505385,
+          "score_max": 0.5764697889377485,
+          "mean_score": 0.5391926476826876,
+          "observed_rate": 0.06903353057199212
+        },
+        "3": {
+          "n": 1013,
+          "score_min": 0.5767721604424836,
+          "score_max": 0.6540860936399503,
+          "mean_score": 0.6114196066433984,
+          "observed_rate": 0.09378084896347483
+        },
+        "4": {
+          "n": 1014,
+          "score_min": 0.654271597749722,
+          "score_max": 0.9711819620532113,
+          "mean_score": 0.7432941133068192,
+          "observed_rate": 0.12721893491124261
+        }
+      },
+      "score_vs_phq9_spearman": 0.08329858935498963
+    }
+  },
+  "univariate_auc": {
+    "sleep_hours": {
+      "n": 5032,
+      "roc_auc_raw": 0.49411109226652
+    },
+    "sleep_quality": {
+      "n": 5068,
+      "roc_auc_raw": 0.30535501488751526
+    },
+    "exercise_minutes": {
+      "n": 3776,
+      "roc_auc_raw": 0.5269639474782496
+    },
+    "heart_rate": {
+      "n": 4907,
+      "roc_auc_raw": 0.5478801568808305
+    },
+    "systolic_bp": {
+      "n": 4564,
+      "roc_auc_raw": 0.49158994083677743
+    },
+    "diastolic_bp": {
+      "n": 4564,
+      "roc_auc_raw": 0.4954182707731794
+    },
+    "age": {
+      "n": 5068,
+      "roc_auc_raw": 0.501318108786872
+    }
+  },
+  "sanity_check": {
+    "rows": 20,
+    "max_abs_diff": 6.661338147750939e-16,
+    "threshold": 1e-06,
+    "passed": true
+  },
+  "interpretation": {
+    "why_not_external_validation": [
+      "训练标签是 Depresjon 临床 condition/control，NHANES 是 PHQ-9>=10",
+      "训练表 5/7 原始特征是标签驱动合成；NHANES 是实测/自报，来源不同",
+      "steps 在 NHANES 中完全缺失，生产默认 5000 是注入值",
+      "sleep_quality 在 NHANES 是就医代理，不是 1-4 睡眠质量量表",
+      "NHANES 复杂抽样权重未应用",
+      "没有目标域重新校准"
+    ],
+    "allowed_claims": [
+      "描述性地报告生产模型在该队列上的分数与标签一致性",
+      "说明当前模型没有可用的跨队列迁移证据",
+      "据此要求 Phase 1 重做真实特征基线"
+    ],
+    "forbidden_claims": [
+      "NHANES 读数等于模型在普通成人上的性能",
+      "NHANES 接近随机证明真实生理信号无效",
+      "steps 默认填充不影响结论"
+    ]
+  }
+}

@@ -1,0 +1,612 @@
+{
+  "round": "ROUND_50",
+  "status": "descriptive_offline_protocol_robustness_not_production",
+  "external_validation": false,
+  "production_changed": false,
+  "generated_at_utc": "2026-11-02T15:10:31.490946+00:00",
+  "input": {
+    "round48_script": "backend/scripts/modeling/eval/v1_48/01_real_actigraphy_baseline.py",
+    "round48_script_sha256": "430eaa3d2c7aaa4be622c88328f5e4aa6c4adfaa8a01e6312f6cba525a68bd44",
+    "round48_json": "backend/scripts/modeling/eval/v1_48/real_actigraphy_baseline.json",
+    "round48_json_sha256": "03db42c5854d2ee1626da8d3f46ed68698809d6817268b2cfc5f12854d644aae",
+    "round49_json": "backend/scripts/modeling/eval/v1_49/robustness_audit.json",
+    "round49_json_sha256": "b4b092cbac723a53b515a430bf814fda03ab0ba1ed28559170c2b30f4e9ea82c"
+  },
+  "dataset": {
+    "raw_zip": "datasets/external/physiological/depresjon-code/depresjon.zip",
+    "raw_zip_sha256": "ef588952113c943af549243adf459cc4ba59b9b01990e5323b9c73819553f532",
+    "n_subjects": 55,
+    "n_condition_subjects": 23,
+    "n_control_subjects": 32,
+    "n_complete_days": 1029,
+    "n_partial_days_excluded": 115,
+    "n_all_zero_complete_days": 70,
+    "positive_days": 359,
+    "day_prevalence": 0.3488824101068999,
+    "n_missing_autocorr": 78,
+    "label_source": "raw file directory: data/condition/* vs data/control/*",
+    "evaluation_type": "same-cohort retrospective baseline; not external validation"
+  },
+  "design": {
+    "protocol": "Day-level logistic regression with 5-fold StratifiedGroupKFold (subjects never split across folds), repeated 10 times with seeds 42-51; held-out day probabilities averaged per subject.",
+    "autocorr_zero": "Fill undefined lag-1 autocorrelation with 0.0.",
+    "autocorr_mean": "SimpleImputer(strategy='mean') fit on training days inside every CV fold.",
+    "autocorr_drop": "Remove autocorrelation_act; 3 features.",
+    "day_all": "All 1,029 complete days.",
+    "day_nonzero": "Exclude 70 all-zero complete days; 959 days.",
+    "day_min14": "Keep subjects with at least 14 complete days; 51 subjects, 978 days.",
+    "bootstrap": "2000 subject-level resamples, seed 42",
+    "preregistered_spec": "day__zero__all",
+    "preregistration_note": "day__zero__all is the ROUND_48 secondary protocol. The other eight specifications are sensitivity analyses and must not be used to select the maximum AUC as a performance estimate."
+  },
+  "results": {
+    "specification_curve": [
+      {
+        "spec_id": "day__zero__all",
+        "autocorr_mode": "zero",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_features": 4,
+        "n_subjects": 55,
+        "n_subjects_dropped": 0,
+        "n_days": 1029,
+        "n_positive_days": 359,
+        "n_zero_days": 70,
+        "n_missing_autocorr": 78,
+        "subject_auc_mean": 0.7619565217391304,
+        "subject_auc_sd": 0.009290935324608016,
+        "subject_auc_range": [
+          0.7486413043478262,
+          0.7771739130434783
+        ],
+        "pooled_auc": 0.7635869565217391,
+        "pooled_auc_ci": [
+          0.6228429898275101,
+          0.8889005602240896
+        ],
+        "pooled_auprc": 0.7520858100900332,
+        "pooled_brier": 0.2215918221864091,
+        "calibration_slope": 4.053717597497393,
+        "day_auc_mean": 0.6574876314804805,
+        "day_auc_sd": 0.005744983919545809,
+        "day_auc_pooled": 0.6573566706855695,
+        "day_auprc_mean": 0.4287822191169151,
+        "day_brier_mean": 0.2176652419575671,
+        "subject_level_loso_spec_id": "mean__zero__all",
+        "subject_level_loso_auc": 0.7364130434782609,
+        "delta_vs_loso": 0.025543478260869557
+      },
+      {
+        "spec_id": "day__zero__nonzero",
+        "autocorr_mode": "zero",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_features": 4,
+        "n_subjects": 55,
+        "n_subjects_dropped": 0,
+        "n_days": 959,
+        "n_positive_days": 354,
+        "n_zero_days": 0,
+        "n_missing_autocorr": 8,
+        "subject_auc_mean": 0.7091032608695652,
+        "subject_auc_sd": 0.013552265495010773,
+        "subject_auc_range": [
+          0.6725543478260869,
+          0.7214673913043479
+        ],
+        "pooled_auc": 0.7160326086956521,
+        "pooled_auc_ci": [
+          0.5702817945865777,
+          0.8557422969187675
+        ],
+        "pooled_auprc": 0.6882651785315872,
+        "pooled_brier": 0.2259417338665073,
+        "calibration_slope": 3.2677080289967506,
+        "day_auc_mean": 0.6288186954288649,
+        "day_auc_sd": 0.005472272612512306,
+        "day_auc_pooled": 0.6290190035952749,
+        "day_auprc_mean": 0.43051904582216094,
+        "day_brier_mean": 0.2277414733765167,
+        "subject_level_loso_spec_id": "mean__zero__nonzero",
+        "subject_level_loso_auc": 0.6847826086956522,
+        "delta_vs_loso": 0.024320652173912993
+      },
+      {
+        "spec_id": "day__zero__min14",
+        "autocorr_mode": "zero",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_features": 4,
+        "n_subjects": 51,
+        "n_subjects_dropped": 4,
+        "n_days": 978,
+        "n_positive_days": 321,
+        "n_zero_days": 70,
+        "n_missing_autocorr": 78,
+        "subject_auc_mean": 0.700967741935484,
+        "subject_auc_sd": 0.019637717748676682,
+        "subject_auc_range": [
+          0.6629032258064516,
+          0.7274193548387097
+        ],
+        "pooled_auc": 0.7080645161290323,
+        "pooled_auc_ci": [
+          0.5532258064516129,
+          0.8542577544959575
+        ],
+        "pooled_auprc": 0.6573815260032366,
+        "pooled_brier": 0.22509801601045049,
+        "calibration_slope": 3.6408526476720273,
+        "day_auc_mean": 0.6336678568211023,
+        "day_auc_sd": 0.007659729353823171,
+        "day_auc_pooled": 0.6345656884640369,
+        "day_auprc_mean": 0.3879102481113942,
+        "day_brier_mean": 0.21702817214344555,
+        "subject_level_loso_spec_id": "mean__zero__min14",
+        "subject_level_loso_auc": 0.6822580645161289,
+        "delta_vs_loso": 0.01870967741935503
+      },
+      {
+        "spec_id": "day__mean__all",
+        "autocorr_mode": "mean",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_features": 4,
+        "n_subjects": 55,
+        "n_subjects_dropped": 0,
+        "n_days": 1029,
+        "n_positive_days": 359,
+        "n_zero_days": 70,
+        "n_missing_autocorr": 78,
+        "subject_auc_mean": 0.724320652173913,
+        "subject_auc_sd": 0.010567298562690633,
+        "subject_auc_range": [
+          0.7038043478260869,
+          0.7445652173913042
+        ],
+        "pooled_auc": 0.71875,
+        "pooled_auc_ci": [
+          0.563656267104543,
+          0.8567733990147783
+        ],
+        "pooled_auprc": 0.6749447842080729,
+        "pooled_brier": 0.2311064945244324,
+        "calibration_slope": 4.029469865807741,
+        "day_auc_mean": 0.6402556853614934,
+        "day_auc_sd": 0.010629156519227544,
+        "day_auc_pooled": 0.6456408763979544,
+        "day_auprc_mean": 0.4396211923608672,
+        "day_brier_mean": 0.22158416980143086,
+        "subject_level_loso_spec_id": "mean__nanmean__all",
+        "subject_level_loso_auc": 0.6453804347826088,
+        "delta_vs_loso": 0.07894021739130419
+      },
+      {
+        "spec_id": "day__mean__nonzero",
+        "autocorr_mode": "mean",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_features": 4,
+        "n_subjects": 55,
+        "n_subjects_dropped": 0,
+        "n_days": 959,
+        "n_positive_days": 354,
+        "n_zero_days": 0,
+        "n_missing_autocorr": 8,
+        "subject_auc_mean": 0.7001358695652173,
+        "subject_auc_sd": 0.014469311317078917,
+        "subject_auc_range": [
+          0.6644021739130435,
+          0.7146739130434783
+        ],
+        "pooled_auc": 0.7038043478260869,
+        "pooled_auc_ci": [
+          0.5537190082644629,
+          0.8466834733893557
+        ],
+        "pooled_auprc": 0.6698844580448836,
+        "pooled_brier": 0.22745442932394366,
+        "calibration_slope": 3.2264609249789498,
+        "day_auc_mean": 0.6199028808890134,
+        "day_auc_sd": 0.005708146128614836,
+        "day_auc_pooled": 0.6207218564691599,
+        "day_auprc_mean": 0.4285540152748296,
+        "day_brier_mean": 0.22844364246819593,
+        "subject_level_loso_spec_id": "mean__nanmean__nonzero",
+        "subject_level_loso_auc": 0.673913043478261,
+        "delta_vs_loso": 0.026222826086956363
+      },
+      {
+        "spec_id": "day__mean__min14",
+        "autocorr_mode": "mean",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_features": 4,
+        "n_subjects": 51,
+        "n_subjects_dropped": 4,
+        "n_days": 978,
+        "n_positive_days": 321,
+        "n_zero_days": 70,
+        "n_missing_autocorr": 78,
+        "subject_auc_mean": 0.6564516129032258,
+        "subject_auc_sd": 0.022091475700985727,
+        "subject_auc_range": [
+          0.6241935483870967,
+          0.6919354838709677
+        ],
+        "pooled_auc": 0.667741935483871,
+        "pooled_auc_ci": [
+          0.5,
+          0.826164983164983
+        ],
+        "pooled_auprc": 0.5623875545369716,
+        "pooled_brier": 0.2340241331278399,
+        "calibration_slope": 3.4508894104272367,
+        "day_auc_mean": 0.5990059128389686,
+        "day_auc_sd": 0.015795768160227455,
+        "day_auc_pooled": 0.6041811879732759,
+        "day_auprc_mean": 0.38330297982931794,
+        "day_brier_mean": 0.21965066134305827,
+        "subject_level_loso_spec_id": "mean__nanmean__min14",
+        "subject_level_loso_auc": 0.5854838709677419,
+        "delta_vs_loso": 0.07096774193548394
+      },
+      {
+        "spec_id": "day__drop__all",
+        "autocorr_mode": "drop",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_features": 3,
+        "n_subjects": 55,
+        "n_subjects_dropped": 0,
+        "n_days": 1029,
+        "n_positive_days": 359,
+        "n_zero_days": 70,
+        "n_missing_autocorr": 78,
+        "subject_auc_mean": 0.730570652173913,
+        "subject_auc_sd": 0.010938132914444993,
+        "subject_auc_range": [
+          0.7187499999999999,
+          0.7527173913043479
+        ],
+        "pooled_auc": 0.7350543478260869,
+        "pooled_auc_ci": [
+          0.5798883603027988,
+          0.8690547619047618
+        ],
+        "pooled_auprc": 0.6886017129495946,
+        "pooled_brier": 0.23055113706062977,
+        "calibration_slope": 4.279221838376355,
+        "day_auc_mean": 0.651123768344905,
+        "day_auc_sd": 0.007971929177758309,
+        "day_auc_pooled": 0.6548081320417412,
+        "day_auprc_mean": 0.447602667858349,
+        "day_brier_mean": 0.22067582327366947,
+        "subject_level_loso_spec_id": "mean__drop__all",
+        "subject_level_loso_auc": 0.6793478260869567,
+        "delta_vs_loso": 0.051222826086956386
+      },
+      {
+        "spec_id": "day__drop__nonzero",
+        "autocorr_mode": "drop",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_features": 3,
+        "n_subjects": 55,
+        "n_subjects_dropped": 0,
+        "n_days": 959,
+        "n_positive_days": 354,
+        "n_zero_days": 0,
+        "n_missing_autocorr": 8,
+        "subject_auc_mean": 0.7133152173913043,
+        "subject_auc_sd": 0.01785017923903802,
+        "subject_auc_range": [
+          0.6671195652173914,
+          0.7377717391304348
+        ],
+        "pooled_auc": 0.7214673913043478,
+        "pooled_auc_ci": [
+          0.5662798408488063,
+          0.8600013586956521
+        ],
+        "pooled_auprc": 0.6889587791398263,
+        "pooled_brier": 0.2282323715979201,
+        "calibration_slope": 3.5052446230909515,
+        "day_auc_mean": 0.6204823271233133,
+        "day_auc_sd": 0.007109346247260716,
+        "day_auc_pooled": 0.621856469160013,
+        "day_auprc_mean": 0.44343226110390555,
+        "day_brier_mean": 0.22739089135469367,
+        "subject_level_loso_spec_id": "mean__drop__nonzero",
+        "subject_level_loso_auc": 0.6915760869565217,
+        "delta_vs_loso": 0.021739130434782594
+      },
+      {
+        "spec_id": "day__drop__min14",
+        "autocorr_mode": "drop",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_features": 3,
+        "n_subjects": 51,
+        "n_subjects_dropped": 4,
+        "n_days": 978,
+        "n_positive_days": 321,
+        "n_zero_days": 70,
+        "n_missing_autocorr": 78,
+        "subject_auc_mean": 0.6722580645161291,
+        "subject_auc_sd": 0.01976448217037468,
+        "subject_auc_range": [
+          0.6419354838709679,
+          0.7080645161290323
+        ],
+        "pooled_auc": 0.6709677419354838,
+        "pooled_auc_ci": [
+          0.504033873611364,
+          0.8256702935222672
+        ],
+        "pooled_auprc": 0.5619914643180496,
+        "pooled_brier": 0.23347897296432507,
+        "calibration_slope": 3.828026382381121,
+        "day_auc_mean": 0.6146827598306283,
+        "day_auc_sd": 0.012521387486589486,
+        "day_auc_pooled": 0.6211800073021428,
+        "day_auprc_mean": 0.396341031092627,
+        "day_brier_mean": 0.21848415829785356,
+        "subject_level_loso_spec_id": "mean__drop__min14",
+        "subject_level_loso_auc": 0.6193548387096774,
+        "delta_vs_loso": 0.05290322580645168
+      }
+    ],
+    "specification_summary": {
+      "n_specs": 9,
+      "auc_min": 0.6564516129032258,
+      "auc_median": 0.7091032608695652,
+      "auc_max": 0.7619565217391304,
+      "auc_range": 0.10550490883590458,
+      "ci_lower_gt_0_5": 8,
+      "ci_covers_0_5": 1,
+      "auc_ge_0_65": 9,
+      "auc_ge_0_70": 7,
+      "best_spec": "day__zero__all",
+      "best_spec_auc": 0.7619565217391304,
+      "worst_spec": "day__mean__min14",
+      "worst_spec_auc": 0.6564516129032258,
+      "preregistered_spec": "day__zero__all",
+      "preregistered_auc": 0.7619565217391304,
+      "preregistered_rank": 1,
+      "preregistered_is_best": true,
+      "preregistered_is_worst": false,
+      "by_autocorr_mode": {
+        "zero": {
+          "n_specs": 3,
+          "auc_mean": 0.7240091748480598,
+          "auc_min": 0.700967741935484,
+          "auc_max": 0.7619565217391304
+        },
+        "mean": {
+          "n_specs": 3,
+          "auc_mean": 0.6936360448807853,
+          "auc_min": 0.6564516129032258,
+          "auc_max": 0.724320652173913
+        },
+        "drop": {
+          "n_specs": 3,
+          "auc_mean": 0.7053813113604489,
+          "auc_min": 0.6722580645161291,
+          "auc_max": 0.730570652173913
+        }
+      },
+      "by_day_mode": {
+        "all": {
+          "n_specs": 3,
+          "auc_mean": 0.7389492753623189,
+          "auc_min": 0.724320652173913,
+          "auc_max": 0.7619565217391304
+        },
+        "nonzero": {
+          "n_specs": 3,
+          "auc_mean": 0.7075181159420288,
+          "auc_min": 0.7001358695652173,
+          "auc_max": 0.7133152173913043
+        },
+        "min14": {
+          "n_specs": 3,
+          "auc_mean": 0.6765591397849463,
+          "auc_min": 0.6564516129032258,
+          "auc_max": 0.700967741935484
+        }
+      },
+      "loso_comparison": {
+        "loso_auc_min": 0.5854838709677419,
+        "loso_auc_median": 0.6793478260869567,
+        "loso_auc_max": 0.7364130434782609,
+        "delta_min": 0.01870967741935503,
+        "delta_median": 0.026222826086956363,
+        "delta_max": 0.07894021739130419,
+        "n_day_level_above_loso": 9,
+        "n_specs": 9
+      }
+    },
+    "reproduction_anchors": {
+      "day__zero__all": {
+        "round48_key": "secondary_grouped_multiday_4feat",
+        "round48_subject_auc_mean": 0.7619565217391304,
+        "round48_subject_auc_sd": 0.009290935324608016,
+        "round48_pooled_auc": 0.7635869565217391,
+        "round50_subject_auc_mean": 0.7619565217391304,
+        "round50_subject_auc_sd": 0.009290935324608016,
+        "round50_pooled_auc": 0.7635869565217391,
+        "checks": {
+          "subject_auc_mean": {
+            "expected": 0.7619565217391304,
+            "actual": 0.7619565217391304,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          },
+          "subject_auc_sd": {
+            "expected": 0.009290935324608016,
+            "actual": 0.009290935324608016,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          },
+          "pooled_auc": {
+            "expected": 0.7635869565217391,
+            "actual": 0.7635869565217391,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          }
+        },
+        "all_passed": true
+      },
+      "day__zero__nonzero": {
+        "round48_key": "sensitivity_excluding_zero_days",
+        "round48_subject_auc_mean": 0.7091032608695652,
+        "round48_subject_auc_sd": 0.013552265495010773,
+        "round48_pooled_auc": 0.7160326086956521,
+        "round50_subject_auc_mean": 0.7091032608695652,
+        "round50_subject_auc_sd": 0.013552265495010773,
+        "round50_pooled_auc": 0.7160326086956521,
+        "checks": {
+          "subject_auc_mean": {
+            "expected": 0.7091032608695652,
+            "actual": 0.7091032608695652,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          },
+          "subject_auc_sd": {
+            "expected": 0.013552265495010773,
+            "actual": 0.013552265495010773,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          },
+          "pooled_auc": {
+            "expected": 0.7160326086956521,
+            "actual": 0.7160326086956521,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          }
+        },
+        "all_passed": true,
+        "round48_n_days": 959,
+        "round50_n_days": 959
+      },
+      "day__zero__min14": {
+        "round48_key": "sensitivity_min_14_days",
+        "round48_subject_auc_mean": 0.700967741935484,
+        "round48_subject_auc_sd": 0.019637717748676682,
+        "round48_pooled_auc": 0.7080645161290323,
+        "round50_subject_auc_mean": 0.700967741935484,
+        "round50_subject_auc_sd": 0.019637717748676682,
+        "round50_pooled_auc": 0.7080645161290323,
+        "checks": {
+          "subject_auc_mean": {
+            "expected": 0.700967741935484,
+            "actual": 0.700967741935484,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          },
+          "subject_auc_sd": {
+            "expected": 0.019637717748676682,
+            "actual": 0.019637717748676682,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          },
+          "pooled_auc": {
+            "expected": 0.7080645161290323,
+            "actual": 0.7080645161290323,
+            "abs_delta": 0.0,
+            "tolerance": 1e-12,
+            "passed": true
+          }
+        },
+        "all_passed": true,
+        "round48_n_days": 978,
+        "round50_n_days": 978,
+        "round48_n_subjects": 51,
+        "round50_n_subjects": 51
+      }
+    }
+  },
+  "interpretation": {
+    "verdict": "The pre-registered day-level specification reproduces ROUND_48 exactly, but the 9-specification range shows that 0.7620 is the top of the grid, not a robust protocol estimate. Day inclusion is the dominant specification factor. The day-level protocol is higher than subject-level LOSO in all 9 matched pairs, but the gap ranges from +0.0187 to +0.0789, so its magnitude is not stable.",
+    "calibration_warning": "Pooled subject calibration slopes range from 3.2265 to 4.2792; the scores are strongly overconfident and are not clinical probabilities.",
+    "allowed_claims": [
+      "On Depresjon, the pre-registered day-level grouped-CV protocol reproduces 0.7620 +/- 0.0093 exactly.",
+      "Across 9 defensible day-level specifications, the subject-level AUC range is reported in full; the range describes analysis choice sensitivity, not sampling variability.",
+      "The day-level protocol and the subject-level LOSO protocol answer different questions and must both be reported."
+    ],
+    "forbidden_claims": [
+      "0.7620 is a robust performance estimate for real actigraphy.",
+      "The highest specification in the 9-spec grid is the model's performance.",
+      "The day-level protocol is externally validated or ready for production.",
+      "These numbers apply to consumer wearables, general adults, or clinical diagnosis.",
+      "These numbers can be compared directly with the synthetic-feature production AUC 0.9451."
+    ]
+  },
+  "sanity_checks": {
+    "n_subjects_55": true,
+    "n_complete_days_1029": true,
+    "positive_days_359": true,
+    "n_specs_9": true,
+    "all_spec_aucs_finite": true,
+    "all_reproduction_anchors_passed": true,
+    "csv_sha256": "75e87bd9f4c2f2958a7bd22424562c386c302d28fda552fa94dfb7dc06910ab6"
+  },
+  "artifacts": {
+    "protocol_robustness_json": "backend/scripts/modeling/eval/v1_50/protocol_robustness.json",
+    "protocol_specification_curve_csv": "backend/scripts/modeling/eval/v1_50/protocol_specification_curve.csv",
+    "mirror": "outputs/candidates/round50/protocol_robustness.json",
+    "report": "docs/model-evaluation/REAL_BASELINE_PROTOCOL_ROBUSTNESS.md",
+    "protocol_specification_curve_sha256": "75e87bd9f4c2f2958a7bd22424562c386c302d28fda552fa94dfb7dc06910ab6"
+  }
+}

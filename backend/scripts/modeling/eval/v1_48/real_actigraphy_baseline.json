@@ -1,0 +1,782 @@
+{
+  "round": "ROUND_48",
+  "status": "descriptive_offline_real_actigraphy_baseline_not_production",
+  "external_validation": false,
+  "production_changed": false,
+  "generated_at_utc": "2026-11-02T15:01:41.806886+00:00",
+  "dataset": {
+    "raw_zip": "datasets/external/physiological/depresjon-code/depresjon.zip",
+    "raw_zip_sha256": "ef588952113c943af549243adf459cc4ba59b9b01990e5323b9c73819553f532",
+    "tdf_condition_sha256": "c99d40b4171ee6ce98c470b98bf3f464c25d9310e933ac3c094409d3add84cf8",
+    "tdf_control_sha256": "d138e90b1e8cf2d4e7bca0a40579499a5288dd3ded43fa77ff8133d8f84b28c9",
+    "license_file": "datasets/external/physiological/depresjon-code/LICENSE",
+    "license_note": "The in-repo depresjon-code LICENSE is MIT and covers the code repository; the Depresjon data itself has no separate license file in this repository, so redistribution/citation must follow the original dataset terms.",
+    "n_subjects": 55,
+    "n_condition_subjects": 23,
+    "n_control_subjects": 32,
+    "n_complete_days": 1029,
+    "n_partial_days_excluded": 115,
+    "n_all_zero_complete_days": 70,
+    "positive_days": 359,
+    "day_prevalence": 0.3488824101068999,
+    "subject_days_min": 12,
+    "subject_days_max": 45,
+    "subject_days_median": 15.0,
+    "label_source": "raw file directory: data/condition/* vs data/control/*",
+    "evaluation_type": "same-cohort retrospective baseline; not external validation"
+  },
+  "features": {
+    "primary": [
+      "mean_act",
+      "std_act",
+      "peak_activity",
+      "autocorrelation_act"
+    ],
+    "extended_exploratory": [
+      "mean_act",
+      "std_act",
+      "peak_activity",
+      "autocorrelation_act",
+      "rms_act",
+      "skewness_act",
+      "kurtosis_act",
+      "shape_factor_act",
+      "crest_factor_act",
+      "impulse_factor_act"
+    ],
+    "definitions": {
+      "mean_act": "mean of 1440 minute-level activity values for a complete day",
+      "std_act": "sample standard deviation (ddof=1) of the 1440 values",
+      "peak_activity": "maximum minute-level activity value",
+      "autocorrelation_act": "lag-1 Pearson correlation of consecutive minute values; undefined on constant days",
+      "extended": "rms/skewness/kurtosis/shape/crest/impulse factors recomputed from the same minute series"
+    },
+    "missing_handling": "autocorrelation is undefined on constant days (78 days). Day-level models fill it with 0.0; subject-mean models average available values and fill an all-missing subject with 0.0.",
+    "tdf_validation": {
+      "tdf_rows": 1029,
+      "matched_rows": 996,
+      "ambiguous_rows": 33,
+      "unmatched_rows": 0,
+      "ambiguous_zero_rows": 31,
+      "ambiguous_consistent": true,
+      "label_mismatches": 0,
+      "max_abs_diff_mean_act": 5.684341886080802e-14,
+      "max_abs_diff_std_act": 7.958078640513122e-13,
+      "max_abs_diff_peak_activity": 0.0,
+      "max_abs_diff_autocorrelation_act": 1.5765166949677223e-14,
+      "autocorrelation_compared_rows": 951,
+      "note": "TDF rows do not carry subject IDs. 996/1029 rows match one raw day uniquely on date + mean + peak. The remaining 33 TDF rows share their key with 2-3 raw days: 31 are all-zero days from control_1/31/32, and 2 are the identical control_6/control_7 rows on 2003-04-12. All ambiguous candidates have identical feature values and labels, so the raw per-subject files (which retain the subject ID for all 1029 complete days) remain the source of truth; TDF is only a definition check."
+    }
+  },
+  "design": {
+    "primary_subject_mean_loso": "Aggregate each subject's complete days to the mean of the four real features, then leave one subject out; scaler and logistic regression fit on the other 54 subjects only.",
+    "secondary_grouped_multiday": "Train a day-level logistic regression with 5-fold StratifiedGroupKFold (subjects never split across folds), repeat 10 times, then average held-out day probabilities per subject.",
+    "naive_leakage_comparison": "Same 5-fold repeated CV but with StratifiedKFold on days, which lets days from one subject appear in both train and test; used only to quantify optimism from subject leakage.",
+    "extended_exploratory": "10 features, both protocols; not a production candidate.",
+    "bootstrap": "2000 subject-level resamples, seed 42",
+    "permutation": "500 subject-label permutations, seed 42"
+  },
+  "results": {
+    "primary_subject_mean_loso_4feat": {
+      "n_subjects": 55,
+      "n_positives": 23,
+      "metrics": {
+        "n": 55,
+        "positives": 23,
+        "prevalence": 0.41818181818181815,
+        "auc": 0.6453804347826088,
+        "auprc": 0.6572924118252043,
+        "brier": 0.22321692648448863,
+        "mean_predicted": 0.42092800186739465,
+        "calibration_ece_5bin": 0.04984323743288773,
+        "calibration_slope": 0.8251028001446898,
+        "calibration_intercept": -0.06213141783922088
+      },
+      "bootstrap": {
+        "bootstrap_b": 2000,
+        "seed": 42,
+        "valid_resamples": 2000,
+        "auc_95ci": [
+          0.4860558317456538,
+          0.7983210219571699
+        ],
+        "brier_95ci": [
+          0.18066039399292472,
+          0.2647813541061791
+        ],
+        "auprc_95ci": [
+          0.47571383084148816,
+          0.8246938634673906
+        ]
+      },
+      "thresholds": {
+        "0.30": {
+          "threshold": 0.3,
+          "tp": 17,
+          "fp": 22,
+          "fn": 6,
+          "tn": 10,
+          "sensitivity": 0.7391304347826086,
+          "specificity": 0.3125,
+          "ppv": 0.4358974358974359,
+          "npv": 0.625,
+          "alert_rate": 0.7090909090909091
+        },
+        "0.35": {
+          "threshold": 0.35,
+          "tp": 14,
+          "fp": 20,
+          "fn": 9,
+          "tn": 12,
+          "sensitivity": 0.6086956521739131,
+          "specificity": 0.375,
+          "ppv": 0.4117647058823529,
+          "npv": 0.5714285714285714,
+          "alert_rate": 0.6181818181818182
+        },
+        "0.40": {
+          "threshold": 0.4,
+          "tp": 14,
+          "fp": 13,
+          "fn": 9,
+          "tn": 19,
+          "sensitivity": 0.6086956521739131,
+          "specificity": 0.59375,
+          "ppv": 0.5185185185185185,
+          "npv": 0.6785714285714286,
+          "alert_rate": 0.4909090909090909
+        },
+        "0.50": {
+          "threshold": 0.5,
+          "tp": 13,
+          "fp": 6,
+          "fn": 10,
+          "tn": 26,
+          "sensitivity": 0.5652173913043478,
+          "specificity": 0.8125,
+          "ppv": 0.6842105263157895,
+          "npv": 0.7222222222222222,
+          "alert_rate": 0.34545454545454546
+        }
+      },
+      "predictions": {
+        "condition_1": 0.5324821720220818,
+        "condition_10": 0.16690761355227865,
+        "condition_11": 0.6407084623249241,
+        "condition_12": 0.5092172585460801,
+        "condition_13": 0.2234065564483081,
+        "condition_14": 0.7058255279998402,
+        "condition_15": 0.7199167133929528,
+        "condition_16": 0.33083838133125176,
+        "condition_17": 0.5611690152594214,
+        "condition_18": 0.34132512992584113,
+        "condition_19": 0.5928756769330905,
+        "condition_2": 0.2991979948755653,
+        "condition_20": 0.6893716870757187,
+        "condition_21": 0.7529458127984469,
+        "condition_22": 0.5325355196765225,
+        "condition_23": 0.3471194843276325,
+        "condition_3": 0.27671639198500697,
+        "condition_4": 0.2838931157687178,
+        "condition_5": 0.6015684031036481,
+        "condition_6": 0.5280590651092644,
+        "condition_7": 0.21799017834124018,
+        "condition_8": 0.672116041412081,
+        "condition_9": 0.46638497508475124,
+        "control_1": 0.6373299805193383,
+        "control_10": 0.35163386521263956,
+        "control_11": 0.486344219274789,
+        "control_12": 0.44237864072927807,
+        "control_13": 0.5339946600416356,
+        "control_14": 0.28418949258121484,
+        "control_15": 0.36763793621731333,
+        "control_16": 0.3847555478309885,
+        "control_17": 0.2993534634643856,
+        "control_18": 0.24137112400329164,
+        "control_19": 0.3821323593781303,
+        "control_2": 0.07715468522560258,
+        "control_20": 0.19641650449923417,
+        "control_21": 0.39683081798325764,
+        "control_22": 0.41569747504574744,
+        "control_23": 0.4264541394955981,
+        "control_24": 0.6614650649733287,
+        "control_25": 0.3013745147964319,
+        "control_26": 0.1858285207488134,
+        "control_27": 0.20292245873417517,
+        "control_28": 0.2979009587503834,
+        "control_29": 0.38107953328972166,
+        "control_3": 0.27932860910418383,
+        "control_30": 0.45732777965707333,
+        "control_31": 0.309352245946858,
+        "control_32": 0.5645217262051001,
+        "control_4": 0.5536472360734751,
+        "control_5": 0.39450502380606106,
+        "control_6": 0.6564516316274819,
+        "control_7": 0.4054707870583023,
+        "control_8": 0.14596918859264796,
+        "control_9": 0.43764873454555286
+      }
+    },
+    "secondary_grouped_multiday_4feat": {
+      "n_splits": 5,
+      "n_repeats": 10,
+      "day_auc_mean": 0.6574876314804805,
+      "day_auc_sd": 0.005744983919545809,
+      "day_auc_range": [
+        0.6489336049557228,
+        0.6681765268365693
+      ],
+      "day_auc_pooled": 0.6573566706855695,
+      "day_auprc_mean": 0.4287822191169151,
+      "day_brier_mean": 0.2176652419575671,
+      "subject_auc_mean": 0.7619565217391304,
+      "subject_auc_sd": 0.009290935324608016,
+      "subject_auc_range": [
+        0.7486413043478262,
+        0.7771739130434783
+      ],
+      "subject_metrics_pooled": {
+        "n": 55,
+        "positives": 23,
+        "prevalence": 0.41818181818181815,
+        "auc": 0.7635869565217391,
+        "auprc": 0.7520858100900332,
+        "brier": 0.2215918221864091,
+        "mean_predicted": 0.35599818688238666,
+        "calibration_ece_5bin": 0.1577078751983617,
+        "calibration_slope": 4.053717597497393,
+        "calibration_intercept": 2.0202280308864924
+      },
+      "subject_bootstrap": {
+        "bootstrap_b": 2000,
+        "seed": 42,
+        "valid_resamples": 2000,
+        "auc_95ci": [
+          0.6228429898275101,
+          0.8889005602240896
+        ],
+        "brier_95ci": [
+          0.18586338884943393,
+          0.2591545169661368
+        ],
+        "auprc_95ci": [
+          0.570436869973871,
+          0.8942281990245892
+        ]
+      },
+      "thresholds_pooled": {
+        "0.30": {
+          "threshold": 0.3,
+          "tp": 21,
+          "fp": 22,
+          "fn": 2,
+          "tn": 10,
+          "sensitivity": 0.9130434782608695,
+          "specificity": 0.3125,
+          "ppv": 0.4883720930232558,
+          "npv": 0.8333333333333334,
+          "alert_rate": 0.7818181818181819
+        },
+        "0.35": {
+          "threshold": 0.35,
+          "tp": 16,
+          "fp": 12,
+          "fn": 7,
+          "tn": 20,
+          "sensitivity": 0.6956521739130435,
+          "specificity": 0.625,
+          "ppv": 0.5714285714285714,
+          "npv": 0.7407407407407407,
+          "alert_rate": 0.509090909090909
+        },
+        "0.40": {
+          "threshold": 0.4,
+          "tp": 13,
+          "fp": 3,
+          "fn": 10,
+          "tn": 29,
+          "sensitivity": 0.5652173913043478,
+          "specificity": 0.90625,
+          "ppv": 0.8125,
+          "npv": 0.7435897435897436,
+          "alert_rate": 0.2909090909090909
+        },
+        "0.50": {
+          "threshold": 0.5,
+          "tp": 1,
+          "fp": 0,
+          "fn": 22,
+          "tn": 32,
+          "sensitivity": 0.043478260869565216,
+          "specificity": 1.0,
+          "ppv": 1.0,
+          "npv": 0.5925925925925926,
+          "alert_rate": 0.01818181818181818
+        }
+      },
+      "per_repeat_day_auc": [
+        0.658425144472623,
+        0.6681765268365693,
+        0.6595455868290858,
+        0.6566852367688023,
+        0.6635450879308195,
+        0.6489336049557228,
+        0.6552405105392258,
+        0.6612896520184592,
+        0.6536835321997256,
+        0.6493514322537729
+      ],
+      "per_repeat_subject_auc": [
+        0.7758152173913043,
+        0.7635869565217391,
+        0.7608695652173912,
+        0.7513586956521738,
+        0.7771739130434783,
+        0.7486413043478262,
+        0.7595108695652174,
+        0.7703804347826086,
+        0.7567934782608696,
+        0.7554347826086956
+      ]
+    },
+    "naive_rowlevel_4feat": {
+      "n_splits": 5,
+      "n_repeats": 10,
+      "day_auc_mean": 0.6683413711387354,
+      "day_auc_sd": 0.0020449016592206655,
+      "subject_auc_mean": 0.7790760869565218,
+      "subject_auc_sd": 0.004792171763192494,
+      "subject_metrics_pooled": {
+        "n": 55,
+        "positives": 23,
+        "prevalence": 0.41818181818181815,
+        "auc": 0.78125,
+        "auprc": 0.7840916507476609,
+        "brier": 0.21889767185662387,
+        "mean_predicted": 0.35664128766518033,
+        "calibration_ece_5bin": 0.1571367502730752,
+        "calibration_slope": 4.613111440768738,
+        "calibration_intercept": 2.322822338467634
+      }
+    },
+    "extended_subject_mean_loso_10feat": {
+      "n_subjects": 55,
+      "n_positives": 23,
+      "metrics": {
+        "n": 55,
+        "positives": 23,
+        "prevalence": 0.41818181818181815,
+        "auc": 0.7567934782608696,
+        "auprc": 0.7905121185760251,
+        "brier": 0.18958516971741313,
+        "mean_predicted": 0.4225025000649421,
+        "calibration_ece_5bin": 0.17087442989676446,
+        "calibration_slope": 0.9379617961173339,
+        "calibration_intercept": -0.03792000942088826
+      },
+      "bootstrap": {
+        "bootstrap_b": 2000,
+        "seed": 42,
+        "valid_resamples": 2000,
+        "auc_95ci": [
+          0.6035950352526439,
+          0.8902359635314179
+        ],
+        "brier_95ci": [
+          0.14040157516999982,
+          0.24421073453437273
+        ],
+        "auprc_95ci": [
+          0.6385813669260749,
+          0.9090864032150823
+        ]
+      },
+      "thresholds": {
+        "0.30": {
+          "threshold": 0.3,
+          "tp": 17,
+          "fp": 17,
+          "fn": 6,
+          "tn": 15,
+          "sensitivity": 0.7391304347826086,
+          "specificity": 0.46875,
+          "ppv": 0.5,
+          "npv": 0.7142857142857143,
+          "alert_rate": 0.6181818181818182
+        },
+        "0.35": {
+          "threshold": 0.35,
+          "tp": 16,
+          "fp": 14,
+          "fn": 7,
+          "tn": 18,
+          "sensitivity": 0.6956521739130435,
+          "specificity": 0.5625,
+          "ppv": 0.5333333333333333,
+          "npv": 0.72,
+          "alert_rate": 0.5454545454545454
+        },
+        "0.40": {
+          "threshold": 0.4,
+          "tp": 15,
+          "fp": 13,
+          "fn": 8,
+          "tn": 19,
+          "sensitivity": 0.6521739130434783,
+          "specificity": 0.59375,
+          "ppv": 0.5357142857142857,
+          "npv": 0.7037037037037037,
+          "alert_rate": 0.509090909090909
+        },
+        "0.50": {
+          "threshold": 0.5,
+          "tp": 15,
+          "fp": 6,
+          "fn": 8,
+          "tn": 26,
+          "sensitivity": 0.6521739130434783,
+          "specificity": 0.8125,
+          "ppv": 0.7142857142857143,
+          "npv": 0.7647058823529411,
+          "alert_rate": 0.38181818181818183
+        }
+      },
+      "predictions": {
+        "condition_1": 0.6443612913944554,
+        "condition_10": 0.17764041880037967,
+        "condition_11": 0.6780024553208671,
+        "condition_12": 0.6509995356821353,
+        "condition_13": 0.3723448461174487,
+        "condition_14": 0.8523122442992742,
+        "condition_15": 0.8690342582260087,
+        "condition_16": 0.12527093624642696,
+        "condition_17": 0.8239359916108089,
+        "condition_18": 0.773334357624335,
+        "condition_19": 0.7401421628055972,
+        "condition_2": 0.2771472355753757,
+        "condition_20": 0.8865494313232496,
+        "condition_21": 0.8875044362008844,
+        "condition_22": 0.5864199123278924,
+        "condition_23": 0.16003917085445504,
+        "condition_3": 0.187202786644243,
+        "condition_4": 0.33387124923012435,
+        "condition_5": 0.6337944750358113,
+        "condition_6": 0.5304359312207729,
+        "condition_7": 0.2777722588000185,
+        "condition_8": 0.7856570073213917,
+        "condition_9": 0.556894286989713,
+        "control_1": 0.36270388738310955,
+        "control_10": 0.2933424835892451,
+        "control_11": 0.285967532338654,
+        "control_12": 0.2798508955990615,
+        "control_13": 0.6211341788409338,
+        "control_14": 0.18420499286699346,
+        "control_15": 0.3255722436111437,
+        "control_16": 0.4919133914682337,
+        "control_17": 0.08509924189218838,
+        "control_18": 0.12536503430090326,
+        "control_19": 0.5972735288978142,
+        "control_2": 0.07826077031839415,
+        "control_20": 0.07048185099364562,
+        "control_21": 0.4563147981160351,
+        "control_22": 0.4774155238688729,
+        "control_23": 0.5219967995300585,
+        "control_24": 0.4315534966833088,
+        "control_25": 0.2719009273144434,
+        "control_26": 0.0734019098351418,
+        "control_27": 0.2056402346716884,
+        "control_28": 0.4186495124746175,
+        "control_29": 0.40785311565350046,
+        "control_3": 0.019132384907077818,
+        "control_30": 0.5953628272821001,
+        "control_31": 0.12409174556902407,
+        "control_32": 0.3112766196783808,
+        "control_4": 0.5923271835754729,
+        "control_5": 0.25184293013081954,
+        "control_6": 0.4091593849209775,
+        "control_7": 0.16281886071026058,
+        "control_8": 0.31844656989065756,
+        "control_9": 0.5766159670073889
+      }
+    },
+    "extended_grouped_multiday_10feat": {
+      "n_splits": 5,
+      "n_repeats": 10,
+      "day_auc_mean": 0.6889153120192907,
+      "day_auc_sd": 0.0034557686896247134,
+      "day_auc_range": [
+        0.6796636594187836,
+        0.6921818484180768
+      ],
+      "day_auc_pooled": 0.6913191701658836,
+      "day_auprc_mean": 0.4767491529128704,
+      "day_brier_mean": 0.21196976620243135,
+      "subject_auc_mean": 0.7989130434782609,
+      "subject_auc_sd": 0.009053440896172655,
+      "subject_auc_range": [
+        0.782608695652174,
+        0.8165760869565217
+      ],
+      "subject_metrics_pooled": {
+        "n": 55,
+        "positives": 23,
+        "prevalence": 0.41818181818181815,
+        "auc": 0.8029891304347826,
+        "auprc": 0.8223998924365752,
+        "brier": 0.21009626564372977,
+        "mean_predicted": 0.3629039839900869,
+        "calibration_ece_5bin": 0.19160186146417318,
+        "calibration_slope": 4.162466074787552,
+        "calibration_intercept": 1.9696314730844506
+      },
+      "subject_bootstrap": {
+        "bootstrap_b": 2000,
+        "seed": 42,
+        "valid_resamples": 2000,
+        "auc_95ci": [
+          0.6657044930875577,
+          0.92
+        ],
+        "brier_95ci": [
+          0.17668964027679362,
+          0.24599943205113314
+        ],
+        "auprc_95ci": [
+          0.6825579990461957,
+          0.9281917615068296
+        ]
+      },
+      "thresholds_pooled": {
+        "0.30": {
+          "threshold": 0.3,
+          "tp": 22,
+          "fp": 21,
+          "fn": 1,
+          "tn": 11,
+          "sensitivity": 0.9565217391304348,
+          "specificity": 0.34375,
+          "ppv": 0.5116279069767442,
+          "npv": 0.9166666666666666,
+          "alert_rate": 0.7818181818181819
+        },
+        "0.35": {
+          "threshold": 0.35,
+          "tp": 15,
+          "fp": 13,
+          "fn": 8,
+          "tn": 19,
+          "sensitivity": 0.6521739130434783,
+          "specificity": 0.59375,
+          "ppv": 0.5357142857142857,
+          "npv": 0.7037037037037037,
+          "alert_rate": 0.509090909090909
+        },
+        "0.40": {
+          "threshold": 0.4,
+          "tp": 15,
+          "fp": 3,
+          "fn": 8,
+          "tn": 29,
+          "sensitivity": 0.6521739130434783,
+          "specificity": 0.90625,
+          "ppv": 0.8333333333333334,
+          "npv": 0.7837837837837838,
+          "alert_rate": 0.32727272727272727
+        },
+        "0.50": {
+          "threshold": 0.5,
+          "tp": 3,
+          "fp": 0,
+          "fn": 20,
+          "tn": 32,
+          "sensitivity": 0.13043478260869565,
+          "specificity": 1.0,
+          "ppv": 1.0,
+          "npv": 0.6153846153846154,
+          "alert_rate": 0.05454545454545454
+        }
+      },
+      "per_repeat_day_auc": [
+        0.6920051552820854,
+        0.6921818484180768,
+        0.6898827589074127,
+        0.6796636594187836,
+        0.6899742235895729,
+        0.6862678252193074,
+        0.6901841766099862,
+        0.6905500353386271,
+        0.6890263168835489,
+        0.6894171205255062
+      ],
+      "per_repeat_subject_auc": [
+        0.8165760869565217,
+        0.8070652173913044,
+        0.7894021739130435,
+        0.798913043478261,
+        0.7961956521739131,
+        0.782608695652174,
+        0.7934782608695652,
+        0.8043478260869565,
+        0.797554347826087,
+        0.8029891304347826
+      ]
+    },
+    "permutation_primary_loso": {
+      "metric": "subject_level_auc",
+      "n_permutations": 500,
+      "seed": 42,
+      "observed": 0.6453804347826088,
+      "permuted_mean": 0.41311684782608693,
+      "permuted_sd": 0.14458158136687344,
+      "permuted_95ci": [
+        0.0509171195652174,
+        0.6406589673913043
+      ],
+      "p_value_one_sided": 0.023952095808383235
+    },
+    "permutation_secondary_grouped": {
+      "metric": "subject_level_auc_after_multiday_aggregation",
+      "n_permutations": 500,
+      "seed": 42,
+      "n_repeats_per_permutation": 10,
+      "observed": 0.7619565217391304,
+      "permuted_mean": 0.501553804347826,
+      "permuted_sd": 0.0884772604015517,
+      "permuted_95ci": [
+        0.33085258152173913,
+        0.670125679347826
+      ],
+      "p_value_one_sided": 0.001996007984031936
+    },
+    "demographics_only_control": {
+      "features": [
+        "gender",
+        "age_mid"
+      ],
+      "note": "Age bin midpoint and encoded gender only; no actigraphy. Negative control, not a model.",
+      "metrics": {
+        "n": 55,
+        "positives": 23,
+        "prevalence": 0.41818181818181815,
+        "auc": 0.5475543478260869,
+        "auprc": 0.4711362731183703,
+        "brier": 0.2490097057730391,
+        "mean_predicted": 0.41907418294259746,
+        "calibration_ece_5bin": 0.07784504627398545,
+        "calibration_slope": 0.28958774677719246,
+        "calibration_intercept": -0.2297827068705053
+      }
+    },
+    "univariate_subject_auc": {
+      "mean_act": {
+        "auc_direction_not_flipped": 0.3519021739130435,
+        "auc_if_inverted": 0.6480978260869565,
+        "direction": "higher value -> lower label"
+      },
+      "std_act": {
+        "auc_direction_not_flipped": 0.42391304347826086,
+        "auc_if_inverted": 0.5760869565217391,
+        "direction": "higher value -> lower label"
+      },
+      "peak_activity": {
+        "auc_direction_not_flipped": 0.485054347826087,
+        "auc_if_inverted": 0.5149456521739131,
+        "direction": "higher value -> lower label"
+      },
+      "autocorrelation_act": {
+        "auc_direction_not_flipped": 0.532608695652174,
+        "auc_if_inverted": 0.46739130434782605,
+        "direction": "higher value -> higher label"
+      }
+    },
+    "madrs_correlation": {
+      "n_condition": 23,
+      "note": "Exploratory; controls have no MADRS.",
+      "madrs1": {
+        "n": 23,
+        "spearman_rho": 0.010445398377655945,
+        "p_value": 0.9622726362866434
+      },
+      "madrs2": {
+        "n": 23,
+        "spearman_rho": 0.045195548725408596,
+        "p_value": 0.837754175848488
+      }
+    },
+    "sensitivity_excluding_zero_days": {
+      "definition": "exclude 70 all-zero complete days; same 4 features and repeated grouped CV",
+      "n_days": 959,
+      "n_subjects": 55,
+      "subject_auc_mean": 0.7091032608695652,
+      "subject_auc_sd": 0.013552265495010773,
+      "subject_metrics_pooled": {
+        "n": 55,
+        "positives": 23,
+        "prevalence": 0.41818181818181815,
+        "auc": 0.7160326086956521,
+        "auprc": 0.6882651785315872,
+        "brier": 0.2259417338665073,
+        "mean_predicted": 0.3692381447387123,
+        "calibration_ece_5bin": 0.08570540074493138,
+        "calibration_slope": 3.2677080289967506,
+        "calibration_intercept": 1.3836209441005372
+      },
+      "day_auc_pooled": 0.6290190035952749
+    },
+    "sensitivity_min_14_days": {
+      "definition": "keep subjects with at least 14 complete days",
+      "n_days": 978,
+      "n_subjects": 51,
+      "n_subjects_dropped": 4,
+      "subject_auc_mean": 0.700967741935484,
+      "subject_auc_sd": 0.019637717748676682,
+      "subject_metrics_pooled": {
+        "n": 51,
+        "positives": 20,
+        "prevalence": 0.39215686274509803,
+        "auc": 0.7080645161290323,
+        "auprc": 0.6573815260032366,
+        "brier": 0.22509801601045049,
+        "mean_predicted": 0.3352157720637659,
+        "calibration_ece_5bin": 0.0569410906813322,
+        "calibration_slope": 3.6408526476720273,
+        "calibration_intercept": 2.0117892415940815
+      },
+      "day_auc_pooled": 0.6345656884640369
+    }
+  },
+  "artifacts": {
+    "subject_predictions_csv": "backend/scripts/modeling/eval/v1_48/subject_predictions.csv",
+    "subject_predictions_sha256": "891bf4ffbd667e3fd454f03fabcaa27dd845348368ff000b650a1574acef7eb3",
+    "report": "docs/model-evaluation/REAL_ACTIGRAPHY_BASELINE.md"
+  },
+  "sanity_checks": {
+    "n_subjects_55": true,
+    "n_complete_days_1029": true,
+    "positive_days_359": true,
+    "tdf_matched_996": true,
+    "tdf_ambiguous_33_consistent": true,
+    "tdf_label_mismatches_0": true,
+    "grouped_folds_disjoint": true,
+    "all_primary_metrics_finite": true,
+    "csv_sha256": "891bf4ffbd667e3fd454f03fabcaa27dd845348368ff000b650a1574acef7eb3"
+  },
+  "interpretation": {
+    "why_not_external_validation": [
+      "Same Depresjon cohort used for both the original label and this baseline; no independent cohort.",
+      "55 subjects, clinical actigraphy, condition/control labels; not general population or consumer wearables.",
+      "Retrospective complete-day summaries; no prospective prediction of onset or relapse."
+    ],
+    "allowed_claims": [
+      "On Depresjon, a subject-grouped real-actigraphy-only baseline reaches the reported AUC.",
+      "The conservative subject-mean LOSO estimate and the multi-day grouped estimate differ; report both and do not treat either as a stable clinical performance estimate.",
+      "The dominant univariate signal is lower mean activity; MADRS severity is not tracked by this baseline."
+    ],
+    "forbidden_claims": [
+      "This baseline is externally validated or ready for production.",
+      "This baseline can be compared directly with the synthetic-feature production AUC 0.9451.",
+      "These numbers apply to consumer wearables, general adults, or clinical diagnosis.",
+      "The 10-feature exploratory model should replace the production model."
+    ]
+  }
+}

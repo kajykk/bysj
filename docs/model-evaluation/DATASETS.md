@@ -8,7 +8,7 @@
 
 | 数据集 | 用途 | 许可 | 是否已用于训练 | G2 可用性 |
 |---|---|---|---|---|
-| Depresjon（生理） | 生理模型训练/评估 | 见 §1 | 是（当前评估的唯一样本源） | 可用（已在本仓） |
+| Depresjon（生理） | 生理模型训练/评估 + ROUND_48/49 原始 actigraphy 基线与稳健性 | 见 §1 | 是（processed 表；原始数据未训练） | 可用（已在本仓） |
 | Kaggle Wearable（生理） | 生理模型训练候选 | 见 §2 | **否**（合并代码存在但训练未用） | 可用（已在本仓） |
 | PHQ-9 Dataset 5th Edition | 量表级真值 | 见 §3 | **是（训练标签母体，ROUND_27 实测）** | **不可作外迁**（标签泄漏） |
 | actverse（acttrust） | 活动记录仪样例 | GPLv3 | 否 | 谨慎（GPL 传染性） |
@@ -22,6 +22,7 @@
 | **eRisk 2021**（§13，本轮新增） | 英文早筛对照 | DUA | 否 | 待取（DUA 表单） |
 | **DepInter-CN**（§14，本轮新增） | 中文临床访谈 | 预印本 | 否 | 待申请 |
 | **中文文本抑郁数据集 zsfc-av84**（§15，本轮新增） | 小样本高纯度验证 | IEEE 开放获取 | 否 | 待取（IEEE 账号） |
+| **NHANES 2017–2018**（§16，ROUND_47 新增） | 真实特征 + PHQ-9 标签迁移压力测试 | 美国联邦公有领域 | 否 | 本地已有（**仅压力测试，非外部验证**） |
 
 ---
 
@@ -31,12 +32,14 @@
 |---|---|
 | 名称 | Depresjon（processed 版） |
 | 仓内路径 | `datasets/physiological/external/depresjon_processed/depresjon_physiological.csv`（1029 行，1,030 含表头）；`depresjon_augmented.csv`（7,203 行，增强版） |
-| 来源 | 仓内文件头标注 `source=depresjon`；原始数据来自 Depresjon 公开数据集（Dartmouth 活动记录仪队列），**仓内无原始 LICENSE 文件** |
+| 原始数据（ROUND_48/49 用） | `datasets/external/physiological/depresjon-code/depresjon.zip`（55 受试者：23 例 / 32 对照；1,029 个完整日、115 个非完整日；逐受试者分钟级 activity，受试者 ID 只在原始文件名中）；日级汇总 `TDF_CONDITION.csv` / `TDF_CONTROL.csv`（无受试者 ID）。SHA-256 与校验见 `REAL_ACTIGRAPHY_BASELINE.md` §1 |
+| 来源 | 仓内文件头标注 `source=depresjon`；原始数据来自 Depresjon 公开数据集（Dartmouth 活动记录仪队列）。仓内 `depresjon-code/LICENSE` 为 MIT，**仅覆盖代码仓库**；数据本身未单独附许可文件 |
+| 建模特征来源 | **非真实测量**：`heart_rate`/`sleep_hours`/`sleep_quality`/`systolic_bp`/`diastolic_bp` 由 `scripts/data_prep/convert_depresjon_to_system.py` 按真实队列标签的分组均值生成；`diastolic_bp` 又派生自 `systolic_bp`；`phq9_score` 是标签的噪声副本。仅 `steps`/`exercise_minutes` 来自真实 actigraphy 汇总。审计见 `PHYSIO_DATA_PROVENANCE_AUDIT.md` |
 | 版本 / 日期 | 文件 mtime 2026-04-27；无显式版本号；行数与列名（steps/heart_rate/sleep_hours/sleep_quality/exercise_minutes/systolic_bp/diastolic_bp/depression_label/phq9_score/mean_activity/std_activity/peak_activity/autocorrelation）已在本表登记 |
 | 许可 | **未在仓内留下许可证据**（无 LICENSE）。用于研究/论文须回溯源数据集获取条款后再对外发布 |
 | 引用要求 | 引用 Depresjon 原始论文（Garcia-Ceja et al., 2018）；仓内代码路径 `app/ml/data_loader.py::load_depresjon_data` |
-| 是否已用于训练 | **是**——`physiological`(v1) 与 `physiological_optimized`(v2) 的训练/评估均基于此文件（v2 的原切分不可复现，见 `PHYSIO_V2_EVAL_REPORT.md` §一） |
-| 拟用于何种评估 | G2 的「同分布跨采集点」对照；不得再作为「外部」验证集（已参与训练/调参） |
+| 是否已用于训练 | **是（processed 表）**——`physiological`(v1) 与 `physiological_optimized`(v2) 的训练/评估均基于此文件（v2 的原切分不可复现，见 `PHYSIO_V2_EVAL_REPORT.md` §一）。**原始 minute-level actigraphy（ROUND_48）未用于训练**，仅做离线基线 |
+| 拟用于何种评估 | processed 表：G2 的「同分布跨采集点」对照；不得再作为「外部」验证集（已参与训练/调参）。原始数据：同队列、受试者分组的真实 actigraphy 基线（ROUND_48）、规范/佩戴混杂审计（ROUND_49）与多日聚合 9 规范审计（ROUND_50）；不是外部验证，不进入生产，见 `REAL_ACTIGRAPHY_BASELINE.md`、`REAL_BASELINE_ROBUSTNESS.md`、`REAL_BASELINE_PROTOCOL_ROBUSTNESS.md` |
 | 纳入日期 | 2026-10-23（本表首次登记） |
 
 ## 2. Kaggle Wearable（生理信号）
@@ -251,3 +254,23 @@
 | 受阻原因（实测） | IEEE DataPort 下载需账号登录 |
 | 手动步骤 | 注册/登录 IEEE DataPort 后下载 |
 | 拟用于何种评估 | **小样本高纯度**外部验证（临床确诊标签）；样本量小，只作辅助证据 |
+
+## 16. NHANES 2017–2018（真实生理 + PHQ-9 标签）— ROUND_47 新增，仅压力测试
+
+| 字段 | 值 |
+|---|---|
+| 名称 | National Health and Nutrition Examination Survey 2017–2018（DEMO_J / DPQ_J / BPX_J / SLQ_J / PAQ_J） |
+| 仓内路径 | `data/external/nhanes/nhanes_physiological.csv`（5,533 行；有标签 5,068）；原始 XPT、接入脚本与逐文件哈希见同目录 `nhanes_manifest.json` |
+| 来源 | CDC/NCHS 公开数据；下载入口 `https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/`；接入脚本 `scripts/data_acquisition/ingest_nhanes.py` |
+| 版本 / 日期 | 2017–2018 周期；manifest 生成于 2026-10-23 |
+| 数据哈希 | `nhanes_physiological.csv` SHA-256 `88929abb…abcae46`（全文见 manifest） |
+| 规模 / 标签 | 有标签 5,068；阳性（PHQ-9 总分≥10，9 项完整才计分）459，阳性率 0.0906；年龄 18–80；**未应用复杂抽样权重 WTMEC2YR** |
+| 特征映射 | SLD012→`sleep_hours`；SLQ050→`sleep_quality`（二值「是否因睡眠问题就医」代理）；GPAQ→`exercise_minutes`；BPXPLS→`heart_rate`；BPXSY1/BPXDI1→血压；**无 `steps` 列** |
+| 许可 | 美国联邦政府作品，公有领域（CDC/NCHS 公开数据，无需 DUA） |
+| 引用要求 | CDC/NCHS, National Health and Nutrition Examination Survey, 2017–2018 |
+| 是否已用于训练 | **否** |
+| 拟用于何种评估 | **仅迁移压力测试**（ROUND_47），不是外部验证：标签是 PHQ-9≥10，与 Depresjon 临床分组不可比；训练表 5/7 特征为标签驱动合成；NHANES 无步数。结果见 `NHANES_TRANSPORT_STRESS.md` |
+| 纳入日期 | 2026-10-23（接入）；2026-11-02（ROUND_47 压力测试登记） |
+
+登记边界：该队列只能回答「生产生理管线在真实成人队列上会发生什么」，不能升级生理单元证据等级，
+不能与 Depresjon 的 AUC 0.9451 并列，也不能据此判断真实生理信号是否有用（标签/特征/协议同时变化）。

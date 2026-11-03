@@ -17,6 +17,7 @@ hf-mirror/codeload/IEEE DataPort 页面/百度网盘可达；百度 anonymous �
 
 数据落点（均为 .gitignore 排除目录，不入库）：
     WESAD          -> datasets/physiological/external/wesad/
+    NHANES         -> data/external/nhanes/
     CNSocialDepress-> data/external/cnsocialdepress/
     SWDD / WU3D    -> data/external/swdd/ 、data/external/wu3d/
 """
@@ -64,6 +65,49 @@ DATASETS: dict[str, dict] = {
         "license": "科研非商业使用，需署名（uni-siegen 原站条款）；镜像来源 HF: LouisSimon/wesad-parquet",
         "manual": "",
     },
+    "nhanes": {
+        "title": "NHANES 2017-2018 生理+PHQ-9（美国全国体检队列，公有领域）",
+        "channel": "http-direct",
+        "dest": REPO / "data/external/nhanes",
+        "files": [
+            {
+                "name": "DEMO_J.xpt",
+                "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DEMO_J.xpt",
+                "size": 3412720,
+            },
+            {
+                "name": "DPQ_J.xpt",
+                "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DPQ_J.xpt",
+                "size": 489280,
+            },
+            {
+                "name": "BPX_J.xpt",
+                "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BPX_J.xpt",
+                "size": 1466000,
+            },
+            {
+                "name": "SLQ_J.xpt",
+                "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/SLQ_J.xpt",
+                "size": 470560,
+            },
+            {
+                "name": "PAQ_J.xpt",
+                "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/PAQ_J.xpt",
+                "size": 799600,
+            },
+        ],
+        "citation": ("CDC/NCHS, National Health and Nutrition Examination Survey, 2017-2018；"
+                     "DPQ_J（PHQ-9 量表，Kroenke et al. 2001）"),
+        "license": ("美国联邦政府作品，**公有领域**，无需 DUA，可直接用于论文并对外发表数字"
+                    "（区别于本工具其他条目）"),
+        "ingest": "python scripts/data_acquisition/ingest_nhanes.py",
+        "manual": "",
+        "notes": [
+            "实测：5 个文件 HTTP 200 直连可下载（2026-10-24）。",
+            "接入后得到 7 列基 schema 的 6 列；steps 无对应列（如实留空，不伪造）。",
+            "读取注意：pandas.read_sas 把 0 读成 denormal 5.3976e-79，见 ingest_nhanes.py docstring。",
+        ],
+    },
     "cnsocialdepress": {
         "title": "CNSocialDepress 中文社交媒体抑郁风险数据集（专家标注）",
         "channel": "google-drive",
@@ -106,10 +150,28 @@ DATASETS: dict[str, dict] = {
         "share": "https://pan.baidu.com/s/10xItuplkTNMmJdOEGBiXPw",
         "pwd": "yar1",
         "files": [{"name": "WU3D.zip", "size": None}],
-        "citation": "arXiv:2008.11708；GitHub: aidenwang9867/Weibo-User-Depression-Detection-Dataset",
+        "citation": "arXiv:2008.11708；GitHub: aidenwang9867/Weibo-User-Depression-Detection-Dataset；镜像 HF: Jillian/WU3D_depression",
         "netdisk_path": "/bysj_datasets/WU3D.zip",
-        "license": "原仓库未附 LICENSE（研究用途）",
-        "manual": "同 SWDD：先浏览器转存到自己网盘 /bysj_datasets/，再用 --via-netdisk 拉取。",
+        "license": "原仓库未附 LICENSE（研究用途）；HF 镜像同样未附许可声明，故仍标许可未知",
+        # 百度分享直链 2026-10-24 实测被风控（errno 118/9019）；hf-mirror 全自动可下
+        "mirror": {
+            "channel": "hf-mirror",
+            "files": [
+                {
+                    "name": "depressed.json",
+                    "url": "https://hf-mirror.com/datasets/Jillian/WU3D_depression/resolve/main/depressed.json",
+                    "size": 301438011,
+                },
+                {
+                    "name": "normal.json",
+                    "url": "https://hf-mirror.com/datasets/Jillian/WU3D_depression/resolve/main/normal.json",
+                    "size": None,
+                },
+            ],
+        },
+        "manual": ("百度风控时，执行 `python fetch_external_datasets.py --dataset wu3d` 即可"
+                   "自动回退到 HF 镜像；或手动下载镜像上的 depressed.json / normal.json 到 "
+                   "data/external/wu3d/"),
     },
     "cmdc": {
         "title": "CMDC 中文多模态抑郁语料（78 人，文本+音频+视频，PHQ-9）",
@@ -159,9 +221,20 @@ DATASETS: dict[str, dict] = {
 
 
 # ---------------------------------------------------------------- 下载实现
+def _alive_proxy() -> dict | None:
+    """探测 PROXY 是否可用；不可用返回 None（避免直连源因残留代理配置整体失败）。"""
+    try:
+        import socket
+
+        with socket.create_connection(("127.0.0.1", 50458), timeout=1.5):
+            return PROXY
+    except OSError:
+        return None
+
+
 def http_get(url: str, dest: Path, expected_size: int | None = None,
              cookie: str | None = None) -> bool:
-    """流式下载（带代理与重试一次）。返回是否成功。"""
+    """流式下载（带代理探测与重试一次）。返回是否成功。"""
     try:
         import requests
     except ImportError:
@@ -170,10 +243,13 @@ def http_get(url: str, dest: Path, expected_size: int | None = None,
     headers = {"User-Agent": UA_CHROME}
     if cookie:
         headers["Cookie"] = cookie
+    proxies = _alive_proxy()
+    if proxies is None:
+        print("  [提示] 本机代理 127.0.0.1:50458 不可用，改直连")
     for attempt in (1, 2):
         try:
             with requests.get(url, stream=True, timeout=120, headers=headers,
-                              proxies=PROXY, allow_redirects=True) as r:
+                              proxies=proxies, allow_redirects=True) as r:
                 if r.status_code not in (200, 206):
                     print(f"  HTTP {r.status_code} (attempt {attempt})")
                     continue
@@ -192,10 +268,11 @@ def http_get(url: str, dest: Path, expected_size: int | None = None,
     return False
 
 
-def fetch_wesad(spec: dict) -> bool:
-    ok = True
+def fetch_http_direct(spec: dict) -> bool:
+    """通用直链下载（NHANES 这类无需账号/无需镜像的源）。"""
     dest: Path = spec["dest"]
     dest.mkdir(parents=True, exist_ok=True)
+    ok = True
     for f in spec["files"]:
         target = dest / f["name"]
         if target.exists() and f.get("size") and target.stat().st_size == f["size"]:
@@ -203,6 +280,24 @@ def fetch_wesad(spec: dict) -> bool:
             continue
         ok &= http_get(f["url"], target, f.get("size"))
     return ok
+
+
+def fetch_hf_mirror(spec: dict, files: list[dict] | None = None) -> bool:
+    """hf-mirror 直链下载。files 缺省取 spec['files']（与 WESAD 共用同一实现）。"""
+    dest: Path = spec["dest"]
+    dest.mkdir(parents=True, exist_ok=True)
+    ok = True
+    for f in (files if files is not None else spec["files"]):
+        target = dest / f["name"]
+        if target.exists() and f.get("size") and target.stat().st_size == f["size"]:
+            print(f"  [跳过] {f['name']} 已存在且大小一致")
+            continue
+        ok &= http_get(f["url"], target, f.get("size"))
+    return ok
+
+
+def fetch_wesad(spec: dict) -> bool:
+    return fetch_hf_mirror(spec)
 
 
 def fetch_gdrive(spec: dict, cookie: str | None = None) -> bool:
@@ -395,7 +490,8 @@ def fetch_manual(spec: dict) -> bool:
 
 
 CHANNELS = {
-    "hf-mirror": fetch_wesad,
+    "hf-mirror": fetch_hf_mirror,
+    "http-direct": fetch_http_direct,
     "google-drive": fetch_gdrive,
     "baidu": fetch_baidu,
     "ieee-dataport": fetch_manual,
@@ -452,12 +548,27 @@ def main() -> int:
         print(f"\n=== {key}: {spec['title']} ===")
         fn = CHANNELS[spec["channel"]]
         if spec["channel"] == "baidu" and args.via_netdisk:
-            results[key] = fetch_baidu_netdisk(spec, cookie=args.baidu_cookie,
-                                               netdisk_path=args.baidu_netdisk_path)
+            ok = fetch_baidu_netdisk(spec, cookie=args.baidu_cookie,
+                                     netdisk_path=args.baidu_netdisk_path)
         elif spec["channel"] == "baidu":
-            results[key] = fn(spec, cookie=args.baidu_cookie)
+            try:
+                ok = fn(spec, cookie=args.baidu_cookie)
+            except Exception as exc:  # noqa: BLE001 - 通道不可用不应中断整体流程
+                print(f"  [失败] 百度通道不可用：{type(exc).__name__}: {exc}")
+                ok = False
         else:
-            results[key] = fn(spec)
+            try:
+                ok = fn(spec)
+            except Exception as exc:  # noqa: BLE001
+                print(f"  [失败] 通道不可用：{type(exc).__name__}: {exc}")
+                ok = False
+
+        # 百度风控时回退到已验证的镜像通道（仅当该条 spec 声明了 mirror）
+        mirror = spec.get("mirror")
+        if not ok and mirror:
+            print(f"  → 主通道失败，回退到 {mirror['channel']} 镜像")
+            ok = fetch_hf_mirror(spec, files=mirror["files"])
+        results[key] = ok
     print("\n=== 汇总 ===")
     for key, ok in results.items():
         print(f"  {key:<22}{'成功' if ok else '未完成（见上方步骤）'}")

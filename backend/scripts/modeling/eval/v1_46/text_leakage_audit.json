@@ -1,0 +1,423 @@
+{
+  "_note": "ROUND_46 P0-4 text leakage audit. Read-only. Uses source_idx provenance to audit the v1_27 sibling-aware grouping; compares groupwise vs textwise splits and OOF metrics. No text model or threshold modified.",
+  "sources": {
+    "corpus": "data\\external\\chinese_depression_corpus_v1.csv",
+    "corpus_sha256": "8e4039945845b262c4c689108c99d3e46e67f785a4df9d25d3a7956a953378e4",
+    "oof": "backend\\scripts\\modeling\\v1_27\\groupwise_oof_predictions.csv",
+    "oof_sha256": "0dd48b4a9dbc93ef1e0c2e1c293e480f423c47ed880e2511e86ef03f0933dd22",
+    "text_metrics": "backend\\models\\text\\improved_bilingual_metrics.json"
+  },
+  "provenance": {
+    "n_rows": 8379,
+    "n_groups": 1277,
+    "n_true_families": 1275,
+    "n_original_anchors": 1275,
+    "n_variants": 7104,
+    "n_variants_correctly_grouped": 7102,
+    "variant_grouping_accuracy": 0.9997184684684685,
+    "n_variants_solo": 2,
+    "misassigned_variants": [
+      {
+        "source_idx": 0,
+        "true_group": "g0",
+        "assigned_group": "solo7102",
+        "augmentation": "backtranslation",
+        "similarity_note": "char-ngram cosine to best original < 0.5; became a solo group"
+      },
+      {
+        "source_idx": 1,
+        "true_group": "g1",
+        "assigned_group": "solo7103",
+        "augmentation": "backtranslation",
+        "similarity_note": "char-ngram cosine to best original < 0.5; became a solo group"
+      }
+    ],
+    "n_mixed_label_groups": 0,
+    "group_size": {
+      "min": 1,
+      "median": 7.0,
+      "mean": 6.561472200469852,
+      "p90": 8.0,
+      "max": 8
+    },
+    "family_size": {
+      "min": 1,
+      "median": 7.0,
+      "mean": 6.5717647058823525,
+      "max": 8,
+      "n_families_without_variants": 32
+    },
+    "augmentation_counts": {
+      "original": 1275,
+      "syn_v2": 1091,
+      "syn_v4": 1072,
+      "syn_v6": 1059,
+      "syn_v1": 1002,
+      "syn_v5": 972,
+      "syn_v3": 970,
+      "synonym_replace": 936,
+      "backtranslation": 2
+    },
+    "exact_duplicate_texts": 0,
+    "exact_duplicate_texts_after_whitespace_normalization": 0,
+    "texts_appearing_in_more_than_one_group": 0
+  },
+  "split_audit": {
+    "groupwise": {
+      "split": "groupwise_sibling_aware",
+      "n_folds": 5,
+      "n_test_total": 8379,
+      "rows_with_true_family_in_train": 6,
+      "family_leak_rate": 0.0007160759040458289,
+      "rows_with_exact_text_in_train": 0,
+      "folds": [
+        {
+          "fold": 0,
+          "n_train": 6703,
+          "n_test": 1676,
+          "test_rows_with_family_in_train": 0,
+          "family_leak_rate": 0.0,
+          "families_split_across_fold": 0,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.5870515417087485,
+          "fraction_test_sim_ge_0.95": 0.0,
+          "fraction_test_sim_ge_0.90": 0.0,
+          "fraction_test_sim_ge_0.80": 0.0
+        },
+        {
+          "fold": 1,
+          "n_train": 6703,
+          "n_test": 1676,
+          "test_rows_with_family_in_train": 1,
+          "family_leak_rate": 0.0005966587112171838,
+          "families_split_across_fold": 1,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.39662737544570764,
+          "fraction_test_sim_ge_0.95": 0.0,
+          "fraction_test_sim_ge_0.90": 0.0,
+          "fraction_test_sim_ge_0.80": 0.0
+        },
+        {
+          "fold": 2,
+          "n_train": 6703,
+          "n_test": 1676,
+          "test_rows_with_family_in_train": 5,
+          "family_leak_rate": 0.0029832935560859188,
+          "families_split_across_fold": 1,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.5832236144950892,
+          "fraction_test_sim_ge_0.95": 0.0,
+          "fraction_test_sim_ge_0.90": 0.0,
+          "fraction_test_sim_ge_0.80": 0.0
+        },
+        {
+          "fold": 3,
+          "n_train": 6703,
+          "n_test": 1676,
+          "test_rows_with_family_in_train": 0,
+          "family_leak_rate": 0.0,
+          "families_split_across_fold": 0,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.421612171570846,
+          "fraction_test_sim_ge_0.95": 0.0,
+          "fraction_test_sim_ge_0.90": 0.0,
+          "fraction_test_sim_ge_0.80": 0.0
+        },
+        {
+          "fold": 4,
+          "n_train": 6704,
+          "n_test": 1675,
+          "test_rows_with_family_in_train": 0,
+          "family_leak_rate": 0.0,
+          "families_split_across_fold": 0,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.42277398710178565,
+          "fraction_test_sim_ge_0.95": 0.0,
+          "fraction_test_sim_ge_0.90": 0.0,
+          "fraction_test_sim_ge_0.80": 0.0
+        }
+      ],
+      "top_cross_fold_pairs": [
+        {
+          "test_row": 40,
+          "train_row": 750,
+          "similarity": 0.5870515417087485,
+          "test_text": "那就好在空余时间，你喜欢做些什么呢？ 听到你说没有这种情况太好了，那我们一起假设",
+          "train_text": "是嗯会会画画听音乐。 是的，是你这要好的朋友，有几个能和我相想啊，哦我们这样我们",
+          "test_label": 0,
+          "train_label": 0,
+          "test_augmentation": "original",
+          "train_augmentation": "original"
+        },
+        {
+          "test_row": 192,
+          "train_row": 139,
+          "similarity": 0.5832236144950892,
+          "test_text": "是嗯会会画画听音乐。 是的，是你这要好的朋友，有几个能和我相想啊，哦我们这样我们",
+          "train_text": "那就好在空余时间，你喜欢做些什么呢？ 听到你说没有这种情况太好了，那我们一起假设",
+          "test_label": 0,
+          "train_label": 0,
+          "test_augmentation": "original",
+          "train_augmentation": "original"
+        },
+        {
+          "test_row": 893,
+          "train_row": 4012,
+          "similarity": 0.5800539219071859,
+          "test_text": "那就好在空余时间，你喜欢做些什么呢？ 听到你说没有这种情况太好了，那我们一起假设",
+          "train_text": "是嗯会会画画听音乐。 是的，是你这要好的伙伴，有几个能和我相想啊，哦我们这样我们",
+          "test_label": 0,
+          "train_label": 0,
+          "test_augmentation": "syn_v3",
+          "train_augmentation": "syn_v3"
+        },
+        {
+          "test_row": 1096,
+          "train_row": 1566,
+          "similarity": 0.5798576929525577,
+          "test_text": "那就好在空余时间，你喜欢做些什么呢？ 听到你说没有这种情况太好了，那我们一起假设",
+          "train_text": "是嗯会会画画听音乐。 是的，是你这要好的朋友，有几个能和我相想啊，哦我们这样我们",
+          "test_label": 0,
+          "train_label": 0,
+          "test_augmentation": "syn_v4",
+          "train_augmentation": "synonym_replace"
+        },
+        {
+          "test_row": 286,
+          "train_row": 5648,
+          "similarity": 0.5797563809167657,
+          "test_text": "那就好在空余时间，你喜欢做些什么呢？ 听到你说没有这种情况太好了，那我们一起假设",
+          "train_text": "是嗯会会画画听音乐。 是的，是你这要好的伙伴，有几个能和我相想啊，哦我们这样我们",
+          "test_label": 0,
+          "train_label": 0,
+          "test_augmentation": "synonym_replace",
+          "train_augmentation": "syn_v5"
+        }
+      ]
+    },
+    "textwise": {
+      "split": "textwise_current_protocol",
+      "n_folds": 5,
+      "n_test_total": 8379,
+      "rows_with_true_family_in_train": 8333,
+      "family_leak_rate": 0.9945100847356486,
+      "rows_with_exact_text_in_train": 0,
+      "folds": [
+        {
+          "fold": 0,
+          "n_train": 6703,
+          "n_test": 1676,
+          "test_rows_with_family_in_train": 1665,
+          "family_leak_rate": 0.9934367541766109,
+          "families_split_across_fold": 942,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.9969676399237956,
+          "fraction_test_sim_ge_0.95": 0.6879474940334129,
+          "fraction_test_sim_ge_0.90": 0.9445107398568019,
+          "fraction_test_sim_ge_0.80": 0.9910501193317423
+        },
+        {
+          "fold": 1,
+          "n_train": 6703,
+          "n_test": 1676,
+          "test_rows_with_family_in_train": 1664,
+          "family_leak_rate": 0.9928400954653938,
+          "families_split_across_fold": 921,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.9978365749878169,
+          "fraction_test_sim_ge_0.95": 0.681980906921241,
+          "fraction_test_sim_ge_0.90": 0.9522673031026253,
+          "fraction_test_sim_ge_0.80": 0.9898568019093079
+        },
+        {
+          "fold": 2,
+          "n_train": 6703,
+          "n_test": 1676,
+          "test_rows_with_family_in_train": 1669,
+          "family_leak_rate": 0.9958233890214797,
+          "families_split_across_fold": 939,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.9956263091476224,
+          "fraction_test_sim_ge_0.95": 0.6736276849642004,
+          "fraction_test_sim_ge_0.90": 0.9463007159904535,
+          "fraction_test_sim_ge_0.80": 0.9928400954653938
+        },
+        {
+          "fold": 3,
+          "n_train": 6703,
+          "n_test": 1676,
+          "test_rows_with_family_in_train": 1671,
+          "family_leak_rate": 0.997016706443914,
+          "families_split_across_fold": 942,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.9982253327623609,
+          "fraction_test_sim_ge_0.95": 0.6813842482100239,
+          "fraction_test_sim_ge_0.90": 0.9522673031026253,
+          "fraction_test_sim_ge_0.80": 0.9964200477326969
+        },
+        {
+          "fold": 4,
+          "n_train": 6704,
+          "n_test": 1675,
+          "test_rows_with_family_in_train": 1664,
+          "family_leak_rate": 0.9934328358208955,
+          "families_split_across_fold": 942,
+          "exact_text_rows_in_train": 0,
+          "max_cross_fold_similarity": 0.9970605985358043,
+          "fraction_test_sim_ge_0.95": 0.6925373134328359,
+          "fraction_test_sim_ge_0.90": 0.9450746268656717,
+          "fraction_test_sim_ge_0.80": 0.9874626865671642
+        }
+      ],
+      "top_cross_fold_pairs": [
+        {
+          "test_row": 1170,
+          "train_row": 540,
+          "similarity": 0.9982253327623609,
+          "test_text": "呃，除了国庆的时候，就大概前几天国庆的时候，我不知道为什么大早上爬起来，跟个摩怔",
+          "train_text": "呃，除了国庆的时候，就大概前几天国庆的时候，我不知道为什么大早上爬起来，跟个摩怔",
+          "test_label": 1,
+          "train_label": 1,
+          "test_augmentation": "syn_v4",
+          "train_augmentation": "original"
+        },
+        {
+          "test_row": 693,
+          "train_row": 311,
+          "similarity": 0.9978365749878169,
+          "test_text": "正所谓穷玩车，富玩表没钱，就只能玩个屌，躺在床上倒一倒。嗯，对不起，我在雷。 张",
+          "train_text": "正所谓穷玩车，富玩表没钱，就只能玩个屌，躺在床上倒一倒。嗯，对不起，我在雷。 张",
+          "test_label": 0,
+          "train_label": 0,
+          "test_augmentation": "syn_v2",
+          "train_augmentation": "original"
+        },
+        {
+          "test_row": 139,
+          "train_row": 4664,
+          "similarity": 0.9973399319656937,
+          "test_text": "呃，除了国庆的时候，就大概前几天国庆的时候，我不知道为什么大早上爬起来，跟个摩怔",
+          "train_text": "呃，除了国庆的时候，就大概前几天国庆的时候，我不知道为什么大早上爬起来，跟个摩怔",
+          "test_label": 1,
+          "train_label": 1,
+          "test_augmentation": "original",
+          "train_augmentation": "syn_v4"
+        },
+        {
+          "test_row": 244,
+          "train_row": 2555,
+          "similarity": 0.9970605985358043,
+          "test_text": "有最好的朋友，我已经数不清了，他们都很聪明。就是那个很聪明，反正他们他们就很聪啊",
+          "train_text": "有最好的朋友，我已经数不清了，他们都很聪明。就是那个很聪明，反正他们他们就很聪啊",
+          "test_label": 0,
+          "train_label": 0,
+          "test_augmentation": "original",
+          "train_augmentation": "syn_v1"
+        },
+        {
+          "test_row": 1288,
+          "train_row": 982,
+          "similarity": 0.9969676399237956,
+          "test_text": "有最好的朋友，我已经数不清了，他们都很聪明。就是那个很聪明，反正他们他们就很聪啊",
+          "train_text": "有最好的朋友，我已经数不清了，他们都很聪明。就是那个很聪明，反正他们他们就很聪啊",
+          "test_label": 0,
+          "train_label": 0,
+          "test_augmentation": "syn_v4",
+          "train_augmentation": "original"
+        }
+      ]
+    },
+    "groupwise_leak_explanation": "The 6 groupwise leak rows are exactly the 2 solo backtranslations plus their g0/g1 siblings: each solo row lands in one fold, its true family in another, so both directions count once. This is a 2-row provenance defect, not a systematic sibling leak."
+  },
+  "oof_metrics": {
+    "groupwise": {
+      "n": 8379,
+      "positive_rate": 0.21625492302184032,
+      "auroc": 0.843672758736488,
+      "auprc": 0.5839674026763518,
+      "brier": 0.12797830328169216,
+      "f1": 0.5863937387116196,
+      "sensitivity": 0.5375275938189845,
+      "specificity": 0.9183797776762601,
+      "precision": 0.6450331125827815,
+      "npv": 0.8780026204687728,
+      "confusion": {
+        "tp": 974,
+        "fp": 536,
+        "fn": 838,
+        "tn": 6031
+      }
+    },
+    "textwise": {
+      "n": 8379,
+      "positive_rate": 0.21625492302184032,
+      "auroc": 0.9994132479240136,
+      "auprc": 0.9993303070975756,
+      "brier": 0.03504779684820491,
+      "f1": 0.9950193691200885,
+      "sensitivity": 0.9922737306843267,
+      "specificity": 0.9993908938632556,
+      "precision": 0.9977802441731409,
+      "npv": 0.997871369925498,
+      "confusion": {
+        "tp": 1798,
+        "fp": 4,
+        "fn": 14,
+        "tn": 6563
+      }
+    },
+    "paired_group_bootstrap_delta": {
+      "auroc": {
+        "delta_groupwise_minus_textwise": -0.1557404891875257,
+        "ci95": [
+          -0.1829719629665994,
+          -0.12961404703693047
+        ],
+        "bootstrap_n": 2000
+      },
+      "auprc": {
+        "delta_groupwise_minus_textwise": -0.4153629044212238,
+        "ci95": [
+          -0.48552060761857885,
+          -0.34404935692050226
+        ],
+        "bootstrap_n": 2000
+      },
+      "brier": {
+        "delta_groupwise_minus_textwise": 0.09293050643348724,
+        "ci95": [
+          0.08489045787633483,
+          0.10160285543789198
+        ],
+        "bootstrap_n": 2000
+      },
+      "f1": {
+        "delta_groupwise_minus_textwise": -0.4086256304084689,
+        "ci95": [
+          -0.4644464160242542,
+          -0.35725503022280103
+        ],
+        "bootstrap_n": 2000
+      }
+    },
+    "stored_metric_checks": {
+      "stored_groupwise_auroc": 0.8437,
+      "recomputed_groupwise_auroc": 0.843672758736488,
+      "stored_groupwise_f1": 0.5864,
+      "recomputed_groupwise_f1": 0.5863937387116196,
+      "stored_textwise_auroc": 0.9994,
+      "recomputed_textwise_auroc": 0.9994132479240136,
+      "stored_textwise_f1": 0.9964,
+      "recomputed_textwise_f1": 0.9950193691200885,
+      "full_model_eval_on_zh": {
+        "n": 8379,
+        "f1": 0.9972,
+        "auroc": 0.9996,
+        "brier": 0.0212,
+        "role": "in-sample evaluation on the training corpus; not a generalization read"
+      },
+      "reproduction_note": "groupwise metrics reproduce the stored metrics.json exactly. The stored textwise headline (F1 0.9964: tp=1809/fp=10/fn=3/tn=6557) does NOT reproduce from the OOF CSV p_textwise column at 0.5 (recomputed F1 0.9950: tp=1798/fp=4/fn=14/tn=6563). AUC matches. Both columns are leakage-inflated; the conclusion is unchanged. The CSV textwise column appears to come from a different run than the stored headline."
+    }
+  },
+  "verdict": "组构建与 source_idx 亲缘关系一致率 99.9718%（7102/7104 变体），仅 2 条 backtranslation 因相似度<0.5 自成组；组内标签冲突 0 组。组级切分的真实亲缘泄漏行数为 6（0.0716%），文本级切分为 8333（99.45%）。OOF AUC：组级 0.8437 vs 文本级 0.9994；F1：0.5864 vs 0.9950。中文文本唯一可引用泛化口径仍是 groupwise OOF；full_model_eval_on_zh 0.9972 为训练语料内样本，不得作为泛化读数。"
+}

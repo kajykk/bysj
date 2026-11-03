@@ -1,0 +1,1194 @@
+{
+  "round": "ROUND_49",
+  "status": "descriptive_offline_robustness_audit_not_production",
+  "external_validation": false,
+  "production_changed": false,
+  "input": {
+    "round48_script": "backend/scripts/modeling/eval/v1_48/01_real_actigraphy_baseline.py",
+    "round48_script_sha256": "430eaa3d2c7aaa4be622c88328f5e4aa6c4adfaa8a01e6312f6cba525a68bd44",
+    "round48_json": "backend/scripts/modeling/eval/v1_48/real_actigraphy_baseline.json"
+  },
+  "dataset": {
+    "n_subjects": 55,
+    "n_complete_days": 1029,
+    "n_partial_days_excluded": 115,
+    "n_zero_days": 70,
+    "positive_days": 359,
+    "note": "Same Depresjon complete-day table as ROUND_48, merged with per-day active/zero minute counts from the raw per-subject files."
+  },
+  "design": {
+    "spec_grid": {
+      "aggregation": [
+        "mean",
+        "median"
+      ],
+      "autocorr_mode": [
+        "nanmean",
+        "zero",
+        "drop"
+      ],
+      "day_mode": [
+        "all",
+        "nonzero",
+        "min14"
+      ],
+      "n_specs": 18
+    },
+    "analysis_unit": "subject-level leave-one-subject-out; scaler fit inside each fold",
+    "bootstrap": "500 subject-level resamples, seed 42",
+    "confound_features": [
+      "mean_act",
+      "zero_day_fraction",
+      "mean_active_minutes",
+      "mean_zero_minutes",
+      "active_mean_act",
+      "active_days"
+    ],
+    "note": "Autocorr modes: nanmean skips undefined days; zero fills them with 0 before aggregation; drop removes the feature. Day modes: all complete days; nonzero excludes all-zero days; min14 keeps subjects with at least 14 complete days."
+  },
+  "results": {
+    "specification_curve": [
+      {
+        "spec_id": "mean__nanmean__all",
+        "aggregation": "mean",
+        "autocorr_mode": "nanmean",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 55,
+        "n_days": 1029,
+        "n_positive_subjects": 23,
+        "n_zero_days": 70,
+        "auc": 0.6453804347826088,
+        "auc_95ci": [
+          0.49391847826086954,
+          0.7984516806722688
+        ],
+        "auprc": 0.6572924118252043,
+        "brier": 0.22321692648448863,
+        "mean_predicted": 0.42092800186739465,
+        "calibration_slope": 0.8251028001446898
+      },
+      {
+        "spec_id": "mean__nanmean__nonzero",
+        "aggregation": "mean",
+        "autocorr_mode": "nanmean",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 55,
+        "n_days": 959,
+        "n_positive_subjects": 23,
+        "n_zero_days": 0,
+        "auc": 0.673913043478261,
+        "auc_95ci": [
+          0.5291100543478261,
+          0.8189684873949579
+        ],
+        "auprc": 0.670694024072896,
+        "brier": 0.2200690206395928,
+        "mean_predicted": 0.42019553606725585,
+        "calibration_slope": 0.8149092121939773
+      },
+      {
+        "spec_id": "mean__nanmean__min14",
+        "aggregation": "mean",
+        "autocorr_mode": "nanmean",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 51,
+        "n_days": 978,
+        "n_positive_subjects": 20,
+        "n_zero_days": 70,
+        "auc": 0.5854838709677419,
+        "auc_95ci": [
+          0.40919875841750847,
+          0.7655047789725209
+        ],
+        "auprc": 0.5713779802723015,
+        "brier": 0.23484359684863557,
+        "mean_predicted": 0.39512550463787455,
+        "calibration_slope": 0.5403457947174843
+      },
+      {
+        "spec_id": "mean__zero__all",
+        "aggregation": "mean",
+        "autocorr_mode": "zero",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 55,
+        "n_days": 1029,
+        "n_positive_subjects": 23,
+        "n_zero_days": 70,
+        "auc": 0.7364130434782609,
+        "auc_95ci": [
+          0.6017079575596818,
+          0.8652933074056068
+        ],
+        "auprc": 0.7252535029259103,
+        "brier": 0.20025203835386032,
+        "mean_predicted": 0.41941114769163407,
+        "calibration_slope": 1.0136899874012963
+      },
+      {
+        "spec_id": "mean__zero__nonzero",
+        "aggregation": "mean",
+        "autocorr_mode": "zero",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 55,
+        "n_days": 959,
+        "n_positive_subjects": 23,
+        "n_zero_days": 0,
+        "auc": 0.6847826086956522,
+        "auc_95ci": [
+          0.5401532258064516,
+          0.829125394460028
+        ],
+        "auprc": 0.6855592280417436,
+        "brier": 0.2145112715163628,
+        "mean_predicted": 0.4191990799508519,
+        "calibration_slope": 0.8644914724534338
+      },
+      {
+        "spec_id": "mean__zero__min14",
+        "aggregation": "mean",
+        "autocorr_mode": "zero",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 51,
+        "n_days": 978,
+        "n_positive_subjects": 20,
+        "n_zero_days": 70,
+        "auc": 0.6822580645161289,
+        "auc_95ci": [
+          0.5201053773812394,
+          0.8370683990442055
+        ],
+        "auprc": 0.63089813416362,
+        "brier": 0.20954611877267212,
+        "mean_predicted": 0.39367433483254594,
+        "calibration_slope": 0.9015315863212545
+      },
+      {
+        "spec_id": "mean__drop__all",
+        "aggregation": "mean",
+        "autocorr_mode": "drop",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_subjects": 55,
+        "n_days": 1029,
+        "n_positive_subjects": 23,
+        "n_zero_days": 70,
+        "auc": 0.6793478260869567,
+        "auc_95ci": [
+          0.5410788288288289,
+          0.8393593189964157
+        ],
+        "auprc": 0.6536423692021577,
+        "brier": 0.21982619192637382,
+        "mean_predicted": 0.4212217015044202,
+        "calibration_slope": 0.9665432922176425
+      },
+      {
+        "spec_id": "mean__drop__nonzero",
+        "aggregation": "mean",
+        "autocorr_mode": "drop",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_subjects": 55,
+        "n_days": 959,
+        "n_positive_subjects": 23,
+        "n_zero_days": 0,
+        "auc": 0.6915760869565217,
+        "auc_95ci": [
+          0.5455081453634085,
+          0.8408115243342515
+        ],
+        "auprc": 0.6850965290048908,
+        "brier": 0.21754192541699177,
+        "mean_predicted": 0.4206751159467034,
+        "calibration_slope": 0.9213885945333025
+      },
+      {
+        "spec_id": "mean__drop__min14",
+        "aggregation": "mean",
+        "autocorr_mode": "drop",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_subjects": 51,
+        "n_days": 978,
+        "n_positive_subjects": 20,
+        "n_zero_days": 70,
+        "auc": 0.6193548387096774,
+        "auc_95ci": [
+          0.4595878393769457,
+          0.7819675925925925
+        ],
+        "auprc": 0.5288619068548923,
+        "brier": 0.2315219642030599,
+        "mean_predicted": 0.3953980449061283,
+        "calibration_slope": 0.6584806534656025
+      },
+      {
+        "spec_id": "median__nanmean__all",
+        "aggregation": "median",
+        "autocorr_mode": "nanmean",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 55,
+        "n_days": 1029,
+        "n_positive_subjects": 23,
+        "n_zero_days": 70,
+        "auc": 0.6793478260869565,
+        "auc_95ci": [
+          0.5215554081933392,
+          0.8231598194833488
+        ],
+        "auprc": 0.6264617507574503,
+        "brier": 0.22046901216289,
+        "mean_predicted": 0.4234209045123412,
+        "calibration_slope": 0.8441456750912925
+      },
+      {
+        "spec_id": "median__nanmean__nonzero",
+        "aggregation": "median",
+        "autocorr_mode": "nanmean",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 55,
+        "n_days": 959,
+        "n_positive_subjects": 23,
+        "n_zero_days": 0,
+        "auc": 0.642663043478261,
+        "auc_95ci": [
+          0.4913979876615746,
+          0.7893907563025209
+        ],
+        "auprc": 0.642103578972156,
+        "brier": 0.22925828907215345,
+        "mean_predicted": 0.42512204733935605,
+        "calibration_slope": 0.6460781306788572
+      },
+      {
+        "spec_id": "median__nanmean__min14",
+        "aggregation": "median",
+        "autocorr_mode": "nanmean",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 51,
+        "n_days": 978,
+        "n_positive_subjects": 20,
+        "n_zero_days": 70,
+        "auc": 0.6306451612903226,
+        "auc_95ci": [
+          0.46254721003898636,
+          0.7790154464556578
+        ],
+        "auprc": 0.5275663770413423,
+        "brier": 0.23145705459383029,
+        "mean_predicted": 0.39713284115184466,
+        "calibration_slope": 0.6242100594878752
+      },
+      {
+        "spec_id": "median__zero__all",
+        "aggregation": "median",
+        "autocorr_mode": "zero",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 55,
+        "n_days": 1029,
+        "n_positive_subjects": 23,
+        "n_zero_days": 70,
+        "auc": 0.6576086956521738,
+        "auc_95ci": [
+          0.5191378497897636,
+          0.7948748852157943
+        ],
+        "auprc": 0.5322858083168336,
+        "brier": 0.23190064893496298,
+        "mean_predicted": 0.42591812718172106,
+        "calibration_slope": 0.7574755238680403
+      },
+      {
+        "spec_id": "median__zero__nonzero",
+        "aggregation": "median",
+        "autocorr_mode": "zero",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 55,
+        "n_days": 959,
+        "n_positive_subjects": 23,
+        "n_zero_days": 0,
+        "auc": 0.6385869565217391,
+        "auc_95ci": [
+          0.48758023872679046,
+          0.787299019607843
+        ],
+        "auprc": 0.6310305577904392,
+        "brier": 0.23103828325548806,
+        "mean_predicted": 0.4249612420141726,
+        "calibration_slope": 0.6266344287772211
+      },
+      {
+        "spec_id": "median__zero__min14",
+        "aggregation": "median",
+        "autocorr_mode": "zero",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity",
+          "autocorrelation_act"
+        ],
+        "n_subjects": 51,
+        "n_days": 978,
+        "n_positive_subjects": 20,
+        "n_zero_days": 70,
+        "auc": 0.5951612903225807,
+        "auc_95ci": [
+          0.4486452361452361,
+          0.7496662685140946
+        ],
+        "auprc": 0.4388779937000739,
+        "brier": 0.24234822735578368,
+        "mean_predicted": 0.4010933184430464,
+        "calibration_slope": 0.3441641839305645
+      },
+      {
+        "spec_id": "median__drop__all",
+        "aggregation": "median",
+        "autocorr_mode": "drop",
+        "day_mode": "all",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_subjects": 55,
+        "n_days": 1029,
+        "n_positive_subjects": 23,
+        "n_zero_days": 70,
+        "auc": 0.6820652173913043,
+        "auc_95ci": [
+          0.5437963963963963,
+          0.8169071575998821
+        ],
+        "auprc": 0.588956722682951,
+        "brier": 0.2280178070943806,
+        "mean_predicted": 0.42223497967627327,
+        "calibration_slope": 0.9438843187356206
+      },
+      {
+        "spec_id": "median__drop__nonzero",
+        "aggregation": "median",
+        "autocorr_mode": "drop",
+        "day_mode": "nonzero",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_subjects": 55,
+        "n_days": 959,
+        "n_positive_subjects": 23,
+        "n_zero_days": 0,
+        "auc": 0.65625,
+        "auc_95ci": [
+          0.5124080687830688,
+          0.7951946131713555
+        ],
+        "auprc": 0.5249945668921976,
+        "brier": 0.23605030000717492,
+        "mean_predicted": 0.42271971655730417,
+        "calibration_slope": 0.5802528585624815
+      },
+      {
+        "spec_id": "median__drop__min14",
+        "aggregation": "median",
+        "autocorr_mode": "drop",
+        "day_mode": "min14",
+        "features": [
+          "mean_act",
+          "std_act",
+          "peak_activity"
+        ],
+        "n_subjects": 51,
+        "n_days": 978,
+        "n_positive_subjects": 20,
+        "n_zero_days": 70,
+        "auc": 0.617741935483871,
+        "auc_95ci": [
+          0.4628138148667602,
+          0.7763824538824539
+        ],
+        "auprc": 0.4787935713102823,
+        "brier": 0.23828392344595797,
+        "mean_predicted": 0.39700257194931404,
+        "calibration_slope": 0.4694589893223247
+      }
+    ],
+    "specification_summary": {
+      "n_specs": 18,
+      "auc_min": 0.5854838709677419,
+      "auc_median": 0.6569293478260869,
+      "auc_max": 0.7364130434782609,
+      "auc_range": 0.15092917251051896,
+      "calibration_slope_min": 0.3441641839305645,
+      "calibration_slope_max": 1.0136899874012963,
+      "ci_lower_gt_0_5": 10,
+      "ci_covers_0_5": 8,
+      "auc_ge_0_60": 16,
+      "auc_ge_0_65": 10,
+      "auc_ge_0_70": 1,
+      "auc_lt_0_60": 2,
+      "best_spec": "mean__zero__all",
+      "best_spec_auc": 0.7364130434782609,
+      "worst_spec": "mean__nanmean__min14",
+      "worst_spec_auc": 0.5854838709677419,
+      "by_aggregation": {
+        "mean": {
+          "n_specs": 9,
+          "auc_mean": 0.6665010908524233,
+          "auc_min": 0.5854838709677419,
+          "auc_max": 0.7364130434782609
+        },
+        "median": {
+          "n_specs": 9,
+          "auc_mean": 0.6444522362474676,
+          "auc_min": 0.5951612903225807,
+          "auc_max": 0.6820652173913043
+        }
+      },
+      "by_autocorr_mode": {
+        "drop": {
+          "n_specs": 6,
+          "auc_mean": 0.6577226507713886,
+          "auc_min": 0.617741935483871,
+          "auc_max": 0.6915760869565217
+        },
+        "nanmean": {
+          "n_specs": 6,
+          "auc_mean": 0.6429055633473587,
+          "auc_min": 0.5854838709677419,
+          "auc_max": 0.6793478260869565
+        },
+        "zero": {
+          "n_specs": 6,
+          "auc_mean": 0.6658017765310893,
+          "auc_min": 0.5951612903225807,
+          "auc_max": 0.7364130434782609
+        }
+      },
+      "by_day_mode": {
+        "all": {
+          "n_specs": 6,
+          "auc_mean": 0.6800271739130435,
+          "auc_min": 0.6453804347826088,
+          "auc_max": 0.7364130434782609
+        },
+        "min14": {
+          "n_specs": 6,
+          "auc_mean": 0.621774193548387,
+          "auc_min": 0.5854838709677419,
+          "auc_max": 0.6822580645161289
+        },
+        "nonzero": {
+          "n_specs": 6,
+          "auc_mean": 0.6646286231884058,
+          "auc_min": 0.6385869565217391,
+          "auc_max": 0.6915760869565217
+        }
+      }
+    },
+    "confound_univariate": {
+      "mean_act": {
+        "auc_raw": 0.3519021739130435,
+        "auc_oriented": 0.6480978260869565,
+        "direction": "higher value -> control",
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.1985106884057971,
+            0.5031893045679809
+          ]
+        },
+        "condition_mean": 166.0933071554523,
+        "condition_sd": 71.17282559016988,
+        "control_mean": 210.62959872729303,
+        "control_sd": 88.98211196423173,
+        "mannwhitney_p": 0.06411988523010041
+      },
+      "zero_day_fraction": {
+        "auc_raw": 0.38451086956521735,
+        "auc_oriented": 0.6154891304347827,
+        "direction": "higher value -> control",
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.29223025206146924,
+            0.474569623655914
+          ]
+        },
+        "condition_mean": 0.010778224333211546,
+        "condition_sd": 0.03906404797576638,
+        "control_mean": 0.06359869159160786,
+        "control_sd": 0.12493355486770145,
+        "mannwhitney_p": 0.04602092033584498
+      },
+      "mean_active_minutes": {
+        "auc_raw": 0.35733695652173914,
+        "auc_oriented": 0.6426630434782609,
+        "direction": "higher value -> control",
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.20902110788474423,
+            0.5134664855072464
+          ]
+        },
+        "condition_mean": 815.5133320217718,
+        "condition_sd": 240.52310819899506,
+        "control_mean": 890.5610580389466,
+        "control_sd": 270.8412016609541,
+        "mannwhitney_p": 0.07456593260893779
+      },
+      "mean_zero_minutes": {
+        "auc_raw": 0.6426630434782609,
+        "auc_oriented": 0.6426630434782609,
+        "direction": "higher value -> condition",
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.4865335144927536,
+            0.7909788921152557
+          ]
+        },
+        "condition_mean": 624.486667978228,
+        "condition_sd": 240.523108198995,
+        "control_mean": 549.4389419610534,
+        "control_sd": 270.8412016609541,
+        "mannwhitney_p": 0.07456593260893779
+      },
+      "active_mean_act": {
+        "auc_raw": 0.31114130434782605,
+        "auc_oriented": 0.688858695652174,
+        "direction": "higher value -> control",
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.1763389726507714,
+            0.4659193940734186
+          ]
+        },
+        "condition_mean": 167.07774015593787,
+        "condition_sd": 70.26065747696846,
+        "control_mean": 221.469998917652,
+        "control_sd": 82.60552648981965,
+        "mannwhitney_p": 0.018116027319608274
+      },
+      "active_days": {
+        "auc_raw": 0.265625,
+        "auc_oriented": 0.734375,
+        "direction": "higher value -> control",
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.15709883270367142,
+            0.4091900664251207
+          ]
+        },
+        "condition_mean": 15.391304347826088,
+        "condition_sd": 3.7506257712399584,
+        "control_mean": 18.90625,
+        "control_sd": 5.980394716717446,
+        "mannwhitney_p": 0.0022476910265940607
+      }
+    },
+    "confound_models": {
+      "mean_act_only": {
+        "features": [
+          "mean_act"
+        ],
+        "n_subjects": 55,
+        "metrics": {
+          "n": 55,
+          "positives": 23,
+          "prevalence": 0.41818181818181815,
+          "auc": 0.5706521739130435,
+          "auprc": 0.4638590510061137,
+          "brier": 0.2427138680126565,
+          "mean_predicted": 0.4186788503444311,
+          "calibration_ece_5bin": 0.037258756117197735,
+          "calibration_slope": 0.51643482275263,
+          "calibration_intercept": -0.15407220619196665
+        },
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.4131811594202898,
+            0.7421167108753315
+          ]
+        },
+        "coefficients": {
+          "mean_act": {
+            "mean_standardized": -0.5302715176269006,
+            "negative_folds": 55,
+            "n_folds": 55
+          }
+        }
+      },
+      "zero_day_fraction_only": {
+        "features": [
+          "zero_day_fraction"
+        ],
+        "n_subjects": 55,
+        "metrics": {
+          "n": 55,
+          "positives": 23,
+          "prevalence": 0.41818181818181815,
+          "auc": 0.30027173913043476,
+          "auprc": 0.4253746807600063,
+          "brier": 0.23859546848581417,
+          "mean_predicted": 0.4177682008110142,
+          "calibration_ece_5bin": 0.037150515353779556,
+          "calibration_slope": 0.5919132836516804,
+          "calibration_intercept": -0.11118945462221617
+        },
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.14216269841269846,
+            0.45912303025074763
+          ]
+        },
+        "coefficients": {
+          "zero_day_fraction": {
+            "mean_standardized": -0.738114890303711,
+            "negative_folds": 55,
+            "n_folds": 55
+          }
+        }
+      },
+      "mean_active_minutes_only": {
+        "features": [
+          "mean_active_minutes"
+        ],
+        "n_subjects": 55,
+        "metrics": {
+          "n": 55,
+          "positives": 23,
+          "prevalence": 0.41818181818181815,
+          "auc": 0.5271739130434783,
+          "auprc": 0.41525883396706653,
+          "brier": 0.2570600660797097,
+          "mean_predicted": 0.4193780262246251,
+          "calibration_ece_5bin": 0.054327556197719645,
+          "calibration_slope": -0.7420315769891845,
+          "calibration_intercept": -0.5823522460476231
+        },
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.36457955917874396,
+            0.6874432795698925
+          ]
+        },
+        "coefficients": {
+          "mean_active_minutes": {
+            "mean_standardized": -0.27853106008940165,
+            "negative_folds": 55,
+            "n_folds": 55
+          }
+        }
+      },
+      "active_mean_act_only": {
+        "features": [
+          "active_mean_act"
+        ],
+        "n_subjects": 55,
+        "metrics": {
+          "n": 55,
+          "positives": 23,
+          "prevalence": 0.41818181818181815,
+          "auc": 0.6440217391304348,
+          "auprc": 0.599021887592609,
+          "brier": 0.23163521352720795,
+          "mean_predicted": 0.4179115584181088,
+          "calibration_ece_5bin": 0.05460771185158034,
+          "calibration_slope": 0.7325477871117743,
+          "calibration_intercept": -0.07782075072129221
+        },
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.4871115702479339,
+            0.7947187327823692
+          ]
+        },
+        "coefficients": {
+          "active_mean_act": {
+            "mean_standardized": -0.6937342854615597,
+            "negative_folds": 55,
+            "n_folds": 55
+          }
+        }
+      },
+      "mean_act_plus_zero_fraction": {
+        "features": [
+          "mean_act",
+          "zero_day_fraction"
+        ],
+        "n_subjects": 55,
+        "metrics": {
+          "n": 55,
+          "positives": 23,
+          "prevalence": 0.41818181818181815,
+          "auc": 0.7133152173913043,
+          "auprc": 0.6603500894220468,
+          "brier": 0.20875669538938996,
+          "mean_predicted": 0.416714449411897,
+          "calibration_ece_5bin": 0.0885650195321957,
+          "calibration_slope": 0.9341463292462834,
+          "calibration_intercept": -0.007842742192007309
+        },
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.5820408115780167,
+            0.8451766304347825
+          ]
+        },
+        "coefficients": {
+          "mean_act": {
+            "mean_standardized": -0.8459269207930742,
+            "negative_folds": 55,
+            "n_folds": 55
+          },
+          "zero_day_fraction": {
+            "mean_standardized": -1.0481359823404195,
+            "negative_folds": 55,
+            "n_folds": 55
+          }
+        }
+      },
+      "mean_act_plus_active_minutes": {
+        "features": [
+          "mean_act",
+          "mean_active_minutes"
+        ],
+        "n_subjects": 55,
+        "metrics": {
+          "n": 55,
+          "positives": 23,
+          "prevalence": 0.41818181818181815,
+          "auc": 0.5407608695652174,
+          "auprc": 0.4429851764127086,
+          "brier": 0.25212544363735917,
+          "mean_predicted": 0.42100822440362984,
+          "calibration_ece_5bin": 0.05564360822238351,
+          "calibration_slope": 0.2173002044742116,
+          "calibration_intercept": -0.25706258562916345
+        },
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.38738875230043707,
+            0.7073788515406161
+          ]
+        },
+        "coefficients": {
+          "mean_act": {
+            "mean_standardized": -0.49823332386046104,
+            "negative_folds": 55,
+            "n_folds": 55
+          },
+          "mean_active_minutes": {
+            "mean_standardized": -0.07251440411554673,
+            "negative_folds": 54,
+            "n_folds": 55
+          }
+        }
+      },
+      "wear_proxies_only": {
+        "features": [
+          "zero_day_fraction",
+          "mean_active_minutes",
+          "active_days"
+        ],
+        "n_subjects": 55,
+        "metrics": {
+          "n": 55,
+          "positives": 23,
+          "prevalence": 0.41818181818181815,
+          "auc": 0.7921195652173911,
+          "auprc": 0.7846083266467875,
+          "brier": 0.1960434884048318,
+          "mean_predicted": 0.4148886015814131,
+          "calibration_ece_5bin": 0.14116095460467568,
+          "calibration_slope": 0.6762483105943062,
+          "calibration_intercept": -0.05084053483899674
+        },
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.6497859952343648,
+            0.9102618037135279
+          ]
+        },
+        "coefficients": {
+          "zero_day_fraction": {
+            "mean_standardized": -1.0542516786856504,
+            "negative_folds": 55,
+            "n_folds": 55
+          },
+          "mean_active_minutes": {
+            "mean_standardized": -0.8442711981479616,
+            "negative_folds": 55,
+            "n_folds": 55
+          },
+          "active_days": {
+            "mean_standardized": -0.5882150882485606,
+            "negative_folds": 55,
+            "n_folds": 55
+          }
+        }
+      },
+      "mean_act_plus_wear_proxies": {
+        "features": [
+          "mean_act",
+          "zero_day_fraction",
+          "mean_active_minutes"
+        ],
+        "n_subjects": 55,
+        "metrics": {
+          "n": 55,
+          "positives": 23,
+          "prevalence": 0.41818181818181815,
+          "auc": 0.7744565217391304,
+          "auprc": 0.7622199786137874,
+          "brier": 0.19090089591670195,
+          "mean_predicted": 0.41709634239627863,
+          "calibration_ece_5bin": 0.08382389366486408,
+          "calibration_slope": 0.9101541532146257,
+          "calibration_intercept": -0.015228906505205603
+        },
+        "bootstrap": {
+          "b": 500,
+          "seed": 42,
+          "valid_resamples": 500,
+          "auc_95ci": [
+            0.6239471326164874,
+            0.8949543610547667
+          ]
+        },
+        "coefficients": {
+          "mean_act": {
+            "mean_standardized": -0.6914997442981671,
+            "negative_folds": 55,
+            "n_folds": 55
+          },
+          "zero_day_fraction": {
+            "mean_standardized": -1.4035743434015364,
+            "negative_folds": 55,
+            "n_folds": 55
+          },
+          "mean_active_minutes": {
+            "mean_standardized": -0.708535818880066,
+            "negative_folds": 55,
+            "n_folds": 55
+          }
+        }
+      }
+    },
+    "confound_correlations": {
+      "zero_day_fraction__mean_act": {
+        "spearman_rho": -0.33446748343038585,
+        "p_value": 0.012565835353401802
+      },
+      "mean_active_minutes__mean_act": {
+        "spearman_rho": 0.5219069608886711,
+        "p_value": 4.37990347683397e-05
+      },
+      "mean_zero_minutes__mean_act": {
+        "spearman_rho": -0.5219069608886711,
+        "p_value": 4.37990347683397e-05
+      },
+      "zero_day_fraction__active_mean_act": {
+        "spearman_rho": -0.17751736881767938,
+        "p_value": 0.19477187570264193
+      }
+    },
+    "zero_day_distribution": {
+      "condition_subjects_with_zero_day": 2,
+      "control_subjects_with_zero_day": 10,
+      "condition_zero_days": 5,
+      "control_zero_days": 65,
+      "condition_mean_complete_days": 15.608695652173912,
+      "control_mean_complete_days": 20.9375,
+      "condition_median_complete_days": 14.0,
+      "control_median_complete_days": 18.5,
+      "condition_mean_active_days": 15.391304347826088,
+      "control_mean_active_days": 18.90625
+    },
+    "zero_day_subjects_top": [
+      {
+        "subject": "control_3",
+        "label": 0,
+        "days": 45,
+        "zero_days": 20
+      },
+      {
+        "subject": "control_32",
+        "label": 0,
+        "days": 34,
+        "zero_days": 14
+      },
+      {
+        "subject": "control_31",
+        "label": 0,
+        "days": 34,
+        "zero_days": 13
+      },
+      {
+        "subject": "control_1",
+        "label": 0,
+        "days": 34,
+        "zero_days": 5
+      },
+      {
+        "subject": "condition_20",
+        "label": 1,
+        "days": 17,
+        "zero_days": 3
+      },
+      {
+        "subject": "control_17",
+        "label": 0,
+        "days": 19,
+        "zero_days": 3
+      },
+      {
+        "subject": "control_21",
+        "label": 0,
+        "days": 21,
+        "zero_days": 3
+      },
+      {
+        "subject": "condition_16",
+        "label": 1,
+        "days": 28,
+        "zero_days": 2
+      }
+    ],
+    "influence_check": {
+      "primary4_mean_nanmean": {
+        "all": {
+          "n_subjects": 55,
+          "auc": 0.6453804347826088
+        },
+        "exclude_control_3": {
+          "n_subjects": 54,
+          "auc": 0.6395511921458625
+        },
+        "exclude_control_32": {
+          "n_subjects": 54,
+          "auc": 0.6549789621318373
+        },
+        "exclude_control_31": {
+          "n_subjects": 54,
+          "auc": 0.6423562412342215
+        },
+        "exclude_top3": {
+          "n_subjects": 52,
+          "auc": 0.646176911544228
+        }
+      },
+      "best_mean_zero": {
+        "all": {
+          "n_subjects": 55,
+          "auc": 0.7364130434782609
+        },
+        "exclude_control_3": {
+          "n_subjects": 54,
+          "auc": 0.7279102384291725
+        },
+        "exclude_control_32": {
+          "n_subjects": 54,
+          "auc": 0.7279102384291725
+        },
+        "exclude_control_31": {
+          "n_subjects": 54,
+          "auc": 0.7279102384291725
+        },
+        "exclude_top3": {
+          "n_subjects": 52,
+          "auc": 0.7091454272863569
+        }
+      },
+      "wear_proxies_only": {
+        "all": {
+          "n_subjects": 55,
+          "auc": 0.7921195652173911
+        },
+        "exclude_control_3": {
+          "n_subjects": 54,
+          "auc": 0.7868162692847125
+        },
+        "exclude_control_32": {
+          "n_subjects": 54,
+          "auc": 0.7868162692847125
+        },
+        "exclude_control_31": {
+          "n_subjects": 54,
+          "auc": 0.7868162692847125
+        },
+        "exclude_top3": {
+          "n_subjects": 52,
+          "auc": 0.775112443778111
+        }
+      },
+      "primary4_plus_wear": {
+        "all": {
+          "n_subjects": 55,
+          "auc": 0.7676630434782608
+        },
+        "exclude_control_3": {
+          "n_subjects": 54,
+          "auc": 0.7601683029453016
+        },
+        "exclude_control_32": {
+          "n_subjects": 54,
+          "auc": 0.7615708274894811
+        },
+        "exclude_control_31": {
+          "n_subjects": 54,
+          "auc": 0.7601683029453016
+        },
+        "exclude_top3": {
+          "n_subjects": 52,
+          "auc": 0.745127436281859
+        }
+      }
+    }
+  },
+  "interpretation": {
+    "spec_verdict": "18 个规范网格的受试者级 LOSO AUC 范围 0.5855–0.7364（中位 0.6569）；10/18 个规范的 95% CI 下界高于 0.5，8/18 个覆盖 0.5，10/18 个达到 0.65。ROUND_48 的 0.6454 只是该网格中的一个点，不是稳健性能估计。",
+    "confound_verdict": "零活动日比例单变量 AUC=0.3845（对照更高）；mean_act 单变量模型 AUC=0.5707，加入零活动日比例后=0.7133；仅用 active_mean_act 的模型 AUC=0.6440。零活动日/活动分钟代理与标签相关，且方向并不一致（病例全零日更少、但活动日内的零活动分钟更多），无法把信号解释为干净的生理效应。",
+    "overall_verdict": "真实 actigraphy 在 Depresjon 上有可检出但脆弱的组间信号；规范选择可把受试者级 AUC 从约 0.59 拉到 0.74，且佩戴/零活动代理与标签纠缠。因此 ROUND_48 不能升级为稳定的真实生理性能证据，更不能进入生产；Phase 1 的外部队列必须带佩戴元数据并预注册处理规则。",
+    "allowed_claims": [
+      "在 Depresjon 上，真实 actigraphy 的受试者级 AUC 对可辩护的聚合方式与日纳入规则敏感。",
+      "零活动日与活动分钟代理与标签相关，因此该基线不能当作干净的生理信号。",
+      "ROUND_49 不提升生产生理单元的证据等级，也不修改任何工件。"
+    ],
+    "forbidden_claims": [
+      "ROUND_48 的 0.6454 或 0.7620 是稳定的真实生理性能估计。",
+      "真实 actigraphy 基线已获外部验证或已可用于生产。",
+      "佩戴代理模型具有临床意义；它们只是数据质量与活动模式的诊断。",
+      "这些结果适用于消费级可穿戴、普通成人或临床诊断。"
+    ]
+  },
+  "sanity_checks": {
+    "n_subjects_55": true,
+    "n_complete_days_1029": true,
+    "active_minutes_complete": true,
+    "n_specs_18": true,
+    "all_spec_aucs_finite": true,
+    "csv_sha256": "b66d26766368f40e2fa5863f35d5d037a3d201f312f9e1605dd94177155ec5d1"
+  },
+  "artifacts": {
+    "specification_curve_csv": "backend/scripts/modeling/eval/v1_49/specification_curve.csv",
+    "report": "docs/model-evaluation/REAL_BASELINE_ROBUSTNESS.md"
+  }
+}
