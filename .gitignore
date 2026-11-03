@@ -372,6 +372,7 @@ resume_ai_fullstack.md
 generate_resume_pdf.py
 *.log
 test_app.db
+test_app.db-journal
 .coverage
 coverage.xml
 trivy_scan_*.txt

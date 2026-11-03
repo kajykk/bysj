@@ -1366,7 +1366,9 @@ class TestCanaryAutoRollbackCheckImpl:
 
             await _canary_auto_rollback_check_impl()
 
-        mock_svc.check_all_canaries.assert_awaited_once_with(mock_db)
+        mock_svc.check_all_canaries.assert_awaited_once_with(
+            mock_db, source="celery"
+        )
 
     @pytest.mark.asyncio
     async def test_canary_rollback_triggered_logs_warning(self, caplog):
