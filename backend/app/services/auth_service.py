@@ -138,6 +138,7 @@ class AuthService:
                     User.role,
                     User.status,
                     User.tenant_id,
+                    User.email,
                 )
             )
             # AUDIT-2026-10-06 (P0-1): 登录必须绑定请求租户。
@@ -228,6 +229,7 @@ class AuthService:
                 "username": user.username,
                 "role": user.role,
                 "nickname": (profile.nickname if profile and profile.nickname else user.username),
+                "email": user.email,
             },
         }
 

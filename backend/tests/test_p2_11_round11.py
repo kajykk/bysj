@@ -8573,8 +8573,8 @@ class TestP235Round13Batch36Wiring:
         ("app/ml/model_loader.py", 46, "_resolve_artifacts_dir", "V"),
         ("app/ml/model_validation.py", 135, "_bootstrap_auc_ci_with_count", "V"),
         ("app/ml/scaler.py", 47, "__getattr__", "P"),
-        ("app/services/auth_service.py", 346, "change_password", "V"),  # fe5b117 验证码流程致 +39 行
-        ("app/services/auth_service.py", 685, "logout", "V"),  # fe5b117 验证码流程致 +188 行
+        ("app/services/auth_service.py", 348, "change_password", "V"),  # fe5b117 +39；登录回显 email +2 行
+        ("app/services/auth_service.py", 687, "logout", "V"),  # fe5b117 +188；登录回显 email +2 行
         ("app/services/experiment_evaluator.py", 126, "compare", "V"),
         ("app/services/experiment_metrics.py", 43, "metrics", "V"),
         (LS_REL, 451, "filter", "W"),

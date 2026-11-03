@@ -186,6 +186,7 @@ async def login(
                     "username": user_info.get("username"),
                     "role": user_info.get("role"),
                     "nickname": user_info.get("nickname"),
+                    "email": user_info.get("email"),
                 },
             }
         )

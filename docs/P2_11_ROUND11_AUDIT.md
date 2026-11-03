@@ -1905,3 +1905,8 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 - #34 raise 分类（工作树实测）：HTTPException=215 / ServiceError=38 /
   other_raise=375（366→375）。均为 fe5b117/002390e 验证码重置与邮箱登录
   新增校验分支，本批未新增 `raise`。
+- 补登录响应 `user.email`（咨询师设置页换设备后回显邮箱）：`UserBrief` 加法式
+  字段 + `auth_service.login` `load_only` 显式加载 `User.email`（否则惰性加载
+  触发 `MissingGreenlet`）+ API 响应透传。计数不变（W=111 / X=118 / M=7 /
+  总数 347）；`auth_service.py` `change_password` 锚点 346→348、`logout`
+  685→687（+2 行），扫描产物已重生成。

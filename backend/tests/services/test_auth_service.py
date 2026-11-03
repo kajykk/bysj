@@ -69,6 +69,8 @@ class TestAuthService:
         assert result["access_token"]
         assert result["refresh_token"]
         assert result["user"]["username"] == "seed_user"
+        # 咨询师设置页依赖登录响应回显本人邮箱（用于接收预警邮件）
+        assert result["user"]["email"] == "seed@test.com"
 
     @pytest.mark.asyncio
     async def test_login_with_email_succeeds(self, db_session, seeded_user_id):

@@ -97,6 +97,7 @@ class TestLogin:
         body = resp.json()
         assert body["code"] == 200
         assert "access_token" in body["data"]
+        assert body["data"]["user"]["email"] == "login@test.com"
         # H-API-12: refresh_token 不再在响应体返回，通过 httpOnly Cookie 设置
         assert client.cookies.get("refresh_token") is not None
 

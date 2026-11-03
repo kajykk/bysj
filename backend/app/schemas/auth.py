@@ -67,6 +67,8 @@ class UserBrief(BaseModel):
     username: str
     role: str
     nickname: str | None = None
+    # 咨询师设置页需回显本人邮箱（用于接收绑定来访者的预警邮件）
+    email: EmailStr | None = None
 
 
 class RegisterResponse(BaseModel):
