@@ -409,7 +409,7 @@ class TestP235SilentDegradationRatchet:
             counts[bucket] = counts.get(bucket, 0) + 1
 
         expected = {
-            "W": 108,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
+            "W": 111,  # 已接线（含第十一轮直调风格 2 处 + 第十二轮第五/六批 10 + 第十三轮前二十三批净 70：
                        # 第十九批纯裁定 +0，第二十批 alerts history detail 解析失败 +1，
                        # 第二十四批 ws 订阅循环崩溃重启窗口丢消息 +1，
                        # 第三十二批 metrics_helpers `_load_json` 产物损坏读不出 +1，
@@ -428,6 +428,9 @@ class TestP235SilentDegradationRatchet:
             # 跳过校验改为 fail-closed 503 拒绝（handler 内新增 raise）。扫描器
             # 排除含 raise 的 handler ⇒ 不再计为可静默降级候选，W 109→108；
             # 同批新增 1 处未接线 handler（D 型）⇒ D 22→23。总数 342 不变。
+            # 2026-11-03 来访者预警邮件（warning_email）3 处接线：收件人解析失败、
+            # 投递失败、事件 payload 异常均记 services.warning_email.* 降级计数
+            # ⇒ W 108→111。
             # REV-2026-10-20：S2/S5/S6 修复新增 6 处降级接线（review 关键词容错解析、
             # PDF CJK 字体注册失败、预警提交失败、干预生成失败 ×3 调用链），
             # W 103→109、总数 334→340。
@@ -442,7 +445,9 @@ class TestP235SilentDegradationRatchet:
             "H": 6,    # 检查型
             "K": 11,   # 任务取消
             "R": 3,    # 自恢复（第二十四批把 ws pubsub 循环崩溃从 R 改判接线：见下）
-            "M": 6,    # 已有专用计数器
+            "M": 7,    # 已有专用计数器（2026-11-03：scheduler._notify_warning 邮件
+                       # 通道异常与 WebSocket 共用 warning_notify_failed_total 口径
+                       # ⇒ M 6→7）
             "G": 8,    # fail-closed 安全（第三十三批：user_upload `_validate_mime_type`
                        # 原被分类器粗判 G，但它是**fail-open 放行**（跳过校验继续
                        # 上传）而非 fail-closed 拒绝，故改判接线 ⇒ G 8→7。
@@ -451,7 +456,7 @@ class TestP235SilentDegradationRatchet:
                        # 非降级）⇒ G 7→8，总数 340→341）
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 117,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
+            "X": 118,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
                        # 告警 history detail JSON 解析失败 → 空壳 item 照常入列表；
                        # 故 X 120→119、W 95→96；总数 334 不变。
                        # 第二十三批纯裁定不变；第二十四批接线的 ws pubsub 循环
@@ -468,6 +473,11 @@ class TestP235SilentDegradationRatchet:
                        # 的 CAS 释放失败（warning + return False，调用方不检查，
                        # 锁靠 TTL 兜底）来自既存未提交的分令牌锁改动，非本批
                        # 来源纠偏所加；仍为 X（未接线），总数 341→342。
+                       # 2026-11-03：auth_service 验证码重置尝试计数账本不可用
+                       # （CacheUnavailableError，fe5b117 引入）仅 error 日志后继续
+                       # ⇒ X 117→118；同批 warning_email 3 处已接
+                       # record_silent_degradation（见 W 注），不计入 X；
+                       # 本轮 M+1/W+3/X+1 ⇒ 总数 342→347。
                        # 前序口径：第十八批 3 处 X→W（金丝雀检查失败洗白 /
                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败），
                        # X 126→123→120、W 89→92→95；
@@ -4812,11 +4822,11 @@ class TestP235Round13Batch25Declined:
         return out
 
     def test_notify_trio_not_wired(self):
-        """`_notify_warning` 三个 handler 块级反向钉 + 各自见证锚点。"""
+        """`_notify_warning` 四个 handler 块级反向钉 + 各自见证锚点。"""
         src = self._read("tasks/scheduler.py")
         tree = ast.parse(src)
         hs = self._handlers_in_func(tree, "_notify_warning")
-        assert len(hs) == 3, f"_notify_warning handler 数 {len(hs)}，期望 3"
+        assert len(hs) == 4, f"_notify_warning handler 数 {len(hs)}，期望 4"
 
         by_marker = {}
         for h in hs:
@@ -4827,8 +4837,10 @@ class TestP235Round13Batch25Declined:
                 by_marker["metric"] = (h, seg)
             elif "Sentry capture_exception 调用失败" in seg:
                 by_marker["sentry"] = (h, seg)
-        assert set(by_marker) == {"retry", "metric", "sentry"}, (
-            f"三个 handler 分辨失败：{sorted(by_marker)}（锚点漂移 = 闸门失效）"
+            elif "邮件通道失败不得中断扫描" in seg:
+                by_marker["email"] = (h, seg)
+        assert set(by_marker) == {"retry", "metric", "sentry", "email"}, (
+            f"四个 handler 分辨失败：{sorted(by_marker)}（锚点漂移 = 闸门失效）"
         )
         for name, (_h, seg) in by_marker.items():
             assert "record_silent_degradation" not in seg, (
@@ -7197,7 +7209,7 @@ class TestP235Round13Batch33Wiring:
         (MLB_REL, 107, "_is_ml_failure", "P"),
         (SMB_REL, 113, "_is_smtp_failure", "P"),
         (DRIFT_REL, 128, "compute_ks_test", "P"),
-        (MAIL_REL, 164, "_send_smtp", "R"),
+        (MAIL_REL, 241, "_send_smtp", "R"),  # 2026-11-03 warning_email 新增 API 致 +77 行
         (XJS_REL, 131, "_cleanup_expired", "D"),
         (PJS_REL, 129, "_cleanup_expired", "D"),
     ]
@@ -8561,8 +8573,8 @@ class TestP235Round13Batch36Wiring:
         ("app/ml/model_loader.py", 46, "_resolve_artifacts_dir", "V"),
         ("app/ml/model_validation.py", 135, "_bootstrap_auc_ci_with_count", "V"),
         ("app/ml/scaler.py", 47, "__getattr__", "P"),
-        ("app/services/auth_service.py", 307, "change_password", "V"),
-        ("app/services/auth_service.py", 497, "logout", "V"),
+        ("app/services/auth_service.py", 346, "change_password", "V"),  # fe5b117 验证码流程致 +39 行
+        ("app/services/auth_service.py", 685, "logout", "V"),  # fe5b117 验证码流程致 +188 行
         ("app/services/experiment_evaluator.py", 126, "compare", "V"),
         ("app/services/experiment_metrics.py", 43, "metrics", "V"),
         (LS_REL, 451, "filter", "W"),
@@ -8934,7 +8946,7 @@ class TestP235Round13Batch37Wiring:
       cache.py:241/247 C（停机 aclose 失败，warning，单例照旧重置）/
       kill_switch.py:119 V（调用方 `_degrade` 显式写 degraded=True +
       source="unavailable"，fail-closed 由 P1-7 设计）/
-      main.py:444 V（启动 warning + 影响点上传端点显式失败）/
+      main.py:448 V（启动 warning + 影响点上传端点显式失败）/
       reports.py:355 P（`notify_task_progress`→ws `send_to_user` 两条
       内层路径 L175/L203 均已接线，外层防御性重复层）/
       reports.py:403 V（status=failed+error 入 job_store + notify）/
@@ -8962,7 +8974,7 @@ class TestP235Round13Batch37Wiring:
         ("app/core/cache.py", 241, "close_redis_client", "C"),
         ("app/core/cache.py", 247, "close_redis_client", "C"),
         ("app/core/kill_switch.py", 119, "_get_redis", "V"),
-        ("app/main.py", 444, None, "V"),  # 模块级 upload_dir 创建（D5 制品校验 +43 行）
+        ("app/main.py", 448, None, "V"),  # 模块级 upload_dir 创建（warning_email 注册 +4 行）
         ("app/api/v1/reports.py", 355, "_notify", "P"),
         ("app/api/v1/reports.py", 403, "_execute_pdf_generation", "V"),
         ("app/api/v1/validation.py", 254, "_cleanup_memory_expired", "D"),

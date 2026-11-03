@@ -1,6 +1,6 @@
 {
-  "real_total": 326,
-  "real_wired": 106,
+  "real_total": 331,
+  "real_wired": 109,
   "import_probe": 16,
   "real_list": [
     {
@@ -1798,7 +1798,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 444,
+      "line": 448,
       "handled": [
         "OSError"
       ],
@@ -1828,7 +1828,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 399,
+      "line": 403,
       "handled": [
         "Exception"
       ],
@@ -1838,7 +1838,7 @@
     },
     {
       "file": "app/main.py",
-      "line": 377,
+      "line": 381,
       "handled": [
         "CancelledError"
       ],
@@ -2190,7 +2190,7 @@
     },
     {
       "file": "app/services/auth_service.py",
-      "line": 307,
+      "line": 346,
       "handled": [
         "Exception"
       ],
@@ -2200,7 +2200,17 @@
     },
     {
       "file": "app/services/auth_service.py",
-      "line": 497,
+      "line": 630,
+      "handled": [
+        "CacheUnavailableError"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/services/auth_service.py",
+      "line": 685,
       "handled": [
         "PyJWTError",
         "ValueError",
@@ -2404,7 +2414,7 @@
     },
     {
       "file": "app/services/email_service.py",
-      "line": 39,
+      "line": 41,
       "handled": [
         "Exception"
       ],
@@ -2414,7 +2424,7 @@
     },
     {
       "file": "app/services/email_service.py",
-      "line": 164,
+      "line": 241,
       "handled": [
         "SMTPException",
         "OSError",
@@ -3014,6 +3024,36 @@
       "returns": null
     },
     {
+      "file": "app/services/warning_email.py",
+      "line": 156,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/services/warning_email.py",
+      "line": 201,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": "False"
+    },
+    {
+      "file": "app/services/warning_email.py",
+      "line": 247,
+      "handled": [
+        "Exception"
+      ],
+      "wired": true,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
       "file": "app/tasks/anomaly_detection.py",
       "line": 140,
       "handled": [
@@ -3155,7 +3195,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 108,
+      "line": 141,
       "handled": [
         "Exception"
       ],
@@ -3165,7 +3205,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 129,
+      "line": 162,
       "handled": [
         "Exception"
       ],
@@ -3175,7 +3215,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 902,
+      "line": 940,
       "handled": [
         "Exception"
       ],
@@ -3185,7 +3225,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 81,
+      "line": 89,
       "handled": [
         "Exception"
       ],
@@ -3195,7 +3235,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 510,
+      "line": 113,
       "handled": [
         "Exception"
       ],
@@ -3205,7 +3245,17 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 1001,
+      "line": 548,
+      "handled": [
+        "Exception"
+      ],
+      "wired": false,
+      "fire_and_forget": false,
+      "returns": null
+    },
+    {
+      "file": "app/tasks/scheduler.py",
+      "line": 1039,
       "handled": [
         "OSError"
       ],
@@ -3215,7 +3265,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 1054,
+      "line": 1092,
       "handled": [
         "OSError"
       ],
@@ -3225,7 +3275,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 1170,
+      "line": 1208,
       "handled": [
         "OSError"
       ],
@@ -3235,7 +3285,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 401,
+      "line": 439,
       "handled": [
         "Exception"
       ],
@@ -3245,7 +3295,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 994,
+      "line": 1032,
       "handled": [
         "OSError"
       ],
@@ -3255,7 +3305,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 1134,
+      "line": 1172,
       "handled": [
         "Exception"
       ],
@@ -3265,7 +3315,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 1102,
+      "line": 1140,
       "handled": [
         "Exception"
       ],
@@ -3275,7 +3325,7 @@
     },
     {
       "file": "app/tasks/scheduler.py",
-      "line": 1150,
+      "line": 1188,
       "handled": [
         "Exception"
       ],

@@ -1884,3 +1884,24 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   校验失败 `RuntimeError` +1）。
 - #35 桶计数（工作树实测）：W=108 / X=117 / S=34 / P=15 / D=23 / C=7 /
   H=6 / K=11 / R=3 / M=6 / G=8 / V=2 / F=2（总数 342）。
+
+## 附：2026-11-03 来访者预警邮件（按绑定咨询师投递）与计数同步
+
+- 新增 `app/services/warning_email.py`：经活动 `UserCounselorBinding` 解析咨询师，
+  投递到其个人设置邮箱；实时路径订阅 `warning.created`（事务提交后发布），
+  每日扫描在 `scheduler._notify_warning` 内直投。邮件通道失败不影响预警入库，
+  且不再静默：3 处失败路径接 `record_silent_degradation`
+  （`services.warning_email.resolve_failed` / `delivery_failed` /
+  `event_handler_failed`）。
+- #35 桶计数（工作树实测）：W=111 / X=118 / S=34 / P=15 / D=23 / C=7 /
+  H=6 / K=11 / R=3 / M=7 / G=8 / V=2 / F=2（总数 342→347）。
+  - W 108→111：上述 warning_email 3 处接线；
+  - M 6→7：`_notify_warning` 的邮件通道异常与 WebSocket 共用既有
+    `warning_notify_failed_total` 口径（仅两通道都失败才计漏报）；
+  - X 117→118：`auth_service` 验证码重置尝试计数账本不可用
+    `CacheUnavailableError`（fe5b117 引入，此前基线未同步）仅 error 日志后继续。
+- 行号平移（扫描锚点已同步）：`email_service.py` `_send_smtp` 164→241、
+  `auth_service.py` `change_password` 307→346、`main.py` 启动期 handler 444→448。
+- #34 raise 分类（工作树实测）：HTTPException=215 / ServiceError=38 /
+  other_raise=375（366→375）。均为 fe5b117/002390e 验证码重置与邮箱登录
+  新增校验分支，本批未新增 `raise`。
