@@ -210,7 +210,8 @@ bindCodeCardTitle: 'My Bind Code',
     bindCodeCopyFailed: 'Copy failed, please copy manually',
     profileCardTitle: 'Personal Information',
     passwordCardTitle: 'Change Password',
-    profileRoleCounselor: 'Counselor'
+    profileRoleCounselor: 'Counselor',
+    profileEmailHint: 'This email receives risk-warning emails for your bound clients. Please use an address you check regularly.'
   },
   counselorUsers: {
 pageTitle: 'User Management',

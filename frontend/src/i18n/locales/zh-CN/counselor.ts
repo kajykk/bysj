@@ -210,7 +210,8 @@ bindCodeCardTitle: '我的绑定码',
     bindCodeCopyFailed: '复制失败，请手动复制',
     profileCardTitle: '个人信息',
     passwordCardTitle: '修改密码',
-    profileRoleCounselor: '咨询师'
+    profileRoleCounselor: '咨询师',
+    profileEmailHint: '该邮箱用于接收你所绑定来访者的风险预警邮件，请填写常用邮箱。'
   },
   counselorUsers: {
 pageTitle: '用户管理',

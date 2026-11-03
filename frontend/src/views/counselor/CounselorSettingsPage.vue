@@ -85,10 +85,15 @@
               />
             </el-form-item>
             <el-form-item :label="t('userSettings.profile.email')">
-              <el-input
-                v-model="profileForm.email"
-                :placeholder="t('userSettings.profile.emailPlaceholder')"
-              />
+              <div class="field-with-hint">
+                <el-input
+                  v-model="profileForm.email"
+                  :placeholder="t('userSettings.profile.emailPlaceholder')"
+                />
+                <div class="field-hint">
+                  {{ t('counselorSettings.profileEmailHint') }}
+                </div>
+              </div>
             </el-form-item>
             <el-form-item>
               <el-button
@@ -346,6 +351,17 @@ onMounted(() => {
 .bind-tip .el-icon {
   margin-top: 3px;
   flex-shrink: 0;
+}
+
+.field-with-hint {
+  width: 100%;
+}
+
+.field-hint {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.5;
 }
 
 .refresh-row {
