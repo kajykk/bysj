@@ -253,3 +253,75 @@ python scripts/rotate_pii_keys.py --apply    # 实际重加密
 没有 `/grafana` 反代（该路径返回 Vue SPA）。当前 Grafana 只能经
 `http://127.0.0.1:3002/grafana` 访问；若要并入 `https://localhost/grafana`，需补 nginx
 反代并保证子路径重写。已记入 `UPGRADE_2026-11-03.md` §8。
+
+## 5. 备份销毁记录（2026-11-04）
+
+- **执行时间**：2026-11-04（Asia/Shanghai），执行人：本会话（AI 运维会话）。
+- **销毁对象**：`E:\secrets\bysj\backups\20261103-140816\`（密钥轮换前的旧值备份）。
+- **前提**：观察期复验通过，生产栈已切换至干净发版镜像 `dws-backend:3.1.1` / `dws-frontend:3.1.1`。
+
+### 5.1 销毁前五项验证
+
+| # | 验证 | 实测结论 |
+|---|---|---|
+| 1 | JWT | 当前 key 登录签发 token → `GET /api/v1/auth/profile` **200**；备份旧 key 签同一 `sub`/`iss`/`aud` 的 token → **401**；当前 key + 错误 `iss` → **401**；当前 key + 错误 `aud` → **401** |
+| 2 | PII | `PII_PREVIOUS_KEYS` 为空；随机抽 3 条用户记录，当前 `PII_ENCRYPTION_KEY` 解密 **3 成功 / 0 失败**（未输出明文或密文） |
+| 3 | PG / Redis | 新 `POSTGRES_PASSWORD`：`SELECT 1` 退出码 **0**；旧口令：`password authentication failed`（拒绝）。新 `REDIS_PASSWORD`：`PONG`；旧口令：`WRONGPASS`（拒绝） |
+| 4 | Grafana | 新 SA token → `/api/dashboards/home` **200**；备份中的旧 SA token（与当前不同）→ **401** |
+| 5 | 引用检查 | `.env`、`.env.production`、`backend/.env`（不存在）、`docker-compose.yml`、`docker-compose.override.yml`、`E:\secrets\bysj\README.md` 对 `backups/` 或 `20261103-140816` 的引用均为 **0** |
+
+### 5.2 文件清单与 SHA256（删除前计算）
+
+| 文件 | 字节 | SHA256 |
+|---|---|---|
+| `.env.bak` | 2,787 | `277FFB63F4DF075B704EA01C5D11A255BAE44D40977A08133E288AE695B0689D` |
+| `.env.probe.bak` | 600 | `A8157A5B7289C6F86A2115F02A919818114A5A1F2AD1FA9DFC54A8357FA370E5` |
+| `.env.production.bak` | 3,419 | `B647BEFC0F904E8CB0F75574B2EF2747B6659F846FC7F8E5433C113C3A75E83D` |
+| `backend.env.bak` | 554 | `79C938F28023FA7279588F079D2214E13C329434B065DFFBA223F6635BA4DA18` |
+| `db_before_pii_rotation.sql` | 132,125 | `635B97A4248142E7A019EDA0F78917D96EBEDC1D5FEA83C331679C6E2F33BBE8` |
+| `docker-compose.no-host-port.yml` | 42 | `1FE5BEB18BD5477EFD9938B842D8B7143E32F2686C46F91684469C4025788A5E` |
+| `old_access_token.txt` | 161 | `B8F0FA49764C600855E9ED866B073072BFDB0C4CAB49539B02E5AC76D414E583` |
+| `prometheus.token.bak` | 44 | `4DD8CB17AE853EE382BAEEF0028F306039EB1B8CCC67D7A30B5FD652FDECF7C4` |
+
+合计：**8 个文件 / 139,732 字节**。
+
+### 5.3 销毁方式与结果
+
+- 方式：`Remove-Item -LiteralPath <dir> -Recurse -Force`（PowerShell 的 `Remove-Item` 不进入回收站，属不可恢复删除）；删除后 `Test-Path` = `False`，`E:\secrets\bysj\backups\` 下已无该目录。
+- 未将任何密钥/token 取值写入文件、日志或提交。
+
+### 5.4 销毁后复验
+
+| 项 | 实测 |
+|---|---|
+| 8 个常驻服务 | 全部 `Up (healthy)`，unhealthy=0 |
+| `https://localhost/health` | 200 |
+| JWT | 新注册登录 200，`GET /api/v1/auth/profile` **200** |
+| PII | 抽 3 条记录，解密 **3 成功 / 0 失败** |
+
+### 5.5 遗留
+
+- `METRICS_ACCESS_TOKEN` 原与备份值相同；已于同日补轮换，见 §6。
+- `PII_PREVIOUS_KEYS` 为空，旧密文已全部用当前 key 验证可解；无需保留旧 key。
+
+## 6. `METRICS_ACCESS_TOKEN` 补轮换（2026-11-04）
+
+- **暴露面**：仅内部——
+  - backend `GET /api/v1/metrics` 的 `Authorization: Bearer` 校验；
+  - Prometheus 抓取该端点时的 `bearer_token_file`（`/etc/prometheus/metrics_token`）；
+  - Grafana 与 backend / celery 容器作为必填 env 注入（Grafana 的 Prometheus 数据源实际直连 Prometheus，不使用该 token；celery 仅启动校验）。
+  - 无外部服务、无第三方回调依赖，轮换面可控。
+- **操作**：生成 64 位 hex 新值（不记录取值）→ 同步写入 `.env`、`.env.production` → 重写 `infra/prometheus/token` → 按 `APP_VERSION=3.1.1` 重建/重启 backend、celery_worker、celery_beat、grafana、prometheus。
+- **验证**：
+
+| 项 | 实测 |
+|---|---|
+| 新 token → `GET /api/v1/metrics` | **200** |
+| 旧 token → 同一端点 | **403**（端点对无效 Bearer 返回 403，非 401；已按实际记录） |
+| Prometheus target `dws-backend` | `up`，`lastError` 为空 |
+| Grafana `/api/datasources`（SA token） | 200 |
+| `.env` 与 `.env.production` 取值一致 | 是（长度 64） |
+| token 文件与 env 一致 | 是 |
+| 8 服务 | 全部 healthy，`https://localhost/health` 200 |
+
+- **台账**：`2026-11-04` `METRICS_ACCESS_TOKEN` 已轮换，备份目录已销毁（旧值不可恢复）；如需再次轮换，按上文四步执行。
