@@ -130,6 +130,8 @@ htmlcov/
 data/*
 # P1 可复现性: 数据目录说明文档必须入库
 !data/README.md
+# 2026-11: 数据集盘点的人读文档入库，机读索引 CSV 不入库（避免 *.csv 数据文件误入）
+docs/datasets/*.csv
 
 # Temporary scripts & tools
 git
