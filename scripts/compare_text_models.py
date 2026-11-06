@@ -155,18 +155,16 @@ def evaluate_baseline_model(model_path: Path, texts: list[str], labels: list[int
         model_path_file = model_path / "text_depression_model.pkl"
 
         if not tfidf_path.exists() or not model_path_file.exists():
-            logger.warning("Baseline model files not found, using simulated metrics")
-            # Return simulated baseline metrics
-            return {
-                "accuracy": 0.95,
-                "f1": 0.9681,
-                "precision": 0.96,
-                "recall": 0.97,
-                "roc_auc": 0.98,
-                "latency_ms": 2.0,
-                "latency_std_ms": 0.5,
-                "model_size_mb": 5.0,
-            }
+            # REVIEW-2026-11-06 (S-03)：缺工件必须让 main() 的 None 检查生效并以
+            # 非 0 退出。原实现返回硬编码「实测外观」指标（F1 0.9681 / AUC 0.98），
+            # 绕过失败检查后直接进 make_switch_decision 并写入
+            # comparison_report.json / switch_decision.txt，产出无数据支撑的切换结论。
+            logger.error(
+                "Baseline model files not found (tfidf=%s model=%s); refusing to fabricate metrics",
+                tfidf_path,
+                model_path_file,
+            )
+            return None
 
         tfidf = joblib.load(tfidf_path)
         model = joblib.load(model_path_file)

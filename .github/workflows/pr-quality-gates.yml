@@ -31,6 +31,9 @@ jobs:
           python scripts/check_compatibility.py --json
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
+          # M-12：CI 常态无模型工件（模型不入 git），显式声明「允许跳过模型检查」，
+          # 让门禁输出区分「通过」与「跳过」，而不是把 0 项检查报成 ALL PASSED。
+          CI_ALLOW_MISSING_MODELS: '1'
 
   # MAINT-P3-003: Lint 门禁 (ruff blocking + bandit blocking + mypy/format non-blocking)
   lint:

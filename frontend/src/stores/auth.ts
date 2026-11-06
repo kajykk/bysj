@@ -11,14 +11,13 @@ import {
   setStoredAuth,
 } from '@/utils/authStorage'
 import { clearSensitiveLocalStorage } from '@/utils/sensitiveStorage'
+import { AUTH_SYNC_EVENT, broadcastAuthSync } from '@/utils/authBroadcast'
 
 interface AuthSyncDetail {
   token?: string
   refreshToken?: string
   user?: UserInfo | null
 }
-
-const AUTH_SYNC_EVENT = 'auth-sync'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string>(getStoredToken())
@@ -51,21 +50,8 @@ export const useAuthStore = defineStore('auth', () => {
   function persistAuth(next: AuthSyncDetail) {
     setStoredAuth(next)
     syncAuth(next)
-  }
-
-  function broadcastAuthSync(next: AuthSyncDetail) {
-    if (typeof window === 'undefined') return
-    window.dispatchEvent(new CustomEvent<AuthSyncDetail>(AUTH_SYNC_EVENT, { detail: next }))
-    // ISS-008: 通过 BroadcastChannel 跨标签页同步 token
-    if (typeof BroadcastChannel !== 'undefined' && next.token !== undefined) {
-      try {
-        const channel = new BroadcastChannel('auth_token_sync')
-        channel.postMessage(next.token || '')
-        channel.close()
-      } catch {
-        // BroadcastChannel 不可用时静默降级
-      }
-    }
+    // M-18：登录/注册后必须真正广播，否则其它标签页的 tokenChannel 收不到消息
+    broadcastAuthSync(next)
   }
 
   function installAuthSyncListener() {
@@ -165,6 +151,7 @@ export const useAuthStore = defineStore('auth', () => {
       return false
     }
     token.value = newToken
+    broadcastAuthSync({ token: newToken })
     return true
   }
 
@@ -177,6 +164,8 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = ''
       refreshToken.value = ''
       user.value = null
+      // M-18：登出也要广播空 token，否则其它标签页仍持有旧 access token
+      broadcastAuthSync({ token: '', refreshToken: '', user: null })
       // SEC-FIX (C3): 清除会话级内存状态，防止 A 用户的任务进度/分析同意状态泄漏给 B 用户
       try {
         const { resetTaskProgress } = await import('@/composables/useTaskProgress')

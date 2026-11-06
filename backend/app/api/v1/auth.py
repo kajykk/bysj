@@ -137,7 +137,9 @@ async def _log_auth_operation(
 async def register(request: Request, payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> dict:
     service = AuthService(db)
     try:
-        data = await service.register(payload)
+        # REVIEW-2026-11-06 (M-06)：注册必须落到请求租户，否则非默认租户用户
+        # 注册后落在 DEFAULT_TENANT_ID，登录按请求租户过滤必然查不到。
+        data = await service.register(payload, tenant_id=get_request_tenant_id(request))
         # M-API-13 修复：register 响应只返回必要字段（id, username），
         # 不返回 role 等信息，避免泄露用户对象敏感字段
         return ok({"id": data.get("id"), "username": data.get("username")})

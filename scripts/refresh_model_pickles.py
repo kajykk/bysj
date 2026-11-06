@@ -48,16 +48,18 @@ from sklearn.base import BaseEstimator  # noqa: E402
 def detect_version_diff(path: Path) -> list[str]:
     """在独立子进程中加载, 收集版本差消息（避开 warning 去重造成的假阴性）。"""
     code = (
-        "import warnings, joblib, json\n"
+        "import warnings, joblib, json, sys\n"
         "with warnings.catch_warnings(record=True) as caught:\n"
         "    warnings.simplefilter('always')\n"
-        f"    joblib.load(r'{path}')\n"
+        "    joblib.load(sys.argv[1])\n"
         "msgs = sorted({str(w.message) for w in caught\n"
         "               if 'InconsistentVersion' in type(w.message).__name__\n"
         "               or 'from version' in str(w.message)})\n"
         "print('__MSGS__' + json.dumps(msgs))\n"
     )
-    proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+    # REVIEW-2026-11-06 (M-11)：路径经 argv 传入，绝不拼进 -c 源码文本。
+    # 原实现 f"joblib.load(r'{path}')" 在路径含单引号/换行时可闭合字符串执行任意代码。
+    proc = subprocess.run([sys.executable, "-c", code, str(path)], capture_output=True, text=True,
                           encoding="utf-8", errors="replace")
     out = proc.stdout or ""
     if proc.returncode != 0 or "__MSGS__" not in out:

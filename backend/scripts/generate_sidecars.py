@@ -28,16 +28,6 @@ from pathlib import Path
 _ARTIFACT_EXTS = {".pkl", ".json", ".md"}
 
 
-def _compute_sha256(path: Path) -> str:
-    import hashlib
-
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate .sha256 sidecars for model artifacts")
     parser.add_argument(
@@ -55,7 +45,13 @@ def main() -> int:
         print(f"错误: 目录不存在: {target}", file=sys.stderr)
         return 1
 
-    from app.utils.checksum import cleanup_stale_sidecars, write_sha256_sidecar
+    # L-10：哈希口径收敛到单一来源（分块大小/编码只此一处定义），
+    # 原本地副本与 app/utils/checksum.py:22 逐字重复，未来单点修改会漂移。
+    from app.utils.checksum import (
+        _compute_sha256,
+        cleanup_stale_sidecars,
+        write_sha256_sidecar,
+    )
 
     created = 0
     verified = 0

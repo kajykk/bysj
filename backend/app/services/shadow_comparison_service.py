@@ -14,6 +14,7 @@ R1 增强: 激活训练产物前, 在真实推理流量上对候选产物与生�
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 from typing import Any
@@ -43,6 +44,9 @@ class ShadowComparisonService:
         # R2 健康统计: model_id -> {total, fallback} (进程内累计, 不按时间窗口切片)
         self._health: dict[str, dict[str, int]] = {}
         self._random = random.Random(42)
+        # M-07：后台对拍任务强引用 + 失败计数（样本静默丢失不得按「样本不足」放行）
+        self._tasks: set[asyncio.Task[None]] = set()
+        self._shadow_failures = 0
 
     # ── 对外入口 ──────────────────────────────────────────────
     def fire_shadow_check(
@@ -70,9 +74,13 @@ class ShadowComparisonService:
         # 查找替换该生产模型名的候选 (fallback_id == ... 或同名候选)
         import asyncio
 
+        coro = self._shadow_check(model_id, raw_input, production_result)
         try:
-            asyncio.create_task(self._shadow_check(model_id, raw_input, production_result))
+            task = asyncio.create_task(coro)
+            self._tasks.add(task)
+            task.add_done_callback(self._on_shadow_task_done)
         except RuntimeError:
+            coro.close()  # 无事件循环时显式关闭，避免 "coroutine never awaited"
             # 无运行中事件循环 (如同步测试/非 asyncio 上下文): 跳过对拍
             logger.debug("[SHADOW] no running event loop, skip shadow check")
             # P2-35 第十批：该样本的对拍直接丢失；若生产路径长期无事件循环，
@@ -127,6 +135,18 @@ class ShadowComparisonService:
             )
             return None
 
+    def _on_shadow_task_done(self, task: asyncio.Task[None]) -> None:
+        """回收任务引用并显式记录失败（M-07）。"""
+        self._tasks.discard(task)
+        if task.cancelled():
+            self._shadow_failures += 1
+            return
+        exc = task.exception()
+        if exc is not None:
+            self._shadow_failures += 1
+            logger.warning("[SHADOW] background comparison failed: %s", exc)
+            record_silent_degradation("services.shadow_comparison_service.task_failed")
+
     def is_shadow_acceptable(self, model_id: str, force: bool = False) -> tuple[bool, str]:
         """激活前校验: 一致率 >= min_agreement 且样本足够时允许切换.
 
@@ -136,6 +156,10 @@ class ShadowComparisonService:
         """
         if force:
             return True, "force_override"
+        # M-07：后台任务异常/被取消会让样本无痕丢失，此时不得按
+        # insufficient_samples 放行未验证的候选模型（fail-closed）。
+        if self._shadow_failures > 0:
+            return False, f"shadow_task_failures({self._shadow_failures})"
         stats = self.get_stats(model_id)
         total = stats["total"]
         min_samples = int(settings.shadow_production_min_samples)

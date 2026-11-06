@@ -72,6 +72,30 @@ def get_real_client_ip(request: Request) -> str:
     return direct_ip
 
 
+def _redact_redis_url(url: str) -> str:
+    """REVIEW-2026-11-06 (M-04)：日志只记 host/port/db，password 打码。
+
+    生产 REDIS_URL 常形如 ``redis://:password@host:6379/0``，且同一后端
+    承载 token blocklist 与密码重置码；明文写进 info/critical 日志等于把
+    凭据交给任何可读日志者。
+    """
+    try:
+        from urllib.parse import urlsplit, urlunsplit
+
+        parts = urlsplit(url)
+        if not parts.password:
+            return url
+        host = parts.hostname or ""
+        if parts.port:
+            host = f"{host}:{parts.port}"
+        userinfo = f"{parts.username or ''}:***@"
+        return urlunsplit(
+            (parts.scheme, userinfo + host, parts.path, parts.query, parts.fragment)
+        )
+    except ValueError:
+        return "<redis-url-redacted>"
+
+
 def _build_limiter() -> Limiter:
     app_env = settings.app_env.lower()
     kwargs: dict = {}
@@ -80,7 +104,7 @@ def _build_limiter() -> Limiter:
         redis_url = settings.redis_url
         if redis_url and redis_url.startswith("redis"):
             kwargs["storage_uri"] = redis_url
-            logger.info("Rate limiter using Redis backend: %s", redis_url)
+            logger.info("Rate limiter using Redis backend: %s", _redact_redis_url(redis_url))
         else:
             logger.warning(
                 "PRODUCTION environment but REDIS_URL not properly configured. "
@@ -266,7 +290,7 @@ def _verify_redis_backend() -> None:
             f"Rate limiter Redis backend check returned False. "
             f"slowapi will silently degrade to in-memory storage, causing rate limits "
             f"to be per-instance in multi-instance deployments. "
-            f"REDIS_URL={redis_url}"
+            f"REDIS_URL={_redact_redis_url(redis_url)}"
         )
         if require_redis:
             logger.critical(msg)
@@ -280,7 +304,7 @@ def _verify_redis_backend() -> None:
             f"Rate limiter Redis backend is UNREACHABLE ({exc}). "
             f"slowapi will silently degrade to in-memory storage, causing rate limits "
             f"to be per-instance in multi-instance deployments. "
-            f"REDIS_URL={redis_url}"
+            f"REDIS_URL={_redact_redis_url(redis_url)}"
         )
         logger.critical(msg)
         if require_redis:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import secrets
 from datetime import UTC, datetime
@@ -13,6 +14,13 @@ from app.core.states import BindingStatus
 from app.models.user import User, UserCounselorBinding
 
 logger = logging.getLogger(__name__)
+
+
+def _fingerprint(code: str | None) -> str:
+    """绑定码的不可逆短指纹，供审计留痕（禁止写入明文）。"""
+    if not code:
+        return ""
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()[:8]
 
 
 class BindingMixin:
@@ -186,8 +194,10 @@ class BindingMixin:
                 target_type="user_counselor_binding",
                 target_id=existing.id,
                 detail={
-                    "old_bind_code": old_code,
-                    "new_bind_code": new_code,
+                    # REVIEW-2026-11-06 (M-05)：new_code 仍是有效绑定码，
+                    # 明文落 OperationLog 等于把绑定能力交给能看日志的人。
+                    "old_bind_code_fingerprint": _fingerprint(old_code),
+                    "new_bind_code_fingerprint": _fingerprint(new_code),
                     "status": self._status_value(existing.status),
                 },
                 request=request,
@@ -199,8 +209,11 @@ class BindingMixin:
     @staticmethod
     def _generate_bind_code() -> str:
         # L-Svc-2 修复：原 token_urlsafe(6)[:8] 仅约 48 bits 熵，抗穷举强度不足。
-        # 增加输入字节数与输出长度至 bind_code CHECK 约束上限（10 字符），提升熵。
-        return secrets.token_urlsafe(10)[:10].upper()
+        # REVIEW-2026-11-06 (L-04)：去掉 .upper() —— 它把 62 进制字符集折叠成
+        # 36 进制，10 字符实际熵降到约 51.7 bits；保留原字符集约 59.5 bits。
+        # bind_code 的 CHECK 约束只限长度 4-10（models/user.py:127），不限字符集。
+        # 绑定码现在区分大小写；比较侧保持大小写敏感等值（:226）。
+        return secrets.token_urlsafe(10)[:10]
 
     async def bind_by_code(
         self,

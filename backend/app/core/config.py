@@ -336,10 +336,10 @@ class Settings(BaseSettings):
         # 的赋值仅在 Settings 实例化时执行（模块级 `settings = Settings()`），
         # 该过程位于应用启动阶段且为单线程，不存在并发突变。Pydantic v2 的 model_validator
         # (mode="after") 在构造完成前不会暴露实例给其他线程，因此此处突变是安全的。
-        if self.app_env.lower() == "production" and self.database_url.startswith("sqlite"):
+        if self.app_env.strip().lower() == "production" and self.database_url.startswith("sqlite"):
             raise ValueError("DATABASE_URL must be explicitly set in production (cannot use sqlite)")
         if (
-            self.app_env.lower() == "production"
+            self.app_env.strip().lower() == "production"
             and self.jwt_algorithm.upper() != "RS256"
             and self.jwt_secret_key in _INSECURE_KEYS
         ):
@@ -363,7 +363,7 @@ class Settings(BaseSettings):
         # SEC-P1-002 修复：生产环境强制密码重置链接使用 HTTPS
         # 原问题: password_reset_base_url 默认 http://localhost:5173/reset-password
         # 生产环境若未配置或配置为 HTTP, 重置链接中的 token 可被中间人攻击窃取
-        if self.app_env.lower() == "production" and not self.password_reset_base_url.lower().startswith("https://"):
+        if self.app_env.strip().lower() == "production" and not self.password_reset_base_url.lower().startswith("https://"):
             raise ValueError(
                 "PASSWORD_RESET_BASE_URL must use HTTPS in production. "
                 "HTTP reset links expose password reset tokens to man-in-the-middle attacks. "
@@ -376,12 +376,12 @@ class Settings(BaseSettings):
         # HS256 的密钥长度/熵直接决定签名抗离线爆破能力，故对生产环境追加下限。
         # RS256 下 secret 不参与签名（仅需密钥对），故豁免。
         if (
-            self.app_env.lower() == "production"
+            self.app_env.strip().lower() == "production"
             and self.jwt_algorithm.upper() != "RS256"
             and self.jwt_secret_key not in _INSECURE_KEYS
         ):
             _validate_jwt_secret_strength(self.jwt_secret_key)
-        if self.jwt_secret_key in _INSECURE_KEYS and self.app_env.lower() != "production":
+        if self.jwt_secret_key in _INSECURE_KEYS and self.app_env.strip().lower() != "production":
             self.jwt_secret_key = secrets.token_urlsafe(32)
             warnings.warn(
                 "⚠️  JWT_SECRET_KEY was empty/insecure — auto-generated a random key for this session. "
@@ -393,7 +393,7 @@ class Settings(BaseSettings):
         # 在 Settings 初始化时完成，避免运行时通过 object.__setattr__ 突变（线程不安全）。
         # 生产环境缺失密钥由下方模块级检查拦截；此处仅处理开发环境。
         # P0-1.2: 开发环境持久化自动生成的密钥到 .pii_key 文件, 避免重启后历史 PII 不可解密
-        if not self.pii_encryption_key and self.app_env.lower() != "production":
+        if not self.pii_encryption_key and self.app_env.strip().lower() != "production":
             pii_key_file = BACKEND_DIR / ".pii_key"
             # 优先从持久化文件加载 (保持重启后密钥一致)
             if pii_key_file.exists():
@@ -722,7 +722,7 @@ class Settings(BaseSettings):
         raw = self.cors_allowed_origins.strip()
         if not raw:
             # 未显式配置: 开发环境提供开发端口默认值；生产环境返回空列表（拒绝跨域）
-            if self.app_env.lower() == "production":
+            if self.app_env.strip().lower() == "production":
                 return []
             return ["http://localhost:5173", "http://localhost:3000"]
         # M-Core-2 修复：通配符校验已移至 model_validator 启动时执行，
@@ -757,7 +757,7 @@ class Settings(BaseSettings):
             return True
         if self.kill_switch_fail_mode == "open":
             return False
-        return self.app_env.lower() == "production"
+        return self.app_env.strip().lower() == "production"
 
     @property
     def SKLEARN_VERSION(self) -> str | None:
@@ -781,7 +781,7 @@ settings = Settings()
 # 风险予以移除。修改密钥校验逻辑请仅改 model_validator。
 
 # P1-INFRA-003/004 修复：生产环境强制要求 PII 加密密钥、Webhook 和 Metrics 鉴权令牌
-if settings.app_env.lower() == "production":
+if settings.app_env.strip().lower() == "production":
     _missing_prod_secrets: list[str] = []
     if not settings.pii_encryption_key:
         _missing_prod_secrets.append("PII_ENCRYPTION_KEY")

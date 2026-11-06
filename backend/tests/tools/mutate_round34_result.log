@@ -1,0 +1,44 @@
+ROUND_34 P0 mutation witness
+============================================================
+[S-01 / analytics tenant filter -> return all]
+  file            : backend/app/api/v1/analytics_events.py
+  original_sha256 : 483969db1235a8ac7cc806a1a87738e1a73fe2b17ec32f6613cef73e4474dfbd
+  mutated_sha256  : 114bd40d2386314e238c4b09bb854dc4cb00e177b9f8d0a6d1164095f85f90ec
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 4 failed, 4 passed, 3 warnings in 1.32s
+  restore         : byte-identical, sha256=483969db1235a8ac7cc806a1a87738e1a73fe2b17ec32f6613cef73e4474dfbd
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[S-03 / missing baseline -> fabricate metrics again]
+  file            : scripts/compare_text_models.py
+  original_sha256 : a647c0ccc984d5357584e01086e68b70aac73acc969cae63abafb2f83558f865
+  mutated_sha256  : d6eaff85c2708f9e0ac662bc5b7485cc98c32bfd717b35be8482cc4478815b43
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 3 failed, 1 passed, 3 warnings in 1.32s | shutil.rmtree(str(path), onexc=onerror)
+  restore         : byte-identical, sha256=a647c0ccc984d5357584e01086e68b70aac73acc969cae63abafb2f83558f865
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[S-02 / drop failure-state assignment]
+  file            : frontend/src/views/counselor/CounselorDashboard.vue
+  original_sha256 : 21324b077d53bb6b2ced5f45ff2e4f9d6ddd458522057014132a46ed16ddbef1
+  mutated_sha256  : 8f1401a4375b012e0fde5b52caf092f6ea4b4cfb1f0afb4b8dd463ad8840f422
+  cmd             : node node_modules/vitest/vitest.mjs run src/views/counselor/CounselorDashboard.failure.test.ts ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : [31m❯[39m src/views/counselor/CounselorDashboard.failure.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 61[2mms[22m[39m | [2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m | [2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+  restore         : byte-identical, sha256=21324b077d53bb6b2ced5f45ff2e4f9d6ddd458522057014132a46ed16ddbef1
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[FINAL ARM / backend-2-gates] rc=0 GREEN
+  summary: 12 passed, 3 warnings in 1.23s | shutil.rmtree(str(path), onexc=onerror)
+[FINAL ARM / frontend-1-gate] rc=0 GREEN
+  summary: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m | [2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+============================================================
+RESULT: PASS (3/3 RED, restored byte-identical, final GREEN)

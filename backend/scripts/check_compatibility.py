@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -100,8 +101,15 @@ def check_model_files(models_dir: Path | None = None) -> dict:
             "total": 0,
             "found": 0,
             "missing_count": 0,
-            "ok": True,
-            "detail": f"Models dir {models_dir} not found, skipping (CI mode)",
+            # M-12：缺模型目录不是「检查通过」，而是「0 项检查被跳过」。
+            # 原实现 ok=True 却让 critical_checks 只算 sklearn_version，
+            # 于是 CI 常态（模型不入 git）永远输出 ALL CHECKS PASSED。
+            "ok": False,
+            "skipped": True,
+            "detail": (
+                f"Models dir {models_dir} not found — 模型工件缺失，检查未执行；"
+                "需设置 CI_ALLOW_MISSING_MODELS=1 才允许放行"
+            ),
             "missing": [],
         }
 
@@ -141,6 +149,13 @@ def check_model_files(models_dir: Path | None = None) -> dict:
 
 def main() -> int:
     output_json = "--json" in sys.argv
+    # docstring 声明的 --models-dir 此前未实现，只能检查仓库根 models/；
+    # 补齐后 CI/本地可显式指定工件目录，也便于验证「缺模型」分支。
+    models_dir: Path | None = None
+    if "--models-dir" in sys.argv:
+        idx = sys.argv.index("--models-dir")
+        if idx + 1 < len(sys.argv):
+            models_dir = Path(sys.argv[idx + 1])
 
     results: list[dict] = []
 
@@ -153,17 +168,32 @@ def main() -> int:
         results.append({"check": "sklearn_version", "ok": False, "detail": str(exc)})
 
     # 2. model file existence check (非致命: CI 无模型文件时跳过)
-    results.append(check_model_files())
+    results.append(check_model_files(models_dir))
 
     # 3. model compatibility registry check (非致命: 依赖模型文件)
     try:
-        results.append(check_all_models())
+        results.append(check_all_models(models_dir))
     except Exception as exc:
         results.append({"check": "model_compatibility", "ok": False, "detail": str(exc)})
 
     # sklearn 版本是唯一致命检查; 模型文件/兼容性在 CI 无模型时为警告
     critical_checks = [r for r in results if r["check"] == "sklearn_version"]
     all_ok = all(r["ok"] for r in critical_checks) if critical_checks else False
+
+    # M-12：跳过项不得当成通过项；只有显式声明允许缺模型时才放行。
+    skipped = [r for r in results if r.get("skipped")]
+    allow_missing = os.environ.get("CI_ALLOW_MISSING_MODELS", "").strip().lower() in {
+        "1",
+        "true",
+    }
+    if skipped and not allow_missing:
+        logger.warning(
+            "模型工件缺失且未设置 CI_ALLOW_MISSING_MODELS：%d 项检查被跳过，门禁不通过",
+            len(skipped),
+        )
+        all_ok = False
+    if skipped:
+        logger.info("跳过项（非通过）：%s", ", ".join(r["check"] for r in skipped))
 
     if output_json:
         print(json.dumps({"ok": all_ok, "results": results}, indent=2, ensure_ascii=False))

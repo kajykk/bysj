@@ -143,8 +143,12 @@ def main() -> None:
         X_v121 = build_v121_features(df_test)
         try:
             X_v121_scaled = v121_scaler.transform(X_v121)
-        except Exception:
-            X_v121_scaled = X_v121
+        except Exception as exc:
+            # M-15：特征列/顺序错配是真实故障，绝不能改用未标准化特征继续算
+            # AUC/F1 并写入「是否切换默认结构化模型」的对比报告。
+            raise RuntimeError(
+                "v1.21 scaler 与特征列不匹配，拒绝用未标准化特征伪造对比指标"
+            ) from exc
         v121_proba = v121_model.predict_proba(X_v121_scaled)[:, 1]
         v121_pred = v121_model.predict(X_v121_scaled)
         v121_risk = v121_proba * 100

@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
-from app.core.contracts import USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN
+from app.core.contracts import DEFAULT_TENANT_ID, USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
@@ -74,6 +74,29 @@ _MAX_METADATA_VALUE_LEN = 200
 _event_store: list[dict[str, Any]] = []
 _event_store_lock = asyncio.Lock()
 _MAX_STORE_SIZE = 20000
+
+# REVIEW-2026-11-06 (S-01)：以下字段只在进程内保存，不随审计查询下发。
+_INTERNAL_EVENT_FIELDS = frozenset({"tenant_id", "client_ip"})
+
+
+def _visible_events_for_tenant(
+    records: list[dict[str, Any]], tenant_id: int
+) -> list[dict[str, Any]]:
+    """按租户收窄事件并剥离内部字段。
+
+    ``_event_store`` 是汇聚所有租户的进程级全局列表，查询端点必须按
+    ``current_user.tenant_id`` 过滤，否则租户 B 的 admin 可读到租户 A 的
+    ``user_id`` / ``metadata`` / ``client_ip``（gdpr.py:256-264 已把同类
+    平台级端点升级为 require_platform_admin，此处补上租户维度过滤）。
+
+    缺 ``tenant_id`` 的记录一律拒绝（fail-closed），不按默认租户兜底，
+    避免「缺字段 = 全租户可见」。
+    """
+    return [
+        {k: v for k, v in record.items() if k not in _INTERNAL_EVENT_FIELDS}
+        for record in records
+        if isinstance(record.get("tenant_id"), int) and record["tenant_id"] == tenant_id
+    ]
 
 
 class AnalyticsEventPayload(BaseModel):
@@ -162,6 +185,7 @@ async def submit_events(
         records.append(
             {
                 "user_id": current_user.id,
+                "tenant_id": current_user.tenant_id or DEFAULT_TENANT_ID,
                 "event_type": evt.event_type,
                 "timestamp": evt.timestamp,
                 "metadata": evt.metadata,
@@ -271,18 +295,21 @@ async def query_events(
     limit: int = Query(default=100, ge=1, le=500),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """查询已存储的分析事件（仅管理员）."""
+    """查询本租户已存储的分析事件（仅管理员）."""
     if current_user.role not in (USER_ROLE_ADMIN, USER_ROLE_SUPER_ADMIN):
         raise HTTPException(status_code=403, detail="仅管理员可查询分析事件")
 
-    # 清理过期事件
+    # 清理过期事件；随后立即按当前用户租户收窄，避免跨租户读取全局仓库
     now = _naive_utc_now()
+    tenant_id = current_user.tenant_id or DEFAULT_TENANT_ID
     async with _event_store_lock:
         _event_store[:] = [e for e in _event_store if datetime.fromisoformat(e["retention_expires_at"]) > now]
-        records = list(_event_store)
+        # 过滤在锁内完成：下游只拿到本租户的独立副本，拿不到全局仓库快照
+        records = _visible_events_for_tenant(_event_store, tenant_id)
+    total = len(records)
 
     if event_type:
         records = [r for r in records if r["event_type"] == event_type]
 
     records = records[-limit:]
-    return ok({"events": records, "total": len(_event_store)})
+    return ok({"events": records, "total": total})

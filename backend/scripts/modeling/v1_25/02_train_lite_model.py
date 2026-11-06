@@ -197,8 +197,15 @@ def main() -> None:
     if "gbdt_auc" in metrics:
         try:
             joblib.dump(lgb_calibrated, model_dir / "mmpsy_lite_model_gbdt.pkl")
-        except Exception:  # nosec: B110 -- AUDIT-2026-10-07 (P0-4): 非凭据: B110 变量名正则误匹配 except 子句, 该行为异常处理
-            pass
+        except Exception as exc:
+            # M-16：产物写盘失败不能只 pass —— 否则 metrics["gbdt_auc"] 仍在，
+            # 脚本照常打印指标与 Go/No-Go，制造「训练成功」假象。
+            metrics["gbdt_artifact_saved"] = False
+            (model_dir / "mmpsy_lite_metrics.json").write_text(
+                json.dumps(metrics, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            logger.exception("GBDT 校准模型写盘失败，训练标记 FAILURE: %s", exc)
+            raise
 
     logger.info("Metrics: AUC=%.4f F1=%.4f Recall=%.4f Specificity=%.4f Brier=%.4f",
                 metrics["auc"], metrics["f1"], metrics["recall"],

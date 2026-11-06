@@ -44,11 +44,18 @@ class ContentService:
         if keyword:
             keyword = keyword.strip()[:50]
             if keyword:
-                like_kw = f"%{keyword}%"
+                # L-05：转义 LIKE 通配符，否则输入单个 % 即可匹配全部内容
+                # 绕过关键词过滤（前导通配符同时使索引失效）。
+                escaped = (
+                    keyword.replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_")
+                )
+                like_kw = f"%{escaped}%"
                 keyword_filter = (
-                    EducationContent.title.ilike(like_kw)
-                    | EducationContent.summary.ilike(like_kw)
-                    | EducationContent.content.ilike(like_kw)
+                    EducationContent.title.ilike(like_kw, escape="\\")
+                    | EducationContent.summary.ilike(like_kw, escape="\\")
+                    | EducationContent.content.ilike(like_kw, escape="\\")
                 )
                 stmt = stmt.where(keyword_filter)
                 count_stmt = count_stmt.where(keyword_filter)

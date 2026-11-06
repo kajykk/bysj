@@ -48,6 +48,10 @@ class ShadowModeService:
         # 采样率 (从 config 读取, 默认全量)
         self._sample_rate = 1.0
         self._random = random.Random(42)
+        # REVIEW-2026-11-06 (M-07)：create_task 必须持有强引用，否则事件循环
+        # 可能 GC 掉后台任务、异常变成 "never retrieved"，对拍样本无痕丢失。
+        self._tasks: set[asyncio.Task[None]] = set()
+        self._shadow_failures = 0
 
     def _ensure_predictor(self) -> bool:
         """懒加载 M2 BERT 推理器 (首次调用时加载)."""
@@ -84,8 +88,22 @@ class ShadowModeService:
         if not self._ensure_predictor():
             return
 
-        # fire-and-forget: 创建后台任务, 主请求不等待
-        asyncio.create_task(self._shadow_predict(text, production_result))
+        # fire-and-forget: 创建后台任务, 主请求不等待（但必须持有强引用）
+        task = asyncio.create_task(self._shadow_predict(text, production_result))
+        self._tasks.add(task)
+        task.add_done_callback(self._on_shadow_task_done)
+
+    def _on_shadow_task_done(self, task: asyncio.Task[None]) -> None:
+        """回收任务引用并显式记录失败，避免样本静默丢失后被当成样本不足放行。"""
+        self._tasks.discard(task)
+        if task.cancelled():
+            self._shadow_failures += 1
+            return
+        exc = task.exception()
+        if exc is not None:
+            self._shadow_failures += 1
+            logger.warning("[SHADOW] background comparison failed: %s", exc)
+            record_silent_degradation("services.shadow_mode.task_failed")
 
     async def _shadow_predict(
         self,

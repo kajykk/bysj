@@ -9,6 +9,7 @@ import { normalizePageResult, type UnifiedPageResult } from '@/types/contracts'
 import { clearStoredAuth, getStoredToken, setStoredAuth } from '@/utils/authStorage'
 import { getNetworkErrorMessage, normalizeHttpErrorInfo } from '@/utils/httpError'
 import { logger } from '@/utils/logger'
+import { AUTH_SYNC_EVENT, broadcastAuthSync } from '@/utils/authBroadcast'
 import { API_BASE_URL } from './base'
 import i18n from '@/i18n'
 
@@ -19,8 +20,6 @@ export type DedupeableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean
   bypassDedupe?: boolean
 }
-
-const AUTH_SYNC_EVENT = 'auth-sync'
 
 // P1-12 修复：RFC 9110 §9.2.2 定义的幂等方法集合。
 // 401 静默刷新后仅对这些方法自动重放原请求；POST/PATCH 不幂等，重放有重复提交风险。
@@ -70,11 +69,6 @@ type PendingEntry = {
   timer: ReturnType<typeof setTimeout> | null
 }
 let pendingRequests: PendingEntry[] = []
-
-function broadcastAuthSync(payload: { token?: string; refreshToken?: string; user?: unknown }) {
-  if (typeof window === 'undefined') return
-  window.dispatchEvent(new CustomEvent(AUTH_SYNC_EVENT, { detail: payload }))
-}
 
 export async function refreshAccessToken(): Promise<string | null> {
   // 安全修复：refresh_token 由后端 HttpOnly Cookie 管理，不再从 localStorage 读取

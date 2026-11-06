@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import and_, desc, select
+from sqlalchemy import and_, desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
@@ -39,6 +39,10 @@ ESCALATION_THRESHOLDS = {
     "P0_repeat": timedelta(minutes=30),
     "P0_final": timedelta(hours=1),
 }
+
+# M-10：分批游标扫描，避免固定 limit 截断待处理集合
+_ESCALATION_BATCH_SIZE = 500
+_MAX_ESCALATION_ROWS = 20_000
 
 
 def _observe_escalation_latency(
@@ -179,24 +183,62 @@ def compute_escalation(alert: OperationLog, now: datetime) -> EscalationDecision
 
 
 async def run_escalation_check(db: AsyncSession) -> list[EscalationDecision]:
-    """v1.33: 扫描所有未确认 firing 告警, 执行升级.
+    """v1.33: 扫描所有 firing 告警, 执行升级（未确认判定在 compute_escalation）.
+
+    REVIEW-2026-11-06 (M-10)：原实现固定取最新 500 条，历史已确认告警或
+    积压新告警占满额度后，较老的未确认告警永远不会被扫描，P1→P0 与
+    1 小时合规追踪静默漏掉。``acknowledged`` 存在 detail JSON 里
+    （compute_escalation:121-123），无法下推成跨库 SQL 条件，因此改为
+    (created_at, id) 游标分页遍历全量，并设置总行数上限防失控。
 
     Returns:
         所有升级决策 (包括未升级的)
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    stmt = select(OperationLog).where(
-        and_(
-            OperationLog.action_type == "alert_fired",
-            OperationLog.target_type == "alert",
-        )
-    ).order_by(desc(OperationLog.created_at), desc(OperationLog.id)).limit(500)
-    rows = (await db.execute(stmt)).scalars().all()
-
     decisions: list[EscalationDecision] = []
-    for row in rows:
-        decision = compute_escalation(row, now)
-        decisions.append(decision)
+    cursor_created_at: datetime | None = None
+    cursor_id: int | None = None
+    scanned = 0
+
+    while scanned < _MAX_ESCALATION_ROWS:
+        stmt = select(OperationLog).where(
+            and_(
+                OperationLog.action_type == "alert_fired",
+                OperationLog.target_type == "alert",
+            )
+        )
+        if cursor_created_at is not None:
+            stmt = stmt.where(
+                or_(
+                    OperationLog.created_at < cursor_created_at,
+                    and_(
+                        OperationLog.created_at == cursor_created_at,
+                        OperationLog.id < cursor_id,
+                    ),
+                )
+            )
+        stmt = stmt.order_by(
+            desc(OperationLog.created_at), desc(OperationLog.id)
+        ).limit(_ESCALATION_BATCH_SIZE)
+        rows = (await db.execute(stmt)).scalars().all()
+        if not rows:
+            break
+
+        for row in rows:
+            decisions.append(compute_escalation(row, now))
+        scanned += len(rows)
+
+        last = rows[-1]
+        if last.created_at is None:
+            break  # 无时间戳无法继续游标，留给下轮（并已记 warning）
+        cursor_created_at, cursor_id = last.created_at, last.id
+        if len(rows) < _ESCALATION_BATCH_SIZE:
+            break
+    else:
+        logger.warning(
+            "[escalation] 扫描达到上限 %d 行，可能仍有未处理告警待下轮", scanned
+        )
+
     return decisions
 
 

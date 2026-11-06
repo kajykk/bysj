@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from jwt import PyJWTError
-from sqlalchemy import select, update
+from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
@@ -79,7 +79,13 @@ class AuthService:
         self.db = db
         self.email_service = EmailService()
 
-    async def register(self, payload: RegisterRequest) -> dict:
+    async def register(
+        self, payload: RegisterRequest, tenant_id: int | None = None
+    ) -> dict:
+        # REVIEW-2026-11-06 (M-06)：注册必须落到请求租户。login() 已按
+        # User.tenant_id 过滤，原 register 不传 tenant_id ⇒ 落到默认租户 1，
+        # 非默认租户子域注册的用户随后在同一子域必然登录失败。
+        effective_tenant_id = tenant_id or DEFAULT_TENANT_ID
         # PII 加密：使用 email_hash 盲索引进行唯一性检查（密文不可直接比较）
         # RES-P1-014：查询用 blind_index_candidates 兼容未迁移的存量哈希，
         # 写入用 compute_blind_index（归一化值），保证新数据统一。
@@ -88,8 +94,11 @@ class AuthService:
             select(User)
             .options(load_only(User.id, User.username, User.email_hash))
             .where(
-                (User.username == payload.username)
-                | (User.email_hash.in_(blind_index_candidates(payload.email, "email")))
+                and_(
+                    (User.username == payload.username)
+                    | (User.email_hash.in_(blind_index_candidates(payload.email, "email"))),
+                    User.tenant_id == effective_tenant_id,
+                )
             )
         )
         exists_user = (await self.db.execute(stmt)).scalar_one_or_none()
@@ -103,6 +112,7 @@ class AuthService:
             password_hash=await get_password_hash_async(payload.password),
             role=USER_ROLE_USER,  # SEC-001 修复：强制注册用户为 user 角色，咨询师账号需管理员创建
             status="active",
+            tenant_id=effective_tenant_id,
         )
         self.db.add(user)
         await self.db.flush()

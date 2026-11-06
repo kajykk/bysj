@@ -72,8 +72,11 @@ export const resolveGuardResult = (toPath: string, meta: GuardRouteMeta, auth: G
   // 真实凭证校验（与 M26 的 fail-closed 口径一致）。
   if (toPath === '/') return roleVerified ? resolveRoleHome(auth.role) : '/login'
 
-  // 管理端：占位 role 不能单独支撑放行，回到登录页走一次真实凭证校验。
-  if (isAdminArea(toPath, meta) && !roleVerified) return '/login'
+  // 管理端 + 咨询师端：占位 role 不能单独支撑放行，回到登录页走一次真实凭证校验。
+  // REVIEW-2026-11-06 (M-20)：原判据只覆盖 /admin，roleVerified=false 时
+  // /counselor/* 仍用未验证的 auth.role 通过 meta.role / hasPermission 放行。
+  const privilegedArea = isAdminArea(toPath, meta) || toPath.startsWith('/counselor')
+  if (privilegedArea && !roleVerified) return '/login'
 
   // Route-level role metadata acts as a coarse guard; permission metadata is the
   // finer-grained check used for pages that expose sensitive operations.

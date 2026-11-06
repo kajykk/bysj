@@ -64,6 +64,8 @@ jobs:
           python scripts/check_compatibility.py --json
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
+          # M-12：CI 常态无模型工件，显式声明允许跳过（输出仍标明 skipped）。
+          CI_ALLOW_MISSING_MODELS: '1'
 
       - name: Generate E2E seed passwords
         # AUDIT-2026-10-01：原实现在此硬编码 ***REMOVED*** 等三个口令，随仓库历史公开等同已泄露。

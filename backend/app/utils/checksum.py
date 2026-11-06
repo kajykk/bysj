@@ -140,7 +140,9 @@ def cleanup_stale_sidecars(directory: Path | str) -> int:
         return 0
 
     removed = 0
-    for sidecar in directory.glob("*.sha256"):
+    # M-13：生成端用 rglob 递归写侧车、审计端递归扫，清理端必须同口径。
+    # 原实现只扫顶层，子目录里的孤立 .sha256 永远清不掉却报告「已删除 0」。
+    for sidecar in directory.rglob("*.sha256"):
         # 侧车文件名格式: <original_name>.<ext>.sha256 (例如 model.json.sha256)
         # 对应主文件: <original_name>.<ext> (移除 .sha256 后缀)
         main_file = sidecar.with_suffix("")  # 移除 .sha256

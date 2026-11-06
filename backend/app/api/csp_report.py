@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.core.rate_limit import limiter
 
@@ -15,6 +15,24 @@ router = APIRouter(prefix="/api/v1/csp-report", tags=["security"])
 
 # Maximum payload size: 64KB
 _MAX_CSP_REPORT_SIZE = 64 * 1024
+
+# 浏览器/Reporting API 的字段别名 → CSPReportBody 的 alias
+_CSP_FIELD_ALIASES = {
+    "blocked-uri": "blocked-url",
+    "blockedURL": "blocked-url",
+    "document-uri": "document-url",
+    "documentURL": "document-url",
+    "lineNumber": "line-number",
+    "sourceFile": "source-file",
+    "effectiveDirective": "effective-directive",
+    "violatedDirective": "violated-directive",
+}
+
+
+def _safe_log_value(value: object, max_len: int = 256) -> str:
+    """日志字段截断并转义 CRLF，防止构造值伪造日志行。"""
+    text = "" if value is None else str(value)
+    return text.replace("\r", "\\r").replace("\n", "\\n")[:max_len]
 
 
 class CSPReportBody(BaseModel):
@@ -152,28 +170,30 @@ async def receive_csp_report(request: Request) -> Response:
         logger.debug("CSP report received: no report body")
         return Response(status_code=204)
 
-    # Sanitize and extract key fields
-    directive = (
-        report_data.get("effective-directive")
-        or report_data.get("violated-directive")
-        or "unknown"
-    )
-    blocked = (
-        report_data.get("blocked-url")
-        or report_data.get("blockedURI")
-        or report_data.get("blocked-uri")
-        or "unknown"
-    )
-    document = (
-        report_data.get("document-url")
-        or report_data.get("documentURI")
-        or report_data.get("document-uri")
-        or "unknown"
-    )
-    source = report_data.get("source-file") or "unknown"
-    line = report_data.get("line-number") or report_data.get("lineNumber") or 0
+    # REVIEW-2026-11-06 (M-01)：让 CSPReportBody 的 max_length 校验真正生效。
+    # 原实现定义了模型却只声明 request 一个参数，模型从未被实例化，注释里
+    # 「M-API-11 修复」的字段长度约束是不可达死代码；且日志直接取原始 JSON
+    # 值，可注入换行伪造日志。多格式别名先归一化，再用同一模型校验。
+    if not isinstance(report_data, dict):
+        raise HTTPException(status_code=400, detail="Invalid CSP report body")
+    normalized: dict[str, Any] = dict(report_data)
+    for src, dst in _CSP_FIELD_ALIASES.items():
+        if src in normalized and dst not in normalized:
+            normalized[dst] = normalized[src]
+    try:
+        body = CSPReportBody.model_validate(normalized)
+    except ValidationError:
+        logger.warning("CSP report rejected: field too long or invalid type")
+        raise HTTPException(status_code=400, detail="Invalid CSP report payload")
 
-    # Log the violation
+    directive = _safe_log_value(
+        body.effective_directive or body.violated_directive or "unknown", 128
+    )
+    blocked = _safe_log_value(body.blocked_url or body.blocked_uri or "unknown")
+    document = _safe_log_value(body.document_url or body.document_uri or "unknown")
+    source = _safe_log_value(body.source_file or "unknown")
+    line = _safe_log_value(body.line_number or 0, 32)
+
     logger.info(
         "CSP violation: directive=%s blocked=%s document=%s source=%s line=%s",
         directive,

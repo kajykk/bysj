@@ -296,6 +296,16 @@ def build_prometheus_query_result(query: str, body: str) -> dict[str, Any]:
     results = []
     now_ts = _time.time()
     query = query.strip()
+    # M-02：用户可控的 =~ pattern 只允许受限字符集（不含 |、() 等可构造
+    # 灾难性回溯或篡改过滤语义的元字符），且预编译提到行循环外，
+    # 避免在 async 端点里对 exposition 每一行反复编译。
+    regex_filters: list[tuple[str, re.Pattern[str] | None]] = []
+    for key, pattern in re.findall(r'(\w+)=~"([^"]*)"', query):
+        if re.fullmatch(r"[A-Za-z0-9_.*?+\-]{1,128}", pattern):
+            regex_filters.append((key, re.compile(f"^({pattern})$")))
+        else:
+            # 非法/超长 pattern 不得静默退化成「不过滤」：标记后让该行 fail-closed
+            regex_filters.append((key, None))
     metric_name = query.split("{")[0].split("(")[-1].strip()
     label_filters: dict[str, str] = {}
     if "{" in query:
@@ -331,9 +341,8 @@ def build_prometheus_query_result(query: str, body: str) -> dict[str, Any]:
         if skip:
             continue
 
-        regex_filters = re.findall(r'(\w+)=~"([^"]*)"', query)
-        for k, pattern in regex_filters:
-            if k in labels and not re.match(f"^({pattern})$", labels[k]):
+        for k, compiled in regex_filters:
+            if k in labels and (compiled is None or not compiled.match(labels[k])):
                 skip = True
                 break
         if skip:

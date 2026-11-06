@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import secrets
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
 from app.api.v1.metrics_helpers import (
@@ -184,7 +184,7 @@ async def get_metrics(
 
 @router.get("/query", response_model=PrometheusQueryResponse)
 async def prometheus_query(
-    query: str = "",
+    query: str = Query(default="", max_length=512),
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> dict:
     """Return a small Prometheus HTTP API-compatible vector response."""

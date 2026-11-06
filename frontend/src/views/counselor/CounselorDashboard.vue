@@ -267,7 +267,10 @@ const loadStats = async () => {
     unhandledCount.value = warnings
     userCount.value = users
   } catch {
-    // keep defaults
+    // REVIEW-2026-11-06 (S-02)：加载失败必须进入第三态（null）。
+    // 原实现「keep defaults」让模板把初值 0 渲染成「确实没有待处理预警」，
+    // 是临床漏报信号；M27 的 v-else-if="unhandledCount === null" 因此不可达。
+    unhandledCount.value = null
   } finally {
     statsLoading.value = false
   }
