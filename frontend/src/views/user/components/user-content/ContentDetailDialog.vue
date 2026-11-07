@@ -40,7 +40,7 @@
       <!-- eslint-disable vue/no-v-html -- 内容已通过 DOMPurify 白名单净化，允许展示受控富文本 -->
       <div
         class="detail-content"
-        v-html="sanitizedHtml"
+        v-html="lazyLoadedHtml"
       />
       <!-- eslint-enable vue/no-v-html -->
       <div
@@ -90,6 +90,12 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// L-19：净化后的富文本给图片补懒加载/异步解码，避免长文多图一次性并发加载。
+// 仅追加属性，不改动 DOMPurify 净化白名单与内容本身。
+const lazyLoadedHtml = computed(() =>
+  props.sanitizedHtml.replace(/<img\b/gi, '<img loading="lazy" decoding="async"')
+)
 
 const contentTypeLabel = computed(() => {
   if (!props.data) return ''

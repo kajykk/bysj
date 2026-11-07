@@ -497,9 +497,14 @@ describe('Router - index.ts 集成测试', () => {
      */
     function mockLocationAssign(initialPathname: string): {
       spy: ReturnType<typeof vi.fn>
+      reloadSpy: ReturnType<typeof vi.fn>
       restore: () => void
     } {
       const spy = vi.fn()
+      // M-19 / ROUND_35: chunk 刷新改用 location.reload()，不再把 to.fullPath
+      // 交给 location.assign（//host 之类畸形路径会造成开放跳转）。两个 spy
+      // 都保留，用来同时钉住「刷新确实发生」与「assign 绝不被调用」。
+      const reloadSpy = vi.fn()
       const originalLocation = window.location
       const mockLocation = {
         // 复制常用读属性，避免被测代码访问时报错
@@ -515,7 +520,7 @@ describe('Router - index.ts 集成测试', () => {
         fullPath: initialPathname,
         // 注入 spy
         assign: spy,
-        reload: vi.fn(),
+        reload: reloadSpy,
         replace: vi.fn(),
       } as unknown as Location
       Object.defineProperty(window, 'location', {
@@ -524,6 +529,7 @@ describe('Router - index.ts 集成测试', () => {
       })
       return {
         spy,
+        reloadSpy,
         restore: () => {
           Object.defineProperty(window, 'location', {
             configurable: true,
@@ -550,7 +556,7 @@ describe('Router - index.ts 集成测试', () => {
       sessionStorage.removeItem('last_chunk_reload')
     })
 
-    it('ChunkLoadError 应触发 window.location.assign 刷新', async () => {
+    it('ChunkLoadError 应触发 reload 刷新，且不再把 fullPath 交给 location.assign（M-19）', async () => {
       setAuthState(true, 'user')
 
       const chunkError = Object.assign(
@@ -561,7 +567,7 @@ describe('Router - index.ts 集成测试', () => {
       router.addRoute(route)
 
       // 替换 window.location，初始 pathname 与目标不同以触发刷新
-      const { spy: assignSpy, restore } = mockLocationAssign('/start-path')
+      const { spy: assignSpy, reloadSpy, restore } = mockLocationAssign('/start-path')
 
       try {
         await router.push('/__test-chunk-error__')
@@ -571,7 +577,9 @@ describe('Router - index.ts 集成测试', () => {
       // 等待微任务刷新
       await new Promise((r) => setTimeout(r, 0))
 
-      expect(assignSpy).toHaveBeenCalledWith('/__test-chunk-error__')
+      expect(reloadSpy).toHaveBeenCalledTimes(1)
+      // 畸形 fullPath 绝不能进入 location.assign（开放跳转面）
+      expect(assignSpy).not.toHaveBeenCalled()
 
       router.removeRoute('/__test-chunk-error__')
       restore()
@@ -584,7 +592,7 @@ describe('Router - index.ts 集成测试', () => {
       const route = makeRouteThatThrows('/__test-other-error__', otherError)
       router.addRoute(route)
 
-      const { spy: assignSpy, restore } = mockLocationAssign('/other-start-path')
+      const { spy: assignSpy, reloadSpy, restore } = mockLocationAssign('/other-start-path')
 
       try {
         await router.push('/__test-other-error__')
@@ -594,6 +602,7 @@ describe('Router - index.ts 集成测试', () => {
       await new Promise((r) => setTimeout(r, 0))
 
       expect(assignSpy).not.toHaveBeenCalled()
+      expect(reloadSpy).not.toHaveBeenCalled()
 
       router.removeRoute('/__test-other-error__')
       restore()
@@ -632,7 +641,7 @@ describe('Router - index.ts 集成测试', () => {
       router.addRoute(route)
 
       // 设置 pathname 与目标相同，模拟已在目标路径
-      const { spy: assignSpy, restore } = mockLocationAssign('/__test-same-path__')
+      const { spy: assignSpy, reloadSpy, restore } = mockLocationAssign('/__test-same-path__')
 
       try {
         // 第一次触发：应刷新（sessionStorage 无记录）
@@ -643,7 +652,8 @@ describe('Router - index.ts 集成测试', () => {
       await new Promise((r) => setTimeout(r, 0))
 
       // ISS-011 修复后：第一次触发应刷新（不再比较 pathname）
-      expect(assignSpy).toHaveBeenCalledTimes(1)
+      expect(reloadSpy).toHaveBeenCalledTimes(1)
+      expect(assignSpy).not.toHaveBeenCalled()
 
       // 第二次触发：5 秒内不应刷新（时间窗口限制）
       try {
@@ -654,7 +664,8 @@ describe('Router - index.ts 集成测试', () => {
       await new Promise((r) => setTimeout(r, 0))
 
       // 5 秒内第二次不应刷新
-      expect(assignSpy).toHaveBeenCalledTimes(1)
+      expect(reloadSpy).toHaveBeenCalledTimes(1)
+      expect(assignSpy).not.toHaveBeenCalled()
 
       router.removeRoute('/__test-same-path__')
       restore()
@@ -671,7 +682,7 @@ describe('Router - index.ts 集成测试', () => {
       const route = makeRouteThatThrows('/__test-syntax-error__', syntaxError)
       router.addRoute(route)
 
-      const { spy: assignSpy, restore } = mockLocationAssign('/different-syntax-path')
+      const { spy: assignSpy, reloadSpy, restore } = mockLocationAssign('/different-syntax-path')
 
       try {
         await router.push('/__test-syntax-error__')
@@ -682,6 +693,7 @@ describe('Router - index.ts 集成测试', () => {
 
       // 修复后：纯 SyntaxError 不应触发刷新，避免掩盖真实语法错误
       expect(assignSpy).not.toHaveBeenCalled()
+      expect(reloadSpy).not.toHaveBeenCalled()
 
       router.removeRoute('/__test-syntax-error__')
       restore()
@@ -699,7 +711,7 @@ describe('Router - index.ts 集成测试', () => {
       const route = makeRouteThatThrows('/__test-syntax-chunk__', syntaxErrorWithChunkMsg)
       router.addRoute(route)
 
-      const { spy: assignSpy, restore } = mockLocationAssign('/different-syntax-chunk-path')
+      const { spy: assignSpy, reloadSpy, restore } = mockLocationAssign('/different-syntax-chunk-path')
 
       try {
         await router.push('/__test-syntax-chunk__')
@@ -709,7 +721,8 @@ describe('Router - index.ts 集成测试', () => {
       await new Promise((r) => setTimeout(r, 0))
 
       // 修复后：SyntaxError 含 chunk 失败特征时仍应触发刷新
-      expect(assignSpy).toHaveBeenCalledWith('/__test-syntax-chunk__')
+      expect(reloadSpy).toHaveBeenCalledTimes(1)
+      expect(assignSpy).not.toHaveBeenCalled()
 
       router.removeRoute('/__test-syntax-chunk__')
       restore()
@@ -725,7 +738,7 @@ describe('Router - index.ts 集成测试', () => {
       const route = makeRouteThatThrows('/__test-loading-chunk__', chunkError)
       router.addRoute(route)
 
-      const { spy: assignSpy, restore } = mockLocationAssign('/different-loading-path')
+      const { spy: assignSpy, reloadSpy, restore } = mockLocationAssign('/different-loading-path')
 
       try {
         await router.push('/__test-loading-chunk__')
@@ -734,7 +747,8 @@ describe('Router - index.ts 集成测试', () => {
       }
       await new Promise((r) => setTimeout(r, 0))
 
-      expect(assignSpy).toHaveBeenCalledWith('/__test-loading-chunk__')
+      expect(reloadSpy).toHaveBeenCalledTimes(1)
+      expect(assignSpy).not.toHaveBeenCalled()
 
       router.removeRoute('/__test-loading-chunk__')
       restore()

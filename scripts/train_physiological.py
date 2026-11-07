@@ -19,27 +19,21 @@ Output (per model):
 from __future__ import annotations
 
 import argparse
-import json
-import logging
-import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
-
-from app.ml.data_cleaner import clean_dataset
-from app.ml.data_loader import merge_datasets
-from app.ml.data_split import stratified_split
-from app.ml.feature_engineering import ALL_FEATURES, engineer_features, get_feature_matrix
-from app.ml.scaler import SimpleStandardScaler, save_feature_names
-from app.ml.smote import apply_smote_if_needed
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from physio_training_common import (
+    SimpleStandardScaler,
+    compute_class_weight,
+    compute_eval_metrics,
+    load_and_preprocess_data,
+    logger,
+    prepare_training_data,
+    save_json_artifacts,
+)
 
 DEFAULT_OUTPUT_DIRS = {
     "xgb": Path("models/artifacts/physiological/xgboost"),
@@ -124,49 +118,6 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         help="SMOTE sampling strategy (max 0.8 per Ralph rules)",
     )
     return parser.parse_args(args)
-
-
-def load_and_preprocess_data() -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
-    """Load and preprocess physiological data.
-
-    Returns:
-        Tuple of (feature_df, full_df, y_array).
-    """
-    logger.info("Loading datasets...")
-    df = merge_datasets()
-    logger.info("Loaded %d samples", len(df))
-
-    logger.info("Cleaning data...")
-    df = clean_dataset(df)
-    logger.info("After cleaning: %d samples", len(df))
-
-    logger.info("Engineering features...")
-    df = engineer_features(df)
-
-    # Get feature matrix
-    X_df = get_feature_matrix(df)
-    feature_names = list(X_df.columns)
-    logger.info("Features (%d): %s", len(feature_names), feature_names)
-
-    y = df["depression_label"].values.astype(np.int32)
-
-    return X_df, df, y
-
-
-def compute_class_weight(y: np.ndarray) -> float:
-    """Compute scale_pos_weight for imbalanced data.
-
-    Args:
-        y: Target vector.
-
-    Returns:
-        scale_pos_weight value.
-    """
-    n_neg = np.sum(y == 0)
-    n_pos = np.sum(y == 1)
-    if n_pos == 0:
-        return 1.0
-    return n_neg / n_pos
 
 
 def train_xgboost_model(
@@ -326,15 +277,7 @@ def evaluate_model(
         y_pred_proba = model.predict(dtest)
     else:
         y_pred_proba = model.predict(X)
-    y_pred = (y_pred_proba >= 0.5).astype(int)
-
-    # Compute metrics
-    from app.ml.trainer import compute_metrics
-
-    metrics = compute_metrics(y.reshape(-1, 1), y_pred_proba.reshape(-1, 1))
-    metrics["n_samples"] = len(y)
-
-    return metrics
+    return compute_eval_metrics(y, y_pred_proba)
 
 
 def extract_feature_importance_xgb(model: Any, feature_names: list[str]) -> list[dict]:
@@ -394,25 +337,7 @@ def save_artifacts(
     model.save_model(str(model_path))
     logger.info("Saved model to %s", model_path)
 
-    # Save scaler
-    scaler.save(output_dir / "scaler.json")
-
-    # Save feature names
-    save_feature_names(feature_names, output_dir / "feature_names.json")
-
-    # Save metrics
-    with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
-        json.dump(metrics, f, indent=2)
-
-    # Save training info
-    with open(output_dir / "training_info.json", "w", encoding="utf-8") as f:
-        json.dump(training_info, f, indent=2)
-
-    # Save config
-    with open(output_dir / "config.json", "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2)
-
-    logger.info("All artifacts saved to %s", output_dir)
+    save_json_artifacts(scaler, feature_names, metrics, training_info, config, output_dir)
 
 
 def main() -> None:
@@ -423,29 +348,9 @@ def main() -> None:
 
     # Load data
     X_df, full_df, y = load_and_preprocess_data()
-    X = X_df.values.astype(np.float32)
-    feature_names = list(X_df.columns)
-
-    # Split data
-    logger.info("Splitting data...")
-    X_train, X_val, X_test, y_train, y_val, y_test = stratified_split(
-        X, y, random_state=args.random_state
+    X_train, X_val, X_test, y_train, y_val, y_test, feature_names, scaler = prepare_training_data(
+        args, X_df, y
     )
-    logger.info("Train: %d, Val: %d, Test: %d", len(X_train), len(X_val), len(X_test))
-
-    # Scale features (fit on train only)
-    logger.info("Scaling features...")
-    scaler = SimpleStandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_val = scaler.transform(X_val)
-    X_test = scaler.transform(X_test)
-
-    # Apply SMOTE if needed (on train only, max ratio 0.8 per Ralph rules)
-    logger.info("Applying SMOTE (ratio <= 0.8)...")
-    X_train, y_train = apply_smote_if_needed(
-        X_train, y_train, sampling_strategy=min(args.smote_ratio, 0.8)
-    )
-    logger.info("After SMOTE: %d samples", len(X_train))
 
     # Training config (字段与各模型原脚本 config.json 保持一致)
     config = {

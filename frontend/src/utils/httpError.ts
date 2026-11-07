@@ -41,6 +41,19 @@ export const getNetworkErrorMessage = (error: unknown): string | null => {
   return null
 }
 
+// L-12：后端 detail 不得原样展示给用户。5xx 一律本地化通用文案，仅 4xx 业务错误透传；
+// 命中堆栈/SQL/文件路径等敏感特征时回退通用文案，并对透传内容统一截断 200 字符。
+const GENERIC_SERVER_ERROR = '服务异常，请稍后重试'
+const MAX_DETAIL_LENGTH = 200
+const SENSITIVE_DETAIL_PATTERN =
+  /Traceback \(most recent call last\)|File ".*", line \d+|\b(?:SELECT\s+[\s\S]*?\s+FROM|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM)\b|\b(?:sqlite3|psycopg2|sqlalchemy|asyncpg|pymysql)\b|(?:^|[\s"'])[A-Za-z]:[\\/]|\/(?:usr|home|app|var|etc|srv|root)\/|site-packages|node_modules|\.py["']?\s*,?\s*line\s*\d+/i
+
+const sanitizeDetail = (detail: string, status: number): string => {
+  if (!detail) return detail
+  if (status >= 500 || SENSITIVE_DETAIL_PATTERN.test(detail)) return GENERIC_SERVER_ERROR
+  return detail.length > MAX_DETAIL_LENGTH ? detail.slice(0, MAX_DETAIL_LENGTH) : detail
+}
+
 export const normalizeHttpErrorInfo = (error: unknown, fallback: string): HttpErrorInfo => {
   const raw = error as { response?: { status?: unknown; data?: { detail?: unknown; message?: unknown; error?: { message?: unknown } } }; message?: unknown; userMessage?: unknown } | null | undefined
   const response = raw?.response ?? (isAxiosError(error) ? error.response : undefined)
@@ -60,5 +73,5 @@ export const normalizeHttpErrorInfo = (error: unknown, fallback: string): HttpEr
         ? errorMessage
         : fallback
 
-  return { status, detail }
+  return { status, detail: sanitizeDetail(detail, status) }
 }

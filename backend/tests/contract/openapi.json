@@ -878,6 +878,121 @@
       }
     },
     "/api/v1/auth/profile": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Get Profile",
+        "description": "返回当前用户本人资料（含邮箱），供设置页刷新后回填。",
+        "operationId": "get_profile_api_v1_auth_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ProfileResponse_"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "业务处理失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "状态冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "请求过于频繁 (限流)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务暂不可用 (Celery/Redis/DB 故障)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
       "put": {
         "tags": [
           "auth"
@@ -1134,7 +1249,7 @@
           "analytics-events"
         ],
         "summary": "查询分析事件（管理员审计）",
-        "description": "查询已存储的分析事件（仅管理员）.",
+        "description": "查询本租户已存储的分析事件（仅管理员）.",
         "operationId": "query_events_api_v1_analytics_events_get",
         "security": [
           {
@@ -17983,7 +18098,7 @@
           "admin"
         ],
         "summary": "Export Operation Logs",
-        "description": "ISS-080: 导出全部筛选条件下的操作日志（不分页），供前端生成 CSV.",
+        "description": "ISS-080 / M-03: 导出筛选条件下的操作日志（逐行 CSV 流式输出）。\n\n与 /crisis-events/export 同口径：90 天跨度上限 + 记录数上限 + 逐行\nStreamingResponse CSV，避免全量命中行一次性驻留内存。",
         "operationId": "export_operation_logs_api_v1_admin_operation_logs_export_get",
         "security": [
           {
@@ -17998,7 +18113,8 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 64
                 },
                 {
                   "type": "null"
@@ -18078,13 +18194,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "CSV 文件",
             "content": {
-              "application/json": {
+              "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "type": "string"
                 }
-              }
+              },
+              "text/csv": {}
             }
           },
           "400": {
@@ -19999,6 +20116,7 @@
             "required": false,
             "schema": {
               "type": "string",
+              "maxLength": 512,
               "default": "",
               "title": "Query"
             }
@@ -25987,7 +26105,7 @@
           "tenants"
         ],
         "summary": "暂停租户（管理员）",
-        "description": "暂停租户.\n\n暂停后该租户所有请求将被拒绝（get_current_tenant 抛 403）。",
+        "description": "暂停租户.\n\nREV-2026-10-20 (S7)：暂停立即生效。该租户的\n- 新登录（``AuthService.login``）、\n- token 刷新（``AuthService.refresh``）、\n- 找回/重置密码（``AuthService.request_password_reset`` / ``reset_password``，\n  ROUND_17 T2 补齐）、\n- 所有已认证 HTTP 请求（``deps.get_current_user`` 校验 tenant.status）、\n- 新 WebSocket 连接（``core.ws`` handshake 校验）\n都会返回 403/拒绝。已签发的 access token 无需等待过期即失效，\n因此不需要额外做 token 批量吊销。入口清单与覆盖闸门见\n``tests/test_p2_41_round17_auth_gate.py``。",
         "operationId": "suspend_tenant_api_v1_tenants__tenant_id__suspend_post",
         "security": [
           {
@@ -27954,17 +28072,6 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Metadata"
-          },
-          "client_ip": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client Ip"
           },
           "received_at": {
             "type": "string",
@@ -30469,7 +30576,7 @@
             "title": "Refresh Token"
           },
           "user": {
-            "$ref": "#/components/schemas/UserBrief"
+            "$ref": "#/components/schemas/LoginUserBrief"
           }
         },
         "type": "object",
@@ -30478,6 +30585,53 @@
           "user"
         ],
         "title": "LoginResponse"
+      },
+      "LoginUserBrief": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "role"
+        ],
+        "title": "LoginUserBrief",
+        "description": "登录响应里的本人信息。\n\n比 ``UserBrief`` 多 ``email``：咨询师设置页需要回显本人邮箱（用于接收\n绑定来访者的预警邮件）。**不复用 ``UserBrief``**，避免该字段随\n``/reviews/assignable-counselors`` 等他人名单端点一起暴露。"
       },
       "LogoutResponse": {
         "properties": {
@@ -31772,17 +31926,35 @@
             "title": "New Password"
           },
           "reset_token": {
-            "type": "string",
-            "maxLength": 2048,
-            "minLength": 32,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "minLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Reset Token"
+          },
+          "verification_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Code"
           }
         },
         "type": "object",
         "required": [
           "email",
-          "new_password",
-          "reset_token"
+          "new_password"
         ],
         "title": "ResetPasswordRequest"
       },
@@ -32576,24 +32748,14 @@
             "type": "string",
             "title": "Token Type",
             "default": "bearer"
-          },
-          "refresh_token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Refresh Token"
           }
         },
         "type": "object",
         "required": [
           "access_token"
         ],
-        "title": "TokenResponse"
+        "title": "TokenResponse",
+        "description": "``/auth/refresh`` 的响应体（**只含** access token）。\n\nM1 修复（ROUND_18）：原模型带 ``refresh_token``，端点 ``return ok(tokens)``\n会把轮换后的长效令牌明文回传，抵消 httpOnly Cookie 的保护 —— 任何 XSS 只需\n``fetch('/auth/refresh', {credentials:'include'})`` 即可拿到它并外带。\n现模型层不再声明该字段：即便处理函数误传，FastAPI 的响应模型也会把它过滤掉\n（契约由结构保证，不依赖调用方自觉）。"
       },
       "TrainRequest": {
         "properties": {
@@ -32830,40 +32992,6 @@
         "title": "UploadResult",
         "description": "单文件上传结果."
       },
-      "UserBrief": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "username": {
-            "type": "string",
-            "title": "Username"
-          },
-          "role": {
-            "type": "string",
-            "title": "Role"
-          },
-          "nickname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nickname"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "username",
-          "role"
-        ],
-        "title": "UserBrief"
-      },
       "UserRiskReportRequest": {
         "properties": {
           "user_id": {
@@ -32913,18 +33041,21 @@
         "properties": {
           "model_version": {
             "type": "string",
+            "maxLength": 64,
             "title": "Model Version",
             "description": "Model version to validate"
           },
           "dataset_path": {
             "type": "string",
+            "maxLength": 512,
             "title": "Dataset Path",
             "description": "Path to validation dataset"
           },
           "baseline_version": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 64
               },
               {
                 "type": "null"
@@ -32936,7 +33067,8 @@
           "baseline_dataset_path": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 512
               },
               {
                 "type": "null"

@@ -69,12 +69,13 @@
 ### 孤儿组件（死组件）全量扫描 —— 不止 BottomNav
 
 用闸门同款判据（import 语句 / `<PascalCase>` / `<kebab-case>` / 字符串名引用）扫
-`frontend/src/components/**/*.vue`，共 30 个组件，**9 个无任何引用方**：
+`frontend/src/components/**/*.vue`，共 30 个组件，**9 个无任何引用方**（ROUND_35 判据显形后为 10，见文末）：
 
 | 孤儿组件 | 备注 |
 |---|---|
 | `components/charts/ModelPerformanceChart.vue` | 图表类，疑似被动态组件名引用但实测无 |
 | `components/charts/SystemHealthChart.vue` | 同上 |
+| `components/charts/RiskTrendChart.vue` | ROUND_35 同名遮蔽显形（详见文末） |
 | `components/common/illustrations/EmptyAssessment.vue` | 插画类 |
 | `components/common/illustrations/EmptyReport.vue` | 插画类 |
 | `components/common/illustrations/EmptyUser.vue` | 插画类 |
@@ -84,7 +85,7 @@
 | `components/common/ThemeSwitcher.vue` | 主题切换 |
 
 **处置**：本轮**只删除 BottomNav**（有明确裁定），其余 9 个**不删**（属产品决策），
-改用**棘轮**锁住 `ORPHAN_BASELINE = 9` —— 新增孤儿即红，且清单必须与本文档同步。
+改用**棘轮**锁住 `ORPHAN_BASELINE`（原 9，ROUND_35 修正漏报后 10） —— 新增孤儿即红，且清单必须与本文档同步。
 > 判"死组件"不能用 `components.d.ts`：它由 unplugin-vue-components 对目录内**所有**
 > 组件自动生成，存在与否都不证明被使用（这是第十轮 `BottomNav` 语法坏而 CI 全绿的根因）。
 
@@ -1915,3 +1916,40 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
   （README 已同步）；`#35` 桶计数不变。
 - #34 raise 分类（工作树实测）：HTTPException=215 / ServiceError=39 /
   other_raise=376（375→376、38→39，均为上述 `GET /auth/profile`）。
+
+---
+
+## ROUND_35 全量复验后的基线同步（2026-11-06）
+
+本轮是 `docs/CODE_REVIEW_2026-11-06.md` 代码审查整改的收尾复验，后端全量
+`51 failed / 7677 passed / 21 skipped`。用**按失败测试文件分组**的 A/B 实证
+（工作树子集 51 failed、逐文件字节回退 HEAD 后同子集 44 failed、两臂口径一致、
+还原字节一致）判定：**44 例为既有基线，7 例由本轮改动引入**。7 例均已闭环，
+以下三处属「静态清点基线同步」，不含任何断言放宽：
+
+1. **孤儿清单修正漏报（2 例）**：M-28 / L-16 把业务卡片
+   `views/user/components/user-dashboard/RiskTrendChart.vue` 改名为
+   `RiskTrendCard.vue`（旧名保留 re-export shim）。闸门按组件 basename 判引用，
+   旧 `<RiskTrendChart>` 标签曾让同名的通用组件
+   `components/charts/RiskTrendChart.vue` 被误判为「有引用方」；改名后该假引用
+   消失，通用组件显形为孤儿。全仓实测它没有任何引用方（`components.d.ts`
+   由 unplugin-vue-components 对目录自动生成，不证明被使用；`charts.test.ts`
+   是纯逻辑测试，不 import 组件）。因此 `ORPHAN_BASELINE` 9→10 是**修正既有
+   漏报**，不是新增死代码、也不是放宽棘轮；该组件同步登记进上表与
+   `_AUDITED_ORPHANS`，此后仍「只降不升」。按本轮既有处置惯例不删除该组件。
+2. **扫描锚点行号同步（2 例）**：L-03 把上传校验顺序抽进
+   `_validate_and_save_upload` 后，`user_upload.py` 的
+   `except (magic.MagicException, OSError)` 由 162 行前移到 149 行。
+   `TestP235Round13Batch33Wiring.CANDIDATES` 同步为 149；断言仍用 AST 核对
+   handler 存在、所属函数与接线唯一性，未弱化。
+3. **#35 桶计数（1 例）**：M-08 把 EXIF 清洗由逐像素重建改成 `img.save` 重编码，
+   新增临时文件清理失败时的 `except Exception: pass`，真降级候选 331→332、
+   X 118→119（W=111 不变）。分类器的 C 桶只识别 `aclose/close/stop/cancel`
+   且只检查 handler 体内文本，此处 handler 仅 `pass`、`unlink` 在 try 体内，
+   故如实判 X（真降级留档）；未改分类器，以免牵动其余 331 条历史裁定。
+4. **上传接线断言升级（2 例）**：`test_sec_p2_003_stab_p2_009_sec_p2_005.py`
+   原先按源码字面量切片断言 `process_uploaded_file` 出现在端点函数体内，
+   被 L-03 的合法公共管线抽取击穿。改为 AST 逐环验证调用链
+   （`upload_file` / `upload_batch` → `_process_batch_file` →
+   `_validate_and_save_upload` → `to_thread(process_uploaded_file, ...)`），
+   不受注释与字符串字面量干扰，任一环断开即红，强度高于原断言。

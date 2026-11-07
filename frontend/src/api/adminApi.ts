@@ -73,11 +73,14 @@ export const adminApi = {
   getOperationLogStats: () =>
     requestData<OperationLogStats>(dedupedGet('/admin/operation-logs/stats')),
 
-  // ISS-080: 导出全部筛选条件下的操作日志（不分页）
-  exportAdminOperationLogs: (query?: { action_type?: string; operator_role?: string; operator_name?: string; start_time?: string; end_time?: string }) =>
-    requestData<{ items: OperationLogItem[]; total: number }>(dedupedGet('/admin/operation-logs/export', {
-      params: { action_type: query?.action_type, operator_role: query?.operator_role, operator_name: query?.operator_name, start_time: query?.start_time, end_time: query?.end_time }
-    })),
+  // M-03 / ROUND_35: 后端改为逐行 StreamingResponse CSV（与
+  // /admin/crisis-events/export 同口径：90 天跨度 + 记录数上限），前端统一
+  // 按 Blob 接收下载，不再解析 {items,total}。单元格公式注入防护在后端。
+  exportAdminOperationLogs: (query?: { action_type?: string; operator_role?: string; operator_name?: string; start_time?: string; end_time?: string }): Promise<Blob> =>
+    dedupedGet('/admin/operation-logs/export', {
+      params: { action_type: query?.action_type, operator_role: query?.operator_role, operator_name: query?.operator_name, start_time: query?.start_time, end_time: query?.end_time },
+      responseType: 'blob'
+    }).then((res) => res.data as Blob),
 
   // AUDIT-2026-10-01（决策三 P2）：合规审计日志查询（GDPR/等保 2.0 场景）。
   // 响应多出 compliance 统计块，故不走 requestPageData，取完整 AuditLogsResult。

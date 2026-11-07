@@ -99,23 +99,14 @@ async def _process_batch_file(
     """处理批量上传中的单个文件（供 asyncio.gather 并发调用）。"""
     if not file.filename:
         return {"filename": "", "error": "文件名为空", "skipped": True}
-    save_path: Path | None = None
     try:
         ext = _validate_extension(file.filename, category)
         file_id = uuid.uuid4().hex[:12]
         save_name = f"{file_id}.{ext}"
         save_path = _safe_resolve_path(upload_base, user_id_str, save_name)
-        # H-API-8 修复：先读取文件头部校验 MIME，再落盘，避免恶意 polyglot 文件先写入磁盘
-        head_content = await file.read(8192)
-        await file.seek(0)
-        await _validate_mime_type(head_content, category)
-        size, _ = await _save_upload_stream(file, save_path)
-        # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描（OPT-P2-003：to_thread 避免阻塞事件循环）
-        safe, sec_msg = await asyncio.to_thread(process_uploaded_file, save_path, category)
-        if not safe:
-            if save_path is not None:
-                save_path.unlink(missing_ok=True)
-            return {"filename": file.filename, "error": f"安全检查失败: {sec_msg}"}
+        # L-03 修复：与单文件端点共用统一顺序（先校验 MIME 再落盘 + 安全扫描），
+        # 失败清理由 _validate_and_save_upload 的 finally 保证
+        size = await _validate_and_save_upload(file, save_path, category)
         url = f"/uploads/{current_user_id}/{save_name}"
         return {
             "url": url,
@@ -124,12 +115,8 @@ async def _process_batch_file(
             "size": size,
         }
     except HTTPException as exc:
-        if save_path is not None:
-            save_path.unlink(missing_ok=True)
         return {"filename": file.filename, "error": exc.detail}
     except Exception:
-        if save_path is not None:
-            save_path.unlink(missing_ok=True)
         # 记录错误并继续处理后续文件，不中断整个批量上传
         return {"filename": file.filename, "error": "内部错误"}
 
@@ -221,6 +208,40 @@ async def _save_upload_stream(file: UploadFile, save_path: Path) -> tuple[int, b
     return size, head_bytes
 
 
+async def _validate_and_save_upload(
+    file: UploadFile,
+    save_path: Path,
+    category: str | None,
+) -> int:
+    """单文件/批量端点共用的上传处理顺序（L-03）。
+
+    H-API-8：先读文件头部校验 MIME, 校验通过后才落盘, 避免未校验内容先写入磁盘；
+    落盘后再做 EXIF 剥离 + ClamAV 扫描。任一环节失败都会删除已落盘文件，
+    保证失败时不残留。
+
+    Returns:
+        落盘文件的字节数。
+    """
+    success = False
+    try:
+        head_content = await file.read(8192)
+        await file.seek(0)
+        await _validate_mime_type(head_content, category)
+        size, _ = await _save_upload_stream(file, save_path)
+        # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描（to_thread 避免阻塞事件循环）
+        safe, sec_msg = await asyncio.to_thread(
+            process_uploaded_file, save_path, category
+        )
+        if not safe:
+            raise HTTPException(status_code=400, detail=f"文件安全检查失败: {sec_msg}")
+        success = True
+        return size
+    finally:
+        # unlink(missing_ok=True) 在文件尚未创建时也安全；成功时不清理
+        if not success:
+            save_path.unlink(missing_ok=True)
+
+
 @router.post("", response_model=ApiResponse[UploadResult], responses=COMMON_ERROR_RESPONSES)
 @limiter.limit("20/minute")
 async def upload_file(
@@ -247,24 +268,9 @@ async def upload_file(
     save_name = f"{file_id}.{ext}"
     save_path = _safe_resolve_path(upload_base, user_id_str, save_name)
 
-    try:
-        size, content = await _save_upload_stream(file, save_path)
-        # MIME类型验证
-        await _validate_mime_type(content, category)
-        # SEC-P2-003: EXIF 剥离 + ClamAV 病毒扫描
-        # OPT-P2-003：process_uploaded_file 为同步阻塞调用（Pillow 逐像素重编码 +
-        # ClamAV 网络扫描），直接内联会阻塞事件循环，与 reports.py 的 to_thread
-        # 处理方式对齐
-        safe, sec_msg = await asyncio.to_thread(process_uploaded_file, save_path, category)
-        if not safe:
-            save_path.unlink(missing_ok=True)
-            raise HTTPException(status_code=400, detail=f"文件安全检查失败: {sec_msg}")
-    except HTTPException:
-        save_path.unlink(missing_ok=True)
-        raise
-    except Exception:
-        save_path.unlink(missing_ok=True)
-        raise
+    # L-03 修复：复用批量端点的处理顺序（先读头部校验 MIME 再落盘 + 安全扫描），
+    # 失败清理由 _validate_and_save_upload 的 finally 保证，避免未校验文件先落盘
+    size = await _validate_and_save_upload(file, save_path, category)
 
     logger.info("User %s uploaded %s (%d bytes)", current_user.id, save_name, size)
 

@@ -199,8 +199,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useListQuery } from '@/composables/useListQuery'
 import { useListQueryState } from '@/composables/useListQueryState'
 import { showHttpFeedback } from '@/utils/httpFeedback'
-// ISS-052 修复：复用 exportToCSV 统一公式注入防护与单元格转义，消除手动拼接
-import { exportToCSV } from '@/utils/exportUtils'
+// M-03 / ROUND_35: CSV 由后端逐行流式生成（公式注入防护在后端统一处理），
+// 前端只负责触发下载，不再把全量行取回内存后自行拼接。
+import { downloadBlob } from '@/utils/exportUtils'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -277,29 +278,18 @@ const handleReset = async () => { filters.actionType = undefined; filters.operat
 const exportLogs = async () => {
   exporting.value = true
   try {
-    // ISS-080: 调用后端导出接口获取全部筛选结果，而非仅导出当前页
-    const data = await adminApi.exportAdminOperationLogs({
+    // ISS-080: 调用后端导出接口获取全部筛选结果，而非仅导出当前页。
+    // M-03: 后端已返回 CSV Blob，前端不再持有全量行。
+    const blobData = await adminApi.exportAdminOperationLogs({
       action_type: filters.actionType,
       operator_role: filters.operatorRole || undefined,
       operator_name: filters.operatorName || undefined,
       start_time: filters.range?.[0],
       end_time: filters.range?.[1]
     })
-    const allRows = data.items
-    // ISS-052 修复：复用 exportToCSV，内部统一调用 sanitizeCellForExcel 防止公式注入
-    exportToCSV(
-      allRows as unknown as Record<string, unknown>[],
-      [
-        { key: 'id', label: t('adminOperationLogs.csvHeaderId') },
-        { key: 'action_type', label: t('adminOperationLogs.csvHeaderActionType') },
-        { key: 'operator_role', label: t('adminOperationLogs.csvHeaderOperatorRole') },
-        { key: 'target_type', label: t('adminOperationLogs.csvHeaderTargetType') },
-        { key: 'target_id', label: t('adminOperationLogs.csvHeaderTargetId') },
-        { key: 'created_at', label: t('adminOperationLogs.csvHeaderCreatedAt') }
-      ],
-      `operation_logs_${new Date().toISOString().slice(0, 10)}.csv`
-    )
-    ElMessage.success(t('adminOperationLogs.exportSuccess', { count: allRows.length }))
+    const blob = new Blob([blobData], { type: 'text/csv;charset=utf-8' })
+    downloadBlob(blob, `operation_logs_${new Date().toISOString().slice(0, 10)}.csv`)
+    ElMessage.success(t('common.exportSuccess'))
   } catch (error) {
     showHttpFeedback(error, t('adminOperationLogs.exportFailed'))
   } finally {

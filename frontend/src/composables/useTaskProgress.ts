@@ -44,8 +44,22 @@ async function refreshJobStatus(jobId: string) {
       updated_at: Date.now(),
     })
     taskProgressMap.value = new Map(taskProgressMap.value)
-  } catch {
-    // 404/网络异常：任务已过期或被清理，静默忽略
+  } catch (error) {
+    const status = (error as { response?: { status?: number } } | null)?.response?.status
+    // L-13：404/410 说明任务已被后端清理，收敛为终态让轮询定时器自动停止；
+    // 网络抖动等无响应错误仍静默忽略，避免误判任务失败。
+    if (status === 404 || status === 410) {
+      const current = taskProgressMap.value.get(jobId)
+      if (current) {
+        taskProgressMap.value.set(jobId, {
+          ...current,
+          status: 'failed',
+          error: '任务已过期或被清理，请重新发起',
+          updated_at: Date.now(),
+        })
+        taskProgressMap.value = new Map(taskProgressMap.value)
+      }
+    }
   }
 }
 

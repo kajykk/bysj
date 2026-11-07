@@ -120,6 +120,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import type { FormInstance, FormRules } from 'element-plus'
 import { authApi } from '@/api/auth'
+import { useAuthFormSubmit } from '@/composables/useAuthFormSubmit'
 import { getErrorDetail } from '@/utils/errorDetail'
 import { validatePasswordBytes } from '@/utils/passwordValidation'
 import AuthBrandPanel, { type BrandSignal } from '@/components/common/AuthBrandPanel.vue'
@@ -127,7 +128,7 @@ import AuthBrandPanel, { type BrandSignal } from '@/components/common/AuthBrandP
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const loading = ref(false)
+const { loading, submit } = useAuthFormSubmit()
 const sendingCode = ref(false)
 const countdown = ref(0)
 const formRef = ref<FormInstance>()
@@ -201,43 +202,24 @@ const handleSendCode = async () => {
 }
 
 const handleSubmit = async () => {
-  if (!formRef.value) return
-
-  try {
-    await formRef.value.validate()
-    loading.value = true
-    await authApi.resetPassword({
-      email: form.email,
-      new_password: form.new_password,
-      verification_code: form.verification_code
-    })
-    ElMessage.success(t('auth.resetSuccess'))
-    await router.push('/login')
-  } catch (error) {
-    ElMessage.error(getErrorDetail(error, t('auth.resetFailed')))
-  } finally {
-    loading.value = false
-  }
+  await submit(formRef, () => authApi.resetPassword({
+    email: form.email,
+    new_password: form.new_password,
+    verification_code: form.verification_code
+  }), {
+    successMessage: t('auth.resetSuccess'),
+    errorMessage: t('auth.resetFailed'),
+    onSuccess: async () => {
+      await router.push('/login')
+    }
+  })
 }
 </script>
 
-<style scoped>
-/* ===== 非对称分屏容器（与登录页一致） ===== */
-.auth-shell {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  min-height: 100dvh;
-  background: var(--bg-page);
-}
+<style scoped lang="scss">
+@use '../../styles/card-mixins' as *;
 
-/* ===== 右侧表单面板 ===== */
-.auth-form-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 2rem;
-  background: var(--bg-primary);
-}
+@include auth-shell;
 
 .auth-form-card {
   width: 100%;
@@ -311,22 +293,6 @@ const handleSubmit = async () => {
   width: 100%;
   margin-top: 0.75rem;
   height: 36px;
-}
-
-/* ===== 响应式：品牌面板隐藏时同步收为单列 =====
-   BLANK-01 修复：与登录页同步，AuthBrandPanel 在 ≤960px 时隐藏，
-   网格折叠断点由 768px 对齐为 960px，消除平板竖屏下左侧空白死列。 */
-@media (max-width: 960px) {
-  .auth-shell {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .auth-form-panel {
-    min-height: 100dvh;
-    padding: 2rem 1.25rem;
-  }
 }
 
 @media (max-width: 480px) {

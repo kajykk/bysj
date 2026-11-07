@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
-from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -13,17 +12,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from sqlalchemy import select
 
 from app.models.risk import RiskAssessment
-
-
-def _para_text(value: object) -> str:
-    """P0-FIX-2026-10-11: Paragraph 会把文本当 mini-XML 解析，业务值必须先转义。
-
-    severity / risk_level 来自 DB 行，若含 ``<``/``&`` 会让 reportlab 解析失败，
-    导致整份 PDF 导出失败。表格单元格不走 XML 解析，故只转义 Paragraph 输入。
-    """
-    if value is None:
-        return ""
-    return _xml_escape(str(value))
+from app.services._report_common import _para_text
 
 
 class ExportMixin:

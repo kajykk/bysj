@@ -39,6 +39,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+# M-03: 操作日志导出记录数上限（配合 90 天跨度，防止全量命中行驻留内存）
+_MAX_OPERATION_LOG_EXPORT_ROWS = 50000
+
 
 def _sanitize_filename(name: str) -> str:
     """M-API-14 修复：移除 filename 中的特殊字符，防止 Content-Disposition 头注入.
@@ -341,26 +344,104 @@ async def get_operation_log_stats(
 
 @router.get(
     "/operation-logs/export",
-    response_model=ApiResponse,
-    responses=COMMON_ERROR_RESPONSES,
+    response_class=PlainTextResponse,
+    responses={**COMMON_ERROR_RESPONSES, **CSV_EXPORT_RESPONSE},
 )
 @limiter.limit("10/minute")
 async def export_operation_logs(
     request: Request,
     current_user: Annotated[User, Depends(require_platform_admin())],
     db: Annotated[AsyncSession, Depends(get_db)],
-    action_type: str | None = Query(default=None),
+    action_type: str | None = Query(default=None, max_length=64),
     operator_role: str | None = Query(default=None, pattern="^(user|counselor|admin|super_admin)$"),
     operator_name: str | None = Query(default=None, max_length=64),
     start_time: datetime | None = Query(default=None),
     end_time: datetime | None = Query(default=None),
-) -> dict:
-    """ISS-080: 导出全部筛选条件下的操作日志（不分页），供前端生成 CSV."""
+) -> StreamingResponse:
+    """ISS-080 / M-03: 导出筛选条件下的操作日志（逐行 CSV 流式输出）。
+
+    与 /crisis-events/export 同口径：90 天跨度上限 + 记录数上限 + 逐行
+    StreamingResponse CSV，避免全量命中行一次性驻留内存。
+    """
+    # M-03 修复：限制导出时间跨度（照 /crisis-events/export:548-553 口径）
+    from datetime import timedelta
+
+    if start_time is not None and end_time is not None:
+        if start_time > end_time:
+            raise HTTPException(status_code=422, detail="开始时间不能晚于结束时间")
+        if (end_time - start_time) > timedelta(days=90):
+            raise HTTPException(status_code=422, detail="导出时间范围不能超过 90 天")
+
     service = AdminService(db)
     items = await service.export_operation_logs(
         action_type, operator_role, operator_name, start_time, end_time
     )
-    return ok({"items": items, "total": len(items)})
+    # M-03 修复：记录数上限，防止超大结果集放大内存与导出耗时
+    if len(items) > _MAX_OPERATION_LOG_EXPORT_ROWS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"导出记录数超过上限 {_MAX_OPERATION_LOG_EXPORT_ROWS}，请缩小筛选范围",
+        )
+
+    # M-03 修复：逐行 StreamingResponse CSV（照 /crisis-events/export:559-633 口径），
+    # 复用 crisis 导出的单元格防注入函数，每行写入独立 StringIO 后立即 yield。
+    import csv
+    import io
+
+    from app.services.crisis_export_service import _sanitize_csv_cell
+
+    columns = [
+        "id",
+        "operator_id",
+        "operator_role",
+        "action_type",
+        "target_type",
+        "target_id",
+        "detail",
+        "ip_address",
+        "created_at",
+    ]
+    safe_filename = _sanitize_filename("operation_logs.csv")
+
+    def _stream_csv():
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+
+        def _emit(row: list) -> str:
+            buffer.seek(0)
+            buffer.truncate(0)
+            writer.writerow(row)
+            return buffer.getvalue()
+
+        yield _emit(columns)
+        for item in items:
+            detail = item.get("detail")
+            if isinstance(detail, (dict, list)):
+                detail = json.dumps(detail, ensure_ascii=False)
+            yield _emit(
+                [
+                    _sanitize_csv_cell(item.get("id")),
+                    _sanitize_csv_cell(item.get("operator_id")),
+                    _sanitize_csv_cell(item.get("operator_role")),
+                    _sanitize_csv_cell(item.get("action_type")),
+                    _sanitize_csv_cell(item.get("target_type")),
+                    _sanitize_csv_cell(item.get("target_id")),
+                    _sanitize_csv_cell(detail),
+                    _sanitize_csv_cell(item.get("ip_address")),
+                    _sanitize_csv_cell(item.get("created_at")),
+                ]
+            )
+
+    return StreamingResponse(
+        _stream_csv(),
+        media_type="text/csv; charset=utf-8-sig",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{safe_filename}"; '
+                f"filename*=UTF-8''{quote(safe_filename)}"
+            )
+        },
+    )
 
 
 @router.get("/audit-logs", response_model=ApiResponse, responses=COMMON_ERROR_RESPONSES)

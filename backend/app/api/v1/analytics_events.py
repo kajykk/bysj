@@ -22,7 +22,6 @@ from app.core.contracts import DEFAULT_TENANT_ID, USER_ROLE_ADMIN, USER_ROLE_SUP
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES
-from app.core.rate_limit import get_real_client_ip
 from app.core.response import ok
 from app.models.user import User, UserProfile
 
@@ -70,13 +69,19 @@ _ALLOWED_METADATA_KEYS = frozenset(
 # 元数据值最大长度（防止超长字符串携带敏感内容）
 _MAX_METADATA_VALUE_LEN = 200
 
-# 内存事件存储（生产环境可替换为数据库表）
+# 内存事件存储（L-02: 口径明示）
+# 本存储是**进程内**列表：进程重启即全部丢失，多 worker 之间互不共享，
+# 每个 worker 只能查到自己收到的那部分事件；超过 _MAX_STORE_SIZE 按最旧
+# 淘汰，retention_expires_at 仅作为单进程内的清理依据，不构成跨进程 90 天
+# 保留承诺。需要持久化/多 worker 一致时须迁移到数据库表或带 TTL 的 Redis，
+# 并把 retention_expires_at 改为真实过期依据。
 _event_store: list[dict[str, Any]] = []
 _event_store_lock = asyncio.Lock()
 _MAX_STORE_SIZE = 20000
 
-# REVIEW-2026-11-06 (S-01)：以下字段只在进程内保存，不随审计查询下发。
-_INTERNAL_EVENT_FIELDS = frozenset({"tenant_id", "client_ip"})
+# REVIEW-2026-11-06 (S-01)：tenant_id 只在进程内用于租户收窄，不随审计查询
+# 下发。ROUND_35 起 client_ip 连采集都取消（无消费方且属最小化原则外）。
+_INTERNAL_EVENT_FIELDS = frozenset({"tenant_id"})
 
 
 def _visible_events_for_tenant(
@@ -86,8 +91,8 @@ def _visible_events_for_tenant(
 
     ``_event_store`` 是汇聚所有租户的进程级全局列表，查询端点必须按
     ``current_user.tenant_id`` 过滤，否则租户 B 的 admin 可读到租户 A 的
-    ``user_id`` / ``metadata`` / ``client_ip``（gdpr.py:256-264 已把同类
-    平台级端点升级为 require_platform_admin，此处补上租户维度过滤）。
+    ``user_id`` / ``metadata``（gdpr.py:256-264 已把同类平台级端点升级为
+    require_platform_admin，此处补上租户维度过滤）。
 
     缺 ``tenant_id`` 的记录一律拒绝（fail-closed），不按默认租户兜底，
     避免「缺字段 = 全租户可见」。
@@ -178,7 +183,6 @@ async def submit_events(
 
     now = _naive_utc_now()
     retention_expires = now + timedelta(days=_EVENT_RETENTION_DAYS)
-    client_ip = get_real_client_ip(request)
 
     records = []
     for evt in payload.events:
@@ -189,7 +193,6 @@ async def submit_events(
                 "event_type": evt.event_type,
                 "timestamp": evt.timestamp,
                 "metadata": evt.metadata,
-                "client_ip": client_ip,
                 "received_at": now.isoformat(),
                 "retention_expires_at": retention_expires.isoformat(),
             }

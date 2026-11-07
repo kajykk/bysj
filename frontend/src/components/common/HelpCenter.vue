@@ -134,6 +134,8 @@
           v-model="feedbackMessage"
           type="textarea"
           :rows="4"
+          :maxlength="FEEDBACK_MAX_LENGTH"
+          show-word-limit
           :placeholder="t('help.feedbackMessagePlaceholder')"
         />
       </el-form-item>
@@ -142,6 +144,7 @@
       <el-link
         :href="githubIssuesUrl"
         target="_blank"
+        rel="noopener noreferrer"
         type="primary"
         :underline="false"
       >
@@ -239,15 +242,30 @@ const handleCommand = (command: string) => {
 const closeFaq = () => { faqVisible.value = false }
 const closeContact = () => { contactVisible.value = false }
 
+const FEEDBACK_MAX_LENGTH = 500
+
 const submitFeedback = () => {
   if (!feedbackMessage.value.trim()) {
     ElMessage.warning(t('help.feedbackEmpty'))
     return
   }
+  // M-22：前置长度校验，避免超长反馈撑爆 issue URL 导致内容丢失
+  if (feedbackMessage.value.length > FEEDBACK_MAX_LENGTH) {
+    ElMessage.warning('反馈内容过长，请精简后重试')
+    return
+  }
   const categoryLabel = t(`help.feedbackCategory${feedbackCategory.value.charAt(0).toUpperCase()}${feedbackCategory.value.slice(1)}`)
   const title = encodeURIComponent(`[${categoryLabel}] ${feedbackMessage.value.slice(0, 50)}`)
   const body = encodeURIComponent(feedbackMessage.value)
-  window.open(`${GITHUB_ISSUES_URL}/new?title=${title}&body=${body}`, '_blank')
+  // M-22：先检查 window.open 返回值，被浏览器拦截返回 null 时不得提示成功。
+  // 注意：若把 'noopener,noreferrer' 写进第三参数，按规范 window.open 恒返回 null，
+  // 会与弹窗拦截判断冲突，故此处改用 win.opener = null 达到等效防护。
+  const win = window.open(`${GITHUB_ISSUES_URL}/new?title=${title}&body=${body}`, '_blank')
+  if (!win) {
+    ElMessage.warning('反馈窗口被浏览器拦截，请允许弹出窗口后重试')
+    return
+  }
+  win.opener = null
   feedbackVisible.value = false
   feedbackMessage.value = ''
   ElMessage.success(t('help.feedbackSubmitted'))

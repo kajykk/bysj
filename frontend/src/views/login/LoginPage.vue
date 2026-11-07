@@ -211,18 +211,17 @@
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus/es/components/message/index'
 import type { FormInstance, FormRules } from 'element-plus'
 import { resolveRoleHome } from '@/router/guard'
 import { useAuthStore } from '@/stores/auth'
-import { getErrorDetail } from '@/utils/errorDetail'
+import { useAuthFormSubmit } from '@/composables/useAuthFormSubmit'
 import { validatePasswordBytes } from '@/utils/passwordValidation'
 import type { UserInfo } from '@/types/auth'
 import AuthBrandPanel, { type BrandSignal } from '@/components/common/AuthBrandPanel.vue'
 import { USER_ROLE_USER } from '@/utils/roles'
 
 const { t } = useI18n()
-const loading = ref(false)
+const { loading, submit } = useAuthFormSubmit()
 const activeTab = ref<'login' | 'register'>('login')
 
 const authStore = useAuthStore()
@@ -330,71 +329,49 @@ const focusPassword = () => {
 }
 
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
-
-  try {
-    await loginFormRef.value.validate()
-    loading.value = true
+  await submit(loginFormRef, async () => {
     const data = await authStore.login(loginForm.username, loginForm.password)
     if (rememberMe.value) {
       localStorage.setItem('dws_remember_username', loginForm.username)
     } else {
       localStorage.removeItem('dws_remember_username')
     }
-    ElMessage.success(t('auth.loginSuccess'))
-    // R-002 修复：优先恢复 redirect 指定的原始 URL，使用 replace 避免登录页留在历史记录。
-    await router.replace(resolveRedirectTarget(data.user.role))
-  } catch (error) {
-    ElMessage.error(getErrorDetail(error, t('auth.loginFailed')))
-  } finally {
-    loading.value = false
-  }
+    return data
+  }, {
+    successMessage: t('auth.loginSuccess'),
+    errorMessage: t('auth.loginFailed'),
+    onSuccess: async (data) => {
+      // R-002 修复：优先恢复 redirect 指定的原始 URL，使用 replace 避免登录页留在历史记录。
+      await router.replace(resolveRedirectTarget(data.user.role))
+    }
+  })
 }
 
 const handleRegister = async () => {
-  if (!registerFormRef.value) return
-
-  try {
-    await registerFormRef.value.validate()
-    loading.value = true
-    await authStore.register({
-      username: registerForm.username,
-      nickname: registerForm.nickname || undefined,
-      email: registerForm.email,
-      role: registerForm.role,
-      password: registerForm.password
-    })
-    ElMessage.success(t('auth.registerSuccess'))
-    activeTab.value = 'login'
-    loginForm.username = registerForm.username
-    loginForm.password = ''
-    registerFormRef.value.resetFields()
-    loginFormRef.value?.clearValidate()
-  } catch (error) {
-    ElMessage.error(getErrorDetail(error, t('auth.registerFailed')))
-  } finally {
-    loading.value = false
-  }
+  await submit(registerFormRef, () => authStore.register({
+    username: registerForm.username,
+    nickname: registerForm.nickname || undefined,
+    email: registerForm.email,
+    role: registerForm.role,
+    password: registerForm.password
+  }), {
+    successMessage: t('auth.registerSuccess'),
+    errorMessage: t('auth.registerFailed'),
+    onSuccess: () => {
+      activeTab.value = 'login'
+      loginForm.username = registerForm.username
+      loginForm.password = ''
+      registerFormRef.value?.resetFields()
+      loginFormRef.value?.clearValidate()
+    }
+  })
 }
 </script>
 
-<style scoped>
-/* ===== 非对称分屏容器（规则 3：DESIGN_VARIANCE=8 禁止居中 Hero） ===== */
-.auth-shell {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  min-height: 100dvh;
-  background: var(--bg-page);
-}
+<style scoped lang="scss">
+@use '../../styles/card-mixins' as *;
 
-/* ===== 右侧表单面板 ===== */
-.auth-form-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 2rem;
-  background: var(--bg-primary);
-}
+@include auth-shell;
 
 .auth-form-card {
   width: 100%;
@@ -483,23 +460,6 @@ const handleRegister = async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--spacing-md);
-}
-
-/* ===== 响应式：品牌面板隐藏时同步收为单列 =====
-   BLANK-01 修复：AuthBrandPanel 在 ≤960px 时 display:none，
-   原网格断点为 768px，导致 769–960px 区间左侧 1.1fr 列成为空白死列（约占半屏）。
-   现将折叠断点与面板隐藏断点对齐为 960px，消除平板竖屏下的半屏空白。 */
-@media (max-width: 960px) {
-  .auth-shell {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .auth-form-panel {
-    min-height: 100dvh;
-    padding: 2rem 1.25rem;
-  }
 }
 
 @media (max-width: 480px) {

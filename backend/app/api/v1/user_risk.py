@@ -10,6 +10,7 @@ from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.deps import require_permission
 from app.core.openapi_responses import COMMON_ERROR_RESPONSES, FILE_EXPORT_RESPONSE
+from app.core.rate_limit import limiter
 from app.core.response import ok
 from app.models.risk import RiskAssessment
 from app.models.user import User
@@ -57,6 +58,8 @@ async def get_risk_trend(
 
 
 @router.get("/export", responses={**COMMON_ERROR_RESPONSES, **FILE_EXPORT_RESPONSE})
+# L-01 修复：导出会生成 CSV/PDF 并 commit，按 reports.py:75,220 的同类导出端点补 5/minute
+@limiter.limit("5/minute")
 async def export_risk(
     request: Request,
     current_user: Annotated[User, Depends(require_permission("user.export.risk"))],

@@ -66,15 +66,16 @@ def strip_image_exif(file_path: Path) -> tuple[bool, str]:
     if ext not in _IMAGE_EXTENSIONS:
         return True, f"Non-image file (.{ext}), skipped"
 
+    tmp_path = file_path.with_suffix(file_path.suffix + ".tmp")
     try:
         from PIL import Image
 
         # AUDIT-2026-10-06 (P1-5) 解压炸弹防护。
-        # 原实现没有上限，`list(img.getdata())` 会把整张图实例化为 Python 元组 ——
-        # 几百 KB 的构造 PNG/GIF 解压后可达 GB 级像素，20MB 上传限制形同虚设，
-        # 单个请求即可打爆 worker 内存（DoS）。
         # 两道防线：① 全局上限（Pillow 自己在解码超限时抛 DecompressionBombError）；
-        #        ② 显式像素数检查，在 getdata() 之前拦下。
+        #        ② 显式像素数检查, 在重编码之前拦下。
+        # M-08 修复：原实现用 list(img.getdata()) + putdata 把每个像素实例化成
+        # Python 元组, 25MP 图片峰值内存可达数 GB, 已删除；改为直接对解码后的
+        # Image 调用 save() 重编码, 像素重排/编码全在 Pillow C 层完成。
         Image.MAX_IMAGE_PIXELS = _MAX_IMAGE_PIXELS
         with Image.open(file_path) as img:
             width, height = img.size
@@ -88,35 +89,44 @@ def strip_image_exif(file_path: Path) -> tuple[bool, str]:
                     f"Image too large: {width}x{height} exceeds "
                     f"{_MAX_IMAGE_PIXELS} pixels limit"
                 )
-            # 创建新图片 (不携带 EXIF)
-            # 使用 img.copy() + save() 重编码, 自动丢弃 EXIF/ICC profile
-            # 保留 img.info 中的 "transparency" 等必要信息
-            data = list(img.getdata())
-            clean_img = Image.new(img.mode, img.size)
-            clean_img.putdata(data)
 
-            # 保留动画 GIF 的多帧处理
+            # M-08 修复：直接重编码即完成 EXIF 剥离（未传 exif= 参数, save()
+            # 不会写回 EXIF/元数据块），无需逐像素重建 Python 对象。
             save_kwargs: dict = {}
             if ext in ("jpg", "jpeg"):
                 save_kwargs["quality"] = 95
                 save_kwargs["optimize"] = True
-                if clean_img.mode in ("RGBA", "P"):
-                    clean_img = clean_img.convert("RGB")
             elif ext == "png":
                 save_kwargs["optimize"] = True
             elif ext == "webp":
                 save_kwargs["quality"] = 95
 
-            # 写入临时文件后原子替换, 避免写入失败导致文件损坏
-            tmp_path = file_path.with_suffix(file_path.suffix + ".tmp")
-            clean_img.save(tmp_path, format=img.format, **save_kwargs)
+            # M-08 修复：动画 GIF 用 save_all=True 让 GifImagePlugin 内部遍历
+            # 全部帧重编码（各帧 duration/loop/disposal 由插件逐帧保留），
+            # 不把帧读进 Python 列表；静态图仍是单帧正常重编码。
+            if ext == "gif" and getattr(img, "is_animated", False):
+                save_kwargs["save_all"] = True
 
-            # 原子替换: 确保文件系统一致性
-            os.replace(tmp_path, file_path)
+            # JPEG 不支持 RGBA/P 模式, 需先转 RGB；其余格式直接对原 img 重编码。
+            target_img = img
+            if ext in ("jpg", "jpeg") and img.mode in ("RGBA", "P"):
+                target_img = img.convert("RGB")
+
+            # 写入临时文件后原子替换, 避免写入失败导致文件损坏
+            target_img.save(tmp_path, format=img.format, **save_kwargs)
+
+        # with 退出后原文件句柄已释放（动画 GIF 也已遍历完所有帧）,
+        # 原子替换在 Windows 下不会因句柄占用而失败。
+        os.replace(tmp_path, file_path)
 
         return True, f"EXIF stripped for .{ext}"
 
     except Exception as exc:
+        # 失败时清理可能已写入的临时文件, 避免残留
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001
+            pass
         logger.warning(
             "SEC-P2-003: EXIF strip failed for %s: %s",
             file_path,

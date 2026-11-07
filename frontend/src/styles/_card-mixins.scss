@@ -1,0 +1,76 @@
+// 共享样式 mixin 定义（纯定义文件，不含任何顶层 CSS 规则）。
+// 供各组件 <style scoped lang="scss"> 通过 @use 引入；不输出额外 CSS，
+// 保证 mixin 展开后的选择器与原先逐字一致（scoped 属性与计算值不变）。
+
+// M-25：user-dashboard 系列 Bento 单元的基础样式。
+// 注意：admin-dashboard 的 QuickActionsCard / SystemStatusCard 使用另一套值
+// （radius-lg / shadow-light / token 化字号），RiskStatusCard 带 position/overflow
+// 覆写，均不属于这套逐字重复，不套用本 mixin。
+@mixin bento-cell {
+  .bento-cell {
+    background: var(--surface-1);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.3s var(--transition-ease-out),
+      border-color 0.3s var(--transition-ease-out);
+  }
+
+  .bento-cell:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--border-light);
+  }
+
+  .bento-cell__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.125rem;
+  }
+
+  .bento-cell__title {
+    margin: 0;
+    font-family: var(--font-family-display);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+}
+
+// M-27：登录页 / 重置密码页共享的 .auth-shell 与 .auth-form-panel（含响应式覆写）。
+// 其余表单卡片样式（__head 的 margin、字段动画数量、lede/tabs/back-link 等）两页有差异，
+// 保留在各自组件内，不强行统一。
+@mixin auth-shell {
+  .auth-shell {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    min-height: 100dvh;
+    background: var(--bg-page);
+  }
+
+  .auth-form-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    background: var(--bg-primary);
+  }
+
+  @media (max-width: 960px) {
+    .auth-shell {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .auth-form-panel {
+      min-height: 100dvh;
+      padding: 2rem 1.25rem;
+    }
+  }
+}

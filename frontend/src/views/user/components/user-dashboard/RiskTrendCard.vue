@@ -1,0 +1,238 @@
+<template>
+  <section class="bento-cell bento-item">
+    <header class="bento-cell__head bento-cell__head--split">
+      <h3 class="bento-cell__title">
+        {{ t('userDashboard.riskTrendTitle') }}
+      </h3>
+      <el-radio-group
+        v-model="days"
+        size="small"
+        @change="emit('reload')"
+      >
+        <el-radio-button :value="7">
+          {{ t('userDashboard.trendDays7') }}
+        </el-radio-button>
+        <el-radio-button :value="30">
+          {{ t('userDashboard.trendDays30') }}
+        </el-radio-button>
+        <el-radio-button :value="90">
+          {{ t('userDashboard.trendDays90') }}
+        </el-radio-button>
+      </el-radio-group>
+    </header>
+    <div
+      v-if="loading"
+      class="card-loading"
+    >
+      <SkeletonScreen
+        :rows="4"
+        variant="text"
+      />
+    </div>
+    <EmptyState
+      v-else-if="error"
+      :title="t('userDashboard.loadFailed')"
+      :description="error"
+      :image-size="60"
+    >
+      <template #action>
+        <el-button
+          type="primary"
+          plain
+          @click="emit('reload')"
+        >
+          {{ t('userDashboard.btnReload') }}
+        </el-button>
+      </template>
+    </EmptyState>
+    <EmptyState
+      v-else-if="!riskTrend.points.length"
+      :title="t('userDashboard.emptyNoTrend')"
+      :description="t('userDashboard.emptyNoTrendDesc')"
+      :image-size="60"
+    />
+    <div
+      v-else
+      ref="trendChartRef"
+      class="trend-chart"
+    />
+  </section>
+</template>
+
+<script setup lang="ts">
+import { nextTick, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { echarts, type ECharts } from '@/utils/echarts'
+import { subscribeResize } from '@/utils/sharedResize'
+import { initChartWhenReady, type ChartInitHandle } from '@/utils/chartInit'
+import { readChartVar } from '@/utils/chartTheme'
+import { CHART_PALETTE, STATIC_FALLBACK_COLORS, withAlpha } from '@/utils/chartPalette'
+import EmptyState from '@/components/common/EmptyState.vue'
+import SkeletonScreen from '@/components/common/SkeletonScreen.vue'
+import type { RiskTrend } from '@/api/userRiskApi'
+import {
+  CHART_RISK_LEVEL_KEYS,
+  CHART_TREND_KEYS,
+  escapeHtml
+} from './sharedDashboardUtils'
+
+const props = defineProps<{
+  riskTrend: RiskTrend
+  loading: boolean
+  error: string
+}>()
+
+const days = defineModel<number>('days', { default: 30 })
+const emit = defineEmits<{ reload: [] }>()
+
+const { t } = useI18n()
+
+const trendChartRef = ref<HTMLElement>()
+let trendChart: ECharts | null = null
+// SEC-FIX (P1-6): 记录 init 句柄, 卸载时取消未完成的重试链
+let trendInitHandle: ChartInitHandle | null = null
+// R-009 修复：使用 subscribeResize 共享全局节流 resize 监听，避免独立注册
+let unsubscribeTrendResize: (() => void) | null = null
+
+const disposeTrendChart = () => {
+  trendInitHandle?.cancel()
+  trendInitHandle = null
+  unsubscribeTrendResize?.()
+  unsubscribeTrendResize = null
+  trendChart?.dispose()
+  trendChart = null
+}
+
+const renderTrendChart = () => {
+  if (!trendChartRef.value) return
+  if (!trendChart) {
+    // 容器尺寸就绪后才 init（避免 0 尺寸初始化警告）；就绪后回调内再次渲染主体
+    trendInitHandle = initChartWhenReady(trendChartRef.value, {}, (instance) => {
+      // SEC-FIX (P1-6): 已存在实例 (重复 init 竞态) → 释放新实例
+      if (trendChart) {
+        instance.dispose()
+        return
+      }
+      trendChart = instance
+      // R-009 修复：通过 subscribeResize 注册共享监听
+      unsubscribeTrendResize = subscribeResize(() => trendChart?.resize())
+      renderTrendChart()
+    })
+    return
+  }
+  const points = props.riskTrend.points
+
+  // ISS-077 修复：图表配色读取 CSS 变量令牌，与 variables.scss 统一
+  // VIS-P2-02 修复：tooltip 背景与边框改用主题令牌，深色模式下自动适配
+  // VIS-P4-01 修复：回退值与渐变/光晕统一取自 chartPalette 常量
+  const chartDanger = readChartVar('--chart-color-danger', CHART_PALETTE.danger)
+  const chartTextPrimary = readChartVar('--text-primary', STATIC_FALLBACK_COLORS.textPrimary)
+  const chartTextSecondary = readChartVar('--text-secondary', STATIC_FALLBACK_COLORS.textSecondary)
+  const chartTooltipBg = readChartVar('--surface-1', STATIC_FALLBACK_COLORS.surface1)
+  const chartTooltipBorder = readChartVar('--card-border', STATIC_FALLBACK_COLORS.cardBorder)
+  const chartSurface = readChartVar('--surface-1', STATIC_FALLBACK_COLORS.surface1)
+
+  trendChart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: chartTooltipBg,
+      borderColor: chartTooltipBorder,
+      borderWidth: 1,
+      textStyle: { color: chartTextPrimary, fontSize: 13 },
+      extraCssText: `box-shadow: var(--shadow-dropdown); border-radius: 8px;`,
+      formatter: (params: unknown) => {
+        const p = (params as Array<{ dataIndex: number }>)[0]
+        const point = points[p.dataIndex]
+        if (!point) return ''
+        const levelKey = CHART_RISK_LEVEL_KEYS[point.risk_level]
+        const levelText = levelKey ? t(`userDashboard.${levelKey}`) : t('userDashboard.severityUnknown')
+        const trendKey = CHART_TREND_KEYS[props.riskTrend.direction]
+        const trendText = trendKey ? t(`userDashboard.${trendKey}`) : t('userDashboard.trendStable')
+        const date = escapeHtml(point.date)
+        const score = escapeHtml(point.risk_score)
+        const level = escapeHtml(levelText)
+        const trend = escapeHtml(trendText)
+        const scoreLabel = t('userDashboard.chartRiskScoreLabel')
+        const levelLabel = t('userDashboard.chartRiskLevelLabel')
+        const trendLabel = t('userDashboard.chartOverallTrendLabel')
+        const scoreUnit = t('userDashboard.scoreUnit')
+        return `<div style="padding: 4px 2px;">
+          <div style="font-weight:600;margin-bottom:6px;color:${chartTextPrimary};">${date}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${chartDanger};"></span>
+            <span>${scoreLabel}<strong>${score}${scoreUnit}</strong></span>
+          </div>
+          <div style="margin-bottom:4px;padding-left:16px;">${levelLabel}<span style="color:${chartDanger};font-weight:500;">${level}</span></div>
+          <div style="padding-left:16px;color:${chartTextSecondary};font-size:12px;">${trendLabel}${trend}</div>
+        </div>`
+      }
+    },
+    grid: { left: 40, right: 20, top: 20, bottom: 30 },
+    xAxis: {
+      type: 'category',
+      data: points.map((p) => p.date),
+      axisLabel: { fontSize: 11, color: chartTextSecondary },
+      axisLine: { lineStyle: { color: chartTooltipBorder } },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 100,
+      axisLabel: { fontSize: 11, color: chartTextSecondary },
+      splitLine: { lineStyle: { color: chartTooltipBorder } },
+    },
+    series: [{
+      type: 'line',
+      data: points.map((p) => p.risk_score),
+      smooth: true,
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: withAlpha(chartDanger, 0.25) },
+        { offset: 1, color: withAlpha(chartDanger, 0.02) }
+      ]) },
+      lineStyle: { color: chartDanger, width: 2 },
+      itemStyle: { color: chartDanger },
+      emphasis: {
+        itemStyle: { borderWidth: 2, borderColor: chartSurface, shadowBlur: 8, shadowColor: withAlpha(chartDanger, 0.5) },
+        scale: 1.5
+      }
+    }]
+  })
+}
+
+// 监听趋势数据变化，渲染或销毁图表（等价于原 loadRiskTrend finally 内的渲染分支）
+watch(
+  () => props.riskTrend,
+  async () => {
+    if (props.error || props.riskTrend.points.length === 0) {
+      disposeTrendChart()
+      return
+    }
+    await nextTick()
+    renderTrendChart()
+  }
+)
+
+onUnmounted(() => {
+  disposeTrendChart()
+})
+</script>
+
+<style scoped lang="scss">
+@use '../../../../styles/card-mixins' as *;
+
+@include bento-cell;
+
+/* 该卡特有：分栏头（含天数切换）的间距覆写 */
+.bento-cell__head--split {
+  margin-bottom: 1rem;
+}
+
+.card-loading {
+  padding: var(--spacing-lg) 0;
+}
+
+.trend-chart {
+  height: 300px;
+  width: 100%;
+}
+</style>

@@ -1,4 +1,7 @@
 @use './variables.scss' as *;
+// M-25 / M-27：共享卡片与认证页样式 mixin 定义在上述纯 partial 中，
+// 这里转发使它们归属 mixins.scss 模块（不产生额外 CSS 输出）。
+@forward './card-mixins';
 
 @mixin flex-center {
   display: flex;

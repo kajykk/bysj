@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import ast
 import inspect
 from pathlib import Path
 from unittest.mock import patch
@@ -213,6 +214,38 @@ class TestProcessUploadedFile:
             assert safe is True
 
 
+def _function_node(name: str, source: str):
+    """按函数名取 AST 节点；不受注释与字符串字面量干扰。"""
+    tree = ast.parse(source)
+    node = next(
+        (
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == name
+        ),
+        None,
+    )
+    assert node is not None, f"{name} 不存在于源码"
+    return node
+
+
+def _called_names(node) -> set[str]:
+    """函数体内被直接调用的函数名（含嵌套函数，如 upload_batch 的 _bounded）。"""
+    out: set[str] = set()
+    for call in ast.walk(node):
+        if isinstance(call, ast.Call):
+            if isinstance(call.func, ast.Name):
+                out.add(call.func.id)
+            elif isinstance(call.func, ast.Attribute):
+                out.add(call.func.attr)
+    return out
+
+
+def _referenced_names(node) -> set[str]:
+    """函数体内引用的名字（含作为参数传给 to_thread 的函数对象）。"""
+    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+
+
 class TestUploadApiIntegration:
     """SEC-P2-003: 上传 API 集成测试."""
 
@@ -225,32 +258,47 @@ class TestUploadApiIntegration:
         assert "from app.services.file_security_service" in source
 
     def test_upload_file_endpoint_calls_process_uploaded_file(self) -> None:
-        """upload_file 端点调用 process_uploaded_file."""
-        from app.api.v1 import user_upload
+        """upload_file → _validate_and_save_upload → process_uploaded_file 调用链完整。
 
-        source = inspect.getsource(user_upload)
-        func_start = source.find("async def upload_file")
-        assert func_start != -1
-        func_source = source[func_start : func_start + 2000]
-        assert "process_uploaded_file" in func_source
-
-    def test_upload_batch_endpoint_calls_process_uploaded_file(self) -> None:
-        """upload_batch 端点调用 process_uploaded_file（经 _process_batch_file 并行 helper）。
-
-        P2 并行化后安全扫描调用位于 _process_batch_file 内，upload_batch 经
-        asyncio.gather 并发调度该 helper；两者缺一不可，否则安全链断裂。
+        ROUND_35 / L-03 把单文件与批量端点的校验顺序抽进公共 helper 后，
+        `process_uploaded_file` 不再出现在端点函数体内；原断言按源码字面量
+        切片，会被合法重构击穿。改为 AST 逐环验证调用链（不受注释/字符串干扰），
+        任一环断开即红，强度不低于原断言。
         """
         from app.api.v1 import user_upload
 
         source = inspect.getsource(user_upload)
-        func_start = source.find("async def upload_batch")
-        assert func_start != -1
-        func_source = source[func_start : func_start + 3000]
-        assert "_process_batch_file" in func_source
-        helper_start = source.find("async def _process_batch_file")
-        assert helper_start != -1
-        helper_source = source[helper_start : helper_start + 4000]
-        assert "process_uploaded_file" in helper_source
+        endpoint = _function_node("upload_file", source)
+        assert "_validate_and_save_upload" in _called_names(endpoint), (
+            "单文件端点未接入公共上传管线"
+        )
+        helper = _function_node("_validate_and_save_upload", source)
+        assert "to_thread" in _called_names(helper), "安全扫描未走线程池"
+        assert "process_uploaded_file" in _referenced_names(helper), (
+            "公共上传管线未引用安全扫描函数"
+        )
+
+    def test_upload_batch_endpoint_calls_process_uploaded_file(self) -> None:
+        """upload_batch → _process_batch_file → _validate_and_save_upload → 安全扫描。
+
+        ROUND_35 / L-03 后批量 helper 也不再直接持有安全扫描调用，改由公共
+        上传管线承载；用 AST 逐环验证，避免按源码字面量切片被合法重构击穿。
+        """
+        from app.api.v1 import user_upload
+
+        source = inspect.getsource(user_upload)
+        endpoint = _function_node("upload_batch", source)
+        assert "_process_batch_file" in _called_names(endpoint), (
+            "批量端点未并发调度 _process_batch_file"
+        )
+        batch_helper = _function_node("_process_batch_file", source)
+        assert "_validate_and_save_upload" in _called_names(batch_helper), (
+            "批量 helper 未复用公共上传管线"
+        )
+        common = _function_node("_validate_and_save_upload", source)
+        assert "process_uploaded_file" in _referenced_names(common), (
+            "公共上传管线未引用安全扫描函数"
+        )
 
     def test_upload_endpoints_have_sec_p2_003_annotation(self) -> None:
         """上传端点标注 SEC-P2-003."""

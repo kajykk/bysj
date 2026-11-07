@@ -1,7 +1,9 @@
 import request, { dedupedGet, requestData } from './request'
+import { reportsApi } from './reportsApi'
 
 export const userFileApi = {
-  exportRiskPdf: (days = 90) => dedupedGet('/user/risk/export', { params: { format: 'pdf', days }, responseType: 'blob' }),
+  // L-14：同一导出端点收敛到 reportsApi 一处实现，统一返回 Blob，避免两套封装返回类型不一致。
+  exportRiskPdf: (days = 90) => reportsApi.exportUserRiskPdf(days),
 
   exportRiskData: (format: 'json' | 'csv' | 'pdf', days = 90) => dedupedGet('/user/risk/export', { params: { format, days }, responseType: 'blob' }),
 

@@ -8,6 +8,7 @@ and generates a 3-feature subset baseline for comparison.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import joblib
@@ -26,6 +27,8 @@ from sklearn.calibration import calibration_curve
 from scipy.stats import pearsonr, spearmanr
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+logger = logging.getLogger(__name__)
 
 COLOR_PRIMARY = "#409eff"
 COLOR_REFERENCE = "#c0c4cc"
@@ -83,6 +86,7 @@ def main() -> None:
     # -- 3-feature subset baseline --
     subset_cols = ["stress_level", "anxiety", "panic_attack"]
     X_3 = df_features[subset_cols].values
+    auc_3f_status = "ok"
     try:
         cv_scores = cross_val_score(
             LogisticRegression(solver="liblinear", random_state=42),
@@ -93,7 +97,14 @@ def main() -> None:
         )
         auc_3f = float(cv_scores.mean())
     except Exception:
+        auc_3f_status = "failed"
         auc_3f = float("nan")
+        logger.exception(
+            "3-feature 5-fold CV AUC 计算失败 (subset_cols=%s, n_samples=%d); "
+            "auc_3f 置为 nan, 报告标记 auc_3f_status=failed, "
+            "请结合本堆栈区分数据问题与代码失败",
+            subset_cols, len(df_features),
+        )
 
     auc_gap = round(auc - auc_3f, 4) if not np.isnan(auc_3f) else float("nan")
 
@@ -122,6 +133,7 @@ def main() -> None:
         "spearman_p": round(float(spear_p), 6),
         "high_risk_recall": round(high_recall, 4),
         "subset_3feature_auc": round(auc_3f, 4),
+        "auc_3f_status": auc_3f_status,
         "auc_gap_12vs3": auc_gap,
     }
     (docs_dir / "mmpsy_external_validation_metrics.json").write_text(
@@ -202,6 +214,7 @@ def main() -> None:
 | Metric | Value |
 |--------|-------|
 | 3-feature 5-fold CV AUC | {auc_3f:.4f} |
+| 3-feature CV AUC status | {auc_3f_status} |
 | AUC gap (12f − 3f) | {auc_gap:.4f}{gap_note} |
 
 ## Figures

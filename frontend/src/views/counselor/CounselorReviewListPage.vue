@@ -355,6 +355,11 @@ const handleRowClick = (row: ReviewItem) => {
 
 // ISS-060: 领取复核任务
 const assignReview = async (row: ReviewItem) => {
+  // M-21：v-if 只作展示层，入口二次校验角色（与「领取」按钮 !isAdmin 一致）
+  if (isAdminRole(auth.role)) {
+    ElMessage.error(t('errorPolicy.noPermission'))
+    return
+  }
   try {
     await ElMessageBox.confirm(t('counselorReviews.assignConfirm'), t('counselorReviews.assignConfirmTitle'), { type: 'warning' })
   } catch {
@@ -380,6 +385,11 @@ const assignSubmitting = ref(false)
 const assignLoadingOptions = ref(false)
 
 const openAssignDialog = async (row: ReviewItem) => {
+  // M-21：与「指定分配」按钮 v-if="isAdmin" 一致，入口二次校验
+  if (!isAdminRole(auth.role)) {
+    ElMessage.error(t('errorPolicy.noPermission'))
+    return
+  }
   assignTarget.value = row
   selectedCounselorId.value = null
   assignDialogVisible.value = true
@@ -397,6 +407,11 @@ const openAssignDialog = async (row: ReviewItem) => {
 }
 
 const submitAssign = async () => {
+  // M-21：指定分配为管理员专属操作，入口二次校验（与 openAssignDialog 一致）
+  if (!isAdminRole(auth.role)) {
+    ElMessage.error(t('errorPolicy.noPermission'))
+    return
+  }
   if (!assignTarget.value || !selectedCounselorId.value) return
   assignSubmitting.value = true
   try {

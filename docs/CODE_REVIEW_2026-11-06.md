@@ -472,3 +472,84 @@
 - M-21 中「后端是否真的拦截越权」、M-20 中「篡改角色能否进入咨询师工作台」需运行时用真实对象最小端到端验证；测试替身不能作为集成证据。
 - 数据集/模型工件不在版本库，ML 脚本的「提交产物 == 单命令产物」需在有数据的机器上复算。
 - 存量开放项 `init_sentry` 失败时 `/health/startup` 误记 ok（第二十七批遗留）未计入 53 条，建议与 M-07 的静默降级一并处理。
+
+---
+
+## 八、ROUND_35 整改闭环（2026-11-06）
+
+> 本节是第一~七节的**状态更新**。第七节「未验证」清单已逐项处理；第六节 P2/P3
+> 未落地项按性价比与回归风险取舍执行，未做的项在 8.3 明确列出理由。
+
+### 8.1 验证缺口已补
+
+| 缺口 | 处置 | 证据 |
+|---|---|---|
+| 未跑全量 pytest / 前端测试 / 构建 | 已跑，读数见 8.4 | 前端全量 1546 passed / 4 skipped（123 文件）、`vite build` rc=0 |
+| M-20/M-21 运行时 RBAC 未验证 | 新增**真实对象**端到端闸门 | `backend/tests/api/test_round35_rbac_real_object_e2e.py` 3 passed：显式 pop `get_current_user` 测试替身，真实注册→真实 JWT→真实 `require_role`，断言 403 且同一 token 在 user 级端点 200（排除「401 伪装成 403」）；另证篡改 `CURRENT_USER` 不影响真实后端。`frontend/src/router/guard.realstore.test.ts` 3 passed：真实 Pinia store 计算 `isRoleVerified` + router 接线断言 |
+| P1/P2 未各配专属变异 | 8 条后端接线闸门 + 4 条前端广播接线闸门 | `backend/tests/test_round35_wiring_gates.py` 8 passed、`frontend/src/utils/authBroadcast.wiring.test.ts` 4 passed；`backend/tests/tools/mutate_round35.py` **11/11 RED**、每处 try/finally 字节快照还原 sha256 一致、末臂全绿（日志随提交入库） |
+| S-01 保留 `client_ip` 字段声明 | 彻底删除 | 采集（`submit_events`）、契约（`AnalyticsEventRecord`）、响应三处均移除；重生成 `backend/tests/contract/openapi.json`；`test_analytics_response_contract.py` 改钉「无 client_ip + 键集合精确」。契约快照同时补齐历史漂移（`/auth/profile` GET、`LoginUserBrief` 等） |
+| 存量 `init_sentry` 误记 ok | **复核为已修复，台账过期** | `main.py:111-123` 在 `init_sentry()` 返回 False 时返回 `SKIPPED`，由 `record_step_sync` 记 skipped；`test_p2_63_round39_startup_truthfulness.py` + `test_sentry.py` 44 passed。已更正 `.workbuddy/memory/MEMORY.md` 的过期条目 |
+
+### 8.2 既有失败基线修复（6 + 1 例）
+
+- **6 例配置测试**：2026-11 生产部署校验新增 `MODEL_BERT_REVISION`（40 位 hash）/`JWT_ISSUER`/`JWT_AUDIENCE` 后，测试 fixture 未同步，构造 production Settings 时在测到目标前被拦下。补统一前置 `_PRODUCTION_DEPLOYMENT_ENV`（不放宽任何断言）；同时把 `test_production_rs256_still_requires_key_paths` 从「被无关部署消息喂成的假绿」改为钉真实 RS256 消息的强断言。
+- **1 例 Redis 用例**：`test_request_reset_accepts_json_email` 接上 `memory_blocklist`，让断言落在请求/响应契约而非本机 6379 是否监听；fail-closed 语义仍由专属用例把守。
+- **配置默认值漂移**：`app/core/model_engine/predict.py:861` 的 `getattr(settings, "text_bilingual_review_threshold", lower)` 私自引入第二份默认值来源（且会让上界塌到下界），改直接读 Settings 声明值。
+- 修复后该组 `49 passed`。
+
+### 8.3 P2/P3 执行结果与剩余排期
+
+已落地：**M-03**（导出 90 天跨度 + 记录数上限 + `action_type` 长度 + 逐行 CSV 流；连带前端 `adminApi.ts`/`AdminOperationLogsPage.vue` 改 Blob 下载、重生成契约快照）、**L-01**、**M-08**（`img.save` 重编码 + GIF 逐帧）、**L-03**（单文件/批量上传共用校验顺序）、**L-20/L-21**（schema 约束）、**L-07**（`_para_text` 收敛 `_report_common.py`）、**M-14**（迁移 `fetchmany(500)` + 批量 UPDATE）、**M-17**（OOD 基线改读真实 `metrics.json`，缺文件报错退出）、**L-08**（`safe_joblib_load` + 受控根目录）、**L-09**（`load_metrics` 缓存）、**L-11**（CV 失败状态标记）、**L-02**（事件存储口径在源码注释明示）、**M-19/M-21/M-22/M-23/M-24**、**L-12~L-19**、**L-23**（三训练脚本抽 `physio_training_common.py`，5 个公共函数 × 3 脚本 `is` 全等、CLI 参数集合改前改后一致）、**M-27**（`useAuthFormSubmit`）、**M-25 部分**（5 个逐字重复卡片抽 `@mixin bento-cell`，postcss 比对「选择器→声明集合」DIFF_COUNT=0）、**M-28/L-16 部分**（业务卡片改名 `RiskTrendCard.vue`，旧名保留 re-export）。
+- 新发现并修复：ROUND_34 只把 `refresh_bind_code` 的 else 分支改成指纹，其余 **4 处 `record_audit(detail=...)` 仍明文写绑定码**；本轮全部收敛为 `bind_code_fingerprint`，并由 G2 闸门钉死。
+
+**剩余排期（有明确理由，非遗漏）**：
+- **M-26** 通用 `StatsCard`：8 张卡的 `.stat-grid` 宽度、变体类名、`.stat-unit` 节点、权限门、`defineExpose` 均有实质差异，且把外壳移入通用组件会让各页 `<style scoped>` 选择器失效、改变 CSS 计算值。
+- **M-28** 业务卡片组合通用图表：两套数据契约（0-1 `{date,value}` vs 0-100 `risk_score`）、配色、tooltip、legend/dataZoom 均不同，组合会改变视觉与行为。
+- **M-25** 剩余 `RiskStatusCard.vue`（带 position/overflow/z-index 覆写）与 admin-dashboard 两张 B 套卡片（不同 radius/shadow/token 值）。
+- 上述三项需**视觉回归 baseline** 才能证明等价，单独排期；本轮按「宁可少做也不破坏行为」处理。
+- 两个 `train_physiological_{lightgbm,xgboost}.py` 文件头已标 DEPRECATED（由 `train_physiological.py --model` 取代），L-23 抽公共管线后仍保留，后续可评估删除。
+
+### 8.4 实测读数
+
+- **最终后端全量**：`44 failed, 7684 passed, 21 skipped, 187 warnings in 1261.58s (0:21:01)`（排除本机卡住的 `test_api_contract.py`）；改前 `51 failed, 7677 passed`，净变化 **-7 failed / +7 passed**。归类与 A/B 实证见 8.5。
+- 变异见证：`mutate_round35.py` 11/11 RED，字节还原一致，末臂 backend 8 passed / frontend 7 passed / RBAC e2e 3 passed。
+- 契约快照变动端点：`test_api_contract.py -k` 过滤 7 passed / 202 deselected。
+- 前端全量：`123 files / 1546 passed / 4 skipped`；`vue-tsc --noEmit` rc=0；`vite build` rc=0。
+- 既有失败组修复后 49 passed；Sentry 启动真实性闸门 44 passed。
+- 约束口径：全量 `test_api_contract.py` 的 hypothesis 在本机 59 个端点通过后卡在训练端点的 Redis/Celery result store 重连（localhost:6379 无监听），与本轮 5 个变动 path 无交集；该文件已单独跑变动端点 7 passed，动态渗透与「有数据机器复算 ML 产物」仍需外部环境。
+
+### 8.5 最终全量复验与失败归类（收尾）
+
+**A/B 判据（按失败测试文件分组，而非精确 nodeid）**：
+
+- v1 把 short-summary 的精确 nodeid 直接喂给 pytest，被两类噪声击穿：pytest 对非 ASCII 参数化 id 使用 `\uXXXX` 转义（脚本误做反转义），且部分 FAILED 行尾部被截断。首轮输出 `rc=4 / FAILED=0` 是**假读数**，已作废，**未据此下过任何结论**；保存完整输出后看到真实错误 `ERROR: not found: ...test_text_risk_levels`。
+- v2 两臂口径一致：工作树跑 19 个失败文件 → `51 failed / 668 passed`，与全量 51 例**逐一对上**（FULL_ONLY=0）；逐文件字节回退 HEAD 后跑同一批文件 → `44 failed / 675 passed`；`restore byte-identical=True`、`new files restored=True`（52 tracked 备份 / 10 新文件 park）。
+- 结论：**44 例既有、7 例本轮引入、HEAD_ONLY=0**。
+- **终局校验**：最终全量的 44 例 FAILED 集合与 A/B 的 PREEXISTING 44 例**集合相等**（`final - pre = []`、`pre - final = []`），7 例 INTRODUCED 无一残留 ⇒ 修复完整、无连带回归。
+
+**7 例本轮引入的分类与处置**（逐条论证见 `docs/P2_11_ROUND11_AUDIT.md` 文末「ROUND_35 全量复验后的基线同步」）：
+
+| 类别 | 例数 | 处置 |
+|---|---|---|
+| 孤儿组件显形 | 2 | 修正既有漏报口径，登记清单与审计文档 |
+| 扫描锚点行号漂移 | 2 | 同步基线行号，AST 断言未弱化 |
+| #35 桶计数 | 1 | 按实测重算并逐批记账 |
+| 上传接线断言被合法重构击穿 | 2 | 升级为 AST 调用链断言 |
+
+- **孤儿组件 2 例**：M-28/L-16 把业务卡片改名为 `RiskTrendCard.vue` 后，闸门按 basename 判引用的旧 `<RiskTrendChart>` 标签消失，使同名的通用组件 `components/charts/RiskTrendChart.vue` 显形为孤儿。全仓实测它**一直**无引用方（`components.d.ts` 由 unplugin-vue-components 自动生成、不证明被使用；`charts.test.ts` 是纯逻辑测试、不 import 组件）。故 `ORPHAN_BASELINE` 9→10 是**修正既有漏报**，不是新增死代码、也不是放宽棘轮；组件已同步登记进 `_AUDITED_ORPHANS` 与审计文档，此后仍「只降不升」。按既有惯例不删除该组件。
+- **行号漂移 2 例**：L-03 抽公共 helper 致 `user_upload.py` 的 `except (magic.MagicException, OSError)` 由 162 行前移到 149 行；`TestP235Round13Batch33Wiring.CANDIDATES` 同步为 149，断言仍用 AST 核对 handler 存在、所属函数与接线唯一性。
+- **桶计数 1 例**：M-08 把 EXIF 清洗改为 `img.save` 重编码后新增「临时文件清理失败静默忽略」handler，真降级候选 331→332、X 118→119（W=111 不变）。分类器 C 桶只识别 `aclose/close/stop/cancel` 且只检查 handler 体内文本（此处仅 `pass`，`unlink` 在 try 体内），故如实判 X（真降级留档）；**未改分类器**，以免牵动其余 331 条历史裁定。
+- **上传接线 2 例**：`test_sec_p2_003_stab_p2_009_sec_p2_005.py` 原按源码字面量切片断言 `process_uploaded_file` 出现在端点函数体内，被 L-03 的公共管线抽取击穿。改为 AST 逐环验证 `upload_file` / `upload_batch` → `_process_batch_file` → `_validate_and_save_upload` → `to_thread(process_uploaded_file, ...)`，不受注释与字符串字面量干扰，任一环断开即红，**强度高于原断言**。
+
+**专属变异见证**：`backend/tests/tools/mutate_round35_ab.py` + 同名 `*_result.log`（仓库内可复现路径，非临时脚本）。4 个真实变异全部 RED —— M1 断上传调用链（杀 2 例）、M2 handler 行号前移一行（杀 2 例）、M3 删清理 handler（杀桶计数）、M4 新增未引用组件（杀孤儿棘轮 2 例）；每个变异 `try/finally` 字节还原并校验 sha256，末臂 `7 passed` GREEN ⇒ `PASS (4/4 RED, restored byte-identical, final GREEN)`。
+
+**44 例既有失败（仍开放，非本轮引入）**：HEAD 版同样失败，本轮未改动相关实现。按模块分布：阈值/分级类 13（`test_core_utils` 8 + `test_iss02_risk_thresholds` 4 + `test_core_modules` 1）、金丝雀/回滚类 7、静态清点类 11（`test_p2_11` 7 + `test_p2_10` 1 + `test_p2_38` 1 + `test_p2_41` 2）、性能断言类 4、契约类 3、其它 6（expected_risk 3 / ml_breaker 1 / importlinter 1 / auto_rollback 1）。其中 `test_importlinter_config` 为既有环境性必红。逐项修复需另立项并各配专属变异。
+
+**仍未闭环的缺口（如实记账）**：
+
+- 动态渗透测试（真实多租户/越权运行时验证；本轮只做到真实对象 RBAC e2e 与静态接线闸门）。
+- 有数据机器上的 ML 产物复算（`datasets/`、`data/external/` 不在版本库，CI 只能复算到 csv/json 层）。
+- 8.3 列出的 M-26 / M-28 组合图表 / M-25 剩余卡片，需**视觉回归 baseline**。
+- 全量 `test_api_contract.py` 的 hypothesis 在本机卡 Redis/Celery result store（localhost:6379 无监听）；变动端点已单独 7 passed。
+- 44 例既有失败基线本身。
+- 日志尾部 `SystemExit: 1` 是 pytest `cleanup_numbered_dir` 与本机 `sitecustomize.py` bulk-delete guard 在解释器退出阶段冲突，发生在 passed/failed 汇总**之后**，属环境噪声而非断言失败（CI 无此 shim）。

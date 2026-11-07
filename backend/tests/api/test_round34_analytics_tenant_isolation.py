@@ -3,7 +3,8 @@
 缺陷背景：``_event_store`` 是汇聚所有租户的进程级全局列表，GET
 ``/analytics/events`` 原先只做裸角色判断（admin/super_admin）后
 ``records = list(_event_store)`` 整表拷出，写入侧也没有 ``tenant_id``
-字段 ⇒ 租户 B 的 admin 能读到租户 A 的 user_id / metadata / client_ip。
+字段 ⇒ 租户 B 的 admin 能读到租户 A 的 user_id / metadata（ROUND_35 起
+client_ip 连采集都已取消，此处只保留历史缺陷背景的准确表述）。
 
 替换层说明：本闸门直接调用**真实纯函数** ``_visible_events_for_tenant``
 （不做 dependency_overrides / mock），并用 AST 断言钉住「写入侧真的带
@@ -30,7 +31,6 @@ def _record(tenant_id: int, user_id: int, **extra: object) -> dict:
         "event_type": "assessment_start",
         "timestamp": 1_700_000_000_000,
         "metadata": {"page": "/dashboard", "risk_level": 2},
-        "client_ip": "10.0.0.7",
         "received_at": "2026-11-06T00:00:00",
         "retention_expires_at": "2099-01-01T00:00:00",
     }
@@ -59,7 +59,17 @@ class TestVisibleEventsForTenant:
         result = _visible_events_for_tenant([_record(1, 11)], 1)
         assert len(result) == 1
         assert "tenant_id" not in result[0]
-        assert "client_ip" not in result[0]
+        # ROUND_35: client_ip 已从采集/契约彻底移除。钉「响应键集合恰好等于
+        # 公开契约字段」比单点断言 not in 更强：既防内部字段泄漏，也防把
+        # 新增内部字段忘了登记而随响应下发。
+        assert set(result[0]) == {
+            "user_id",
+            "event_type",
+            "timestamp",
+            "metadata",
+            "received_at",
+            "retention_expires_at",
+        }
         # 业务字段必须保留，避免「剥字段」被实现成「只留空壳」
         assert result[0]["user_id"] == 11
         assert result[0]["metadata"]["page"] == "/dashboard"

@@ -192,6 +192,11 @@ const form = ref({
 
 const loadReview = async () => {
   const id = Number(route.params.id)
+  // M-23：路由 id 非法时 fail-closed，不发起请求（参照 UserAssessmentDetailPage.vue:130）
+  if (!Number.isFinite(id)) {
+    ElMessage.error(t('counselorReviews.loadDetailFailed'))
+    return
+  }
   try {
     review.value = await counselorApi.getReviewDetail(id)
   } catch (error) {
@@ -213,6 +218,11 @@ const handleResolve = async () => {
     })
 
     const id = Number(route.params.id)
+    // M-23：写操作同样 fail-closed，NaN 时不发请求
+    if (!Number.isFinite(id)) {
+      ElMessage.error(t('counselorReviews.resolveFailed'))
+      return
+    }
     await counselorApi.resolveReview(id, { resolution_note: form.value.note || t('counselorReviews.defaultResolveNote') })
 
     ElMessage.success(t('counselorReviews.resolveSuccess'))
@@ -233,6 +243,11 @@ const handleEscalate = async () => {
     })
 
     const id = Number(route.params.id)
+    // M-23：写操作同样 fail-closed，NaN 时不发请求
+    if (!Number.isFinite(id)) {
+      ElMessage.error(t('counselorReviews.escalateFailed'))
+      return
+    }
     await counselorApi.escalateReview(id, { reason: form.value.note || t('counselorReviews.defaultEscalateReason') })
 
     ElMessage.success(t('counselorReviews.escalateSuccess'))

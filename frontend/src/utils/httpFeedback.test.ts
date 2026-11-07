@@ -107,7 +107,10 @@ describe('showHttpFeedback', () => {
 
     expect(result.status).toBe(500)
     expect(result.level).toBe('error')
-    expect(ElMessage.error).toHaveBeenCalledWith('server error')
+    // L-12 / ROUND_35: 5xx 的后端 detail 一律换成本地化通用文案，
+    // 不再把 'server error' 之类原始内容（可能含堆栈/SQL/路径）展示给用户。
+    expect(ElMessage.error).toHaveBeenCalledWith('服务异常，请稍后重试')
+    expect(ElMessage.error).not.toHaveBeenCalledWith('server error')
     expect(ElMessage.warning).not.toHaveBeenCalled()
   })
 
@@ -121,7 +124,8 @@ describe('showHttpFeedback', () => {
 
     expect(result.status).toBe(502)
     expect(result.level).toBe('error')
-    expect(ElMessage.error).toHaveBeenCalledWith('bad gateway')
+    expect(ElMessage.error).toHaveBeenCalledWith('服务异常，请稍后重试')
+    expect(ElMessage.error).not.toHaveBeenCalledWith('bad gateway')
   })
 
   it('无 response 的错误（status=0）应走默认 error 分支并调用 ElMessage.error', async () => {

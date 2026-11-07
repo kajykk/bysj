@@ -2,7 +2,7 @@
 
 目标: 验证文本模型的域外泛化能力, 量化过拟合程度
 数据: data/external/mmpsy_scores.csv (1275 条中文校园语料, 已有 PHQ-9 标签)
-对照: 域内 Reddit+Twitter 英文 TF-IDF 模型 (F1=0.7891, AUC=0.8806)
+对照: 域内 Reddit+Twitter 英文 TF-IDF 模型 (基线指标取自 metrics.json / test_metrics)
 
 评估内容:
   1. 用英文 TF-IDF 模型预测中文文本 (跨语言域外)
@@ -61,12 +61,36 @@ TEXT_METRICS_PATH = PROJECT_ROOT / "models" / "artifacts" / "text_depression_cla
 TARGET_OOD_SIZE = 2000  # 域外集理想规模
 MIN_OOD_SIZE = 1000     # 最低可用规模
 
-# 域内基线 (来自 metrics.json)
-INDOMAIN_BASELINE = {
-    "f1": 0.7891,
-    "auc": 0.8806,
-    "source": "Reddit+Twitter 英文测试集",
-}
+def build_indomain_baseline(metrics: dict) -> dict:
+    """由真实 metrics.json 的 test_metrics 构造域内基线 (M-17).
+
+    不再使用硬编码常量。文件读取由调用方 (load_text_model) 完成，读取失败
+    直接抛错上抛；此处对字段缺失/类型错误一律抛 ValueError 报错退出，
+    绝不做静默兜底 —— 避免 metrics.json 更新后报告仍沿用旧值、
+    产出与真实产物脱节的「好看数字」。
+    """
+    test_metrics = metrics.get("test_metrics")
+    if not isinstance(test_metrics, dict):
+        raise ValueError(
+            f"metrics.json 缺少 test_metrics 字段或格式不正确: {TEXT_METRICS_PATH}"
+        )
+    missing = [k for k in ("f1", "roc_auc") if k not in test_metrics]
+    if missing:
+        raise ValueError(
+            f"metrics.json 的 test_metrics 缺少字段 {missing}: {TEXT_METRICS_PATH}"
+        )
+    f1 = test_metrics["f1"]
+    auc = test_metrics["roc_auc"]
+    for name, value in (("f1", f1), ("roc_auc", auc)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f"metrics.json 的 test_metrics.{name} 非数值: {value!r} ({TEXT_METRICS_PATH})"
+            )
+    return {
+        "f1": float(f1),
+        "auc": float(auc),
+        "source": f"metrics.json / test_metrics ({TEXT_METRICS_PATH.name})",
+    }
 
 
 def normalize_text(text: str) -> str:
@@ -122,7 +146,12 @@ def load_mmpsy_data() -> pd.DataFrame:
 
 
 def load_text_model() -> tuple[Any, Any, dict]:
-    """加载现有 TF-IDF 文本模型."""
+    """加载现有 TF-IDF 文本模型, 并从真实 metrics.json 构造域内基线.
+
+    M-17: 域内基线不再用硬编码常量, 一律取自 TEXT_METRICS_PATH 的
+    test_metrics。文件缺失 / JSON 损坏 / 字段校验失败均直接抛错退出,
+    不做静默兜底。
+    """
     logger.info("加载文本模型: %s", TEXT_MODEL_PATH)
 
     with open(TEXT_TFIDF_PATH, "rb") as f:
@@ -132,13 +161,15 @@ def load_text_model() -> tuple[Any, Any, dict]:
     with open(TEXT_METRICS_PATH, "r", encoding="utf-8") as f:
         metrics = json.load(f)
 
+    baseline = build_indomain_baseline(metrics)
     logger.info(
-        "模型加载完成: TF-IDF 词汇表 %d 词, 域内 F1=%.4f, AUC=%.4f",
+        "模型加载完成: TF-IDF 词汇表 %d 词, 域内 F1=%.4f, AUC=%.4f (来自 %s)",
         len(tfidf.vocabulary_),
-        metrics["test_metrics"]["f1"],
-        metrics["test_metrics"]["roc_auc"],
+        baseline["f1"],
+        baseline["auc"],
+        TEXT_METRICS_PATH,
     )
-    return tfidf, model, metrics
+    return tfidf, model, baseline
 
 
 def analyze_vocab_overlap(tfidf: Any, ood_texts: pd.Series) -> dict[str, Any]:
@@ -180,7 +211,7 @@ def analyze_vocab_overlap(tfidf: Any, ood_texts: pd.Series) -> dict[str, Any]:
     }
 
 
-def evaluate_ood(tfidf: Any, model: Any, df: pd.DataFrame) -> dict[str, Any]:
+def evaluate_ood(tfidf: Any, model: Any, df: pd.DataFrame, indomain_baseline: dict) -> dict[str, Any]:
     """用英文模型预测中文域外数据, 输出域外指标."""
     logger.info("=" * 50)
     logger.info("域外验证: 英文 TF-IDF 模型 → 中文 mmpsy 数据")
@@ -231,11 +262,11 @@ def evaluate_ood(tfidf: Any, model: Any, df: pd.DataFrame) -> dict[str, Any]:
 
     logger.info("--- 域外指标 ---")
     logger.info("F1=%.4f (域内 %.4f, 下降 %.4f)",
-                metrics["f1"], INDOMAIN_BASELINE["f1"],
-                INDOMAIN_BASELINE["f1"] - metrics["f1"])
+                metrics["f1"], indomain_baseline["f1"],
+                indomain_baseline["f1"] - metrics["f1"])
     logger.info("AUC=%.4f (域内 %.4f, 下降 %.4f)",
-                metrics["roc_auc"], INDOMAIN_BASELINE["auc"],
-                INDOMAIN_BASELINE["auc"] - metrics["roc_auc"])
+                metrics["roc_auc"], indomain_baseline["auc"],
+                indomain_baseline["auc"] - metrics["roc_auc"])
     logger.info("准确率=%.4f, 召回=%.4f, 精确=%.4f",
                 metrics["accuracy"], metrics["recall"], metrics["precision"])
     logger.info("混淆矩阵: %s", metrics["confusion_matrix"])
@@ -250,13 +281,14 @@ def generate_report(
     vocab_analysis: dict,
     ood_metrics: dict,
     elapsed_s: float,
+    indomain_baseline: dict,
 ) -> dict[str, Any]:
     """生成 D3 域外验证报告."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # 域内 vs 域外对比
-    f1_drop = INDOMAIN_BASELINE["f1"] - ood_metrics["f1"]
-    auc_drop = INDOMAIN_BASELINE["auc"] - ood_metrics["roc_auc"]
+    f1_drop = indomain_baseline["f1"] - ood_metrics["f1"]
+    auc_drop = indomain_baseline["auc"] - ood_metrics["roc_auc"]
 
     # 验收判断
     meets_size = len(df) >= TARGET_OOD_SIZE
@@ -278,14 +310,14 @@ def generate_report(
             "avg_text_length": float(df["text"].str.len().mean()),
             "label_source": "PHQ-9 量表 (教育局组织标准化评测)",
         },
-        "indomain_baseline": INDOMAIN_BASELINE,
+        "indomain_baseline": indomain_baseline,
         "vocab_analysis": vocab_analysis,
         "ood_metrics": ood_metrics,
         "comparison": {
-            "f1_indomain": INDOMAIN_BASELINE["f1"],
+            "f1_indomain": indomain_baseline["f1"],
             "f1_ood": ood_metrics["f1"],
             "f1_drop": float(f1_drop),
-            "auc_indomain": INDOMAIN_BASELINE["auc"],
+            "auc_indomain": indomain_baseline["auc"],
             "auc_ood": ood_metrics["roc_auc"],
             "auc_drop": float(auc_drop),
         },
@@ -369,8 +401,8 @@ def main() -> None:
     # 1. 加载 mmpsy 中文域外数据
     df = load_mmpsy_data()
 
-    # 2. 加载现有英文 TF-IDF 文本模型
-    tfidf, model, _ = load_text_model()
+    # 2. 加载现有英文 TF-IDF 文本模型 (并从真实 metrics.json 构造域内基线)
+    tfidf, model, indomain_baseline = load_text_model()
 
     # 3. 词汇重叠分析 (解释跨语言失效原因)
     logger.info("=" * 50)
@@ -379,11 +411,11 @@ def main() -> None:
     vocab_analysis = analyze_vocab_overlap(tfidf, df["text_normalized"])
 
     # 4. 域外预测评估
-    ood_metrics = evaluate_ood(tfidf, model, df)
+    ood_metrics = evaluate_ood(tfidf, model, df, indomain_baseline)
 
     # 5. 生成报告
     elapsed = time.time() - start_time
-    report = generate_report(df, vocab_analysis, ood_metrics, elapsed)
+    report = generate_report(df, vocab_analysis, ood_metrics, elapsed, indomain_baseline)
 
     # 6. 保存报告
     save_report(report)

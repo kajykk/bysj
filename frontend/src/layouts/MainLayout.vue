@@ -175,6 +175,9 @@ const bindWebSocket = () => {
   })
 }
 
+// L-17：保存新手引导延迟定时器 ID，卸载时清理，避免组件卸载后仍触发引导
+let onboardingTimer: ReturnType<typeof setTimeout> | null = null
+
 onMounted(() => {
   bindWebSocket()
   // VIS-015 修复：移动端首次加载时自动收起侧边栏，避免遮挡内容
@@ -182,7 +185,7 @@ onMounted(() => {
     layout.setSidebarCollapsed(true)
   }
   // I2 改进：首次登录自动启动新手引导 (延迟 500ms 等 DOM 渲染完成)
-  setTimeout(() => {
+  onboardingTimer = setTimeout(() => {
     tryStartOnboarding()
   }, 500)
 })
@@ -196,6 +199,10 @@ watch(
 )
 
 onUnmounted(() => {
+  if (onboardingTimer) {
+    clearTimeout(onboardingTimer)
+    onboardingTimer = null
+  }
   wsClient.disconnect()
   removeWsListener?.()
 })

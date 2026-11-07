@@ -112,45 +112,16 @@ const goWarnings = () => {
 }
 </script>
 
-<style scoped>
-.bento-cell {
-  background: var(--surface-1);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-xl);
-  padding: var(--spacing-lg);
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-card);
-  transition: box-shadow 0.3s var(--transition-ease-out),
-    border-color 0.3s var(--transition-ease-out);
-}
+<style scoped lang="scss">
+@use '../../../../styles/card-mixins' as *;
 
-.bento-cell:hover {
-  box-shadow: var(--shadow-card-hover);
-  border-color: var(--border-light);
-}
+@include bento-cell;
 
-.bento-cell__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1.125rem;
-}
-
+/* 该卡特有：标题组与活动状态点（mixin 只覆盖逐字相同的 4 个块） */
 .bento-cell__title-group {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.bento-cell__title {
-  margin: 0;
-  font-family: var(--font-family-display);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
 }
 
 .bento-cell__live-dot {

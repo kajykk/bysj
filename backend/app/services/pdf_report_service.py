@@ -5,35 +5,11 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
-from xml.sax.saxutils import escape as _xml_escape
 
 from app.core.degradation import record_silent_degradation
+from app.services._report_common import _para_text
 
 logger = logging.getLogger(__name__)
-
-
-def _para_text(value: Any) -> str:
-    """P0-FIX-2026-10-11: 用户可控文本交给 ReportLab ``Paragraph`` 前必须转义。
-
-    ``Paragraph`` 会把传入字符串当作 mini-XML 解析（``<b>`` / ``<i>`` /
-    ``<font ...>`` / ``<br/>`` 等内联标记会被真正解释）。本服务的 title /
-    subtitle / user_info / sections / recommendations 全部来自业务数据，
-    其中含大量自由文本（学生姓名、班级、咨询师备注、问卷开放式回答、
-    量表结论），可以合法携带 ``<`` ``>`` ``&``。
-
-    后果有两层：
-    1. 可用性——裸 ``&`` 或未闭合标签会让 reportlab 解析失败，
-       ``doc.build()`` 抛异常，整份 PDF 生成失败（报告导出功能对该用户不可用，
-       且异常被 ``except Exception`` 吞成 ``success=False``，排查成本高）。
-    2. 内容污染——攻击者可借 ``<font size=20 color=red>`` / ``<para>``
-       注入排版指令，篡改咨询报告的可读结论（心理健康场景属于高风险篡改面）。
-
-    注：``Table`` 的单元格不走 XML 解析（字符串按字面绘制），因此
-    **不要**对表格单元格做转义，否则 ``&`` 会被显示成 ``&amp;``。
-    """
-    if value is None:
-        return ""
-    return _xml_escape(str(value))
 
 
 # ── REV-2026-10-20 (S5)：CJK 字体 ────────────────────────────────────

@@ -8,13 +8,18 @@ from pydantic import BaseModel, Field
 class ValidationRunRequest(BaseModel):
     """Request to start a validation run."""
 
-    model_version: str = Field(..., description="Model version to validate")
-    dataset_path: str = Field(..., description="Path to validation dataset")
+    # L-21 修复：版本/路径字段补长度上限，避免超长值原样写入 Redis job 并回显
+    model_version: str = Field(
+        ..., max_length=64, description="Model version to validate"
+    )
+    dataset_path: str = Field(
+        ..., max_length=512, description="Path to validation dataset"
+    )
     baseline_version: str | None = Field(
-        default=None, description="Baseline model version for comparison"
+        default=None, max_length=64, description="Baseline model version for comparison"
     )
     baseline_dataset_path: str | None = Field(
-        default=None, description="Path to baseline dataset"
+        default=None, max_length=512, description="Path to baseline dataset"
     )
 
 

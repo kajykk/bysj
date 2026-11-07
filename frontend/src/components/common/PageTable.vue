@@ -81,9 +81,21 @@ const highlightedRows = ref<Set<string | number>>(new Set())
 let mutationObserver: MutationObserver | null = null
 const highlightTimers = new Set<ReturnType<typeof setTimeout>>()
 
+// M-24：按行对象缓存兜底键，避免每次对所有行重复 JSON.stringify。
+// 优先用行 id/key；无 id 的行以对象引用为键缓存 stringify 结果，语义与原实现一致。
+const rowKeyCache = new WeakMap<object, string | number>()
 const getRowKey = (row: unknown): string | number => {
   const r = row as Record<string, unknown>
-  return (r.id ?? r.key ?? JSON.stringify(row)) as string | number
+  const explicitKey = r.id ?? r.key
+  if (explicitKey != null) return explicitKey as string | number
+  if (row !== null && typeof row === 'object') {
+    const cached = rowKeyCache.get(row)
+    if (cached !== undefined) return cached
+    const computed = JSON.stringify(row)
+    rowKeyCache.set(row, computed)
+    return computed
+  }
+  return String(row)
 }
 
 const combinedRowClassName = (params: { row: unknown; rowIndex: number }) => {
@@ -114,7 +126,7 @@ watch(() => props.data, (newData, oldData) => {
     }, 2000)
     highlightTimers.add(timer)
   })
-}, { deep: true })
+})
 
 onMounted(() => {
   if (props.tableKey && tableRef.value) {

@@ -163,7 +163,13 @@ class TestProfile:
 
 
 class TestRequestReset:
-    def test_request_reset_accepts_json_email(self, client: TestClient, clean_db):
+    # ROUND_35: 本用例验证「request-reset 接受 JSON email」这一契约，不验证
+    # Redis 可用性。strict=True 的 cache_set 在 Redis 不可达时会按 fail-closed
+    # 返回 400，把与本用例无关的部署状态混进断言。接上内存缓存后端选型后，
+    # 断言才能真正钉在请求/响应契约上；fail-closed 语义由专属用例单独把守。
+    def test_request_reset_accepts_json_email(
+        self, client: TestClient, clean_db, memory_blocklist
+    ):
         client.post(
             "/api/v1/auth/register",
             json={

@@ -17,6 +17,17 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+# ROUND_35: 2026-11 阶段 0 在生产部署校验里追加了 MODEL_BERT_REVISION
+# (40 位 commit hash) / JWT_ISSUER / JWT_AUDIENCE 三项硬约束。下列用例想验证的
+# 是 env 覆盖、RS256 豁免、JWT 密钥强度等各自的目标行为，必须先把部署校验的
+# 前置条件补齐；否则「成功路径」用例会在测到目标前被拦下，而期待 ValueError
+# 的用例又会被无关的部署校验消息喂成假绿。这里只补前置，不放宽任何断言。
+_PRODUCTION_DEPLOYMENT_ENV = {
+    "MODEL_BERT_REVISION": "a" * 40,
+    "JWT_ISSUER": "https://issuer.example.com",
+    "JWT_AUDIENCE": "dws-api",
+}
+
 
 class TestSettingsDefaults:
     """Test Settings class initialization with default values."""
@@ -120,6 +131,7 @@ class TestSettingsEnvOverride:
             "APP_ENV": "production",
             "DATABASE_URL": "postgresql+asyncpg://user:pass@db/prod",
             "PASSWORD_RESET_BASE_URL": "https://example.com/reset-password",
+            **_PRODUCTION_DEPLOYMENT_ENV,
         },
         clear=False,
     )
@@ -147,6 +159,7 @@ class TestSettingsValidation:
                 "APP_ENV": "production",
                 "JWT_SECRET_KEY": "a-secure-key-for-testing-only-not-insecure",
                 "DATABASE_URL": "sqlite+aiosqlite:///./test.db",
+                **_PRODUCTION_DEPLOYMENT_ENV,
             },
             clear=False,
         ):
@@ -165,6 +178,7 @@ class TestSettingsValidation:
                 "APP_ENV": "production",
                 "JWT_SECRET_KEY": "change-this-to-a-random-secret-key",
                 "DATABASE_URL": "postgresql+asyncpg://user:pass@db/prod",
+                **_PRODUCTION_DEPLOYMENT_ENV,
             },
             clear=False,
         ):
@@ -191,6 +205,7 @@ class TestSettingsValidation:
                 "JWT_PUBLIC_KEY_PATH": "/secrets/public.pem",
                 "DATABASE_URL": "postgresql+asyncpg://user:pass@db/prod",
                 "PASSWORD_RESET_BASE_URL": "https://example.com/reset-password",
+                **_PRODUCTION_DEPLOYMENT_ENV,
             },
             clear=False,
         ):
@@ -214,12 +229,15 @@ class TestSettingsValidation:
                 "JWT_SECRET_KEY": "change-this-to-a-random-secret-key",
                 "DATABASE_URL": "postgresql+asyncpg://user:pass@db/prod",
                 "PASSWORD_RESET_BASE_URL": "https://example.com/reset-password",
+                **_PRODUCTION_DEPLOYMENT_ENV,
             },
             clear=False,
         ):
             with pytest.raises(ValueError) as exc_info:
                 Settings()
-            assert "RS256" in str(exc_info.value) or "JWT" in str(exc_info.value)
+            # 补齐部署校验前置后，这里才真正命中「RS256 缺密钥路径」而非
+            # 被无关的「JWT_ISSUER 未配置」喂成假绿。
+            assert "JWT_ALGORITHM=RS256 requires" in str(exc_info.value)
 
 
 class TestDependencyDetection:
@@ -274,6 +292,10 @@ class TestProductionJwtSecretStrength:
             "database_url": "postgresql://user:pass@localhost/db",
             "jwt_secret_key": jwt_secret_key,
             "password_reset_base_url": "https://example.com/reset-password",
+            # 部署校验前置（字段名形式，与 _PRODUCTION_DEPLOYMENT_ENV 同值）
+            "model_bert_revision": "a" * 40,
+            "jwt_issuer": "https://issuer.example.com",
+            "jwt_audience": "dws-api",
         }
         kwargs.update(overrides)
         return Settings(**kwargs)

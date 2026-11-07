@@ -1,0 +1,142 @@
+ROUND_35 wiring-gate mutation witness
+============================================================
+[G1 / M-01 CSP 模型不再实例化（校验成死代码）]
+  file            : backend/app/api/csp_report.py
+  original_sha256 : ae21c4e26bd7d4fa24a4ba72ce2c0bb45e716f358a145623d4dc51e8a777ecb7
+  mutated_sha256  : bac014c6b323b1846ab39c5aa31ecd7cc5cac9a3ad73769075f783bc31a6a26e
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o addopts=--strict-markers --import-mode=importlib --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 1 failed, 7 deselected, 3 warnings in 1.25s
+  restore         : byte-identical, sha256=ae21c4e26bd7d4fa24a4ba72ce2c0bb45e716f358a145623d4dc51e8a777ecb7
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[G2 / M-05 审计 detail 写回明文绑定码]
+  file            : backend/app/services/counselor_service_binding.py
+  original_sha256 : bb3bc530623a05274a3c3a3e6f035b4fdd0e47f0b36327f060948a9dff84a667
+  mutated_sha256  : 80dcb4230148f017069902b8391e680b002da5babd51e2cccf498e0977227db3
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o addopts=--strict-markers --import-mode=importlib --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 1 failed, 7 deselected, 3 warnings in 1.22s
+  restore         : byte-identical, sha256=bb3bc530623a05274a3c3a3e6f035b4fdd0e47f0b36327f060948a9dff84a667
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[G3 / M-07 影子 Task 丢失强引用]
+  file            : backend/app/services/shadow_mode_service.py
+  original_sha256 : f88cc737c88e902fae0512b84a431386323c483d57e55cd7afa4db81da0f6c86
+  mutated_sha256  : 7831202c9191d1bb3f4a4e7854f539a7ae1d4cfa9c8acce572161b4722327f72
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o addopts=--strict-markers --import-mode=importlib --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 1 failed, 7 deselected, 3 warnings in 1.17s
+  restore         : byte-identical, sha256=f88cc737c88e902fae0512b84a431386323c483d57e55cd7afa4db81da0f6c86
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[G4 / M-10 告警扫描退回固定 limit(500)]
+  file            : backend/app/monitoring/escalation.py
+  original_sha256 : 74b19b573b955316634339c2d5cc9d7aec514a29106730bf8d08468b6d1c11dc
+  mutated_sha256  : 8bf7b25fca20ed1a2e6285898b9cfa367d631852b4adbff7ae3c6f9b187ee818
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o addopts=--strict-markers --import-mode=importlib --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 1 failed, 7 deselected, 3 warnings in 1.42s
+  restore         : byte-identical, sha256=74b19b573b955316634339c2d5cc9d7aec514a29106730bf8d08468b6d1c11dc
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[G5 / M-02 去掉 PromQL 正则白名单]
+  file            : backend/app/api/v1/metrics_helpers.py
+  original_sha256 : 55d749c9b917f06348da538a617de8f53910f81acafae92bf49c2b89140ecf96
+  mutated_sha256  : da0ed19b4396c9110a49f7a49b609a6f0206bf8d46a42788379ff3598228778c
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o addopts=--strict-markers --import-mode=importlib --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 1 failed, 7 deselected, 3 warnings in 1.17s
+  restore         : byte-identical, sha256=55d749c9b917f06348da538a617de8f53910f81acafae92bf49c2b89140ecf96
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[G6 / S-01 响应契约重新加回 client_ip]
+  file            : backend/app/schemas/analytics.py
+  original_sha256 : 1d555b218a18ec85ada117729c4b9ec64601fdd7a8296b3d34f77658cd9286cc
+  mutated_sha256  : 3efbd669f83f4c07095578062c0cb8c4b63c9c166668e71319eb978b3d8444b1
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o addopts=--strict-markers --import-mode=importlib --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 1 failed, 7 deselected, 3 warnings in 1.05s
+  restore         : byte-identical, sha256=1d555b218a18ec85ada117729c4b9ec64601fdd7a8296b3d34f77658cd9286cc
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[G7 / M-03 导出跨度上限放宽到 10 年]
+  file            : backend/app/api/v1/admin.py
+  original_sha256 : 2ed8f66da9a4773efefcd87a0955a25ef45b138998a5043a21b68623434245cb
+  mutated_sha256  : 7b5d8e098772695a3e0555fafc1e1c2d0fd3aff692af315954c1ca86bd59b990
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o addopts=--strict-markers --import-mode=importlib --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : 1 failed, 7 deselected, 3 warnings in 1.04s
+  restore         : byte-identical, sha256=2ed8f66da9a4773efefcd87a0955a25ef45b138998a5043a21b68623434245cb
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[G8 / M-12 跳过项不再阻断门禁（0 项检查报通过）]
+  file            : backend/scripts/check_compatibility.py
+  original_sha256 : c8191d720755c10ad81677d3b665ce38d0c95c7db8c9d125443f7b6c1c75c403
+  mutated_sha256  : 4149fdff9bb6a1068f46425070baa10386a796a3416d11bef32bb53f0f0ab47f
+  cmd             : E:\code\bysj\backend\.venv\Scripts\python.exe -m pytest -o addopts=--strict-markers --import-mode=importlib --ignore=functional_test.py --ignore-glob=test_result*.txt --ignore=test_final.txt ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : +  where 0 = CompletedProcess(args=['E:\\code\\bysj\\backend\\.venv\\Scripts\\python.exe', 'E:\\code\\bysj\\backend\\scripts\\check...errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.\n').returncode | 1 failed, 7 deselected, 3 warnings in 16.64s
+  restore         : byte-identical, sha256=c8191d720755c10ad81677d3b665ce38d0c95c7db8c9d125443f7b6c1c75c403
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[F1 / M-20 guard fail-closed 缩回只管 /admin]
+  file            : frontend/src/router/guard.ts
+  original_sha256 : 09478b7e9878de3edf79ccdfaa01930ed20139a445813c2cea91b833dd89ebf9
+  mutated_sha256  : 73fab323e853892b02a6d2e4580064474ad1b144b4134800ff4abc019000a0c9
+  cmd             : node node_modules/vitest/vitest.mjs run src/router/guard.realstore.test.ts ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : [31m❯[39m src/router/guard.realstore.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 14[2mms[22m[39m | [2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m | [2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (3)[39m
+  restore         : byte-identical, sha256=09478b7e9878de3edf79ccdfaa01930ed20139a445813c2cea91b833dd89ebf9
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[F2a / M-18 persistAuth 不再广播]
+  file            : frontend/src/stores/auth.ts
+  original_sha256 : a226c5211ca7123baf9adb915078b920a8c4037358f4b6fd6366b64bc0fb6c0e
+  mutated_sha256  : 92f7ec7b2b1716c88d803dd22e3ea0d4caaec24750b389a3c4803561377ac951
+  cmd             : node node_modules/vitest/vitest.mjs run src/utils/authBroadcast.wiring.test.ts ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : [31m❯[39m src/utils/authBroadcast.wiring.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 15[2mms[22m[39m | [2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m | [2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
+  restore         : byte-identical, sha256=a226c5211ca7123baf9adb915078b920a8c4037358f4b6fd6366b64bc0fb6c0e
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[F2b / M-18 401 刷新成功不再广播]
+  file            : frontend/src/api/request.ts
+  original_sha256 : 353a73e5c6f870f388e22df7891475da89a4e5fd9e7d8ecc7f4fb2cd6af9c84c
+  mutated_sha256  : b691dbdbce5935f34acf71a160d2a8dcf8ab56aa9aaccf0484f89ced82b7823a
+  cmd             : node node_modules/vitest/vitest.mjs run src/utils/authBroadcast.wiring.test.ts ...
+  rc              : 1
+  expected        : RED (rc != 0)
+  observed        : RED
+  summary         : [31m+   } catch (error) { | [31m+     logger.warn('[refreshAccessToken] token refresh failed:', error) | [31m+ function rejectPendingRequests(error: unknown) { | [31m+     reject(error)
+  restore         : byte-identical, sha256=353a73e5c6f870f388e22df7891475da89a4e5fd9e7d8ecc7f4fb2cd6af9c84c
+  verdict         : OK (RED -> restored)
+------------------------------------------------------------
+[FINAL ARM / backend 8 wiring gates] rc=0 GREEN
+  summary: 8 passed, 3 warnings in 14.80s
+[FINAL ARM / frontend 2 wiring gates] rc=0 GREEN
+  summary: [2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m | [2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[FINAL ARM / backend real-object RBAC e2e] rc=0 GREEN
+  summary: 3 passed, 4 warnings in 4.50s
+============================================================
+RESULT: PASS (11/11 RED, restored byte-identical, final GREEN)

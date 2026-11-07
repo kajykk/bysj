@@ -61,7 +61,7 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 def _backfill_email_hash() -> None:
-    """用应用层真 HMAC-SHA256 逐行回填存量 users.email_hash.
+    """用应用层真 HMAC-SHA256 分批回填存量 users.email_hash.
 
     为什么必须在应用层做（而非纯 SQL）:
       - 密钥来自 settings.pii_encryption_key，不存在可被 SQL 查询的表；
@@ -72,6 +72,14 @@ def _backfill_email_hash() -> None:
     复用 app.core.pii_crypto 而非复制算法: 密钥校验、字段 salt、
     以及「缺密钥时拒绝降级到弱密钥」的策略都以该模块为唯一事实来源。
     本函数与之共享同一进程内已 import 的模块实例。
+
+    M-14 性能修复：不再一次性 fetchall() 全表载入内存、也不在循环内逐行
+    UPDATE（每行一次数据库往返 + 长事务，用户量大时易触发升级超时）。改为
+    fetchmany(500) 分页 + bindparam/executemany 批量 UPDATE，每批提交一次。
+    回填口径不变：email_hash 仍由 decrypt_field + compute_blind_index 计算，
+    空/空白邮件仍只收集 id 并在末尾显式抛错、绝不编造哈希；
+    WHERE email_hash IS NULL + 分批提交共同保证可重入 —— 已回填的行重跑时
+    不会再被选中。
     """
     from app.core.pii_crypto import compute_blind_index
 
@@ -81,13 +89,18 @@ def _backfill_email_hash() -> None:
     # 但已加密的库也可能是历史遗留，故用 decrypt_field 兼容双形态。
     from app.core.pii_crypto import decrypt_field
 
-    rows = connection.execute(
+    batch_size = 500
+    # 显式 bindparam + list[dict] 让 SQLAlchemy 走 executemany：一批一次往返。
+    update_stmt = sa.text(
+        "UPDATE users SET email_hash = :email_hash WHERE id = :id"
+    ).bindparams(sa.bindparam("email_hash"), sa.bindparam("id"))
+
+    result = connection.execute(
         sa.text("SELECT id, email, email_hash FROM users WHERE email_hash IS NULL")
-    ).fetchall()
-    if not rows:
-        return
+    )
 
     updated = 0
+    total = 0
     # 存量脏数据收集：email 为空/空白的行无法计算盲索引。
     # 模型层 email 是 nullable=False 且有 ck_users_email_length(LENGTH>=3) 约束，
     # 所以这类行本就违反 schema 约束 —— 迁移不能给它编造一个 hash（那会让
@@ -95,23 +108,32 @@ def _backfill_email_hash() -> None:
     # 第 4 步的 NOT NULL 收紧抛一个不可诊断的原始错误。
     # 这里收集 id 并在末尾显式抛错，指明需人工处理的行。
     unresolvable: list[int] = []
-    for row_id, email_value, _ in rows:
-        if email_value is None or str(email_value).strip() == "":
-            unresolvable.append(row_id)
-            continue
-        plaintext = decrypt_field(email_value, "email")
-        if not plaintext or not str(plaintext).strip():
-            unresolvable.append(row_id)
-            continue
-        email_hash = compute_blind_index(plaintext, "email")
-        if not email_hash:
-            unresolvable.append(row_id)
-            continue
-        connection.execute(
-            sa.text("UPDATE users SET email_hash = :email_hash WHERE id = :id"),
-            {"id": row_id, "email_hash": email_hash},
-        )
-        updated += 1
+    while True:
+        rows = result.fetchmany(batch_size)
+        if not rows:
+            break
+        total += len(rows)
+        params: list[dict] = []
+        for row_id, email_value, _ in rows:
+            if email_value is None or str(email_value).strip() == "":
+                unresolvable.append(row_id)
+                continue
+            plaintext = decrypt_field(email_value, "email")
+            if not plaintext or not str(plaintext).strip():
+                unresolvable.append(row_id)
+                continue
+            email_hash = compute_blind_index(plaintext, "email")
+            if not email_hash:
+                unresolvable.append(row_id)
+                continue
+            params.append({"id": row_id, "email_hash": email_hash})
+
+        if params:
+            connection.execute(update_stmt, params)
+            updated += len(params)
+        # 每批提交一次，避免单条长事务导致升级超时；WHERE email_hash IS NULL
+        # 保证已提交的批次重跑时不会被重复处理（可重入）。
+        connection.commit()
 
     if unresolvable:
         raise RuntimeError(
@@ -123,7 +145,7 @@ def _backfill_email_hash() -> None:
             "不要为其编造哈希值，否则脏数据会被 NOT NULL 约束永久固化。"
         )
 
-    print(f"[h9d4e5f6a7b8] email_hash 回填完成: {updated}/{len(rows)} 行")
+    print(f"[h9d4e5f6a7b8] email_hash 回填完成: {updated}/{total} 行")
 
 
 def upgrade() -> None:

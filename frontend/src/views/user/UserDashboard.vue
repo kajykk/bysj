@@ -58,7 +58,7 @@
 
     <!-- 第二行：风险趋势（宽）+ 未读预警（窄） -->
     <div class="bento-grid bento-grid--bottom">
-      <RiskTrendChart
+      <RiskTrendCard
         v-model:days="trendDays"
         :risk-trend="riskTrend"
         :loading="trendLoading"
@@ -93,7 +93,7 @@ import NextStepCard from './components/user-dashboard/NextStepCard.vue'
 import RiskStatusCard from './components/user-dashboard/RiskStatusCard.vue'
 import LatestAssessmentCard from './components/user-dashboard/LatestAssessmentCard.vue'
 import InterventionPlanCard from './components/user-dashboard/InterventionPlanCard.vue'
-import RiskTrendChart from './components/user-dashboard/RiskTrendChart.vue'
+import RiskTrendCard from './components/user-dashboard/RiskTrendCard.vue'
 import UnreadWarningsCard from './components/user-dashboard/UnreadWarningsCard.vue'
 import RecentActivityCard from './components/user-dashboard/RecentActivityCard.vue'
 import { useUserDashboardData } from './components/user-dashboard/useUserDashboardData'

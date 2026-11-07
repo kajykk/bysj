@@ -858,7 +858,10 @@ class PredictMixin:
         不会因降级而退回「模型自带 predict 的单阈值两态」。
         """
         lower = float(settings.text_bilingual_decision_threshold)
-        upper = float(getattr(settings, "text_bilingual_review_threshold", lower))
+        # ROUND_35: text_bilingual_review_threshold 已在 Settings 声明默认值，
+        # 原先 getattr 以 lower 作兜底等于私自引入第二份默认值来源（且语义不同：
+        # 会让上界塌到下界，suspect 区间消失）。配置默认值只能有一个来源。
+        upper = float(settings.text_bilingual_review_threshold)
         try:
             prob = float(probability)
         except (TypeError, ValueError):

@@ -67,12 +67,13 @@ class TestAnalyticsResponseContracts:
         record_props = openapi_schema["components"]["schemas"][
             item["$ref"].split("/")[-1]
         ]["properties"]
+        # ROUND_35: client_ip 已彻底移除（不再采集、不再下发、不再出现在契约）。
         assert {
             "user_id",
             "event_type",
             "timestamp",
             "metadata",
-            "client_ip",
             "received_at",
             "retention_expires_at",
         } == set(record_props)
+        assert "client_ip" not in record_props

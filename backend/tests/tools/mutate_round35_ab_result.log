@@ -1,0 +1,16 @@
+M1 upload chain: RED (killed) failed=['tests/test_sec_p2_003_stab_p2_009_sec_p2_005.py::TestUploadApiIntegration::test_upload_batch_endpoint_calls_process_uploaded_file', 'tests/test_sec_p2_003_stab_p2_009_sec_p2_005.py::TestUploadApiIntegration::test_upload_file_endpoint_calls_process_uploaded_file']
+M1 upload chain: restored sha256=fb1217743a584a1c
+M2 handler line drift: RED (killed) failed=['tests/test_p2_11_round11.py::TestP235Round13Batch33Wiring::test_candidates_present_and_enclosing_func', 'tests/test_p2_11_round11.py::TestP235Round13Batch33Wiring::test_wiring_only_at_validate_mime_type']
+M2 handler line drift: restored sha256=fb1217743a584a1c
+M3 bucket handler removed: RED (killed) failed=['tests/test_p2_11_round11.py::TestP235SilentDegradationRatchet::test_batch6_bucket_counts_pinned']
+M3 bucket handler removed: restored sha256=f73e5d7dde0aac0f
+M4 new orphan: RED (killed) failed=['tests/test_p2_11_round11.py::TestOrphanComponentRatchet::test_orphan_count_not_increased', 'tests/test_p2_11_round11.py::TestOrphanComponentRatchet::test_orphan_list_synced_with_audit_doc']
+M4: probe removed
+FINAL ARM: rc=0 failed=[] summary=['7 passed, 3 warnings in 6.37s']
+FINAL ARM: GREEN
+------------------------------------------------------------------------
+  KILLED  M1 upload chain
+  KILLED  M2 handler line drift
+  KILLED  M3 bucket handler removed
+  KILLED  M4 new orphan
+RESULT: PASS (4/4 RED, restored byte-identical, final GREEN)

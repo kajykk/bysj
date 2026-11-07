@@ -99,7 +99,8 @@ class BindingMixin:
                 action="create_bind_code",
                 target_type="user_counselor_binding",
                 target_id=None,
-                detail={"status": "placeholder", "bind_code": code},
+                # M-05 收口：审计日志只留不可逆指纹，不落明文绑定码。
+                detail={"status": "placeholder", "bind_code_fingerprint": _fingerprint(code)},
                 request=request,
                 tenant_id=tenant_id,
             )
@@ -116,7 +117,7 @@ class BindingMixin:
                 target_id=existing.id,
                 detail={
                     "status": self._status_value(existing.status),
-                    "bind_code": code,
+                    "bind_code_fingerprint": _fingerprint(code),
                 },
                 request=request,
                 tenant_id=tenant_id,
@@ -174,7 +175,7 @@ class BindingMixin:
                 target_id=None,
                 detail={
                     "status": "placeholder",
-                    "bind_code": new_code,
+                    "bind_code_fingerprint": _fingerprint(new_code),
                     "trigger": "refresh",
                 },
                 request=request,
@@ -353,7 +354,7 @@ class BindingMixin:
             target_id=new_binding.id,
             detail={
                 "counselor_id": counselor_id,
-                "bind_code": bind_code,
+                "bind_code_fingerprint": _fingerprint(bind_code),
                 "from_status": self._status_value(previous_status),
                 "to_status": "active",
             },

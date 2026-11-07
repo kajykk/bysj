@@ -309,6 +309,10 @@ def _load_feature_names_cached(path: Path) -> list[str]:
 def load_metrics(path: Path | str | None = None) -> dict:
     """Load model metrics from JSON.
 
+    L-09: 与 load_model/load_scaler/load_feature_names/load_cleaner 同理，按解析
+    后的实际路径缓存，避免每次调用重复 open + 全量 SHA256。返回的 dict 被共享，
+    调用方不得就地修改；重新训练/替换工件后需调用 clear_artifact_cache 失效。
+
     Args:
         path: Path to metrics.json. Defaults to METRICS_PATH.
 
@@ -318,7 +322,13 @@ def load_metrics(path: Path | str | None = None) -> dict:
     Raises:
         FileNotFoundError: If metrics file does not exist.
     """
-    path = Path(path) if path else _artifact_path("METRICS_PATH")
+    resolved = Path(path) if path else _artifact_path("METRICS_PATH")
+    return _load_metrics_cached(resolved)
+
+
+@lru_cache(maxsize=8)
+def _load_metrics_cached(path: Path) -> dict:
+    """按解析后的绝对路径加载并缓存 metrics."""
     if not path.exists():
         raise FileNotFoundError(f"Metrics not found: {path}")
 
@@ -390,13 +400,14 @@ def _load_cleaner_cached(path: Path) -> "DataCleaner":
 
 
 # ── 工件缓存失效 (AUDIT-2026-09-28-P0-5) ────────────────────────────────────
-# load_model/load_scaler/load_feature_names/load_cleaner 均带 lru_cache，
+# load_model/load_scaler/load_feature_names/load_cleaner/load_metrics 均带 lru_cache，
 # 重新训练或替换磁盘工件后必须显式失效，否则进程内会继续用旧对象。
 _ARTIFACT_LOADERS = (
     "_load_model_cached",
     "_load_scaler_cached",
     "_load_feature_names_cached",
     "_load_cleaner_cached",
+    "_load_metrics_cached",
 )
 
 

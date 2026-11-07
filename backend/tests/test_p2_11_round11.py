@@ -124,9 +124,16 @@ class TestOrphanComponentRatchet:
     BottomNav 是本轮删掉的那个；扫描发现仓库里还有 9 个其它孤儿组件
     （图表/插画/LanguageSelector 等），它们的处置属于产品决策，本轮**不删**，
     但用棘轮锁住"不得新增"，并在审计文档登记清单。
+
+    ROUND_35 / M-28+L-16：业务卡片 views/.../RiskTrendChart.vue 改名为
+    RiskTrendCard.vue 后，本闸门按 basename 判引用的旧 `<RiskTrendChart>`
+    标签消失，使通用组件 components/charts/RiskTrendChart.vue 显形为孤儿。
+    这两个文件同名，此前业务卡片的标签把另一个文件误判为「有引用方」；
+    通用组件一直无真实引用方，属**既有漏报**而非本轮新增死代码。
+    基线 9→10 是修正漏报口径，此后仍严格「只降不升」。
     """
 
-    ORPHAN_BASELINE = 9
+    ORPHAN_BASELINE = 10
 
     def _orphans(self) -> list[str]:
         comps = sorted(
@@ -185,6 +192,7 @@ class TestOrphanComponentRatchet:
 # 审计登记时的孤儿清单（删除 BottomNav 之后实测），用于"新增孤儿"的精确提示
 _AUDITED_ORPHANS = {
     "components/charts/ModelPerformanceChart.vue",
+    "components/charts/RiskTrendChart.vue",
     "components/charts/SystemHealthChart.vue",
     "components/common/illustrations/EmptyAssessment.vue",
     "components/common/illustrations/EmptyReport.vue",
@@ -456,7 +464,7 @@ class TestP235SilentDegradationRatchet:
                        # 非降级）⇒ G 7→8，总数 340→341）
             "V": 2,    # 显式失败上报
             "F": 2,    # 保守 fail-safe（宁可少清理/不发）
-            "X": 118,  # 真降级留档（第十九批纯裁定不变；第二十批 1 处实记录 X→W：
+            "X": 119,  # 真降级留档（ROUND_35 +1，见本注释末段；第十九批纯裁定不变；第二十批 1 处实记录 X→W：
                        # 告警 history detail JSON 解析失败 → 空壳 item 照常入列表；
                        # 故 X 120→119、W 95→96；总数 334 不变。
                        # 第二十三批纯裁定不变；第二十四批接线的 ws pubsub 循环
@@ -482,6 +490,13 @@ class TestP235SilentDegradationRatchet:
                        # 训练任务 Redis 列表回退 / 训练任务 Redis 更新失败），
                        # X 126→123→120、W 89→92→95；
                        # 第十七批 X 126→123、W 89→92；第十六批 X 130→126、W 85→89。）
+                       # ROUND_35（2026-11-06）：M-08 EXIF 清洗改为 img.save 重编码后，
+                       # 新增「临时文件清理失败静默忽略」handler
+                       # （file_security_service.strip_image_exif 内
+                       #  tmp_path.unlink(missing_ok=True) 的 except Exception: pass）。
+                       # 分类器 C 桶只认 aclose/close/stop/cancel，且只检查 handler
+                       # 体内文本（此处仅 pass），故如实判 X；不改动分类器以免牵动
+                       # 331 条历史裁定。真降级候选 331→332、X 118→119、W 111 不变。
         }
         assert counts == expected, (
             "#35 候选裁定桶计数发生变化，必须重跑 tests/tools/scan_p2_35_batch6.py "
@@ -7199,7 +7214,7 @@ class TestP235Round13Batch33Wiring:
     CANDIDATES = [
         (SCHEMAS_REL, 63, "_validate_url_safety", "G"),
         (SCHEMAS_REL, 68, "_validate_url_safety", "G"),
-        (UU_REL, 162, "_validate_mime_type", "G"),  # 2026-11 已改为 fail-closed 拒绝
+        (UU_REL, 149, "_validate_mime_type", "G"),  # ROUND_35 L-03 抽公共 helper 致 162→149
         (DBB_REL, 100, "_check_exception_is_connection_failure", "P"),
         (DBB_REL, 109, "_check_exception_is_connection_failure", "P"),
         (DEPS_REL, 204, "_role_for_request", "G"),

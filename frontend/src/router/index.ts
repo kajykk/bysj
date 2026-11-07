@@ -320,7 +320,8 @@ router.onError((error, to) => {
         const now = Date.now()
         if (!lastReload || now - parseInt(lastReload, 10) > RELOAD_WINDOW_MS) {
           window.sessionStorage.setItem(RELOAD_KEY, String(now))
-          window.location.assign(to.fullPath)
+          // M-19 修复：不再把 to.fullPath 直接交给 location.assign（//host 之类的畸形路径会被当作协议相对 URL 造成开放跳转），直接刷新当前页重新加载资源。
+          window.location.reload()
         }
       } catch {
         // sessionStorage 不可用时静默降级，不刷新避免循环

@@ -41,7 +41,9 @@ class AnalyticsEventRecord(BaseModel):
     event_type: str
     timestamp: int = Field(..., description="客户端时间戳（毫秒）")
     metadata: dict[str, Any] = Field(default_factory=dict)
-    client_ip: str | None = None
+    # ROUND_35: 彻底移除 client_ip。ROUND_34 曾以「字段声明 + 补 None」保留，
+    # 但 response_model 序列化仍会输出 "client_ip": null，等于把内部字段
+    # 名留在公开展示契约里；且该值无任何消费方，与「最小化采集」相悖。
     received_at: str
     retention_expires_at: str
 
