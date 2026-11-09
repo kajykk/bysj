@@ -1,0 +1,103 @@
+# gitleaks allowlist —— 只放行「CI 占位值 + 测试夹具假凭据」的已核定误报。
+#
+# 建立依据（2026-11-09 实测）：在 git archive HEAD 造出的干净树上跑
+# gitleaks 8.30.1 `dir`，基线 46 leaks，与 CI workspace-scan 的 46 条逐文件吻合。
+# 每条检出都已人工读码核对为固定假值 / 评测标识符 / 归档诊断文本，详见
+# docs/SECRET_SCAN_ALLOWLIST_2026-11-09.md。
+#
+# 纪律：
+# 1. 不整目录放行、不关闭任何规则；每条 allowlist 都同时限定
+#    targetRules（规则 ID）+ paths（精确文件）+ regexes（行内形态）+ condition=AND。
+# 2. 新增同类字面量若换了文件或换了键名，本配置不会命中 ⇒ 扫描照红，
+#    必须回来逐条复核后追加，不允许把正则改宽来"一次解决"。
+# 3. 本文件自身也在 dir 扫描范围内；若配置片段自命中，应拆写正则而不是放行整文件。
+# 4. gitleaks-action@e0c47f4 默认内置 8.24.3（src/index.js:138），低于
+#    [[allowlists]] / targetRules 所需的 8.25.0 ⇒ secret-scan.yml 的三个 job
+#    已统一钉到 GITLEAKS_VERSION / 镜像 tag 8.30.1。
+
+title = "bysj: CI placeholders and test fixtures only"
+minVersion = "8.25.0"
+
+[extend]
+useDefault = true
+
+# ── 1. 鉴权 API 测试与 ruff 归档基线：注册/登录/改密载荷里的固定假密码 ──
+# 命中形态为 "password": "..." / "new_password": "..."；
+# 归档 txt 里是 ruff F841 告警引用的同一批源码行，不是配置。
+[[allowlists]]
+description = "auth API tests and archived ruff baseline: fixed fake passwords in request payloads"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''(^|/)backend/tests/api/(test_auth_p0p1|test_p0_p1_regressions|test_auth_flow|test_round35_rbac_real_object_e2e)\.py$''',
+  '''(^|/)docs/archive/2026-09/planning/v1\.40-audit-beautify/_baseline_ruff\.txt$''',
+]
+regexes = ['''"(password|new_password|old_password)"\s*:\s*"''']
+
+# ── 2. v1.50 协议鲁棒性基线：字段名 round48_key 被 generic-api-key 误报 ──
+# 值是 sensitivity_* 之类的敏感度分析用例标识，不是凭据。
+[[allowlists]]
+description = "v1.50 protocol robustness: round48_key is a case identifier"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''(^|/)backend/scripts/modeling/eval/v1_50/(protocol_robustness\.json|01_protocol_robustness\.py)$''']
+regexes = ['''"round48_key"\s*:\s*"''']
+
+# ── 3. PII 加密单测：monkeypatch 用的合成 Fernet 形值与占位环境变量 ──
+[[allowlists]]
+description = "PII crypto tests: synthetic keys with readable prefixes and a test-only env placeholder"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''(^|/)backend/tests/(test_sec_p2_004_aes_gcm|test_pii_crypto_helpers)\.py$''']
+regexes = ['''PII_ENCRYPTION_KEY|same_key\s*=|[^_]key\s*=\s*"''']
+
+# ── 4. 日志脱敏器输入样例：jwt.io 示例 JWT 与假 sk-/ghp_ token ──
+# 该文件存在的目的就是放 secret-shaped 字面量来验证 sanitize_text。
+[[allowlists]]
+description = "sanitizer test inputs: sample JWT and fake sk-/ghp_ tokens"
+targetRules = ["jwt", "generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''(^|/)backend/tests/test_sec_p2_007_log_sanitizer\.py$''']
+regexes = ['''[e]yJhbGciOiJIUzI1NiJ9|api_key=|sk-abc|ghp_abcdef''']
+
+# ── 5. v1.39 E2E workflow：curl 的 admin:<CI 占位口令> ──
+[[allowlists]]
+description = "v1.39 alerting E2E: curl -u admin with the CI-only Grafana password"
+targetRules = ["curl-auth-user"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''(^|/)\.github/workflows/v1\.39-alerting-e2e\.yml$''']
+regexes = ['''curl -s -u admin:ci-grafana-admin''']
+
+# ── 6. v1.39 E2E workflow：JWT_SECRET_KEY 的 ci- 前缀占位 ──
+# 该值被 tests/test_ci_secret_placeholders.py 用生产校验函数反向钉住，
+# 强度是被闸门逼出来的，不是真实密钥。
+[[allowlists]]
+description = "v1.39 alerting E2E: JWT_SECRET_KEY CI placeholder, line scoped"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''(^|/)\.github/workflows/v1\.39-alerting-e2e\.yml$''']
+regexes = ['''JWT_SECRET_KEY:\s*ci-e2e-jwt-secret-''']
+
+# ── 7. v1.39 E2E workflow：PII_ENCRYPTION_KEY 的 CI 固定占位 ──
+# 唯一形态与真实 Fernet 生产密钥一致的条目。判定为占位的证据链：
+#   (a) 它位于 workflow 的 env 块，注释说明是"生产模式 Settings 硬性要求
+#       >=32 字节"而写的 CI 固定值；同块还有 ci-* 前缀占位与 example.invalid 域名；
+#   (b) .env.example 明确禁止写入真实值，真实密钥由 ENV_FILE 从仓库外注入
+#       （见 docs/ops/SECRET_ROTATION_2026-11.md）；
+#   (c) 该 workflow 只在 CI E2E 起栈时使用。
+# 处置：只按「行内变量名 + 单条规则 + 单个文件」放行，不写具体值、不整文件放行。
+# 若该值曾在任何非 CI 环境使用过，应按 SECRET_ROTATION_2026-11.md 轮换，
+# 并回来复核本条是否仍应保留。
+[[allowlists]]
+description = "v1.39 alerting E2E: PII_ENCRYPTION_KEY CI placeholder, line scoped; rotate if ever used outside CI"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''(^|/)\.github/workflows/v1\.39-alerting-e2e\.yml$''']
+regexes = ['''PII_ENCRYPTION_KEY:\s*[A-Za-z0-9_-]{40,}={0,2}\s*$''']

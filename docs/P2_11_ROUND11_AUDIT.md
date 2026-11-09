@@ -1950,6 +1950,25 @@ NameError 之外的更多问题，但 import 成功仍不保证函数体能跑�
 4. **上传接线断言升级（2 例）**：`test_sec_p2_003_stab_p2_009_sec_p2_005.py`
    原先按源码字面量切片断言 `process_uploaded_file` 出现在端点函数体内，
    被 L-03 的合法公共管线抽取击穿。改为 AST 逐环验证调用链
-   （`upload_file` / `upload_batch` → `_process_batch_file` →
-   `_validate_and_save_upload` → `to_thread(process_uploaded_file, ...)`），
-   不受注释与字符串字面量干扰，任一环断开即红，强度高于原断言。
+  （`upload_file` / `upload_batch` → `_process_batch_file` →
+  `_validate_and_save_upload` → `to_thread(process_uploaded_file, ...)`），
+  不受注释与字符串字面量干扰，任一环断开即红，强度高于原断言。
+
+---
+
+## 附：ROUND_35 收尾（e09b5a2）#34 计数同步（2026-11-09）
+
+在 `e09b5a2` 上用 `TestP234RaiseClassificationSynced._classify()` 现场 AST 复算，
+判据（遍历 `backend/app/**/*.py` 的 `ast.Raise` + `ast.Call`、按构造名分三桶）
+一字未改，只在本文追加新 token 供 `token in doc` 命中：
+
+```text
+HTTPException=220
+ServiceError=39
+other_raise=382
+```
+
+相对上一次快照（215 / 39 / 376）：HTTPException +5、other_raise +6、
+ServiceError 不变。**逐文件归因未逐条核对**，本节只如实登记本次复算值，
+不追认「哪次提交加了哪条 raise」。历史各快照（含 §五 的 248/334/0 与
+前几轮附录）按既有惯例保持不动，不回改。

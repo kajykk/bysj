@@ -29,6 +29,27 @@
 
 > 入口 1–8 由 AST 自动发现并强制登记；9–12 为"发现集之外但语义上是鉴权链一环"的人工登记，
 > 同样要求写理由且函数必须存在。
+>
+> ⚠️ 上表是 **2026-10-20 的历史快照**，不回改；当前发现集与登记表的差异见下方补记。
+
+### 附：ROUND_35 收尾（e09b5a2）鉴权入口清单同步（2026-11-09）
+
+本轮 `auth_service.py` 把密码重置改为「发 6 位验证码 + 分发器」：
+
+- `request_password_reset` 与 `reset_password` 仍在源码里，但不再直接调用
+  `TOKEN_OPS` 中的任何 API ⇒ 退出 AST 发现集，从 `REGISTRY` 删除（不是删除函数，
+  也不是改判 exempt——两条原本带封禁校验，登记成豁免属口径漂移）。
+- 兑换逻辑下沉到 `AuthService._reset_password_with_token`（内含
+  `decode_token`），成为新的自动发现入口。回答「要不要封禁」：**enforced**，
+  其函数体内 `is_tenant_suspended` 在 `password_hash` 写入之前，满足不变式 2/3。
+- 结果：发现集与 `REGISTRY` 均为 **7 条（5 enforced + 2 exempt）**，全等。
+  闸门 `test_every_token_operation_function_is_registered` 与
+  `test_enforced_entries_have_ban_check` 的判据（AST 发现、全等比对、次序检查）
+  一字未改，只同步登记快照。
+- 联动：`probe_auth_gate()` 读数 8/6/2 → 7/5/2，README 两处「8 个 token 操作入口
+  （6 强制 + 2 显式豁免）」同步为「7 个（5 强制 + 2 显式豁免）」，否则
+  `test_p2_46_round22_portfolio_docs` 会新增两条失败。
+- `MANUAL_ONLY_EXEMPT` 不动：那两个方法语义是「强制校验」，不是豁免。
 
 ## 二、T1：缺租户行的 fail-open 显式化
 

@@ -72,11 +72,14 @@ REGISTRY: dict[tuple[str, str], Entry] = {
     ("app/services/auth_service.py", "AuthService.refresh"): Entry(
         "enforced", "session_renew", "refresh 换发新会话"
     ),
-    ("app/services/auth_service.py", "AuthService.request_password_reset"): Entry(
-        "enforced", "credential_recovery_issue", "签发密码重置令牌（邮件）"
-    ),
-    ("app/services/auth_service.py", "AuthService.reset_password"): Entry(
-        "enforced", "credential_reset", "兑换重置令牌并改密"
+    # ROUND_35 收尾（e09b5a2）：request_password_reset 改为发 6 位验证码、
+    # reset_password 退化为分发器，二者都不再直调 TOKEN_OPS ⇒ 退出发现集。
+    # 兑换逻辑下沉到 _reset_password_with_token（decode_token @449）；
+    # 其函数体内 is_tenant_suspended @513 早于 password_hash 写入 @523，
+    # 所以「要不要封禁」的答案仍是 enforced，不是 exempt。
+    ("app/services/auth_service.py", "AuthService._reset_password_with_token"): Entry(
+        "enforced", "credential_reset",
+        "兑换重置令牌并改密；封禁校验在 :513，早于 password_hash 写入 :523"
     ),
     # ── 显式豁免（必须写理由）─────────────────────────────────────
     ("app/core/deps.py", "_role_for_request"): Entry(

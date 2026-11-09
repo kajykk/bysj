@@ -30,9 +30,9 @@
 | # | 亮点 | 可验证数字 | 怎么复现 |
 |---|---|---|---|
 | 1 | 完整闭环，不是 Demo 页面 | 运行时 **207** 个 REST 端点 + **3** 个 WebSocket 长连接、**39** 张数据表 | `cd backend && python tests/tools/check_portfolio_numbers.py --show` |
-| 2 | 评估可信度治理 | **41 个交付脚本 / 90 处划分与挑优调用点**，逐条人工读码裁定；文本模态泛化口径 **F1 0.5864**（同一模型随机划分 0.9964） | `cd backend && python tests/tools/leakage_audit_scan.py` |
+| 2 | 评估可信度治理 | **47 个交付脚本 / 101 处划分与挑优调用点**，逐条人工读码裁定；文本模态泛化口径 **F1 0.5864**（同一模型随机划分 0.9964） | `cd backend && python tests/tools/leakage_audit_scan.py` |
 | 3 | 静默降级全部裁定 | **341 处 except 候选**全部裁定：已接线 109 / 真降级留档 116 / fail-closed 8 | `cd backend && pytest tests/test_p2_11_round11.py -k batch6_bucket_counts` |
-| 4 | 认证入口机器可检 | **8 个 token 操作入口**（6 强制 + 2 显式豁免）AST 全等覆盖，变异 3/3 红 | `cd backend && pytest tests/test_p2_41_round17_auth_gate.py` |
+| 4 | 认证入口机器可检 | **7 个 token 操作入口**（5 强制 + 2 显式豁免）AST 全等覆盖，变异 3/3 红 | `cd backend && pytest tests/test_p2_41_round17_auth_gate.py` |
 
 ### 一次评估的流向
 
@@ -71,7 +71,7 @@ cd backend && python tests/tools/portfolio_demo.py
 
 ```text
 [1/3] 审计  git ls-files + AST 扫描 ML 划分/挑优入口 ...
-      → 41 个交付脚本 / 90 处调用点（口径：排除 tests/，只认 git 跟踪文件）
+      → 47 个交付脚本 / 101 处调用点（口径：排除 tests/，只认 git 跟踪文件）
       OK
 [2/3] 闸门  泄漏守卫 + 鉴权入口 + 文档数字自检 ...
       → 29 passed, 43 warnings in 39.29s
@@ -255,11 +255,11 @@ python -m pytest tests/e2e/test_grafana_e2e.py -v
 - 可观测性、告警联动和仪表盘配置
 - 大量单元、集成、契约、E2E 与稳定性测试
 
-已知规模数据（**2026-10-20 重新实测**；括号里是复算口径，`backend/tests/tools/check_portfolio_numbers.py` 会逐项核对）：
+已知规模数据（**2026-11-09 重新实测**；括号里是复算口径，`backend/tests/tools/check_portfolio_numbers.py` 会逐项核对）：
 
 - 49 个 API 路由文件（`backend/app/api/**/*.py`）
-- 66 个业务服务文件（`backend/app/services/**/*.py`）
-- 71 个核心模块文件（`backend/app/core/**/*.py`）
+- 69 个业务服务文件（`backend/app/services/**/*.py`）
+- 75 个核心模块文件（`backend/app/core/**/*.py`）
 - 29 个 ML 模块文件（`backend/app/ml/**/*.py`）
 - 39 张数据表声明（AST 统计 `__tablename__`）
 - 运行时 207 个 REST 端点 + 3 个 WebSocket（**独立解释器**里 import 一次 `app.main`，沿 include 标记递归展开后数**有效路由**；进程内数会受测试会话的模块装载顺序影响，fastapi ≥ 0.151 的 `include_router` 也不再扁平化 `app.routes`，2026-10-21 实测为 206/3，2026-11-03 新增 `GET /auth/profile` 后为 207/3，见 `docs/P2_22_ROUND22_PORTFOLIO_AUDIT.md` §八）
@@ -355,9 +355,9 @@ bysj/
 
 面向招聘方的四条，每条都能在仓库里复算（数字出处见上面「60 秒概览」，由自检脚本统一核对）：
 
-- **评估泄漏治理**：发现同一批数据"随机划分 F1 0.9964 / 按人分组 0.5864"的落差后，用 AST 把全仓 41 个交付脚本里的 90 处评估入口逐条裁定，量化出 ΔF1 +0.3111 的泄漏红利，并把目标泄漏做成提交期闸门（7 条断言 + 3 个真实变异）。
+- **评估泄漏治理**：发现同一批数据"随机划分 F1 0.9964 / 按人分组 0.5864"的落差后，用 AST 把全仓 47 个交付脚本里的 101 处评估入口逐条裁定，量化出 ΔF1 +0.3111 的泄漏红利，并把目标泄漏做成提交期闸门（7 条断言 + 3 个真实变异）。
 - **静默降级治理**：把 341 处 except 候选逐条裁定为"已接线 109 / 真降级留档 116 / fail-closed 8"，让"故障被吞掉"从口头保证变成可查询指标 + 提交期棘轮。
-- **认证入口覆盖**：用 AST 发现集与登记表全等比对，把 8 个 token 操作入口的租户封禁校验变成结构性不变式——新增入口不登记，CI 直接红。
+- **认证入口覆盖**：用 AST 发现集与登记表全等比对，把 7 个 token 操作入口的租户封禁校验变成结构性不变式——新增入口不登记，CI 直接红。
 - **文档钉事实**：写了一个自检脚本，把 README 与摘要里的 21 个关键数字逐条对回仓库产物；改错一个数字，CI 就红（本轮已用 3 处真实变异验证）。
 
 ## 作者

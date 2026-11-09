@@ -64,7 +64,7 @@
 
 **L4 是本轮最严重的发现**，见 §五。
 
-## 四、全量清单（41 文件 / 90 入口）
+## 四、全量清单（47 文件 / 101 入口）
 
 区域划分：`A` 生产服务 / `B` v1.27 建模 / `C` v1.23~26 建模 / `D` 后端脚本 / `E` ML 训练 / `F` 历史实验
 
@@ -84,6 +84,12 @@
 | C | `backend/scripts/modeling/v1_26/01_threshold_sweep.py` | 1 | `train_test_split`×1 | L1+L3 |
 | D | `backend/scripts/modeling/verify_current_models.py` | 1 | `train_test_split`×1 | L1 |
 | D | `backend/scripts/modeling/eval/v1_29/01_reproducible_eval.py` | 2 | `train_test_split`×2 | 诊断用途（不产出对外指标，ROUND_26 新增） |
+| D | `backend/scripts/modeling/eval/v1_46/01_model_cards.py` | 2 | `StratifiedGroupKFold`×1, `train_test_split`×1 | group_aware_without_groups / random_split_no_groups |
+| D | `backend/scripts/modeling/eval/v1_46/03_source_holdout.py` | 2 | `train_test_split`×2 | random_split_no_groups |
+| D | `backend/scripts/modeling/eval/v1_46/04_text_leakage_audit.py` | 2 | `StratifiedGroupKFold`×1, `StratifiedKFold`×1 | group_aware_without_groups / random_split_no_groups |
+| D | `backend/scripts/modeling/eval/v1_46/06_conformal_fairness.py` | 1 | `train_test_split`×1 | random_split_no_groups |
+| D | `backend/scripts/modeling/eval/v1_48/01_real_actigraphy_baseline.py` | 3 | `StratifiedGroupKFold`×2, `StratifiedKFold`×1 | group_aware_without_groups / random_split_no_groups |
+| D | `backend/scripts/modeling/eval/v1_50/01_protocol_robustness.py` | 1 | `StratifiedGroupKFold`×1 | group_aware_without_groups |
 | E | `scripts/ml_training/data_utils.py` | 2 | `train_test_split`×2 | L1 |
 | E | `scripts/ml_training/evaluate_models.py` | 2 | `train_test_split`×2 | L1 |
 | E | `scripts/ml_training/train_bilingual_text.py` | 2 | `train_test_split`×2 | L1 |
@@ -112,7 +118,7 @@
 | F | `scripts/train_structured_fallback.py` | 3 | `train_test_split`×1, `best_score`×2 | L1+L2 |
 | F | `scripts/train_text_bert.py` | 1 | `train_test_split`×1 | L1 |
 
-**区域汇总**：A 3 文件/8 入口｜B 3/8｜C 6/11｜D 2/3｜E 5/8｜F 22/52｜**合计 41 文件 / 90 入口**
+**区域汇总**：A 3 文件/8 入口｜B 3/8｜C 6/11｜D 8/14｜E 5/8｜F 22/52｜**合计 47 文件 / 101 入口**
 
 > 口径说明：本清单只含 **git 跟踪（已交付）** 的脚本。初版曾列 42 文件/92 入口，
 > 其中 `models/train_tabular_depression.py`、`models/train_text_depression_classifier.py`、
@@ -136,6 +142,16 @@
 > 脚本的评估口径是确定性 `stratified_split`（rs=42）+ 逐样本落盘。
 > 按「不吃标签豁免」原则，AST 计数照记，人工核对为诊断入口。
 > 守卫基线同步 BASELINE_FILES=41 / BASELINE_ENTRIES=90。
+
+> ROUND_35 收尾补记（2026-11-09 实测，e09b5a2：files_touched=47 /
+> total_findings=101）：新增 `backend/scripts/modeling/eval/` 下 v1_46、v1_48、
+> v1_50 的六份评估脚本，共 **6 文件 / 11 入口**（明细见上表 D 区）。这些是
+> 模型卡、源域 holdout、文本泄漏审计、共形公平性、真实 actigraphy 基线与协议
+> 鲁棒性评估脚本；按「不吃标签豁免」原则，AST 计数照记，风险标签沿用扫描器
+> 既有 known 集合，未改扫描器口径。守卫基线同步
+> BASELINE_FILES=47 / BASELINE_ENTRIES=101，并联动 README 两处、
+> EVALUATION_TRUST_SUMMARY.md 一处与 `test_p2_46` 自证样本。
+> 历史快照（含 `docs/P2_54_ROUND27_TRANSFER_AUDIT.md` 的 41/90）不回改。
 
 ## 五、关键发现（按严重度排序）
 

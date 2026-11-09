@@ -61,8 +61,12 @@ TOOLS = pathlib.Path(__file__).resolve().parent / "tools"
 # 回答「139 行测试集能否复现」**（结果写入诊断报告），不产出任何对外指标；
 # 该脚本的评估口径走确定性 `stratified_split`（rs=42）并落盘逐样本预测，
 # 已人工核对为「诊断用途、非评估入口」，但 AST 计数照记（不吃标签豁免）。
-BASELINE_FILES = 41
-BASELINE_ENTRIES = 90
+# ROUND_35 收尾更新（2026-11-09 实测，e09b5a2；扫描器复跑 readings：
+# files_touched=47 / total_findings=101）：v1_46 / v1_48 / v1_50 新增六份
+# 评估脚本，合计 6 文件 / 11 入口（逐条明细见 docs/ML_LEAKAGE_AUDIT.md §四补记）。
+# 按「不吃标签豁免」原则，AST 计数照记：41→47 文件、90→101 入口。
+BASELINE_FILES = 47
+BASELINE_ENTRIES = 101
 
 # 基线的文件级快照（用于失败时输出真实新增/移除差异，而不是把全量重列一遍）
 BASELINE_FILE_SET: frozenset[str] = frozenset(
@@ -108,6 +112,13 @@ BASELINE_FILE_SET: frozenset[str] = frozenset(
         "scripts/train_physiological_xgboost.py",
         "scripts/train_structured_fallback.py",
         "scripts/train_text_bert.py",
+        # ROUND_35 收尾新增（v1_46 / v1_48 / v1_50 评估脚本，见上方补记）
+        "backend/scripts/modeling/eval/v1_46/01_model_cards.py",
+        "backend/scripts/modeling/eval/v1_46/03_source_holdout.py",
+        "backend/scripts/modeling/eval/v1_46/04_text_leakage_audit.py",
+        "backend/scripts/modeling/eval/v1_46/06_conformal_fairness.py",
+        "backend/scripts/modeling/eval/v1_48/01_real_actigraphy_baseline.py",
+        "backend/scripts/modeling/eval/v1_50/01_protocol_robustness.py",
     }
 )
 

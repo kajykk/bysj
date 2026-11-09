@@ -255,3 +255,30 @@
   `risk_service_warning.py` 三条 M13（:168→:172、:193→:197、:201→:205）
   ——因本轮在被翻页站点前插入 tie-break 注释行所致。
 - 闸门 `test_inventory_ratchet_be` 同步 113→116。
+
+### 附五：ROUND_35 收尾（e09b5a2）全称注释同步（116→129）
+
+2026-11-09 在 `e09b5a2` 上复算 `backend/app/**/*.py` 的全称注释得 **129**，
+相对 ROUND_25 的 116 净 +13：新出现 14 条字面量、旧写法消失 1 条
+（`tasks/scheduler.py`「重试耗尽」改为「全部通道失败」，仍带「不会」）。
+以下逐条登记，判据（`FULL` 正则、`len(s) > 12`、只算 `#` / `//` / `*` 开头的
+注释行、扫全部 `backend/app` py 文件）一律未改，只同步登记快照。
+
+| # | 位置 | 全称词 | 行为依据 |
+|---|---|---|---|
+| 1 | `app/api/v1/auth.py` | 必然 | 子域注册落在 DEFAULT_TENANT_ID，登录按请求租户过滤查不到 |
+| 2 | `app/api/v1/user_upload.py` | 保证 | 失败清理由 `_validate_and_save_upload` 的 finally 保证 |
+| 3 | `app/api/v1/user_upload.py` | 保证 | 同上，避免未校验文件先落盘 |
+| 4 | `app/core/crisis_detector.py` | 只有 | D1 口径：带时间/计划/手段或明确求死意图才允许 level 4 |
+| 5 | `app/core/crisis_detector.py` | 只有 | 紧凑形式足够长才启用，避免单字误命中 |
+| 6 | `app/core/text_context.py` | 不会 | 否定标记只在同一分句内生效 |
+| 7 | `app/ml/text_analyzer.py` | 只 / 不会 | 同分句重叠关键词只保留最长的一条 |
+| 8 | `app/ml/text_analyzer.py` | 不会 | noisy-OR 聚合最多抵扣 25%，不掩盖重度症状 |
+| 9 | `app/models/monitoring.py` | 不会 / 永远 | 迁移历史不对新库重放，缺索引时漂移自检持续报警 |
+| 10 | `app/services/auth_service.py` | 必然 | 非默认租户子域注册的用户在同子域登录失败 |
+| 11 | `app/services/file_security_service.py` | 不会 | 重编码不写回 EXIF/元数据块 |
+| 12 | `app/services/file_security_service.py` | 不会 | 原子替换在 Windows 下不因句柄占用失败 |
+| 13 | `app/tasks/scheduler.py` | 不会 | 全部通道失败才升 error，不淹没在 warning 里（替换旧写法） |
+| 14 | `app/utils/checksum.py` | 只 / 永远 | 原实现只扫顶层，子目录孤立 .sha256 清不掉却报「已删除 0」 |
+
+- 闸门 `test_inventory_ratchet_be` 同步 116→129；历史附录（95→96 … 113→116）保持不动。
