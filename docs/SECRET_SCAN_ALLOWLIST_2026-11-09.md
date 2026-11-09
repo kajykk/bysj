@@ -83,10 +83,23 @@ git 模式另测：以「只有 `[extend] useDefault = true`、无 allowlist」�
 `[[allowlists]]` / `targetRules`（8.25.0 起支持）；若不钉版本，action 两个 job
 会带着「看似配置好了」的假象继续红。这是本次必须改 workflow 的唯一原因。
 
+### tag 格式修正（首轮 push 实测暴露）
+
+第一次提交 `3683ea9` 把 dir 镜像写成 `ghcr.io/gitleaks/gitleaks:8.30.1`，
+CI run `42618608641` 报 `manifest unknown` / `exit 125` —— 与 allowlist 无关，
+是镜像 tag 不存在。实测 `ghcr.io/v2/gitleaks/gitleaks/tags/list` 共 39 个 tag，
+**全部带 `v` 前缀**（`v8.24.3` … `v8.30.1`）加一个 `latest`，没有无 `v` 的
+`8.30.1`。已改为 `ghcr.io/gitleaks/gitleaks:v8.30.1`，并核对该 tag 的 manifest
+返回 200。同一轮里 `Gitleaks Secret Scan`（action job）已是 success，
+反证 action 侧的 `GITLEAKS_VERSION=8.30.1` 与配置生效，问题只在镜像 tag。
+
 ## 四、未验证记账
 
-1. CI 上三个 job 的实际运行结果需下一次 push 后复核；本文所有读数均为本地
-   8.30.1 实测，不是远端结论。
+1. 首轮 push（`3683ea9`）已复核：`Gitleaks Secret Scan` success、
+   `Workspace Secret Scan` 因镜像 tag 不存在失败（已修，见 §三）、
+   `Gitleaks Full History Scan` 与 `backend-coverage` 当时仍在跑。
+   修正 tag 后的第二轮 CI 结论仍需复核；本文的扫描读数均为本地 8.30.1 实测，
+   不是远端结论。
 2. `gitleaks-action` 是否真的把 `GITLEAKS_CONFIG` 透传给 CLI 未单独实测；
    但同一配置在 8.30.1 下经 target path 自动发现已实测生效，二者构成双保险。
 3. git 模式只复现了最近 20 个提交（与 CI 日志 "20 commits scanned" 一致），
